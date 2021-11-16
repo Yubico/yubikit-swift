@@ -9,9 +9,22 @@ import SwiftUI
 import YubiKit
 
 struct ContentView: View {
+    
+    @StateObject var model = OATHModel()
+
     var body: some View {
-        Text("Roll that dice: \(Dice().roll())!")
-            .padding()
+        
+        VStack {
+            Button {
+                model.calculateCode()
+            } label: {
+                Text("Calculate code")
+            }
+            Text(model.code)
+        }
+        .onAppear {
+            model.calculateCode()
+        }
     }
 }
 

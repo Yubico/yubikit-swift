@@ -12,26 +12,29 @@ import YubiKit
 
 class YubiKitFullStackTests: XCTestCase {
 
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
     func testExample() throws {
-        let dice = Dice()
-        let result = dice.roll()
-        XCTAssert(result > 0 && result < 7)
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        runAsyncTest {
+            print("Test started...")
+            let connection = try await Connection.connection()
+            print("Got connection")
+            let session = try await connection.session()
+            print("Got session")
+            let code = try await session.calculateCode()
+            print("Done!")
+            XCTAssert(code.count == 1)
+        }
     }
-
-    func testPerformanceExample() throws {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
+    
+    func testError() throws {
+        runAsyncTest {
+            print("Test started...")
+            let connection = try await Connection.connection()
+            print("Got connection")
+            let session = try await connection.session()
+            print("Got session")
+            let code = try await session.calculateFailingCode()
+            print("Done!")
+            XCTAssert(code.count == 1)
         }
     }
 

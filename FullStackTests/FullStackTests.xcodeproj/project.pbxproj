@@ -14,6 +14,7 @@
 		51BBE411273D1AA400DA47CC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51BBE410273D1AA400DA47CC /* Assets.xcassets */; };
 		51BBE414273D1AA400DA47CC /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51BBE413273D1AA400DA47CC /* Preview Assets.xcassets */; };
 		51BBE41E273D1AA400DA47CC /* YubiKitFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE41D273D1AA400DA47CC /* YubiKitFullStackTests.swift */; };
+		B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -49,6 +50,7 @@
 		51BBE413273D1AA400DA47CC /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		51BBE419273D1AA400DA47CC /* FullStackTestsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FullStackTestsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		51BBE41D273D1AA400DA47CC /* YubiKitFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YubiKitFullStackTests.swift; sourceTree = "<group>"; };
+		B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCTestCase+Extensions.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -81,6 +83,7 @@
 		51BBE400273D1AA100DA47CC = {
 			isa = PBXGroup;
 			children = (
+				B41B618927444342004C37BF /* Extensions */,
 				51BBE40B273D1AA100DA47CC /* TestHostApp */,
 				51BBE41C273D1AA400DA47CC /* Tests */,
 				51BBE40A273D1AA100DA47CC /* Products */,
@@ -122,6 +125,14 @@
 				51BBE41D273D1AA400DA47CC /* YubiKitFullStackTests.swift */,
 			);
 			path = Tests;
+			sourceTree = "<group>";
+		};
+		B41B618927444342004C37BF /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */,
+			);
+			path = Extensions;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -234,6 +245,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */,
 				51BBE41E273D1AA400DA47CC /* YubiKitFullStackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

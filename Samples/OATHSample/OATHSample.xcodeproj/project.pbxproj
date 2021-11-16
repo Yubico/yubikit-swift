@@ -13,6 +13,7 @@
 		51A1AC15273D537800F999A4 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51A1AC14273D537800F999A4 /* Preview Assets.xcassets */; };
 		51A1AC2A273D5D0A00F999A4 /* YubiKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51A1AC29273D5D0A00F999A4 /* YubiKit.framework */; };
 		51A1AC2B273D5D0A00F999A4 /* YubiKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 51A1AC29273D5D0A00F999A4 /* YubiKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		B41B61882743FE18004C37BF /* OATHModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61872743FE18004C37BF /* OATHModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -36,6 +37,7 @@
 		51A1AC11273D537800F999A4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		51A1AC14273D537800F999A4 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		51A1AC29273D5D0A00F999A4 /* YubiKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = YubiKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		B41B61872743FE18004C37BF /* OATHModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +74,7 @@
 			children = (
 				51A1AC0D273D537500F999A4 /* OATHSampleApp.swift */,
 				51A1AC0F273D537500F999A4 /* ContentView.swift */,
+				B41B61872743FE18004C37BF /* OATHModel.swift */,
 				51A1AC11273D537800F999A4 /* Assets.xcassets */,
 				51A1AC13273D537800F999A4 /* Preview Content */,
 			);
@@ -165,6 +168,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B41B61882743FE18004C37BF /* OATHModel.swift in Sources */,
 				51A1AC10273D537500F999A4 /* ContentView.swift in Sources */,
 				51A1AC0E273D537500F999A4 /* OATHSampleApp.swift in Sources */,
 			);
