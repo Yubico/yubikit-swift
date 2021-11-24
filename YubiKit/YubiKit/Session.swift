@@ -9,16 +9,20 @@ import Foundation
 
 extension String: Error {}
 
-public struct Session {
 
-    public func calculateCode() async throws -> String {
-        Thread.sleep(forTimeInterval: 0.5)
-        return "\(Int.random(in: 1...6))"
-    }
-    
-    public func calculateFailingCode() async throws -> String {
-        Thread.sleep(forTimeInterval: 0.5)
-        throw "Something went wrong!"
-    }
+public protocol Session {
+    static func session(withConnection connection: Connection) async throws -> Self
+    func end(_: Result<Error, String>?, closingConnection: Bool)
+    func sessionDidEnd() async throws -> Error?
+}
 
+internal protocol InternalSession {
+    var connection: Connection { get set }
+}
+
+extension InternalSession {
+    var internalConnection: InternalConnection {
+        // If the connection is not a InternalConnection we should crash
+        connection as! InternalConnection
+    }
 }

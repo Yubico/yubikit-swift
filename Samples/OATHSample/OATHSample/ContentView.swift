@@ -6,24 +6,25 @@
 //
 
 import SwiftUI
-import YubiKit
+
+
 
 struct ContentView: View {
     
     @StateObject var model = OATHModel()
-
+    
     var body: some View {
-        
-        VStack {
-            Button {
-                model.calculateCode()
-            } label: {
-                Text("Calculate code")
+        NavigationView {
+            List(model.codes) {
+                Text($0.code)
             }
-            Text(model.code)
+            .navigationTitle("Codes (\(model.source))")
+            .refreshable {
+                model.calculateCodes(connectionType: .nfc)
+            }
         }
         .onAppear {
-            model.calculateCode()
+            model.startLightningConnection()
         }
     }
 }

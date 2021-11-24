@@ -12,30 +12,21 @@ import YubiKit
 
 class YubiKitFullStackTests: XCTestCase {
 
-    func testExample() throws {
+    func testCalculateCodes() throws {
         runAsyncTest {
-            print("Test started...")
-            let connection = try await Connection.connection()
-            print("Got connection")
-            let session = try await connection.session()
-            print("Got session")
-            let code = try await session.calculateCode()
-            print("Done!")
-            XCTAssert(code.count == 1)
+            let connection = try await NFCConnection.connection()
+            let session = try await OATHSession.session(withConnection: connection)
+            let codes = try await session.calculateCodes()
+            XCTAssert(codes.count == 6)
         }
     }
     
-    func testError() throws {
+    func testAlwaysFail() throws {
         runAsyncTest {
-            print("Test started...")
-            let connection = try await Connection.connection()
-            print("Got connection")
-            let session = try await connection.session()
-            print("Got session")
+            let connection = try await NFCConnection.connection()
+            let session = try await OATHSession.session(withConnection: connection)
             let code = try await session.calculateFailingCode()
-            print("Done!")
             XCTAssert(code.count == 1)
         }
     }
-
 }
