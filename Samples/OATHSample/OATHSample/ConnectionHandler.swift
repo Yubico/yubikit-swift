@@ -15,8 +15,8 @@ class ConnectionHandler {
         case lightning
     }
 
-    private var nfcConnection: NFCConnection?
-    private var lightningConnection: LightningConnection?
+    private weak var nfcConnection: NFCConnection?
+    private weak var lightningConnection: LightningConnection?
 
     func connection(type: ConnectionType = .lightning) async throws -> Connection {
         switch type {

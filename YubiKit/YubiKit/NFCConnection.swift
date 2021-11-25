@@ -7,12 +7,12 @@
 
 import Foundation
 
-public class NFCConnection: Connection, InternalConnection {
+public final class NFCConnection: Connection, InternalConnection {
 
     static var connection: NFCConnection?
     var session: Session?
     var closingError: Error?
-    let closingSemaphore = DispatchSemaphore(value: 1)
+    let closingSemaphore = DispatchSemaphore(value: 0)
 
     private init() {}
 

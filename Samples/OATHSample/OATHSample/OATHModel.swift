@@ -28,29 +28,42 @@ class OATHModel: ObservableObject {
         calculateCodes(connectionType: .lightning)
         Task {
             do {
-                let connection = try await connectionHandler.connection(type: .lightning)
+                let connection = try await self.connectionHandler.connection(type: .lightning)
+                print("Got connection in startLigthningConnection()")
                 let closingError = try await connection.connectionDidClose()
                 print("Lightning closed with error: \(closingError ?? "no error")")
-                startLightningConnection()
+                codes.removeAll()
+                source = "no connection"
+                self.startLightningConnection()
             } catch {
-                print("Lightning failed with error: \(error)")
+                print("Lightning connection failed with error: \(error)")
             }
         }
     }
     
+    @MainActor func simulateYubiKey(insert: Bool) {
+        LightningConnection.simulateYubiKey(inserted: insert)
+    }
+    
     @MainActor func calculateCodes(connectionType: ConnectionHandler.ConnectionType = .lightning) {
-       calculateCodesTask?.cancel()
-       calculateCodesTask = Task {
-            errorMessage = nil
+        print("await calculateCodes()")
+        calculateCodesTask?.cancel()
+        calculateCodesTask = Task {
+            self.errorMessage = nil
             do {
-                let connection = try await connectionHandler.connection(type: connectionType)
+                let connection = try await self.connectionHandler.connection(type: connectionType)
+                print("Got connection in calculateCodes()")
+                
                 if Task.isCancelled { return }
                 let session = try await OATHSession.session(withConnection: connection)
                 if Task.isCancelled { return }
-                codes = try await session.calculateCodes()
-                source = connectionType == .lightning ? "lightning" : "NFC"
+                self.codes = try await session.calculateCodes()
+                if connectionType == .nfc {
+                    session.end(result: nil, closingConnection: true)
+                }
+                self.source = connectionType == .lightning ? "lightning" : "NFC"
             } catch {
-                errorMessage = error.localizedDescription
+                self.errorMessage = error.localizedDescription
             }
         }
     }

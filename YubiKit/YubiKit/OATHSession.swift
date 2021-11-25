@@ -12,47 +12,52 @@ public struct Code: Identifiable {
     public let code: String
 }
 
-public struct OATHSession: Session, InternalSession {
-    public func end(_: Result<Error, String>?, closingConnection: Bool = false) {
-        print("end OATHSession")
-    }
+public final class OATHSession: Session, InternalSession {
     
-    private static var session: OATHSession?
-    internal var connection: Connection
-    let endingSemaphore = DispatchSemaphore(value: 1)
+    internal weak var connection: Connection?
+    private var sessionEnded = false
+    var endingResult: Result<String, Error>?
 
     private init(connection: Connection) {
         self.connection = connection
-        Self.session = self
+        var internalConnection = self.internalConnection
+        internalConnection.session = self
     }
     
     public static func session(withConnection connection: Connection) async throws -> OATHSession {
-        if let session = Self.session {
+        let internalConnection = connection as! InternalConnection
+        if let session = internalConnection.session as? OATHSession {
             if let nfcConnection = session.connection as? NFCConnection, let connection = connection as? NFCConnection, nfcConnection === connection {
                 return session
             }
             if let lightningConnection = session.connection as? LightningConnection, let connection = connection as? LightningConnection, lightningConnection === connection {
                 return session
             }
+            fatalError()
         }
-        session?.connection.close(nil)
+        internalConnection.session?.end(result: nil, closingConnection: false)
         let session = OATHSession(connection: connection)
-        OATHSession.session = session
         return session
     }
     
-    public func end(_: Result<Error, String>?, closeConnection: Bool = false) {
-        endingSemaphore.signal()
-        if closeConnection {
-            connection.close(nil)
+    public func end(result: Result<String, Error>?, closingConnection: Bool) {
+        endingResult = result
+        sessionEnded = true
+        if closingConnection {
+            connection?.close(nil)
         }
-        Self.session = nil
-        print("end")
+        var internalConnection = self.internalConnection
+        internalConnection.session = nil
+        connection = nil
+        print("End OATH session\(closingConnection ? " and close connection" : "")")
     }
     
     public func sessionDidEnd() async throws -> Error? {
-        endingSemaphore.wait()
-        print("sessionDidEnd")
+        print("await OATH sessionDidEnd")
+        while !sessionEnded {
+            await Task.sleep(1_000_000_000 * UInt64(0.2))
+        }
+        print("OATH session did end\(endingResult != nil ? " with result: \(endingResult!)" : "")")
         return nil
     }
 
@@ -62,13 +67,17 @@ public struct OATHSession: Session, InternalSession {
     }
     
     public func calculateCodes() async throws -> [Code] {
-        await Task.sleep(1_000_000_000 * UInt64(0.5))
+        print("Execute OATH calculateCodes")
+        await Task.sleep(1_000_000_000 * UInt64(1.0))
         return (1...6).map { _ in Code(code: "\(Int.random(in: 1000...9999))") }
     }
     
     public func calculateFailingCode() async throws -> String {
-        await Task.sleep(1_000_000_000 * UInt64(0.5))
+        await Task.sleep(1_000_000_000 * UInt64(1.0))
         throw "Something went wrong!"
     }
 
+    deinit {
+        print("deinit OATHSession")
+    }
 }

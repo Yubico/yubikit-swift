@@ -15,6 +15,7 @@
 		51A1AC2B273D5D0A00F999A4 /* YubiKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 51A1AC29273D5D0A00F999A4 /* YubiKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		B41B61882743FE18004C37BF /* OATHModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61872743FE18004C37BF /* OATHModel.swift */; };
 		B456E20D2746313D004471DE /* ConnectionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E20C2746313D004471DE /* ConnectionHandler.swift */; };
+		B456E217274E750D004471DE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E216274E750D004471DE /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -40,6 +41,7 @@
 		51A1AC29273D5D0A00F999A4 /* YubiKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = YubiKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		B41B61872743FE18004C37BF /* OATHModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHModel.swift; sourceTree = "<group>"; };
 		B456E20C2746313D004471DE /* ConnectionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionHandler.swift; sourceTree = "<group>"; };
+		B456E216274E750D004471DE /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +78,7 @@
 			children = (
 				51A1AC0D273D537500F999A4 /* OATHSampleApp.swift */,
 				51A1AC0F273D537500F999A4 /* ContentView.swift */,
+				B456E216274E750D004471DE /* SettingsView.swift */,
 				B41B61872743FE18004C37BF /* OATHModel.swift */,
 				B456E20C2746313D004471DE /* ConnectionHandler.swift */,
 				51A1AC11273D537800F999A4 /* Assets.xcassets */,
@@ -171,6 +174,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B456E217274E750D004471DE /* SettingsView.swift in Sources */,
 				B456E20D2746313D004471DE /* ConnectionHandler.swift in Sources */,
 				B41B61882743FE18004C37BF /* OATHModel.swift in Sources */,
 				51A1AC10273D537500F999A4 /* ContentView.swift in Sources */,

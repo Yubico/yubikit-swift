@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol Connection {
+public protocol Connection: AnyObject {
     static func connection() async throws -> Self
     func close(_: Result<Error, String>?)
     func connectionDidClose() async throws -> Error?
