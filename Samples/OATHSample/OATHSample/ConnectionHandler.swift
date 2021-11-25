@@ -13,21 +13,29 @@ class ConnectionHandler {
     enum ConnectionType {
         case nfc
         case lightning
+        case any
     }
-
-    private weak var nfcConnection: NFCConnection?
-    private weak var lightningConnection: LightningConnection?
-
-    func connection(type: ConnectionType = .lightning) async throws -> Connection {
+    
+    func connection(type: ConnectionType = .any) async throws -> Connection {
         switch type {
         case .nfc:
-            let connection = try await NFCConnection.connection()
-            nfcConnection = connection
-            return connection
+            return try await NFCConnection.connection()
         case .lightning:
-            let connection = try await LightningConnection.connection()
-            lightningConnection = connection
-            return connection
+            return try await LightningConnection.connection()
+        case .any:
+            return try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
+                group.addTask {
+                    await Task.sleep(1_000_000_000 * UInt64(1.0)) // wait for lightning to connect for 1 second
+                    try Task.checkCancellation()
+                    return try await NFCConnection.connection()
+                }
+                group.addTask {
+                    return try await LightningConnection.connection()
+                }
+                let result = try await group.next()!
+                group.cancelAll()
+                return result
+            }
         }
     }
 }

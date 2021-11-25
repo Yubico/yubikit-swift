@@ -16,6 +16,7 @@
 		B456E211274D218C004471DE /* OATHSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E210274D218C004471DE /* OATHSession.swift */; };
 		B456E213274D2403004471DE /* NFCConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E212274D2403004471DE /* NFCConnection.swift */; };
 		B456E215274D2453004471DE /* LightningConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E214274D2453004471DE /* LightningConnection.swift */; };
+		B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E21A274FCA26004471DE /* ManagementSession.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,6 +40,7 @@
 		B456E210274D218C004471DE /* OATHSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHSession.swift; sourceTree = "<group>"; };
 		B456E212274D2403004471DE /* NFCConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCConnection.swift; sourceTree = "<group>"; };
 		B456E214274D2453004471DE /* LightningConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LightningConnection.swift; sourceTree = "<group>"; };
+		B456E21A274FCA26004471DE /* ManagementSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementSession.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -88,6 +90,7 @@
 				B456E212274D2403004471DE /* NFCConnection.swift */,
 				B41B61852743FC4E004C37BF /* Session.swift */,
 				B456E210274D218C004471DE /* OATHSession.swift */,
+				B456E21A274FCA26004471DE /* ManagementSession.swift */,
 			);
 			path = YubiKit;
 			sourceTree = "<group>";
@@ -210,6 +213,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B456E211274D218C004471DE /* OATHSession.swift in Sources */,
+				B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */,
 				B456E213274D2403004471DE /* NFCConnection.swift in Sources */,
 				B456E215274D2453004471DE /* LightningConnection.swift in Sources */,
 				B41B61862743FC4E004C37BF /* Session.swift in Sources */,

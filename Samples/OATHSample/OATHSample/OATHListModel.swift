@@ -16,19 +16,32 @@ import YubiKit
 
 // If user pushes nfc button start nfc and calcualte code with connection
 
-class OATHModel: ObservableObject {
+class OATHListModel: ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var codes = [Code]()
     @Published private(set) var source = "no connection"
     
     private var connectionHandler = ConnectionHandler()
-    private var calculateCodesTask: Task<(), Never>?
+    
+    private var lightningConnectionTask: Task<Void, Never>?
+    private var calculateCodesTask: Task<Void, Never>?
+    
+    @MainActor func simulateYubiKey(insert: Bool) {
+        LightningConnection.simulateYubiKey(inserted: insert)
+    }
+    
+    func stopLightningConnection() {
+        lightningConnectionTask?.cancel()
+        calculateCodesTask?.cancel()
+    }
     
     @MainActor func startLightningConnection() {
         calculateCodes(connectionType: .lightning)
-        Task {
+        lightningConnectionTask?.cancel()
+        lightningConnectionTask = Task {
             do {
                 let connection = try await self.connectionHandler.connection(type: .lightning)
+                if Task.isCancelled { print("task cancelled, bailot"); return }
                 print("Got connection in startLigthningConnection()")
                 let closingError = try await connection.connectionDidClose()
                 print("Lightning closed with error: \(closingError ?? "no error")")
@@ -41,22 +54,16 @@ class OATHModel: ObservableObject {
         }
     }
     
-    @MainActor func simulateYubiKey(insert: Bool) {
-        LightningConnection.simulateYubiKey(inserted: insert)
-    }
-    
     @MainActor func calculateCodes(connectionType: ConnectionHandler.ConnectionType = .lightning) {
-        print("await calculateCodes()")
+        print("await calculateCodes(\(connectionType))")
         calculateCodesTask?.cancel()
         calculateCodesTask = Task {
             self.errorMessage = nil
             do {
                 let connection = try await self.connectionHandler.connection(type: connectionType)
+                if Task.isCancelled { print("task cancelled, bailot"); return }
                 print("Got connection in calculateCodes()")
-                
-                if Task.isCancelled { return }
                 let session = try await OATHSession.session(withConnection: connection)
-                if Task.isCancelled { return }
                 self.codes = try await session.calculateCodes()
                 if connectionType == .nfc {
                     session.end(result: nil, closingConnection: true)

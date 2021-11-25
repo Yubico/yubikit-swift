@@ -8,9 +8,15 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @StateObject var model = SettingsModel()
+    
     var body: some View {
-        Text("Settings")
+        Text("\(model.connection ?? "Unknown") key, version: \(model.keyVersion ?? "?")")
+            .onAppear {
+                model.getKeyVersion()
+            }
     }
+    
 }
 
 struct SettingsView_Previews: PreviewProvider {

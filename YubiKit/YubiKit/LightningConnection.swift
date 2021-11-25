@@ -37,6 +37,7 @@ public final class LightningConnection: Connection, InternalConnection {
     public func connectionDidClose() async throws -> Error? {
         print("await lightning connectionDidClose()")
         while !connectionClosed {
+            try Task.checkCancellation()
             await Task.sleep(1_000_000_000 * UInt64(0.2))
         }
         return self.closingError
@@ -46,6 +47,7 @@ public final class LightningConnection: Connection, InternalConnection {
     public static func connection() async throws -> Self {
         print("await lightning connection()")
         while !keyInserted {
+            try Task.checkCancellation()
             await Task.sleep(1_000_000_000 * UInt64(0.2))
         }
         if let connection = self.connection {
@@ -58,20 +60,12 @@ public final class LightningConnection: Connection, InternalConnection {
     }
     
     public func close(_: Result<Error, String>? = nil) {
-//        Task.detached(priority: .background, operation: { () -> Void in
-            print("Closing Lightning Connection")
-            //self.session?.end(result: nil, closingConnection: false)
-            self.closingError = nil
-            connectionClosed = true
-//            let semaphore = self.closingSemaphore.signal()
-//            print(semaphore)
-//            await Task.yield()
-//            await Task.sleep(1_000_000_000 * UInt64(0.5))
-            Self.connection = nil
-            Self.keyInserted = false
-
-//        print(Self.connection)
-//        })
+        print("Closing Lightning Connection")
+        self.session?.end(result: nil, closingConnection: false)
+        self.closingError = nil
+        connectionClosed = true
+        Self.connection = nil
+        Self.keyInserted = false
     }
     
     deinit {

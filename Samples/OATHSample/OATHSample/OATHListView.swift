@@ -9,9 +9,9 @@ import SwiftUI
 
 
 
-struct ContentView: View {
+struct OATHListView: View {
     
-    @StateObject var model = OATHModel()
+    @StateObject var model = OATHListModel()
     @State private var isShowingSettings = false
     @State private var isKeyInserted = false
 
@@ -29,12 +29,17 @@ struct ContentView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { isShowingSettings.toggle() }) {
+                    Button(action: { model.stopLightningConnection(); isShowingSettings.toggle() }) {
                         Image(systemName: "ellipsis.circle")
                     }
-                    .sheet(isPresented: $isShowingSettings) {
+                    .sheet(isPresented: $isShowingSettings, onDismiss: {
+                        model.startLightningConnection()
+                    }, content: {
                         SettingsView()
-                    }
+                    })
+//                    .sheet(isPresented: $isShowingSettings) {
+
+//                    }
                 }
             }
             .refreshable {
@@ -49,6 +54,6 @@ struct ContentView: View {
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView()
+        OATHListView()
     }
 }

@@ -11,7 +11,7 @@ import SwiftUI
 struct OATHSampleApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            OATHListView()
         }
     }
 }
