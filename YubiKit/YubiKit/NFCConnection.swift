@@ -8,13 +8,17 @@
 import Foundation
 
 public final class NFCConnection: Connection, InternalConnection {
-
+    
+    public var smartCardInterface: SmartCardInterface
     static var connection: NFCConnection?
     var session: Session?
     var closingError: Error?
     let closingSemaphore = DispatchSemaphore(value: 0)
 
-    private init() {}
+    private init() {
+        smartCardInterface = SmartCardInterface()
+        Self.connection = self
+    }
 
     func sendAPDU() async throws -> Result<Data, Error> {
         return .failure("not implemented")
@@ -34,7 +38,6 @@ public final class NFCConnection: Connection, InternalConnection {
         print("create new NFC connection")
         Thread.sleep(forTimeInterval: 0.5)
         let connection = NFCConnection()
-        self.connection = connection
         return connection as! Self
     }
     

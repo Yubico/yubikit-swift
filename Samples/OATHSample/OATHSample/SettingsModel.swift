@@ -27,7 +27,7 @@ class SettingsModel: ObservableObject {
                 let connectionType: ConnectionHandler.ConnectionType = connection as? NFCConnection != nil ? .nfc : .lightning
                 self.connection = connectionType == .nfc ? "NFC" : "Lightning"
                 if connectionType == .nfc {
-                    session.end(result: nil, closingConnection: true)
+                    await session.end(result: nil, closingConnection: true)
                 }
             } catch {
                 self.errorMessage = error.localizedDescription

@@ -18,13 +18,15 @@ public final class OATHSession: Session, InternalSession {
     private var sessionEnded = false
     var endingResult: Result<String, Error>?
 
-    private init(connection: Connection) {
+    private init(connection: Connection) async throws {
         self.connection = connection
+        try await connection.smartCardInterface.selectApplication(application: .OATH)
         var internalConnection = self.internalConnection
         internalConnection.session = self
     }
     
     public static func session(withConnection connection: Connection) async throws -> OATHSession {
+        // Get the current session for this connection and check if it's a OATHSession, if so return it
         let internalConnection = connection as! InternalConnection
         if let session = internalConnection.session as? OATHSession {
             if let nfcConnection = session.connection as? NFCConnection, let connection = connection as? NFCConnection, nfcConnection === connection {
@@ -35,16 +37,18 @@ public final class OATHSession: Session, InternalSession {
             }
             fatalError()
         }
-        internalConnection.session?.end(result: nil, closingConnection: false)
-        let session = OATHSession(connection: connection)
+        // Close active session if there is one
+        await internalConnection.session?.end(result: nil, closingConnection: false)
+        // Create a new OATHSession
+        let session = try await OATHSession(connection: connection)
         return session
     }
     
-    public func end(result: Result<String, Error>?, closingConnection: Bool) {
+   public func end(result: Result<String, Error>?, closingConnection: Bool) async {
         endingResult = result
         sessionEnded = true
         if closingConnection {
-            connection?.close(nil)
+            await connection?.close(nil)
         }
         var internalConnection = self.internalConnection
         internalConnection.session = nil
@@ -54,26 +58,27 @@ public final class OATHSession: Session, InternalSession {
     
     public func sessionDidEnd() async throws -> Error? {
         print("await OATH sessionDidEnd")
-        while !sessionEnded {
-            await Task.sleep(1_000_000_000 * UInt64(0.2))
-        }
+        _ = try await connection?.smartCardInterface.sendCommand(apdu: SmartCardInterface.APDU())
         print("OATH session did end\(endingResult != nil ? " with result: \(endingResult!)" : "")")
         return nil
     }
 
     public func calculateCode() async throws -> Code {
-        await Task.sleep(1_000_000_000 * UInt64(0.5))
+        print("Start OATH calculateCode()")
+        _ = try await connection?.smartCardInterface.sendCommand(apdu: SmartCardInterface.APDU())
+        print("Finished calculateCode()")
         return Code(code: "\(Int.random(in: 1000...9999))")
     }
     
     public func calculateCodes() async throws -> [Code] {
-        print("Execute OATH calculateCodes")
-        await Task.sleep(1_000_000_000 * UInt64(1.0))
+        print("Start OATH calculateCodes")
+        _ = try await connection?.smartCardInterface.sendCommand(apdu: SmartCardInterface.APDU())
+        print("Finished OATH calculateCodes\n")
         return (1...6).map { _ in Code(code: "\(Int.random(in: 1000...9999))") }
     }
     
     public func calculateFailingCode() async throws -> String {
-        await Task.sleep(1_000_000_000 * UInt64(1.0))
+        _ = try await connection?.smartCardInterface.sendCommand(apdu: SmartCardInterface.APDU())
         throw "Something went wrong!"
     }
 

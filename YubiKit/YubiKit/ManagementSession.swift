@@ -14,14 +14,16 @@ public final class ManagementSession: Session, InternalSession {
     private var sessionEnded = false
     var endingResult: Result<String, Error>?
 
-    private init(connection: Connection) {
+    private init(connection: Connection) async throws {
         self.connection = connection
+        try await connection.smartCardInterface.selectApplication(application: .Management)
         var internalConnection = self.internalConnection
         internalConnection.session = self
     }
     
     public static func session(withConnection connection: Connection) async throws -> ManagementSession {
         let internalConnection = connection as! InternalConnection
+        // Get the current session for this connection and check if it's a ManagementSession, if so return it
         if let session = internalConnection.session as? ManagementSession {
             if let nfcConnection = session.connection as? NFCConnection, let connection = connection as? NFCConnection, nfcConnection === connection {
                 return session
@@ -31,16 +33,18 @@ public final class ManagementSession: Session, InternalSession {
             }
             fatalError()
         }
-        internalConnection.session?.end(result: nil, closingConnection: false)
-        let session = ManagementSession(connection: connection)
+        // Close active session if there is one
+        await internalConnection.session?.end(result: nil, closingConnection: false)
+        // Create a new ManagementSession
+        let session = try await ManagementSession(connection: connection)
         return session
     }
     
-    public func end(result: Result<String, Error>?, closingConnection: Bool) {
+    public func end(result: Result<String, Error>?, closingConnection: Bool) async {
         endingResult = result
         sessionEnded = true
         if closingConnection {
-            connection?.close(nil)
+            await connection?.close(nil)
         }
         var internalConnection = self.internalConnection
         internalConnection.session = nil
@@ -50,15 +54,13 @@ public final class ManagementSession: Session, InternalSession {
     
     public func sessionDidEnd() async throws -> Error? {
         print("await ManagementSession sessionDidEnd")
-        while !sessionEnded {
-            await Task.sleep(1_000_000_000 * UInt64(0.2))
-        }
+        _ = try await connection?.smartCardInterface.sendCommand(apdu: SmartCardInterface.APDU())
         print("ManagementSession session did end\(endingResult != nil ? " with result: \(endingResult!)" : "")")
         return nil
     }
 
     public func getKeyVersion() async throws -> String {
-        await Task.sleep(1_000_000_000 * UInt64(0.5))
+        _ = try await connection?.smartCardInterface.sendCommand(apdu: SmartCardInterface.APDU())
         return "3.14"
     }
 

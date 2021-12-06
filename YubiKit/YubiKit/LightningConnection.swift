@@ -8,7 +8,8 @@
 import Foundation
 
 public final class LightningConnection: Connection, InternalConnection {
-     
+
+    public var smartCardInterface: SmartCardInterface
     private static var connection: LightningConnection?
     internal var session: Session?
     var closingError: Error?
@@ -17,16 +18,17 @@ public final class LightningConnection: Connection, InternalConnection {
     private var connectionClosed = false
 
     private init() {
+        smartCardInterface = SmartCardInterface()
         Self.connection = self
     }
     
-    public static func simulateYubiKey(inserted: Bool) {
+    public static func simulateYubiKey(inserted: Bool) async {
         if inserted {
             print("Insert yubikey\n---------------------------------")
             Self.keyInserted = true
         } else {
             print("Remove yubikey\n---------------------------------")
-            Self.connection?.close(nil)
+            await Self.connection?.close(nil)
         }
     }
 
@@ -59,9 +61,9 @@ public final class LightningConnection: Connection, InternalConnection {
         return connection as! Self
     }
     
-    public func close(_: Result<Error, String>? = nil) {
+    public func close(_: Result<Error, String>? = nil) async {
         print("Closing Lightning Connection")
-        self.session?.end(result: nil, closingConnection: false)
+        await self.session?.end(result: nil, closingConnection: false)
         self.closingError = nil
         connectionClosed = true
         Self.connection = nil

@@ -37,9 +37,6 @@ struct OATHListView: View {
                     }, content: {
                         SettingsView()
                     })
-//                    .sheet(isPresented: $isShowingSettings) {
-
-//                    }
                 }
             }
             .refreshable {

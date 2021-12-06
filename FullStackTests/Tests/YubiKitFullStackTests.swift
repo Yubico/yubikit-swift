@@ -21,6 +21,24 @@ class YubiKitFullStackTests: XCTestCase {
         }
     }
     
+    func testQueuedCommands() throws {
+        runAsyncTest {
+            let connection = try await NFCConnection.connection()
+            let session = try await OATHSession.session(withConnection: connection)
+            let taskOne = Task.detached(priority: .low) {
+                try await session.calculateCodes()
+            }
+            let taskTwo = Task.detached(priority: .background) {
+                try await session.calculateCodes()
+            }
+            let taskThree = Task.detached(priority: .utility) {
+                try await session.calculateCodes()
+            }
+            let all = try await [taskOne.value, taskTwo.value, taskThree.value]
+            print("done")
+        }
+    }
+    
     func testAlwaysFail() throws {
         runAsyncTest {
             let connection = try await NFCConnection.connection()

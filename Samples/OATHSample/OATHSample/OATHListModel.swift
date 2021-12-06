@@ -27,7 +27,9 @@ class OATHListModel: ObservableObject {
     private var calculateCodesTask: Task<Void, Never>?
     
     @MainActor func simulateYubiKey(insert: Bool) {
-        LightningConnection.simulateYubiKey(inserted: insert)
+        Task {
+            await LightningConnection.simulateYubiKey(inserted: insert)
+        }
     }
     
     func stopLightningConnection() {
@@ -54,7 +56,7 @@ class OATHListModel: ObservableObject {
         }
     }
     
-    @MainActor func calculateCodes(connectionType: ConnectionHandler.ConnectionType = .lightning) {
+    @MainActor func calculateCodes(connectionType: ConnectionHandler.ConnectionType) {
         print("await calculateCodes(\(connectionType))")
         calculateCodesTask?.cancel()
         calculateCodesTask = Task {
@@ -66,7 +68,7 @@ class OATHListModel: ObservableObject {
                 let session = try await OATHSession.session(withConnection: connection)
                 self.codes = try await session.calculateCodes()
                 if connectionType == .nfc {
-                    session.end(result: nil, closingConnection: true)
+                    await session.end(result: nil, closingConnection: true)
                 }
                 self.source = connectionType == .lightning ? "lightning" : "NFC"
             } catch {
