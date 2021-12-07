@@ -64,10 +64,12 @@ class OATHListModel: ObservableObject {
                 print("Got connection in calculateCodes()")
                 let session = try await OATHSession.session(withConnection: connection)
                 self.codes = try await session.calculateCodes()
-                if connectionType == .nfc {
+                if connection.type == .nfc {
+                    self.source =  "NFC"
                     await session.end(result: nil, closingConnection: true)
+                } else {
+                    self.source = "lightning"
                 }
-                self.source = connectionType == .lightning ? "lightning" : "NFC"
             } catch {
                 self.errorMessage = error.localizedDescription
             }

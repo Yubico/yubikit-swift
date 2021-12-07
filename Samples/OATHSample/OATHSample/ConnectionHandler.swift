@@ -39,3 +39,9 @@ class ConnectionHandler {
         }
     }
 }
+
+extension Connection {
+    var type: ConnectionHandler.ConnectionType {
+        return self as? NFCConnection != nil ? .nfc : .lightning
+    }
+}
