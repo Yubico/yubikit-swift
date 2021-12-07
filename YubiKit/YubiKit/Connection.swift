@@ -10,7 +10,7 @@ import Foundation
 public protocol Connection: AnyObject {
     static func connection() async throws -> Self
     var smartCardInterface: SmartCardInterface { get }
-    func close(_: Result<Error, String>?) async
+    func close(_: Result<String, Error>?) async
     func connectionDidClose() async throws -> Error?
 }
 

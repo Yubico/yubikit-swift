@@ -26,34 +26,30 @@ public final class OATHSession: Session, InternalSession {
     }
     
     public static func session(withConnection connection: Connection) async throws -> OATHSession {
-        // Get the current session for this connection and check if it's a OATHSession, if so return it
-        let internalConnection = connection as! InternalConnection
-        if let session = internalConnection.session as? OATHSession {
-            if let nfcConnection = session.connection as? NFCConnection, let connection = connection as? NFCConnection, nfcConnection === connection {
-                return session
-            }
-            if let lightningConnection = session.connection as? LightningConnection, let connection = connection as? LightningConnection, lightningConnection === connection {
-                return session
-            }
-            fatalError()
-        }
         // Close active session if there is one
-        await internalConnection.session?.end(result: nil, closingConnection: false)
+        let internalConnection = connection as! InternalConnection
+        await internalConnection.session?.end(withConnectionStatus: .leaveOpen)
         // Create a new OATHSession
         let session = try await OATHSession(connection: connection)
         return session
     }
     
-   public func end(result: Result<String, Error>?, closingConnection: Bool) async {
-        endingResult = result
-        sessionEnded = true
-        if closingConnection {
-            await connection?.close(nil)
+    public func end(withConnectionStatus status: ConnectionStatus = .leaveOpen) async {
+        switch status {
+        case .close(let result):
+            endingResult = result
+            await connection?.close(result)
+        default: break
         }
+        sessionEnded = true
         var internalConnection = self.internalConnection
         internalConnection.session = nil
         connection = nil
-        print("End OATH session\(closingConnection ? " and close connection" : "")")
+        if case .leaveOpen = status {
+            print("End OATHSesssion and close connection")
+        } else {
+            print("End OATHSesssion")
+        }
     }
     
     public func sessionDidEnd() async throws -> Error? {

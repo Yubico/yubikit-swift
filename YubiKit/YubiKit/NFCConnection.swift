@@ -41,7 +41,7 @@ public final class NFCConnection: Connection, InternalConnection {
         return connection as! Self
     }
     
-    public func close(_: Result<Error, String>? = nil) {
+    public func close(_: Result<String, Error>? = nil) {
         print("Closing NFC Connection")
         self.closingError = nil
         self.closingSemaphore.signal()

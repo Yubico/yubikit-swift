@@ -61,9 +61,9 @@ public final class LightningConnection: Connection, InternalConnection {
         return connection as! Self
     }
     
-    public func close(_: Result<Error, String>? = nil) async {
+    public func close(_ result: Result<String, Error>? = nil) async {
         print("Closing Lightning Connection")
-        await self.session?.end(result: nil, closingConnection: false)
+        await self.session?.end(withConnectionStatus: .leaveOpen)
         self.closingError = nil
         connectionClosed = true
         Self.connection = nil

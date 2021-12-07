@@ -26,7 +26,7 @@ class SettingsModel: ObservableObject {
                 self.keyVersion = try await session.getKeyVersion()
                 if connection.type == .nfc {
                     self.connection = "NFC"
-                    await session.end(result: nil, closingConnection: true)
+                    await session.end(withConnectionStatus: .close(.success("YubiKey version read")))
                 } else {
                     self.connection = "Lightning"
                 }

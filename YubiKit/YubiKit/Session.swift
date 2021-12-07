@@ -9,10 +9,14 @@ import Foundation
 
 extension String: Error {}
 
+public enum ConnectionStatus {
+    case close(Result<String, Error>?)
+    case leaveOpen
+}
 
 public protocol Session: AnyObject {
     static func session(withConnection connection: Connection) async throws -> Self
-    func end(result: Result<String, Error>?, closingConnection: Bool) async
+    func end(withConnectionStatus: ConnectionStatus) async
     func sessionDidEnd() async throws -> Error?
 }
 

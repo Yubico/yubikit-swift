@@ -66,7 +66,7 @@ class OATHListModel: ObservableObject {
                 self.codes = try await session.calculateCodes()
                 if connection.type == .nfc {
                     self.source =  "NFC"
-                    await session.end(result: nil, closingConnection: true)
+                    await session.end(withConnectionStatus: .close(.success("Calculated codes")))
                 } else {
                     self.source = "lightning"
                 }

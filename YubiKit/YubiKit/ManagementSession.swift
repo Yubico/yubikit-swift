@@ -22,34 +22,30 @@ public final class ManagementSession: Session, InternalSession {
     }
     
     public static func session(withConnection connection: Connection) async throws -> ManagementSession {
-        let internalConnection = connection as! InternalConnection
-        // Get the current session for this connection and check if it's a ManagementSession, if so return it
-        if let session = internalConnection.session as? ManagementSession {
-            if let nfcConnection = session.connection as? NFCConnection, let connection = connection as? NFCConnection, nfcConnection === connection {
-                return session
-            }
-            if let lightningConnection = session.connection as? LightningConnection, let connection = connection as? LightningConnection, lightningConnection === connection {
-                return session
-            }
-            fatalError()
-        }
         // Close active session if there is one
-        await internalConnection.session?.end(result: nil, closingConnection: false)
+        let internalConnection = connection as! InternalConnection
+        await internalConnection.session?.end(withConnectionStatus: .leaveOpen)
         // Create a new ManagementSession
         let session = try await ManagementSession(connection: connection)
         return session
     }
     
-    public func end(result: Result<String, Error>?, closingConnection: Bool) async {
-        endingResult = result
-        sessionEnded = true
-        if closingConnection {
-            await connection?.close(nil)
+    public func end(withConnectionStatus status: ConnectionStatus = .leaveOpen) async {
+        switch status {
+        case .close(let result):
+            endingResult = result
+            await connection?.close(result)
+        default: break
         }
+        sessionEnded = true
         var internalConnection = self.internalConnection
         internalConnection.session = nil
         connection = nil
-        print("End ManagementSession session\(closingConnection ? " and close connection" : "")")
+        if case .leaveOpen = status {
+            print("End ManagementSesssion and close connection")
+        } else {
+            print("End ManagementSesssion")
+        }
     }
     
     public func sessionDidEnd() async throws -> Error? {
