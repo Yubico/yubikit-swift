@@ -8,8 +8,10 @@
 import Foundation
 
 func emulateSlowTask() {
+    print("Start slow task on \(Thread.current)")
     var numbers = [Int]()
-    _ = (1...10_000_000).map { number in
+    _ = (1...1_000_000).map { number in
         numbers.append(number + number)
     }
+    print("Finish slow task on \(Thread.current)")
 }

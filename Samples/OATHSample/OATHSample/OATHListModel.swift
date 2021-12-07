@@ -24,7 +24,6 @@ class OATHListModel: ObservableObject {
     private var connectionHandler = ConnectionHandler()
     
     private var lightningConnectionTask: Task<Void, Never>?
-    private var calculateCodesTask: Task<Void, Never>?
     
     @MainActor func simulateYubiKey(insert: Bool) {
         Task {
@@ -34,7 +33,6 @@ class OATHListModel: ObservableObject {
     
     func stopLightningConnection() {
         lightningConnectionTask?.cancel()
-        calculateCodesTask?.cancel()
     }
     
     @MainActor func startLightningConnection() {
@@ -58,8 +56,7 @@ class OATHListModel: ObservableObject {
     
     @MainActor func calculateCodes(connectionType: ConnectionHandler.ConnectionType) {
         print("await calculateCodes(\(connectionType))")
-        calculateCodesTask?.cancel()
-        calculateCodesTask = Task {
+        Task {
             self.errorMessage = nil
             do {
                 let connection = try await self.connectionHandler.connection(type: connectionType)

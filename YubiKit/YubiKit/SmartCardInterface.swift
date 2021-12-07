@@ -9,6 +9,8 @@ import Foundation
 
 public actor SmartCardInterface {
     
+    let queue = DispatchQueue(label: "com.yubico.smartcardinterface")
+    
     enum Application {
         case PIV
         case OATH
@@ -18,13 +20,20 @@ public actor SmartCardInterface {
     struct APDU {}
     
     func selectApplication(application: Application) async throws {
-        emulateSlowTask()
-        return
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            queue.async {
+                emulateSlowTask()
+                continuation.resume()
+            }
+        }
     }
     
     func sendCommand(apdu: APDU) async throws -> Data {
-        emulateSlowTask()
-        return Data()
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                emulateSlowTask()
+                continuation.resume(returning: Data())
+            }
+        }
     }
-    
 }
