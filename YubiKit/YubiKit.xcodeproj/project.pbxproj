@@ -13,12 +13,14 @@
 		51BBE3F7273D1A3800DA47CC /* YubiKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 51BBE3E9273D1A3800DA47CC /* YubiKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B41B61842743FC2E004C37BF /* Connection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61832743FC2E004C37BF /* Connection.swift */; };
 		B41B61862743FC4E004C37BF /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61852743FC4E004C37BF /* Session.swift */; };
+		B4451F00275FD2B5002690BB /* APDU.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4451EFF275FD2B5002690BB /* APDU.swift */; };
 		B456E211274D218C004471DE /* OATHSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E210274D218C004471DE /* OATHSession.swift */; };
 		B456E213274D2403004471DE /* NFCConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E212274D2403004471DE /* NFCConnection.swift */; };
 		B456E215274D2453004471DE /* LightningConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E214274D2453004471DE /* LightningConnection.swift */; };
 		B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E21A274FCA26004471DE /* ManagementSession.swift */; };
 		B456E21D2751392A004471DE /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E21C2751392A004471DE /* Utilities.swift */; };
 		B456E21F27513CFE004471DE /* SmartCardInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E21E27513CFE004471DE /* SmartCardInterface.swift */; };
+		B4F068B92861CFC300555AFE /* SmartCardConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F068B82861CFC300555AFE /* SmartCardConnection.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,12 +41,14 @@
 		51BBE3F5273D1A3800DA47CC /* YubiKitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YubiKitTests.swift; sourceTree = "<group>"; };
 		B41B61832743FC2E004C37BF /* Connection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Connection.swift; sourceTree = "<group>"; };
 		B41B61852743FC4E004C37BF /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
+		B4451EFF275FD2B5002690BB /* APDU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APDU.swift; sourceTree = "<group>"; };
 		B456E210274D218C004471DE /* OATHSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHSession.swift; sourceTree = "<group>"; };
 		B456E212274D2403004471DE /* NFCConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCConnection.swift; sourceTree = "<group>"; };
 		B456E214274D2453004471DE /* LightningConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LightningConnection.swift; sourceTree = "<group>"; };
 		B456E21A274FCA26004471DE /* ManagementSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementSession.swift; sourceTree = "<group>"; };
 		B456E21C2751392A004471DE /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
 		B456E21E27513CFE004471DE /* SmartCardInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCardInterface.swift; sourceTree = "<group>"; };
+		B4F068B82861CFC300555AFE /* SmartCardConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCardConnection.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,9 +94,11 @@
 				51BBE3E9273D1A3800DA47CC /* YubiKit.h */,
 				51BBE3EA273D1A3800DA47CC /* YubiKit.docc */,
 				B41B61832743FC2E004C37BF /* Connection.swift */,
+				B4451EFF275FD2B5002690BB /* APDU.swift */,
 				B456E21E27513CFE004471DE /* SmartCardInterface.swift */,
 				B456E214274D2453004471DE /* LightningConnection.swift */,
 				B456E212274D2403004471DE /* NFCConnection.swift */,
+				B4F068B82861CFC300555AFE /* SmartCardConnection.swift */,
 				B41B61852743FC4E004C37BF /* Session.swift */,
 				B456E210274D218C004471DE /* OATHSession.swift */,
 				B456E21A274FCA26004471DE /* ManagementSession.swift */,
@@ -221,10 +227,12 @@
 				B456E211274D218C004471DE /* OATHSession.swift in Sources */,
 				B456E21F27513CFE004471DE /* SmartCardInterface.swift in Sources */,
 				B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */,
+				B4451F00275FD2B5002690BB /* APDU.swift in Sources */,
 				B456E213274D2403004471DE /* NFCConnection.swift in Sources */,
 				B456E215274D2453004471DE /* LightningConnection.swift in Sources */,
 				B41B61862743FC4E004C37BF /* Session.swift in Sources */,
 				B41B61842743FC2E004C37BF /* Connection.swift in Sources */,
+				B4F068B92861CFC300555AFE /* SmartCardConnection.swift in Sources */,
 				B456E21D2751392A004471DE /* Utilities.swift in Sources */,
 				51BBE3EB273D1A3800DA47CC /* YubiKit.docc in Sources */,
 			);
@@ -301,7 +309,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -359,7 +368,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -388,10 +398,14 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.yubico.ios.YubiKit;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -415,10 +429,14 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.yubico.ios.YubiKit;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

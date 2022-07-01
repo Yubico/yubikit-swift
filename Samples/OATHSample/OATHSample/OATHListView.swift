@@ -21,7 +21,8 @@ struct OATHListView: View {
                 Text($0.code)
             }
             .navigationTitle("Codes (\(model.source))")
-            .toolbar {
+            #if os(iOS)
+            .toolbar(content: {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button( "\(isKeyInserted ? "Remove YubiKey" : "Insert YubiKey")") {
                         isKeyInserted.toggle()
@@ -29,22 +30,23 @@ struct OATHListView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { model.stopLightningConnection(); isShowingSettings.toggle() }) {
+                    Button(action: { model.stopWiredConnection(); isShowingSettings.toggle() }) {
                         Image(systemName: "ellipsis.circle")
                     }
                     .sheet(isPresented: $isShowingSettings, onDismiss: {
-                        model.startLightningConnection()
+                        model.startWiredConnection()
                     }, content: {
                         SettingsView()
                     })
                 }
-            }
+            })
             .refreshable {
                 model.calculateCodes(connectionType: .nfc)
             }
+            #endif
         }
         .onAppear {
-            model.startLightningConnection()
+            model.startWiredConnection()
         }
     }
 }

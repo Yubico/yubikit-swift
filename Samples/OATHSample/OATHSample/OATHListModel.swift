@@ -23,33 +23,45 @@ class OATHListModel: ObservableObject {
     
     private var connectionHandler = ConnectionHandler()
     
-    private var lightningConnectionTask: Task<Void, Never>?
+    private var wiredConnectionTask: Task<Void, Never>?
     
     @MainActor func simulateYubiKey(insert: Bool) {
+        #if os(iOS)
         Task {
             await LightningConnection.simulateYubiKey(inserted: insert)
         }
+        #endif
     }
     
-    func stopLightningConnection() {
-        lightningConnectionTask?.cancel()
+    func stopWiredConnection() {
+        wiredConnectionTask?.cancel()
     }
     
-    @MainActor func startLightningConnection() {
+    @MainActor func startWiredConnection() {
+        print("startWiredConnection()")
+        #if os(iOS)
         calculateCodes(connectionType: .lightning)
-        lightningConnectionTask?.cancel()
-        lightningConnectionTask = Task {
+        #else
+        calculateCodes(connectionType: .smartCard)
+        #endif
+        
+        wiredConnectionTask?.cancel()
+        wiredConnectionTask = Task {
             do {
+                #if os(iOS)
                 let connection = try await self.connectionHandler.connection(type: .lightning)
-                if Task.isCancelled { print("task cancelled, bailot"); return }
-                print("Got connection in startLigthningConnection()")
-                let closingError = try await connection.connectionDidClose()
-                print("Lightning closed with error: \(closingError ?? "no error")")
+                #else
+                let connection = try await self.connectionHandler.connection(type: .smartCard)
+                #endif
+                if Task.isCancelled { print("Task cancelled, bailot"); return }
+                print("Got connection in startWiredConnection(), lets wait for it to close...")
+                let closingError = await connection.connectionDidClose()
+                print("Wired connection closed with error: \(closingError ?? "no error")")
                 codes.removeAll()
                 source = "no connection"
-                self.startLightningConnection()
+                self.startWiredConnection()
             } catch {
-                print("Lightning connection failed with error: \(error)")
+                print("Wired connection failed with error: \(error)")
             }
         }
     }
@@ -64,12 +76,16 @@ class OATHListModel: ObservableObject {
                 print("Got connection in calculateCodes()")
                 let session = try await OATHSession.session(withConnection: connection)
                 self.codes = try await session.calculateCodes()
+                #if os(iOS)
                 if connection.type == .nfc {
                     self.source =  "NFC"
                     await session.end(withConnectionStatus: .close(.success("Calculated codes")))
                 } else {
                     self.source = "lightning"
                 }
+                #else
+                self.source = "smart card"
+                #endif
             } catch {
                 self.errorMessage = error.localizedDescription
             }

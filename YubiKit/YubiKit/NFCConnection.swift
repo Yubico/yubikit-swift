@@ -5,46 +5,144 @@
 //  Created by Jens Utbult on 2021-11-23.
 //
 
+#if os(iOS)
 import Foundation
+import CoreNFC
+
+fileprivate final class TagReaderSession: NSObject, NFCTagReaderSessionDelegate {
+    
+    private typealias NFCTagContinuation = CheckedContinuation<NFCTag, Error>
+    private var nfcTagContinuation: NFCTagContinuation?
+    private var tagSession: NFCTagReaderSession?
+    private var tag: NFCISO7816Tag?
+    
+    func connect() async throws -> NFCISO7816Tag {
+        let tag = try await self.getTag()
+        
+        guard NFCTagReaderSession.readingAvailable else { throw "No NFC for you"}
+        try await self.tagSession?.connect(to: tag)
+        
+        if case let NFCTag.iso7816(tag) = tag {
+            return tag
+        } else {
+            throw "Not a NFCISO7816Tag"
+        }
+    }
+    
+    private func getTag() async throws -> NFCTag {
+        self.tagSession = NFCTagReaderSession(pollingOption: .iso14443, delegate: self)
+        tagSession?.begin()
+        return try await withCheckedThrowingContinuation { connectingContinuation in
+            self.nfcTagContinuation = connectingContinuation
+        }
+    }
+    
+    func close() {
+        tagSession?.invalidate()
+    }
+    
+    func tagReaderSessionDidBecomeActive(_ tagSession: NFCTagReaderSession) {
+        self.tagSession = tagSession
+        print("Got session: \(tagSession)")
+    }
+    
+    func tagReaderSession(_ tagSession: NFCTagReaderSession, didInvalidateWithError error: Error) {
+        // we need to handle both failing initial connection and later disconnect
+        print("NFC session invalidated with error: \(error)")
+        self.tagSession = nil
+        nfcTagContinuation?.resume(throwing: error)
+        nfcTagContinuation = nil
+    }
+    
+    func tagReaderSession(_ tagSession: NFCTagReaderSession, didDetect tags: [NFCTag]) {
+        print("Got tags: \(tags)")
+        nfcTagContinuation?.resume(returning: tags.first!)
+        nfcTagContinuation = nil
+    }
+}
 
 public final class NFCConnection: Connection, InternalConnection {
-    
-    public var smartCardInterface: SmartCardInterface
-    static var connection: NFCConnection?
-    var session: Session?
-    var closingError: Error?
-    let closingSemaphore = DispatchSemaphore(value: 0)
 
-    private init() {
-        smartCardInterface = SmartCardInterface()
+    static var connection: NFCConnection?
+    
+    var session: Session?
+//    var closingError: Error?
+    
+    static private var closingContinuations = [CheckedContinuation<Error?, Never>]()
+    static private var connectionContinuations = [CheckedContinuation<Connection, Error>]()
+
+//    let closingSemaphore = DispatchSemaphore(value: 0)
+    private let tagReaderSession = TagReaderSession()
+    private let tag: NFCISO7816Tag
+
+    private init() async throws {
+        tag = try await tagReaderSession.connect()
         Self.connection = self
     }
-
-    func sendAPDU() async throws -> Result<Data, Error> {
-        return .failure("not implemented")
+    
+    public func send(apdu: APDU) async throws -> Data {
+        guard tag.isAvailable else { throw "Tag not available" }
+        let result = try await tag.sendCommand(apdu: apdu.nfcIso7816Apdu!)
+        return result.0
     }
     
-    public func connectionDidClose() async throws -> Error? {
-        closingSemaphore.wait()
-        return closingError
+    public func connectionDidClose() async-> Error? {
+        return await withCheckedContinuation { continuation in
+            Self.closingContinuations.append(continuation)
+        }
     }
     
     // Starts NFC and wait for a connection
-    public static func connection() async throws -> Self {
-        if let connection = self.connection {
+    public static func connection() async throws -> Connection {
+        print("NFCConnection connection() called")
+        if let connection {
             print("reuse NFC connection")
-            return connection as! Self
+            return connection
         }
-        print("create new NFC connection")
-        Thread.sleep(forTimeInterval: 0.5)
-        let connection = NFCConnection()
-        return connection as! Self
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            if connectionContinuations.isEmpty {
+                print("No current connection in progress, let start a new one.")
+                connectionContinuations.append(continuation)
+                Task {
+                    do {
+                        let connection = try await NFCConnection()
+                        connectionContinuations.forEach { continuation in
+                            print("Return Connection to listeners.")
+                            continuation.resume(returning: connection)
+                        }
+                    } catch {
+                        connectionContinuations.forEach { continuation in
+                            print("Throw Error to listeners.")
+                            continuation.resume(throwing: error)
+                        }
+                    }
+                    print(connectionContinuations)
+                    print("Got connection, clear continuations.")
+                    connectionContinuations.removeAll()
+                }
+            } else {
+                print("Waiting for connection, let's NOT start another connection.")
+                connectionContinuations.append(continuation)
+            }
+        }
     }
     
-    public func close(_: Result<String, Error>? = nil) {
+    public func close(result: Result<String, Error>? = nil) {
         print("Closing NFC Connection")
-        self.closingError = nil
-        self.closingSemaphore.signal()
+        self.tagReaderSession.close()
+        Self.closingContinuations.forEach { continuation in
+            continuation.resume(returning: nil)
+        }
+        Self.closingContinuations.removeAll()
         Self.connection = nil
     }
 }
+
+extension APDU {
+    var nfcIso7816Apdu: NFCISO7816APDU? {
+        return NFCISO7816APDU(data: self.apduData)
+    }
+
+}
+#endif

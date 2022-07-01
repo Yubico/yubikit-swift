@@ -6,8 +6,8 @@
 //
 
 import Foundation
-
-public actor SmartCardInterface {
+/*
+public actor _SmartCardInterface {
     
     let queue = DispatchQueue(label: "com.yubico.smartcardinterface")
     
@@ -19,11 +19,11 @@ public actor SmartCardInterface {
     
     struct APDU {}
     
-    func selectApplication(application: Application) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+    func selectApplication(application: Application) async throws -> Data? {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data?, Error>) in
             queue.async {
                 emulateSlowTask()
-                continuation.resume()
+                continuation.resume(returning: Data())
             }
         }
     }
@@ -37,3 +37,4 @@ public actor SmartCardInterface {
         }
     }
 }
+*/

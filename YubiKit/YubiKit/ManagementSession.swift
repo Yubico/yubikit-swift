@@ -16,7 +16,7 @@ public final class ManagementSession: Session, InternalSession {
 
     private init(connection: Connection) async throws {
         self.connection = connection
-        try await connection.smartCardInterface.selectApplication(application: .Management)
+//        try await connection.selectApplication(application: .Management)
         var internalConnection = self.internalConnection
         internalConnection.session = self
     }
@@ -34,7 +34,7 @@ public final class ManagementSession: Session, InternalSession {
         switch status {
         case .close(let result):
             endingResult = result
-            await connection?.close(result)
+            await connection?.close(result: result)
         default: break
         }
         sessionEnded = true
@@ -50,13 +50,13 @@ public final class ManagementSession: Session, InternalSession {
     
     public func sessionDidEnd() async throws -> Error? {
         print("await ManagementSession sessionDidEnd")
-        _ = try await connection?.smartCardInterface.sendCommand(apdu: SmartCardInterface.APDU())
+//        _ = try await connection?.send(apdu: SmartCardInterface.APDU())
         print("ManagementSession session did end\(endingResult != nil ? " with result: \(endingResult!)" : "")")
         return nil
     }
 
     public func getKeyVersion() async throws -> String {
-        _ = try await connection?.smartCardInterface.sendCommand(apdu: SmartCardInterface.APDU())
+//        _ = try await connection?.send(apdu: SmartCardInterface.APDU())
         return "3.14"
     }
 

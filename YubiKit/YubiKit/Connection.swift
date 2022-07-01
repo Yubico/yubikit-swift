@@ -8,15 +8,14 @@
 import Foundation
 
 public protocol Connection: AnyObject {
-    static func connection() async throws -> Self
-    var smartCardInterface: SmartCardInterface { get }
-    func close(_: Result<String, Error>?) async
-    func connectionDidClose() async throws -> Error?
+    static func connection() async throws -> Connection
+    func close(result: Result<String, Error>?) async
+    func connectionDidClose() async -> Error?
+    func send(apdu: APDU) async throws -> Data
 }
 
 
 internal protocol InternalConnection {
-    func sendAPDU() async throws -> Result<Data, Error>
     var session: Session? { get set }
 }
 

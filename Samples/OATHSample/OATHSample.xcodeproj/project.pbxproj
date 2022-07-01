@@ -14,6 +14,7 @@
 		51A1AC2A273D5D0A00F999A4 /* YubiKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51A1AC29273D5D0A00F999A4 /* YubiKit.framework */; };
 		51A1AC2B273D5D0A00F999A4 /* YubiKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 51A1AC29273D5D0A00F999A4 /* YubiKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		B41B61882743FE18004C37BF /* OATHListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61872743FE18004C37BF /* OATHListModel.swift */; };
+		B4451EFD275F924D002690BB /* ExternalAccessory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B4451EFC275F924D002690BB /* ExternalAccessory.framework */; };
 		B456E20D2746313D004471DE /* ConnectionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E20C2746313D004471DE /* ConnectionHandler.swift */; };
 		B456E217274E750D004471DE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E216274E750D004471DE /* SettingsView.swift */; };
 		B456E219274FC967004471DE /* SettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E218274FC967004471DE /* SettingsModel.swift */; };
@@ -41,6 +42,9 @@
 		51A1AC14273D537800F999A4 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		51A1AC29273D5D0A00F999A4 /* YubiKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = YubiKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		B41B61872743FE18004C37BF /* OATHListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHListModel.swift; sourceTree = "<group>"; };
+		B4451EFB275F924D002690BB /* OATHSample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OATHSample.entitlements; sourceTree = "<group>"; };
+		B4451EFC275F924D002690BB /* ExternalAccessory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ExternalAccessory.framework; path = System/Library/Frameworks/ExternalAccessory.framework; sourceTree = SDKROOT; };
+		B4451EFE275F940E002690BB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B456E20C2746313D004471DE /* ConnectionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionHandler.swift; sourceTree = "<group>"; };
 		B456E216274E750D004471DE /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		B456E218274FC967004471DE /* SettingsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsModel.swift; sourceTree = "<group>"; };
@@ -51,6 +55,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B4451EFD275F924D002690BB /* ExternalAccessory.framework in Frameworks */,
 				51A1AC2A273D5D0A00F999A4 /* YubiKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -78,6 +83,8 @@
 		51A1AC0C273D537500F999A4 /* OATHSample */ = {
 			isa = PBXGroup;
 			children = (
+				B4451EFE275F940E002690BB /* Info.plist */,
+				B4451EFB275F924D002690BB /* OATHSample.entitlements */,
 				51A1AC0D273D537500F999A4 /* OATHSampleApp.swift */,
 				51A1AC0F273D537500F999A4 /* OATHListView.swift */,
 				B41B61872743FE18004C37BF /* OATHListModel.swift */,
@@ -101,6 +108,7 @@
 		51A1AC28273D5D0A00F999A4 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				B4451EFC275F924D002690BB /* ExternalAccessory.framework */,
 				51A1AC29273D5D0A00F999A4 /* YubiKit.framework */,
 			);
 			name = Frameworks;
@@ -310,24 +318,32 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = OATHSample/OATHSample.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"OATHSample/Preview Content\"";
 				DEVELOPMENT_TEAM = LQA3CS5MM7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = OATHSample/Info.plist;
+				INFOPLIST_KEY_NFCReaderUsageDescription = "The application needs access to NFC reading to communicate with your Yubikey.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.yubico.ios.OATHSample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -339,24 +355,32 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = OATHSample/OATHSample.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"OATHSample/Preview Content\"";
 				DEVELOPMENT_TEAM = LQA3CS5MM7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = OATHSample/Info.plist;
+				INFOPLIST_KEY_NFCReaderUsageDescription = "The application needs access to NFC reading to communicate with your Yubikey.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 12.4;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.yubico.ios.OATHSample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

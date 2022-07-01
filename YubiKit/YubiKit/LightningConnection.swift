@@ -7,67 +7,85 @@
 
 import Foundation
 
+extension Double {
+    var nanoSecond: UInt64 {
+        return UInt64(self / 1_000_000_000.0)
+    }
+}
+
+#if os(iOS)
 public final class LightningConnection: Connection, InternalConnection {
 
-    public var smartCardInterface: SmartCardInterface
+    let queue = DispatchQueue(label: "com.yubico.LightningConnection")
+
+    @MainActor private static var connectionContinuations = [CheckedContinuation<Connection, Error>]()
+    @MainActor private static var closingContinuations = [CheckedContinuation<Error?, Never>]()
+    
     private static var connection: LightningConnection?
     internal var session: Session?
     var closingError: Error?
     
-    private static var keyInserted = false
+//    private static var keyInserted = false
     private var connectionClosed = false
 
     private init() {
-        smartCardInterface = SmartCardInterface()
         Self.connection = self
     }
     
-    public static func simulateYubiKey(inserted: Bool) async {
+    @MainActor public static func simulateYubiKey(inserted: Bool) async {
         if inserted {
             print("Insert yubikey\n---------------------------------")
-            Self.keyInserted = true
+            let connection = LightningConnection()
+            LightningConnection.connection = connection
+            connectionContinuations.forEach { continuation in
+                continuation.resume(returning: connection)
+            }
+            connectionContinuations.removeAll()
         } else {
             print("Remove yubikey\n---------------------------------")
-            await Self.connection?.close(nil)
+            await Self.connection?.close()
         }
     }
 
-    func sendAPDU() async throws -> Result<Data, Error> {
-        return .failure("not implemented")
+    public func send(apdu: APDU) async throws -> Data {
+        throw("not implemented")
     }
     
-    public func connectionDidClose() async throws -> Error? {
+    public func connectionDidClose() async -> Error? {
         print("await lightning connectionDidClose()")
         while !connectionClosed {
-            try Task.checkCancellation()
-            await Task.sleep(1_000_000_000 * UInt64(0.2))
+            do {
+                try Task.checkCancellation()
+            } catch {
+                return error
+            }
+            try! await Task.sleep(nanoseconds: 0.2.nanoSecond)
+//            await Task.sleep(1_000_000_000 * UInt64(0.2))
         }
         return self.closingError
     }
     
     // Starts lightning and wait for a connection
-    public static func connection() async throws -> Self {
+    @MainActor public static func connection() async throws -> Connection {
         print("await lightning connection()")
-        while !keyInserted {
-            try Task.checkCancellation()
-            await Task.sleep(1_000_000_000 * UInt64(0.2))
-        }
-        if let connection = self.connection {
+        if let connection = connection {
             print("reuse Lightning connection")
-            return connection as! Self
+            return connection
+        } else {
+            return try await withCheckedThrowingContinuation { continuation in
+                LightningConnection.connectionContinuations.append(continuation)
+            }
         }
-        print("create new Lightning connection")
-        let connection = LightningConnection()
-        return connection as! Self
     }
     
-    public func close(_ result: Result<String, Error>? = nil) async {
+    public func close(result: Result<String, Error>? = nil) async {
         print("Closing Lightning Connection")
+        await LightningConnection.closingContinuations.forEach { continuation in
+            continuation.resume(returning: nil)
+        }
+        LightningConnection.connection = nil
         await self.session?.end(withConnectionStatus: .leaveOpen)
-        self.closingError = nil
         connectionClosed = true
-        Self.connection = nil
-        Self.keyInserted = false
     }
     
     deinit {
@@ -76,3 +94,4 @@ public final class LightningConnection: Connection, InternalConnection {
 
     
 }
+#endif

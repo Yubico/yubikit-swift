@@ -11,12 +11,17 @@ import YubiKit
 class ConnectionHandler {
     
     enum ConnectionType {
+        #if os(iOS)
         case nfc
         case lightning
+        #else
+        case smartCard
+        #endif
         case any
     }
     
     func connection(type: ConnectionType = .any) async throws -> Connection {
+        #if os(iOS)
         switch type {
         case .nfc:
             return try await NFCConnection.connection()
@@ -32,16 +37,28 @@ class ConnectionHandler {
                 group.addTask {
                     return try await LightningConnection.connection()
                 }
+                group.addTask {
+                    return try await SmartCardConnection.connection()
+                }
                 let result = try await group.next()!
                 group.cancelAll()
                 return result
             }
         }
+        #else
+        return try await SmartCardConnection.connection()
+        #endif
     }
 }
 
 extension Connection {
     var type: ConnectionHandler.ConnectionType {
-        return self as? NFCConnection != nil ? .nfc : .lightning
+        #if os(iOS)
+        if self as? NFCConnection != nil { return .nfc }
+        if self as? LightningConnection != nil { return .lightning }
+        #else
+        if self as? SmartCardConnection != nil { return .smartCard }
+        #endif
+        return .any
     }
 }
