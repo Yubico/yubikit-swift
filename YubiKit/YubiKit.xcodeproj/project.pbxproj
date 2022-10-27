@@ -11,6 +11,7 @@
 		51BBE3F1273D1A3800DA47CC /* YubiKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51BBE3E6273D1A3800DA47CC /* YubiKit.framework */; };
 		51BBE3F6273D1A3800DA47CC /* YubiKitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE3F5273D1A3800DA47CC /* YubiKitTests.swift */; };
 		51BBE3F7273D1A3800DA47CC /* YubiKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 51BBE3E9273D1A3800DA47CC /* YubiKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		B40CBD6029090C49007D7D23 /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40CBD5F29090C49007D7D23 /* Version.swift */; };
 		B41B61842743FC2E004C37BF /* Connection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61832743FC2E004C37BF /* Connection.swift */; };
 		B41B61862743FC4E004C37BF /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61852743FC4E004C37BF /* Session.swift */; };
 		B4451F00275FD2B5002690BB /* APDU.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4451EFF275FD2B5002690BB /* APDU.swift */; };
@@ -39,6 +40,7 @@
 		51BBE3EA273D1A3800DA47CC /* YubiKit.docc */ = {isa = PBXFileReference; lastKnownFileType = folder.documentationcatalog; path = YubiKit.docc; sourceTree = "<group>"; };
 		51BBE3F0273D1A3800DA47CC /* YubiKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YubiKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		51BBE3F5273D1A3800DA47CC /* YubiKitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YubiKitTests.swift; sourceTree = "<group>"; };
+		B40CBD5F29090C49007D7D23 /* Version.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Version.swift; sourceTree = "<group>"; };
 		B41B61832743FC2E004C37BF /* Connection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Connection.swift; sourceTree = "<group>"; };
 		B41B61852743FC4E004C37BF /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
 		B4451EFF275FD2B5002690BB /* APDU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APDU.swift; sourceTree = "<group>"; };
@@ -103,6 +105,7 @@
 				B456E210274D218C004471DE /* OATHSession.swift */,
 				B456E21A274FCA26004471DE /* ManagementSession.swift */,
 				B456E21C2751392A004471DE /* Utilities.swift */,
+				B40CBD5F29090C49007D7D23 /* Version.swift */,
 			);
 			path = YubiKit;
 			sourceTree = "<group>";
@@ -234,6 +237,7 @@
 				B41B61842743FC2E004C37BF /* Connection.swift in Sources */,
 				B4F068B92861CFC300555AFE /* SmartCardConnection.swift in Sources */,
 				B456E21D2751392A004471DE /* Utilities.swift in Sources */,
+				B40CBD6029090C49007D7D23 /* Version.swift in Sources */,
 				51BBE3EB273D1A3800DA47CC /* YubiKit.docc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

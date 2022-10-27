@@ -12,6 +12,17 @@ import YubiKit
 
 class YubiKitFullStackTests: XCTestCase {
 
+    
+    func testListAccounts() throws {
+        runAsyncTest {
+            let connection = try await NFCConnection.connection()
+            let session = try await OATHSession.session(withConnection: connection)
+            let accounts = try await session.listAccounts()
+            print(accounts)
+            XCTAssert(accounts.count == 6)
+        }
+    }
+    
     func testCalculateCodes() throws {
         runAsyncTest {
             let connection = try await NFCConnection.connection()
