@@ -18,8 +18,24 @@ class YubiKitFullStackTests: XCTestCase {
             let connection = try await NFCConnection.connection()
             let session = try await OATHSession.session(withConnection: connection)
             let accounts = try await session.listAccounts()
-            print(accounts)
-            XCTAssert(accounts.count == 6)
+            accounts.forEach {
+                print("🦠 \($0)")
+            }
+            XCTAssert(accounts.count == 4)
+        }
+    }
+    
+    func testListAccountsAndCalculate() throws {
+        runAsyncTest {
+            let connection = try await NFCConnection.connection()
+            let session = try await OATHSession.session(withConnection: connection)
+            let accounts = try await session.listAccounts()
+            let codes = try await accounts.asyncMap { account in
+                let code = try await session.calculateCode(account: account)
+                print("🦠 \(account), \(code)")
+                return code
+            }
+            XCTAssert(accounts.count == 4)
         }
     }
     
@@ -28,7 +44,8 @@ class YubiKitFullStackTests: XCTestCase {
             let connection = try await NFCConnection.connection()
             let session = try await OATHSession.session(withConnection: connection)
             let codes = try await session.calculateCodes()
-            XCTAssert(codes.count == 6)
+            print("🦠 \(codes)")
+            XCTAssert(codes.count == 4)
         }
     }
     
@@ -47,15 +64,6 @@ class YubiKitFullStackTests: XCTestCase {
             }
             let all = try await [taskOne.value, taskTwo.value, taskThree.value]
             print("done")
-        }
-    }
-    
-    func testAlwaysFail() throws {
-        runAsyncTest {
-            let connection = try await NFCConnection.connection()
-            let session = try await OATHSession.session(withConnection: connection)
-            let code = try await session.calculateFailingCode()
-            XCTAssert(code.count == 1)
         }
     }
 }

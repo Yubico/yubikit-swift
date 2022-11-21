@@ -6,14 +6,28 @@
 //
 
 import Foundation
+import CryptoKit
 
-func emulateSlowTask() {
-    print("Start slow task on \(Thread.current)")
-    var numbers = [Int]()
-    _ = (1...1_000_000).map { number in
-        numbers.append(number + number)
+extension Array {
+    func tuples() -> [(Element, Element)]? {
+        if self.count % 2 == 0 {
+            return stride(from: 0, to: count, by: 2).map {
+                return (self[$0], self[$0.advanced(by: 1)])
+            }
+        } else {
+            return nil
+        }
     }
-    print("Finish slow task on \(Thread.current)")
+}
+
+public extension Sequence {
+    func asyncMap<T>(_ transform: (Element) async throws -> T) async rethrows -> [T] {
+        var values = [T]()
+        for element in self {
+            try await values.append(transform(element))
+        }
+        return values
+    }
 }
 
 extension Data {
@@ -135,3 +149,11 @@ extension UInt64 {
     }
 }
 
+extension CryptoKit.Digest {
+    var bytes: [UInt8] { Array(makeIterator()) }
+    var data: Data { Data(bytes) }
+
+    var hexStr: String {
+        bytes.map { String(format: "%02X", $0) }.joined()
+    }
+}
