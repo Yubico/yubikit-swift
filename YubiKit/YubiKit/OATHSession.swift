@@ -9,109 +9,15 @@ import Foundation
 import CryptoKit
 import CryptoTokenKit
 
-public struct Code: Identifiable, CustomStringConvertible, CustomDebugStringConvertible {
-    
-    public var description: String {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "HH:mm:ss"
-        return "Code(\(code), validFrom:\(dateFormatter.string(from: validFrom)), validTo:\(dateFormatter.string(from: validTo))"
-    }
-    public var debugDescription: String {
-        self.description
-    }
-    
-    public let id = UUID()
-    public let code: String
-    public var validFrom: Date {
-        guard let period else { return Date() }
-        return Date(timeIntervalSince1970: timestamp.timeIntervalSince1970 - timestamp.timeIntervalSince1970.truncatingRemainder(dividingBy: period))
-    }
-    public var validTo: Date {
-        guard let period else { return validFrom.addingTimeInterval(.infinity)}
-        return validFrom.addingTimeInterval(period)
-    }
-    
-    init(code: String, timestamp: Date, period: TimeInterval?) {
-        self.code = code
-        self.timestamp = timestamp
-        self.period = period
-    }
-    
-    private let timestamp: Date
-    private let period: TimeInterval?
+fileprivate let tagVersion: TKTLVTag = 0x79
+fileprivate let tagName: TKTLVTag = 0x71
+fileprivate let tagChallenge: TKTLVTag = 0x74
+fileprivate let typeHOTP: TKTLVTag = 0x77
+fileprivate let typeTouch: TKTLVTag = 0x7c
 
-}
-
-
-public struct Account: Identifiable, CustomStringConvertible, CustomDebugStringConvertible {
-
-    public let deviceId: String
-    public let id: Data
-    public let type: OATHSession.AccountType
-    public let hashAlgorithm: OATHSession.HashAlgorithm?
-    public let period: TimeInterval?
-    public let name: String
-    public let issuer: String?
-    public var label: String {
-        if let issuer {
-            return "\(issuer):\(name)"
-        } else {
-            return name
-        }
-    }
-    public var description: String {
-        switch type {
-        case .HOTP:
-            return "Account(type: HOTP, label:\(label), algorithm: \(hashAlgorithm.debugDescription)"
-        case .TOTP:
-            return "Account(type: TOTP, label:\(label), period: \(period ?? -1), algorith: \(hashAlgorithm.debugDescription)"
-        }
-    }
-    public var debugDescription: String {
-        self.description
-    }
-
-    init(deviceId: String, id: Data, type: OATHSession.AccountType, hashAlgorithm: OATHSession.HashAlgorithm? = nil, period: TimeInterval?, name: String, issuer: String?) {
-        self.deviceId = deviceId
-        self.id = id
-        self.type = type
-        self.hashAlgorithm = hashAlgorithm
-        self.period = period
-        self.name = name
-        self.issuer = issuer
-    }
-}
-
-extension TKTLVRecord {
-    static func dictionaryOfData(from data: Data) -> [TKTLVTag: Data]? {
-        self.sequenceOfRecords(from: data)?.reduce(into: [TKTLVTag: Data]()) {
-            $0[$1.tag] = $1.value
-        }
-    }
-}
-
-let tagVersion: TKTLVTag = 0x79
-let tagName: TKTLVTag = 0x71
-let tagChallenge: TKTLVTag = 0x74
-let typeHOTP: TKTLVTag = 0x77
-let typeTouch: TKTLVTag = 0x7c
-
-let defaultPeriod = 30.0
+let oathDefaultPeriod = 30.0
 
 public final class OATHSession: Session, InternalSession {
-    
-    
-    public enum AccountType: UInt8 {
-        case HOTP = 0x10
-        case TOTP = 0x20
-    }
-    
-    public enum HashAlgorithm: UInt8 {
-        case SHA1   = 0x01
-        case SHA256 = 0x02
-        case SHA512 = 0x03
-    }
-    
     
     internal weak var connection: Connection?
     private var sessionEnded = false
@@ -238,7 +144,7 @@ public final class OATHSession: Session, InternalSession {
             let account = Account(deviceId: deviceId, id: name.value, type: accountType, period: accountId.period, name: accountId.account, issuer: accountId.issuer)
             
             if response.value.count == 5 {
-                if account.period != defaultPeriod {
+                if account.period != oathDefaultPeriod {
                     let code = try await calculateCode(account: account, timestamp: timestamp)
                     return (account, code)
                 } else {
@@ -256,42 +162,6 @@ public final class OATHSession: Session, InternalSession {
     deinit {
         print("deinit OATHSession")
     }
-    
-    struct AccountId {
-        
-        let account: String
-        let issuer: String?
-        let period: TimeInterval?
-        
-        init?(data: Data, accountType: AccountType) {
-            // "period/issuer:account"
-            let periodIssuerAndAccount = /^(?<period>\d+)\/(?<issuer>.+):(?<account>.+)$/
-            // "issuer:account"
-            let issuerAndAccount = /^(?<issuer>.+):(?<account>.+)$/
-            // "period/account"
-            let periodAndAccount = /^(?<period>\d+)\/(?<account>.+)$/
-            
-            guard let id = String(data: data, encoding: .utf8) else { return nil }
-
-            if let match = id.firstMatch(of: periodIssuerAndAccount) {
-                period = TimeInterval(String(match.period))
-                issuer = String(match.issuer)
-                account = String(match.account)
-            } else if let match = id.firstMatch(of: issuerAndAccount) {
-                period = accountType == .TOTP ? defaultPeriod : nil
-                issuer = String(match.issuer)
-                account = String(match.account)
-            } else if let match = id.firstMatch(of: periodAndAccount) {
-                period = TimeInterval(String(match.period))
-                issuer = nil
-                account = String(match.account)
-            } else {
-                period = accountType == .TOTP ? defaultPeriod : nil
-                issuer = nil
-                account = id
-            }
-        }
-    }
 }
 
 extension Data {
@@ -303,6 +173,4 @@ extension Data {
     var responseData: Data {
         return self.subdata(in: 0..<self.count - 2)
     }
-    
-    
 }

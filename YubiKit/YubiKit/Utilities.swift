@@ -7,6 +7,7 @@
 
 import Foundation
 import CryptoKit
+import CryptoTokenKit
 
 extension Array {
     func tuples() -> [(Element, Element)]? {
@@ -155,5 +156,13 @@ extension CryptoKit.Digest {
 
     var hexStr: String {
         bytes.map { String(format: "%02X", $0) }.joined()
+    }
+}
+
+extension TKTLVRecord {
+    static func dictionaryOfData(from data: Data) -> [TKTLVTag: Data]? {
+        self.sequenceOfRecords(from: data)?.reduce(into: [TKTLVTag: Data]()) {
+            $0[$1.tag] = $1.value
+        }
     }
 }
