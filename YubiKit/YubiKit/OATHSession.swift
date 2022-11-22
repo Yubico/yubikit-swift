@@ -15,7 +15,7 @@ fileprivate let tagChallenge: TKTLVTag = 0x74
 fileprivate let typeHOTP: TKTLVTag = 0x77
 fileprivate let typeTouch: TKTLVTag = 0x7c
 
-let oathDefaultPeriod = 30.0
+fileprivate let defaultPeriod = 30.0
 
 public final class OATHSession: Session, InternalSession {
     
@@ -86,6 +86,10 @@ public final class OATHSession: Session, InternalSession {
         return nil
     }
     
+    public func addAccount(account: Account) async throws -> Account {
+        throw "Not implemented"
+    }
+    
     public func listAccounts() async throws -> [Account] {
         guard let connection else { throw "No connection to YubiKey" }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0, data: nil, type: .short)
@@ -93,25 +97,36 @@ public final class OATHSession: Session, InternalSession {
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: resultData) else { throw "OATH response data not TLV formatted" }
         return try result.map {
             guard $0.tag == 0x72 else { throw "Unexpected tag" }
+            guard let accountId = AccountIdParser(data: $0.value.dropFirst()) else { throw "Malformed account data" }
             let bytes = $0.value.bytes
-            let accountType = AccountType(rawValue: bytes[0] & 0xf0)!
-            let hashAlgorithm = HashAlgorithm(rawValue: bytes[0] & 0x0f)!
-            guard let accountId = AccountId(data: $0.value.dropFirst(), accountType: accountType) else { throw "Malformed account data" }
-            return Account(deviceId: deviceId, id: $0.value.dropFirst(), type: accountType, hashAlgorithm: hashAlgorithm, period: accountId.period, name: accountId.account, issuer: accountId.issuer)
+            let typeCode = bytes[0] & 0xf0
+            let accountType: AccountType
+            if AccountType.isTOTP(typeCode) {
+                accountType = .TOTP(period: accountId.period ?? defaultPeriod)
+            } else if AccountType.isHOTP(typeCode) {
+                accountType = .HOTP(counter: 0)
+            } else {
+                throw "Missing accoutn type code"
+            }
+            
+            guard let hashAlgorithm = HashAlgorithm(rawValue: bytes[0] & 0x0f) else { throw "Mising hash algorithm" }
+
+            return Account(deviceId: deviceId, id: $0.value.dropFirst(), type: accountType, hashAlgorithm: hashAlgorithm, name: accountId.account, issuer: accountId.issuer)
         }
     }
     
     public func calculateCode(account: Account, timestamp: Date = Date()) async throws -> Code {
         guard account.deviceId == self.deviceId else { throw "The given account belongs to a different YubiKey." }
         let challengeTLV: TKBERTLVRecord
-        if account.type == .TOTP {
+        
+        switch account.type {
+        case .HOTP(counter: let counter):
+            challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: Data())
+        case .TOTP(period: let period):
             let time = timestamp.timeIntervalSince1970
-            guard let period = account.period else { throw "Missing period for TOTP account" }
             let challenge = UInt64(time / Double(period))
             let bigChallenge = CFSwapInt64HostToBig(challenge)
             challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
-        } else {
-            challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: Data())
         }
         
         let nameTLV = TKBERTLVRecord(tag: tagName, value: account.id)
@@ -122,7 +137,7 @@ public final class OATHSession: Session, InternalSession {
         guard let digits = result.value.first else { throw "No code" }
         let code = UInt32(bigEndian: result.value.subdata(in: 1..<result.value.count).uint32)
         let stringCode = String(format: "%0\(digits)d", UInt(code))
-        return Code(code: stringCode, timestamp: timestamp, period: account.period)
+        return Code(code: stringCode, timestamp: timestamp, accountType: account.type)
     }
     
     public func calculateCodes(timestamp: Date = Date()) async throws -> [(Account, Code?)] {
@@ -138,20 +153,27 @@ public final class OATHSession: Session, InternalSession {
         
         return try await result.asyncMap { (name, response) in
             guard name.tag == 0x71 else { throw "Unexpected tag" }
+
+            guard let accountId = AccountIdParser(data: name.value) else { throw "Malformed account data" }
+
+            let accountType: AccountType
+            if response.tag == typeHOTP {
+                accountType = .HOTP(counter: 0)
+            } else {
+                accountType = .TOTP(period: accountId.period ?? defaultPeriod)
+            }
             
-            let accountType = response.tag == typeHOTP ? AccountType.HOTP : AccountType.TOTP
-            guard let accountId = AccountId(data: name.value, accountType: accountType) else { throw "Malformed account data" }
-            let account = Account(deviceId: deviceId, id: name.value, type: accountType, period: accountId.period, name: accountId.account, issuer: accountId.issuer)
+            let account = Account(deviceId: self.deviceId, id: name.value, type: accountType, name: accountId.account, issuer: accountId.issuer)
             
             if response.value.count == 5 {
-                if account.period != oathDefaultPeriod {
-                    let code = try await calculateCode(account: account, timestamp: timestamp)
+                if accountId.period != defaultPeriod {
+                    let code = try await self.calculateCode(account: account, timestamp: timestamp)
                     return (account, code)
                 } else {
                     let digits = response.value.first!
                     let code = UInt32(bigEndian: response.value.subdata(in: 1..<response.value.count).uint32)
                     let stringCode = String(format: "%0\(digits)d", UInt(code))
-                    return (account, Code(code: stringCode, timestamp: timestamp, period: account.period))
+                    return (account, Code(code: stringCode, timestamp: timestamp, accountType: accountType))
                 }
             } else {
                 return (account, nil)

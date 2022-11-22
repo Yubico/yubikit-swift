@@ -9,9 +9,27 @@ import Foundation
 
 extension OATHSession {
     
-    public enum AccountType: UInt8 {
-        case HOTP = 0x10
-        case TOTP = 0x20
+    public enum AccountType: CustomStringConvertible {
+        
+        case HOTP(counter: Int)
+        case TOTP(period: TimeInterval)
+        
+        static func isHOTP(_ code: UInt8) -> Bool {
+            return code == 0x10
+        }
+        
+        static func isTOTP(_ code: UInt8) -> Bool {
+            return code == 0x20
+        }
+        
+        public var description: String {
+            switch self {
+            case .HOTP(counter: let counter):
+                return "HOTP(\(counter))"
+            case .TOTP(period: let period):
+                return "TOTP(\(period))"
+            }
+        }
     }
     
     public enum HashAlgorithm: UInt8 {
@@ -20,13 +38,12 @@ extension OATHSession {
         case SHA512 = 0x03
     }
     
-    public struct Account: Identifiable, CustomStringConvertible, CustomDebugStringConvertible {
+    public struct Account: Identifiable, CustomStringConvertible {
 
         public let deviceId: String
         public let id: Data
         public let type: OATHSession.AccountType
         public let hashAlgorithm: OATHSession.HashAlgorithm?
-        public let period: TimeInterval?
         public let name: String
         public let issuer: String?
         public var label: String {
@@ -37,35 +54,26 @@ extension OATHSession {
             }
         }
         public var description: String {
-            switch type {
-            case .HOTP:
-                return "Account(type: HOTP, label:\(label), algorithm: \(hashAlgorithm.debugDescription)"
-            case .TOTP:
-                return "Account(type: TOTP, label:\(label), period: \(period ?? -1), algorith: \(hashAlgorithm.debugDescription)"
-            }
-        }
-        public var debugDescription: String {
-            self.description
+            return "Account(type: \(type), label:\(label), algorithm: \(hashAlgorithm.debugDescription)"
         }
 
-        init(deviceId: String, id: Data, type: OATHSession.AccountType, hashAlgorithm: OATHSession.HashAlgorithm? = nil, period: TimeInterval?, name: String, issuer: String?) {
+        init(deviceId: String, id: Data, type: OATHSession.AccountType, hashAlgorithm: OATHSession.HashAlgorithm? = nil, name: String, issuer: String?) {
             self.deviceId = deviceId
             self.id = id
             self.type = type
             self.hashAlgorithm = hashAlgorithm
-            self.period = period
             self.name = name
             self.issuer = issuer
         }
     }
     
-    struct AccountId {
+    struct AccountIdParser {
         
         let account: String
         let issuer: String?
         let period: TimeInterval?
         
-        init?(data: Data, accountType: AccountType) {
+        init?(data: Data) {
             // "period/issuer:account"
             let periodIssuerAndAccount = /^(?<period>\d+)\/(?<issuer>.+):(?<account>.+)$/
             // "issuer:account"
@@ -80,7 +88,7 @@ extension OATHSession {
                 issuer = String(match.issuer)
                 account = String(match.account)
             } else if let match = id.firstMatch(of: issuerAndAccount) {
-                period = accountType == .TOTP ? oathDefaultPeriod : nil
+                period = nil
                 issuer = String(match.issuer)
                 account = String(match.account)
             } else if let match = id.firstMatch(of: periodAndAccount) {
@@ -88,43 +96,48 @@ extension OATHSession {
                 issuer = nil
                 account = String(match.account)
             } else {
-                period = accountType == .TOTP ? oathDefaultPeriod : nil
+                period = nil
                 issuer = nil
                 account = id
             }
         }
     }
 
-    public struct Code: Identifiable, CustomStringConvertible, CustomDebugStringConvertible {
+    public struct Code: Identifiable, CustomStringConvertible {
         
         public var description: String {
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "HH:mm:ss"
             return "Code(\(code), validFrom:\(dateFormatter.string(from: validFrom)), validTo:\(dateFormatter.string(from: validTo))"
         }
-        public var debugDescription: String {
-            self.description
-        }
         
         public let id = UUID()
         public let code: String
         public var validFrom: Date {
-            guard let period else { return Date() }
-            return Date(timeIntervalSince1970: timestamp.timeIntervalSince1970 - timestamp.timeIntervalSince1970.truncatingRemainder(dividingBy: period))
+            switch accountType {
+            case .HOTP(_):
+                return Date()
+            case .TOTP(period: let period):
+                return Date(timeIntervalSince1970: timestamp.timeIntervalSince1970 - timestamp.timeIntervalSince1970.truncatingRemainder(dividingBy: period))
+            }
         }
         public var validTo: Date {
-            guard let period else { return validFrom.addingTimeInterval(.infinity)}
-            return validFrom.addingTimeInterval(period)
+            switch accountType {
+            case .HOTP(_):
+                return validFrom.addingTimeInterval(.infinity)
+            case .TOTP(period: let period):
+                return validFrom.addingTimeInterval(period)
+            }
         }
         
-        init(code: String, timestamp: Date, period: TimeInterval?) {
+        init(code: String, timestamp: Date, accountType: AccountType) {
             self.code = code
             self.timestamp = timestamp
-            self.period = period
+            self.accountType = accountType
         }
         
         private let timestamp: Date
-        private let period: TimeInterval?
+        private let accountType: AccountType
 
     }
     
