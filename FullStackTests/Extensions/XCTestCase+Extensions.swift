@@ -13,7 +13,7 @@ extension XCTestCase {
     func runAsyncTest(named testName: String = #function,
                       in file: StaticString = #file,
                       at line: UInt = #line,
-                      withTimeout timeout: TimeInterval = 10,
+                      withTimeout timeout: TimeInterval = 20,
                       test: @escaping () async throws -> Void) {
         var thrownError: Error?
         let errorHandler = { thrownError = $0 }

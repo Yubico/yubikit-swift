@@ -42,18 +42,30 @@ public struct APDU {
         apduData.append(ins)
         apduData.append(p1)
         apduData.append(p2)
-        if let data = data, data.count > 0 {
-            let lengthHigh: UInt8 = UInt8(data.count / 256)
-            let lengthLow: UInt8 = UInt8(data.count % 256)
-            apduData.append(0x00)
-            apduData.append(lengthHigh)
-            apduData.append(lengthLow)
-            apduData.append(data)
-        } else {
-            apduData.append(0x00)
-            apduData.append(0x00)
-            apduData.append(0x00)
+
+        switch type {
+        case .short:
+            if let data, data.count > 0 {
+                guard data.count < UInt8.max else { fatalError() }
+                let length = UInt8(data.count)
+                apduData.append(length)
+                apduData.append(data)
+            }
+        case .extended:
+            if let data, data.count > 0 {
+                let lengthHigh: UInt8 = UInt8(data.count / 256)
+                let lengthLow: UInt8 = UInt8(data.count % 256)
+                apduData.append(0x00)
+                apduData.append(lengthHigh)
+                apduData.append(lengthLow)
+                apduData.append(data)
+            } else {
+                apduData.append(0x00)
+                apduData.append(0x00)
+                apduData.append(0x00)
+            }
         }
+
         return apduData
     }
     

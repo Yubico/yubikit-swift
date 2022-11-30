@@ -15,6 +15,7 @@
 		51BBE414273D1AA400DA47CC /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51BBE413273D1AA400DA47CC /* Preview Assets.xcassets */; };
 		51BBE41E273D1AA400DA47CC /* YubiKitFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE41D273D1AA400DA47CC /* YubiKitFullStackTests.swift */; };
 		B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */; };
+		B498888A292FD19300682D3F /* Connection+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4988889292FD19300682D3F /* Connection+Extensions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,6 +54,7 @@
 		B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCTestCase+Extensions.swift"; sourceTree = "<group>"; };
 		B45C0B6928FEE1250077EE2A /* FullStackTests.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FullStackTests.entitlements; sourceTree = "<group>"; };
 		B45C0B6A28FEE4910077EE2A /* FullStackTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "FullStackTests-Info.plist"; sourceTree = "<group>"; };
+		B4988889292FD19300682D3F /* Connection+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Connection+Extensions.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -135,6 +137,7 @@
 			isa = PBXGroup;
 			children = (
 				B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */,
+				B4988889292FD19300682D3F /* Connection+Extensions.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -250,6 +253,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */,
+				B498888A292FD19300682D3F /* Connection+Extensions.swift in Sources */,
 				51BBE41E273D1AA400DA47CC /* YubiKitFullStackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

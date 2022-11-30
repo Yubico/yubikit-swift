@@ -18,10 +18,15 @@
 		B456E213274D2403004471DE /* NFCConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E212274D2403004471DE /* NFCConnection.swift */; };
 		B456E215274D2453004471DE /* LightningConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E214274D2453004471DE /* LightningConnection.swift */; };
 		B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E21A274FCA26004471DE /* ManagementSession.swift */; };
-		B456E21D2751392A004471DE /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E21C2751392A004471DE /* Utilities.swift */; };
 		B456E21F27513CFE004471DE /* SmartCardInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E21E27513CFE004471DE /* SmartCardInterface.swift */; };
 		B4BE3AA8292BCA1300CC30CB /* OATHSession+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AA7292BCA1300CC30CB /* OATHSession+Extensions.swift */; };
-		B4BE3AAA292BCA5000CC30CB /* OATHSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AA9292BCA5000CC30CB /* OATHSession.swift */; };
+		B4BE3AAD292E1C8600CC30CB /* OATHSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AAC292E1C8600CC30CB /* OATHSession.swift */; };
+		B4BE3AAF292E1CBC00CC30CB /* Data+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AAE292E1CBC00CC30CB /* Data+Extensions.swift */; };
+		B4BE3AB1292E1E3800CC30CB /* CryptoKit+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AB0292E1E3800CC30CB /* CryptoKit+Extensions.swift */; };
+		B4BE3AB3292E1E6D00CC30CB /* TKTLVRecord+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AB2292E1E6D00CC30CB /* TKTLVRecord+Extensions.swift */; };
+		B4BE3AB5292E1ECB00CC30CB /* Sequence+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AB4292E1ECB00CC30CB /* Sequence+Extensions.swift */; };
+		B4BE3AB7292E207900CC30CB /* Array+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AB6292E207900CC30CB /* Array+Extensions.swift */; };
+		B4BE3ABA292E24C700CC30CB /* Base32.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AB9292E24C700CC30CB /* Base32.swift */; };
 		B4F068B92861CFC300555AFE /* SmartCardConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F068B82861CFC300555AFE /* SmartCardConnection.swift */; };
 /* End PBXBuildFile section */
 
@@ -48,10 +53,15 @@
 		B456E212274D2403004471DE /* NFCConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCConnection.swift; sourceTree = "<group>"; };
 		B456E214274D2453004471DE /* LightningConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LightningConnection.swift; sourceTree = "<group>"; };
 		B456E21A274FCA26004471DE /* ManagementSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementSession.swift; sourceTree = "<group>"; };
-		B456E21C2751392A004471DE /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
 		B456E21E27513CFE004471DE /* SmartCardInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCardInterface.swift; sourceTree = "<group>"; };
 		B4BE3AA7292BCA1300CC30CB /* OATHSession+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OATHSession+Extensions.swift"; sourceTree = "<group>"; };
-		B4BE3AA9292BCA5000CC30CB /* OATHSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = OATHSession.swift; path = YubiKit/OATHSession.swift; sourceTree = SOURCE_ROOT; };
+		B4BE3AAC292E1C8600CC30CB /* OATHSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OATHSession.swift; sourceTree = "<group>"; };
+		B4BE3AAE292E1CBC00CC30CB /* Data+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Extensions.swift"; sourceTree = "<group>"; };
+		B4BE3AB0292E1E3800CC30CB /* CryptoKit+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CryptoKit+Extensions.swift"; sourceTree = "<group>"; };
+		B4BE3AB2292E1E6D00CC30CB /* TKTLVRecord+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TKTLVRecord+Extensions.swift"; sourceTree = "<group>"; };
+		B4BE3AB4292E1ECB00CC30CB /* Sequence+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sequence+Extensions.swift"; sourceTree = "<group>"; };
+		B4BE3AB6292E207900CC30CB /* Array+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Array+Extensions.swift"; sourceTree = "<group>"; };
+		B4BE3AB9292E24C700CC30CB /* Base32.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Base32.swift; sourceTree = "<group>"; };
 		B4F068B82861CFC300555AFE /* SmartCardConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCardConnection.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -98,16 +108,16 @@
 				51BBE3E9273D1A3800DA47CC /* YubiKit.h */,
 				51BBE3EA273D1A3800DA47CC /* YubiKit.docc */,
 				B41B61832743FC2E004C37BF /* Connection.swift */,
-				B4451EFF275FD2B5002690BB /* APDU.swift */,
+				B41B61852743FC4E004C37BF /* Session.swift */,
 				B456E21E27513CFE004471DE /* SmartCardInterface.swift */,
 				B456E214274D2453004471DE /* LightningConnection.swift */,
 				B456E212274D2403004471DE /* NFCConnection.swift */,
 				B4F068B82861CFC300555AFE /* SmartCardConnection.swift */,
-				B41B61852743FC4E004C37BF /* Session.swift */,
-				B4BE3AA2292BC9ED00CC30CB /* OATH */,
-				B456E21A274FCA26004471DE /* ManagementSession.swift */,
-				B456E21C2751392A004471DE /* Utilities.swift */,
 				B40CBD5F29090C49007D7D23 /* Version.swift */,
+				B4451EFF275FD2B5002690BB /* APDU.swift */,
+				B4BE3AAB292E1C6400CC30CB /* Utilities */,
+				B4BE3AA2292BC9ED00CC30CB /* OATH */,
+				B4BE3AB8292E211F00CC30CB /* Management */,
 			);
 			path = YubiKit;
 			sourceTree = "<group>";
@@ -123,10 +133,31 @@
 		B4BE3AA2292BC9ED00CC30CB /* OATH */ = {
 			isa = PBXGroup;
 			children = (
-				B4BE3AA9292BCA5000CC30CB /* OATHSession.swift */,
+				B4BE3AAC292E1C8600CC30CB /* OATHSession.swift */,
 				B4BE3AA7292BCA1300CC30CB /* OATHSession+Extensions.swift */,
 			);
 			path = OATH;
+			sourceTree = "<group>";
+		};
+		B4BE3AAB292E1C6400CC30CB /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				B4BE3AAE292E1CBC00CC30CB /* Data+Extensions.swift */,
+				B4BE3AB0292E1E3800CC30CB /* CryptoKit+Extensions.swift */,
+				B4BE3AB2292E1E6D00CC30CB /* TKTLVRecord+Extensions.swift */,
+				B4BE3AB4292E1ECB00CC30CB /* Sequence+Extensions.swift */,
+				B4BE3AB6292E207900CC30CB /* Array+Extensions.swift */,
+				B4BE3AB9292E24C700CC30CB /* Base32.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		B4BE3AB8292E211F00CC30CB /* Management */ = {
+			isa = PBXGroup;
+			children = (
+				B456E21A274FCA26004471DE /* ManagementSession.swift */,
+			);
+			path = Management;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -239,17 +270,22 @@
 			buildActionMask = 2147483647;
 			files = (
 				B456E21F27513CFE004471DE /* SmartCardInterface.swift in Sources */,
+				B4BE3AB7292E207900CC30CB /* Array+Extensions.swift in Sources */,
+				B4BE3AAF292E1CBC00CC30CB /* Data+Extensions.swift in Sources */,
 				B4BE3AA8292BCA1300CC30CB /* OATHSession+Extensions.swift in Sources */,
 				B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */,
 				B4451F00275FD2B5002690BB /* APDU.swift in Sources */,
 				B456E213274D2403004471DE /* NFCConnection.swift in Sources */,
+				B4BE3AB3292E1E6D00CC30CB /* TKTLVRecord+Extensions.swift in Sources */,
 				B456E215274D2453004471DE /* LightningConnection.swift in Sources */,
+				B4BE3AB5292E1ECB00CC30CB /* Sequence+Extensions.swift in Sources */,
 				B41B61862743FC4E004C37BF /* Session.swift in Sources */,
 				B41B61842743FC2E004C37BF /* Connection.swift in Sources */,
-				B4BE3AAA292BCA5000CC30CB /* OATHSession.swift in Sources */,
+				B4BE3AAD292E1C8600CC30CB /* OATHSession.swift in Sources */,
+				B4BE3ABA292E24C700CC30CB /* Base32.swift in Sources */,
 				B4F068B92861CFC300555AFE /* SmartCardConnection.swift in Sources */,
-				B456E21D2751392A004471DE /* Utilities.swift in Sources */,
 				B40CBD6029090C49007D7D23 /* Version.swift in Sources */,
+				B4BE3AB1292E1E3800CC30CB /* CryptoKit+Extensions.swift in Sources */,
 				51BBE3EB273D1A3800DA47CC /* YubiKit.docc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -15,7 +15,7 @@ fileprivate let tagChallenge: TKTLVTag = 0x74
 fileprivate let typeHOTP: TKTLVTag = 0x77
 fileprivate let typeTouch: TKTLVTag = 0x7c
 
-fileprivate let defaultPeriod = 30.0
+let oathDefaultPeriod = 30.0
 
 public final class OATHSession: Session, InternalSession {
     
@@ -86,8 +86,35 @@ public final class OATHSession: Session, InternalSession {
         return nil
     }
     
-    public func addAccount(account: Account) async throws -> Account {
-        throw "Not implemented"
+    public func addAccount(template: AccountTemplate) async throws -> Account?{
+        guard let connection else { throw "No connection to YubiKey" }
+        // name
+        print(template.key)
+        guard let nameData = template.key.data(using: .utf8) else { throw "Failed encode account key" }
+        let nameTlv = TKBERTLVRecord(tag: 0x71, value: nameData)
+        // key
+        var keyData = Data()
+        
+//        keyData.append(UInt8(template.type.code | template.algorithm.rawValue).data)
+        keyData.append(template.type.code | template.algorithm.rawValue)
+        keyData.append(template.digits.data)
+        keyData.append(template.secret)
+        let keyTlv = TKBERTLVRecord(tag: 0x73, value: keyData)
+        
+        var data =  [nameTlv, keyTlv].recordsAsData()
+        if template.requiresTouch {
+            data.append(UInt8(0x78))
+            data.append(UInt8(0x02))
+        }
+        
+        if case let .HOTP(counter) = template.type {
+            data.append(UInt8(0x7a))
+            data.append(counter.data)
+        }
+        
+        let apdu = APDU(cla: 0x00, ins: 0x01, p1: 0x00, p2: 0x00, data: data, type: .short)
+        let resultData = try await connection.send(apdu: apdu)
+        return nil
     }
     
     public func listAccounts() async throws -> [Account] {
@@ -102,7 +129,7 @@ public final class OATHSession: Session, InternalSession {
             let typeCode = bytes[0] & 0xf0
             let accountType: AccountType
             if AccountType.isTOTP(typeCode) {
-                accountType = .TOTP(period: accountId.period ?? defaultPeriod)
+                accountType = .TOTP(period: accountId.period ?? oathDefaultPeriod)
             } else if AccountType.isHOTP(typeCode) {
                 accountType = .HOTP(counter: 0)
             } else {
@@ -160,13 +187,13 @@ public final class OATHSession: Session, InternalSession {
             if response.tag == typeHOTP {
                 accountType = .HOTP(counter: 0)
             } else {
-                accountType = .TOTP(period: accountId.period ?? defaultPeriod)
+                accountType = .TOTP(period: accountId.period ?? oathDefaultPeriod)
             }
             
             let account = Account(deviceId: self.deviceId, id: name.value, type: accountType, name: accountId.account, issuer: accountId.issuer)
             
             if response.value.count == 5 {
-                if accountId.period != defaultPeriod {
+                if accountId.period != oathDefaultPeriod {
                     let code = try await self.calculateCode(account: account, timestamp: timestamp)
                     return (account, code)
                 } else {

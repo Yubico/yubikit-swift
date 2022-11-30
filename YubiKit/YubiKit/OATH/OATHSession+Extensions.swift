@@ -7,19 +7,31 @@
 
 import Foundation
 
+private var hotpCode: UInt8 = 0x10
+private var totpCode: UInt8 = 0x20
+
 extension OATHSession {
     
     public enum AccountType: CustomStringConvertible {
         
-        case HOTP(counter: Int)
+        case HOTP(counter: UInt32)
         case TOTP(period: TimeInterval)
         
+        public var code: UInt8 {
+            switch self {
+            case .HOTP:
+                return hotpCode
+            case .TOTP:
+                return totpCode
+            }
+        }
+        
         static func isHOTP(_ code: UInt8) -> Bool {
-            return code == 0x10
+            return code == hotpCode
         }
         
         static func isTOTP(_ code: UInt8) -> Bool {
-            return code == 0x20
+            return code == totpCode
         }
         
         public var description: String {
@@ -141,5 +153,52 @@ extension OATHSession {
 
     }
     
+    
+    public struct AccountTemplate {
+        
+        private let minSecretLenght = 14
+        
+        public var key: String {
+            let key: String
+            if let issuer {
+                key = "\(issuer):\(name)"
+            } else {
+                key = name
+            }
+            if case let .TOTP(period) = type {
+                if period != oathDefaultPeriod {
+                    return "\(String(format: "%.0f", period))/\(key)"
+                } else {
+                    return key
+                }
+            } else {
+                return key
+            }
+        }
+        
+        public init(type: AccountType, algorithm: HashAlgorithm, secret: Data, issuer: String?, name: String, digits: UInt8, requiresTouch: Bool = false) {
+            self.type = type
+            self.algorithm = algorithm
+            if secret.count < minSecretLenght {
+                var mutableSecret = secret
+                mutableSecret.append(Data(count: minSecretLenght - secret.count))
+                self.secret = mutableSecret
+            } else {
+                self.secret = secret
+            }
+            self.issuer = issuer
+            self.name = name
+            self.digits = digits
+            self.requiresTouch = requiresTouch
+        }
+        
+        let type: AccountType
+        let algorithm: HashAlgorithm
+        let secret: Data
+        let issuer: String?
+        let name: String
+        let digits: UInt8
+        let requiresTouch: Bool
+    }
     
 }

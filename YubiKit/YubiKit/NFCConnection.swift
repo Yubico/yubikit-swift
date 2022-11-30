@@ -82,8 +82,13 @@ public final class NFCConnection: Connection, InternalConnection {
     
     public func send(apdu: APDU) async throws -> Data {
         guard tag.isAvailable else { throw "Tag not available" }
-        let result = try await tag.sendCommand(apdu: apdu.nfcIso7816Apdu!)
-        return result.0
+        print("APDU: \(apdu.apduData)")
+        guard let apdu = apdu.nfcIso7816Apdu else { throw "Malformed APDU data" }
+        let result: (Data, UInt8, UInt8) = try await tag.sendCommand(apdu: apdu)
+        var data = result.0
+        data.append(result.1.data)
+        data.append(result.2.data)
+        return data
     }
     
     public func connectionDidClose() async-> Error? {

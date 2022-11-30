@@ -11,11 +11,23 @@ import YubiKit
 @testable import FullStackTests
 
 class YubiKitFullStackTests: XCTestCase {
-
+    
+    func testAddAccount() throws {
+        runAsyncTest {
+            let connection = try await NFCConnection.connection()
+//            let connection = try await ConnectionHandler.anyConnection()
+            print("Got connection")
+            let session = try await OATHSession.session(withConnection: connection)
+            let secret = "abba".base32DecodedData!
+            print(secret.hexEncodedString)
+            let template = OATHSession.AccountTemplate(type: .TOTP(period: 30), algorithm: .SHA1, secret: secret, issuer: "issuer", name: "test@yubico.com", digits: 6, requiresTouch: true)
+            try await session.addAccount(template: template)
+        }
+    }
     
     func testListAccounts() throws {
         runAsyncTest {
-            let connection = try await NFCConnection.connection()
+            let connection = try await SmartCardConnection.connection()
             let session = try await OATHSession.session(withConnection: connection)
             let accounts = try await session.listAccounts()
             accounts.forEach {

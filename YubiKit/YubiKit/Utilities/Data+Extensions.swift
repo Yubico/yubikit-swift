@@ -1,45 +1,31 @@
 //
-//  File.swift
-//  
+//  Data+Extensions.swift
+//  YubiKit
 //
-//  Created by Jens Utbult on 2021-11-26.
+//  Created by Jens Utbult on 2022-11-23.
 //
 
-import Foundation
-import CryptoKit
-import CryptoTokenKit
-
-extension Array {
-    func tuples() -> [(Element, Element)]? {
-        if self.count % 2 == 0 {
-            return stride(from: 0, to: count, by: 2).map {
-                return (self[$0], self[$0.advanced(by: 1)])
-            }
-        } else {
-            return nil
-        }
-    }
-}
-
-public extension Sequence {
-    func asyncMap<T>(_ transform: (Element) async throws -> T) async rethrows -> [T] {
-        var values = [T]()
-        for element in self {
-            try await values.append(transform(element))
-        }
-        return values
-    }
-}
 
 extension Data {
-    mutating func appendBigEndian(value: UInt64, tag: UInt8) {
-        let bigValue = CFSwapInt64HostToBig(value)
-        self.append(tag)
-        self.append(bigValue.data)
+    
+    public var base32Padded: Data {
+        let padding: [UInt8]
+        switch self.count % 8 {
+        case 2:
+            padding = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        case 4:
+            padding = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        case 5:
+            padding = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        case 7:
+            padding = [0x00, 0x00, 0x00, 0x00]
+        default:
+            padding = []
+        }
+        var copy = self
+        copy.append(contentsOf: padding)
+        return copy
     }
-}
-
-extension Data {
     
     var bytes: [UInt8] {
         [UInt8](self)
@@ -87,7 +73,7 @@ extension Data {
         }
     }
     
-    var hexEncodedString: String {
+    public var hexEncodedString: String {
         return reduce("") {$0 + String(format: "%02x", $1)}
     }
 }
@@ -104,6 +90,10 @@ extension UInt8 {
     var data: Data {
         var int = self
         return Data(bytes: &int, count: MemoryLayout<UInt8>.size)
+    }
+    
+    var hexValue: String {
+        return String(format: "%02x", self)
     }
 }
 
@@ -147,22 +137,5 @@ extension UInt64 {
             UInt8((self & 0x000000000000FF00) >> 8),
             UInt8(self &  0x00000000000000FF)
         ]
-    }
-}
-
-extension CryptoKit.Digest {
-    var bytes: [UInt8] { Array(makeIterator()) }
-    var data: Data { Data(bytes) }
-
-    var hexStr: String {
-        bytes.map { String(format: "%02X", $0) }.joined()
-    }
-}
-
-extension TKTLVRecord {
-    static func dictionaryOfData(from data: Data) -> [TKTLVTag: Data]? {
-        self.sequenceOfRecords(from: data)?.reduce(into: [TKTLVTag: Data]()) {
-            $0[$1.tag] = $1.value
-        }
     }
 }
