@@ -1,21 +1,20 @@
 //
 //  Connection+Extensions.swift
-//  FullStackTestsTests
+//  YubiKit
 //
-//  Created by Jens Utbult on 2022-11-24.
+//  Created by Jens Utbult on 2022-12-02.
 //
 
 import Foundation
-import YubiKit
 import CoreNFC
 
-enum ConnectionHandler {
+public enum ConnectionHelper {
     
-    static func anyConnection() async throws -> Connection {
+    public static func anyConnection() async throws -> Connection {
         let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
-            if  NFCNDEFReaderSession.readingAvailable {
+            if NFCNDEFReaderSession.readingAvailable {
                 group.addTask {
-                    try await Task.sleep(nanoseconds: 1_000_000_000) // wait for lightning to connect for 1 second
+                    try await Task.sleep(for: .seconds(1)) // wait for wired connected yubikeys to connect before starting NFC
                     try Task.checkCancellation()
                     return try await NFCConnection.connection()
                 }

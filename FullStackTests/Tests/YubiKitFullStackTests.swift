@@ -14,20 +14,19 @@ class YubiKitFullStackTests: XCTestCase {
     
     func testAddAccount() throws {
         runAsyncTest {
-            let connection = try await NFCConnection.connection()
-//            let connection = try await ConnectionHandler.anyConnection()
-            print("Got connection")
+            let connection = try await ConnectionHelper.anyConnection()
+            print("ConnectionHandler.anyConnection() returned: \(connection)")
             let session = try await OATHSession.session(withConnection: connection)
             let secret = "abba".base32DecodedData!
             print(secret.hexEncodedString)
-            let template = OATHSession.AccountTemplate(type: .TOTP(period: 30), algorithm: .SHA1, secret: secret, issuer: "issuer", name: "test@yubico.com", digits: 6, requiresTouch: true)
+            let template = OATHSession.AccountTemplate(type: .TOTP(period: 30), algorithm: .SHA1, secret: secret, issuer: nil, name: "test", digits: 6, requiresTouch: false)
             try await session.addAccount(template: template)
         }
     }
     
     func testListAccounts() throws {
         runAsyncTest {
-            let connection = try await SmartCardConnection.connection()
+            let connection = try await ConnectionHelper.anyConnection()
             let session = try await OATHSession.session(withConnection: connection)
             let accounts = try await session.listAccounts()
             accounts.forEach {
@@ -39,7 +38,7 @@ class YubiKitFullStackTests: XCTestCase {
     
     func testListAccountsAndCalculate() throws {
         runAsyncTest {
-            let connection = try await NFCConnection.connection()
+            let connection = try await ConnectionHelper.anyConnection()
             let session = try await OATHSession.session(withConnection: connection)
             let accounts = try await session.listAccounts()
             let codes = try await accounts.asyncMap { account in
@@ -53,7 +52,7 @@ class YubiKitFullStackTests: XCTestCase {
     
     func testCalculateCodes() throws {
         runAsyncTest {
-            let connection = try await NFCConnection.connection()
+            let connection = try await ConnectionHelper.anyConnection()
             let session = try await OATHSession.session(withConnection: connection)
             let codes = try await session.calculateCodes()
             print("🦠 \(codes)")
@@ -63,7 +62,7 @@ class YubiKitFullStackTests: XCTestCase {
     
     func testQueuedCommands() throws {
         runAsyncTest {
-            let connection = try await NFCConnection.connection()
+            let connection = try await ConnectionHelper.anyConnection()
             let session = try await OATHSession.session(withConnection: connection)
             let taskOne = Task.detached(priority: .low) {
                 try await session.calculateCodes()

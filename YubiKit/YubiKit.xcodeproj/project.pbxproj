@@ -19,6 +19,8 @@
 		B456E215274D2453004471DE /* LightningConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E214274D2453004471DE /* LightningConnection.swift */; };
 		B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E21A274FCA26004471DE /* ManagementSession.swift */; };
 		B456E21F27513CFE004471DE /* SmartCardInterface.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E21E27513CFE004471DE /* SmartCardInterface.swift */; };
+		B47FDD992939FAD100AFF70A /* ConnectionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B47FDD982939FAD100AFF70A /* ConnectionHelper.swift */; };
+		B47FDD9B293A15AE00AFF70A /* NSLock+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B47FDD9A293A15AE00AFF70A /* NSLock+Extensions.swift */; };
 		B4BE3AA8292BCA1300CC30CB /* OATHSession+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AA7292BCA1300CC30CB /* OATHSession+Extensions.swift */; };
 		B4BE3AAD292E1C8600CC30CB /* OATHSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AAC292E1C8600CC30CB /* OATHSession.swift */; };
 		B4BE3AAF292E1CBC00CC30CB /* Data+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AAE292E1CBC00CC30CB /* Data+Extensions.swift */; };
@@ -54,6 +56,8 @@
 		B456E214274D2453004471DE /* LightningConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LightningConnection.swift; sourceTree = "<group>"; };
 		B456E21A274FCA26004471DE /* ManagementSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementSession.swift; sourceTree = "<group>"; };
 		B456E21E27513CFE004471DE /* SmartCardInterface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCardInterface.swift; sourceTree = "<group>"; };
+		B47FDD982939FAD100AFF70A /* ConnectionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionHelper.swift; sourceTree = "<group>"; };
+		B47FDD9A293A15AE00AFF70A /* NSLock+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSLock+Extensions.swift"; sourceTree = "<group>"; };
 		B4BE3AA7292BCA1300CC30CB /* OATHSession+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OATHSession+Extensions.swift"; sourceTree = "<group>"; };
 		B4BE3AAC292E1C8600CC30CB /* OATHSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OATHSession.swift; sourceTree = "<group>"; };
 		B4BE3AAE292E1CBC00CC30CB /* Data+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Extensions.swift"; sourceTree = "<group>"; };
@@ -148,6 +152,8 @@
 				B4BE3AB4292E1ECB00CC30CB /* Sequence+Extensions.swift */,
 				B4BE3AB6292E207900CC30CB /* Array+Extensions.swift */,
 				B4BE3AB9292E24C700CC30CB /* Base32.swift */,
+				B47FDD982939FAD100AFF70A /* ConnectionHelper.swift */,
+				B47FDD9A293A15AE00AFF70A /* NSLock+Extensions.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -274,7 +280,9 @@
 				B4BE3AAF292E1CBC00CC30CB /* Data+Extensions.swift in Sources */,
 				B4BE3AA8292BCA1300CC30CB /* OATHSession+Extensions.swift in Sources */,
 				B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */,
+				B47FDD992939FAD100AFF70A /* ConnectionHelper.swift in Sources */,
 				B4451F00275FD2B5002690BB /* APDU.swift in Sources */,
+				B47FDD9B293A15AE00AFF70A /* NSLock+Extensions.swift in Sources */,
 				B456E213274D2403004471DE /* NFCConnection.swift in Sources */,
 				B4BE3AB3292E1E6D00CC30CB /* TKTLVRecord+Extensions.swift in Sources */,
 				B456E215274D2453004471DE /* LightningConnection.swift in Sources */,
