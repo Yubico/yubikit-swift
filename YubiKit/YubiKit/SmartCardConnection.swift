@@ -13,12 +13,13 @@ fileprivate class SmartCardManager {
     
     private let manager = TKSmartCardSlotManager.default
     private var currrentSlot: TKSmartCardSlot?
+    private var currentSmartCard: TKSmartCard?
     private var connectingCallback: ((Result<TKSmartCard, Error>) -> Void)? = nil
     private var closingCallback: ((Error?) -> Void)? = nil
     private var managerObservation: NSKeyValueObservation?
     private var slotObservation: NSKeyValueObservation?
 
-    public func connect(_ callback: @escaping (Result<TKSmartCard, Error>) -> Void) {
+    internal func connect(_ callback: @escaping (Result<TKSmartCard, Error>) -> Void) {
         guard connectingCallback == nil else {
             fatalError("Connecting callback already registered!")
         }
@@ -30,10 +31,8 @@ fileprivate class SmartCardManager {
         
         self.connectingCallback = callback
         
-        if let slotName = manager.slotNames.first, let slot = manager.slotNamed(slotName), let smartCard = slot.makeSmartCard() {
-            smartCard.beginSession { [weak self] success, error in
-                self?.handleSession(smartCard: smartCard, success: success, error: error)
-            }
+        if let slotName = manager.slotNames.first, let slot = manager.slotNamed(slotName), slot.state == .validCard {
+            beginSession(withSlot: slot)
         } else {
             // Observe new connection and its subsequent disconnect
             self.observeManagerChanges()
@@ -41,7 +40,7 @@ fileprivate class SmartCardManager {
         
     }
     
-    public func connectionDidClose(_ callback: @escaping (Error?) -> Void) {
+    internal func connectionDidClose(_ callback: @escaping (Error?) -> Void) {
         guard closingCallback == nil else {
             fatalError("Closing callback already registered!")
         }
@@ -50,9 +49,10 @@ fileprivate class SmartCardManager {
     
     // 1. waiting for initial connection OR 2. already connected and waiting for disconnect
     private func observeManagerChanges() {
-        slotObservation = manager?.observe(\TKSmartCardSlotManager.slotNames) { [weak self] manager, value in
+        managerObservation = manager?.observe(\TKSmartCardSlotManager.slotNames) { [weak self] manager, value in
             print("Got changes in slotNames: \(value)")
             if manager.slotNames.isEmpty {
+                // shouuld this be done in observeSlotChanges?
                 print("TKSmartCardSlot removed")
                 self?.closingCallback?(nil)
                 self?.currrentSlot = nil
@@ -61,6 +61,7 @@ fileprivate class SmartCardManager {
             }
             if self?.connectingCallback != nil, let slotName = manager.slotNames.first {
                 manager.getSlot(withName: slotName) { slot in
+                    print("Got a slot from \(slotName)")
                     self?.observeSlotChanges(slot: slot!)
                 }
             }
@@ -70,27 +71,44 @@ fileprivate class SmartCardManager {
     private func observeSlotChanges(slot: TKSmartCardSlot) {
         print("Start observing changes to the current TKSmartCardSlot")
         currrentSlot = slot
-        slotObservation = currrentSlot?.observe(\TKSmartCardSlot.state) { [weak self] slot, value in
-            if slot.state == .validCard {
-                if let smartCard = self?.currrentSlot?.makeSmartCard() {
-                    smartCard.beginSession { [weak self] success, error in
-                        self?.handleSession(smartCard: smartCard, success: success, error: error)
-                    }
+        if slot.state == .validCard {
+            beginSession(withSlot: slot)
+        } else {
+            slotObservation = currrentSlot?.observe(\TKSmartCardSlot.state) { [weak self] slot, value in
+                if slot.state == .validCard {
+                    self?.beginSession(withSlot: slot)
                 }
+                print("TKSmartCardSlot.state changed to: \(slot.state)")
             }
-            print("TKSmartCardSlot.state changed to: \(slot.state)")
         }
     }
     
-    private func handleSession(smartCard: TKSmartCard, success: Bool, error: Error?) {
-        if success {
-            connectingCallback?(.success(smartCard))
-            connectingCallback = nil
-            observeManagerChanges()
-        } else {
-            connectingCallback?(.failure(error ?? "Failed but got no error!"))
-            connectingCallback = nil
+    private func beginSession(withSlot slot: TKSmartCardSlot) {
+        self.currrentSlot = slot
+        if let smartCard = slot.makeSmartCard() {
+            smartCard.beginSession { [weak self] success, error in
+                if success {
+                    self?.currentSmartCard = smartCard
+                    self?.connectingCallback?(.success(smartCard))
+                    self?.connectingCallback = nil
+                    self?.observeManagerChanges()
+                } else {
+                    self?.connectingCallback?(.failure(error ?? "Failed but got no error!"))
+                    self?.connectingCallback = nil
+                }
+            }
         }
+    }
+    
+    internal func endSession() {
+        print("End SmartCard session")
+        connectingCallback = nil
+        closingCallback = nil
+        slotObservation = nil
+        managerObservation = nil
+        currentSmartCard?.endSession()
+        currentSmartCard = nil
+        currrentSlot = nil
     }
 }
 
@@ -131,6 +149,7 @@ public final class SmartCardConnection: Connection, InternalConnection {
                                     connectionContinuations.forEach { continuation in
                                         continuation.resume(returning: connection)
                                     }
+                                    connectionContinuations.removeAll()
                                 case .failure(let error):
                                     connectionContinuations.forEach { continuation in
                                         continuation.resume(throwing: error)
@@ -148,10 +167,12 @@ public final class SmartCardConnection: Connection, InternalConnection {
             }
         } onCancel: {
             connectingLock.with {
+                // we should probably only cancel the continuation associated with this 
                 print("Cancel all continuations!")
                 connectionContinuations.forEach { continuation in
                     continuation.resume(throwing: CancellationError())
                 }
+                manager.endSession()
                 connectionContinuations.removeAll()
             }
         }
@@ -169,10 +190,12 @@ public final class SmartCardConnection: Connection, InternalConnection {
         return await withTaskCancellationHandler {
             return await withCheckedContinuation { continuation in
                 Self.closingLock.with {
+                    Self.connection = nil
                     if Self.closingContinuations.isEmpty {
                         Self.closingContinuations.append(continuation)
                         Self.manager.connectionDidClose { error in
                             Self.closingContinuations.forEach { $0.resume(returning: error) }
+                            Self.closingContinuations.removeAll()
                         }
                     } else {
                         Self.closingContinuations.append(continuation)
@@ -186,12 +209,15 @@ public final class SmartCardConnection: Connection, InternalConnection {
                     continuation.resume(returning: CancellationError())
                 }
                 Self.closingContinuations.removeAll()
+                // should we end the session when the close task is cancelled?
+                Self.manager.endSession()
             }
         }
     }
     
     public func send(apdu: APDU) async throws -> Data {
         let result = try await smartCard.transmit(apdu.apduData)
+        return result.subdata(in: 0..<result.count - 2)
         print("SmarCard result: \(result.hexEncodedString)")
         return result
     }

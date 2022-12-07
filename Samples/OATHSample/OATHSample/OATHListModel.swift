@@ -18,20 +18,10 @@ import YubiKit
 
 class OATHListModel: ObservableObject {
     @Published private(set) var errorMessage: String?
-    @Published private(set) var codes = [Code]()
+    @Published private(set) var codes = [OATHSession.Code]()
     @Published private(set) var source = "no connection"
     
-    private var connectionHandler = ConnectionHandler()
-    
     private var wiredConnectionTask: Task<Void, Never>?
-    
-    @MainActor func simulateYubiKey(insert: Bool) {
-        #if os(iOS)
-        Task {
-            await LightningConnection.simulateYubiKey(inserted: insert)
-        }
-        #endif
-    }
     
     func stopWiredConnection() {
         wiredConnectionTask?.cancel()
@@ -39,26 +29,19 @@ class OATHListModel: ObservableObject {
     
     @MainActor func startWiredConnection() {
         print("startWiredConnection()")
-        #if os(iOS)
-        calculateCodes(connectionType: .lightning)
-        #else
-        calculateCodes(connectionType: .smartCard)
-        #endif
-        
+        calculateCodes(useWiredConnection: true)
+
         wiredConnectionTask?.cancel()
         wiredConnectionTask = Task {
             do {
-                #if os(iOS)
-                let connection = try await self.connectionHandler.connection(type: .lightning)
-                #else
-                let connection = try await self.connectionHandler.connection(type: .smartCard)
-                #endif
+                let connection = try await ConnectionHelper.anyWiredConnection()
                 if Task.isCancelled { print("Task cancelled, bailot"); return }
                 print("Got connection in startWiredConnection(), lets wait for it to close...")
                 let closingError = await connection.connectionDidClose()
                 print("Wired connection closed with error: \(closingError ?? "no error")")
                 codes.removeAll()
                 source = "no connection"
+                guard !Task.isCancelled else { return }
                 self.startWiredConnection()
             } catch {
                 print("Wired connection failed with error: \(error)")
@@ -66,25 +49,34 @@ class OATHListModel: ObservableObject {
         }
     }
     
-    @MainActor func calculateCodes(connectionType: ConnectionHandler.ConnectionType) {
-        print("await calculateCodes(\(connectionType))")
+    @MainActor func calculateCodes(useWiredConnection: Bool = false) {
+        print("await calculateCodes()")
         Task {
             self.errorMessage = nil
             do {
-                let connection = try await self.connectionHandler.connection(type: connectionType)
-                if Task.isCancelled { print("task cancelled, bailot"); return }
+                #if os(iOS)
+                let connection = useWiredConnection ? try await ConnectionHelper.anyWiredConnection() : try await NFCConnection.connection()
+                #else
+                // Always use wired connection on macOS
+                let connection = try await ConnectionHelper.anyConnection()
+                #endif
+
                 print("Got connection in calculateCodes()")
                 let session = try await OATHSession.session(withConnection: connection)
-                self.codes = try await session.calculateCodes()
+                print("Got session in calculateCodes()")
+                let result = try await session.calculateCodes()
+                print("Got result \(result) in calculateCodes()")
+                self.codes = result.map { return $0.1 }.compactMap { $0 }
+                print("self.codes: \(self.codes)")
                 #if os(iOS)
-                if connection.type == .nfc {
+                if connection as? NFCConnection != nil {
                     self.source =  "NFC"
                     await session.end(withConnectionStatus: .close(.success("Calculated codes")))
                 } else {
-                    self.source = "lightning"
+                    self.source = connection as? SmartCardConnection != nil ? "SmartCard" : "lightning"
                 }
                 #else
-                self.source = "smart card"
+                self.source = "SmartCard"
                 #endif
             } catch {
                 self.errorMessage = error.localizedDescription

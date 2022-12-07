@@ -13,7 +13,6 @@ struct OATHListView: View {
     
     @StateObject var model = OATHListModel()
     @State private var isShowingSettings = false
-    @State private var isKeyInserted = false
 
     var body: some View {
         NavigationView {
@@ -23,12 +22,6 @@ struct OATHListView: View {
             .navigationTitle("Codes (\(model.source))")
             #if os(iOS)
             .toolbar(content: {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button( "\(isKeyInserted ? "Remove YubiKey" : "Insert YubiKey")") {
-                        isKeyInserted.toggle()
-                        model.simulateYubiKey(insert: isKeyInserted)
-                    }
-                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: { model.stopWiredConnection(); isShowingSettings.toggle() }) {
                         Image(systemName: "ellipsis.circle")
@@ -41,7 +34,7 @@ struct OATHListView: View {
                 }
             })
             .refreshable {
-                model.calculateCodes(connectionType: .nfc)
+                model.calculateCodes()
             }
             #endif
         }
