@@ -14,8 +14,8 @@ extension OATHSession {
     
     public enum AccountType: CustomStringConvertible {
         
-        case HOTP(counter: UInt32)
-        case TOTP(period: TimeInterval)
+        case HOTP(counter: UInt32 = 0)
+        case TOTP(period: TimeInterval = 30)
         
         public var code: UInt8 {
             switch self {

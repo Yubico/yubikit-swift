@@ -23,33 +23,39 @@ public final class OATHSession: Session, InternalSession {
     private var sessionEnded = false
     var endingResult: Result<String, Error>?
     
-    private let salt: Data
-    private let challenge: Data?
-    private let version: Version
-    private let deviceId: String
+    private struct SelectResponse {
+        let salt: Data
+        let challenge: Data?
+        let version: Version
+        let deviceId: String
+    }
+    
+    private var selectResponse: SelectResponse
     
     private init(connection: Connection) async throws {
+        selectResponse = try await Self.selectApplication(withConnection: connection)
+        self.connection = connection
+        var internalConnection = self.internalConnection
+        internalConnection.session = self
+    }
+    
+    private static func selectApplication(withConnection connection: Connection) async throws -> SelectResponse {
         let data = Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x21, 0x01])
         let selectOathApdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, data: data, type: .short)
         let resultData = try await connection.send(apdu: selectOathApdu)
         guard let result = TKBERTLVRecord.dictionaryOfData(from: resultData) else { throw "OATH response data not TLV formatted" }
         
-        challenge = result[tagChallenge]
-
+        let challenge = result[tagChallenge]
+        
         guard let versionData = result[tagVersion],
               let version = Version(withData: versionData) else { throw "Missing version information in OATH response" }
-        self.version = version
         
         guard let salt = result[tagName] else { throw "Missing salt in OATH response" }
-        self.salt = salt
         
         let digest = SHA256.hash(data: salt)
         guard digest.data.count >= 16 else { throw "Failed deriving device id. To little data." }
-        deviceId = digest.data.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
-        
-        self.connection = connection
-        var internalConnection = self.internalConnection
-        internalConnection.session = self
+        let deviceId = digest.data.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
+        return SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
     }
     
     public static func session(withConnection connection: Connection) async throws -> OATHSession {
@@ -86,7 +92,15 @@ public final class OATHSession: Session, InternalSession {
         return nil
     }
     
-    public func addAccount(template: AccountTemplate) async throws -> Account?{
+    public func reset() async throws {
+        guard let connection else { throw "No connection to YubiKey" }
+        print("Reset OATH application")
+        let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad, data: nil, type: .short)
+        _ = try await connection.send(apdu: apdu)
+        selectResponse = try await Self.selectApplication(withConnection: connection)
+    }
+    
+    @discardableResult public func addAccount(template: AccountTemplate) async throws -> Account? {
         guard let connection else { throw "No connection to YubiKey" }
         // name
         print(template.key)
@@ -108,8 +122,7 @@ public final class OATHSession: Session, InternalSession {
         }
         
         if case let .HOTP(counter) = template.type {
-            data.append(UInt8(0x7a))
-            data.append(counter.data)
+            data.append(TKBERTLVRecord(tag: 0x7a, value: counter.data).data)
         }
         
         let apdu = APDU(cla: 0x00, ins: 0x01, p1: 0x00, p2: 0x00, data: data, type: .short)
@@ -138,12 +151,12 @@ public final class OATHSession: Session, InternalSession {
             
             guard let hashAlgorithm = HashAlgorithm(rawValue: bytes[0] & 0x0f) else { throw "Mising hash algorithm" }
 
-            return Account(deviceId: deviceId, id: $0.value.dropFirst(), type: accountType, hashAlgorithm: hashAlgorithm, name: accountId.account, issuer: accountId.issuer)
+            return Account(deviceId: selectResponse.deviceId, id: $0.value.dropFirst(), type: accountType, hashAlgorithm: hashAlgorithm, name: accountId.account, issuer: accountId.issuer)
         }
     }
     
     public func calculateCode(account: Account, timestamp: Date = Date()) async throws -> Code {
-        guard account.deviceId == self.deviceId else { throw "The given account belongs to a different YubiKey." }
+        guard account.deviceId == self.selectResponse.deviceId else { throw "The given account belongs to a different YubiKey." }
         let challengeTLV: TKBERTLVRecord
         
         switch account.type {
@@ -190,7 +203,7 @@ public final class OATHSession: Session, InternalSession {
                 accountType = .TOTP(period: accountId.period ?? oathDefaultPeriod)
             }
             
-            let account = Account(deviceId: self.deviceId, id: name.value, type: accountType, name: accountId.account, issuer: accountId.issuer)
+            let account = Account(deviceId: self.selectResponse.deviceId, id: name.value, type: accountType, name: accountId.account, issuer: accountId.issuer)
             
             if response.value.count == 5 {
                 if accountId.period != oathDefaultPeriod {
