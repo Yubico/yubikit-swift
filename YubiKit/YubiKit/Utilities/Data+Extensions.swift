@@ -8,25 +8,6 @@
 
 extension Data {
     
-    public var base32Padded: Data {
-        let padding: [UInt8]
-        switch self.count % 8 {
-        case 2:
-            padding = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-        case 4:
-            padding = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-        case 5:
-            padding = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-        case 7:
-            padding = [0x00, 0x00, 0x00, 0x00]
-        default:
-            padding = []
-        }
-        var copy = self
-        copy.append(contentsOf: padding)
-        return copy
-    }
-    
     var bytes: [UInt8] {
         [UInt8](self)
     }

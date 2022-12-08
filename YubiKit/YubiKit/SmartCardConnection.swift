@@ -215,10 +215,8 @@ public final class SmartCardConnection: Connection, InternalConnection {
         }
     }
     
-    public func send(apdu: APDU) async throws -> Data {
-        let result = try await smartCard.transmit(apdu.apduData)
-        return result.subdata(in: 0..<result.count - 2)
-        print("SmarCard result: \(result.hexEncodedString)")
-        return result
+    public func send(apdu: APDU) async throws -> Response {
+        let data = try await smartCard.transmit(apdu.apduData)
+        return Response(rawData: data)
     }
 }

@@ -47,7 +47,7 @@ public final class LightningConnection: Connection, InternalConnection {
         }
     }
 
-    public func send(apdu: APDU) async throws -> Data {
+    public func send(apdu: APDU) async throws -> Response {
         throw("not implemented")
     }
     
