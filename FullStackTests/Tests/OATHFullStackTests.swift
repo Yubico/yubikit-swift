@@ -12,6 +12,19 @@ import YubiKit
 
 class OATHFullStackTests: XCTestCase {
     
+    func testReadChunkedData() throws {
+        runOATHTest { session in
+            for n in 0...14 {
+                let secret = "abba".base32DecodedData!
+                let accountOne = OATHSession.AccountTemplate(type: .TOTP(), algorithm: .SHA1, secret: secret, issuer: "Yubico-\(n)", name: "test@yubico.com", digits: 6)
+                try await session.addAccount(template: accountOne)
+            }
+            let result = try await session.calculateCodes()
+            XCTAssert(result.count == 20)
+            print(result)
+        }
+    }
+    
     func testListAccounts() throws {
         runOATHTest { session in
             let accounts = try await session.listAccounts()
@@ -86,15 +99,15 @@ extension XCTestCase {
             if populated {
                 let secret = "abba".base32DecodedData!
                 let accountOne = OATHSession.AccountTemplate(type: .TOTP(), algorithm: .SHA1, secret: secret, issuer: "TOTP SHA1", name: "6 digits, 30 sec", digits: 6)
-                _ = try await session.addAccount(template: accountOne)
+                try await session.addAccount(template: accountOne)
                 let accountTwo = OATHSession.AccountTemplate(type: .TOTP(), algorithm: .SHA256, secret: secret, issuer: "TOTP SHA256", name: "6 digits, 30 sec", digits: 6)
-                _ = try await session.addAccount(template: accountTwo)
+                try await session.addAccount(template: accountTwo)
                 let accountThree = OATHSession.AccountTemplate(type: .TOTP(period: 15), algorithm: .SHA1, secret: secret, issuer: nil, name: "TOTP SHA1 15s no issuer", digits: 8)
-                _ = try await session.addAccount(template: accountThree)
+                try await session.addAccount(template: accountThree)
                 let accountFour = OATHSession.AccountTemplate(type: .TOTP(), algorithm: .SHA256, secret: secret, issuer: "TOTP SHA256", name: "requires touch, 6 digits, 30 sec", digits: 6, requiresTouch: true)
-                _ = try await session.addAccount(template: accountFour)
+                try await session.addAccount(template: accountFour)
                 let accountFive = OATHSession.AccountTemplate(type: .HOTP(), algorithm: .SHA1, secret: secret, issuer: "HOTP SHA1", name: "6 digits, counter = 0", digits: 6)
-                _ = try await session.addAccount(template: accountFive)
+                try await session.addAccount(template: accountFive)
             }
             
             try await test(session)

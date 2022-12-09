@@ -96,7 +96,7 @@ public final class OATHSession: Session, InternalSession {
         guard let connection else { throw "No connection to YubiKey" }
         print("Reset OATH application")
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad, data: nil, type: .short)
-        _ = try await connection.send(apdu: apdu)
+        _ = try await connection.send(apdu: apdu, isOATH: true)
         selectResponse = try await Self.selectApplication(withConnection: connection)
     }
     
@@ -126,15 +126,15 @@ public final class OATHSession: Session, InternalSession {
         }
         
         let apdu = APDU(cla: 0x00, ins: 0x01, p1: 0x00, p2: 0x00, data: data, type: .short)
-        let resultData = try await connection.send(apdu: apdu)
+        _ = try await connection.send(apdu: apdu, isOATH: true)
         return nil
     }
     
     public func listAccounts() async throws -> [Account] {
         guard let connection else { throw "No connection to YubiKey" }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0, data: nil, type: .short)
-        let response = try await connection.send(apdu: apdu)
-        guard let result = TKBERTLVRecord.sequenceOfRecords(from: response.data) else { throw "OATH response data not TLV formatted" }
+        let data: Data = try await connection.send(apdu: apdu, isOATH: true)
+        guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else { throw "OATH response data not TLV formatted" }
         return try result.map {
             guard $0.tag == 0x72 else { throw "Unexpected tag" }
             guard let accountId = AccountIdParser(data: $0.value.dropFirst()) else { throw "Malformed account data" }
@@ -156,6 +156,8 @@ public final class OATHSession: Session, InternalSession {
     }
     
     public func calculateCode(account: Account, timestamp: Date = Date()) async throws -> Code {
+        guard let connection else { throw "No connection to YubiKey" }
+
         guard account.deviceId == self.selectResponse.deviceId else { throw "The given account belongs to a different YubiKey." }
         let challengeTLV: TKBERTLVRecord
         
@@ -170,9 +172,10 @@ public final class OATHSession: Session, InternalSession {
         }
         
         let nameTLV = TKBERTLVRecord(tag: tagName, value: account.id)
-        let calculateApdu = APDU(cla: 0x00, ins: 0xa2, p1: 0, p2: 1, data: nameTLV.data + challengeTLV.data, type: .extended)
-        guard let response = try await connection?.send(apdu: calculateApdu) else { throw "Unexpected return data." }
-        guard let result = TKBERTLVRecord.init(from: response.data) else { throw "Failed parsing response data into tlv" }
+        let apdu = APDU(cla: 0x00, ins: 0xa2, p1: 0, p2: 1, data: nameTLV.data + challengeTLV.data, type: .extended)
+        
+        let data = try await connection.send(apdu: apdu, isOATH: true)
+        guard let result = TKBERTLVRecord.init(from: data) else { throw "Failed parsing response data into tlv" }
         
         guard let digits = result.value.first else { throw "No code" }
         let code = UInt32(bigEndian: result.value.subdata(in: 1..<result.value.count).uint32)
@@ -186,10 +189,10 @@ public final class OATHSession: Session, InternalSession {
         let challenge = UInt64(time / 30)
         let bigChallenge = CFSwapInt64HostToBig(challenge)
         let challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
-        let calculateAllApdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, data: challengeTLV.data, type: .short)
+        let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, data: challengeTLV.data, type: .short)
         guard let connection else { throw "No connection to YubiKey" }
-        let response = try await connection.send(apdu: calculateAllApdu)
-        guard let result = TKBERTLVRecord.sequenceOfRecords(from: response.data)?.tuples() else { throw "Unexpected return data" }
+        let data = try await connection.send(apdu: apdu, isOATH: true)
+        guard let result = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else { throw "Unexpected return data" }
         
         return try await result.asyncMap { (name, response) in
             guard name.tag == 0x71 else { throw "Unexpected tag" }

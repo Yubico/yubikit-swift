@@ -15,13 +15,12 @@ public struct Response: CustomStringConvertible {
         } else {
             data = Data()
         }
-        statusCode = StatusCode(rawValue: rawData.subdata(in: rawData.count - 2..<rawData.count).uint16)!
+        statusCode = StatusCode(data: rawData.subdata(in: rawData.count - 2..<rawData.count))!
     }
     
     internal init(data: Data, sw1: UInt8, sw2: UInt8) {
         self.data = data
-        print(UInt16(sw1) << 8 + UInt16(sw2))
-        statusCode = StatusCode(rawValue: UInt16(sw1) << 8 + UInt16(sw2))!
+        statusCode = StatusCode(sw1: sw1, sw2: sw2)!
     }
     
     public let data: Data
@@ -31,6 +30,7 @@ public struct Response: CustomStringConvertible {
     }
 
     public enum StatusCode: UInt16 {
+        
         case ok = 0x9000
         case fido2TouchRequired = 0x9100
         case conditionNotSatisfied = 0x6985
@@ -44,6 +44,31 @@ public struct Response: CustomStringConvertible {
         case commandAborted = 0x6F00
         case missingFile = 0x6A82
 
-        case moreData = 0x61 // 0x61XX
+        // sw2 is ignored when sw1 is 0x61
+        case moreData = 0x6100 // 0x61XX
+        
+        init?(sw1: UInt8, sw2: UInt8) {
+            if sw1 == 0x61 {
+                self.init(rawValue: UInt16(sw1) << 8 + UInt16(0))
+            } else {
+                self.init(rawValue: UInt16(sw1) << 8 + UInt16(sw2))
+            }
+        }
+        
+        init?(data: Data) {
+            let value = data.uint16
+            if UInt8(value >> 8) == 0x61 {
+                self.init(rawValue: UInt16(0x61) << 8 + UInt16(0))
+            } else {
+                self.init(rawValue: value)
+            }
+        }
+        
+        var sw1: UInt8 {
+            UInt8((self.rawValue & 0xff00) >> 8)
+        }
+        var sw2: UInt8 {
+            UInt8(self.rawValue & 0x00ff)
+        }
     }
 }
