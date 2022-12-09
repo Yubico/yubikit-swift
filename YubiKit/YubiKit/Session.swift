@@ -33,3 +33,8 @@ extension InternalSession {
         }
     }
 }
+
+public enum SessionError: Error {
+    case missingApplication
+    case unexpectedStatusCode
+}

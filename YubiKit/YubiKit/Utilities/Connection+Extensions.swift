@@ -11,16 +11,52 @@ public struct ResponseError: Error {
     let statusCode: Response.StatusCode
 }
 
-extension Connection {
+enum Application {
+    case oath
+    case management
+    
+    var selectApplicationAPDU: APDU {
+        let data: Data
+        switch self {
+        case .oath:
+            data = Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x21, 0x01])
+        case .management:
+            data = Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17])
+        }
+        return APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, data: data, type: .short)
+    }
+}
 
-    func send(apdu: APDU, isOATH: Bool = false) async throws -> Data {
-        return try await sendRecursive(apdu: apdu, isOATH: isOATH)
+extension Connection {
+    
+    func selectApplication(application: Application) async throws -> Data {
+        let response: Response = try await send(apdu: application.selectApplicationAPDU)
+        switch response.statusCode {
+        case .ok:
+            return response.data
+        case .insNotSupported, .missingFile:
+            throw SessionError.missingApplication
+        default:
+            throw SessionError.unexpectedStatusCode
+        }
     }
     
-    private func sendRecursive(apdu: APDU, isOATH: Bool = false, data: Data = Data(), readMoreData: Bool = false) async throws -> Data {
+    func send(apdu: APDU) async throws -> Data {
+        return try await sendRecursive(apdu: apdu)
+    }
+    
+    private func sendRecursive(apdu: APDU, data: Data = Data(), readMoreData: Bool = false) async throws -> Data {
         let response: Response
+        
+        let ins: UInt8
+        if let internalConnection = self as? InternalConnection, internalConnection.session as? OATHSession != nil {
+            ins = 0xa5
+        } else {
+            ins = 0xc0
+        }
+
         if readMoreData {
-            let apdu =  APDU(cla: 0, ins: isOATH ? 0xa5 : 0xc0, p1: 0, p2: 0, data: nil, type: .short)
+            let apdu =  APDU(cla: 0, ins: ins, p1: 0, p2: 0, data: nil, type: .short)
             response = try await send(apdu: apdu)
         } else {
             response = try await send(apdu: apdu)
@@ -32,7 +68,7 @@ extension Connection {
         
         let newData = data + response.data
         if response.statusCode == .moreData {
-            return try await sendRecursive(apdu: apdu, isOATH: isOATH, data: newData, readMoreData: true)
+            return try await sendRecursive(apdu: apdu, data: newData, readMoreData: true)
         } else {
             return newData
         }

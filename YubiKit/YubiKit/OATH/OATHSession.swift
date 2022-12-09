@@ -33,18 +33,16 @@ public final class OATHSession: Session, InternalSession {
     private var selectResponse: SelectResponse
     
     private init(connection: Connection) async throws {
-        selectResponse = try await Self.selectApplication(withConnection: connection)
+        self.selectResponse = try await Self.selectApplication(withConnection: connection)
         self.connection = connection
         var internalConnection = self.internalConnection
         internalConnection.session = self
     }
     
     private static func selectApplication(withConnection connection: Connection) async throws -> SelectResponse {
-        let data = Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x21, 0x01])
-        let selectOathApdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, data: data, type: .short)
-        let resultData = try await connection.send(apdu: selectOathApdu)
-        guard let result = TKBERTLVRecord.dictionaryOfData(from: resultData.data) else { throw "OATH response data not TLV formatted" }
-        
+        let data: Data = try await connection.selectApplication(application: .oath)
+        guard let result = TKBERTLVRecord.dictionaryOfData(from: data) else { throw "OATH response data not TLV formatted" }
+
         let challenge = result[tagChallenge]
         
         guard let versionData = result[tagVersion],
@@ -96,7 +94,7 @@ public final class OATHSession: Session, InternalSession {
         guard let connection else { throw "No connection to YubiKey" }
         print("Reset OATH application")
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad, data: nil, type: .short)
-        _ = try await connection.send(apdu: apdu, isOATH: true)
+        let _: Data = try await connection.send(apdu: apdu)
         selectResponse = try await Self.selectApplication(withConnection: connection)
     }
     
@@ -126,14 +124,14 @@ public final class OATHSession: Session, InternalSession {
         }
         
         let apdu = APDU(cla: 0x00, ins: 0x01, p1: 0x00, p2: 0x00, data: data, type: .short)
-        _ = try await connection.send(apdu: apdu, isOATH: true)
+        let _: Data = try await connection.send(apdu: apdu)
         return nil
     }
     
     public func listAccounts() async throws -> [Account] {
         guard let connection else { throw "No connection to YubiKey" }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0, data: nil, type: .short)
-        let data: Data = try await connection.send(apdu: apdu, isOATH: true)
+        let data: Data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else { throw "OATH response data not TLV formatted" }
         return try result.map {
             guard $0.tag == 0x72 else { throw "Unexpected tag" }
@@ -174,7 +172,7 @@ public final class OATHSession: Session, InternalSession {
         let nameTLV = TKBERTLVRecord(tag: tagName, value: account.id)
         let apdu = APDU(cla: 0x00, ins: 0xa2, p1: 0, p2: 1, data: nameTLV.data + challengeTLV.data, type: .extended)
         
-        let data = try await connection.send(apdu: apdu, isOATH: true)
+        let data: Data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.init(from: data) else { throw "Failed parsing response data into tlv" }
         
         guard let digits = result.value.first else { throw "No code" }
@@ -191,7 +189,7 @@ public final class OATHSession: Session, InternalSession {
         let challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, data: challengeTLV.data, type: .short)
         guard let connection else { throw "No connection to YubiKey" }
-        let data = try await connection.send(apdu: apdu, isOATH: true)
+        let data: Data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else { throw "Unexpected return data" }
         
         return try await result.asyncMap { (name, response) in
