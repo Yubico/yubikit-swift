@@ -22,10 +22,10 @@ public enum ConnectionHelper {
                     return try await NFCConnection.connection()
                 }
             }
+            group.addTask {
+                return try await LightningConnection.connection()
+            }
 #endif
-//            group.addTask {
-//                return try await LightningConnection.connection()
-//            }
             group.addTask {
                 return try await SmartCardConnection.connection()
             }
@@ -41,9 +41,9 @@ public enum ConnectionHelper {
     
     public static func anyWiredConnection() async throws -> Connection {
         let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
-//            group.addTask {
-//                return try await LightningConnection.connection()
-//            }
+            group.addTask {
+                return try await LightningConnection.connection()
+            }
             group.addTask {
                 return try await SmartCardConnection.connection()
             }

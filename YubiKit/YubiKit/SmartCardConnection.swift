@@ -141,24 +141,21 @@ public final class SmartCardConnection: Connection, InternalConnection {
                         print("No current connection in progress, let start a new one.")
                         connectionContinuations.append(continuation)
                         manager.connect { result in
-                            connectingLock.with {
-                                switch result {
-                                case .success(let smartCard):
-                                    let connection = SmartCardConnection(smartCard: smartCard)
-                                    Self.connection = connection
-                                    connectionContinuations.forEach { continuation in
-                                        continuation.resume(returning: connection)
-                                    }
-                                    connectionContinuations.removeAll()
-                                case .failure(let error):
-                                    connectionContinuations.forEach { continuation in
-                                        continuation.resume(throwing: error)
-                                    }
-                                    print("Got connection, clear continuations.")
-                                    connectionContinuations.removeAll()
+                            switch result {
+                            case .success(let smartCard):
+                                let connection = SmartCardConnection(smartCard: smartCard)
+                                Self.connection = connection
+                                connectionContinuations.forEach { continuation in
+                                    continuation.resume(returning: connection)
                                 }
+                                connectionContinuations.removeAll()
+                            case .failure(let error):
+                                connectionContinuations.forEach { continuation in
+                                    continuation.resume(throwing: error)
+                                }
+                                print("Got connection, clear continuations.")
+                                connectionContinuations.removeAll()
                             }
-                            
                         }
                     } else {
                         connectionContinuations.append(continuation)
