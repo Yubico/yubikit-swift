@@ -29,44 +29,52 @@ public struct APDU {
         case extended
     }
     
-    public let cla: UInt8
-    public let ins: UInt8
-    public let p1: UInt8
-    public let p2: UInt8
-    public let data: Data?
-    public let type: ApduType
+    private let cla: UInt8
+    private let ins: UInt8
+    private let p1: UInt8
+    private let p2: UInt8
+    private let command: Data?
+    private let type: ApduType
     
-    var apduData: Data {
-        var apduData = Data()
-        apduData.append(cla)
-        apduData.append(ins)
-        apduData.append(p1)
-        apduData.append(p2)
+    init(cla: UInt8, ins: UInt8, p1: UInt8, p2: UInt8, command: Data? = nil, type: ApduType = .short) {
+        self.cla = cla
+        self.ins = ins
+        self.p1 = p1
+        self.p2 = p2
+        self.command = command
+        self.type = type
+    }
+    
+    public var data: Data {
+        var data = Data()
+        data.append(cla)
+        data.append(ins)
+        data.append(p1)
+        data.append(p2)
 
         switch type {
         case .short:
-            if let data, data.count > 0 {
-                guard data.count < UInt8.max else { fatalError() }
-                let length = UInt8(data.count)
-                apduData.append(length)
-                apduData.append(data)
+            if let command, command.count > 0 {
+                guard command.count < UInt8.max else { fatalError() }
+                let length = UInt8(command.count)
+                data.append(length)
+                data.append(command)
             }
         case .extended:
-            if let data, data.count > 0 {
-                let lengthHigh: UInt8 = UInt8(data.count / 256)
-                let lengthLow: UInt8 = UInt8(data.count % 256)
-                apduData.append(0x00)
-                apduData.append(lengthHigh)
-                apduData.append(lengthLow)
-                apduData.append(data)
+            if let command, command.count > 0 {
+                let lengthHigh: UInt8 = UInt8(command.count / 256)
+                let lengthLow: UInt8 = UInt8(command.count % 256)
+                data.append(0x00)
+                data.append(lengthHigh)
+                data.append(lengthLow)
+                data.append(command)
             } else {
-                apduData.append(0x00)
-                apduData.append(0x00)
-                apduData.append(0x00)
+                data.append(0x00)
+                data.append(0x00)
+                data.append(0x00)
             }
         }
 
-        return apduData
+        return data
     }
-    
 }

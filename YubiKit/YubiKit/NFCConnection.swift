@@ -65,7 +65,7 @@ public final class NFCConnection: Connection, InternalConnection {
 
     static var connection: NFCConnection?
     
-    var session: Session?
+    internal var session: Session?
 //    var closingError: Error?
     
     static private var closingContinuations = [CheckedContinuation<Error?, Never>]()
@@ -142,7 +142,7 @@ public final class NFCConnection: Connection, InternalConnection {
 
 extension APDU {
     var nfcIso7816Apdu: NFCISO7816APDU? {
-        return NFCISO7816APDU(data: self.apduData)
+        return NFCISO7816APDU(data: self.data)
     }
 
 }

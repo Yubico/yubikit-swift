@@ -11,6 +11,7 @@
 		51BBE3F1273D1A3800DA47CC /* YubiKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51BBE3E6273D1A3800DA47CC /* YubiKit.framework */; };
 		51BBE3F6273D1A3800DA47CC /* YubiKitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE3F5273D1A3800DA47CC /* YubiKitTests.swift */; };
 		51BBE3F7273D1A3800DA47CC /* YubiKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 51BBE3E9273D1A3800DA47CC /* YubiKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		B408BA8F2948FA2100001B2F /* Stream+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B408BA8E2948FA2100001B2F /* Stream+Extensions.swift */; };
 		B40BCB7B2940F1C5009F39BD /* Response.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40BCB7A2940F1C5009F39BD /* Response.swift */; };
 		B40BCB7D29422721009F39BD /* Connection+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40BCB7C29422721009F39BD /* Connection+Extensions.swift */; };
 		B40BCB802943486B009F39BD /* CallbackWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40BCB7F2943486B009F39BD /* CallbackWrapper.swift */; };
@@ -51,6 +52,7 @@
 		51BBE3EA273D1A3800DA47CC /* YubiKit.docc */ = {isa = PBXFileReference; lastKnownFileType = folder.documentationcatalog; path = YubiKit.docc; sourceTree = "<group>"; };
 		51BBE3F0273D1A3800DA47CC /* YubiKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YubiKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		51BBE3F5273D1A3800DA47CC /* YubiKitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YubiKitTests.swift; sourceTree = "<group>"; };
+		B408BA8E2948FA2100001B2F /* Stream+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Stream+Extensions.swift"; sourceTree = "<group>"; };
 		B40BCB7A2940F1C5009F39BD /* Response.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Response.swift; sourceTree = "<group>"; };
 		B40BCB7C29422721009F39BD /* Connection+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Connection+Extensions.swift"; sourceTree = "<group>"; };
 		B40BCB7F2943486B009F39BD /* CallbackWrapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallbackWrapper.swift; sourceTree = "<group>"; };
@@ -171,6 +173,7 @@
 				B47FDD982939FAD100AFF70A /* ConnectionHelper.swift */,
 				B47FDD9A293A15AE00AFF70A /* NSLock+Extensions.swift */,
 				B40BCB7C29422721009F39BD /* Connection+Extensions.swift */,
+				B408BA8E2948FA2100001B2F /* Stream+Extensions.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -301,6 +304,7 @@
 				B4451F00275FD2B5002690BB /* APDU.swift in Sources */,
 				B47FDD9B293A15AE00AFF70A /* NSLock+Extensions.swift in Sources */,
 				B456E213274D2403004471DE /* NFCConnection.swift in Sources */,
+				B408BA8F2948FA2100001B2F /* Stream+Extensions.swift in Sources */,
 				B4BE3AB3292E1E6D00CC30CB /* TKTLVRecord+Extensions.swift in Sources */,
 				B456E215274D2453004471DE /* LightningConnection.swift in Sources */,
 				B4BE3AB5292E1ECB00CC30CB /* Sequence+Extensions.swift in Sources */,

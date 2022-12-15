@@ -85,6 +85,8 @@ fileprivate class LightningManager {
 }
 
 public final class LightningConnection: Connection, InternalConnection {
+    
+    private let connectionCommandTime = 0.002;
 
     private static var connection: LightningConnection?
     private static var manager = LightningManager()
@@ -98,11 +100,36 @@ public final class LightningConnection: Connection, InternalConnection {
 
     private init(session: EASession) {
         print("⚡️ init LightningSession")
+        session.inputStream?.schedule(in: .current, forMode: .common)
+        session.outputStream?.schedule(in: .current, forMode: .common)
+        session.inputStream?.open()
+        session.outputStream?.open()
         self.lightningSession = session
     }
 
     public func send(apdu: APDU) async throws -> Response {
-        throw("⚡️ not implemented")
+        guard let lightningSession, let outputStream = lightningSession.outputStream, let inputStream = lightningSession.inputStream else { throw "No current session" }
+        var data = Data([0x00]) // YLP iAP2 Signal
+        data.append(apdu.data)
+        try outputStream.writeToYubiKey(data: data)
+        while true {
+            try await Task.sleep(for: .seconds(connectionCommandTime))
+            let result = try inputStream.readFromYubiKey()
+            if result.isEmpty { throw "Empty result" }
+//            let response = Response(rawData: result)
+            let status = Response.StatusCode(data: result.subdata(in: result.count-2..<result.count))
+            print("⚡️ result (\(status)): \(result.hexEncodedString)")
+
+            // BUG #62 - Workaround for WTX == 0x01 while status is 0x9000 (success).
+            if (status == .ok) || result.bytes[0] != 0x01 {
+                if result.bytes[0] == 0x00 { // Remove the YLP key protocol header
+                    return Response(rawData: result.subdata(in: 1..<result.count))
+                } else if result.bytes[0] == 0x01 { // Remove the YLP key protocol header and the WTX
+                    return Response(rawData: result.subdata(in: 4..<result.count))
+                }
+                throw "Wrong respnse"
+            }
+        }
     }
     
     // Starts lightning and wait for a connection

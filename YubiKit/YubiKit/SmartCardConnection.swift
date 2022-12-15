@@ -213,7 +213,7 @@ public final class SmartCardConnection: Connection, InternalConnection {
     }
     
     public func send(apdu: APDU) async throws -> Response {
-        let data = try await smartCard.transmit(apdu.apduData)
+        let data = try await smartCard.transmit(apdu.data)
         return Response(rawData: data)
     }
 }

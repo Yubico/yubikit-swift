@@ -56,7 +56,7 @@ public struct Response: CustomStringConvertible {
         }
         
         init?(data: Data) {
-            let value = data.uint16
+            let value = data.uint16.bigEndian
             if UInt8(value >> 8) == 0x61 {
                 self.init(rawValue: UInt16(0x61) << 8 + UInt16(0))
             } else {

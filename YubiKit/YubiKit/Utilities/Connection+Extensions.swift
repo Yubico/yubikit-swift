@@ -23,7 +23,7 @@ enum Application {
         case .management:
             data = Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17])
         }
-        return APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, data: data, type: .short)
+        return APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: data, type: .short)
     }
 }
 
@@ -56,7 +56,7 @@ extension Connection {
         }
 
         if readMoreData {
-            let apdu =  APDU(cla: 0, ins: ins, p1: 0, p2: 0, data: nil, type: .short)
+            let apdu =  APDU(cla: 0, ins: ins, p1: 0, p2: 0, command: nil, type: .short)
             response = try await send(apdu: apdu)
         } else {
             response = try await send(apdu: apdu)
