@@ -57,6 +57,10 @@ extension Data {
     public var hexEncodedString: String {
         return reduce("") {$0 + String(format: "%02x", $1)}
     }
+    
+    static func random(length: Int) -> Data {
+        return Data((0..<length).map { _ in UInt8.random(in: 0...UInt8.max) })
+    }
 }
 
 

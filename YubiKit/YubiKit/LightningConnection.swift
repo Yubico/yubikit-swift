@@ -86,7 +86,7 @@ fileprivate class LightningManager {
 
 public final class LightningConnection: Connection, InternalConnection {
     
-    private let connectionCommandTime = 0.002;
+    private let commandProcessingTime = 0.002;
 
     private static var connection: LightningConnection?
     private static var manager = LightningManager()
@@ -113,7 +113,7 @@ public final class LightningConnection: Connection, InternalConnection {
         data.append(apdu.data)
         try outputStream.writeToYubiKey(data: data)
         while true {
-            try await Task.sleep(for: .seconds(connectionCommandTime))
+            try await Task.sleep(for: .seconds(commandProcessingTime))
             let result = try inputStream.readFromYubiKey()
             if result.isEmpty { throw "Empty result" }
 //            let response = Response(rawData: result)

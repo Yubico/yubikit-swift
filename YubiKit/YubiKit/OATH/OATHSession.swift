@@ -8,12 +8,15 @@
 import Foundation
 import CryptoKit
 import CryptoTokenKit
+import CommonCrypto
 
 fileprivate let tagVersion: TKTLVTag = 0x79
 fileprivate let tagName: TKTLVTag = 0x71
 fileprivate let tagChallenge: TKTLVTag = 0x74
-fileprivate let typeHOTP: TKTLVTag = 0x77
-fileprivate let typeTouch: TKTLVTag = 0x7c
+fileprivate let tagTypeHOTP: TKTLVTag = 0x77
+fileprivate let tagTypeTouch: TKTLVTag = 0x7c
+fileprivate let tagSetCodeKey: TKTLVTag = 0x73
+fileprivate let tagSetCodeResponse: TKTLVTag = 0x75
 
 let oathDefaultPeriod = 30.0
 
@@ -199,7 +202,7 @@ public final class OATHSession: Session, InternalSession {
             guard let accountId = AccountIdParser(data: name.value) else { throw "Malformed account data" }
 
             let accountType: AccountType
-            if response.tag == typeHOTP {
+            if response.tag == tagTypeHOTP {
                 accountType = .HOTP(counter: 0)
             } else {
                 accountType = .TOTP(period: accountId.period ?? oathDefaultPeriod)
@@ -223,18 +226,82 @@ public final class OATHSession: Session, InternalSession {
         }
     }
     
+    public func setPassword(_ password: String) async throws {
+        let derivedKey = try deriveAccessKey(from: password)
+        try await self.setAccessKey(derivedKey)
+    }
+    
+    public func unlockWithPassword(_ password: String) async throws {
+        let derivedKey = try deriveAccessKey(from: password)
+        try await self.unlockWithAccessKey(derivedKey)
+    }
+    
+    public func setAccessKey(_ accessKey: Data) async throws {
+        guard let connection else { throw "No connection to YubiKey" }
+        let header = AccountType.TOTP().code | HashAlgorithm.SHA1.rawValue
+        var data = Data([header])
+        data.append(accessKey)
+        let keyTlv = TKBERTLVRecord(tag: tagSetCodeKey, value: data)
+        
+        // Challenge
+        let challenge = Data.random(length: 8)
+        let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
+        
+        // Response
+        let response = challenge.hmacSha1(usingKey: accessKey)
+        let responseTlv = TKBERTLVRecord(tag: tagSetCodeResponse, value: response)
+        let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: keyTlv.data + challengeTlv.data + responseTlv.data)
+        let _: Data = try await connection.send(apdu: apdu)
+    }
+    
+    public func unlockWithAccessKey(_ accessKey: Data) async throws {
+        guard let connection, let responseChallenge = self.selectResponse.challenge else { throw "No connection to YubiKey" }
+        let reponseTlv = TKBERTLVRecord(tag: tagSetCodeResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
+        let challenge = Data.random(length: 8)
+        let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
+        let apdu = APDU(cla: 0, ins: 0xa3, p1: 0, p2: 0, command: reponseTlv.data + challengeTlv.data)
+        let result: Data = try await connection.send(apdu: apdu)
+        guard let resultTlv = TKBERTLVRecord(from: result), resultTlv.tag == tagSetCodeResponse else {
+            throw "Wrong tag"
+        }
+        let expectedResult = Data.random(length: 8).hmacSha1(usingKey: accessKey)
+        guard resultTlv.value == expectedResult else { throw "Not the exptected data" }
+    }
+    
     deinit {
         print("deinit OATHSession")
     }
 }
 
-extension Data {
-    var responseStatusCode: UInt16 {
-        let data = self.subdata(in: self.count - 2..<self.count)
-        return CFSwapInt16BigToHost(data.uint16)
+struct DeriveAccessKeyError: Error {
+    let cryptorStatus: CCCryptorStatus
+}
+
+extension OATHSession {
+    public func deriveAccessKey(from password: String) throws -> Data {
+        var derivedKey = Data(count: 16)
+        try derivedKey.withUnsafeMutableBytes { (outputBytes: UnsafeMutableRawBufferPointer) in
+            let status = CCKeyDerivationPBKDF(CCPBKDFAlgorithm(kCCPBKDF2),
+                                              password,
+                                              password.utf8.count,
+                                              self.selectResponse.salt.bytes,
+                                              self.selectResponse.salt.bytes.count,
+                                              CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA1),
+                                              1000,
+                                              outputBytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
+                                                      kCCKeySizeAES256)
+            guard status == kCCSuccess else {
+                throw DeriveAccessKeyError(cryptorStatus: status)
+            }
+        }
+        return derivedKey
     }
-    
-    var responseData: Data {
-        return self.subdata(in: 0..<self.count - 2)
+}
+
+extension Data {
+    func hmacSha1(usingKey key: Data) -> Data {
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+        CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA1), key.bytes, key.bytes.count, self.bytes, self.bytes.count, &digest)
+        return Data(digest)
     }
 }

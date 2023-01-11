@@ -64,6 +64,12 @@ class OATHFullStackTests: XCTestCase {
         }
     }
     
+    func testSetAccessKey() throws {
+        runOATHTest { session in
+            try await session.setPassword("password")
+        }
+    }
+    
     func testQueuedCommands() throws {
         runAsyncTest {
             let connection = try await ConnectionHelper.anyConnection()
