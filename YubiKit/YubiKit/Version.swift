@@ -7,7 +7,11 @@
 
 import Foundation
 
-struct Version: CustomDebugStringConvertible {
+public struct Version: Comparable, CustomDebugStringConvertible {
+    
+    public let major: UInt8
+    public let minor: UInt8
+    public let micro: UInt8
     
     init?(withData data: Data) {
         guard data.count == 3 else { return nil }
@@ -17,11 +21,21 @@ struct Version: CustomDebugStringConvertible {
         micro = bytes[2]
     }
     
-    var debugDescription: String {
-        "Version: \(major).\(minor).\(micro)"
+    public static func < (lhs: Version, rhs: Version) -> Bool {
+        if lhs.major != rhs.major {
+            return lhs.major < rhs.major
+        } else if lhs.minor != rhs.minor {
+            return lhs.minor < rhs.minor
+        } else {
+            return lhs.micro < rhs.micro
+        }
     }
     
-    private let major: UInt8
-    private let minor: UInt8
-    private let micro: UInt8
+    public static func == (lhs: Version, rhs: Version) -> Bool {
+        return lhs.major == rhs.major && lhs.minor == rhs.minor && lhs.micro == rhs.micro
+    }
+
+    public var debugDescription: String {
+        "Version: \(major).\(minor).\(micro)"
+    }
 }
