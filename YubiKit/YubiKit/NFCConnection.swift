@@ -9,35 +9,27 @@
 import Foundation
 import CoreNFC
 
-fileprivate final class TagReaderSession: NSObject, NFCTagReaderSessionDelegate {
+fileprivate final class TagManager: NSObject, NFCTagReaderSessionDelegate {
     
-    private typealias NFCTagContinuation = CheckedContinuation<NFCTag, Error>
-    private var nfcTagContinuation: NFCTagContinuation?
     private var tagSession: NFCTagReaderSession?
     private var tag: NFCISO7816Tag?
+    private var connectingCallback: ((Result<NFCISO7816Tag, Error>) -> Void)? = nil
+    private var closingCallback: ((Error?) -> Void)? = nil
     
-    func connect() async throws -> NFCISO7816Tag {
-        let tag = try await self.getTag()
-        
-        guard NFCTagReaderSession.readingAvailable else { throw "No NFC for you"}
-        try await self.tagSession?.connect(to: tag)
-        
-        if case let NFCTag.iso7816(tag) = tag {
-            return tag
-        } else {
-            throw "Not a NFCISO7816Tag"
-        }
-    }
-    
-    private func getTag() async throws -> NFCTag {
+    internal func connect(_ callback: @escaping (Result<NFCISO7816Tag, Error>) -> Void) {
+        self.connectingCallback = callback
         self.tagSession = NFCTagReaderSession(pollingOption: .iso14443, delegate: self)
-        tagSession?.begin()
-        return try await withCheckedThrowingContinuation { connectingContinuation in
-            self.nfcTagContinuation = connectingContinuation
-        }
+        self.tagSession?.begin()
     }
     
-    func close() {
+    internal func connectionDidClose(_ callback: @escaping (Error?) -> Void) {
+        guard closingCallback == nil else {
+            fatalError("Closing callback already registered!")
+        }
+        closingCallback = callback
+    }
+    
+    func endSession() {
         tagSession?.invalidate()
     }
     
@@ -50,34 +42,42 @@ fileprivate final class TagReaderSession: NSObject, NFCTagReaderSessionDelegate 
         // we need to handle both failing initial connection and later disconnect
         print("NFC session invalidated with error: \(error)")
         self.tagSession = nil
-        nfcTagContinuation?.resume(throwing: error)
-        nfcTagContinuation = nil
+        self.connectingCallback?(.failure(error))
+        self.connectingCallback = nil
+        self.closingCallback?(error)
+        self.closingCallback = nil
     }
     
     func tagReaderSession(_ tagSession: NFCTagReaderSession, didDetect tags: [NFCTag]) {
         print("Got tags: \(tags)")
-        nfcTagContinuation?.resume(returning: tags.first!)
-        nfcTagContinuation = nil
+        let tag = tags.first!
+        
+        self.tagSession?.connect(to: tag) { error in
+            if let error { self.connectingCallback?(.failure(error)); self.connectingCallback = nil; return }
+            if case let NFCTag.iso7816(tag) = tag {
+                self.connectingCallback?(.success(tag))
+            } else {
+                self.connectingCallback?(.failure("Not an iso7816 tag!"))
+            }
+            self.connectingCallback = nil
+        }
     }
 }
 
 public final class NFCConnection: Connection, InternalConnection {
 
-    static var connection: NFCConnection?
-    
+    private static var connection: NFCConnection?
+    private static let manager = TagManager()
+    private static var connectionContinuations = [CheckedContinuation<Connection, Error>]()
+    private static var connectingLock = NSLock()
+    private static var closingContinuations = [CheckedContinuation<Error?, Never>]()
+    private static var closingLock = NSLock()
+
     internal var session: Session?
-//    var closingError: Error?
-    
-    static private var closingContinuations = [CheckedContinuation<Error?, Never>]()
-    static private var connectionContinuations = [CheckedContinuation<Connection, Error>]()
+    private var tag: NFCISO7816Tag
 
-//    let closingSemaphore = DispatchSemaphore(value: 0)
-    private let tagReaderSession = TagReaderSession()
-    private let tag: NFCISO7816Tag
-
-    private init() async throws {
-        tag = try await tagReaderSession.connect()
-        Self.connection = self
+    private init(tag: NFCISO7816Tag) {
+        self.tag = tag
     }
     
     public func send(apdu: APDU) async throws -> Response {
@@ -87,56 +87,89 @@ public final class NFCConnection: Connection, InternalConnection {
         return Response(data: result.0, sw1: result.1, sw2: result.2)
     }
     
-    public func connectionDidClose() async-> Error? {
-        return await withCheckedContinuation { continuation in
-            Self.closingContinuations.append(continuation)
-        }
-    }
-    
     // Starts NFC and wait for a connection
-    public static func connection() async throws -> Connection {
+    @MainActor public static func connection() async throws -> Connection {
         print("NFCConnection connection() called")
-        if let connection {
-            print("reuse NFC connection")
-            return connection
-        }
         
-        return try await withCheckedThrowingContinuation { continuation in
-            if connectionContinuations.isEmpty {
-                print("No current connection in progress, let start a new one.")
-                connectionContinuations.append(continuation)
-                Task {
-                    do {
-                        let connection = try await NFCConnection()
-                        connectionContinuations.forEach { continuation in
-                            print("Return Connection to listeners.")
-                            continuation.resume(returning: connection)
-                        }
-                    } catch {
-                        connectionContinuations.forEach { continuation in
-                            print("Throw Error to listeners.")
-                            continuation.resume(throwing: error)
-                        }
+        return try await withTaskCancellationHandler {
+            return try await withCheckedThrowingContinuation { continuation in
+                connectingLock.with {
+                    if let connection = self.connection {
+                        print("reuse SmartCardConnection")
+                        continuation.resume(returning: connection)
+                        return
                     }
-                    print(connectionContinuations)
-                    print("Got connection, clear continuations.")
-                    connectionContinuations.removeAll()
+                    
+                    if Self.connectionContinuations.isEmpty {
+                        print("No current connection in progress, let start a new one.")
+                        connectionContinuations.append(continuation)
+                        manager.connect { result in
+                            switch result {
+                            case .success(let tag):
+                                let connection = NFCConnection(tag: tag)
+                                Self.connection = connection
+                                connectionContinuations.forEach { continuation in
+                                    continuation.resume(returning: connection)
+                                }
+                                connectionContinuations.removeAll()
+                            case .failure(let error):
+                                connectionContinuations.forEach { continuation in
+                                    continuation.resume(throwing: error)
+                                }
+                                print("Got connection, clear continuations.")
+                                connectionContinuations.removeAll()
+                            }
+                        }
+                    } else {
+                        connectionContinuations.append(continuation)
+                    }
                 }
-            } else {
-                print("Waiting for connection, let's NOT start another connection.")
-                connectionContinuations.append(continuation)
+            }
+        } onCancel: {
+            connectingLock.with {
+                // we should probably only cancel the continuation associated with this
+                print("Cancel all continuations!")
+                connectionContinuations.forEach { continuation in
+                    continuation.resume(throwing: CancellationError())
+                }
+                manager.endSession()
+                connectionContinuations.removeAll()
             }
         }
     }
     
     public func close(result: Result<String, Error>? = nil) {
         print("Closing NFC Connection")
-        self.tagReaderSession.close()
-        Self.closingContinuations.forEach { continuation in
-            continuation.resume(returning: nil)
+        Self.manager.endSession()
+    }
+    
+    public func connectionDidClose() async -> Error? {
+        return await withTaskCancellationHandler {
+            return await withCheckedContinuation { continuation in
+                Self.closingLock.with {
+                    Self.connection = nil
+                    if Self.closingContinuations.isEmpty {
+                        Self.closingContinuations.append(continuation)
+                        Self.manager.connectionDidClose { error in
+                            Self.closingContinuations.forEach { $0.resume(returning: error) }
+                            Self.closingContinuations.removeAll()
+                        }
+                    } else {
+                        Self.closingContinuations.append(continuation)
+                    }
+                }
+            }
+        } onCancel: {
+            Self.closingLock.with {
+                print("Cancel connectionDidClose()")
+                Self.closingContinuations.forEach { continuation in
+                    continuation.resume(returning: CancellationError())
+                }
+                Self.closingContinuations.removeAll()
+                // should we end the session when the close task is cancelled?
+                Self.manager.endSession()
+            }
         }
-        Self.closingContinuations.removeAll()
-        Self.connection = nil
     }
 }
 

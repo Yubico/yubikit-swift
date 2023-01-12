@@ -10,13 +10,16 @@ import Foundation
 
 public final class ManagementSession: Session, InternalSession {
     
+    public var version: Version
     internal weak var connection: Connection?
     private var sessionEnded = false
     var endingResult: Result<String, Error>?
 
     private init(connection: Connection) async throws {
+        let result = try await connection.selectApplication(application: .management)
+        guard let version = Version(withManagementResult: result) else { throw "Failed to parse version string from response." }
+        self.version = version
         self.connection = connection
-//        try await connection.selectApplication(application: .Management)
         var internalConnection = self.internalConnection
         internalConnection.session = self
     }
@@ -62,5 +65,20 @@ public final class ManagementSession: Session, InternalSession {
 
     deinit {
         print("deinit ManagementSession")
+    }
+}
+
+extension Version {
+    init?(withManagementResult data: Data) {
+        guard let resultString = String(bytes: data.bytes, encoding: .ascii) else { return nil }
+        guard let versions = resultString.components(separatedBy: " ").last?.components(separatedBy: "."), versions.count == 3 else {
+            return nil
+        }
+        guard let major = UInt8(versions[0]), let minor = UInt8(versions[1]), let micro = UInt8(versions[2]) else {
+            return nil
+        }
+        self.major = major
+        self.minor = minor
+        self.micro = micro
     }
 }

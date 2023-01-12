@@ -115,7 +115,7 @@ fileprivate class SmartCardManager {
 public final class SmartCardConnection: Connection, InternalConnection {
     
     private static var connection: SmartCardConnection?
-    private static var manager = SmartCardManager()
+    private static let manager = SmartCardManager()
     private static var connectionContinuations = [CheckedContinuation<Connection, Error>]()
     private static var connectingLock = NSLock()
     private static var closingContinuations = [CheckedContinuation<Error?, Never>]()
