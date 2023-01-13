@@ -20,6 +20,10 @@ fileprivate let tagSetCodeResponse: TKTLVTag = 0x75
 
 let oathDefaultPeriod = 30.0
 
+public enum OATHSessionError: Error {
+    case wrongPassword
+}
+
 public final class OATHSession: Session, InternalSession {
     
     internal weak var connection: Connection?
@@ -260,12 +264,21 @@ public final class OATHSession: Session, InternalSession {
         let challenge = Data.random(length: 8)
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
         let apdu = APDU(cla: 0, ins: 0xa3, p1: 0, p2: 0, command: reponseTlv.data + challengeTlv.data)
-        let result: Data = try await connection.send(apdu: apdu)
-        guard let resultTlv = TKBERTLVRecord(from: result), resultTlv.tag == tagSetCodeResponse else {
-            throw "Wrong tag"
+
+        do {
+            let result: Data = try await connection.send(apdu: apdu)
+            guard let resultTlv = TKBERTLVRecord(from: result), resultTlv.tag == tagSetCodeResponse else {
+                throw "Wrong tag"
+            }
+            let expectedResult = challenge.hmacSha1(usingKey: accessKey)
+            guard resultTlv.value == expectedResult else { throw "unlockWithAccessKey got non matching result" }
+        } catch {
+            if let reponseError = error as? ResponseError, reponseError.statusCode == .wrongData {
+                throw OATHSessionError.wrongPassword
+            } else {
+                throw error
+            }
         }
-        let expectedResult = Data.random(length: 8).hmacSha1(usingKey: accessKey)
-        guard resultTlv.value == expectedResult else { throw "Not the exptected data" }
     }
     
     deinit {

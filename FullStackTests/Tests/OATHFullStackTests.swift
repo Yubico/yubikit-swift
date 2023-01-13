@@ -64,9 +64,26 @@ class OATHFullStackTests: XCTestCase {
         }
     }
     
-    func testSetAccessKey() throws {
-        runOATHTest { session in
-            try await session.setPassword("password")
+    // This will also test setPassword
+    func testUnlockWithPassword() throws {
+        runOATHTest(password: "password") { session in
+            try await session.unlockWithPassword("password")
+            let accounts = try await session.listAccounts()
+            XCTAssert(accounts.count == 5)
+        }
+    }
+    
+    func testUnlockWithWrongPassword() throws {
+        runOATHTest(password: "password") { session in
+            do {
+                try await session.unlockWithPassword("abc123")
+            } catch {
+                if case OATHSessionError.wrongPassword = error {
+                    print("Got expected error: \(error)")
+                } else {
+                    XCTFail("Got unexpected error: \(error)")
+                }
+            }
         }
     }
     
@@ -92,6 +109,7 @@ class OATHFullStackTests: XCTestCase {
 
 extension XCTestCase {
     func runOATHTest(populated: Bool = true,
+                     password: String? = nil,
                      named testName: String = #function,
                      in file: StaticString = #file,
                      at line: UInt = #line,
@@ -99,7 +117,7 @@ extension XCTestCase {
                      test: @escaping (OATHSession) async throws -> Void) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
             let connection = try await ConnectionHelper.anyConnection()
-            let session = try await OATHSession.session(withConnection: connection)
+            var session = try await OATHSession.session(withConnection: connection)
             try await session.reset()
             
             if populated {
@@ -114,6 +132,12 @@ extension XCTestCase {
                 try await session.addAccount(template: accountFour)
                 let accountFive = OATHSession.AccountTemplate(type: .HOTP(), algorithm: .SHA1, secret: secret, issuer: "HOTP SHA1", name: "6 digits, counter = 0", digits: 6)
                 try await session.addAccount(template: accountFive)
+            }
+            
+            if let password {
+                try await session.setPassword(password)
+                let managementSession = try await ManagementSession.session(withConnection: connection)
+                session = try await OATHSession.session(withConnection: connection)
             }
             
             try await test(session)
