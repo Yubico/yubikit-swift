@@ -13,6 +13,10 @@ private var totpCode: UInt8 = 0x20
 
 extension OATHSession {
     
+    public enum AccountTemplateError: Error {
+        case missingScheme, missingName, missingSecret, parseType, parseAlgorithm
+    }
+    
     public enum AccountType: CustomStringConvertible {
         
         case HOTP(counter: UInt32 = 0)
@@ -154,10 +158,6 @@ extension OATHSession {
 
     }
     
-    public enum AccountTemplateError: Error {
-        case missingScheme, missingName, missingSecret, parseType, parseAlgorithm
-    }
-    
     public struct AccountTemplate {
         
         private static let minSecretLenght = 14
@@ -215,7 +215,7 @@ extension OATHSession {
             self.init(type: type, algorithm: algorithm, secret: secret, issuer: issuer, name: name, digits: digits)
         }
         
-        public init(type: AccountType, algorithm: HashAlgorithm, secret: Data, issuer: String?, name: String, digits: UInt8, requiresTouch: Bool = false) {
+        public init(type: AccountType, algorithm: HashAlgorithm, secret: Data, issuer: String?, name: String, digits: UInt8 = 6, requiresTouch: Bool = false) {
             self.type = type
             self.algorithm = algorithm
             

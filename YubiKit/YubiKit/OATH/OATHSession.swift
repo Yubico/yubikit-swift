@@ -21,7 +21,15 @@ fileprivate let tagSetCodeResponse: TKTLVTag = 0x75
 let oathDefaultPeriod = 30.0
 
 public enum OATHSessionError: Error {
+    case noConnection
     case wrongPassword
+    case responseDataNotTLVFormatted
+    case missingVersionInfo
+    case missingSalt
+    case failedDerivingDeviceId
+    case unexpectedTag
+    case unexpectedData
+    case accountNotPresentOnCurrentYubiKey
 }
 
 public final class OATHSession: Session, InternalSession {
@@ -49,17 +57,17 @@ public final class OATHSession: Session, InternalSession {
     
     private static func selectApplication(withConnection connection: Connection) async throws -> SelectResponse {
         let data: Data = try await connection.selectApplication(application: .oath)
-        guard let result = TKBERTLVRecord.dictionaryOfData(from: data) else { throw "OATH response data not TLV formatted" }
+        guard let result = TKBERTLVRecord.dictionaryOfData(from: data) else { throw OATHSessionError.responseDataNotTLVFormatted }
 
         let challenge = result[tagChallenge]
         
         guard let versionData = result[tagVersion],
-              let version = Version(withData: versionData) else { throw "Missing version information in OATH response" }
+              let version = Version(withData: versionData) else { throw OATHSessionError.missingVersionInfo }
         
-        guard let salt = result[tagName] else { throw "Missing salt in OATH response" }
+        guard let salt = result[tagName] else { throw OATHSessionError.missingSalt }
         
         let digest = SHA256.hash(data: salt)
-        guard digest.data.count >= 16 else { throw "Failed deriving device id. To little data." }
+        guard digest.data.count >= 16 else { throw OATHSessionError.failedDerivingDeviceId }
         let deviceId = digest.data.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
         return SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
     }
@@ -99,7 +107,7 @@ public final class OATHSession: Session, InternalSession {
     }
     
     public func reset() async throws {
-        guard let connection else { throw "No connection to YubiKey" }
+        guard let connection else { throw OATHSessionError.noConnection }
         print("Reset OATH application")
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad)
         let _: Data = try await connection.send(apdu: apdu)
@@ -107,10 +115,10 @@ public final class OATHSession: Session, InternalSession {
     }
     
     @discardableResult public func addAccount(template: AccountTemplate) async throws -> Account? {
-        guard let connection else { throw "No connection to YubiKey" }
+        guard let connection else { throw OATHSessionError.noConnection }
         // name
         print(template.key)
-        guard let nameData = template.key.data(using: .utf8) else { throw "Failed encode account key" }
+        guard let nameData = template.key.data(using: .utf8) else { throw OATHSessionError.unexpectedData }
         let nameTlv = TKBERTLVRecord(tag: 0x71, value: nameData)
         // key
         var keyData = Data()
@@ -137,13 +145,13 @@ public final class OATHSession: Session, InternalSession {
     }
     
     public func listAccounts() async throws -> [Account] {
-        guard let connection else { throw "No connection to YubiKey" }
+        guard let connection else { throw OATHSessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
         let data: Data = try await connection.send(apdu: apdu)
-        guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else { throw "OATH response data not TLV formatted" }
+        guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else { throw OATHSessionError.responseDataNotTLVFormatted }
         return try result.map {
-            guard $0.tag == 0x72 else { throw "Unexpected tag" }
-            guard let accountId = AccountIdParser(data: $0.value.dropFirst()) else { throw "Malformed account data" }
+            guard $0.tag == 0x72 else { throw OATHSessionError.unexpectedTag }
+            guard let accountId = AccountIdParser(data: $0.value.dropFirst()) else { throw OATHSessionError.unexpectedData }
             let bytes = $0.value.bytes
             let typeCode = bytes[0] & 0xf0
             let accountType: AccountType
@@ -152,19 +160,19 @@ public final class OATHSession: Session, InternalSession {
             } else if AccountType.isHOTP(typeCode) {
                 accountType = .HOTP(counter: 0)
             } else {
-                throw "Missing accoutn type code"
+                throw OATHSessionError.unexpectedData
             }
             
-            guard let hashAlgorithm = HashAlgorithm(rawValue: bytes[0] & 0x0f) else { throw "Mising hash algorithm" }
+            guard let hashAlgorithm = HashAlgorithm(rawValue: bytes[0] & 0x0f) else { throw OATHSessionError.unexpectedData }
 
             return Account(deviceId: selectResponse.deviceId, id: $0.value.dropFirst(), type: accountType, hashAlgorithm: hashAlgorithm, name: accountId.account, issuer: accountId.issuer)
         }
     }
     
     public func calculateCode(account: Account, timestamp: Date = Date()) async throws -> Code {
-        guard let connection else { throw "No connection to YubiKey" }
+        guard let connection else { throw OATHSessionError.noConnection }
 
-        guard account.deviceId == self.selectResponse.deviceId else { throw "The given account belongs to a different YubiKey." }
+        guard account.deviceId == self.selectResponse.deviceId else { throw OATHSessionError.accountNotPresentOnCurrentYubiKey }
         let challengeTLV: TKBERTLVRecord
         
         switch account.type {
@@ -181,9 +189,9 @@ public final class OATHSession: Session, InternalSession {
         let apdu = APDU(cla: 0x00, ins: 0xa2, p1: 0, p2: 1, command: nameTLV.data + challengeTLV.data, type: .extended)
         
         let data: Data = try await connection.send(apdu: apdu)
-        guard let result = TKBERTLVRecord.init(from: data) else { throw "Failed parsing response data into tlv" }
+        guard let result = TKBERTLVRecord.init(from: data) else { throw OATHSessionError.responseDataNotTLVFormatted }
         
-        guard let digits = result.value.first else { throw "No code" }
+        guard let digits = result.value.first else { throw OATHSessionError.unexpectedData }
         let code = UInt32(bigEndian: result.value.subdata(in: 1..<result.value.count).uint32)
         let stringCode = String(format: "%0\(digits)d", UInt(code))
         return Code(code: stringCode, timestamp: timestamp, accountType: account.type)
@@ -196,14 +204,14 @@ public final class OATHSession: Session, InternalSession {
         let bigChallenge = CFSwapInt64HostToBig(challenge)
         let challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, command: challengeTLV.data)
-        guard let connection else { throw "No connection to YubiKey" }
+        guard let connection else { throw OATHSessionError.noConnection }
         let data: Data = try await connection.send(apdu: apdu)
-        guard let result = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else { throw "Unexpected return data" }
+        guard let result = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else { throw OATHSessionError.responseDataNotTLVFormatted }
         
         return try await result.asyncMap { (name, response) in
-            guard name.tag == 0x71 else { throw "Unexpected tag" }
+            guard name.tag == 0x71 else { throw OATHSessionError.unexpectedTag }
 
-            guard let accountId = AccountIdParser(data: name.value) else { throw "Malformed account data" }
+            guard let accountId = AccountIdParser(data: name.value) else { throw OATHSessionError.unexpectedData }
 
             let accountType: AccountType
             if response.tag == tagTypeHOTP {
@@ -241,7 +249,7 @@ public final class OATHSession: Session, InternalSession {
     }
     
     public func setAccessKey(_ accessKey: Data) async throws {
-        guard let connection else { throw "No connection to YubiKey" }
+        guard let connection else { throw OATHSessionError.noConnection }
         let header = AccountType.TOTP().code | HashAlgorithm.SHA1.rawValue
         var data = Data([header])
         data.append(accessKey)
@@ -259,7 +267,7 @@ public final class OATHSession: Session, InternalSession {
     }
     
     public func unlockWithAccessKey(_ accessKey: Data) async throws {
-        guard let connection, let responseChallenge = self.selectResponse.challenge else { throw "No connection to YubiKey" }
+        guard let connection, let responseChallenge = self.selectResponse.challenge else { throw OATHSessionError.noConnection }
         let reponseTlv = TKBERTLVRecord(tag: tagSetCodeResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
         let challenge = Data.random(length: 8)
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
@@ -268,10 +276,10 @@ public final class OATHSession: Session, InternalSession {
         do {
             let result: Data = try await connection.send(apdu: apdu)
             guard let resultTlv = TKBERTLVRecord(from: result), resultTlv.tag == tagSetCodeResponse else {
-                throw "Wrong tag"
+                throw OATHSessionError.unexpectedTag
             }
             let expectedResult = challenge.hmacSha1(usingKey: accessKey)
-            guard resultTlv.value == expectedResult else { throw "unlockWithAccessKey got non matching result" }
+            guard resultTlv.value == expectedResult else { throw OATHSessionError.unexpectedData }
         } catch {
             if let reponseError = error as? ResponseError, reponseError.statusCode == .wrongData {
                 throw OATHSessionError.wrongPassword
