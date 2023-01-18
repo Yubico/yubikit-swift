@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CommonCrypto
 
 private var hotpCode: UInt8 = 0x10
 private var totpCode: UInt8 = 0x20
@@ -26,11 +27,11 @@ extension OATHSession {
             }
         }
         
-        static func isHOTP(_ code: UInt8) -> Bool {
+        static public func isHOTP(_ code: UInt8) -> Bool {
             return code == hotpCode
         }
         
-        static func isTOTP(_ code: UInt8) -> Bool {
+        static public func isTOTP(_ code: UInt8) -> Bool {
             return code == totpCode
         }
         
@@ -153,10 +154,13 @@ extension OATHSession {
 
     }
     
+    public enum AccountTemplateError: Error {
+        case missingScheme, missingName, missingSecret, parseType, parseAlgorithm
+    }
     
     public struct AccountTemplate {
         
-        private let minSecretLenght = 14
+        private static let minSecretLenght = 14
         
         public var key: String {
             let key: String
@@ -176,29 +180,142 @@ extension OATHSession {
             }
         }
         
+        public init(withURL url: URL, skipValidation: Bool = false) throws {
+            guard url.scheme == "otpauth" else { throw AccountTemplateError.missingScheme }
+            
+            var issuer: String?
+            var name: String = ""
+            if !skipValidation {
+                guard url.pathComponents.count > 1 else { throw AccountTemplateError.missingName }
+                name = url.pathComponents[1]
+                if name.contains(":") {
+                    let components = name.components(separatedBy: ":")
+                    name = components[1]
+                    issuer = components[0]
+                } else {
+                    issuer = url.queryValueFor(key: "issuer")
+                }
+            }
+            
+            let type = try OATHSession.AccountType(fromURL: url)
+            
+            let algorithm = try OATHSession.HashAlgorithm(fromUrl: url) ?? .SHA1
+            
+            let digits: UInt8
+            if let digitsString = url.queryValueFor(key: "digits"), let parsedDigits = UInt8(digitsString) {
+                digits = parsedDigits
+            } else {
+                digits = 6
+            }
+            
+            guard let secret = url.queryValueFor(key: "secret")?.base32DecodedData else {
+                throw AccountTemplateError.missingSecret
+            }
+            
+            self.init(type: type, algorithm: algorithm, secret: secret, issuer: issuer, name: name, digits: digits)
+        }
+        
         public init(type: AccountType, algorithm: HashAlgorithm, secret: Data, issuer: String?, name: String, digits: UInt8, requiresTouch: Bool = false) {
             self.type = type
             self.algorithm = algorithm
-            if secret.count < minSecretLenght {
+            
+            if secret.count < Self.minSecretLenght {
                 var mutableSecret = secret
-                mutableSecret.append(Data(count: minSecretLenght - secret.count))
+                mutableSecret.append(Data(count: Self.minSecretLenght - secret.count))
                 self.secret = mutableSecret
+            } else if algorithm == .SHA1 && secret.count > CC_SHA1_BLOCK_BYTES {
+                self.secret = secret.sha1()
+            } else if algorithm == .SHA256 && secret.count > CC_SHA256_BLOCK_BYTES {
+                self.secret = secret.sha256()
+            } else if algorithm == .SHA512 && secret.count > CC_SHA512_BLOCK_BYTES {
+                self.secret = secret.sha512()
             } else {
                 self.secret = secret
             }
+            
             self.issuer = issuer
             self.name = name
             self.digits = digits
             self.requiresTouch = requiresTouch
         }
         
-        let type: AccountType
-        let algorithm: HashAlgorithm
-        let secret: Data
-        let issuer: String?
-        let name: String
-        let digits: UInt8
-        let requiresTouch: Bool
+        public let type: AccountType
+        public let algorithm: HashAlgorithm
+        public let secret: Data
+        public let issuer: String?
+        public let name: String
+        public let digits: UInt8
+        public let requiresTouch: Bool
     }
     
+}
+
+
+extension OATHSession.HashAlgorithm {
+    internal init?(fromUrl url: URL) throws {
+        if let name = url.queryValueFor(key: "algorithm") {
+            switch name {
+            case "SHA1":
+                self = .SHA1
+            case "SHA256":
+                self = .SHA256
+            case "SHA512":
+                self = .SHA512
+            default:
+                throw OATHSession.AccountTemplateError.parseAlgorithm
+            }
+        } else {
+            return nil
+        }
+    }
+}
+
+extension OATHSession.AccountType {
+    internal init(fromURL url: URL) throws {
+        let type = url.host?.lowercased()
+        
+        switch type {
+        case "totp":
+            if let stringPeriod = url.queryValueFor(key: "period"), let period = Double(stringPeriod) {
+                self = .TOTP(period: period)
+            } else {
+                self = .TOTP()
+            }
+        case "hotp":
+            if let stringCounter = url.queryValueFor(key: "counter"), let counter = UInt32(stringCounter) {
+                self = .HOTP(counter: counter)
+            } else {
+                self = .HOTP()
+            }
+        default:
+            throw OATHSession.AccountTemplateError.parseType
+        }
+    }
+}
+
+extension Data {
+    internal func sha1() -> Data {
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+        CC_SHA1(self.bytes, UInt32(self.count), &digest)
+        return Data(digest)
+    }
+    
+    internal func sha256() -> Data {
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        CC_SHA256(self.bytes, UInt32(self.count), &digest)
+        return Data(digest)
+    }
+    
+    internal func sha512() -> Data {
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA512_DIGEST_LENGTH))
+        CC_SHA512(self.bytes, UInt32(self.count), &digest)
+        return Data(digest)
+    }
+}
+
+extension URL {
+    internal func queryValueFor(key: String) -> String? {
+        let components = URLComponents(url: self, resolvingAgainstBaseURL: true)
+        return components?.queryItems?.first(where: { $0.name == key })?.value
+    }
 }
