@@ -144,6 +144,13 @@ public final class OATHSession: Session, InternalSession {
         return nil
     }
     
+    public func deleteAccount(_ account: Account) async throws {
+        guard let connection else { throw OATHSessionError.noConnection }
+        let deleteTlv = TKBERTLVRecord(tag: 0x71, value: account.id)
+        let apdu = APDU(cla: 0, ins: 0x02, p1: 0, p2: 0, command: deleteTlv.data)
+        let _: Data = try await connection.send(apdu: apdu)
+    }
+    
     public func listAccounts() async throws -> [Account] {
         guard let connection else { throw OATHSessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)

@@ -87,21 +87,12 @@ class OATHFullStackTests: XCTestCase {
         }
     }
     
-    func testQueuedCommands() throws {
-        runAsyncTest {
-            let connection = try await ConnectionHelper.anyConnection()
-            let session = try await OATHSession.session(withConnection: connection)
-            let taskOne = Task.detached(priority: .low) {
-                try await session.calculateCodes()
-            }
-            let taskTwo = Task.detached(priority: .background) {
-                try await session.calculateCodes()
-            }
-            let taskThree = Task.detached(priority: .utility) {
-                try await session.calculateCodes()
-            }
-            let all = try await [taskOne.value, taskTwo.value, taskThree.value]
-            print("done")
+    func testDeleteAccount() throws {
+        runOATHTest() { session in
+            let accounts = try await session.listAccounts()
+            try await session.deleteAccount(accounts.first!)
+            let accountsMinusOne = try await session.listAccounts()
+            XCTAssertEqual(accounts.count, accountsMinusOne.count + 1)
         }
     }
 }
