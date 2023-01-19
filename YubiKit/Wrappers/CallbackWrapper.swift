@@ -56,10 +56,10 @@ extension Session {
 }
 
 extension OATHSession {
-    public func calculateCode(for account: Account, timestamp: Date = Date(), callback: @escaping (OATHSession.Code?, Error?) -> Void) {
+    public func calculateCode(for credential: Credential, timestamp: Date = Date(), callback: @escaping (OATHSession.Code?, Error?) -> Void) {
         Task {
             do {
-                let code = try await self.calculateCode(account: account, timestamp: timestamp)
+                let code = try await self.calculateCode(credential: credential, timestamp: timestamp)
                 callback(code, nil)
             } catch {
                 callback(nil, error)
@@ -67,7 +67,7 @@ extension OATHSession {
         }
     }
     
-    public func calculateCodes(timestamp: Date = Date(), callback: @escaping ([(OATHSession.Account, OATHSession.Code?)]?, Error?) -> Void) {
+    public func calculateCodes(timestamp: Date = Date(), callback: @escaping ([(OATHSession.Credential, OATHSession.Code?)]?, Error?) -> Void) {
         Task {
             do {
                 let result = try await self.calculateCodes(timestamp: timestamp)

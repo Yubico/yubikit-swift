@@ -13,11 +13,11 @@ private var totpCode: UInt8 = 0x20
 
 extension OATHSession {
     
-    public enum AccountTemplateError: Error {
+    public enum CredentialTemplateError: Error {
         case missingScheme, missingName, missingSecret, parseType, parseAlgorithm
     }
     
-    public enum AccountType: CustomStringConvertible {
+    public enum CredentialType: CustomStringConvertible {
         
         case HOTP(counter: UInt32 = 0)
         case TOTP(period: TimeInterval = 30)
@@ -55,11 +55,11 @@ extension OATHSession {
         case SHA512 = 0x03
     }
     
-    public struct Account: Identifiable, CustomStringConvertible {
+    public struct Credential: Identifiable, CustomStringConvertible {
 
         public let deviceId: String
         public let id: Data
-        public let type: OATHSession.AccountType
+        public let type: OATHSession.CredentialType
         public let hashAlgorithm: OATHSession.HashAlgorithm?
         public let name: String
         public let issuer: String?
@@ -71,10 +71,10 @@ extension OATHSession {
             }
         }
         public var description: String {
-            return "Account(type: \(type), label:\(label), algorithm: \(hashAlgorithm.debugDescription)"
+            return "Credential(type: \(type), label:\(label), algorithm: \(hashAlgorithm.debugDescription)"
         }
 
-        init(deviceId: String, id: Data, type: OATHSession.AccountType, hashAlgorithm: OATHSession.HashAlgorithm? = nil, name: String, issuer: String?) {
+        init(deviceId: String, id: Data, type: OATHSession.CredentialType, hashAlgorithm: OATHSession.HashAlgorithm? = nil, name: String, issuer: String?) {
             self.deviceId = deviceId
             self.id = id
             self.type = type
@@ -84,7 +84,7 @@ extension OATHSession {
         }
     }
     
-    struct AccountIdParser {
+    struct CredentialIdParser {
         
         let account: String
         let issuer: String?
@@ -131,7 +131,7 @@ extension OATHSession {
         public let id = UUID()
         public let code: String
         public var validFrom: Date {
-            switch accountType {
+            switch credentialType {
             case .HOTP(_):
                 return Date()
             case .TOTP(period: let period):
@@ -139,7 +139,7 @@ extension OATHSession {
             }
         }
         public var validTo: Date {
-            switch accountType {
+            switch credentialType {
             case .HOTP(_):
                 return validFrom.addingTimeInterval(.infinity)
             case .TOTP(period: let period):
@@ -147,18 +147,18 @@ extension OATHSession {
             }
         }
         
-        init(code: String, timestamp: Date, accountType: AccountType) {
+        init(code: String, timestamp: Date, credentialType: CredentialType) {
             self.code = code
             self.timestamp = timestamp
-            self.accountType = accountType
+            self.credentialType = credentialType
         }
         
         private let timestamp: Date
-        private let accountType: AccountType
+        private let credentialType: CredentialType
 
     }
     
-    public struct AccountTemplate {
+    public struct CredentialTemplate {
         
         private static let minSecretLenght = 14
         
@@ -181,12 +181,12 @@ extension OATHSession {
         }
         
         public init(withURL url: URL, skipValidation: Bool = false) throws {
-            guard url.scheme == "otpauth" else { throw AccountTemplateError.missingScheme }
+            guard url.scheme == "otpauth" else { throw CredentialTemplateError.missingScheme }
             
             var issuer: String?
             var name: String = ""
             if !skipValidation {
-                guard url.pathComponents.count > 1 else { throw AccountTemplateError.missingName }
+                guard url.pathComponents.count > 1 else { throw CredentialTemplateError.missingName }
                 name = url.pathComponents[1]
                 if name.contains(":") {
                     let components = name.components(separatedBy: ":")
@@ -197,7 +197,7 @@ extension OATHSession {
                 }
             }
             
-            let type = try OATHSession.AccountType(fromURL: url)
+            let type = try OATHSession.CredentialType(fromURL: url)
             
             let algorithm = try OATHSession.HashAlgorithm(fromUrl: url) ?? .SHA1
             
@@ -209,13 +209,13 @@ extension OATHSession {
             }
             
             guard let secret = url.queryValueFor(key: "secret")?.base32DecodedData else {
-                throw AccountTemplateError.missingSecret
+                throw CredentialTemplateError.missingSecret
             }
             
             self.init(type: type, algorithm: algorithm, secret: secret, issuer: issuer, name: name, digits: digits)
         }
         
-        public init(type: AccountType, algorithm: HashAlgorithm, secret: Data, issuer: String?, name: String, digits: UInt8 = 6, requiresTouch: Bool = false) {
+        public init(type: CredentialType, algorithm: HashAlgorithm, secret: Data, issuer: String?, name: String, digits: UInt8 = 6, requiresTouch: Bool = false) {
             self.type = type
             self.algorithm = algorithm
             
@@ -239,7 +239,7 @@ extension OATHSession {
             self.requiresTouch = requiresTouch
         }
         
-        public let type: AccountType
+        public let type: CredentialType
         public let algorithm: HashAlgorithm
         public let secret: Data
         public let issuer: String?
@@ -262,7 +262,7 @@ extension OATHSession.HashAlgorithm {
             case "SHA512":
                 self = .SHA512
             default:
-                throw OATHSession.AccountTemplateError.parseAlgorithm
+                throw OATHSession.CredentialTemplateError.parseAlgorithm
             }
         } else {
             return nil
@@ -270,7 +270,7 @@ extension OATHSession.HashAlgorithm {
     }
 }
 
-extension OATHSession.AccountType {
+extension OATHSession.CredentialType {
     internal init(fromURL url: URL) throws {
         let type = url.host?.lowercased()
         
@@ -288,7 +288,7 @@ extension OATHSession.AccountType {
                 self = .HOTP()
             }
         default:
-            throw OATHSession.AccountTemplateError.parseType
+            throw OATHSession.CredentialTemplateError.parseType
         }
     }
 }

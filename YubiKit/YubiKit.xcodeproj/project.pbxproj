@@ -18,7 +18,7 @@
 		B40CBD6029090C49007D7D23 /* Version.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40CBD5F29090C49007D7D23 /* Version.swift */; };
 		B41B61842743FC2E004C37BF /* Connection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61832743FC2E004C37BF /* Connection.swift */; };
 		B41B61862743FC4E004C37BF /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61852743FC4E004C37BF /* Session.swift */; };
-		B4235A4D2976E18000BCD126 /* OATHAccountTemplateUnitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4235A4C2976E18000BCD126 /* OATHAccountTemplateUnitTests.swift */; };
+		B4235A4D2976E18000BCD126 /* OATHCredentialTemplateUnitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4235A4C2976E18000BCD126 /* OATHCredentialTemplateUnitTests.swift */; };
 		B4451F00275FD2B5002690BB /* APDU.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4451EFF275FD2B5002690BB /* APDU.swift */; };
 		B456E213274D2403004471DE /* NFCConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E212274D2403004471DE /* NFCConnection.swift */; };
 		B456E215274D2453004471DE /* LightningConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E214274D2453004471DE /* LightningConnection.swift */; };
@@ -59,7 +59,7 @@
 		B40CBD5F29090C49007D7D23 /* Version.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Version.swift; sourceTree = "<group>"; };
 		B41B61832743FC2E004C37BF /* Connection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Connection.swift; sourceTree = "<group>"; };
 		B41B61852743FC4E004C37BF /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
-		B4235A4C2976E18000BCD126 /* OATHAccountTemplateUnitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHAccountTemplateUnitTests.swift; sourceTree = "<group>"; };
+		B4235A4C2976E18000BCD126 /* OATHCredentialTemplateUnitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHCredentialTemplateUnitTests.swift; sourceTree = "<group>"; };
 		B4451EFF275FD2B5002690BB /* APDU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APDU.swift; sourceTree = "<group>"; };
 		B456E212274D2403004471DE /* NFCConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCConnection.swift; sourceTree = "<group>"; };
 		B456E214274D2453004471DE /* LightningConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LightningConnection.swift; sourceTree = "<group>"; };
@@ -138,7 +138,7 @@
 		51BBE3F4273D1A3800DA47CC /* UnitTests */ = {
 			isa = PBXGroup;
 			children = (
-				B4235A4C2976E18000BCD126 /* OATHAccountTemplateUnitTests.swift */,
+				B4235A4C2976E18000BCD126 /* OATHCredentialTemplateUnitTests.swift */,
 			);
 			path = UnitTests;
 			sourceTree = "<group>";
@@ -326,7 +326,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B4235A4D2976E18000BCD126 /* OATHAccountTemplateUnitTests.swift in Sources */,
+				B4235A4D2976E18000BCD126 /* OATHCredentialTemplateUnitTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

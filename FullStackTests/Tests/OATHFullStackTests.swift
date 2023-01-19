@@ -16,8 +16,8 @@ class OATHFullStackTests: XCTestCase {
         runOATHTest { session in
             for n in 0...14 {
                 let secret = "abba".base32DecodedData!
-                let accountOne = OATHSession.AccountTemplate(type: .TOTP(), algorithm: .SHA1, secret: secret, issuer: "Yubico-\(n)", name: "test@yubico.com", digits: 6)
-                try await session.addAccount(template: accountOne)
+                let credentialOne = OATHSession.CredentialTemplate(type: .TOTP(), algorithm: .SHA1, secret: secret, issuer: "Yubico-\(n)", name: "test@yubico.com", digits: 6)
+                try await session.addCredential(template: credentialOne)
             }
             let result = try await session.calculateCodes()
             XCTAssert(result.count == 20)
@@ -25,23 +25,23 @@ class OATHFullStackTests: XCTestCase {
         }
     }
     
-    func testListAccounts() throws {
+    func testListCredentials() throws {
         runOATHTest { session in
-            let accounts = try await session.listAccounts()
-            XCTAssert(accounts.count == 5)
-            XCTAssert(accounts[0].label == "TOTP SHA1:6 digits, 30 sec")
-            XCTAssert(accounts[1].label == "TOTP SHA256:6 digits, 30 sec")
-            XCTAssert(accounts[2].label == "TOTP SHA1 15s no issuer")
-            XCTAssert(accounts[3].label == "TOTP SHA256:requires touch, 6 digits, 30 sec")
-            XCTAssert(accounts[4].label == "HOTP SHA1:6 digits, counter = 0")
+            let credentials = try await session.listCredentials()
+            XCTAssert(credentials.count == 5)
+            XCTAssert(credentials[0].label == "TOTP SHA1:6 digits, 30 sec")
+            XCTAssert(credentials[1].label == "TOTP SHA256:6 digits, 30 sec")
+            XCTAssert(credentials[2].label == "TOTP SHA1 15s no issuer")
+            XCTAssert(credentials[3].label == "TOTP SHA256:requires touch, 6 digits, 30 sec")
+            XCTAssert(credentials[4].label == "HOTP SHA1:6 digits, counter = 0")
         }
     }
     
-    func testListAccountsAndCalculate() throws {
+    func testListCredentialsAndCalculate() throws {
         runOATHTest { session in
-            let accounts = try await session.listAccounts()
-            let codes = try await accounts.asyncMap { account in
-                let code = try await session.calculateCode(account: account, timestamp: Date(timeIntervalSince1970: 0))
+            let credentials = try await session.listCredentials()
+            let codes = try await credentials.asyncMap { credential in
+                let code = try await session.calculateCode(credential: credential, timestamp: Date(timeIntervalSince1970: 0))
                 return code
             }
             XCTAssert(codes.count == 5)
@@ -68,8 +68,8 @@ class OATHFullStackTests: XCTestCase {
     func testUnlockWithPassword() throws {
         runOATHTest(password: "password") { session in
             try await session.unlockWithPassword("password")
-            let accounts = try await session.listAccounts()
-            XCTAssert(accounts.count == 5)
+            let credentials = try await session.listCredentials()
+            XCTAssert(credentials.count == 5)
         }
     }
     
@@ -87,12 +87,12 @@ class OATHFullStackTests: XCTestCase {
         }
     }
     
-    func testDeleteAccount() throws {
+    func testDeleteCredential() throws {
         runOATHTest() { session in
-            let accounts = try await session.listAccounts()
-            try await session.deleteAccount(accounts.first!)
-            let accountsMinusOne = try await session.listAccounts()
-            XCTAssertEqual(accounts.count, accountsMinusOne.count + 1)
+            let credentials = try await session.listCredentials()
+            try await session.deleteCredential(credentials.first!)
+            let credentialsMinusOne = try await session.listCredentials()
+            XCTAssertEqual(credentials.count, credentialsMinusOne.count + 1)
         }
     }
 }
@@ -113,16 +113,16 @@ extension XCTestCase {
             
             if populated {
                 let secret = "abba".base32DecodedData!
-                let accountOne = OATHSession.AccountTemplate(type: .TOTP(), algorithm: .SHA1, secret: secret, issuer: "TOTP SHA1", name: "6 digits, 30 sec", digits: 6)
-                try await session.addAccount(template: accountOne)
-                let accountTwo = OATHSession.AccountTemplate(type: .TOTP(), algorithm: .SHA256, secret: secret, issuer: "TOTP SHA256", name: "6 digits, 30 sec", digits: 6)
-                try await session.addAccount(template: accountTwo)
-                let accountThree = OATHSession.AccountTemplate(type: .TOTP(period: 15), algorithm: .SHA1, secret: secret, issuer: nil, name: "TOTP SHA1 15s no issuer", digits: 8)
-                try await session.addAccount(template: accountThree)
-                let accountFour = OATHSession.AccountTemplate(type: .TOTP(), algorithm: .SHA256, secret: secret, issuer: "TOTP SHA256", name: "requires touch, 6 digits, 30 sec", digits: 6, requiresTouch: true)
-                try await session.addAccount(template: accountFour)
-                let accountFive = OATHSession.AccountTemplate(type: .HOTP(), algorithm: .SHA1, secret: secret, issuer: "HOTP SHA1", name: "6 digits, counter = 0", digits: 6)
-                try await session.addAccount(template: accountFive)
+                let credentialOne = OATHSession.CredentialTemplate(type: .TOTP(), algorithm: .SHA1, secret: secret, issuer: "TOTP SHA1", name: "6 digits, 30 sec", digits: 6)
+                try await session.addCredential(template: credentialOne)
+                let credentialTwo = OATHSession.CredentialTemplate(type: .TOTP(), algorithm: .SHA256, secret: secret, issuer: "TOTP SHA256", name: "6 digits, 30 sec", digits: 6)
+                try await session.addCredential(template: credentialTwo)
+                let credentialThree = OATHSession.CredentialTemplate(type: .TOTP(period: 15), algorithm: .SHA1, secret: secret, issuer: nil, name: "TOTP SHA1 15s no issuer", digits: 8)
+                try await session.addCredential(template: credentialThree)
+                let credentialFour = OATHSession.CredentialTemplate(type: .TOTP(), algorithm: .SHA256, secret: secret, issuer: "TOTP SHA256", name: "requires touch, 6 digits, 30 sec", digits: 6, requiresTouch: true)
+                try await session.addCredential(template: credentialFour)
+                let credentialFive = OATHSession.CredentialTemplate(type: .HOTP(), algorithm: .SHA1, secret: secret, issuer: "HOTP SHA1", name: "6 digits, counter = 0", digits: 6)
+                try await session.addCredential(template: credentialFive)
             }
             
             if let password {

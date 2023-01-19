@@ -29,7 +29,7 @@ public enum OATHSessionError: Error {
     case failedDerivingDeviceId
     case unexpectedTag
     case unexpectedData
-    case accountNotPresentOnCurrentYubiKey
+    case credentialNotPresentOnCurrentYubiKey
 }
 
 public final class OATHSession: Session, InternalSession {
@@ -114,7 +114,7 @@ public final class OATHSession: Session, InternalSession {
         selectResponse = try await Self.selectApplication(withConnection: connection)
     }
     
-    @discardableResult public func addAccount(template: AccountTemplate) async throws -> Account? {
+    @discardableResult public func addCredential(template: CredentialTemplate) async throws -> Credential? {
         guard let connection else { throw OATHSessionError.noConnection }
         // name
         print(template.key)
@@ -144,45 +144,45 @@ public final class OATHSession: Session, InternalSession {
         return nil
     }
     
-    public func deleteAccount(_ account: Account) async throws {
+    public func deleteCredential(_ credential: Credential) async throws {
         guard let connection else { throw OATHSessionError.noConnection }
-        let deleteTlv = TKBERTLVRecord(tag: 0x71, value: account.id)
+        let deleteTlv = TKBERTLVRecord(tag: 0x71, value: credential.id)
         let apdu = APDU(cla: 0, ins: 0x02, p1: 0, p2: 0, command: deleteTlv.data)
         let _: Data = try await connection.send(apdu: apdu)
     }
     
-    public func listAccounts() async throws -> [Account] {
+    public func listCredentials() async throws -> [Credential] {
         guard let connection else { throw OATHSessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
         let data: Data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else { throw OATHSessionError.responseDataNotTLVFormatted }
         return try result.map {
             guard $0.tag == 0x72 else { throw OATHSessionError.unexpectedTag }
-            guard let accountId = AccountIdParser(data: $0.value.dropFirst()) else { throw OATHSessionError.unexpectedData }
+            guard let credentialId = CredentialIdParser(data: $0.value.dropFirst()) else { throw OATHSessionError.unexpectedData }
             let bytes = $0.value.bytes
             let typeCode = bytes[0] & 0xf0
-            let accountType: AccountType
-            if AccountType.isTOTP(typeCode) {
-                accountType = .TOTP(period: accountId.period ?? oathDefaultPeriod)
-            } else if AccountType.isHOTP(typeCode) {
-                accountType = .HOTP(counter: 0)
+            let credentialType: CredentialType
+            if CredentialType.isTOTP(typeCode) {
+                credentialType = .TOTP(period: credentialId.period ?? oathDefaultPeriod)
+            } else if CredentialType.isHOTP(typeCode) {
+                credentialType = .HOTP(counter: 0)
             } else {
                 throw OATHSessionError.unexpectedData
             }
             
             guard let hashAlgorithm = HashAlgorithm(rawValue: bytes[0] & 0x0f) else { throw OATHSessionError.unexpectedData }
 
-            return Account(deviceId: selectResponse.deviceId, id: $0.value.dropFirst(), type: accountType, hashAlgorithm: hashAlgorithm, name: accountId.account, issuer: accountId.issuer)
+            return Credential(deviceId: selectResponse.deviceId, id: $0.value.dropFirst(), type: credentialType, hashAlgorithm: hashAlgorithm, name: credentialId.account, issuer: credentialId.issuer)
         }
     }
     
-    public func calculateCode(account: Account, timestamp: Date = Date()) async throws -> Code {
+    public func calculateCode(credential: Credential, timestamp: Date = Date()) async throws -> Code {
         guard let connection else { throw OATHSessionError.noConnection }
 
-        guard account.deviceId == self.selectResponse.deviceId else { throw OATHSessionError.accountNotPresentOnCurrentYubiKey }
+        guard credential.deviceId == self.selectResponse.deviceId else { throw OATHSessionError.credentialNotPresentOnCurrentYubiKey }
         let challengeTLV: TKBERTLVRecord
         
-        switch account.type {
+        switch credential.type {
         case .HOTP(counter: let counter):
             challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: Data())
         case .TOTP(period: let period):
@@ -192,7 +192,7 @@ public final class OATHSession: Session, InternalSession {
             challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         }
         
-        let nameTLV = TKBERTLVRecord(tag: tagName, value: account.id)
+        let nameTLV = TKBERTLVRecord(tag: tagName, value: credential.id)
         let apdu = APDU(cla: 0x00, ins: 0xa2, p1: 0, p2: 1, command: nameTLV.data + challengeTLV.data, type: .extended)
         
         let data: Data = try await connection.send(apdu: apdu)
@@ -201,10 +201,10 @@ public final class OATHSession: Session, InternalSession {
         guard let digits = result.value.first else { throw OATHSessionError.unexpectedData }
         let code = UInt32(bigEndian: result.value.subdata(in: 1..<result.value.count).uint32)
         let stringCode = String(format: "%0\(digits)d", UInt(code))
-        return Code(code: stringCode, timestamp: timestamp, accountType: account.type)
+        return Code(code: stringCode, timestamp: timestamp, credentialType: credential.type)
     }
     
-    public func calculateCodes(timestamp: Date = Date()) async throws -> [(Account, Code?)] {
+    public func calculateCodes(timestamp: Date = Date()) async throws -> [(Credential, Code?)] {
         print("Start OATH calculateCodes")
         let time = timestamp.timeIntervalSince1970
         let challenge = UInt64(time / 30)
@@ -218,29 +218,29 @@ public final class OATHSession: Session, InternalSession {
         return try await result.asyncMap { (name, response) in
             guard name.tag == 0x71 else { throw OATHSessionError.unexpectedTag }
 
-            guard let accountId = AccountIdParser(data: name.value) else { throw OATHSessionError.unexpectedData }
+            guard let credentialId = CredentialIdParser(data: name.value) else { throw OATHSessionError.unexpectedData }
 
-            let accountType: AccountType
+            let credentialType: CredentialType
             if response.tag == tagTypeHOTP {
-                accountType = .HOTP(counter: 0)
+                credentialType = .HOTP(counter: 0)
             } else {
-                accountType = .TOTP(period: accountId.period ?? oathDefaultPeriod)
+                credentialType = .TOTP(period: credentialId.period ?? oathDefaultPeriod)
             }
             
-            let account = Account(deviceId: self.selectResponse.deviceId, id: name.value, type: accountType, name: accountId.account, issuer: accountId.issuer)
+            let credential = Credential(deviceId: self.selectResponse.deviceId, id: name.value, type: credentialType, name: credentialId.account, issuer: credentialId.issuer)
             
             if response.value.count == 5 {
-                if accountId.period != oathDefaultPeriod {
-                    let code = try await self.calculateCode(account: account, timestamp: timestamp)
-                    return (account, code)
+                if credentialId.period != oathDefaultPeriod {
+                    let code = try await self.calculateCode(credential: credential, timestamp: timestamp)
+                    return (credential, code)
                 } else {
                     let digits = response.value.first!
                     let code = UInt32(bigEndian: response.value.subdata(in: 1..<response.value.count).uint32)
                     let stringCode = String(format: "%0\(digits)d", UInt(code))
-                    return (account, Code(code: stringCode, timestamp: timestamp, accountType: accountType))
+                    return (credential, Code(code: stringCode, timestamp: timestamp, credentialType: credentialType))
                 }
             } else {
-                return (account, nil)
+                return (credential, nil)
             }
         }
     }
@@ -257,7 +257,7 @@ public final class OATHSession: Session, InternalSession {
     
     public func setAccessKey(_ accessKey: Data) async throws {
         guard let connection else { throw OATHSessionError.noConnection }
-        let header = AccountType.TOTP().code | HashAlgorithm.SHA1.rawValue
+        let header = CredentialType.TOTP().code | HashAlgorithm.SHA1.rawValue
         var data = Data([header])
         data.append(accessKey)
         let keyTlv = TKBERTLVRecord(tag: tagSetCodeKey, value: data)
