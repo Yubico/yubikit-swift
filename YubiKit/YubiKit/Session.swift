@@ -35,6 +35,7 @@ extension InternalSession {
 }
 
 public enum SessionError: Error {
+    case noConnection
     case missingApplication
     case unexpectedStatusCode
 }

@@ -8,9 +8,6 @@
 import Foundation
 import CryptoTokenKit
 
-public enum ManagementSessionError: Error {
-    case noConnection
-}
 
 public final class ManagementSession: Session, InternalSession {
     
@@ -63,7 +60,7 @@ public final class ManagementSession: Session, InternalSession {
     }
 
     public func getDeviceInfo() async throws -> DeviceInfo {
-        guard let connection else { throw ManagementSessionError.noConnection }
+        guard let connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0x1d, p1: 0, p2: 0)
         let data: Data = try await connection.send(apdu: apdu)
         return try DeviceInfo(withData: data, fallbackVersion: version)
