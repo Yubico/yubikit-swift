@@ -10,6 +10,7 @@
 		51BBE3EB273D1A3800DA47CC /* YubiKit.docc in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE3EA273D1A3800DA47CC /* YubiKit.docc */; };
 		51BBE3F1273D1A3800DA47CC /* YubiKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51BBE3E6273D1A3800DA47CC /* YubiKit.framework */; };
 		51BBE3F7273D1A3800DA47CC /* YubiKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 51BBE3E9273D1A3800DA47CC /* YubiKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		B40528332987C31E00FC33AB /* DeviceInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40528322987C31E00FC33AB /* DeviceInfo.swift */; };
 		B408BA8F2948FA2100001B2F /* Stream+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B408BA8E2948FA2100001B2F /* Stream+Extensions.swift */; };
 		B40BCB7B2940F1C5009F39BD /* Response.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40BCB7A2940F1C5009F39BD /* Response.swift */; };
 		B40BCB7D29422721009F39BD /* Connection+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40BCB7C29422721009F39BD /* Connection+Extensions.swift */; };
@@ -51,6 +52,7 @@
 		51BBE3E9273D1A3800DA47CC /* YubiKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YubiKit.h; sourceTree = "<group>"; };
 		51BBE3EA273D1A3800DA47CC /* YubiKit.docc */ = {isa = PBXFileReference; lastKnownFileType = folder.documentationcatalog; path = YubiKit.docc; sourceTree = "<group>"; };
 		51BBE3F0273D1A3800DA47CC /* YubiKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YubiKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B40528322987C31E00FC33AB /* DeviceInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInfo.swift; sourceTree = "<group>"; };
 		B408BA8E2948FA2100001B2F /* Stream+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Stream+Extensions.swift"; sourceTree = "<group>"; };
 		B40BCB7A2940F1C5009F39BD /* Response.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Response.swift; sourceTree = "<group>"; };
 		B40BCB7C29422721009F39BD /* Connection+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Connection+Extensions.swift"; sourceTree = "<group>"; };
@@ -182,6 +184,7 @@
 			isa = PBXGroup;
 			children = (
 				B456E21A274FCA26004471DE /* ManagementSession.swift */,
+				B40528322987C31E00FC33AB /* DeviceInfo.swift */,
 			);
 			path = Management;
 			sourceTree = "<group>";
@@ -319,6 +322,7 @@
 				B40CBD6029090C49007D7D23 /* Version.swift in Sources */,
 				B4BE3AB1292E1E3800CC30CB /* CryptoKit+Extensions.swift in Sources */,
 				51BBE3EB273D1A3800DA47CC /* YubiKit.docc in Sources */,
+				B40528332987C31E00FC33AB /* DeviceInfo.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

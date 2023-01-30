@@ -6,7 +6,11 @@
 //
 
 import Foundation
+import CryptoTokenKit
 
+public enum ManagementSessionError: Error {
+    case noConnection
+}
 
 public final class ManagementSession: Session, InternalSession {
     
@@ -58,9 +62,11 @@ public final class ManagementSession: Session, InternalSession {
         return nil
     }
 
-    public func getKeyVersion() async throws -> String {
-//        _ = try await connection?.send(apdu: SmartCardInterface.APDU())
-        return "3.14"
+    public func getDeviceInfo() async throws -> DeviceInfo {
+        guard let connection else { throw ManagementSessionError.noConnection }
+        let apdu = APDU(cla: 0, ins: 0x1d, p1: 0, p2: 0)
+        let data: Data = try await connection.send(apdu: apdu)
+        return try DeviceInfo(withData: data, fallbackVersion: version)
     }
 
     deinit {

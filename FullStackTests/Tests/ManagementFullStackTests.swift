@@ -17,6 +17,17 @@ class ManagementFullStackTests: XCTestCase {
             print("Got version: \(session.version)")
         }
     }
+    
+    func testGetDeviceInfo() throws {
+        runManagementTest { session in
+            let info = try await session.getDeviceInfo()
+            print(info)
+            print("isApplicationEnabled usb: \(info.config.isApplicationEnabled(.piv, overTransport: .usb))")
+            print("isApplicationEnabled nfc: \(info.config.isApplicationEnabled(.piv, overTransport: .nfc))")
+            print("isApplicationSupported usb: \(info.isApplicationSupported(.piv, overTransport: .usb))")
+            print("isApplicationSupported nfc: \(info.isApplicationSupported(.piv, overTransport: .nfc))")
+        }
+    }
 }
 
 extension XCTestCase {
