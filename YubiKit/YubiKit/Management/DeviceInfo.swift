@@ -13,18 +13,6 @@ public enum DeviceTransport {
     case usb, nfc
 }
 
-public struct DeviceConfig {
-    public let autoEjectTimeout: TimeInterval
-    public let challengeResponseTimeout: TimeInterval
-    public let deviceFlags: UInt
-    public let enabledCapabilities: [DeviceTransport: UInt]
-    
-    public func isApplicationEnabled(_ application: ApplicationType, overTransport transport: DeviceTransport) -> Bool {
-        guard let mask = enabledCapabilities[transport] else { return false }
-        return (mask & application.rawValue) == application.rawValue
-    }
-}
-
 public enum ApplicationType: UInt {
     case otp = 0x01
     case u2f = 0x02
@@ -63,25 +51,24 @@ public struct DeviceInfo {
     public let isSky: Bool
     public let config: DeviceConfig
     
-    let isUSBSupportedTag: TKTLVTag = 0x01
-    let serialNumberTag: TKTLVTag = 0x02
-    let isUSBEnabledTag: TKTLVTag = 0x03
-    let formFactorTag: TKTLVTag = 0x04
-    let firmwareVersionTag: TKTLVTag = 0x05
-    let autoEjectTimeoutTag: TKTLVTag = 0x06
-    let challengeResponseTimeoutTag: TKTLVTag = 0x07
-    let deviceFlagsTag: TKTLVTag = 0x08
-    let isNFCSupported: TKTLVTag = 0x0d
-    let isNFCEnabled: TKTLVTag = 0x0e
-    let isConfigLockedTag: TKTLVTag = 0x0a
-    
+    internal let isUSBSupportedTag: TKTLVTag = 0x01
+    internal let serialNumberTag: TKTLVTag = 0x02
+    internal let isUSBEnabledTag: TKTLVTag = 0x03
+    internal let formFactorTag: TKTLVTag = 0x04
+    internal let firmwareVersionTag: TKTLVTag = 0x05
+    internal let autoEjectTimeoutTag: TKTLVTag = 0x06
+    internal let challengeResponseTimeoutTag: TKTLVTag = 0x07
+    internal let deviceFlagsTag: TKTLVTag = 0x08
+    internal let isNFCSupportedTag: TKTLVTag = 0x0d
+    internal let isNFCEnabledTag: TKTLVTag = 0x0e
+    internal let isConfigLockedTag: TKTLVTag = 0x0a
     
     init(withData data: Data, fallbackVersion: Version) throws {
         guard let count = data.bytes.first, count > 0 else { throw "No data" }
         guard let tlvs = TKBERTLVRecord.dictionaryOfData(from: data.subdata(in: 1..<data.count)) else { throw "Failed parsing result" }
         
         if let versionData = tlvs[firmwareVersionTag] {
-            guard let parsedVersion = Version(withData: versionData) else { throw "Error" }
+            guard let parsedVersion = Version(withData: versionData) else { throw ManagementSessionError.versionParseError }
             self.version = parsedVersion
         } else {
             self.version = fallbackVersion
@@ -119,9 +106,9 @@ public struct DeviceInfo {
             enabledCapabilities[DeviceTransport.usb] = tlvs[isUSBEnabledTag]?.integer ?? 0
           }
         
-        if let nfcSupported = tlvs[isNFCSupported]?.integer {
+        if let nfcSupported = tlvs[isNFCSupportedTag]?.integer {
             supportedCapabilities[DeviceTransport.nfc] = nfcSupported
-            enabledCapabilities[DeviceTransport.nfc] = tlvs[isNFCEnabled]?.integer ?? 0
+            enabledCapabilities[DeviceTransport.nfc] = tlvs[isNFCEnabledTag]?.integer ?? 0
         }
         self.supportedCapabilities = supportedCapabilities
         
@@ -153,7 +140,7 @@ public struct DeviceInfo {
 
 
 extension Data {
-    var integer: UInt {
+    internal var integer: UInt {
         let bytes = self.bytes
         if bytes.isEmpty { return 0 }
         var value: UInt = 0

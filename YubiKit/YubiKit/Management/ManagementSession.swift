@@ -8,6 +8,11 @@
 import Foundation
 import CryptoTokenKit
 
+enum ManagementSessionError: Error {
+    case applicationNotSupported
+    case unexpectedYubikeyConfigState
+    case versionParseError
+}
 
 public final class ManagementSession: Session, InternalSession {
     
@@ -18,7 +23,7 @@ public final class ManagementSession: Session, InternalSession {
 
     private init(connection: Connection) async throws {
         let result = try await connection.selectApplication(application: .management)
-        guard let version = Version(withManagementResult: result) else { throw "Failed to parse version string from response." }
+        guard let version = Version(withManagementResult: result) else { throw ManagementSessionError.versionParseError }
         self.version = version
         self.connection = connection
         var internalConnection = self.internalConnection
@@ -65,7 +70,50 @@ public final class ManagementSession: Session, InternalSession {
         let data: Data = try await connection.send(apdu: apdu)
         return try DeviceInfo(withData: data, fallbackVersion: version)
     }
-
+    
+    public func isApplicationSupported(_ application: ApplicationType, overTransport transport: DeviceTransport) async throws -> Bool {
+        let deviceInfo = try await getDeviceInfo()
+        return deviceInfo.config.isApplicationEnabled(application, overTransport: transport)
+    }
+    
+    public func setEnabled(_ enabled: Bool, application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
+        guard let connection else { throw SessionError.noConnection }
+        let deviceInfo = try await getDeviceInfo()
+        guard enabled != deviceInfo.config.isApplicationEnabled(application, overTransport: transport) else { return }
+        guard deviceInfo.isApplicationSupported(application, overTransport: transport) else {
+            throw ManagementSessionError.applicationNotSupported
+        }
+        let config = deviceInfo.config.deviceConfigWithEnabled(enabled, application: application, overTransport: transport)
+        
+        guard let newConfigValue = config?.enabledCapabilities[transport] else {
+            throw ManagementSessionError.unexpectedYubikeyConfigState
+        }
+        
+        var data = Data()
+        data.append(UInt8(newConfigValue & 0xff00 >> 8))
+        data.append(UInt8(newConfigValue & 0xff))
+        
+        if reboot {
+            data.append([0x0c, 0x00], count: 2)
+        }
+        let tlv = TKBERTLVRecord(tag: transport == .nfc ? deviceInfo.isNFCEnabledTag : deviceInfo.isUSBEnabledTag , value: data)
+        
+        var command = Data()
+        command.append(tlv.data.count.data.uint8)
+        command.append(tlv.data)
+        
+        let apdu = APDU(cla: 0, ins: 0x1c, p1: 0, p2: 0, command: command)
+        let _: Data = try await connection.send(apdu: apdu)
+    }
+    
+    public func disableApplication(_ application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
+        try await setEnabled(false, application: application, overTransport: transport, reboot: reboot)
+    }
+    
+    public func enableApplication(_ application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
+        try await setEnabled(true, application: application, overTransport: transport, reboot: reboot)
+    }
+    
     deinit {
         print("deinit ManagementSession")
     }

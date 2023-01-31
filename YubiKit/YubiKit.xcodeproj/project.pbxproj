@@ -11,6 +11,7 @@
 		51BBE3F1273D1A3800DA47CC /* YubiKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51BBE3E6273D1A3800DA47CC /* YubiKit.framework */; };
 		51BBE3F7273D1A3800DA47CC /* YubiKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 51BBE3E9273D1A3800DA47CC /* YubiKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B40528332987C31E00FC33AB /* DeviceInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40528322987C31E00FC33AB /* DeviceInfo.swift */; };
+		B405283729894E7600FC33AB /* DeviceConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B405283629894E7600FC33AB /* DeviceConfig.swift */; };
 		B408BA8F2948FA2100001B2F /* Stream+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B408BA8E2948FA2100001B2F /* Stream+Extensions.swift */; };
 		B40BCB7B2940F1C5009F39BD /* Response.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40BCB7A2940F1C5009F39BD /* Response.swift */; };
 		B40BCB7D29422721009F39BD /* Connection+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40BCB7C29422721009F39BD /* Connection+Extensions.swift */; };
@@ -53,6 +54,7 @@
 		51BBE3EA273D1A3800DA47CC /* YubiKit.docc */ = {isa = PBXFileReference; lastKnownFileType = folder.documentationcatalog; path = YubiKit.docc; sourceTree = "<group>"; };
 		51BBE3F0273D1A3800DA47CC /* YubiKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YubiKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B40528322987C31E00FC33AB /* DeviceInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInfo.swift; sourceTree = "<group>"; };
+		B405283629894E7600FC33AB /* DeviceConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceConfig.swift; sourceTree = "<group>"; };
 		B408BA8E2948FA2100001B2F /* Stream+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Stream+Extensions.swift"; sourceTree = "<group>"; };
 		B40BCB7A2940F1C5009F39BD /* Response.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Response.swift; sourceTree = "<group>"; };
 		B40BCB7C29422721009F39BD /* Connection+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Connection+Extensions.swift"; sourceTree = "<group>"; };
@@ -185,6 +187,7 @@
 			children = (
 				B456E21A274FCA26004471DE /* ManagementSession.swift */,
 				B40528322987C31E00FC33AB /* DeviceInfo.swift */,
+				B405283629894E7600FC33AB /* DeviceConfig.swift */,
 			);
 			path = Management;
 			sourceTree = "<group>";
@@ -313,6 +316,7 @@
 				B4BE3AB5292E1ECB00CC30CB /* Sequence+Extensions.swift in Sources */,
 				B41B61862743FC4E004C37BF /* Session.swift in Sources */,
 				B40BCB7B2940F1C5009F39BD /* Response.swift in Sources */,
+				B405283729894E7600FC33AB /* DeviceConfig.swift in Sources */,
 				B41B61842743FC2E004C37BF /* Connection.swift in Sources */,
 				B4BE3AAD292E1C8600CC30CB /* OATHSession.swift in Sources */,
 				B4BE3ABA292E24C700CC30CB /* Base32.swift in Sources */,
