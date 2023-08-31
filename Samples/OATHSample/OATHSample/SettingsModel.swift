@@ -21,11 +21,12 @@ class SettingsModel: ObservableObject {
                 let connection = try await ConnectionHelper.anyConnection()
                 print("Got connection in getKeyVersion()")
                 let session = try await ManagementSession.session(withConnection: connection)
-                self.keyVersion = try await session.getKeyVersion()
+                self.keyVersion = session.version.debugDescription
+                session.end()
                 #if os(iOS)
-                if connection as? NFCConnection != nil {
+                if let nfcConnection = connection as? NFCConnection {
                     self.connection = "NFC"
-                    await session.end(withConnectionStatus: .close(.success("YubiKey version read")))
+                    nfcConnection.close(result: .success("YubiKey version read"))
                 } else {
                     self.connection = "Lightning"
                 }

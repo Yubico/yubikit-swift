@@ -16,26 +16,24 @@ public enum ConnectionStatus {
 
 public protocol Session: AnyObject {
     static func session(withConnection connection: Connection) async throws -> Self
-    func end(withConnectionStatus: ConnectionStatus) async
-    func sessionDidEnd() async throws -> Error?
+    func end()
+    func sessionDidEnd() async -> Error?
 }
 
 
 internal protocol InternalSession {
-    var connection: Connection? { get }
+    var connection: Connection? { get set }
 }
 
 extension InternalSession {
-    var internalConnection: InternalConnection {
-        get {
-            // If the connection is not an InternalConnection we should crash
-            connection as! InternalConnection
-        }
+    var internalConnection: InternalConnection? {
+        connection as? InternalConnection
     }
 }
 
 public enum SessionError: Error {
     case noConnection
+    case activeSession
     case missingApplication
     case unexpectedStatusCode
 }

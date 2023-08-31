@@ -44,15 +44,6 @@ extension Session {
             }
         }
     }
-    
-    public func end(withConnectionStatus status: ConnectionStatus = .leaveOpen, callback: @escaping () -> Void) {
-        Task {
-            do {
-                await self.end(withConnectionStatus: status)
-                callback()
-            }
-        }
-    }
 }
 
 extension OATHSession {

@@ -18,6 +18,7 @@ class DelegateWrapperModel: ObservableObject, YubKitWrapperDelegate {
     }
     
     @MainActor func connect() {
+        status = "Trying to connect to YubiKey..."
         yubikit.startAnyConnection()
     }
     
@@ -29,11 +30,20 @@ class DelegateWrapperModel: ObservableObject, YubKitWrapperDelegate {
             }
             session.calculateCodes { codes, error in
                 guard let codes else {
-                    self.status = "⚠️ error: \(error!)"
+                    DispatchQueue.main.async {
+                        self.status = "⚠️ error: \(error!)"
+                    }
+                    if let nfcConnection = connection as? NFCConnection {
+                        nfcConnection.close(result: .failure("Error: \(error!.localizedDescription)"))
+                    }
                     return
                 }
                 DispatchQueue.main.async {
                     self.status = "Got \(codes.count) codes from YubiKey using delegate & callback wrapper"
+                }
+                session.end()
+                if let nfcConnection = connection as? NFCConnection {
+                    nfcConnection.close(result: .success("Calculated codes"))
                 }
             }
         }

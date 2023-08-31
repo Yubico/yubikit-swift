@@ -214,8 +214,9 @@ public final class LightningConnection: Connection, InternalConnection {
         }
     }
     
-    public func close(result: Result<String, Error>?) async {
+    public func close() {
         Self.manager.endSession()
+        self.session = nil
     }
     
     deinit {

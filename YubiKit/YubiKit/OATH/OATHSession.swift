@@ -50,7 +50,7 @@ public final class OATHSession: Session, InternalSession {
         print("⚡️ init OATHSession")
         self.selectResponse = try await Self.selectApplication(withConnection: connection)
         self.connection = connection
-        var internalConnection = self.internalConnection
+        var internalConnection = connection as! InternalConnection
         internalConnection.session = self
     }
     
@@ -74,31 +74,19 @@ public final class OATHSession: Session, InternalSession {
     public static func session(withConnection connection: Connection) async throws -> OATHSession {
         // Close active session if there is one
         let internalConnection = connection as! InternalConnection
-        await internalConnection.session?.end(withConnectionStatus: .leaveOpen)
+        internalConnection.session?.end()
         // Create a new OATHSession
         let session = try await OATHSession(connection: connection)
         return session
     }
     
-    public func end(withConnectionStatus status: ConnectionStatus = .leaveOpen) async {
-        switch status {
-        case .close(let result):
-            endingResult = result
-            await connection?.close(result: result)
-        default: break
-        }
-        sessionEnded = true
-        var internalConnection = self.internalConnection
-        internalConnection.session = nil
-        connection = nil
-        if case .leaveOpen = status {
-            print("End OATHSesssion and close connection")
-        } else {
-            print("End OATHSesssion")
-        }
+    public func end() {
+        var internalConnection = connection as? InternalConnection
+        internalConnection?.session = nil
+        self.connection = nil
     }
     
-    public func sessionDidEnd() async throws -> Error? {
+    public func sessionDidEnd() async -> Error? {
         print("await OATH sessionDidEnd")
 //        _ = try await connection?.send(apdu: APDU())
         print("OATH session did end\(endingResult != nil ? " with result: \(endingResult!)" : "")")

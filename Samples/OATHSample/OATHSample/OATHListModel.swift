@@ -50,7 +50,7 @@ class OATHListModel: ObservableObject {
     }
     
     @MainActor func calculateCodes(useWiredConnection: Bool = false) {
-        print("await calculateCodes()")
+        print("await calculateCodes(useWiredConnection: \(useWiredConnection)")
         Task {
             self.errorMessage = nil
             do {
@@ -61,17 +61,18 @@ class OATHListModel: ObservableObject {
                 let connection = try await ConnectionHelper.anyConnection()
                 #endif
 
-                print("Got connection in calculateCodes()")
+                print("Got \(connection) in calculateCodes()")
                 let session = try await OATHSession.session(withConnection: connection)
-                print("Got session in calculateCodes()")
+                print("Got \(session) in calculateCodes()")
                 let result = try await session.calculateCodes()
-                print("Got result \(result) in calculateCodes()")
+                print("Got \(result) in calculateCodes()")
                 self.codes = result.map { return $0.1 }.compactMap { $0 }
                 print("self.codes: \(self.codes)")
                 #if os(iOS)
-                if connection as? NFCConnection != nil {
+                session.end()
+                if let nfcConnection = connection as? NFCConnection {
                     self.source =  "NFC"
-                    await session.end(withConnectionStatus: .close(.success("Calculated codes")))
+                    nfcConnection.close(result: .success("Calculated codes"))
                 } else {
                     self.source = connection as? SmartCardConnection != nil ? "SmartCard" : "lightning"
                 }

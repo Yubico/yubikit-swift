@@ -29,8 +29,18 @@ fileprivate final class TagManager: NSObject, NFCTagReaderSessionDelegate {
         closingCallback = callback
     }
     
-    func endSession() {
-        tagSession?.invalidate()
+    func endSession(result: Result<String, Error>?) {
+        if let result {
+            switch result {
+            case .success(let message):
+                tagSession?.alertMessage = message
+                tagSession?.invalidate()
+            case .failure(let error):
+                tagSession?.invalidate(errorMessage: error.localizedDescription)
+            }
+        } else {
+            tagSession?.invalidate()
+        }
     }
     
     func tagReaderSessionDidBecomeActive(_ tagSession: NFCTagReaderSession) {
@@ -95,7 +105,7 @@ public final class NFCConnection: Connection, InternalConnection {
             return try await withCheckedThrowingContinuation { continuation in
                 connectingLock.with {
                     if let connection = self.connection {
-                        print("reuse SmartCardConnection")
+                        print("Reuse NFCConnection")
                         continuation.resume(returning: connection)
                         return
                     }
@@ -132,15 +142,21 @@ public final class NFCConnection: Connection, InternalConnection {
                 connectionContinuations.forEach { continuation in
                     continuation.resume(throwing: CancellationError())
                 }
-                manager.endSession()
+                manager.endSession(result: nil)
                 connectionContinuations.removeAll()
             }
         }
     }
     
+    public func close() {
+        close(result: nil)
+    }
+    
     public func close(result: Result<String, Error>? = nil) {
         print("Closing NFC Connection")
-        Self.manager.endSession()
+        Self.manager.endSession(result: result)
+        Self.connection = nil
+        self.session = nil
     }
     
     public func connectionDidClose() async -> Error? {
@@ -167,7 +183,7 @@ public final class NFCConnection: Connection, InternalConnection {
                 }
                 Self.closingContinuations.removeAll()
                 // should we end the session when the close task is cancelled?
-                Self.manager.endSession()
+                Self.manager.endSession(result: nil)
             }
         }
     }

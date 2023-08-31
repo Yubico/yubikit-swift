@@ -9,7 +9,7 @@ import Foundation
 
 public protocol Connection: AnyObject {
     static func connection() async throws -> Connection
-    func close(result: Result<String, Error>?) async
+    func close()
     func connectionDidClose() async -> Error?
     func send(apdu: APDU) async throws -> Response
 }

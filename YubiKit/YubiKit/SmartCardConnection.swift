@@ -132,7 +132,7 @@ public final class SmartCardConnection: Connection, InternalConnection {
             return try await withCheckedThrowingContinuation { continuation in
                 connectingLock.with {
                     if let connection = self.connection {
-                        print("reuse SmartCardConnection")
+                        print("Reuse SmartCardConnection")
                         continuation.resume(returning: connection)
                         return
                     }
@@ -179,7 +179,7 @@ public final class SmartCardConnection: Connection, InternalConnection {
         self.smartCard = smartCard
     }
 
-    public func close(result: Result<String, Error>?) async {
+    public func close() {
         smartCard.endSession()
     }
     
