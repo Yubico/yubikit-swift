@@ -9,25 +9,21 @@ import Foundation
 
 extension String: Error {}
 
-public enum ConnectionStatus {
-    case close(Result<String, Error>?)
-    case leaveOpen
-}
-
 public protocol Session: AnyObject {
     static func session(withConnection connection: Connection) async throws -> Self
-    func end()
+    func end() async
     func sessionDidEnd() async -> Error?
 }
 
-
 internal protocol InternalSession {
-    var connection: Connection? { get set }
+    func connection() async -> Connection?
+    func setConnection(_ connection: Connection?) async
 }
 
 extension InternalSession {
-    var internalConnection: InternalConnection? {
-        connection as? InternalConnection
+    func internalConnection() async -> InternalConnection? {
+        let connection = await connection()
+        return connection as? InternalConnection
     }
 }
 

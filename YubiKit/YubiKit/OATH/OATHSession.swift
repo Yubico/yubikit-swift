@@ -32,8 +32,16 @@ public enum OATHSessionError: Error {
 }
 
 public final class OATHSession: Session, InternalSession {
+    func connection() async -> Connection? {
+        return _connection
+    }
     
-    internal weak var connection: Connection?
+    func setConnection(_ connection: Connection?) async {
+        _connection = connection
+    }
+    
+    
+    internal weak var _connection: Connection?
     private var sessionEnded = false
     var endingResult: Result<String, Error>?
     
@@ -49,9 +57,9 @@ public final class OATHSession: Session, InternalSession {
     private init(connection: Connection) async throws {
         print("⚡️ init OATHSession")
         self.selectResponse = try await Self.selectApplication(withConnection: connection)
-        self.connection = connection
-        var internalConnection = connection as! InternalConnection
-        internalConnection.session = self
+        await self.setConnection(connection)
+        let internalConnection = connection as! InternalConnection
+        await internalConnection.setSession(self)
     }
     
     private static func selectApplication(withConnection connection: Connection) async throws -> SelectResponse {
@@ -74,16 +82,17 @@ public final class OATHSession: Session, InternalSession {
     public static func session(withConnection connection: Connection) async throws -> OATHSession {
         // Close active session if there is one
         let internalConnection = connection as! InternalConnection
-        internalConnection.session?.end()
+        let currentSession = await internalConnection.session()
+        await currentSession?.end()
         // Create a new OATHSession
         let session = try await OATHSession(connection: connection)
         return session
     }
     
-    public func end() {
-        var internalConnection = connection as? InternalConnection
-        internalConnection?.session = nil
-        self.connection = nil
+    public func end() async {
+        let internalConnection = _connection as? InternalConnection
+        await internalConnection?.setSession(nil)
+        self._connection = nil
     }
     
     public func sessionDidEnd() async -> Error? {
@@ -94,7 +103,7 @@ public final class OATHSession: Session, InternalSession {
     }
     
     public func reset() async throws {
-        guard let connection else { throw SessionError.noConnection }
+        guard let connection = _connection else { throw SessionError.noConnection }
         print("Reset OATH application")
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad)
         let _: Data = try await connection.send(apdu: apdu)
@@ -102,7 +111,7 @@ public final class OATHSession: Session, InternalSession {
     }
     
     @discardableResult public func addCredential(template: CredentialTemplate) async throws -> Credential? {
-        guard let connection else { throw SessionError.noConnection }
+        guard let connection = _connection else { throw SessionError.noConnection }
         // name
         print(template.key)
         guard let nameData = template.key.data(using: .utf8) else { throw OATHSessionError.unexpectedData }
@@ -132,14 +141,14 @@ public final class OATHSession: Session, InternalSession {
     }
     
     public func deleteCredential(_ credential: Credential) async throws {
-        guard let connection else { throw SessionError.noConnection }
+        guard let connection = _connection else { throw SessionError.noConnection }
         let deleteTlv = TKBERTLVRecord(tag: 0x71, value: credential.id)
         let apdu = APDU(cla: 0, ins: 0x02, p1: 0, p2: 0, command: deleteTlv.data)
         let _: Data = try await connection.send(apdu: apdu)
     }
     
     public func listCredentials() async throws -> [Credential] {
-        guard let connection else { throw SessionError.noConnection }
+        guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
         let data: Data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else { throw OATHSessionError.responseDataNotTLVFormatted }
@@ -164,7 +173,7 @@ public final class OATHSession: Session, InternalSession {
     }
     
     public func calculateCode(credential: Credential, timestamp: Date = Date()) async throws -> Code {
-        guard let connection else { throw SessionError.noConnection }
+        guard let connection = _connection else { throw SessionError.noConnection }
 
         guard credential.deviceId == self.selectResponse.deviceId else { throw OATHSessionError.credentialNotPresentOnCurrentYubiKey }
         let challengeTLV: TKBERTLVRecord
@@ -198,7 +207,7 @@ public final class OATHSession: Session, InternalSession {
         let bigChallenge = CFSwapInt64HostToBig(challenge)
         let challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, command: challengeTLV.data)
-        guard let connection else { throw SessionError.noConnection }
+        guard let connection = _connection else { throw SessionError.noConnection }
         let data: Data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else { throw OATHSessionError.responseDataNotTLVFormatted }
         
@@ -243,7 +252,7 @@ public final class OATHSession: Session, InternalSession {
     }
     
     public func setAccessKey(_ accessKey: Data) async throws {
-        guard let connection else { throw SessionError.noConnection }
+        guard let connection = _connection else { throw SessionError.noConnection }
         let header = CredentialType.TOTP().code | HashAlgorithm.SHA1.rawValue
         var data = Data([header])
         data.append(accessKey)
@@ -261,7 +270,7 @@ public final class OATHSession: Session, InternalSession {
     }
     
     public func unlockWithAccessKey(_ accessKey: Data) async throws {
-        guard let connection, let responseChallenge = self.selectResponse.challenge else { throw SessionError.noConnection }
+        guard let connection = _connection, let responseChallenge = self.selectResponse.challenge else { throw SessionError.noConnection }
         let reponseTlv = TKBERTLVRecord(tag: tagSetCodeResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
         let challenge = Data.random(length: 8)
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)

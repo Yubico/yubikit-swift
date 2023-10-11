@@ -14,9 +14,20 @@ enum ManagementSessionError: Error {
     case versionParseError
 }
 
-public final class ManagementSession: Session, InternalSession {
+public final actor ManagementSession: Session, InternalSession {
     
-    public var version: Version
+    var _connection: Connection?
+    
+    func connection() async -> Connection? {
+        return _connection
+    }
+    
+    func setConnection(_ connection: Connection?) async {
+        _connection = connection
+    }
+    
+    
+    public nonisolated let version: Version
     internal weak var connection: Connection?
     private var sessionEnded = false
     var endingResult: Result<String, Error>?
@@ -26,22 +37,23 @@ public final class ManagementSession: Session, InternalSession {
         guard let version = Version(withManagementResult: result) else { throw ManagementSessionError.versionParseError }
         self.version = version
         self.connection = connection
-        var internalConnection = connection as! InternalConnection
-        internalConnection.session = self
+        let internalConnection = await self.internalConnection()
+        await internalConnection?.setSession(self)
     }
     
     public static func session(withConnection connection: Connection) async throws -> ManagementSession {
         // Close active session if there is one
         let internalConnection = connection as? InternalConnection
-        internalConnection?.session?.end()
+        let currentSession = await internalConnection?.session()
+        await currentSession?.end()
         // Create a new ManagementSession
         let session = try await ManagementSession(connection: connection)
         return session
     }
     
-    public func end() {
-        var internalConnection = connection as? InternalConnection
-        internalConnection?.session = nil
+    public func end() async {
+        let internalConnection = await internalConnection()
+        await internalConnection?.setSession(nil)
         self.connection = nil
     }
     

@@ -16,6 +16,7 @@
 		51BBE41E273D1AA400DA47CC /* OATHFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE41D273D1AA400DA47CC /* OATHFullStackTests.swift */; };
 		B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */; };
 		B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */; };
+		B481051F2AAB6029006664AE /* ConnectionFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -55,6 +56,7 @@
 		B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementFullStackTests.swift; sourceTree = "<group>"; };
 		B45C0B6928FEE1250077EE2A /* FullStackTests.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FullStackTests.entitlements; sourceTree = "<group>"; };
 		B45C0B6A28FEE4910077EE2A /* FullStackTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "FullStackTests-Info.plist"; sourceTree = "<group>"; };
+		B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionFullStackTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -130,6 +132,7 @@
 			children = (
 				51BBE41D273D1AA400DA47CC /* OATHFullStackTests.swift */,
 				B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */,
+				B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -253,6 +256,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */,
+				B481051F2AAB6029006664AE /* ConnectionFullStackTests.swift in Sources */,
 				51BBE41E273D1AA400DA47CC /* OATHFullStackTests.swift in Sources */,
 				B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */,
 			);
