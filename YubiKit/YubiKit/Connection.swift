@@ -12,17 +12,11 @@ public protocol Connection: AnyObject {
     // awaited Task is cancelled, if a Connection previously has been established and returned it will be closed.
     static func connection() async throws -> Connection
     // Close the current Connection
-    func close(signalClosure: Bool, error: Error?) async
+    func close(error: Error?) async
     // Returns when the Connection is closed. If this was due to an error said Error is returned.
     func connectionDidClose() async -> Error?
     // Send a APDU to the Connection.
     func send(apdu: APDU) async throws -> Response
-}
-
-extension Connection {
-    func close(signalClosure: Bool = false, error: Error? = nil) async {
-        await close(signalClosure: signalClosure, error: error)
-    }
 }
 
 internal protocol InternalConnection {
