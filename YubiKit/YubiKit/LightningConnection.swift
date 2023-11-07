@@ -275,7 +275,10 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
                 }
             }
             EAAccessoryManager.shared().registerForLocalNotifications()
-            self.state = .monitoring
+            // Only transition to .monitoring if previous state was .ready as we might already have transitioned to .connected if a YubiKey was inserted before we started.
+            if self.state == .ready {
+                self.state = .monitoring
+            }
         }
     }
     
