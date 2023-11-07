@@ -49,7 +49,9 @@ extension Connection {
         let response: Response
         
         let ins: UInt8
-        if let internalConnection = self as? InternalConnection, internalConnection.session as? OATHSession != nil {
+        guard let internalConnection = self as? InternalConnection else { fatalError() }
+        let session = await internalConnection.session()
+        if session as? OATHSession != nil {
             ins = 0xa5
         } else {
             ins = 0xc0
