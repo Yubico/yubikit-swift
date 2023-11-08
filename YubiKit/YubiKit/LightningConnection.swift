@@ -106,10 +106,14 @@ fileprivate actor LightningConnectionManager {
             return try await self._connection()
         }
         connectionTask = task
-        return try await task.value
+        let value = try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+        return value
     }
     
-    var continuation: CheckedContinuation<LightningConnection, Error>?
     private func _connection() async throws -> LightningConnection {
         print("⚡️ LightningConnectionManager, _connection()")
         
@@ -125,7 +129,7 @@ fileprivate actor LightningConnectionManager {
                     return
                 }
                 accessoryWrapper.connection { result in
-                    print("⚡️ LightningConnectionManager, _connection() got result: \(result), pass it to continuation: \(String(describing: self.continuation))")
+                    print("⚡️ LightningConnectionManager, _connection() got result: \(result), pass it to continuation: \(String(describing: continuation))")
                     print("⚡️ LightningConnectionManager, Task.isCancelled = \(Task.isCancelled)")
                     switch result {
                     case .success(let accessoryConnection):
@@ -136,7 +140,7 @@ fileprivate actor LightningConnectionManager {
                         continuation.resume(returning: connection)
                     case .failure(let error):
                         continuation.resume(throwing: error)
-                        print("⚡️ LightningConnectionManager, remove \(String(describing: self.continuation)) after failure")
+                        print("⚡️ LightningConnectionManager, remove \(String(describing: continuation)) after failure")
                     }
                 }
             }
@@ -198,6 +202,7 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
     private var closingHandler: ((Error?) -> Void)?
     
     internal func connection(completion handler: @escaping (Result<AccessoryConnection, Error>) -> Void) {
+        print("⚡️ EAAccessoryWrapper, schedule connection()")
         queue.async {
             print("⚡️ EAAccessoryWrapper, connection()")
             // Signal closure and cancel previous connection handlers
@@ -254,10 +259,13 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
                                                    object: self.manager,
                                                    queue: nil) { [weak self] notification in
                 self?.queue.async {
+                    print("⚡️ EAAccessoryWrapper, EAAccessoryDidConnect")
                     guard self?.state == .monitoring,
                           self?.connectingHandler != nil,
                           let accessory = notification.userInfo?[EAAccessoryKey] as? EAAccessory,
                           let connection = self?.connectToKey(with: accessory) else { return }
+                    print("⚡️ EAAccessoryWrapper, did connect to key")
+                    self?.state = .connected(connection)
                     self?.connectingHandler?(.success(connection))
                     self?.connectingHandler = nil
                 }
@@ -283,8 +291,9 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
     }
     
     internal func stop() {
+        print("⚡️ EAAccessoryWrapper, scheduled stop() with state = \(self.state) in \(Thread.current)")
         queue.async {
-            print("⚡️ EAAccessoryWrapper, stop()")
+            print("⚡️ EAAccessoryWrapper, stop() with state = \(self.state) in \(Thread.current)")
             switch self.state {
             case .ready:
                 break;

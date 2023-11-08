@@ -84,17 +84,24 @@ fileprivate actor SmartCardManager {
     var connectionTask: Task<SmartCardConnection, Error>?
     func connection() async throws -> SmartCardConnection {
         let task = Task { [connectionTask] in
+            if let connectionTask {
+                print("🪪 SmartCardManager, cancel previous task.")
+            }
             connectionTask?.cancel() // Cancel any previous request for a connection
             return try await self._connection()
         }
         connectionTask = task
-        return try await task.value
+        let value = try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+        return value
     }
     
     // Only allow one connect() at a time
-    var continuation: CheckedContinuation<SmartCardConnection, Error>?
     private func _connection() async throws -> SmartCardConnection {
-        print("🪪 SmartCardManagerActor, _connection()")
+        print("🪪 SmartCardManager, _connection()")
         
         if let currentConnection {
             await currentConnection.close(error: nil)
@@ -107,10 +114,9 @@ fileprivate actor SmartCardManager {
                     continuation.resume(throwing: CancellationError())
                     return
                 }
-                print("🪪 SmartCardManagerActor, will call manager.connectSmartCard() Task.isCancelled = \(Task.isCancelled)")
+                print("🪪 SmartCardManager, will call manager.connectSmartCard() Task.isCancelled = \(Task.isCancelled)")
                 smartCardWrapper.connection { result in
-                    print("🪪 SmartCardManagerActor, _connection() got result \(result) pass it to \(String(describing: self.continuation))")
-                    print("🪪 SmartCardManagerActor, Task.isCancelled = \(Task.isCancelled)")
+                    print("🪪 SmartCardManager, _connection() got result \(result) pass it to \(String(describing: continuation))")
                     switch result {
                     case .success(let smartCard):
                         let connection = SmartCardConnection(smartCard: smartCard, closingHandler: { [weak self] in
@@ -120,12 +126,12 @@ fileprivate actor SmartCardManager {
                         continuation.resume(returning: connection)
                     case .failure(let error):
                         continuation.resume(throwing: error)
-                        print("🪪 SmartCardManagerActor, remove \(String(describing: self.continuation)) after failure")
+                        print("🪪 SmartCardManager, remove \(String(describing: continuation)) after failure")
                     }
                 }
             }
         } onCancel: {
-            print("SmartCardManagerActor onCancel: called on \(Thread.current)")
+            print("🪪 SmartCardManager onCancel: called on \(Thread.current)")
             smartCardWrapper.stop()
         }
     }
@@ -210,7 +216,7 @@ fileprivate class TKSmartCardWrapper {
             self.managerObservation = self.manager?.observe(\.slotNames) { [weak self] manager, value in
                 guard let self else { return }
                 self.queue.async {
-                    print("🪪 TKSmartCardWrapper, Got changes in slotNames: \(value)")
+                    print("🪪 TKSmartCardWrapper, Got changes in slotNames: \(manager.slotNames)")
                     // If slotNames is empty the TKSmartCard did disconnect
                     if manager.slotNames.isEmpty {
                         print("🪪 TKSmartCardWrapper, TKSmartCardSlot removed")
