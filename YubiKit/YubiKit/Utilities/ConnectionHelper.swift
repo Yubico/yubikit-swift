@@ -31,10 +31,8 @@ public enum ConnectionHelper {
             }
             let result = try await group.next()!
             group.cancelAll()
-            print("Group returned \(result)")
             return result
         }
-        print("taskgroup returned")
         return connection
     }
     
@@ -49,11 +47,53 @@ public enum ConnectionHelper {
             }
             let result = try await group.next()!
             group.cancelAll()
-            print("Group returned \(result)")
             return result
         }
-        print("taskgroup returned")
         return connection
+    }
+    
+    public static func wiredConnections() -> ConnectionHelper.AnyWiredConnections {
+        return AnyWiredConnections()
+    }
+    
+    public static func anyConnections() -> ConnectionHelper.AnyConnections {
+        return AnyConnections()
+    }
+    
+    public static func startNFC() async throws {
+       let _ = try await NFCConnection.connection()
+    }
+    
+    public struct AnyWiredConnections: AsyncSequence {
+        public typealias Element = Connection
+        var current: Connection? = nil
+        public struct AsyncIterator: AsyncIteratorProtocol {
+            mutating public func next() async -> Element? {
+                while true {
+                    return try? await ConnectionHelper.anyWiredConnection()
+                }
+            }
+        }
+        
+        public func makeAsyncIterator() -> AsyncIterator {
+            AsyncIterator()
+        }
+    }
+    
+    public struct AnyConnections: AsyncSequence {
+        public typealias Element = Connection
+        var current: Connection? = nil
+        public struct AsyncIterator: AsyncIteratorProtocol {
+            mutating public func next() async -> Element? {
+                while true {
+                    return try? await ConnectionHelper.anyConnection()
+                }
+            }
+        }
+        
+        public func makeAsyncIterator() -> AsyncIterator {
+            AsyncIterator()
+        }
     }
     
 }
