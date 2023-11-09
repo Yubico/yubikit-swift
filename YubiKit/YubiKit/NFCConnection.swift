@@ -11,7 +11,7 @@ import CoreNFC
 
 public final actor NFCConnection: Connection, InternalConnection {
     
-    private static let manager = NFCManager()
+    private static let manager = NFCConnectionManager()
     
     public static func connection() async throws -> Connection {
         print("🛜 NFCConnection, connection() on \(Thread.current)")
@@ -27,25 +27,42 @@ public final actor NFCConnection: Connection, InternalConnection {
     }
     private var tag: NFCISO7816Tag?
     private var closingContinuations = [CheckedContinuation<Error?, Never>]()
-    private var closingHandler: (() -> Void)?
+    private var closingHandler: ((Result<String, Error>?) -> Void)?
     
     private init() { }
     
-    fileprivate init(tag: NFCISO7816Tag, closingHandler handler: @escaping () -> Void) {
+    fileprivate init(tag: NFCISO7816Tag, closingHandler handler: @escaping (Result<String, Error>?) -> Void) {
         self.tag = tag
         self.closingHandler = handler
     }
     
-    public func close(error: Error?) async {
+    private func close(result: Result<String, Error>?) async {
         print("🛜 NFCConnection, close in thread \(Thread.current)")
-        closingHandler?()
+        closingHandler?(result)
+        tag = nil
         closingContinuations.forEach { continuation in
-            continuation.resume(returning: error)
+            continuation.resume(returning: result?.error)
         }
         print("🛜 NFCConnection, messaged all continuations, let remove them in thread \(Thread.current)")
         closingContinuations.removeAll()
-        print("🛜 NFCConnection, endSession() for \(String(describing: tag))")
-        tag = nil
+    }
+    
+    // NFCConnection can be closed with an optional message in addition to the close method defined in the Connection protocol.
+    // The message will be displayed on the NFC modal when it dismisses.
+    public func close(message: String?) async {
+        if let message {
+            await close(result: .success(message))
+        } else {
+            await close(result: nil)
+        }
+    }
+    
+    public func close(error: Error?) async {
+        if let error {
+            await close(result: .failure(error))
+        } else {
+            await close(result: nil)
+        }
     }
     
     // Wait for the connection to close
@@ -76,7 +93,7 @@ public final actor NFCConnection: Connection, InternalConnection {
 }
 
 
-fileprivate actor NFCManager {
+fileprivate actor NFCConnectionManager {
     
     let nfcWrapper = NFCTagWrapper()
     var currentConnection: NFCConnection?
@@ -119,8 +136,8 @@ fileprivate actor NFCManager {
                     print("🛜 NFCManager, _connection() got result \(result) pass it to \(String(describing: continuation))")
                     switch result {
                     case .success(let tag):
-                        let connection = NFCConnection(tag: tag, closingHandler: { [weak self] in
-                            self?.nfcWrapper.endSession(result: nil)
+                        let connection = NFCConnection(tag: tag, closingHandler: { [weak self] result in
+                            self?.nfcWrapper.endSession(result: result)
                         })
                         self.currentConnection = connection
                         continuation.resume(returning: connection)
@@ -248,6 +265,12 @@ fileprivate class NFCTagWrapper: NSObject, NFCTagReaderSessionDelegate {
     }
 }
 
+extension Connection {
+    public var nfcConnection: NFCConnection? {
+        self as? NFCConnection
+    }
+}
+
 extension NFCTagWrapper.State: Equatable {
     fileprivate static func == (lhs: NFCTagWrapper.State, rhs: NFCTagWrapper.State) -> Bool {
         switch (lhs, rhs) {
@@ -264,6 +287,17 @@ extension NFCTagWrapper.State: Equatable {
 extension APDU {
     var nfcIso7816Apdu: NFCISO7816APDU? {
         return NFCISO7816APDU(data: self.data)
+    }
+}
+
+extension Result {
+    var error: Error? {
+        switch self {
+        case .failure(let error):
+            return error
+        default:
+            return nil
+        }
     }
 }
 
