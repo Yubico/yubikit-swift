@@ -36,6 +36,7 @@
 		B4BE3AB7292E207900CC30CB /* Array+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AB6292E207900CC30CB /* Array+Extensions.swift */; };
 		B4BE3ABA292E24C700CC30CB /* Base32.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AB9292E24C700CC30CB /* Base32.swift */; };
 		B4F068B92861CFC300555AFE /* SmartCardConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F068B82861CFC300555AFE /* SmartCardConnection.swift */; };
+		B4F10D4F2AFD39D600F0AFCA /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F10D4E2AFD39D600F0AFCA /* String+Extensions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -79,6 +80,7 @@
 		B4BE3AB6292E207900CC30CB /* Array+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Array+Extensions.swift"; sourceTree = "<group>"; };
 		B4BE3AB9292E24C700CC30CB /* Base32.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Base32.swift; sourceTree = "<group>"; };
 		B4F068B82861CFC300555AFE /* SmartCardConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCardConnection.swift; sourceTree = "<group>"; };
+		B4F10D4E2AFD39D600F0AFCA /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -178,6 +180,7 @@
 				B47FDD9A293A15AE00AFF70A /* NSLock+Extensions.swift */,
 				B40BCB7C29422721009F39BD /* Connection+Extensions.swift */,
 				B408BA8E2948FA2100001B2F /* Stream+Extensions.swift */,
+				B4F10D4E2AFD39D600F0AFCA /* String+Extensions.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -314,6 +317,7 @@
 				B4BE3AB3292E1E6D00CC30CB /* TKTLVRecord+Extensions.swift in Sources */,
 				B456E215274D2453004471DE /* LightningConnection.swift in Sources */,
 				B4BE3AB5292E1ECB00CC30CB /* Sequence+Extensions.swift in Sources */,
+				B4F10D4F2AFD39D600F0AFCA /* String+Extensions.swift in Sources */,
 				B41B61862743FC4E004C37BF /* Session.swift in Sources */,
 				B40BCB7B2940F1C5009F39BD /* Response.swift in Sources */,
 				B405283729894E7600FC33AB /* DeviceConfig.swift in Sources */,
@@ -543,6 +547,7 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LQA3CS5MM7;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -564,6 +569,7 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LQA3CS5MM7;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
