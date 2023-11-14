@@ -9,32 +9,30 @@ import Foundation
 import YubiKit
 
 class SettingsModel: ObservableObject {
-    @Published private(set) var errorMessage: String?
+    
+    @Published private(set) var error: Error?
     @Published private(set) var keyVersion: String?
     @Published private(set) var connection: String?
 
     @MainActor func getKeyVersion() {
-        print("await keyVersion()")
         Task {
-            self.errorMessage = nil
+            self.error = nil
             do {
                 let connection = try await ConnectionHelper.anyConnection()
-                print("Got connection in getKeyVersion()")
                 let session = try await ManagementSession.session(withConnection: connection)
                 self.keyVersion = session.version.debugDescription
-                session.end()
                 #if os(iOS)
-                if let nfcConnection = connection as? NFCConnection {
+                if let nfcConnection = connection.nfcConnection {
                     self.connection = "NFC"
-                    nfcConnection.close(result: .success("YubiKey version read"))
+                    await nfcConnection.close(message: "YubiKey version read")
                 } else {
-                    self.connection = "Lightning"
+                    self.connection = connection as? SmartCardConnection != nil ? "SmartCard" : "Lightning"
                 }
                 #else
-                self.connection = "Smart card"
+                self.connection = "SmartCard"
                 #endif
             } catch {
-                self.errorMessage = error.localizedDescription
+                self.error = error
             }
         }
     }

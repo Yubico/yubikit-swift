@@ -18,7 +18,25 @@ extension Connection {
             }
         }
     }
+    
+    public func close(error: Error?, callback: @escaping () -> Void) {
+        Task { @MainActor in
+            await self.close(error: error)
+            callback()
+        }
+    }
 }
+
+#if os(iOS)
+extension NFCConnection {
+    public func close(message: String?, callback: @escaping () -> Void) {
+        Task { @MainActor in
+            await self.close(message: message)
+            callback()
+        }
+    }
+}
+#endif
 
 extension ConnectionHelper {
     public static func anyConnection(callback: @escaping (Connection?, Error?) -> Void) {

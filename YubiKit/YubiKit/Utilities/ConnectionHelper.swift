@@ -14,7 +14,7 @@ public enum ConnectionHelper {
     
     public static func anyConnection() async throws -> Connection {
         let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
-#if os(iOS)
+            #if os(iOS)
             if NFCNDEFReaderSession.readingAvailable {
                 group.addTask {
                     try await Task.sleep(for: .seconds(1)) // wait for wired connected yubikeys to connect before starting NFC
@@ -25,7 +25,7 @@ public enum ConnectionHelper {
             group.addTask {
                 return try await LightningConnection.connection()
             }
-#endif
+            #endif
             group.addTask {
                 return try await SmartCardConnection.connection()
             }
@@ -39,9 +39,11 @@ public enum ConnectionHelper {
     
     public static func anyWiredConnection() async throws -> Connection {
         let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
+            #if os(iOS)
             group.addTask {
                 return try await LightningConnection.connection()
             }
+            #endif
             group.addTask {
                 return try await SmartCardConnection.connection()
             }
@@ -59,10 +61,11 @@ public enum ConnectionHelper {
     public static func anyConnections() -> ConnectionHelper.AnyConnections {
         return AnyConnections()
     }
-    
+    #if os(iOS)
     public static func startNFC() async throws {
        let _ = try await NFCConnection.connection()
     }
+    #endif
     
     public struct AnyWiredConnections: AsyncSequence {
         public typealias Element = Connection

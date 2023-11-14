@@ -28,8 +28,8 @@ public class YubiKitWrapper {
         }
     }
     
-    public func stopConnection() {
-        connection?.close()
+    public func stopConnection() async {
+        await connection?.close(error: nil)
         self.connection = nil
     }
 }

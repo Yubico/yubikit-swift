@@ -9,79 +9,93 @@ import Foundation
 import YubiKit
 
 
-
-
-// Start lightning immediately, if we get a connection calculate code with it
-// If we loose the lightning connection start a new one
-
-// If user pushes nfc button start nfc and calcualte code with connection
-
 class OATHListModel: ObservableObject {
-    @Published private(set) var errorMessage: String?
-    @Published private(set) var codes = [OATHSession.Code]()
+    @Published private(set) var accounts = [Account]()
     @Published private(set) var source = "no connection"
+    @Published var error: Error?
     
     private var wiredConnectionTask: Task<Void, Never>?
     
-    func stopWiredConnection() {
+    @MainActor func stopWiredConnection() {
+        source = "no connection"
+        accounts.removeAll()
         wiredConnectionTask?.cancel()
     }
     
     @MainActor func startWiredConnection() {
         print("startWiredConnection()")
-        calculateCodes(useWiredConnection: true)
-
         wiredConnectionTask?.cancel()
         wiredConnectionTask = Task {
             do {
+                error = nil
                 let connection = try await ConnectionHelper.anyWiredConnection()
-                if Task.isCancelled { print("Task cancelled, bailot"); return }
-                print("Got connection in startWiredConnection(), lets wait for it to close...")
-                let closingError = await connection.connectionDidClose()
-                print("Wired connection closed with error: \(closingError ?? "no error")")
-                codes.removeAll()
-                source = "no connection"
+                guard !Task.isCancelled else { return }
+                self.calculateCodes(connection: connection)
+                self.error = await connection.connectionDidClose()
+                self.accounts.removeAll()
+                self.source = "no connection"
                 guard !Task.isCancelled else { return }
                 self.startWiredConnection()
             } catch {
-                print("Wired connection failed with error: \(error)")
+                self.error = error
             }
         }
     }
     
-    @MainActor func calculateCodes(useWiredConnection: Bool = false) {
-        print("await calculateCodes(useWiredConnection: \(useWiredConnection)")
+    @MainActor func calculateNFCCodes() {
         Task {
-            self.errorMessage = nil
             do {
-                #if os(iOS)
-                let connection = useWiredConnection ? try await ConnectionHelper.anyWiredConnection() : try await NFCConnection.connection()
-                #else
-                // Always use wired connection on macOS
-                let connection = try await ConnectionHelper.anyConnection()
-                #endif
-
-                print("Got \(connection) in calculateCodes()")
-                let session = try await OATHSession.session(withConnection: connection)
-                print("Got \(session) in calculateCodes()")
-                let result = try await session.calculateCodes()
-                print("Got \(result) in calculateCodes()")
-                self.codes = result.map { return $0.1 }.compactMap { $0 }
-                print("self.codes: \(self.codes)")
-                #if os(iOS)
-                session.end()
-                if let nfcConnection = connection as? NFCConnection {
-                    self.source =  "NFC"
-                    nfcConnection.close(result: .success("Calculated codes"))
-                } else {
-                    self.source = connection as? SmartCardConnection != nil ? "SmartCard" : "lightning"
-                }
-                #else
-                self.source = "SmartCard"
-                #endif
+                self.error = nil
+                let connection = try await NFCConnection.connection()
+                calculateCodes(connection: connection)
             } catch {
-                self.errorMessage = error.localizedDescription
+                self.error = error
             }
         }
+    }
+    
+    @MainActor private func calculateCodes(connection: Connection) {
+        Task {
+            self.error = nil
+            do {
+                let session = try await OATHSession.session(withConnection: connection)
+                let result = try await session.calculateCodes()
+                self.accounts = result.map { return Account(label: $0.0.label, code: $0.1?.code ?? "****") }
+                self.source = connection.connectionType
+                #if os(iOS)
+                await connection.nfcConnection?.close(message: "Code calculated")
+                #endif
+            } catch {
+                self.error = error
+            }
+        }
+    }
+}
+
+struct Account: Identifiable {
+    var id = UUID()
+    let label: String
+    let code: String
+}
+
+extension Connection {
+    var connectionType: String {
+        #if os(iOS)
+        if self as? NFCConnection != nil {
+            return "NFC"
+        } else if self as? LightningConnection != nil {
+            return "Lightning"
+        } else if self as? SmartCardConnection != nil {
+            return "SmartCard"
+        } else {
+            return "Unknown"
+        }
+        #else
+        if self as? SmartCardConnection != nil {
+            return "SmartCard"
+        } else {
+            return "Unknown"
+        }
+        #endif
     }
 }

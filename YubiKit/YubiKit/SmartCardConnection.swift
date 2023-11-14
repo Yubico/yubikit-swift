@@ -49,6 +49,14 @@ public final actor SmartCardConnection: Connection, InternalConnection {
         smartCard = nil
     }
     
+    fileprivate func closedByManager(error: Error?) {
+        closingContinuations.forEach { continuation in
+            continuation.resume(returning: error)
+        }
+        closingContinuations.removeAll()
+        smartCard = nil
+    }
+    
     // Wait for the connection to close
     public func connectionDidClose() async -> Error? {
         print("🪪 SmartCardConnection, await connectionDidClose() called in thread \(Thread.current)")
@@ -124,6 +132,11 @@ fileprivate actor SmartCardManager {
                         })
                         self.currentConnection = connection
                         continuation.resume(returning: connection)
+                        self.smartCardWrapper.connectionDidClose { error in
+                            Task {
+                                await connection.closedByManager(error: error)
+                            }
+                        }
                     case .failure(let error):
                         continuation.resume(throwing: error)
                         print("🪪 SmartCardManager, remove \(String(describing: continuation)) after failure")
@@ -137,6 +150,8 @@ fileprivate actor SmartCardManager {
     }
     
     func didDisconnect() async -> Error? {
+        print("🪪 SmartCardManager didDisconnect(): called on \(Thread.current)")
+
         return await withTaskCancellationHandler {
             return await withCheckedContinuation { (continuation: CheckedContinuation<Error?, Never>) in // try to remove variable definition in the future
                 smartCardWrapper.connectionDidClose { error in

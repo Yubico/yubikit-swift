@@ -11,7 +11,7 @@ import Foundation
 import ExternalAccessory
 
 
-public final class LightningConnection: Connection, InternalConnection {
+public final actor LightningConnection: Connection, InternalConnection {
 
     private static let manager = LightningConnectionManager()
 
@@ -43,6 +43,14 @@ public final class LightningConnection: Connection, InternalConnection {
     
     public func close(error: Error?) async {
         closingHandler?()
+        closingContinuations.forEach { continuation in
+            continuation.resume(returning: error)
+        }
+        closingContinuations.removeAll()
+        accessoryConnection = nil
+    }
+    
+    fileprivate func closedByManager(error: Error?) {
         closingContinuations.forEach { continuation in
             continuation.resume(returning: error)
         }
@@ -138,6 +146,11 @@ fileprivate actor LightningConnectionManager {
                         })
                         self.currentConnection = connection
                         continuation.resume(returning: connection)
+                        self.accessoryWrapper.connectionDidClose { error in
+                            Task {
+                                await connection.closedByManager(error: error)
+                            }
+                        }
                     case .failure(let error):
                         continuation.resume(throwing: error)
                         print("⚡️ LightningConnectionManager, remove \(String(describing: continuation)) after failure")
@@ -194,7 +207,7 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
     
     enum State: Equatable {
         // no initiatingSession since accessory goes from monitoring straight to connected
-        case ready, monitoring, connected(AccessoryConnection)
+        case ready, scanning, connected(AccessoryConnection)
     }
     private var state = State.ready
     
@@ -260,7 +273,7 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
                                                    queue: nil) { [weak self] notification in
                 self?.queue.async {
                     print("⚡️ EAAccessoryWrapper, EAAccessoryDidConnect")
-                    guard self?.state == .monitoring,
+                    guard self?.state == .scanning,
                           self?.connectingHandler != nil,
                           let accessory = notification.userInfo?[EAAccessoryKey] as? EAAccessory,
                           let connection = self?.connectToKey(with: accessory) else { return }
@@ -279,13 +292,13 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
                     connection.close()
                     self?.closingHandler?(nil)
                     self?.closingHandler = nil
-                    self?.state = .monitoring
+                    self?.state = .scanning
                 }
             }
             EAAccessoryManager.shared().registerForLocalNotifications()
             // Only transition to .monitoring if previous state was .ready as we might already have transitioned to .connected if a YubiKey was inserted before we started.
             if self.state == .ready {
-                self.state = .monitoring
+                self.state = .scanning
             }
         }
     }
@@ -297,7 +310,7 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
             switch self.state {
             case .ready:
                 break;
-            case .monitoring:
+            case .scanning:
                 // should we call the closingHandler as well?
                 self.connectingHandler?(.failure("Cancelled from stop()"))
             case .connected(let connection):

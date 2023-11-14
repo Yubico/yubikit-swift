@@ -8,25 +8,23 @@
 import SwiftUI
 
 
-
 struct OATHListView: View {
     
     @StateObject var model = OATHListModel()
-    @State private var isShowingSettings = false
+    @State private var isPresentingSettings = false
 
     var body: some View {
-        NavigationView {
-            List(model.codes) {
-                Text($0.code)
+        NavigationStack {
+            List(model.accounts) {
+                AccountRowView(account: $0)
             }
             .navigationTitle("Codes (\(model.source))")
-            #if os(iOS)
             .toolbar(content: {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { model.stopWiredConnection(); isShowingSettings.toggle() }) {
+                ToolbarItem() {
+                    Button(action: { model.stopWiredConnection(); isPresentingSettings.toggle() }) {
                         Image(systemName: "ellipsis.circle")
                     }
-                    .sheet(isPresented: $isShowingSettings, onDismiss: {
+                    .sheet(isPresented: $isPresentingSettings, onDismiss: {
                         model.startWiredConnection()
                     }, content: {
                         SettingsView()
@@ -34,18 +32,30 @@ struct OATHListView: View {
                 }
             })
             .refreshable {
-                model.calculateCodes()
+                model.calculateNFCCodes()
             }
-            #endif
         }
         .onAppear {
             model.startWiredConnection()
         }
+        .alert("Something went wrong", isPresented: .constant(model.error != nil), actions: {
+            Button("Ok", role: .cancel) { model.startWiredConnection() }
+        }, message: {
+            if let error = model.error {
+                Text("\(String(describing: error))")
+            }
+        })
     }
 }
 
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        OATHListView()
+
+struct AccountRowView: View {
+    let account: Account
+    var body: some View {
+        HStack {
+            Text(account.label)
+            Spacer()
+            Text(account.code)
+        }
     }
 }

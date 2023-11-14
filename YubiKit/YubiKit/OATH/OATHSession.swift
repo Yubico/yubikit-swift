@@ -58,8 +58,8 @@ public final class OATHSession: Session, InternalSession {
         print("⚡️ init OATHSession")
         self.selectResponse = try await Self.selectApplication(withConnection: connection)
         await self.setConnection(connection)
-        let internalConnection = connection as! InternalConnection
-        await internalConnection.setSession(self)
+        let internalConnection = await internalConnection()
+        await internalConnection?.setSession(self)
     }
     
     private static func selectApplication(withConnection connection: Connection) async throws -> SelectResponse {

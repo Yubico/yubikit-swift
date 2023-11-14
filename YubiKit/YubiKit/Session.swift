@@ -7,7 +7,6 @@
 
 import Foundation
 
-extension String: Error {}
 
 public protocol Session: AnyObject {
     static func session(withConnection connection: Connection) async throws -> Self
