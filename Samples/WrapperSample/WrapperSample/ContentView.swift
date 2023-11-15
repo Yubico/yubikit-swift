@@ -16,7 +16,7 @@ struct ContentView: View {
     
     var body: some View {
         VStack {
-            Text("🎁").font(.system(size: 80))
+            Text("🎁").font(.system(size: 100))
             Button {
                 model.connect()
             } label: {
@@ -37,14 +37,14 @@ struct ContentView: View {
             Spacer()
         }
         .padding()
-        .onChange(of: model.status) { newValue in
-            result = newValue
+        .onChange(of: model.status) {
+            result = model.status
         }
-        .onChange(of: wrapperModel.status) { newValue in
-            result = newValue
+        .onChange(of: wrapperModel.status) {
+            result = wrapperModel.status
         }
-        .onChange(of: delegateWrapperModel.status) { newValue in
-            result = newValue
+        .onChange(of: delegateWrapperModel.status) {
+            result = delegateWrapperModel.status
         }
     }
 }

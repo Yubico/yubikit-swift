@@ -25,26 +25,22 @@ class DelegateWrapperModel: ObservableObject, YubKitWrapperDelegate {
     func didConnect(connection: YubiKit.Connection) {
         OATHSession.session(withConnection: connection) { session, error in
             guard let session = session as? OATHSession else {
-                self.status = "⚠️ error: \(error!)"
+                self.status = "Error: \(error!)"
                 return
             }
             session.calculateCodes { codes, error in
-                guard let codes else {
-                    DispatchQueue.main.async {
-                        self.status = "⚠️ error: \(error!)"
-                    }
-                    if let nfcConnection = connection as? NFCConnection {
-                        nfcConnection.close(result: .failure("Error: \(error!.localizedDescription)"))
+                if let error {
+                    self.status = "Error: \(error)"
+                    connection.close(error: error) {
+                        print("Connection closed with error: \(error)")
                     }
                     return
                 }
-                DispatchQueue.main.async {
-                    self.status = "Got \(codes.count) codes from YubiKey using delegate & callback wrapper"
-                }
-                session.end()
-                if let nfcConnection = connection as? NFCConnection {
-                    nfcConnection.close(result: .success("Calculated codes"))
-                }
+                guard let codes else { fatalError() }
+                self.status = "Got \(codes.count) codes from YubiKey using delegate & callback wrapper"
+                #if os(iOS)
+                connection.closeIfNFC(message: "Calculated codes") { print("Calculated \(codes.count) codes") }
+                #endif
             }
         }
     }

@@ -18,30 +18,24 @@ class CallbackWrapperModel: ObservableObject {
         
         ConnectionHelper.anyConnection() { connection, error in
             guard let connection else {
-                self.status = "🧅 error: \(error!)"
+                self.status = "Error: \(error!)"
                 return
             }
             OATHSession.session(withConnection: connection) { session, error in
                 guard let session = session as? OATHSession else {
-                    DispatchQueue.main.async {
-                        self.status = "🧅 error: \(error!)"
-                    }
+                    connection.close(error: error!) { }
+                    self.status = "Error: \(error!)"
                     return
                 }
                 session.calculateCodes { codes, error in
                     guard let codes else {
-                        DispatchQueue.main.async {
-                            self.status = "🧅 error: \(error!)"
-                        }
+                        self.status = "Error: \(error!)"
                         return
                     }
-                    DispatchQueue.main.async {
-                        self.status = "Got \(codes.count) codes from YubiKey using callback wrapper"
-                    }
-                    session.end()
-                    if let nfcConnection = connection as? NFCConnection {
-                        nfcConnection.close(result: .success("Calculated codes"))
-                    }
+                    self.status = "Got \(codes.count) codes from YubiKey using callback wrapper"
+                    #if os(iOS)
+                    connection.closeIfNFC(message: "Calculated codes") { print("Closed") }
+                    #endif
                 }
             }
         }

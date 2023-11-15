@@ -28,14 +28,15 @@ extension Connection {
 }
 
 #if os(iOS)
-extension NFCConnection {
-    public func close(message: String?, callback: @escaping () -> Void) {
+extension Connection {
+    public func closeIfNFC(message: String?, callback: @escaping () -> Void) {
         Task { @MainActor in
-            await self.close(message: message)
+            await self.nfcConnection?.close(message: message)
             callback()
         }
     }
 }
+
 #endif
 
 extension ConnectionHelper {
@@ -66,7 +67,7 @@ extension Session {
 
 extension OATHSession {
     public func calculateCode(for credential: Credential, timestamp: Date = Date(), callback: @escaping (OATHSession.Code?, Error?) -> Void) {
-        Task {
+        Task { @MainActor in
             do {
                 let code = try await self.calculateCode(credential: credential, timestamp: timestamp)
                 callback(code, nil)
@@ -77,7 +78,7 @@ extension OATHSession {
     }
     
     public func calculateCodes(timestamp: Date = Date(), callback: @escaping ([(OATHSession.Credential, OATHSession.Code?)]?, Error?) -> Void) {
-        Task {
+        Task { @MainActor in
             do {
                 let result = try await self.calculateCodes(timestamp: timestamp)
                 callback(result, nil)
