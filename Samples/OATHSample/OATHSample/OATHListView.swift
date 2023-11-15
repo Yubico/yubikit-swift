@@ -31,9 +31,11 @@ struct OATHListView: View {
                     })
                 }
             })
+            #if os(iOS)
             .refreshable {
                 model.calculateNFCCodes()
             }
+            #endif
         }
         .onAppear {
             model.startWiredConnection()

@@ -42,6 +42,7 @@ class OATHListModel: ObservableObject {
         }
     }
     
+    #if os(iOS)
     @MainActor func calculateNFCCodes() {
         Task {
             do {
@@ -53,6 +54,7 @@ class OATHListModel: ObservableObject {
             }
         }
     }
+    #endif
     
     @MainActor private func calculateCodes(connection: Connection) {
         Task {
