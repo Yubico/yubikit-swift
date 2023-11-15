@@ -11,13 +11,14 @@ import YubiKit
 @testable import FullStackTests
 
 class ConnectionFullStackTests: XCTestCase {
-    
-    typealias Connection = LightningConnection
+
+    // Change Connection to test different types of connections
+    typealias Connection = SmartCardConnection
     
     func testSingleConnection() throws {
         runAsyncTest() {
             do {
-                let connection = try await Connection.connection()
+                let connection = try await ConnectionHelper.anyConnection()
                 print("✅ Got connection \(connection)")
                 XCTAssertNotNil(connection)
             } catch {

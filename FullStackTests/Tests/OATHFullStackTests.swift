@@ -127,7 +127,7 @@ extension XCTestCase {
             
             if let password {
                 try await session.setPassword(password)
-                let managementSession = try await ManagementSession.session(withConnection: connection)
+                let _ = try await ManagementSession.session(withConnection: connection)
                 session = try await OATHSession.session(withConnection: connection)
             }
             
