@@ -13,9 +13,12 @@ import YubiKit
 class ManagementFullStackTests: XCTestCase {
     
     func testReadKeyVersion() throws {
-        runManagementTest { _, session, _ in
-            print("Got version: \(session.version)")
-            XCTAssertNotNil(session)
+        runManagementTest { connection, session, _ in
+            print("✅ Got version: \(session.version)")
+            #if os(iOS)
+            await connection.nfcConnection?.close(message: "YubiKey Version \(session.version)")
+            #endif
+            XCTAssertNotNil(session.version)
         }
     }
     
@@ -55,7 +58,7 @@ extension XCTestCase {
                            withTimeout timeout: TimeInterval = 20,
                            test: @escaping (Connection, ManagementSession, DeviceTransport) async throws -> Void) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
-            let connection = try await ConnectionHelper.anyConnection()
+            let connection = try await ConnectionHelper.anyConnection(nfcAlertMessage: "Running Management Tests...")
             let transport: DeviceTransport
             #if os(iOS)
             if connection as? NFCConnection != nil {

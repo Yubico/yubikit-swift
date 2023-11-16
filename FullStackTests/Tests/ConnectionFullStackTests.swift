@@ -15,6 +15,33 @@ class ConnectionFullStackTests: XCTestCase {
     // Change Connection to test different types of connections
     typealias Connection = SmartCardConnection
     
+    #if os(iOS)
+    func testAlertMessage() throws {
+        runAsyncTest {
+            do {
+                let connection = try await NFCConnection.connection(alertMessage: "Test Alert Message")
+                connection.nfcConnection?.setAlertMessage("Updated Alert Message")
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                await connection.nfcConnection?.close(message: "Closing Alert Message")
+            } catch {
+                XCTFail("🚨 Failed with: \(error)")
+            }
+        }
+    }
+    
+    func testClosingErrorMessage() throws {
+        runAsyncTest {
+            do {
+                let connection = try await NFCConnection.connection(alertMessage: "Test Alert Message")
+                await connection.close(error: "Closing Error Message")
+            } catch {
+                XCTFail("🚨 Failed with: \(error)")
+            }
+        }
+    }
+    
+    #endif
+    
     func testSingleConnection() throws {
         runAsyncTest() {
             do {

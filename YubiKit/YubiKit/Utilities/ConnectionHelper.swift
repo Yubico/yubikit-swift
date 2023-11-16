@@ -12,14 +12,14 @@ import CoreNFC
 
 public enum ConnectionHelper {
     
-    public static func anyConnection() async throws -> Connection {
+    public static func anyConnection(nfcAlertMessage: String? = nil) async throws -> Connection {
         let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
             #if os(iOS)
             if NFCNDEFReaderSession.readingAvailable {
                 group.addTask {
                     try await Task.sleep(for: .seconds(1)) // wait for wired connected yubikeys to connect before starting NFC
                     try Task.checkCancellation()
-                    return try await NFCConnection.connection()
+                    return try await NFCConnection.connection(alertMessage: nfcAlertMessage)
                 }
             }
             group.addTask {
