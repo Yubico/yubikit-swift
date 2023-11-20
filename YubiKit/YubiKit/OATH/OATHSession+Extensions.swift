@@ -92,11 +92,11 @@ extension OATHSession {
         
         init?(data: Data) {
             // "period/issuer:account"
-            let periodIssuerAndAccount = /^(?<period>\d+)\/(?<issuer>.+):(?<account>.+)$/
+            let periodIssuerAndAccount = #/^(?<period>\d+)\/(?<issuer>.+):(?<account>.+)$/#
             // "issuer:account"
-            let issuerAndAccount = /^(?<issuer>.+):(?<account>.+)$/
+            let issuerAndAccount = #/^(?<issuer>.+):(?<account>.+)$/#
             // "period/account"
-            let periodAndAccount = /^(?<period>\d+)\/(?<account>.+)$/
+            let periodAndAccount = #/^(?<period>\d+)\/(?<account>.+)$/#
             
             guard let id = String(data: data, encoding: .utf8) else { return nil }
 
@@ -116,7 +116,7 @@ extension OATHSession {
                 period = nil
                 issuer = nil
                 account = id
-            }
+//            }
         }
     }
 
