@@ -5,6 +5,7 @@
 //  Created by Jens Utbult on 2022-11-23.
 //
 
+import Foundation
 
 extension Data {
     

@@ -23,13 +23,16 @@ public struct Response: CustomStringConvertible {
         statusCode = StatusCode(sw1: sw1, sw2: sw2)!
     }
     
+    /// The data returned in the response.
     public let data: Data
-    public let statusCode: StatusCode
+    
+    /// Status code of the response
+    internal let statusCode: StatusCode
     public var description: String {
         return "<Result: \(statusCode) (\(statusCode.rawValue.data.hexEncodedString), length: \(data.count)>"
     }
 
-    public enum StatusCode: UInt16 {
+    internal enum StatusCode: UInt16 {
         
         case ok = 0x9000
         case fido2TouchRequired = 0x9100

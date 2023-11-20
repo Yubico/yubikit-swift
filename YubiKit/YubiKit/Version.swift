@@ -7,7 +7,8 @@
 
 import Foundation
 
-public struct Version: Comparable, CustomDebugStringConvertible {
+/// The firmware version of the YubiKey.
+public struct Version: Comparable, CustomStringConvertible {
     
     public let major: UInt8
     public let minor: UInt8
@@ -34,8 +35,9 @@ public struct Version: Comparable, CustomDebugStringConvertible {
     public static func == (lhs: Version, rhs: Version) -> Bool {
         return lhs.major == rhs.major && lhs.minor == rhs.minor && lhs.micro == rhs.micro
     }
-
-    public var debugDescription: String {
-        "Version: \(major).\(minor).\(micro)"
+    
+    /// String representaion of the firmware version e.g "5.2.3".
+    public var description: String {
+        "\(major).\(minor).\(micro)"
     }
 }

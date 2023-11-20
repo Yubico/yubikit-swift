@@ -8,7 +8,7 @@
 import Foundation
 import YubiKit
 
-class DelegateWrapperModel: ObservableObject, YubKitWrapperDelegate {
+class DelegateWrapperModel: ObservableObject, YubiKitWrapperDelegate {
 
     @Published private(set) var status = "No connection"
     let yubikit = YubiKitWrapper()

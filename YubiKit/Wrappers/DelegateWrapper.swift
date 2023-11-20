@@ -7,16 +7,16 @@
 
 import Foundation
 
-public protocol YubKitWrapperDelegate {
+public protocol YubiKitWrapperDelegate {
     func didConnect(connection: Connection)
 }
 
 public class YubiKitWrapper {
     
-    public var delegate: YubKitWrapperDelegate? = nil
+    public var delegate: YubiKitWrapperDelegate? = nil
     var connection: Connection?
     
-    public init(delegate: YubKitWrapperDelegate? = nil) {
+    public init(delegate: YubiKitWrapperDelegate? = nil) {
         self.delegate = delegate
     }
     

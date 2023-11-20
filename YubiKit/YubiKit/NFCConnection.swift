@@ -9,13 +9,14 @@
 import Foundation
 import CoreNFC
 
-/// A NFC connection to the YubiKey. This connection is short lived and should be
-/// closed as soon as the commands sent to the YubiKey have finished processing.
-/// It is up to the user of the connection to close it when it no longer is needed.
-/// As long as the connection is open the NFC modal will cover the lower part
-/// of the iPhone screen. In addition to the close(error: Error?) method defined in the
-/// Connection protocol the NFCConnection has an additional close(message: String?)
-/// method that will close the connection and set the alertMessage to the provided message.
+/// A NFC connection to the YubiKey.
+///
+/// The  NFCConnection is short lived and should be closed as soon as the commands sent to the YubiKey have finished processing. It is up to the user of
+/// the connection to close it when it no longer is needed. As long as the connection is open the NFC modal will cover the lower part of the iPhone screen.
+/// In addition to the ``close(error:)`` method defined in the Connection protocol the NFCConnection has an additional ``close(message:)``
+/// method that will close the connection and set the alertMessage of the NFC alert to the provided message.
+///
+/// > Note: NFC is only supported on iPhones from iPhone 6 and forward. It will not work on iPads since there's no NFC chip in these devices.
 public final actor NFCConnection: Connection, InternalConnection {
     
     private static let manager = NFCConnectionManager()
