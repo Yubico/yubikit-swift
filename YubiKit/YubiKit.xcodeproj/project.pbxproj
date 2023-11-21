@@ -71,6 +71,7 @@
 		B456E21A274FCA26004471DE /* ManagementSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementSession.swift; sourceTree = "<group>"; };
 		B47FDD982939FAD100AFF70A /* ConnectionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionHelper.swift; sourceTree = "<group>"; };
 		B47FDD9A293A15AE00AFF70A /* NSLock+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSLock+Extensions.swift"; sourceTree = "<group>"; };
+		B4AEC5A92B0CF1D0004F3BE7 /* README.markdown */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.markdown; sourceTree = "<group>"; };
 		B4BE3AA7292BCA1300CC30CB /* OATHSession+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OATHSession+Extensions.swift"; sourceTree = "<group>"; };
 		B4BE3AAC292E1C8600CC30CB /* OATHSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = OATHSession.swift; sourceTree = "<group>"; };
 		B4BE3AAE292E1CBC00CC30CB /* Data+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Extensions.swift"; sourceTree = "<group>"; };
@@ -105,6 +106,7 @@
 		51BBE3DC273D1A3800DA47CC = {
 			isa = PBXGroup;
 			children = (
+				B4AEC5A92B0CF1D0004F3BE7 /* README.markdown */,
 				51BBE3E8273D1A3800DA47CC /* YubiKit */,
 				B40BCB7E2943481E009F39BD /* Wrappers */,
 				51BBE3F4273D1A3800DA47CC /* UnitTests */,
