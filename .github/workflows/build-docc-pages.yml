@@ -30,7 +30,8 @@ jobs:
           xcodebuild docbuild -scheme YubiKit -derivedDataPath /tmp/docbuild -destination 'generic/platform=iOS';
           $(xcrun --find docc) process-archive \
             transform-for-static-hosting /tmp/docbuild/Build/Products/Debug-iphoneos/YubiKit.doccarchive \
-            --output-path docs \;
+            --output-path docs \
+            --hosting-base-path /;
           echo "<script>window.location.href += \"/documentation/yubikit\"</script>" > docs/index.html;
 
       - name: Upload artifact 📜
