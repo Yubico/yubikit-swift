@@ -27,7 +27,7 @@ class SettingsModel: ObservableObject {
             do {
                 let connection = try await ConnectionHelper.anyConnection()
                 let session = try await ManagementSession.session(withConnection: connection)
-                self.keyVersion = session.version.debugDescription
+                self.keyVersion = session.version.description
                 #if os(iOS)
                 if let nfcConnection = connection.nfcConnection {
                     self.connection = "NFC"
