@@ -113,7 +113,7 @@ public final class OATHSession: Session, InternalSession {
         guard let connection = _connection else { throw SessionError.noConnection }
         print("Reset OATH application")
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad)
-        let _: Data = try await connection.send(apdu: apdu)
+        let _ = try await connection.send(apdu: apdu)
         selectResponse = try await Self.selectApplication(withConnection: connection)
     }
     
@@ -143,7 +143,7 @@ public final class OATHSession: Session, InternalSession {
         }
         
         let apdu = APDU(cla: 0x00, ins: 0x01, p1: 0x00, p2: 0x00, command: data)
-        let _: Data = try await connection.send(apdu: apdu)
+        let _ = try await connection.send(apdu: apdu)
         return nil
     }
     
@@ -151,13 +151,13 @@ public final class OATHSession: Session, InternalSession {
         guard let connection = _connection else { throw SessionError.noConnection }
         let deleteTlv = TKBERTLVRecord(tag: 0x71, value: credential.id)
         let apdu = APDU(cla: 0, ins: 0x02, p1: 0, p2: 0, command: deleteTlv.data)
-        let _: Data = try await connection.send(apdu: apdu)
+        let _ = try await connection.send(apdu: apdu)
     }
     
     public func listCredentials() async throws -> [Credential] {
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
-        let data: Data = try await connection.send(apdu: apdu)
+        let data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else { throw OATHSessionError.responseDataNotTLVFormatted }
         return try result.map {
             guard $0.tag == 0x72 else { throw OATHSessionError.unexpectedTag }
@@ -198,7 +198,7 @@ public final class OATHSession: Session, InternalSession {
         let nameTLV = TKBERTLVRecord(tag: tagName, value: credential.id)
         let apdu = APDU(cla: 0x00, ins: 0xa2, p1: 0, p2: 1, command: nameTLV.data + challengeTLV.data, type: .extended)
         
-        let data: Data = try await connection.send(apdu: apdu)
+        let data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.init(from: data) else { throw OATHSessionError.responseDataNotTLVFormatted }
         
         guard let digits = result.value.first else { throw OATHSessionError.unexpectedData }
@@ -215,7 +215,7 @@ public final class OATHSession: Session, InternalSession {
         let challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, command: challengeTLV.data)
         guard let connection = _connection else { throw SessionError.noConnection }
-        let data: Data = try await connection.send(apdu: apdu)
+        let data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else { throw OATHSessionError.responseDataNotTLVFormatted }
         
         return try await result.asyncMap { (name, response) in
@@ -273,7 +273,7 @@ public final class OATHSession: Session, InternalSession {
         let response = challenge.hmacSha1(usingKey: accessKey)
         let responseTlv = TKBERTLVRecord(tag: tagSetCodeResponse, value: response)
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: keyTlv.data + challengeTlv.data + responseTlv.data)
-        let _: Data = try await connection.send(apdu: apdu)
+        let _ = try await connection.send(apdu: apdu)
     }
     
     public func unlockWithAccessKey(_ accessKey: Data) async throws {
@@ -284,8 +284,8 @@ public final class OATHSession: Session, InternalSession {
         let apdu = APDU(cla: 0, ins: 0xa3, p1: 0, p2: 0, command: reponseTlv.data + challengeTlv.data)
 
         do {
-            let result: Data = try await connection.send(apdu: apdu)
-            guard let resultTlv = TKBERTLVRecord(from: result), resultTlv.tag == tagSetCodeResponse else {
+            let data = try await connection.send(apdu: apdu)
+            guard let resultTlv = TKBERTLVRecord(from: data), resultTlv.tag == tagSetCodeResponse else {
                 throw OATHSessionError.unexpectedTag
             }
             let expectedResult = challenge.hmacSha1(usingKey: accessKey)

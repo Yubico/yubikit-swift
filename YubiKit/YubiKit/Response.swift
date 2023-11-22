@@ -14,7 +14,7 @@
 
 import Foundation
 
-public struct Response: CustomStringConvertible {
+internal struct Response: CustomStringConvertible {
 
     internal init(rawData: Data) {
         if rawData.count > 2 {

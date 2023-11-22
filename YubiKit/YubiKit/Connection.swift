@@ -48,12 +48,20 @@ public protocol Connection: AnyObject {
     /// Send a APDU to the Connection. Commands that need multiple reads from the YubiKey will
     /// be handled automatically and returning a Response only when all data has been read from the
     /// YubiKey.
-    func send(apdu: APDU) async throws -> Response // TODO: this should probably only return the Data since the code will always be 0x9100
+    func send(apdu: APDU) async throws -> Data
 }
 
 internal protocol InternalConnection {
+    
     func session() async -> Session?
     func setSession(_ session: Session?) async
+    
+    // The internal version of the send() function returns a Response instead of Data. The reason for this is
+    // to handle reads of large chunks of data that will be split into multiple reads. If the result is
+    // to large for a single read that is signaled by sw1 being 0x61. The Response struct will return both
+    // the data and sw1 and sw2. sendRecursive() in Connection+Extensions will look at the sw1 code and if
+    // it indicates there's more data to read, it will call itself recursivly to retrieve the next chunk of data.
+    func send(apdu: APDU) async throws -> Response
 }
 
 extension InternalConnection {

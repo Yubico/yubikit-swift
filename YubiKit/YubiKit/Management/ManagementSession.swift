@@ -74,7 +74,7 @@ public final actor ManagementSession: Session, InternalSession {
     public func getDeviceInfo() async throws -> DeviceInfo {
         guard let connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0x1d, p1: 0, p2: 0)
-        let data: Data = try await connection.send(apdu: apdu)
+        let data = try await connection.send(apdu: apdu)
         return try DeviceInfo(withData: data, fallbackVersion: version)
     }
     
@@ -110,7 +110,7 @@ public final actor ManagementSession: Session, InternalSession {
         command.append(tlv.data)
         
         let apdu = APDU(cla: 0, ins: 0x1c, p1: 0, p2: 0, command: command)
-        let _: Data = try await connection.send(apdu: apdu)
+        let _ = try await connection.send(apdu: apdu)
     }
     
     public func disableApplication(_ application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {

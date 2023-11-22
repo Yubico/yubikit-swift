@@ -77,8 +77,7 @@ public final actor SmartCardConnection: Connection, InternalConnection {
         }
     }
     
-    // Send apdu over connection
-    public func send(apdu: APDU) async throws -> Response {
+    internal func send(apdu: APDU) async throws -> Response {
         print("🪪 SmartCardConnection, send(apdu: \(apdu))")
         guard let smartCard else { throw "No SmartCard connection" }
         let data = try await smartCard.transmit(apdu.data)

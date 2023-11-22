@@ -106,8 +106,7 @@ public final actor NFCConnection: Connection, InternalConnection {
         }
     }
     
-    // Send apdu over connection
-    public func send(apdu: APDU) async throws -> Response {
+    internal func send(apdu: APDU) async throws -> Response {
         print("🛜 NFCConnection, send(apdu: \(apdu))")
         guard let tag else { throw "No NFC tag" }
         guard let apdu = apdu.nfcIso7816Apdu else { throw "Malformed APDU data" }

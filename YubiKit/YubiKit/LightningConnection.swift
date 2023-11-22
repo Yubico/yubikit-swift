@@ -76,7 +76,7 @@ public final actor LightningConnection: Connection, InternalConnection {
         }
     }
     
-    public func send(apdu: APDU) async throws -> Response {
+    internal func send(apdu: APDU) async throws -> Response {
         print("⚡️ LightningConnection, send() \(apdu).")
         guard let accessoryConnection, let outputStream = accessoryConnection.session.outputStream, let inputStream = accessoryConnection.session.inputStream else { throw "No current session" }
         var data = Data([0x00]) // YLP iAP2 Signal

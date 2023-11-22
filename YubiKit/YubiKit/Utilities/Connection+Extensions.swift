@@ -37,7 +37,8 @@ enum Application {
 extension Connection {
     
     func selectApplication(application: Application) async throws -> Data {
-        let response: Response = try await send(apdu: application.selectApplicationAPDU)
+        guard let internalConnection = self as? InternalConnection else { fatalError() }
+        let response: Response = try await internalConnection.send(apdu: application.selectApplicationAPDU)
         switch response.statusCode {
         case .ok:
             return response.data
@@ -48,7 +49,7 @@ extension Connection {
         }
     }
     
-    func send(apdu: APDU) async throws -> Data {
+    public func send(apdu: APDU) async throws -> Data {
         return try await sendRecursive(apdu: apdu)
     }
     
@@ -64,11 +65,12 @@ extension Connection {
             ins = 0xc0
         }
 
+        guard let internalConnection = self as? InternalConnection else { fatalError() }
         if readMoreData {
             let apdu =  APDU(cla: 0, ins: ins, p1: 0, p2: 0, command: nil, type: .short)
-            response = try await send(apdu: apdu)
+            response = try await internalConnection.send(apdu: apdu)
         } else {
-            response = try await send(apdu: apdu)
+            response = try await internalConnection.send(apdu: apdu)
         }
         
         guard response.statusCode == .ok || response.statusCode == .moreData else {
