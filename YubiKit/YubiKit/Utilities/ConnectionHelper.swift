@@ -17,6 +17,8 @@ import Foundation
 import CoreNFC
 #endif
 
+/// ConnectionHelper simplifies the creation of different connections to the YubiKey by automate
+/// much of the work involved in handling multiple different connection at the same time.
 public enum ConnectionHelper {
     
     public static func anyConnection(nfcAlertMessage: String? = nil) async throws -> Connection {

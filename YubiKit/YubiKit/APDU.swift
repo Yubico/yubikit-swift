@@ -14,21 +14,8 @@
 
 import Foundation
 
-/*
-@param cla
-   The instruction class.
-@param ins
-   The instruction number.
-@param p1
-   The first instruction paramater byte.
-@param p2
-   The second instruction paramater byte.
-@param data
-   The command data.
-@param type
-   The type of the APDU, short or extended.
-*/
 
+/// Data model for encapsulating an APDU command, as defined by the ISO/IEC 7816-4 standard.
 public struct APDU {
     
     public enum ApduType {
@@ -43,7 +30,15 @@ public struct APDU {
     private let command: Data?
     private let type: ApduType
     
-    init(cla: UInt8, ins: UInt8, p1: UInt8, p2: UInt8, command: Data? = nil, type: ApduType = .short) {
+    /// Creates an APDU struct.
+    /// - Parameters:
+    ///   - cla: The instruction class.
+    ///   - ins: The instruction code.
+    ///   - p1: The first instruction paramater byte.
+    ///   - p2: The second instruction paramater byte.
+    ///   - command: The command data.
+    ///   - type: The type of the APDU, short or extended.
+    public init(cla: UInt8, ins: UInt8, p1: UInt8, p2: UInt8, command: Data? = nil, type: ApduType = .short) {
         self.cla = cla
         self.ins = ins
         self.p1 = p1

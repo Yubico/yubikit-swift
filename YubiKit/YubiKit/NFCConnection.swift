@@ -24,6 +24,7 @@ import CoreNFC
 /// method that will close the connection and set the alertMessage of the NFC alert to the provided message.
 ///
 /// > Note: NFC is only supported on iPhones from iPhone 6 and forward. It will not work on iPads since there's no NFC chip in these devices.
+@available(iOS 16.0, *)
 public final actor NFCConnection: Connection, InternalConnection {
     
     private static let manager = NFCConnectionManager()

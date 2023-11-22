@@ -14,7 +14,7 @@
 
 import Foundation
 
-/// An interface defining a session with a specific application on the YubiKey.
+/// A protocol defining a session with a specific application on the YubiKey.
 ///
 /// The Session uses a ``Connection`` to handle communication with the YubiKey. Using a session is the preferred way
 /// of communicating with the different applications on the YubiKey.

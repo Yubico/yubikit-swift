@@ -21,6 +21,7 @@ enum ManagementSessionError: Error {
     case versionParseError
 }
 
+/// An interface to the Management application on the YubiKey.
 public final actor ManagementSession: Session, InternalSession {
     
     var _connection: Connection?

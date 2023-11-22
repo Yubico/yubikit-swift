@@ -38,6 +38,11 @@ public enum OATHSessionError: Error {
     case credentialNotPresentOnCurrentYubiKey
 }
 
+/// An interface to the OATH application on the YubiKey.
+///
+/// The OATHSession is an interface to the OATH appcliation on the YubiKey that will
+/// let you store, calculate and edit TOTP and HOTP credentials on the YubiKey. Learn
+/// more about OATH on the [Yubico developer website](https://developers.yubico.com/OATH/).
 public final class OATHSession: Session, InternalSession {
     func connection() async -> Connection? {
         return _connection

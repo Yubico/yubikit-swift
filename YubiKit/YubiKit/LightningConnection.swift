@@ -18,6 +18,7 @@ import Foundation
 import ExternalAccessory
 
 /// A connection to the YubiKey utilizing the Lightning port and External Accessory framework.
+@available(iOS 16.0, *)
 public final actor LightningConnection: Connection, InternalConnection {
 
     private static let manager = LightningConnectionManager()

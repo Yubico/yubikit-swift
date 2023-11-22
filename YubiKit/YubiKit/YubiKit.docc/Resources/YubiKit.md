@@ -3,11 +3,12 @@
 Connect and run commands on the different applications on a YubiKey. The framework support connecting using NFC, Lightning and USB-C.
 
 @Metadata {
-    @PageImage(
-        purpose: icon, 
-        source: "documentation-header", 
-        alt: "A technology icon representing the SlothCreator framework.")
+    @PageImage(purpose: icon, 
+               source: "documentation-header", 
+               alt: "A technology icon representing the SlothCreator framework.")
     @PageColor(green)
+    @Available(macOS, introduced: "13.0")
+    @Available(iOS, introduced: "16.0")
 }
 
 ## Overview
@@ -34,8 +35,9 @@ transitioning from the old Objective-C SDK.
 ### Creating a Connection to a YubiKey
 
 The implementations of the Connection protocol handles the connection to the YubiKey and can be used to send
-data in the form of a ``APDU`` to the YubiKey. However, in most cases the Connection is used to create
-a Session to a application in the YubiKey. This Session is then used to execute commands on the YubiKey.
+data in the form of a ``APDU`` to the YubiKey. In most cases it is adviced to use one of the supplied Sessions
+(``OATHSession``, ``ManagementSession``) instead of sending raw APDUs to the YubiKey.
+
 
 - ``Connection``
 - ``NFCConnection``
@@ -45,8 +47,10 @@ a Session to a application in the YubiKey. This Session is then used to execute 
 
 ### Sending and receiving data
 
+Use the default implementation of ``Connection/send(apdu:)-7bmw4`` to send data to the YubiKey using the Connection.
+This will either return the full response data or throw a ``ResponseError``.
+
 - ``APDU``
-- ``Response``
 
 ### Creating a Session
 
@@ -57,6 +61,8 @@ communication with the YubiKey.
 - ``Session``
 - ``OATHSession``
 - ``ManagementSession``
+- ``DeviceInfo``
+- ``DeviceConfig``
 
 ### Using the wrappers
 

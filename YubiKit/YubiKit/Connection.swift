@@ -22,7 +22,7 @@ import Foundation
 
 public protocol Connection: AnyObject {
     
-    /// Create a new Connection
+    /// Create a new Connection to the YubiKey.
     ///
     /// Call this method to get a connection to a YubiKey. The method will wait
     /// until a connection to a YubiKey has been established and then return it.
@@ -33,7 +33,6 @@ public protocol Connection: AnyObject {
     /// If a connection has been established and this method is called again the
     /// first connection will be closed and ``connectionDidClose()`` will return for
     /// the previous connection.
-    ///
     static func connection() async throws -> Connection
     
     /// Close the current Connection.
@@ -41,13 +40,20 @@ public protocol Connection: AnyObject {
     /// This closes the connection sending the optional error to the ``connectionDidClose()`` method.
     func close(error: Error?) async
     
+    /// Wait for the connection to close.
+    /// 
     /// This method will wait until the connection closes. If the connection was closed due to an error said
     /// error will be returned.
     func connectionDidClose() async -> Error?
     
-    /// Send a APDU to the Connection. Commands that need multiple reads from the YubiKey will
-    /// be handled automatically and returning a Response only when all data has been read from the
-    /// YubiKey.
+    /// Send an APDU to the Connection.
+    ///
+    /// This will send the APDU to the YubiKey using the Connection. Commands returning data to big
+    /// to be handled by a single read operation will be handled automatically by the SDK and the
+    /// complete result will be returned by the function. Only operations returning a 0x9100 status
+    /// code will return data. Operations returning a 0x61XX (more data) status code will be handled
+    /// by the SDK until they finish with a 0x9100 or an error. For all other status codes a ResponseError
+    /// wrapping the status code will be thrown.
     func send(apdu: APDU) async throws -> Data
 }
 

@@ -15,7 +15,9 @@
 import Foundation
 import CryptoTokenKit
 
-/// A connection to the YubiKey utilizing the USB-C port and TKSmartCard implementation.
+/// A connection to the YubiKey utilizing the USB-C port and the TKSmartCard implementation from
+/// the CryptoTokenKit framework.
+@available(iOS 16.0, macOS 13.0, *)
 public final actor SmartCardConnection: Connection, InternalConnection {
     
     private static let manager = SmartCardManager()
