@@ -95,4 +95,9 @@ To add support for the 5Ci YubiKey that connect to the iPhone via the Lightning 
 
 ![An image showing how to support for lightning Yubikeys.](external-accessory.png)
 
-> Note: The YubiKey 5Ci is an Apple MFi external accessory and communicates over iAP2. You are telling your app that all communication with the 5Ci as a supported external accessory is via `com.yubico.ylp`.
+> Note: The YubiKey 5Ci is an Apple MFi certified external accessory and communicates over iAP2. Setting the value for `Supported external accessory protocols` to `com.yubico.ylp` will tell the app that all communication with the 5Ci YubiKey via the Lightning port is done using the External Accessory framework.
+
+### Build SDK documentation
+
+As a final step build the documentation for the SDK by selecting "Product" -> "Build Documention" in Xcode. This will give you
+access to the YubiKit Framework documentation from the Developer Documentation window in Xcode.
