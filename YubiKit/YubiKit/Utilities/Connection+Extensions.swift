@@ -36,21 +36,22 @@ enum Application {
 
 extension Connection {
     
-    func selectApplication(application: Application) async throws -> Data {
-        guard let internalConnection = self as? InternalConnection else { fatalError() }
-        let response: Response = try await internalConnection.send(apdu: application.selectApplicationAPDU)
-        switch response.statusCode {
-        case .ok:
-            return response.data
-        case .insNotSupported, .missingFile:
-            throw SessionError.missingApplication
-        default:
-            throw SessionError.unexpectedStatusCode
-        }
-    }
-    
     public func send(apdu: APDU) async throws -> Data {
         return try await sendRecursive(apdu: apdu)
+    }
+    
+    func selectApplication(application: Application) async throws -> Data {
+        do {
+            return try await send(apdu: application.selectApplicationAPDU)
+        } catch {
+            guard let error = error as? ResponseError else { throw error }
+            switch error.statusCode {
+            case .insNotSupported, .missingFile:
+                throw SessionError.missingApplication
+            default:
+                throw error
+            }
+        }
     }
     
     private func sendRecursive(apdu: APDU, data: Data = Data(), readMoreData: Bool = false) async throws -> Data {
