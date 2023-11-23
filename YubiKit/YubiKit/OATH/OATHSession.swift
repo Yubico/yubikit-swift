@@ -122,16 +122,21 @@ public final class OATHSession: Session, InternalSession {
         selectResponse = try await Self.selectApplication(withConnection: connection)
     }
     
-    @discardableResult public func addCredential(template: CredentialTemplate) async throws -> Credential? {
+    /// Adds a new Credential to the YubiKey.
+    ///
+    /// The Credential ID (see ``OATHSession/CredentialTemplate/identifier``) must be unique to the YubiKey, or the
+    /// existing Credential with the same ID will be overwritten.
+    ///
+    /// Setting requireTouch requires support for FEATURE_TOUCH, available on YubiKey 4.2 or later.
+    /// Using SHA-512 requires support for FEATURE_SHA512, available on YubiKey 4.3.1 or later.
+    /// - Parameter template: The template describing the credential.
+    /// - Returns: The newly added credential.
+    @discardableResult public func addCredential(template: CredentialTemplate) async throws -> Credential {
         guard let connection = _connection else { throw SessionError.noConnection }
-        // name
-        print(template.key)
-        guard let nameData = template.key.data(using: .utf8) else { throw OATHSessionError.unexpectedData }
+        guard let nameData = template.identifier.data(using: .utf8) else { throw OATHSessionError.unexpectedData }
         let nameTlv = TKBERTLVRecord(tag: 0x71, value: nameData)
-        // key
         var keyData = Data()
         
-//        keyData.append(UInt8(template.type.code | template.algorithm.rawValue).data)
         keyData.append(template.type.code | template.algorithm.rawValue)
         keyData.append(template.digits.data)
         keyData.append(template.secret)
@@ -149,9 +154,11 @@ public final class OATHSession: Session, InternalSession {
         
         let apdu = APDU(cla: 0x00, ins: 0x01, p1: 0x00, p2: 0x00, command: data)
         let _ = try await connection.send(apdu: apdu)
-        return nil
+        return Credential(deviceId: selectResponse.deviceId, id: nameData, type: template.type, name: template.name, issuer: template.issuer)
     }
     
+    /// Deletes an existing Credential from the YubiKey.
+    /// - Parameter credential: The credential that will be deleted from the YubiKey.
     public func deleteCredential(_ credential: Credential) async throws {
         guard let connection = _connection else { throw SessionError.noConnection }
         let deleteTlv = TKBERTLVRecord(tag: 0x71, value: credential.id)
@@ -159,6 +166,8 @@ public final class OATHSession: Session, InternalSession {
         let _ = try await connection.send(apdu: apdu)
     }
     
+    /// List credentials on YubiKey.
+    /// - Returns: An array of Credentials.
     public func listCredentials() async throws -> [Credential] {
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
@@ -184,6 +193,11 @@ public final class OATHSession: Session, InternalSession {
         }
     }
     
+    /// Returns a new Code for a stored Credential.
+    /// - Parameters:
+    ///   - credential: The stored Credential to calculate a new code for.
+    ///   - timestamp: The timestamp which is used as start point for TOTP, this is ignored for HOTP.
+    /// - Returns: Calculated code.
     public func calculateCode(credential: Credential, timestamp: Date = Date()) async throws -> Code {
         guard let connection = _connection else { throw SessionError.noConnection }
 
@@ -212,6 +226,12 @@ public final class OATHSession: Session, InternalSession {
         return Code(code: stringCode, timestamp: timestamp, credentialType: credential.type)
     }
     
+    /// List all credentials on the YubiKey and calculate each credentials code.
+    ///
+    /// Credentials which use HOTP, or which require touch, will not be calculated.
+    /// They will still be present in the result, but with a nil value.
+    /// - Parameter timestamp: The timestamp which is used as start point for TOTP, this is ignored for HOTP.
+    /// - Returns: An array of tuples containing a ``Credential`` and an optional ``Code``.
     public func calculateCodes(timestamp: Date = Date()) async throws -> [(Credential, Code?)] {
         print("Start OATH calculateCodes")
         let time = timestamp.timeIntervalSince1970
@@ -253,16 +273,29 @@ public final class OATHSession: Session, InternalSession {
         }
     }
     
+    /// Sets an Access Key derived from a password. Once a key is set, any usage of the credentials stored will
+    /// require the application to be unlocked via one of the unlock functions. Also see ``setAccessKey(_:)``.
+    /// - Parameter password: The user-supplied password to set.
     public func setPassword(_ password: String) async throws {
         let derivedKey = try deriveAccessKey(from: password)
         try await self.setAccessKey(derivedKey)
     }
     
+    /// Unlock with password.
+    /// - Parameter password: The user-supplied password used to unlock the application.
     public func unlockWithPassword(_ password: String) async throws {
         let derivedKey = try deriveAccessKey(from: password)
         try await self.unlockWithAccessKey(derivedKey)
     }
     
+
+    /// Sets an access key.
+    ///
+    /// Once an access key is set, any usage of the credentials stored will require the application
+    /// to be unlocked via one of the unlock methods, which requires knowledge of the access key.
+    /// Typically this key is derived from a password (see ``deriveAccessKey(from:)``). This method
+    /// sets the raw 16 byte key.
+    /// - Parameter accessKey: The shared secret key used to unlock access to the application.
     public func setAccessKey(_ accessKey: Data) async throws {
         guard let connection = _connection else { throw SessionError.noConnection }
         let header = CredentialType.TOTP().code | HashAlgorithm.SHA1.rawValue
@@ -281,6 +314,11 @@ public final class OATHSession: Session, InternalSession {
         let _ = try await connection.send(apdu: apdu)
     }
     
+    /// Unlock OATH application on the YubiKey. Once unlocked other commands may be sent to the key.
+    ///
+    /// Once unlocked, the application will remain unlocked for the duration of the session.
+    /// See the [YKOATH protocol specification](https://developers.yubico.com/OATH/) for further details.
+    /// - Parameter accessKey: The shared access key.
     public func unlockWithAccessKey(_ accessKey: Data) async throws {
         guard let connection = _connection, let responseChallenge = self.selectResponse.challenge else { throw SessionError.noConnection }
         let reponseTlv = TKBERTLVRecord(tag: tagSetCodeResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
@@ -314,6 +352,11 @@ struct DeriveAccessKeyError: Error {
 }
 
 extension OATHSession {
+    
+    /// Derives an access key from a password and the device-specific salt. The key is derived by running
+    /// 1000 rounds of PBKDF2 using the password and salt as inputs, with a 16 byte output.
+    /// - Parameter password: A user-supplied password.
+    /// - Returns: Access key for unlocking the session.
     public func deriveAccessKey(from password: String) throws -> Data {
         var derivedKey = Data(count: 16)
         try derivedKey.withUnsafeMutableBytes { (outputBytes: UnsafeMutableRawBufferPointer) in
@@ -335,7 +378,7 @@ extension OATHSession {
 }
 
 extension Data {
-    func hmacSha1(usingKey key: Data) -> Data {
+    internal func hmacSha1(usingKey key: Data) -> Data {
         var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
         CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA1), key.bytes, key.bytes.count, self.bytes, self.bytes.count, &digest)
         return Data(digest)

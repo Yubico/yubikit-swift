@@ -62,14 +62,28 @@ extension OATHSession {
         case SHA512 = 0x03
     }
     
+    /// A reference to an OATH Credential stored on a YubiKey.
     public struct Credential: Identifiable, CustomStringConvertible {
 
+        /// Device ID of the YubiKey.
         public let deviceId: String
+        
+        /// The ID of a Credential which is used to identify it to the YubiKey.
         public let id: Data
+        
+        /// OATH type of the credential (TOTP or HOTP).
         public let type: OATHSession.CredentialType
+        
+        /// Hash algorithm used by the credential (SHA1, SHA265 or SHA 512).
         public let hashAlgorithm: OATHSession.HashAlgorithm?
+        
+        /// The name of the account (typically a username or email address).
         public let name: String
+        
+        /// The name of the Credential issuer (e.g. Google, Amazon, Facebook, etc.)
         public let issuer: String?
+        
+        /// Label of the Credential. Will return `issuer:name` if issuer is set, otherwise `name`.
         public var label: String {
             if let issuer {
                 return "\(issuer):\(name)"
@@ -77,11 +91,18 @@ extension OATHSession {
                 return name
             }
         }
+        
+        /// Validity time period in seconds for a Code generated from this Credential.
+        public let validityTime: TimeInterval = 30.0 //FIXME: implement this
+        
+        /// Whether or not the Credential requires touch.
+        public var requiresTouch = false // FIXME: implement this
+        
         public var description: String {
             return "Credential(type: \(type), label:\(label), algorithm: \(hashAlgorithm.debugDescription)"
         }
 
-        init(deviceId: String, id: Data, type: OATHSession.CredentialType, hashAlgorithm: OATHSession.HashAlgorithm? = nil, name: String, issuer: String?) {
+        internal init(deviceId: String, id: Data, type: OATHSession.CredentialType, hashAlgorithm: OATHSession.HashAlgorithm? = nil, name: String, issuer: String?) {
             self.deviceId = deviceId
             self.id = id
             self.type = type
@@ -91,7 +112,7 @@ extension OATHSession {
         }
     }
     
-    struct CredentialIdParser {
+    internal struct CredentialIdParser {
         
         let account: String
         let issuer: String?
@@ -127,6 +148,7 @@ extension OATHSession {
         }
     }
 
+    /// A one-time OATH code, calculated from a ``Credential`` stored in a YubiKey.
     public struct Code: Identifiable, CustomStringConvertible {
         
         public var description: String {
@@ -136,7 +158,11 @@ extension OATHSession {
         }
         
         public let id = UUID()
+        
+        /// String representation of the code, typically a 6-8 digit code.
         public let code: String
+        
+        /// The date this code will be valid from.
         public var validFrom: Date {
             switch credentialType {
             case .HOTP(_):
@@ -145,6 +171,8 @@ extension OATHSession {
                 return Date(timeIntervalSince1970: timestamp.timeIntervalSince1970 - timestamp.timeIntervalSince1970.truncatingRemainder(dividingBy: period))
             }
         }
+        
+        /// The date this code ends being valid.
         public var validTo: Date {
             switch credentialType {
             case .HOTP(_):
@@ -154,7 +182,7 @@ extension OATHSession {
             }
         }
         
-        init(code: String, timestamp: Date, credentialType: CredentialType) {
+        internal init(code: String, timestamp: Date, credentialType: CredentialType) {
             self.code = code
             self.timestamp = timestamp
             self.credentialType = credentialType
@@ -165,11 +193,15 @@ extension OATHSession {
 
     }
     
+    /// Template object holding all required information to add a new ``Credential`` to a YubiKey.
     public struct CredentialTemplate {
         
         private static let minSecretLenght = 14
         
-        public var key: String {
+        /// Credential identifier, as used to identify it on a YubiKey.
+        ///
+        /// The Credential ID is calculated based on the combination of the issuer, the name, and (for TOTP credentials) the validity period.
+        public var identifier: String {
             let key: String
             if let issuer {
                 key = "\(issuer):\(name)"
@@ -187,6 +219,10 @@ extension OATHSession {
             }
         }
         
+        /// Creates a CredentialTemplate by parsing a [otpauth:// URI](https://github.com/google/google-authenticator/wiki/Key-Uri-Format).
+        /// - Parameters:
+        ///   - url: The otpauth:// URI to parse.
+        ///   - skipValidation: Set to true to skip input validation when parsing the uri.
         public init(withURL url: URL, skipValidation: Bool = false) throws {
             guard url.scheme == "otpauth" else { throw CredentialTemplateError.missingScheme }
             
@@ -222,6 +258,15 @@ extension OATHSession {
             self.init(type: type, algorithm: algorithm, secret: secret, issuer: issuer, name: name, digits: digits)
         }
         
+        /// Creates a CredentialTemplate.
+        /// - Parameters:
+        ///   - type: OATH type of the credential (TOTP or HOTP).
+        ///   - algorithm: Hash algorithm used by the credential (SHA1, SHA265 or SHA 512).
+        ///   - secret: Secret key of the credential, in raw bytes (__not__ Base32 encoded)
+        ///   - issuer: Name of the credential issuer (e.g. Google, Amazon, Facebook, etc.).
+        ///   - name: The name/label of the account, typically a username or email address
+        ///   - digits: Number of digits to display for generated ``Code``s
+        ///   - requiresTouch: Set to true if the credential should require touch to be used.
         public init(type: CredentialType, algorithm: HashAlgorithm, secret: Data, issuer: String?, name: String, digits: UInt8 = 6, requiresTouch: Bool = false) {
             self.type = type
             self.algorithm = algorithm
@@ -246,13 +291,13 @@ extension OATHSession {
             self.requiresTouch = requiresTouch
         }
         
-        public let type: CredentialType
-        public let algorithm: HashAlgorithm
-        public let secret: Data
-        public let issuer: String?
-        public let name: String
-        public let digits: UInt8
-        public let requiresTouch: Bool
+        internal let type: CredentialType
+        internal let algorithm: HashAlgorithm
+        internal let secret: Data
+        internal let issuer: String?
+        internal let name: String
+        internal let digits: UInt8
+        internal let requiresTouch: Bool
     }
     
 }
