@@ -102,6 +102,21 @@ class OATHFullStackTests: XCTestCase {
             XCTAssertEqual(credentials.count, credentialsMinusOne.count + 1)
         }
     }
+    
+    func testDeleteAccessKey() throws {
+        runOATHTest(password: "password") { session in
+            do {
+                try await session.unlockWithPassword("password")
+                try await session.deleteAccessKey()
+                let connection = try await ConnectionHelper.anyConnection()
+                let _ = try await ManagementSession.session(withConnection: connection)
+                let session = try await OATHSession.session(withConnection: connection)
+                let credentials = try await session.listCredentials()
+                XCTAssertEqual(credentials.count, 5)
+            }
+        }
+        
+    }
 }
 
 

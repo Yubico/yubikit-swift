@@ -118,7 +118,7 @@ public final class OATHSession: Session, InternalSession {
         guard let connection = _connection else { throw SessionError.noConnection }
         print("Reset OATH application")
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad)
-        let _ = try await connection.send(apdu: apdu)
+        try await connection.send(apdu: apdu)
         selectResponse = try await Self.selectApplication(withConnection: connection)
     }
     
@@ -153,7 +153,7 @@ public final class OATHSession: Session, InternalSession {
         }
         
         let apdu = APDU(cla: 0x00, ins: 0x01, p1: 0x00, p2: 0x00, command: data)
-        let _ = try await connection.send(apdu: apdu)
+        try await connection.send(apdu: apdu)
         return Credential(deviceId: selectResponse.deviceId, id: nameData, type: template.type, name: template.name, issuer: template.issuer)
     }
     
@@ -163,7 +163,7 @@ public final class OATHSession: Session, InternalSession {
         guard let connection = _connection else { throw SessionError.noConnection }
         let deleteTlv = TKBERTLVRecord(tag: 0x71, value: credential.id)
         let apdu = APDU(cla: 0, ins: 0x02, p1: 0, p2: 0, command: deleteTlv.data)
-        let _ = try await connection.send(apdu: apdu)
+        try await connection.send(apdu: apdu)
     }
     
     /// List credentials on YubiKey.
@@ -311,7 +311,7 @@ public final class OATHSession: Session, InternalSession {
         let response = challenge.hmacSha1(usingKey: accessKey)
         let responseTlv = TKBERTLVRecord(tag: tagSetCodeResponse, value: response)
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: keyTlv.data + challengeTlv.data + responseTlv.data)
-        let _ = try await connection.send(apdu: apdu)
+        try await connection.send(apdu: apdu)
     }
     
     /// Unlock OATH application on the YubiKey. Once unlocked other commands may be sent to the key.
@@ -340,6 +340,14 @@ public final class OATHSession: Session, InternalSession {
                 throw error
             }
         }
+    }
+    
+    /// Removes the access key, if one is set.
+    public func deleteAccessKey() async throws {
+        let tlv = TKBERTLVRecord(tag: tagSetCodeKey, value: Data())
+        let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: tlv.data)
+        guard let connection = _connection else { throw SessionError.noConnection }
+        try await connection.send(apdu: apdu)
     }
     
     deinit {

@@ -54,6 +54,7 @@ public protocol Connection: AnyObject {
     /// code will return data. Operations returning a 0x61XX (more data) status code will be handled
     /// by the SDK until they finish with a 0x9100 or an error. For all other status codes a ResponseError
     /// wrapping the status code will be thrown.
+    @discardableResult
     func send(apdu: APDU) async throws -> Data
 }
 

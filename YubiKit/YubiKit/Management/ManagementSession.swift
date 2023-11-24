@@ -111,7 +111,7 @@ public final actor ManagementSession: Session, InternalSession {
         command.append(tlv.data)
         
         let apdu = APDU(cla: 0, ins: 0x1c, p1: 0, p2: 0, command: command)
-        let _ = try await connection.send(apdu: apdu)
+        try await connection.send(apdu: apdu)
     }
     
     public func disableApplication(_ application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
