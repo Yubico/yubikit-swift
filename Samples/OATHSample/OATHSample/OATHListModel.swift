@@ -56,6 +56,7 @@ class OATHListModel: ObservableObject {
                 self.error = nil
                 let connection = try await NFCConnection.connection()
                 calculateCodes(connection: connection)
+                await connection.nfcConnection?.close(message: "Code calculated")
             } catch {
                 self.error = error
             }
@@ -71,9 +72,6 @@ class OATHListModel: ObservableObject {
                 let result = try await session.calculateCodes()
                 self.accounts = result.map { return Account(label: $0.0.label, code: $0.1?.code ?? "****") }
                 self.source = connection.connectionType
-                #if os(iOS)
-                await connection.nfcConnection?.close(message: "Code calculated")
-                #endif
             } catch {
                 self.error = error
             }
