@@ -23,7 +23,7 @@ fileprivate let tagChallenge: TKTLVTag = 0x74
 fileprivate let tagTypeHOTP: TKTLVTag = 0x77
 fileprivate let tagTypeTouch: TKTLVTag = 0x7c
 fileprivate let tagSetCodeKey: TKTLVTag = 0x73
-fileprivate let tagSetCodeResponse: TKTLVTag = 0x75
+fileprivate let tagResponse: TKTLVTag = 0x75
 
 let oathDefaultPeriod = 30.0
 
@@ -36,6 +36,7 @@ public enum OATHSessionError: Error {
     case unexpectedTag
     case unexpectedData
     case credentialNotPresentOnCurrentYubiKey
+    case badCalculation
 }
 
 /// An interface to the OATH application on the YubiKey.
@@ -131,7 +132,8 @@ public final class OATHSession: Session, InternalSession {
     /// Using SHA-512 requires support for FEATURE_SHA512, available on YubiKey 4.3.1 or later.
     /// - Parameter template: The template describing the credential.
     /// - Returns: The newly added credential.
-    @discardableResult public func addCredential(template: CredentialTemplate) async throws -> Credential {
+    @discardableResult
+    public func addCredential(template: CredentialTemplate) async throws -> Credential {
         guard let connection = _connection else { throw SessionError.noConnection }
         guard let nameData = template.identifier.data(using: .utf8) else { throw OATHSessionError.unexpectedData }
         let nameTlv = TKBERTLVRecord(tag: 0x71, value: nameData)
@@ -226,6 +228,27 @@ public final class OATHSession: Session, InternalSession {
         return Code(code: stringCode, timestamp: timestamp, credentialType: credential.type)
     }
     
+    /// Calculate a full (non-truncated) HMAC signature using a credential id.
+    ///
+    /// Using this command a credential id can be used as an HMAC key to calculate a
+    /// result for an arbitrary challenge. The hash algorithm specified for the Credential
+    /// is used.
+    /// - Parameters:
+    ///   - credentialId: The ID of a stored Credential.
+    ///   - challenge: The input to the HMAC operation.
+    /// - Returns: The calculated response.
+    public func calculateResponse(credentialId: Data, challenge: Data) async throws -> Data {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        var data = Data()
+        data.append(TKBERTLVRecord(tag: tagName, value: credentialId).data)
+        data.append(TKBERTLVRecord(tag: tagChallenge, value: challenge).data)
+        let apdu = APDU(cla: 0, ins: 0xa2, p1: 0, p2: 0, command: data)
+        let result = try await connection.send(apdu: apdu)
+        guard let result = TKBERTLVRecord.init(from: result) else { throw OATHSessionError.responseDataNotTLVFormatted }
+        guard result.tag == tagResponse || result.data.count > 0 else { throw OATHSessionError.badCalculation }
+        return result.value.dropFirst()
+    }
+    
     /// List all credentials on the YubiKey and calculate each credentials code.
     ///
     /// Credentials which use HOTP, or which require touch, will not be calculated.
@@ -309,7 +332,7 @@ public final class OATHSession: Session, InternalSession {
         
         // Response
         let response = challenge.hmacSha1(usingKey: accessKey)
-        let responseTlv = TKBERTLVRecord(tag: tagSetCodeResponse, value: response)
+        let responseTlv = TKBERTLVRecord(tag: tagResponse, value: response)
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: keyTlv.data + challengeTlv.data + responseTlv.data)
         try await connection.send(apdu: apdu)
     }
@@ -321,14 +344,14 @@ public final class OATHSession: Session, InternalSession {
     /// - Parameter accessKey: The shared access key.
     public func unlockWithAccessKey(_ accessKey: Data) async throws {
         guard let connection = _connection, let responseChallenge = self.selectResponse.challenge else { throw SessionError.noConnection }
-        let reponseTlv = TKBERTLVRecord(tag: tagSetCodeResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
+        let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
         let challenge = Data.random(length: 8)
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
         let apdu = APDU(cla: 0, ins: 0xa3, p1: 0, p2: 0, command: reponseTlv.data + challengeTlv.data)
 
         do {
             let data = try await connection.send(apdu: apdu)
-            guard let resultTlv = TKBERTLVRecord(from: data), resultTlv.tag == tagSetCodeResponse else {
+            guard let resultTlv = TKBERTLVRecord(from: data), resultTlv.tag == tagResponse else {
                 throw OATHSessionError.unexpectedTag
             }
             let expectedResult = challenge.hmacSha1(usingKey: accessKey)

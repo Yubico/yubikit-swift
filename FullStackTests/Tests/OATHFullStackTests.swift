@@ -71,6 +71,19 @@ class OATHFullStackTests: XCTestCase {
         }
     }
     
+    func testCalculateResponse() throws {
+        runOATHTest { session in
+            // Test data from rfc2202
+            let secret = base32Encode(Data([0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b]))
+            let url = URL(string: "otpauth://totp/Yubico:test@yubico.com?secret=\(secret)&issuer=test-create-and-calculate-response&algorithm=SHA1&digits=7&counter=30")!
+            let template = try! OATHSession.CredentialTemplate(withURL: url)
+            let credential = try await session.addCredential(template: template)
+            let response = try await session.calculateResponse(credentialId: credential.id, challenge: Data("Hi There".utf8))
+            let expected = Data([0xb6, 0x17, 0x31, 0x86, 0x55, 0x05, 0x72, 0x64, 0xe2, 0x8b, 0xc0, 0xb6, 0xfb, 0x37, 0x8c, 0x8e, 0xf1, 0x46, 0xbe, 0x00])
+            XCTAssertEqual(response, expected)
+        }
+    }
+    
     // This will also test setPassword
     func testUnlockWithPassword() throws {
         runOATHTest(password: "password") { session in
@@ -115,7 +128,6 @@ class OATHFullStackTests: XCTestCase {
                 XCTAssertEqual(credentials.count, 5)
             }
         }
-        
     }
 }
 
