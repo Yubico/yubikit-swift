@@ -20,6 +20,7 @@
 - ``listCredentials()``
 - ``calculateCode(credential:timestamp:)``
 - ``calculateCodes(timestamp:)``
+- ``calculateResponse(credentialId:challenge:)``
 - ``deriveAccessKey(from:)``
 - ``setAccessKey(_:)``
 - ``setPassword(_:)``
