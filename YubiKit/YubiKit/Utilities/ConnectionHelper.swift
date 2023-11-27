@@ -17,10 +17,35 @@ import Foundation
 import CoreNFC
 #endif
 
-/// ConnectionHelper simplifies the creation of different connections to the YubiKey by automate
-/// much of the work involved in handling multiple different connection at the same time.
+/// ConnectionHelper simplifies the creation of different connections to the YubiKey. It can either return
+/// a connection of any type from a single function or provide a AsyncSequence implementation allowing
+/// you to use a for loop awaiting YubiKeys to be inserted and removed from a device.
+///
+/// The ConnectionHelper provides functions to simplify implementation supporting different types of
+/// connections.
+///
+/// ```swift
+///// Get a Lightning or a SmartCard connection to the YubiKey
+///let wiredConnection = try await ConnectionHelper.anyWiredConnection()
+///
+///// Get a wired or an NFC connection to the YubiKey. If no wired YubiKey
+///// is present and the device supports NFC the SDK will start a NFC scan.
+///let anyConnection = try await ConnectionHelper.anyConnection()
+///
+///// Create a AsyncSequence of wired connections to the YubiKey. Every
+///// time a YubiKey is inserted it will return a new Connection.
+///for try await connection in ConnectionHelper.wiredConnections() {
+///    let session = try await OATHSession.session(withConnection: connection)
+///    // Use session to calculate codes
+///    await connection.connectionDidClose()
+///    // Clean up when YubiKey is removed from device
+///}
+/// ```
 public enum ConnectionHelper {
     
+    /// Returns a Connection of any type. If a USB-C or Lightning YubiKey is present a connection to that key will be returned, otherwise
+    /// the NFCConnection will start scanning for a YubiKey.
+    /// >Note: LightningConnection and NFCConnection are only available on iOS.
     public static func anyConnection(nfcAlertMessage: String? = nil) async throws -> Connection {
         let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
             #if os(iOS)
@@ -45,7 +70,8 @@ public enum ConnectionHelper {
         return connection
     }
     
-    
+    /// Returns either a LightningConnection or a SmartCardConnection. If a YubiKey is present it will return the connection
+    /// immediately. If no key is present it will wait and return the connection once a YubiKey has been inserted into the device.
     public static func anyWiredConnection() async throws -> Connection {
         let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
             #if os(iOS)
@@ -63,18 +89,10 @@ public enum ConnectionHelper {
         return connection
     }
     
+    /// Returns an AsyncSequence of wired connections.
     public static func wiredConnections() -> ConnectionHelper.AnyWiredConnections {
         return AnyWiredConnections()
     }
-    
-    public static func anyConnections() -> ConnectionHelper.AnyConnections {
-        return AnyConnections()
-    }
-    #if os(iOS)
-    public static func startNFC() async throws {
-       let _ = try await NFCConnection.connection()
-    }
-    #endif
     
     public struct AnyWiredConnections: AsyncSequence {
         public typealias Element = Connection
@@ -91,21 +109,4 @@ public enum ConnectionHelper {
             AsyncIterator()
         }
     }
-    
-    public struct AnyConnections: AsyncSequence {
-        public typealias Element = Connection
-        var current: Connection? = nil
-        public struct AsyncIterator: AsyncIteratorProtocol {
-            mutating public func next() async -> Element? {
-                while true {
-                    return try? await ConnectionHelper.anyConnection()
-                }
-            }
-        }
-        
-        public func makeAsyncIterator() -> AsyncIterator {
-            AsyncIterator()
-        }
-    }
-    
 }
