@@ -29,16 +29,6 @@ public final actor NFCConnection: Connection, InternalConnection {
     
     private static let manager = NFCConnectionManager()
     
-    public static func connection(alertMessage message: String?) async throws -> Connection {
-        print("🛜 NFCConnection, connection(alertMessage: \(message) on \(Thread.current)")
-        return try await manager.connection(alertMessage: message)
-    }
-    
-    public static func connection() async throws -> Connection {
-        print("🛜 NFCConnection, connection() on \(Thread.current)")
-        return try await manager.connection(alertMessage: nil)
-    }
-    
     var _session: Session?
     func session() async -> Session? {
         return _session
@@ -59,27 +49,20 @@ public final actor NFCConnection: Connection, InternalConnection {
         self.closingHandler = handler
     }
     
-    private func close(result: Result<String, Error>?) async {
-        print("🛜 NFCConnection, close in thread \(Thread.current)")
-        closingHandler?(result)
-        tagReaderSession = nil
-        closingContinuations.forEach { continuation in
-            continuation.resume(returning: result?.error)
-        }
-        print("🛜 NFCConnection, messaged all continuations, let remove them in thread \(Thread.current)")
-        closingContinuations.removeAll()
+    public static func connection() async throws -> Connection {
+        print("🛜 NFCConnection, connection() on \(Thread.current)")
+        return try await manager.connection(alertMessage: nil)
     }
     
-    // NFCConnection can be closed with an optional message in addition to the close method defined in the Connection protocol.
-    // The message will be displayed on the NFC modal when it dismisses.
-    public func close(message: String?) async {
-        if let message {
-            await close(result: .success(message))
-        } else {
-            await close(result: nil)
-        }
+    /// The same function as ``connection()`` but with the option to set a message that will be displayed to the
+    /// user in the iOS NFC alert.'
+    public static func connection(alertMessage message: String?) async throws -> Connection {
+        print("🛜 NFCConnection, connection(alertMessage: \(message) on \(Thread.current)")
+        return try await manager.connection(alertMessage: message)
     }
     
+    /// Before creating a new NFCConnection you can supply a string that will be displayed to the user in the iOS NFC alert. Use this
+    /// to inform the user what the purpose of scanning the YubiKey is. For example: "Scan YubiKey to calculate OATH accounts.".
     public nonisolated func setAlertMessage(_ message: String) {
         Task {
             await tagReaderSession?.session.alertMessage = message
@@ -94,7 +77,16 @@ public final actor NFCConnection: Connection, InternalConnection {
         }
     }
     
-    // Wait for the connection to close
+    /// NFCConnection can be closed with an optional message in addition to the ``Connection/close(error:)`` method defined in the Connection protocol.
+    /// The message will be displayed on the iOS NFC alert when it dismisses.
+    public func close(message: String?) async {
+        if let message {
+            await close(result: .success(message))
+        } else {
+            await close(result: nil)
+        }
+    }
+    
     public func connectionDidClose() async -> Error? {
         print("🛜 NFCConnection, await connectionDidClose() called in thread \(Thread.current)")
         if tag == nil {
@@ -113,6 +105,17 @@ public final actor NFCConnection: Connection, InternalConnection {
         guard let apdu = apdu.nfcIso7816Apdu else { throw "Malformed APDU data" }
         let result: (Data, UInt8, UInt8) = try await tag.sendCommand(apdu: apdu)
         return Response(data: result.0, sw1: result.1, sw2: result.2)
+    }
+    
+    private func close(result: Result<String, Error>?) async {
+        print("🛜 NFCConnection, close in thread \(Thread.current)")
+        closingHandler?(result)
+        tagReaderSession = nil
+        closingContinuations.forEach { continuation in
+            continuation.resume(returning: result?.error)
+        }
+        print("🛜 NFCConnection, messaged all continuations, let remove them in thread \(Thread.current)")
+        closingContinuations.removeAll()
     }
     
     deinit {
