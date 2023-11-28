@@ -14,9 +14,6 @@
       location = "group:Samples"
       name = "Samples">
       <FileRef
-         location = "group:WrapperSample/WrapperSample.xcodeproj">
-      </FileRef>
-      <FileRef
          location = "group:OATHSample/OATHSample.xcodeproj">
       </FileRef>
    </Group>
