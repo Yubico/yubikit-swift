@@ -306,6 +306,8 @@ fileprivate class NFCTagWrapper: NSObject, NFCTagReaderSessionDelegate {
 }
 
 extension Connection {
+    /// Returns a NFCConnection if the connection is a NFCConnection. This is useful since NFCConnections need to be
+    /// closed as soon as you are done sending commands to them while wired connections are usually kept alive.
     public var nfcConnection: NFCConnection? {
         self as? NFCConnection
     }
