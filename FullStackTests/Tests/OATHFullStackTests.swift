@@ -129,6 +129,12 @@ class OATHFullStackTests: XCTestCase {
             }
         }
     }
+    
+    func testZeLastOne() throws {
+        runOATHTest { session in
+            print("Reset OATH application with test accounts and no password.")
+        }
+    }
 }
 
 
