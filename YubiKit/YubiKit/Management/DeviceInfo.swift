@@ -15,20 +15,28 @@
 import Foundation
 import CryptoTokenKit
 
-
+/// Identifies the type of data transport a YubiKey is using.
 public enum DeviceTransport {
     case usb, nfc
 }
 
+/// Identifies a feature (typically an application) on a YubiKey which may or may not be supported, and which can be enabled or disabled.
 public enum ApplicationType: UInt {
+    /// Identifies the YubiOTP application.
     case otp = 0x01
+    /// Identifies the U2F (CTAP1) portion of the FIDO application.
     case u2f = 0x02
+    /// Identifies the OpenPGP application, implementing the OpenPGP Card protocol.
     case opgp = 0x08
+    /// Identifies the PIV application, implementing the PIV protocol.
     case piv = 0x10
+    /// Identifies the OATH application, implementing the YKOATH protocol.
     case oath = 0x20
+    /// Identifies the FIDO2 (CTAP2) portion of the FIDO application.
     case ctap2 = 0x0200
 }
 
+/// The physical form factor of a YubiKey.
 public enum FormFactor: UInt8 {
     // Used when information about the YubiKey's form factor isn't available.
     case unknown = 0x00
@@ -48,14 +56,26 @@ public enum FormFactor: UInt8 {
     case usbCBio = 0x07
 }
 
+/// Contains metadata, including Device Configuration, of a YubiKey.
 public struct DeviceInfo {
+    /// Returns the serial number of the YubiKey, if available.
+    ///
+    /// The serial number can be read if the YubiKey has a serial number, and one of the YubiOTP slots
+    /// is configured with the SERIAL_API_VISIBLE flag.
     public let serialNumber: UInt
+    /// Returns the version number of the YubiKey firmware.
     public let version: Version
+    /// Returns the form factor of the YubiKey.
     public let formFactor: FormFactor
+    /// Returns the supported (not necessarily enabled) capabilities for a given transport.
     public let supportedCapabilities: [DeviceTransport: UInt]
+    /// Returns whether or not a Configuration Lock is set for the Management application on the YubiKey.
     public let isConfigLocked: Bool
+    /// Returns whether or not this is a FIPS compliant device.
     public let isFips: Bool
+    /// Returns whether or not this is a Security key.
     public let isSky: Bool
+    /// The mutable configuration of the YubiKey.
     public let config: DeviceConfig
     
     internal let isUSBSupportedTag: TKTLVTag = 0x01
@@ -70,12 +90,12 @@ public struct DeviceInfo {
     internal let isNFCEnabledTag: TKTLVTag = 0x0e
     internal let isConfigLockedTag: TKTLVTag = 0x0a
     
-    init(withData data: Data, fallbackVersion: Version) throws {
-        guard let count = data.bytes.first, count > 0 else { throw "No data" }
-        guard let tlvs = TKBERTLVRecord.dictionaryOfData(from: data.subdata(in: 1..<data.count)) else { throw "Failed parsing result" }
+    internal init(withData data: Data, fallbackVersion: Version) throws {
+        guard let count = data.bytes.first, count > 0 else { throw ManagementSessionError.missingData }
+        guard let tlvs = TKBERTLVRecord.dictionaryOfData(from: data.subdata(in: 1..<data.count)) else { throw ManagementSessionError.unexpectedData }
         
         if let versionData = tlvs[firmwareVersionTag] {
-            guard let parsedVersion = Version(withData: versionData) else { throw ManagementSessionError.versionParseError }
+            guard let parsedVersion = Version(withData: versionData) else { throw ManagementSessionError.unexpectedData }
             self.version = parsedVersion
         } else {
             self.version = fallbackVersion
@@ -139,6 +159,12 @@ public struct DeviceInfo {
         self.config = DeviceConfig(autoEjectTimeout: autoEjectTimeout, challengeResponseTimeout: challengeResponseTimeout, deviceFlags: deviceFlags, enabledCapabilities: enabledCapabilities)
     }
     
+    /// Returns whether or not a specific transport is available on this YubiKey.
+    public func hasTransport(_ transport: DeviceTransport) -> Bool {
+        return supportedCapabilities.keys.contains(transport)
+    }
+    
+    /// Returns whether the application is supported over the specific transport.
     public func isApplicationSupported(_ application: ApplicationType, overTransport transport: DeviceTransport) -> Bool {
         guard let mask = supportedCapabilities[transport] else { return false }
         return (mask & application.rawValue) == application.rawValue
@@ -147,9 +173,10 @@ public struct DeviceInfo {
 
 
 extension Data {
-    internal var integer: UInt {
+    internal var integer: UInt? {
         let bytes = self.bytes
-        if bytes.isEmpty { return 0 }
+        guard !bytes.isEmpty else { return 0 }
+        guard bytes.count <= UInt.bitWidth / UInt8.bitWidth else { return nil }
         var value: UInt = 0
         bytes.forEach { byte in
             value = value << 8

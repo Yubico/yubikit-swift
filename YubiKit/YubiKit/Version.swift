@@ -21,7 +21,7 @@ public struct Version: Comparable, CustomStringConvertible {
     public let minor: UInt8
     public let micro: UInt8
     
-    init?(withData data: Data) {
+    internal init?(withData data: Data) {
         guard data.count == 3 else { return nil }
         let bytes = data.bytes
         major = bytes[0]

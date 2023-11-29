@@ -14,6 +14,7 @@
 
 import Foundation
 
+/// Describes the configuration of a YubiKey which can be altered via the Management application.
 public struct DeviceConfig {
     public let autoEjectTimeout: TimeInterval
     public let challengeResponseTimeout: TimeInterval

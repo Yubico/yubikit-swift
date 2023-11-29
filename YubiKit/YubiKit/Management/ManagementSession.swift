@@ -15,13 +15,22 @@
 import Foundation
 import CryptoTokenKit
 
-enum ManagementSessionError: Error {
+public enum ManagementSessionError: Error {
+    /// Application is not supported on this YubiKey.
     case applicationNotSupported
+    /// Unexpected configuration state.
     case unexpectedYubikeyConfigState
-    case versionParseError
+    /// Unexpected data returned by YubiKey.
+    case unexpectedData
+    /// YubiKey did not return any data.
+    case missingData
 }
 
 /// An interface to the Management application on the YubiKey.
+///
+/// Use the Management application to get information and configure a YubiKey.
+/// Read more about the Management application on the
+/// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
 public final actor ManagementSession: Session, InternalSession {
     
     var _connection: Connection?
@@ -42,7 +51,7 @@ public final actor ManagementSession: Session, InternalSession {
 
     private init(connection: Connection) async throws {
         let result = try await connection.selectApplication(application: .management)
-        guard let version = Version(withManagementResult: result) else { throw ManagementSessionError.versionParseError }
+        guard let version = Version(withManagementResult: result) else { throw ManagementSessionError.unexpectedData }
         self.version = version
         self.connection = connection
         let internalConnection = await self.internalConnection()
@@ -72,6 +81,7 @@ public final actor ManagementSession: Session, InternalSession {
         return nil
     }
 
+    /// Returns the DeviceInfo for the connected YubiKey.
     public func getDeviceInfo() async throws -> DeviceInfo {
         guard let connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0x1d, p1: 0, p2: 0)
@@ -79,11 +89,19 @@ public final actor ManagementSession: Session, InternalSession {
         return try DeviceInfo(withData: data, fallbackVersion: version)
     }
     
+    /// Check whether an application is supported over the specified transport.
     public func isApplicationSupported(_ application: ApplicationType, overTransport transport: DeviceTransport) async throws -> Bool {
+        let deviceInfo = try await getDeviceInfo()
+        return deviceInfo.isApplicationSupported(application, overTransport: transport)
+    }
+    
+    /// Check whether an application is enabled over the specified transport.
+    public func isApplicationEnabled(_ application: ApplicationType, overTransport transport: DeviceTransport) async throws -> Bool {
         let deviceInfo = try await getDeviceInfo()
         return deviceInfo.config.isApplicationEnabled(application, overTransport: transport)
     }
     
+    /// Enable or disable an application over the specified transport.
     public func setEnabled(_ enabled: Bool, application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
         guard let connection else { throw SessionError.noConnection }
         let deviceInfo = try await getDeviceInfo()
@@ -114,10 +132,12 @@ public final actor ManagementSession: Session, InternalSession {
         try await connection.send(apdu: apdu)
     }
     
+    /// Disable an application over the specified transport.
     public func disableApplication(_ application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
         try await setEnabled(false, application: application, overTransport: transport, reboot: reboot)
     }
     
+    /// Enable an application over the specified transport.
     public func enableApplication(_ application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
         try await setEnabled(true, application: application, overTransport: transport, reboot: reboot)
     }
@@ -128,7 +148,7 @@ public final actor ManagementSession: Session, InternalSession {
 }
 
 extension Version {
-    init?(withManagementResult data: Data) {
+    internal init?(withManagementResult data: Data) {
         guard let resultString = String(bytes: data.bytes, encoding: .ascii) else { return nil }
         guard let versions = resultString.components(separatedBy: " ").last?.components(separatedBy: "."), versions.count == 3 else {
             return nil
