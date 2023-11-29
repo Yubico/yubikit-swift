@@ -23,7 +23,7 @@ public final actor LightningConnection: Connection, InternalConnection {
 
     private static let manager = LightningConnectionManager()
 
-    var _session: Session?
+    private weak var _session: Session?
     func session() async -> Session? {
         return _session
     }

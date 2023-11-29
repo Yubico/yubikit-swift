@@ -29,7 +29,7 @@ public final actor NFCConnection: Connection, InternalConnection {
     
     private static let manager = NFCConnectionManager()
     
-    var _session: Session?
+    private weak var _session: Session?
     func session() async -> Session? {
         return _session
     }

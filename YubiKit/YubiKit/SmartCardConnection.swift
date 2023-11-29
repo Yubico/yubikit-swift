@@ -27,7 +27,7 @@ public final actor SmartCardConnection: Connection, InternalConnection {
         return try await manager.connection()
     }
     
-    var _session: Session?
+    private weak var _session: Session?
     func session() async -> Session? {
         return _session
     }
