@@ -44,19 +44,15 @@ public enum OATHSessionError: Error {
 /// The OATHSession is an interface to the OATH appcliation on the YubiKey that will
 /// let you store, calculate and edit TOTP and HOTP credentials on the YubiKey. Learn
 /// more about OATH on the [Yubico developer website](https://developers.yubico.com/OATH/).
-public final class OATHSession: Session, InternalSession {
-    func connection() async -> Connection? {
+public final actor OATHSession: Session, InternalSession {
+    
+    private weak var _connection: Connection?
+    internal func connection() async -> Connection? {
         return _connection
     }
-    
-    func setConnection(_ connection: Connection?) async {
+    internal func setConnection(_ connection: Connection?) async {
         _connection = connection
     }
-    
-    
-    internal weak var _connection: Connection?
-    private var sessionEnded = false
-    var endingResult: Result<String, Error>?
     
     private struct SelectResponse {
         let salt: Data
@@ -65,12 +61,12 @@ public final class OATHSession: Session, InternalSession {
         let deviceId: String
     }
     
-    private var selectResponse: SelectResponse
+    private var selectResponse: SelectResponse?
     
     private init(connection: Connection) async throws {
         print("⚡️ init OATHSession")
         self.selectResponse = try await Self.selectApplication(withConnection: connection)
-        await self.setConnection(connection)
+        self._connection = connection
         let internalConnection = await internalConnection()
         await internalConnection?.setSession(self)
     }
@@ -103,16 +99,10 @@ public final class OATHSession: Session, InternalSession {
     }
     
     public func end() async {
-        let internalConnection = _connection as? InternalConnection
+        self.selectResponse = nil
+        let internalConnection = await internalConnection()
         await internalConnection?.setSession(nil)
         self._connection = nil
-    }
-    
-    public func sessionDidEnd() async -> Error? {
-        print("await OATH sessionDidEnd")
-//        _ = try await connection?.send(apdu: APDU())
-        print("OATH session did end\(endingResult != nil ? " with result: \(endingResult!)" : "")")
-        return nil
     }
     
     public func reset() async throws {
@@ -134,7 +124,7 @@ public final class OATHSession: Session, InternalSession {
     /// - Returns: The newly added credential.
     @discardableResult
     public func addCredential(template: CredentialTemplate) async throws -> Credential {
-        guard let connection = _connection else { throw SessionError.noConnection }
+        guard let connection = _connection, let selectResponse else { throw SessionError.noConnection }
         guard let nameData = template.identifier.data(using: .utf8) else { throw OATHSessionError.unexpectedData }
         let nameTlv = TKBERTLVRecord(tag: 0x71, value: nameData)
         var keyData = Data()
@@ -171,7 +161,7 @@ public final class OATHSession: Session, InternalSession {
     /// List credentials on YubiKey.
     /// - Returns: An array of Credentials.
     public func listCredentials() async throws -> [Credential] {
-        guard let connection = _connection else { throw SessionError.noConnection }
+        guard let connection = _connection, let selectResponse  else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
         let data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else { throw OATHSessionError.responseDataNotTLVFormatted }
@@ -201,9 +191,9 @@ public final class OATHSession: Session, InternalSession {
     ///   - timestamp: The timestamp which is used as start point for TOTP, this is ignored for HOTP.
     /// - Returns: Calculated code.
     public func calculateCode(credential: Credential, timestamp: Date = Date()) async throws -> Code {
-        guard let connection = _connection else { throw SessionError.noConnection }
+        guard let connection = _connection, let selectResponse else { throw SessionError.noConnection }
 
-        guard credential.deviceId == self.selectResponse.deviceId else { throw OATHSessionError.credentialNotPresentOnCurrentYubiKey }
+        guard credential.deviceId == selectResponse.deviceId else { throw OATHSessionError.credentialNotPresentOnCurrentYubiKey }
         let challengeTLV: TKBERTLVRecord
         
         switch credential.type {
@@ -262,7 +252,7 @@ public final class OATHSession: Session, InternalSession {
         let bigChallenge = CFSwapInt64HostToBig(challenge)
         let challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, command: challengeTLV.data)
-        guard let connection = _connection else { throw SessionError.noConnection }
+        guard let connection = _connection, let selectResponse else { throw SessionError.noConnection }
         let data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else { throw OATHSessionError.responseDataNotTLVFormatted }
         
@@ -278,7 +268,7 @@ public final class OATHSession: Session, InternalSession {
                 credentialType = .TOTP(period: credentialId.period ?? oathDefaultPeriod)
             }
             
-            let credential = Credential(deviceId: self.selectResponse.deviceId, id: name.value, type: credentialType, name: credentialId.account, issuer: credentialId.issuer)
+            let credential = Credential(deviceId: selectResponse.deviceId, id: name.value, type: credentialType, name: credentialId.account, issuer: credentialId.issuer)
             
             if response.value.count == 5 {
                 if credentialId.period != oathDefaultPeriod {
@@ -343,7 +333,7 @@ public final class OATHSession: Session, InternalSession {
     /// See the [YKOATH protocol specification](https://developers.yubico.com/OATH/) for further details.
     /// - Parameter accessKey: The shared access key.
     public func unlockWithAccessKey(_ accessKey: Data) async throws {
-        guard let connection = _connection, let responseChallenge = self.selectResponse.challenge else { throw SessionError.noConnection }
+        guard let connection = _connection, let responseChallenge = self.selectResponse?.challenge else { throw SessionError.noConnection }
         let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
         let challenge = Data.random(length: 8)
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
@@ -378,7 +368,7 @@ public final class OATHSession: Session, InternalSession {
     }
 }
 
-struct DeriveAccessKeyError: Error {
+public struct DeriveAccessKeyError: Error {
     let cryptorStatus: CCCryptorStatus
 }
 
@@ -389,13 +379,14 @@ extension OATHSession {
     /// - Parameter password: A user-supplied password.
     /// - Returns: Access key for unlocking the session.
     public func deriveAccessKey(from password: String) throws -> Data {
+        guard let selectResponse else { throw SessionError.noConnection }
         var derivedKey = Data(count: 16)
         try derivedKey.withUnsafeMutableBytes { (outputBytes: UnsafeMutableRawBufferPointer) in
             let status = CCKeyDerivationPBKDF(CCPBKDFAlgorithm(kCCPBKDF2),
                                               password,
                                               password.utf8.count,
-                                              self.selectResponse.salt.bytes,
-                                              self.selectResponse.salt.bytes.count,
+                                              selectResponse.salt.bytes,
+                                              selectResponse.salt.bytes.count,
                                               CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA1),
                                               1000,
                                               outputBytes.baseAddress?.assumingMemoryBound(to: UInt8.self),

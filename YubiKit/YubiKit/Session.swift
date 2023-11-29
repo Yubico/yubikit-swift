@@ -24,8 +24,10 @@ public protocol Session: AnyObject {
     
     /// Returns a new session using the supplied connection.
     static func session(withConnection connection: Connection) async throws -> Self
+    
+    /// End the session. This will remove its internal connection and discard any state saved by the session.
+    /// The connection to the YubiKey will be kept open.
     func end() async
-    func sessionDidEnd() async -> Error?
 }
 
 internal protocol InternalSession {

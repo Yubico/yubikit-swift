@@ -33,27 +33,21 @@ public enum ManagementSessionError: Error {
 /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
 public final actor ManagementSession: Session, InternalSession {
     
-    var _connection: Connection?
-    
-    func connection() async -> Connection? {
+    private weak var _connection: Connection?
+    internal func connection() async -> Connection? {
         return _connection
     }
-    
-    func setConnection(_ connection: Connection?) async {
+    internal func setConnection(_ connection: Connection?) async {
         _connection = connection
     }
     
-    
     public nonisolated let version: Version
-    internal weak var connection: Connection?
-    private var sessionEnded = false
-    var endingResult: Result<String, Error>?
 
     private init(connection: Connection) async throws {
         let result = try await connection.selectApplication(application: .management)
         guard let version = Version(withManagementResult: result) else { throw ManagementSessionError.unexpectedData }
         self.version = version
-        self.connection = connection
+        self._connection = connection
         let internalConnection = await self.internalConnection()
         await internalConnection?.setSession(self)
     }
@@ -71,19 +65,12 @@ public final actor ManagementSession: Session, InternalSession {
     public func end() async {
         let internalConnection = await internalConnection()
         await internalConnection?.setSession(nil)
-        self.connection = nil
-    }
-    
-    public func sessionDidEnd() async -> Error? {
-        print("await ManagementSession sessionDidEnd")
-//        _ = try await connection?.send(apdu: SmartCardInterface.APDU())
-        print("ManagementSession session did end\(endingResult != nil ? " with result: \(endingResult!)" : "")")
-        return nil
+        await setConnection(nil)
     }
 
     /// Returns the DeviceInfo for the connected YubiKey.
     public func getDeviceInfo() async throws -> DeviceInfo {
-        guard let connection else { throw SessionError.noConnection }
+        guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0x1d, p1: 0, p2: 0)
         let data = try await connection.send(apdu: apdu)
         return try DeviceInfo(withData: data, fallbackVersion: version)
@@ -103,7 +90,7 @@ public final actor ManagementSession: Session, InternalSession {
     
     /// Enable or disable an application over the specified transport.
     public func setEnabled(_ enabled: Bool, application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
-        guard let connection else { throw SessionError.noConnection }
+        guard let connection = _connection else { throw SessionError.noConnection }
         let deviceInfo = try await getDeviceInfo()
         guard enabled != deviceInfo.config.isApplicationEnabled(application, overTransport: transport) else { return }
         guard deviceInfo.isApplicationSupported(application, overTransport: transport) else {
