@@ -291,13 +291,13 @@ extension OATHSession {
             self.requiresTouch = requiresTouch
         }
         
-        internal let type: CredentialType
-        internal let algorithm: HashAlgorithm
-        internal let secret: Data
-        internal let issuer: String?
-        internal let name: String
-        internal let digits: UInt8
-        internal let requiresTouch: Bool
+        public let type: CredentialType
+        public let algorithm: HashAlgorithm
+        public let secret: Data
+        public let issuer: String?
+        public let name: String
+        public let digits: UInt8
+        public let requiresTouch: Bool
     }
     
 }

@@ -15,6 +15,7 @@
 #if os(iOS)
 import Foundation
 import CoreNFC
+import OSLog
 
 /// A NFC connection to the YubiKey.
 ///
@@ -50,26 +51,28 @@ public final actor NFCConnection: Connection, InternalConnection {
     }
     
     public static func connection() async throws -> Connection {
-        print("🛜 NFCConnection, connection() on \(Thread.current)")
+        Logger.nfc.debug(#function)
         return try await manager.connection(alertMessage: nil)
     }
     
     /// The same function as ``connection()`` but with the option to set a message that will be displayed to the
     /// user in the iOS NFC alert.'
     public static func connection(alertMessage message: String?) async throws -> Connection {
-        print("🛜 NFCConnection, connection(alertMessage: \(message) on \(Thread.current)")
+        Logger.nfc.debug(#function)
         return try await manager.connection(alertMessage: message)
     }
     
     /// Before creating a new NFCConnection you can supply a string that will be displayed to the user in the iOS NFC alert. Use this
     /// to inform the user what the purpose of scanning the YubiKey is. For example: "Scan YubiKey to calculate OATH accounts.".
     public nonisolated func setAlertMessage(_ message: String) {
+        Logger.nfc.debug(#function)
         Task {
             await tagReaderSession?.session.alertMessage = message
         }
     }
     
     public func close(error: Error?) async {
+        Logger.nfc.debug(#function)
         if let error {
             await close(result: .failure(error))
         } else {
@@ -80,6 +83,7 @@ public final actor NFCConnection: Connection, InternalConnection {
     /// NFCConnection can be closed with an optional message in addition to the ``Connection/close(error:)`` method defined in the Connection protocol.
     /// The message will be displayed on the iOS NFC alert when it dismisses.
     public func close(message: String?) async {
+        Logger.nfc.debug(#function)
         if let message {
             await close(result: .success(message))
         } else {
@@ -88,19 +92,15 @@ public final actor NFCConnection: Connection, InternalConnection {
     }
     
     public func connectionDidClose() async -> Error? {
-        print("🛜 NFCConnection, await connectionDidClose() called in thread \(Thread.current)")
         if tag == nil {
-            print("🛜 NFCConnection, await connectionDidClose() baling out since connection is already closed")
             return nil
         }
         return await withCheckedContinuation { continuation in
-            print("🛜 NFCConnection, append closingContinuation in thread \(Thread.current)")
             closingContinuations.append(continuation)
         }
     }
     
     internal func send(apdu: APDU) async throws -> Response {
-        print("🛜 NFCConnection, send(apdu: \(apdu))")
         guard let tag else { throw "No NFC tag" }
         guard let apdu = apdu.nfcIso7816Apdu else { throw "Malformed APDU data" }
         let result: (Data, UInt8, UInt8) = try await tag.sendCommand(apdu: apdu)
@@ -108,18 +108,16 @@ public final actor NFCConnection: Connection, InternalConnection {
     }
     
     private func close(result: Result<String, Error>?) async {
-        print("🛜 NFCConnection, close in thread \(Thread.current)")
         closingHandler?(result)
         tagReaderSession = nil
         closingContinuations.forEach { continuation in
             continuation.resume(returning: result?.error)
         }
-        print("🛜 NFCConnection, messaged all continuations, let remove them in thread \(Thread.current)")
         closingContinuations.removeAll()
     }
     
     deinit {
-        print("🛜 deinit NFCConnection")
+        Logger.nfc.debug("deinit")
     }
 }
 
@@ -133,9 +131,9 @@ fileprivate actor NFCConnectionManager {
     func connection(alertMessage message: String?) async throws -> NFCConnection {
         let task = Task { [connectionTask] in
             if let connectionTask {
-                print("🛜 NFCManager, cancel previous task.")
+                Logger.smartCard.debug("A call to connection() is already awaiting a connection, cancel it before proceeding.")
+                connectionTask.cancel()
             }
-            connectionTask?.cancel() // Cancel any previous request for a connection
             return try await self._connection(alertMessage: message)
         }
         connectionTask = task
@@ -144,12 +142,12 @@ fileprivate actor NFCConnectionManager {
         } onCancel: {
             task.cancel()
         }
+        Logger.nfc.debug("returned: \(String(describing: value))")
         return value
     }
     
     // Only allow one connect() at a time
     private func _connection(alertMessage message: String?) async throws -> NFCConnection {
-        print("🛜 NFCManager, _connection()")
         
         if let currentConnection {
             await currentConnection.close(error: nil)
@@ -162,9 +160,7 @@ fileprivate actor NFCConnectionManager {
                     continuation.resume(throwing: CancellationError())
                     return
                 }
-                print("🛜 NFCManager, will call nfcWrapper.connection(), Task.isCancelled = \(Task.isCancelled)")
                 nfcWrapper.connection(alertMessage: message) { result in
-                    print("🛜 NFCManager, _connection() got result \(result) pass it to \(String(describing: continuation))")
                     switch result {
                     case .success(let tagReaderSession):
                         let connection = NFCConnection(tagReaderSession: tagReaderSession, closingHandler: { [weak self] result in
@@ -174,25 +170,19 @@ fileprivate actor NFCConnectionManager {
                         continuation.resume(returning: connection)
                     case .failure(let error):
                         continuation.resume(throwing: error)
-                        print("🛜 NFCManager, remove \(String(describing: continuation)) after failure")
                     }
                 }
             }
         } onCancel: {
-            print("🛜 NFCManager onCancel: called on \(Thread.current)")
             nfcWrapper.endSession(result: nil)
         }
     }
     
     func didDisconnect() async -> Error? {
-        return await withTaskCancellationHandler {
-            return await withCheckedContinuation { (continuation: CheckedContinuation<Error?, Never>) in // try to remove variable definition in the future
-                nfcWrapper.connectionDidClose { error in
-                    continuation.resume(returning: error)
-                }
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Error?, Never>) in // try to remove variable definition in the future
+            nfcWrapper.connectionDidClose { error in
+                continuation.resume(returning: error)
             }
-        } onCancel: {
-            print("NFCManagerActor didDisconnect(), onCancel: called on \(Thread.current)")
         }
     }
 }
@@ -217,7 +207,6 @@ fileprivate class NFCTagWrapper: NSObject, NFCTagReaderSessionDelegate {
     
     internal func connection(alertMessage message: String?, completion handler: @escaping (Result<TagReaderSession, Error>) -> Void) {
         queue.async {
-            print("🛜 NFCWrapper, connection()")
             self.closingHandler?("Closed by new call to connection()")
             self.closingHandler = nil
             self.connectingHandler?(.failure("Cancelled by new call to connection()"))
@@ -242,7 +231,6 @@ fileprivate class NFCTagWrapper: NSObject, NFCTagReaderSessionDelegate {
     
     internal func connectionDidClose(completion handler: @escaping (Error?) -> Void) {
         queue.async {
-            print("🪪 NFCWrapper, connectionDidClose()")
             assert(self.closingHandler == nil, "Closing completion already registered.")
             self.closingHandler = handler
         }
@@ -288,15 +276,18 @@ fileprivate class NFCTagWrapper: NSObject, NFCTagReaderSessionDelegate {
             guard let tag = tags.first else { return }
             self.tagSession?.connect(to: tag) { error in
                 if let error {
+                    Logger.nfc.debug("Failed connecting to tag with error: \(error)")
                     self.connectingHandler?(.failure(error))
                     self.connectingHandler = nil
                     return
                 }
                 if case let NFCTag.iso7816(tag) = tag {
+                    Logger.nfc.debug("Connected to tag: \(String(describing: tag))")
                     let session = TagReaderSession(session: self.tagSession!, tag: tag)
                     self.state = .connected(session)
                     self.connectingHandler?(.success(session))
                 } else {
+                    Logger.nfc.debug("Failed connecting to \(String(describing: tag)) since it's not a iso7816 tag.")
                     self.connectingHandler?(.failure("Not an iso7816 tag!"))
                 }
                 self.connectingHandler = nil

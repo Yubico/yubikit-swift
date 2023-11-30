@@ -16,7 +16,11 @@ import Foundation
 
 
 /// Data model for encapsulating an APDU command, as defined by the ISO/IEC 7816-4 standard.
-public struct APDU {
+public struct APDU: CustomStringConvertible {
+    
+    public var description: String {
+        return "APDU(cla: \(cla.hexValue), ins: \(ins.hexValue), p1: \(p1.hexValue), p2: \(p2.hexValue), command: \(data.hexEncodedString), type: \(String(describing: type))"
+    }
     
     public enum ApduType {
         case short

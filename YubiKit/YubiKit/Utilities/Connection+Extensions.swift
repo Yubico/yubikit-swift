@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import OSLog
 
 public struct ResponseError: Error {
     let statusCode: Response.StatusCode
@@ -37,10 +38,12 @@ enum Application {
 extension Connection {
     
     public func send(apdu: APDU) async throws -> Data {
+        Logger.connection.debug("send(): \(apdu)")
         return try await sendRecursive(apdu: apdu)
     }
     
-    func selectApplication(application: Application) async throws -> Data {
+    func selectApplication(_ application: Application) async throws -> Data {
+        Logger.connection.debug("selectApplication(\(String(describing: application)))")
         do {
             return try await send(apdu: application.selectApplicationAPDU)
         } catch {
@@ -55,6 +58,10 @@ extension Connection {
     }
     
     private func sendRecursive(apdu: APDU, data: Data = Data(), readMoreData: Bool = false) async throws -> Data {
+        if data.count > 0 {
+            Logger.connection.debug("sendRecursive() accumulated data: \(data))")
+        }
+
         let response: Response
         
         let ins: UInt8
@@ -75,6 +82,7 @@ extension Connection {
         }
         
         guard response.statusCode == .ok || response.statusCode == .moreData else {
+            Logger.connection.error("send() failed with statusCode: \(response.statusCode.rawValue.data.hexEncodedString)")
             throw ResponseError(statusCode: response.statusCode)
         }
         
@@ -82,6 +90,7 @@ extension Connection {
         if response.statusCode == .moreData {
             return try await sendRecursive(apdu: apdu, data: newData, readMoreData: true)
         } else {
+            Logger.connection.debug("send() response: \(newData.hexEncodedString)")
             return newData
         }
     }

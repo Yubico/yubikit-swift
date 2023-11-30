@@ -16,6 +16,7 @@
 
 import Foundation
 import ExternalAccessory
+import OSLog
 
 /// A connection to the YubiKey utilizing the Lightning port and External Accessory framework.
 @available(iOS 16.0, *)
@@ -45,11 +46,12 @@ public final actor LightningConnection: Connection, InternalConnection {
 
     // Starts lightning and wait for a connection
     public static func connection() async throws -> Connection {
-        print("⚡️ LightningConnection, connection() called")
+        Logger.lightning.debug(#function)
         return try await manager.connection()
     }
     
     public func close(error: Error?) async {
+        Logger.lightning.debug(#function)
         closingHandler?()
         closingContinuations.forEach { continuation in
             continuation.resume(returning: error)
@@ -68,22 +70,17 @@ public final actor LightningConnection: Connection, InternalConnection {
     
     public func connectionDidClose() async -> Error? {
         if accessoryConnection == nil {
-            print("⚡️ LightningConnection, connectionDidClose() but no session so bailing out.")
             return nil
         }
         return await withCheckedContinuation { continuation in
-            print("⚡️ LightningConnection, connectionDidClose() append closing continuation.")
             closingContinuations.append(continuation)
         }
     }
     
     internal func send(apdu: APDU) async throws -> Response {
-        print("⚡️ LightningConnection, send() \(apdu).")
         guard let accessoryConnection, let outputStream = accessoryConnection.session.outputStream, let inputStream = accessoryConnection.session.inputStream else { throw "No current session" }
         var data = Data([0x00]) // YLP iAP2 Signal
         data.append(apdu.data)
-        print("\(outputStream.streamStatus)")
-        print("\(inputStream.streamStatus)")
 
         try outputStream.writeToYubiKey(data: data)
         while true {
@@ -91,7 +88,6 @@ public final actor LightningConnection: Connection, InternalConnection {
             let result = try inputStream.readFromYubiKey()
             if result.isEmpty { throw "Empty result" }
             let status = Response.StatusCode(data: result.subdata(in: result.count-2..<result.count))
-            print("⚡️ LightningConnection, result (\(status)): \(result.hexEncodedString)")
 
             // BUG #62 - Workaround for WTX == 0x01 while status is 0x9000 (success).
             if (status == .ok) || result.bytes[0] != 0x01 {
@@ -106,7 +102,7 @@ public final actor LightningConnection: Connection, InternalConnection {
     }
     
     deinit {
-        print("⚡️ deinit LightningConnection")
+        Logger.lightning.debug(#function)
     }
 }
 
@@ -118,7 +114,10 @@ fileprivate actor LightningConnectionManager {
     var connectionTask: Task<LightningConnection, Error>?
     func connection() async throws -> LightningConnection {
         let task = Task { [connectionTask] in
-            connectionTask?.cancel() // Cancel any previous request for a connection
+            if let connectionTask {
+                Logger.lightning.debug("A call to connection() is already awaiting a connection, cancel it before proceeding.")
+                connectionTask.cancel()
+            }
             return try await self._connection()
         }
         connectionTask = task
@@ -127,11 +126,11 @@ fileprivate actor LightningConnectionManager {
         } onCancel: {
             task.cancel()
         }
+        Logger.lightning.debug("returned: \(String(describing: value))")
         return value
     }
     
     private func _connection() async throws -> LightningConnection {
-        print("⚡️ LightningConnectionManager, _connection()")
         
         if let currentConnection {
             await currentConnection.close(error: nil)
@@ -145,8 +144,6 @@ fileprivate actor LightningConnectionManager {
                     return
                 }
                 accessoryWrapper.connection { result in
-                    print("⚡️ LightningConnectionManager, _connection() got result: \(result), pass it to continuation: \(String(describing: continuation))")
-                    print("⚡️ LightningConnectionManager, Task.isCancelled = \(Task.isCancelled)")
                     switch result {
                     case .success(let accessoryConnection):
                         let connection = LightningConnection(connection: accessoryConnection, closingHandler: { [weak self] in
@@ -161,12 +158,10 @@ fileprivate actor LightningConnectionManager {
                         }
                     case .failure(let error):
                         continuation.resume(throwing: error)
-                        print("⚡️ LightningConnectionManager, remove \(String(describing: continuation)) after failure")
                     }
                 }
             }
         } onCancel: {
-            print("⚡️ LightningConnectionManager, onCancel called")
             accessoryWrapper.stop()
         }
     }
@@ -223,9 +218,7 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
     private var closingHandler: ((Error?) -> Void)?
     
     internal func connection(completion handler: @escaping (Result<AccessoryConnection, Error>) -> Void) {
-        print("⚡️ EAAccessoryWrapper, schedule connection()")
         queue.async {
-            print("⚡️ EAAccessoryWrapper, connection()")
             // Signal closure and cancel previous connection handlers
             // Swap out old handlers to the new ones
             self.closingHandler?("Closed by new call to connection()")
@@ -248,16 +241,14 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
     }
     
     func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
-        print("⚡️ EAAccessoryWrapper, Got stream event: \(eventCode) on stream: \(aStream)")
+        Logger.lightning.debug("EAAccessoryWrapper, Got stream event: \(String(describing: eventCode)) on stream: \(aStream)")
     }
     
     private func connectToKey(with accessory: EAAccessory) -> AccessoryConnection? {
-        print("⚡️ EAAccessoryWrapper, connectToKey()")
         guard accessory.isYubiKey else { return nil }
         guard let session = EASession(accessory: accessory, forProtocol: "com.yubico.ylp") else { return nil }
         let connection = AccessoryConnection(accessory: accessory, session: session)
-        print("⚡️ EAAccessoryWrapper, connected to: \(session)")
-        
+        Logger.lightning.debug("EAAccessoryWrapper, connected to: \(session)")
         connection.open()
         connection.session.outputStream!.delegate = self
         connection.session.inputStream!.delegate = self
@@ -267,25 +258,22 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
     
     internal func connectionDidClose(completion handler: @escaping (Error?) -> Void) {
         queue.async {
-            print("⚡️ EAAccessoryWrapper, connectionDidClose()")
             assert(self.closingHandler == nil, "Closing completion already registered.")
             self.closingHandler = handler
         }
     }
     
     private func start() {
-        print("⚡️ EAAccessoryWrapper, start()")
         self.queue.async {
             NotificationCenter.default.addObserver(forName: .EAAccessoryDidConnect,
                                                    object: self.manager,
                                                    queue: nil) { [weak self] notification in
                 self?.queue.async {
-                    print("⚡️ EAAccessoryWrapper, EAAccessoryDidConnect")
                     guard self?.state == .scanning,
                           self?.connectingHandler != nil,
                           let accessory = notification.userInfo?[EAAccessoryKey] as? EAAccessory,
                           let connection = self?.connectToKey(with: accessory) else { return }
-                    print("⚡️ EAAccessoryWrapper, did connect to key")
+                    Logger.lightning.debug("EAAccessoryWrapper, connected to: \(accessory)")
                     self?.state = .connected(connection)
                     self?.connectingHandler?(.success(connection))
                     self?.connectingHandler = nil
@@ -312,9 +300,7 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
     }
     
     internal func stop() {
-        print("⚡️ EAAccessoryWrapper, scheduled stop() with state = \(self.state) in \(Thread.current)")
         queue.async {
-            print("⚡️ EAAccessoryWrapper, stop() with state = \(self.state) in \(Thread.current)")
             switch self.state {
             case .ready:
                 break;

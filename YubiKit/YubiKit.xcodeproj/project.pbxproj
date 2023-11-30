@@ -10,6 +10,7 @@
 		51BBE3EB273D1A3800DA47CC /* YubiKit.docc in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE3EA273D1A3800DA47CC /* YubiKit.docc */; };
 		51BBE3F1273D1A3800DA47CC /* YubiKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51BBE3E6273D1A3800DA47CC /* YubiKit.framework */; };
 		51BBE3F7273D1A3800DA47CC /* YubiKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 51BBE3E9273D1A3800DA47CC /* YubiKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		B401F7762B17B8DD00C541D1 /* Logger+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B401F7752B17B8DD00C541D1 /* Logger+Extensions.swift */; };
 		B40528332987C31E00FC33AB /* DeviceInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40528322987C31E00FC33AB /* DeviceInfo.swift */; };
 		B405283729894E7600FC33AB /* DeviceConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B405283629894E7600FC33AB /* DeviceConfig.swift */; };
 		B408BA8F2948FA2100001B2F /* Stream+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B408BA8E2948FA2100001B2F /* Stream+Extensions.swift */; };
@@ -53,6 +54,7 @@
 		51BBE3E9273D1A3800DA47CC /* YubiKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = YubiKit.h; sourceTree = "<group>"; };
 		51BBE3EA273D1A3800DA47CC /* YubiKit.docc */ = {isa = PBXFileReference; lastKnownFileType = folder.documentationcatalog; path = YubiKit.docc; sourceTree = "<group>"; };
 		51BBE3F0273D1A3800DA47CC /* YubiKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YubiKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B401F7752B17B8DD00C541D1 /* Logger+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Extensions.swift"; sourceTree = "<group>"; };
 		B40528322987C31E00FC33AB /* DeviceInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInfo.swift; sourceTree = "<group>"; };
 		B405283629894E7600FC33AB /* DeviceConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceConfig.swift; sourceTree = "<group>"; };
 		B408BA8E2948FA2100001B2F /* Stream+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Stream+Extensions.swift"; sourceTree = "<group>"; };
@@ -170,6 +172,7 @@
 				B40BCB7C29422721009F39BD /* Connection+Extensions.swift */,
 				B408BA8E2948FA2100001B2F /* Stream+Extensions.swift */,
 				B4F10D4E2AFD39D600F0AFCA /* String+Extensions.swift */,
+				B401F7752B17B8DD00C541D1 /* Logger+Extensions.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -301,6 +304,7 @@
 				B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */,
 				B47FDD992939FAD100AFF70A /* ConnectionHelper.swift in Sources */,
 				B4451F00275FD2B5002690BB /* APDU.swift in Sources */,
+				B401F7762B17B8DD00C541D1 /* Logger+Extensions.swift in Sources */,
 				B47FDD9B293A15AE00AFF70A /* NSLock+Extensions.swift in Sources */,
 				B456E213274D2403004471DE /* NFCConnection.swift in Sources */,
 				B408BA8F2948FA2100001B2F /* Stream+Extensions.swift in Sources */,

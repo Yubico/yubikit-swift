@@ -30,7 +30,6 @@ class OATHListModel: ObservableObject {
     }
     
     @MainActor func startWiredConnection() {
-        print("startWiredConnection()")
         wiredConnectionTask?.cancel()
         wiredConnectionTask = Task {
             do {

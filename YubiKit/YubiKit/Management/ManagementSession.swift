@@ -14,6 +14,7 @@
 
 import Foundation
 import CryptoTokenKit
+import OSLog
 
 public enum ManagementSessionError: Error {
     /// Application is not supported on this YubiKey.
@@ -44,7 +45,7 @@ public final actor ManagementSession: Session, InternalSession {
     public nonisolated let version: Version
 
     private init(connection: Connection) async throws {
-        let result = try await connection.selectApplication(application: .management)
+        let result = try await connection.selectApplication(.management)
         guard let version = Version(withManagementResult: result) else { throw ManagementSessionError.unexpectedData }
         self.version = version
         self._connection = connection
@@ -53,6 +54,7 @@ public final actor ManagementSession: Session, InternalSession {
     }
     
     public static func session(withConnection connection: Connection) async throws -> ManagementSession {
+        Logger.management.debug(#function)
         // Close active session if there is one
         let internalConnection = connection as? InternalConnection
         let currentSession = await internalConnection?.session()
@@ -63,6 +65,7 @@ public final actor ManagementSession: Session, InternalSession {
     }
     
     public func end() async {
+        Logger.management.debug(#function)
         let internalConnection = await internalConnection()
         await internalConnection?.setSession(nil)
         await setConnection(nil)
@@ -70,6 +73,7 @@ public final actor ManagementSession: Session, InternalSession {
 
     /// Returns the DeviceInfo for the connected YubiKey.
     public func getDeviceInfo() async throws -> DeviceInfo {
+        Logger.management.debug(#function)
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0x1d, p1: 0, p2: 0)
         let data = try await connection.send(apdu: apdu)
@@ -78,18 +82,21 @@ public final actor ManagementSession: Session, InternalSession {
     
     /// Check whether an application is supported over the specified transport.
     public func isApplicationSupported(_ application: ApplicationType, overTransport transport: DeviceTransport) async throws -> Bool {
+        Logger.management.debug(#function)
         let deviceInfo = try await getDeviceInfo()
         return deviceInfo.isApplicationSupported(application, overTransport: transport)
     }
     
     /// Check whether an application is enabled over the specified transport.
     public func isApplicationEnabled(_ application: ApplicationType, overTransport transport: DeviceTransport) async throws -> Bool {
+        Logger.management.debug(#function)
         let deviceInfo = try await getDeviceInfo()
         return deviceInfo.config.isApplicationEnabled(application, overTransport: transport)
     }
     
     /// Enable or disable an application over the specified transport.
     public func setEnabled(_ enabled: Bool, application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
+        Logger.management.debug("setEnabled: \(enabled), application: \(String(describing: application)), overTransport: \(String(describing: transport)), reboot: \(reboot)")
         guard let connection = _connection else { throw SessionError.noConnection }
         let deviceInfo = try await getDeviceInfo()
         guard enabled != deviceInfo.config.isApplicationEnabled(application, overTransport: transport) else { return }
@@ -121,16 +128,18 @@ public final actor ManagementSession: Session, InternalSession {
     
     /// Disable an application over the specified transport.
     public func disableApplication(_ application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
+        Logger.management.debug(#function)
         try await setEnabled(false, application: application, overTransport: transport, reboot: reboot)
     }
     
     /// Enable an application over the specified transport.
     public func enableApplication(_ application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
+        Logger.management.debug(#function)
         try await setEnabled(true, application: application, overTransport: transport, reboot: reboot)
     }
     
     deinit {
-        print("deinit ManagementSession")
+        Logger.management.debug("deinit")
     }
 }
 
