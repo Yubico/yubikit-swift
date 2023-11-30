@@ -101,8 +101,8 @@ public final actor NFCConnection: Connection, InternalConnection {
     }
     
     internal func send(apdu: APDU) async throws -> Response {
-        guard let tag else { throw "No NFC tag" }
-        guard let apdu = apdu.nfcIso7816Apdu else { throw "Malformed APDU data" }
+        guard let tag else { throw ConnectionError.noConnection }
+        guard let apdu = apdu.nfcIso7816Apdu else { throw NFCConnectionError.malformedAPDU }
         let result: (Data, UInt8, UInt8) = try await tag.sendCommand(apdu: apdu)
         return Response(data: result.0, sw1: result.1, sw2: result.2)
     }
@@ -207,9 +207,9 @@ fileprivate class NFCTagWrapper: NSObject, NFCTagReaderSessionDelegate {
     
     internal func connection(alertMessage message: String?, completion handler: @escaping (Result<TagReaderSession, Error>) -> Void) {
         queue.async {
-            self.closingHandler?("Closed by new call to connection()")
+            self.closingHandler?(ConnectionError.closed)
             self.closingHandler = nil
-            self.connectingHandler?(.failure("Cancelled by new call to connection()"))
+            self.connectingHandler?(.failure(ConnectionError.cancelled))
             self.connectingHandler = handler
             
             switch self.state {
@@ -288,12 +288,21 @@ fileprivate class NFCTagWrapper: NSObject, NFCTagReaderSessionDelegate {
                     self.connectingHandler?(.success(session))
                 } else {
                     Logger.nfc.debug("Failed connecting to \(String(describing: tag)) since it's not a iso7816 tag.")
-                    self.connectingHandler?(.failure("Not an iso7816 tag!"))
+                    self.connectingHandler?(.failure(NFCConnectionError.noISO7816Tag))
                 }
                 self.connectingHandler = nil
             }
         }
     }
+}
+
+
+/// NFCConnection specific errors.
+public enum NFCConnectionError: Error {
+    /// The tag you are trying to connect to is not a ISO7816 tag.
+    case noISO7816Tag
+    /// The APDU you are trying to send to the YubiKey over NFC is malformed.
+    case malformedAPDU
 }
 
 extension Connection {

@@ -78,3 +78,17 @@ extension InternalConnection {
     }
 }
 
+/// Connection Errors.
+public enum ConnectionError: Error {
+    /// No current connection.
+    case noConnection
+    /// Unexpected result returned from YubiKey.
+    case unexpectedResult
+    /// YubiKey did not return any data.
+    case missingResult
+    /// Awaiting call to connect() was cancelled.
+    case cancelled
+    /// Connection was closed.
+    case closed
+}
+

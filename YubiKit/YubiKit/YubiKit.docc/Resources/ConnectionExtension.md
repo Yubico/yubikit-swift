@@ -19,3 +19,7 @@
 ### Sending data to the YubiKey
 
 - ``send(apdu:)``
+
+### Errors
+
+- ``ConnectionError``

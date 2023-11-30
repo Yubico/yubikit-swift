@@ -78,7 +78,7 @@ public final actor LightningConnection: Connection, InternalConnection {
     }
     
     internal func send(apdu: APDU) async throws -> Response {
-        guard let accessoryConnection, let outputStream = accessoryConnection.session.outputStream, let inputStream = accessoryConnection.session.inputStream else { throw "No current session" }
+        guard let accessoryConnection, let outputStream = accessoryConnection.session.outputStream, let inputStream = accessoryConnection.session.inputStream else { throw ConnectionError.noConnection }
         var data = Data([0x00]) // YLP iAP2 Signal
         data.append(apdu.data)
 
@@ -86,7 +86,7 @@ public final actor LightningConnection: Connection, InternalConnection {
         while true {
             try await Task.sleep(for: .seconds(commandProcessingTime))
             let result = try inputStream.readFromYubiKey()
-            if result.isEmpty { throw "Empty result" }
+            if result.isEmpty { throw ConnectionError.missingResult }
             let status = Response.StatusCode(data: result.subdata(in: result.count-2..<result.count))
 
             // BUG #62 - Workaround for WTX == 0x01 while status is 0x9000 (success).
@@ -96,7 +96,7 @@ public final actor LightningConnection: Connection, InternalConnection {
                 } else if result.bytes[0] == 0x01 { // Remove the YLP key protocol header and the WTX
                     return Response(rawData: result.subdata(in: 4..<result.count))
                 }
-                throw "Wrong response"
+                throw ConnectionError.unexpectedResult
             }
         }
     }
@@ -221,9 +221,9 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
         queue.async {
             // Signal closure and cancel previous connection handlers
             // Swap out old handlers to the new ones
-            self.closingHandler?("Closed by new call to connection()")
+            self.closingHandler?(ConnectionError.closed)
             self.closingHandler = nil
-            self.connectingHandler?(.failure("⚡️ Cancelled by new call to connection()"))
+            self.connectingHandler?(.failure(ConnectionError.cancelled))
             self.connectingHandler = handler
             
             if self.state == .ready {
@@ -306,10 +306,10 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
                 break;
             case .scanning:
                 // should we call the closingHandler as well?
-                self.connectingHandler?(.failure("Cancelled from stop()"))
+                self.connectingHandler?(.failure(ConnectionError.cancelled))
             case .connected(let connection):
                 connection.close()
-                self.closingHandler?("Closed by user")
+                self.closingHandler?(ConnectionError.closed)
             }
             self.connectingHandler = nil
             self.closingHandler = nil

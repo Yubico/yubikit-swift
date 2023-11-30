@@ -18,3 +18,7 @@
 ### Sending data to the YubiKey
 
 - ``Connection/send(apdu:)``
+
+### Errors
+
+- ``SmartCardConnectionError``

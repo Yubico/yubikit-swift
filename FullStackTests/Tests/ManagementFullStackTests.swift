@@ -30,13 +30,16 @@ class ManagementFullStackTests: XCTestCase {
     }
     
     func testGetDeviceInfo() throws {
-        runManagementTest { _, session, _ in
+        runManagementTest { connection, session, _ in
             let info = try await session.getDeviceInfo()
             print(info)
             print("PIV enabled over usb: \(info.config.isApplicationEnabled(.piv, overTransport: .usb))")
             print("PIV enabled over nfc: \(info.config.isApplicationEnabled(.piv, overTransport: .nfc))")
             print("PIV supported over usb: \(info.isApplicationSupported(.piv, overTransport: .usb))")
             print("PIV supported over nfc: \(info.isApplicationSupported(.piv, overTransport: .nfc))")
+            #if os(iOS)
+            await connection.nfcConnection?.close(message: "Test successful!")
+            #endif
         }
     }
     

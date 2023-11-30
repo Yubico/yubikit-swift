@@ -77,7 +77,7 @@ class ConnectionFullStackTests: XCTestCase {
                 XCTAssertNotNil(secondConnection)
                 let closingError = await task.value
                 XCTAssertNil(closingError)
-                print("✅ connectionDidClose() returned: \(closingError ?? "nil")")
+                print("✅ connectionDidClose() returned: \(String(describing: closingError))")
             } catch {
                 XCTFail("🚨 Failed with: \(error)")
             }

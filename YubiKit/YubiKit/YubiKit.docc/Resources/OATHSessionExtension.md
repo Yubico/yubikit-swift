@@ -11,7 +11,6 @@
 - ``session(withConnection:)``
 - ``end()``
 - ``reset()``
-- ``sessionDidEnd()``
 
 ### Running commands in the OATH application
 

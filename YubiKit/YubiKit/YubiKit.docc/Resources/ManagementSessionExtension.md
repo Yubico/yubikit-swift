@@ -10,7 +10,6 @@
 
 - ``session(withConnection:)``
 - ``end()``
-- ``sessionDidEnd()``
 
 ### Running commands in the Management application
 

@@ -22,3 +22,7 @@
 ### Sending data to the YubiKey
 
 - ``Connection/send(apdu:)``
+
+### Errors
+
+- ``NFCConnectionError``

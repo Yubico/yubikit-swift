@@ -76,7 +76,7 @@ public final actor SmartCardConnection: Connection, InternalConnection {
     }
     
     internal func send(apdu: APDU) async throws -> Response {
-        guard let smartCard else { throw "No SmartCard connection" }
+        guard let smartCard else { throw ConnectionError.noConnection }
         let data = try await smartCard.transmit(apdu.data)
         return Response(rawData: data)
     }
@@ -178,9 +178,9 @@ fileprivate class TKSmartCardWrapper {
         queue.async {
             // Signal closure and cancel previous connection handlers
             // Swap out old handlers to the new ones
-            self.closingHandler?("Closed by new call to connection()")
+            self.closingHandler?(ConnectionError.closed)
             self.closingHandler = nil
-            self.connectingHandler?(.failure("🪪 Cancelled by new call to connection()"))
+            self.connectingHandler?(.failure(ConnectionError.cancelled))
             self.connectingHandler = handler
 
             // If we're currently not monitoring or initating a session
@@ -230,7 +230,7 @@ fileprivate class TKSmartCardWrapper {
                         manager.getSlot(withName: slotName) { slot in
                             guard let slot else {
                                 self.state = .ready
-                                self.connectingHandler?(.failure("Failed to get a TKSmartCardSlot from TKSmartCardSlotManager."))
+                                self.connectingHandler?(.failure(SmartCardConnectionError.getSmartCardSlotFailed))
                                 self.connectingHandler = nil
                                 return
                             }
@@ -286,7 +286,7 @@ fileprivate class TKSmartCardWrapper {
                             self?.observeKeyRemoval()
                         } else {
                             self?.state = .ready
-                            self?.connectingHandler?(.failure("🪪 Failed but got no error!"))
+                            self?.connectingHandler?(.failure(SmartCardConnectionError.beginSessionFailed))
                             self?.connectingHandler = nil
                         }
                     }
@@ -303,10 +303,10 @@ fileprivate class TKSmartCardWrapper {
                 break;
             case .monitoring, .initatingSession:
                 // should we call the closingHandler as well?
-                self.connectingHandler?(.failure("Cancelled from stop()"))
+                self.connectingHandler?(.failure(ConnectionError.cancelled))
             case .connected(let session):
                 session.endSession()
-                self.closingHandler?("Closed by user")
+                self.closingHandler?(ConnectionError.closed)
             }
             self.state = .ready
             self.connectingHandler = nil
@@ -317,4 +317,12 @@ fileprivate class TKSmartCardWrapper {
             self.managerObservation = nil
         }
     }
+}
+
+/// SmartCardConnection specific errors
+public enum SmartCardConnectionError: Error {
+    /// CryptoTokenKit failed to return a TKSmartCardSlot.
+    case getSmartCardSlotFailed
+    /// CryptoTokenKit failed to start a session for the TKSmartCard.
+    case beginSessionFailed
 }
