@@ -92,3 +92,26 @@ public enum ConnectionError: Error {
     case closed
 }
 
+/// A ResponseError containing the status code.
+public struct ResponseError: Error {
+    /// Status code of the response.
+    let statusCode: ResponseStatusCode
+}
+
+/// Response status code returned by the YubiKey.
+public enum ResponseStatusCode: UInt16 {
+        case ok = 0x9000
+        case fido2TouchRequired = 0x9100
+        case conditionNotSatisfied = 0x6985
+        case authenticationRequired = 0x6982
+        case dataInvalid = 0x6984
+        case wrongLength = 0x6700
+        case wrongData = 0x6A80
+        case insNotSupported = 0x6D00
+        case claNotSupported = 0x6E00
+        case commandAborted = 0x6F00
+        case missingFile = 0x6A82
+        // sw2 is ignored when sw1 is 0x61
+        case moreData = 0x6100 // 0x61XX
+}
+

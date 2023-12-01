@@ -35,4 +35,5 @@
 
 - ``OATHSessionError``
 - ``CredentialTemplateError``
+- ``DeriveAccessKeyError``
 

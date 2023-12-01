@@ -25,6 +25,12 @@
 - ``DeviceInfo``
 - ``DeviceConfig``
 
+### Enumerations
+
+- ``ApplicationType``
+- ``DeviceTransport``
+- ``FormFactor``
+
 ### Errors
 
 - ``ManagementSessionError``

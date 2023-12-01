@@ -16,10 +16,12 @@
 - ``connectionDidClose()``
 - ``nfcConnection``
 
-### Sending data to the YubiKey
+### Sending and receiving data to the YubiKey
 
 - ``send(apdu:)``
 
 ### Errors
 
 - ``ConnectionError``
+- ``ResponseError``
+- ``ResponseStatusCode``

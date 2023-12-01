@@ -15,9 +15,6 @@
 import Foundation
 import OSLog
 
-public struct ResponseError: Error {
-    let statusCode: Response.StatusCode
-}
 
 enum Application {
     case oath

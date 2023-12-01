@@ -86,8 +86,8 @@ public final actor LightningConnection: Connection, InternalConnection {
         while true {
             try await Task.sleep(for: .seconds(commandProcessingTime))
             let result = try inputStream.readFromYubiKey()
-            if result.isEmpty { throw ConnectionError.missingResult }
-            let status = Response.StatusCode(data: result.subdata(in: result.count-2..<result.count))
+            guard result.count >= 2 else { throw ConnectionError.missingResult }
+            let status = ResponseStatusCode(data: result.subdata(in: result.count-2..<result.count))
 
             // BUG #62 - Workaround for WTX == 0x01 while status is 0x9000 (success).
             if (status == .ok) || result.bytes[0] != 0x01 {
