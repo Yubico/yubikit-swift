@@ -101,7 +101,8 @@ public final actor NFCConnection: Connection, InternalConnection {
     }
     
     internal func send(apdu: APDU) async throws -> Response {
-        guard let tag else { throw ConnectionError.noConnection }
+        print(self.tagReaderSession)
+        guard let tag else { throw "No taag fro some reason" }
         guard let apdu = apdu.nfcIso7816Apdu else { throw NFCConnectionError.malformedAPDU }
         let result: (Data, UInt8, UInt8) = try await tag.sendCommand(apdu: apdu)
         return Response(data: result.0, sw1: result.1, sw2: result.2)

@@ -36,7 +36,7 @@ class OATHListModel: ObservableObject {
                 error = nil
                 let connection = try await ConnectionHelper.anyWiredConnection()
                 guard !Task.isCancelled else { return }
-                self.calculateCodes(connection: connection)
+                try await self.calculateCodes(connection: connection)
                 self.error = await connection.connectionDidClose()
                 self.accounts.removeAll()
                 self.source = "no connection"
@@ -54,7 +54,7 @@ class OATHListModel: ObservableObject {
             do {
                 self.error = nil
                 let connection = try await NFCConnection.connection()
-                calculateCodes(connection: connection)
+                try await calculateCodes(connection: connection)
                 await connection.nfcConnection?.close(message: "Code calculated")
             } catch {
                 self.error = error
@@ -63,18 +63,12 @@ class OATHListModel: ObservableObject {
     }
     #endif
     
-    @MainActor private func calculateCodes(connection: Connection) {
-        Task {
-            self.error = nil
-            do {
-                let session = try await OATHSession.session(withConnection: connection)
-                let result = try await session.calculateCodes()
-                self.accounts = result.map { return Account(label: $0.0.label, code: $0.1?.code ?? "****") }
-                self.source = connection.connectionType
-            } catch {
-                self.error = error
-            }
-        }
+    private func calculateCodes(connection: Connection) async throws {
+        self.error = nil
+        let session = try await OATHSession.session(withConnection: connection)
+        let result = try await session.calculateCodes()
+        self.accounts = result.map { return Account(label: $0.0.label, code: $0.1?.code ?? "****") }
+        self.source = connection.connectionType
     }
 }
 
