@@ -101,8 +101,7 @@ public final actor NFCConnection: Connection, InternalConnection {
     }
     
     internal func send(apdu: APDU) async throws -> Response {
-        print(self.tagReaderSession)
-        guard let tag else { throw "No taag fro some reason" }
+        guard let tag else { throw ConnectionError.noConnection }
         guard let apdu = apdu.nfcIso7816Apdu else { throw NFCConnectionError.malformedAPDU }
         let result: (Data, UInt8, UInt8) = try await tag.sendCommand(apdu: apdu)
         return Response(data: result.0, sw1: result.1, sw2: result.2)
@@ -111,6 +110,9 @@ public final actor NFCConnection: Connection, InternalConnection {
     private func close(result: Result<String, Error>?) async {
         closingHandler?(result)
         tagReaderSession = nil
+        // Workaround for the NFC session being active for an additional 4 seconds after
+        // invalidate() has been called on the session.
+        try? await Task.sleep(nanoseconds: 5_000_000_000)
         closingContinuations.forEach { continuation in
             continuation.resume(returning: result?.error)
         }
@@ -127,6 +129,10 @@ fileprivate actor NFCConnectionManager {
     
     let nfcWrapper = NFCTagWrapper()
     var currentConnection: NFCConnection?
+    
+    func setCurrentConnection(_ connection: NFCConnection?) async {
+        currentConnection = connection
+    }
     
     var connectionTask: Task<NFCConnection, Error>?
     func connection(alertMessage message: String?) async throws -> NFCConnection {
@@ -166,6 +172,9 @@ fileprivate actor NFCConnectionManager {
                     case .success(let tagReaderSession):
                         let connection = NFCConnection(tagReaderSession: tagReaderSession, closingHandler: { [weak self] result in
                             self?.nfcWrapper.endSession(result: result)
+                            Task { [weak self] in
+                                await self?.setCurrentConnection(nil)
+                            }
                         })
                         self.currentConnection = connection
                         continuation.resume(returning: connection)
@@ -212,7 +221,7 @@ fileprivate class NFCTagWrapper: NSObject, NFCTagReaderSessionDelegate {
             self.closingHandler = nil
             self.connectingHandler?(.failure(ConnectionError.cancelled))
             self.connectingHandler = handler
-            
+            Logger.nfc.debug("NFCTagWrapper create new tag reader session. Current state: \(String(describing: self.state))")
             switch self.state {
             case .ready:
                 self.tagSession = NFCTagReaderSession(pollingOption: .iso14443, delegate: self)
@@ -239,6 +248,7 @@ fileprivate class NFCTagWrapper: NSObject, NFCTagReaderSessionDelegate {
     
     func endSession(result: Result<String, Error>?) {
         queue.async {
+            Logger.nfc.debug("NFCTagWrapper invalidate session: \(String(describing: self.tagSession))")
             if let result {
                 switch result {
                 case .success(let message):
