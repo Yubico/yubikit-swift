@@ -46,6 +46,24 @@ extension OATHSession {
             return code == totpCode
         }
         
+        public var period: TimeInterval? {
+            switch self {
+            case .HOTP(counter: _):
+                return nil
+            case .TOTP(period: let period):
+                return period
+            }
+        }
+        
+        public var counter: UInt32? {
+            switch self {
+            case .HOTP(counter: let counter):
+                return counter
+            case .TOTP(period: _):
+                return nil
+            }
+        }
+        
         public var description: String {
             switch self {
             case .HOTP(counter: let counter):
@@ -91,10 +109,7 @@ extension OATHSession {
                 return name
             }
         }
-        
-        /// Validity time period in seconds for a Code generated from this Credential.
-        public let validityTime: TimeInterval = 30.0 //FIXME: implement this
-        
+
         /// Whether or not the Credential requires touch. This value is alwyas true when using ``listCredentials()``.
         public var requiresTouch: Bool
         
@@ -198,6 +213,13 @@ extension OATHSession {
     public struct CredentialTemplate {
         
         private static let minSecretLenght = 14
+        public let type: CredentialType
+        public let algorithm: HashAlgorithm
+        public let secret: Data
+        public let issuer: String?
+        public let name: String
+        public let digits: UInt8
+        public var requiresTouch: Bool
         
         /// Credential identifier, as used to identify it on a YubiKey.
         ///
@@ -291,17 +313,8 @@ extension OATHSession {
             self.digits = digits
             self.requiresTouch = requiresTouch
         }
-        
-        public let type: CredentialType
-        public let algorithm: HashAlgorithm
-        public let secret: Data
-        public let issuer: String?
-        public let name: String
-        public let digits: UInt8
-        public let requiresTouch: Bool
     }
-    
-}
+ }
 
 
 extension OATHSession.HashAlgorithm {
