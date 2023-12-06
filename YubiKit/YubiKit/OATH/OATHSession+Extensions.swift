@@ -95,20 +95,21 @@ extension OATHSession {
         /// Validity time period in seconds for a Code generated from this Credential.
         public let validityTime: TimeInterval = 30.0 //FIXME: implement this
         
-        /// Whether or not the Credential requires touch.
-        public var requiresTouch = false // FIXME: implement this
+        /// Whether or not the Credential requires touch. This value is alwyas true when using ``listCredentials()``.
+        public var requiresTouch: Bool
         
         public var description: String {
             return "Credential(type: \(type), label:\(label), algorithm: \(hashAlgorithm.debugDescription)"
         }
 
-        internal init(deviceId: String, id: Data, type: OATHSession.CredentialType, hashAlgorithm: OATHSession.HashAlgorithm? = nil, name: String, issuer: String?) {
+        internal init(deviceId: String, id: Data, type: OATHSession.CredentialType, hashAlgorithm: OATHSession.HashAlgorithm? = nil, name: String, issuer: String?, requiresTouch: Bool) {
             self.deviceId = deviceId
             self.id = id
             self.type = type
             self.hashAlgorithm = hashAlgorithm
             self.name = name
             self.issuer = issuer
+            self.requiresTouch = requiresTouch
         }
     }
     

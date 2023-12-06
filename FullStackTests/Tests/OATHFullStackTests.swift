@@ -44,10 +44,17 @@ class OATHFullStackTests: XCTestCase {
         }
     }
     
-    func testListCredentialsAndCalculate() throws {
+    func testCalculateAllCodes() throws {
         runOATHTest { session in
-            let credentials = try await session.listCredentials()
-            let codes = try await credentials.asyncMap { credential in
+            let result = try await session.calculateCodes(timestamp: Date(timeIntervalSince1970: 0))
+            let codes = try await result.asyncMap { result in
+                if let code = result.1 {
+                    return code
+                }
+                let credential = result.0
+                if credential.requiresTouch {
+                    print("👆 Touch the YubiKey!")
+                }
                 let code = try await session.calculateCode(credential: credential, timestamp: Date(timeIntervalSince1970: 0))
                 return code
             }

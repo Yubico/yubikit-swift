@@ -150,7 +150,7 @@ public final actor OATHSession: Session, InternalSession {
         
         let apdu = APDU(cla: 0x00, ins: 0x01, p1: 0x00, p2: 0x00, command: data)
         try await connection.send(apdu: apdu)
-        return Credential(deviceId: selectResponse.deviceId, id: nameData, type: template.type, name: template.name, issuer: template.issuer)
+        return Credential(deviceId: selectResponse.deviceId, id: nameData, type: template.type, name: template.name, issuer: template.issuer, requiresTouch: template.requiresTouch)
     }
     
     /// Deletes an existing Credential from the YubiKey.
@@ -163,11 +163,13 @@ public final actor OATHSession: Session, InternalSession {
         try await connection.send(apdu: apdu)
     }
     
-    /// List credentials on YubiKey.
+    /// List credentials on YubiKe
+    ///
+    /// >Note: The requires touch property of Credential will always be set to false when using `listCredentials()`. If you need this property use ``calculateCodes(timestamp:)`` instead.
     /// - Returns: An array of Credentials.
     public func listCredentials() async throws -> [Credential] {
         Logger.oath.debug(#function)
-        guard let connection = _connection, let selectResponse  else { throw SessionError.noConnection }
+        guard let connection = _connection, let selectResponse else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
         let data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else { throw OATHSessionError.responseDataNotTLVFormatted }
@@ -187,7 +189,7 @@ public final actor OATHSession: Session, InternalSession {
             
             guard let hashAlgorithm = HashAlgorithm(rawValue: bytes[0] & 0x0f) else { throw OATHSessionError.unexpectedData }
 
-            return Credential(deviceId: selectResponse.deviceId, id: $0.value.dropFirst(), type: credentialType, hashAlgorithm: hashAlgorithm, name: credentialId.account, issuer: credentialId.issuer)
+            return Credential(deviceId: selectResponse.deviceId, id: $0.value.dropFirst(), type: credentialType, hashAlgorithm: hashAlgorithm, name: credentialId.account, issuer: credentialId.issuer, requiresTouch: false)
         }
     }
     
@@ -276,7 +278,9 @@ public final actor OATHSession: Session, InternalSession {
                 credentialType = .TOTP(period: credentialId.period ?? oathDefaultPeriod)
             }
             
-            let credential = Credential(deviceId: selectResponse.deviceId, id: name.value, type: credentialType, name: credentialId.account, issuer: credentialId.issuer)
+            let requiresTouch = response.tag == tagTypeTouch
+            
+            let credential = Credential(deviceId: selectResponse.deviceId, id: name.value, type: credentialType, name: credentialId.account, issuer: credentialId.issuer, requiresTouch: requiresTouch)
             
             if response.value.count == 5 {
                 if credentialId.period != oathDefaultPeriod {
