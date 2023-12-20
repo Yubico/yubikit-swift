@@ -40,7 +40,7 @@ class OATHFullStackTests: XCTestCase {
             XCTAssert(credentials[0].type.period == 30.0)
             XCTAssert(credentials[1].label == "TOTP SHA256:6 digits, 30 sec")
             XCTAssert(credentials[2].type.period == 15.0)
-            XCTAssert(credentials[2].label == "TOTP SHA1 15s no issuer")
+            XCTAssert(credentials[2].label == "15/TOTP SHA1 15s no issuer")
             XCTAssert(credentials[3].label == "TOTP SHA256:requires touch, 6 digits, 30 sec")
             XCTAssert(credentials[4].label == "HOTP SHA1:6 digits, counter = 0")
             XCTAssert(credentials[4].type.counter == 0)

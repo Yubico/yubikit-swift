@@ -103,11 +103,16 @@ extension OATHSession {
         
         /// Label of the Credential. Will return `issuer:name` if issuer is set, otherwise `name`.
         public var label: String {
-            if let issuer {
-                return "\(issuer):\(name)"
-            } else {
-                return name
+            var label = ""
+            // If type returns a period it's a TOTP credential
+            if let period = type.period, period != oathDefaultPeriod {
+                label.append("\(String(format: "%.0f", period))/")
             }
+            if let issuer {
+                label.append("\(issuer):")
+            }
+            label.append(name)
+            return label
         }
 
         /// Whether or not the Credential requires touch. This value is alwyas true when using ``listCredentials()``.
