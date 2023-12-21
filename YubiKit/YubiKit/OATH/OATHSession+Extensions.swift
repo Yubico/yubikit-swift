@@ -115,7 +115,7 @@ extension OATHSession {
             return label
         }
 
-        /// Whether or not the Credential requires touch. This value is alwyas true when using ``listCredentials()``.
+        /// Whether or not the Credential requires touch. This value is alwyas false when using ``listCredentials()``.
         public var requiresTouch: Bool
         
         public var description: String {
