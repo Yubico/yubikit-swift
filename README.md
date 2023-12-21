@@ -21,4 +21,5 @@ There's also a set of wrappers providing delegate and callback based versions of
 transitioning from the old Objective-C SDK.
 
 [Getting started](https://yubico.github.io/yubikit-swift/documentation/yubikit/gettingstarted)
+
 [Full documentation](https://yubico.github.io/yubikit-swift/documentation/yubikit/)
