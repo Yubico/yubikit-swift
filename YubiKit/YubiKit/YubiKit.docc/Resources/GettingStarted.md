@@ -14,7 +14,7 @@ The YubiKit framework is distributed using the Swift Package Manager. To add the
 
 ![An image showing how to add the YubiKit SDK to your Xcode project.](add-framework-1.png)
 
-4. Enter `yubikit-swift` in the search field and select the Yubico Swift Package.
+4. Enter `https://github.com/Yubico/yubikit-swift/` in the search field and select the Yubico Swift Package.
 
 5. Press the "Add Package" button to add the SDK to your project.
 
