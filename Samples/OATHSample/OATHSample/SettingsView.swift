@@ -14,10 +14,10 @@
 
 import SwiftUI
 
-struct SettingsView: View {
+struct SettingsView<T>: View where T: SettingsModelProtocol {
     
     @Environment(\.dismiss) var dismiss
-    @StateObject var model = SettingsModel()
+    @StateObject var model: T
     
     var body: some View {
         Text("\(model.connection ?? "Unknown") YubiKey, \(model.keyVersion ?? "Unknown version")")
@@ -43,8 +43,14 @@ struct SettingsView: View {
     
 }
 
-struct SettingsView_Previews: PreviewProvider {
-    static var previews: some View {
-        SettingsView()
-    }
+
+#Preview {
+    SettingsView(model: SettingsModelPreview())
+}
+
+class SettingsModelPreview: SettingsModelProtocol {
+    @Published private(set) var keyVersion: String? = "5.4.2"
+    @Published private(set) var connection: String? = "SmartCard"
+    @Published private(set) var error: Error?
+    @MainActor func getKeyVersion() {}
 }

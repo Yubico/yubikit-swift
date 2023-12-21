@@ -15,9 +15,9 @@
 import SwiftUI
 
 
-struct OATHListView: View {
+struct OATHListView<T>: View where T: OATHListModelProtocol {
     
-    @StateObject var model = OATHListModel()
+    @StateObject var model: T
     @State private var isPresentingSettings = false
 
     var body: some View {
@@ -34,7 +34,7 @@ struct OATHListView: View {
                     .sheet(isPresented: $isPresentingSettings, onDismiss: {
                         model.startWiredConnection()
                     }, content: {
-                        SettingsView()
+                        SettingsView(model: SettingsModel())
                     })
                 }
             })
@@ -67,4 +67,21 @@ struct AccountRowView: View {
             Text(account.code)
         }
     }
+}
+
+
+#Preview {
+  OATHListView(model: OATHListModelPreview())
+}
+
+class OATHListModelPreview: OATHListModelProtocol {
+    @Published private(set) var accounts = [Account(label: "Label 1", code: "123456"),
+                                            Account(label: "Label 2", code: "123456"),
+                                            Account(label: "Label 3", code: "123456")]
+    @Published private(set) var source = "no connection"
+    @Published var error: Error?
+    
+    func stopWiredConnection() {}
+    func startWiredConnection() {}
+    func calculateNFCCodes() {}
 }

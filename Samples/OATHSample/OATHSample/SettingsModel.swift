@@ -15,11 +15,18 @@
 import Foundation
 import YubiKit
 
-class SettingsModel: ObservableObject {
+protocol SettingsModelProtocol: ObservableObject {
+    var keyVersion: String? { get }
+    var connection: String? { get }
+    var error: Error? { get }
+    func getKeyVersion()
+}
+
+class SettingsModel: SettingsModelProtocol {
     
-    @Published private(set) var error: Error?
     @Published private(set) var keyVersion: String?
     @Published private(set) var connection: String?
+    @Published private(set) var error: Error?
 
     @MainActor func getKeyVersion() {
         Task {

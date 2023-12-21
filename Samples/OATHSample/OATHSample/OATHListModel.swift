@@ -15,8 +15,16 @@
 import Foundation
 import YubiKit
 
+protocol OATHListModelProtocol: ObservableObject {
+    var accounts: [Account] { get }
+    var source: String { get }
+    var error: Error? { get }
+    func stopWiredConnection()
+    func startWiredConnection()
+    func calculateNFCCodes()
+}
 
-class OATHListModel: ObservableObject {
+class OATHListModel: OATHListModelProtocol {
     @Published private(set) var accounts = [Account]()
     @Published private(set) var source = "no connection"
     @Published var error: Error?
@@ -63,7 +71,7 @@ class OATHListModel: ObservableObject {
     }
     #endif
     
-    private func calculateCodes(connection: Connection) async throws {
+    @MainActor private func calculateCodes(connection: Connection) async throws {
         self.error = nil
         let session = try await OATHSession.session(withConnection: connection)
         let result = try await session.calculateCodes()
