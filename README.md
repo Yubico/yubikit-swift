@@ -2,7 +2,7 @@
 
 **Connect and run commands on the different applications on a YubiKey. The framework support connecting using NFC, Lightning and USB-C.**
 
-<span style="color:red">**This is a prerelease.** text</span>
+**🚨 Note: This is a prerelease. 🚨**
 
 The YubiKit Swift SDK provides a modern async/await version of the YubiKit framework, making it easy to integrate
 in Swift and SwiftUI based applications. The async/await syntax provides an easy to read and powerful way of
