@@ -7,7 +7,7 @@ number is retrieved using the ``ManagementSession``.
 @Metadata {
     @CallToAction(
         purpose: link,
-        url: "https://github.com/Yubico/yubikit-swift/tree/main/Samples/oath-sample.zip")
+        url: "https://github.com/Yubico/yubikit-swift/raw/main/Samples/oath-sample.zip")
     @PageKind(sampleCode)
     @PageColor(green)
 }
