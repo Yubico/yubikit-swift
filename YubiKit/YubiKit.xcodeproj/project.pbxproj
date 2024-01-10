@@ -209,6 +209,7 @@
 				51BBE3E2273D1A3800DA47CC /* Sources */,
 				51BBE3E3273D1A3800DA47CC /* Frameworks */,
 				51BBE3E4273D1A3800DA47CC /* Resources */,
+				B4C0836E2B4EC3AB00368197 /* Run Script: zip sample projects */,
 			);
 			buildRules = (
 			);
@@ -291,6 +292,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		B4C0836E2B4EC3AB00368197 /* Run Script: zip sample projects */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Run Script: zip sample projects";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "echo pwd &&\ncd \"$PROJECT_DIR\"/../Samples/ &&\nzip -vr oath-sample.zip OATHSample/\n\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		51BBE3E2273D1A3800DA47CC /* Sources */ = {

@@ -5,7 +5,7 @@ Connect and run commands on the different applications on a YubiKey. The framewo
 @Metadata {
     @PageImage(purpose: icon, 
                source: "documentation-header", 
-               alt: "A technology icon representing the SlothCreator framework.")
+               alt: "YubiKeys in a row")
     @PageColor(green)
     @Available(macOS, introduced: "13.0")
     @Available(iOS, introduced: "16.0")
@@ -31,6 +31,12 @@ transitioning from the old Objective-C SDK.
 ### Preparing your project
 
 - <doc:GettingStarted>
+
+### Sample code
+
+@Links(visualStyle: detailedGrid) {
+    - <doc:OATHSampleCode>
+}
 
 ### Creating a Connection to a YubiKey
 

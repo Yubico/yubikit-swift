@@ -32,7 +32,7 @@ struct OATHListView<T>: View where T: OATHListModelProtocol {
                         Image(systemName: "ellipsis.circle")
                     }
                     .sheet(isPresented: $isPresentingSettings, onDismiss: {
-                        model.startWiredConnection()
+                        model.startWiredConnection() // Restart wired connection once the SettingsView has been dismissed.
                     }, content: {
                         SettingsView(model: SettingsModel())
                     })

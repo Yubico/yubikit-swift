@@ -11,26 +11,11 @@
 		51A1AC10273D537500F999A4 /* OATHListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51A1AC0F273D537500F999A4 /* OATHListView.swift */; };
 		51A1AC12273D537800F999A4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51A1AC11273D537800F999A4 /* Assets.xcassets */; };
 		51A1AC15273D537800F999A4 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51A1AC14273D537800F999A4 /* Preview Assets.xcassets */; };
-		51A1AC2A273D5D0A00F999A4 /* YubiKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51A1AC29273D5D0A00F999A4 /* YubiKit.framework */; };
-		51A1AC2B273D5D0A00F999A4 /* YubiKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 51A1AC29273D5D0A00F999A4 /* YubiKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		B41B61882743FE18004C37BF /* OATHListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61872743FE18004C37BF /* OATHListModel.swift */; };
 		B456E217274E750D004471DE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E216274E750D004471DE /* SettingsView.swift */; };
 		B456E219274FC967004471DE /* SettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E218274FC967004471DE /* SettingsModel.swift */; };
+		B4C083712B4ECBAB00368197 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = B4C083702B4ECBAB00368197 /* YubiKit */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		51A1AC2C273D5D0A00F999A4 /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				51A1AC2B273D5D0A00F999A4 /* YubiKit.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		51A1AC0A273D537500F999A4 /* OATHSample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OATHSample.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -52,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				51A1AC2A273D5D0A00F999A4 /* YubiKit.framework in Frameworks */,
+				B4C083712B4ECBAB00368197 /* YubiKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,13 +104,15 @@
 				51A1AC06273D537500F999A4 /* Sources */,
 				51A1AC07273D537500F999A4 /* Frameworks */,
 				51A1AC08273D537500F999A4 /* Resources */,
-				51A1AC2C273D5D0A00F999A4 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = OATHSample;
+			packageProductDependencies = (
+				B4C083702B4ECBAB00368197 /* YubiKit */,
+			);
 			productName = OATHSample;
 			productReference = 51A1AC0A273D537500F999A4 /* OATHSample.app */;
 			productType = "com.apple.product-type.application";
@@ -154,6 +141,9 @@
 				Base,
 			);
 			mainGroup = 51A1AC01273D537500F999A4;
+			packageReferences = (
+				B4C0836F2B4ECBAB00368197 /* XCRemoteSwiftPackageReference "yubikit-swift" */,
+			);
 			productRefGroup = 51A1AC0B273D537500F999A4 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -403,6 +393,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B4C0836F2B4ECBAB00368197 /* XCRemoteSwiftPackageReference "yubikit-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Yubico/yubikit-swift/";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B4C083702B4ECBAB00368197 /* YubiKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B4C0836F2B4ECBAB00368197 /* XCRemoteSwiftPackageReference "yubikit-swift" */;
+			productName = YubiKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 51A1AC02273D537500F999A4 /* Project object */;
 }
