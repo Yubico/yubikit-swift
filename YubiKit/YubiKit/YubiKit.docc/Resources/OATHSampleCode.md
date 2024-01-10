@@ -15,6 +15,10 @@ number is retrieved using the ``ManagementSession``.
 The sample project consist of two views. One that list the OATH codes calculated, either using USB-C, Lightning or NFC.
 The other view simply displays the version number of the YubiKey. This view also supports all three connection types.
 
+> Note: This is only a sample project and there is currently no handling for password protected YubiKeys.
+
+## OATH view
+
 The main function of the OATH part of the app is the `startWiredConnection()` function. This will cancel any previous
 `wiredConnectionTask` and create a new one. In the Task it will use the ``ConnectionHelper`` to start waiting for
 a wired connection. Depending on the device this will either be a ``LightningConnection`` or a ``SmartCardConnection``.
@@ -59,6 +63,8 @@ the user interface and recursively call `startWiredConnection()` again.
     self.source = connection.connectionType
 }
 ```
+
+## Settings view
 
 To bring up the settings view we've added a `Button` to the `OATHListView`. The button will stop
 any wired connections and cancel the wait for new connections. It will then present the `SettingsView`
