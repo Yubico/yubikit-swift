@@ -25,7 +25,7 @@ calls `.calculateCodes()` on the session. The result is then used to populate th
 At this point the app will wait for the connection to close. This can be caused by the user unplugging the YubiKey or
 a connection error of some sort forcing the connection to close. If the connection is closed the app will clean up
 the user interface and recursively call `startWiredConnection()` again.
-```Swift
+```swift
 @MainActor func startWiredConnection() {
     wiredConnectionTask?.cancel()
     wiredConnectionTask = Task {
@@ -63,7 +63,7 @@ the user interface and recursively call `startWiredConnection()` again.
 To bring up the settings view we've added a `Button` to the `OATHListView`. The button will stop
 any wired connections and cancel the wait for new connections. It will then present the `SettingsView`
 as a SwiftUI sheet.
-```Swift
+```swift
 Button(action: { model.stopWiredConnection(); isPresentingSettings.toggle() }) {
     Image(systemName: "ellipsis.circle")
 }
@@ -79,7 +79,7 @@ and it does not handle YubiKeys being unplugged and plugged back again. In this 
 `ConnectionHelper.anyConnection()` function that will return any wired YubiKey that might be connected
 or, if no wired key is present it will start scanning for a NFC key. Once connected we create 
 the ``ManagementSession`` and get the key version.
-```Swift
+```swift
 @MainActor func getKeyVersion() {
     Task {
         self.error = nil
