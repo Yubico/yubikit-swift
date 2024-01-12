@@ -23,10 +23,11 @@ class ConnectionFullStackTests: XCTestCase {
     typealias Connection = SmartCardConnection
     
     #if os(iOS)
-    func testAlertMessage() throws {
+    func testNFCAlertMessage() throws {
         runAsyncTest {
             do {
                 let connection = try await NFCConnection.connection(alertMessage: "Test Alert Message")
+                guard try await connection.isAllowed() else { XCTFail("🚨 YubiKey not in allow-list!"); return }
                 connection.nfcConnection?.setAlertMessage("Updated Alert Message")
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 await connection.nfcConnection?.close(message: "Closing Alert Message")
@@ -36,10 +37,11 @@ class ConnectionFullStackTests: XCTestCase {
         }
     }
     
-    func testClosingErrorMessage() throws {
+    func testNFCClosingErrorMessage() throws {
         runAsyncTest {
             do {
                 let connection = try await NFCConnection.connection(alertMessage: "Test Alert Message")
+                guard try await connection.isAllowed() else { XCTFail("🚨 YubiKey not in allow-list!"); return }
                 await connection.close(error: "Closing Error Message")
             } catch {
                 XCTFail("🚨 Failed with: \(error)")
@@ -52,7 +54,7 @@ class ConnectionFullStackTests: XCTestCase {
     func testSingleConnection() throws {
         runAsyncTest() {
             do {
-                let connection = try await ConnectionHelper.anyConnection()
+                let connection = try await AllowedConnections.anyConnection()
                 print("✅ Got connection \(connection)")
                 XCTAssertNotNil(connection)
             } catch {
@@ -65,6 +67,7 @@ class ConnectionFullStackTests: XCTestCase {
         runAsyncTest() {
             do {
                 let firstConnection = try await Connection.connection()
+                guard try await firstConnection.isAllowed() else { XCTFail("🚨 YubiKey not in allow-list!"); return }
                 print("✅ Got first connection \(firstConnection)")
                 let task = Task {
                     let result = await firstConnection.connectionDidClose()

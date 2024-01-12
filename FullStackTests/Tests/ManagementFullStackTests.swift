@@ -68,7 +68,7 @@ extension XCTestCase {
                            withTimeout timeout: TimeInterval = 20,
                            test: @escaping (Connection, ManagementSession, DeviceTransport) async throws -> Void) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
-            let connection = try await ConnectionHelper.anyConnection(nfcAlertMessage: "Running Management Tests...")
+            let connection = try await AllowedConnections.anyConnection(nfcAlertMessage: "Running Management Tests...")
             let transport: DeviceTransport
             #if os(iOS)
             if connection as? NFCConnection != nil {

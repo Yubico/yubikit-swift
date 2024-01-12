@@ -143,7 +143,7 @@ class OATHFullStackTests: XCTestCase {
             do {
                 try await session.unlockWithPassword("password")
                 try await session.deleteAccessKey()
-                let connection = try await ConnectionHelper.anyConnection()
+                let connection = try await AllowedConnections.anyConnection()
                 let _ = try await ManagementSession.session(withConnection: connection)
                 let session = try await OATHSession.session(withConnection: connection)
                 let credentials = try await session.listCredentials()
@@ -169,7 +169,7 @@ extension XCTestCase {
                      withTimeout timeout: TimeInterval = 20,
                      test: @escaping (OATHSession) async throws -> Void) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
-            let connection = try await ConnectionHelper.anyConnection()
+            let connection = try await AllowedConnections.anyConnection()
             var session = try await OATHSession.session(withConnection: connection)
             try await session.reset()
             
