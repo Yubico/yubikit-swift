@@ -16,13 +16,30 @@ import OSLog
 
 extension Logger {
     private static var subsystem = "com.yubico.YubiKit"
-
+    
+    static let system = Logger(subsystem: subsystem, category: "System")
     static let connection = Logger(subsystem: subsystem, category: "Connection")
     
     static let nfc = Logger(subsystem: subsystem, category: "NFC")
     static let lightning = Logger(subsystem: subsystem, category: "Lightning")
     static let smartCard = Logger(subsystem: subsystem, category: "SmartCard")
-
+    
     static let oath = Logger(subsystem: subsystem, category: "OATH")
     static let management = Logger(subsystem: subsystem, category: "Management")
+    
+    
+    nonisolated static func export() async throws -> String {
+        Logger.system.info("Logger, export(): compiling logs.")
+        let store = try OSLogStore(scope: .currentProcessIdentifier)
+        let date = Date.now.addingTimeInterval(-48 * 3600)
+        let position = store.position(date: date)
+        let predicate = NSPredicate(format: "subsystem == \"\(subsystem)\"")
+        let entries = try store
+            .getEntries(at: position, matching: predicate)
+            .compactMap { $0 as? OSLogEntryLog }
+            .filter { $0.subsystem == subsystem }
+            .map { "\($0.date.formatted(date: .omitted, time: .standard)) [\($0.category)] \($0.composedMessage)" }
+            .reduce(into: "", { $0 += "\n\($1)" })
+        return entries
+    }
 }

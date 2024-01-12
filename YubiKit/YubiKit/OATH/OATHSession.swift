@@ -65,7 +65,6 @@ public final actor OATHSession: Session, InternalSession {
     private var selectResponse: SelectResponse?
     
     private init(connection: Connection) async throws {
-        Logger.oath.debug(#function)
         self.selectResponse = try await Self.selectApplication(withConnection: connection)
         self._connection = connection
         let internalConnection = await internalConnection()
@@ -90,7 +89,7 @@ public final actor OATHSession: Session, InternalSession {
     }
     
     public static func session(withConnection connection: Connection) async throws -> OATHSession {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: connection))")
         // Close active session if there is one
         let internalConnection = connection as! InternalConnection
         let currentSession = await internalConnection.session()
@@ -101,7 +100,7 @@ public final actor OATHSession: Session, InternalSession {
     }
     
     public func end() async {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         self.selectResponse = nil
         let internalConnection = await internalConnection()
         await internalConnection?.setSession(nil)
@@ -109,7 +108,7 @@ public final actor OATHSession: Session, InternalSession {
     }
     
     public func reset() async throws {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad)
         try await connection.send(apdu: apdu)
@@ -127,7 +126,7 @@ public final actor OATHSession: Session, InternalSession {
     /// - Returns: The newly added credential.
     @discardableResult
     public func addCredential(template: CredentialTemplate) async throws -> Credential {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection, let selectResponse else { throw SessionError.noConnection }
         guard let nameData = template.identifier.data(using: .utf8) else { throw OATHSessionError.unexpectedData }
         let nameTlv = TKBERTLVRecord(tag: 0x71, value: nameData)
@@ -156,7 +155,7 @@ public final actor OATHSession: Session, InternalSession {
     /// Deletes an existing Credential from the YubiKey.
     /// - Parameter credential: The credential that will be deleted from the YubiKey.
     public func deleteCredential(_ credential: Credential) async throws {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(credential)")
         guard let connection = _connection else { throw SessionError.noConnection }
         let deleteTlv = TKBERTLVRecord(tag: 0x71, value: credential.id)
         let apdu = APDU(cla: 0, ins: 0x02, p1: 0, p2: 0, command: deleteTlv.data)
@@ -168,7 +167,7 @@ public final actor OATHSession: Session, InternalSession {
     /// >Note: The requires touch property of Credential will always be set to false when using `listCredentials()`. If you need this property use ``calculateCodes(timestamp:)`` instead.
     /// - Returns: An array of Credentials.
     public func listCredentials() async throws -> [Credential] {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection, let selectResponse else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
         let data = try await connection.send(apdu: apdu)
@@ -199,7 +198,7 @@ public final actor OATHSession: Session, InternalSession {
     ///   - timestamp: The timestamp which is used as start point for TOTP, this is ignored for HOTP.
     /// - Returns: Calculated code.
     public func calculateCode(credential: Credential, timestamp: Date = Date()) async throws -> Code {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): credential: \(credential), timeStamp: \(timestamp)")
         guard let connection = _connection, let selectResponse else { throw SessionError.noConnection }
 
         guard credential.deviceId == selectResponse.deviceId else { throw OATHSessionError.credentialNotPresentOnCurrentYubiKey }
@@ -237,7 +236,7 @@ public final actor OATHSession: Session, InternalSession {
     ///   - challenge: The input to the HMAC operation.
     /// - Returns: The calculated response.
     public func calculateResponse(credentialId: Data, challenge: Data) async throws -> Data {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): credentialId: \(credentialId.hexEncodedString), challenge: \(challenge.hexEncodedString)")
         guard let connection = _connection else { throw SessionError.noConnection }
         var data = Data()
         data.append(TKBERTLVRecord(tag: tagName, value: credentialId).data)
@@ -256,7 +255,7 @@ public final actor OATHSession: Session, InternalSession {
     /// - Parameter timestamp: The timestamp which is used as start point for TOTP, this is ignored for HOTP.
     /// - Returns: An array of tuples containing a ``Credential`` and an optional ``Code``.
     public func calculateCodes(timestamp: Date = Date()) async throws -> [(Credential, Code?)] {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): timeStamp: \(timestamp)")
         let time = timestamp.timeIntervalSince1970
         let challenge = UInt64(time / 30)
         let bigChallenge = CFSwapInt64HostToBig(challenge)
@@ -302,7 +301,7 @@ public final actor OATHSession: Session, InternalSession {
     /// require the application to be unlocked via one of the unlock functions. Also see ``setAccessKey(_:)``.
     /// - Parameter password: The user-supplied password to set.
     public func setPassword(_ password: String) async throws {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(password)")
         let derivedKey = try deriveAccessKey(from: password)
         try await self.setAccessKey(derivedKey)
     }
@@ -310,7 +309,7 @@ public final actor OATHSession: Session, InternalSession {
     /// Unlock with password.
     /// - Parameter password: The user-supplied password used to unlock the application.
     public func unlockWithPassword(_ password: String) async throws {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(password)")
         let derivedKey = try deriveAccessKey(from: password)
         try await self.unlockWithAccessKey(derivedKey)
     }
@@ -324,7 +323,7 @@ public final actor OATHSession: Session, InternalSession {
     /// sets the raw 16 byte key.
     /// - Parameter accessKey: The shared secret key used to unlock access to the application.
     public func setAccessKey(_ accessKey: Data) async throws {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)")
         guard let connection = _connection else { throw SessionError.noConnection }
         let header = CredentialType.TOTP().code | HashAlgorithm.SHA1.rawValue
         var data = Data([header])
@@ -348,7 +347,7 @@ public final actor OATHSession: Session, InternalSession {
     /// See the [YKOATH protocol specification](https://developers.yubico.com/OATH/) for further details.
     /// - Parameter accessKey: The shared access key.
     public func unlockWithAccessKey(_ accessKey: Data) async throws {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)")
         guard let connection = _connection, let responseChallenge = self.selectResponse?.challenge else { throw SessionError.noConnection }
         let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
         let challenge = Data.random(length: 8)
@@ -373,6 +372,7 @@ public final actor OATHSession: Session, InternalSession {
     
     /// Removes the access key, if one is set.
     public func deleteAccessKey() async throws {
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         let tlv = TKBERTLVRecord(tag: tagSetCodeKey, value: Data())
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: tlv.data)
         guard let connection = _connection else { throw SessionError.noConnection }
@@ -380,7 +380,7 @@ public final actor OATHSession: Session, InternalSession {
     }
     
     deinit {
-        Logger.oath.debug(#function)
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
     }
 }
 

@@ -24,7 +24,7 @@ public final actor SmartCardConnection: Connection, InternalConnection {
     private static let manager = SmartCardManager()
     
     public static func connection() async throws -> Connection {
-        Logger.smartCard.debug(#function)
+        Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await manager.connection()
     }
     
@@ -33,6 +33,7 @@ public final actor SmartCardConnection: Connection, InternalConnection {
         return _session
     }
     func setSession(_ session: Session?) async {
+        Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: session))")
         _session =  session
     }
 
@@ -45,10 +46,11 @@ public final actor SmartCardConnection: Connection, InternalConnection {
     fileprivate init(smartCard: TKSmartCard, closingHandler handler: @escaping () -> Void) {
         self.smartCard = smartCard
         self.closingHandler = handler
+        Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function)")
     }
     
     public func close(error: Error?) async {
-        Logger.smartCard.debug(#function)
+        Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function)")
         closingHandler?()
         closingContinuations.forEach { continuation in
             continuation.resume(returning: error)
@@ -58,6 +60,7 @@ public final actor SmartCardConnection: Connection, InternalConnection {
     }
     
     fileprivate func closedByManager(error: Error?) {
+        Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function)")
         closingContinuations.forEach { continuation in
             continuation.resume(returning: error)
         }
@@ -82,7 +85,7 @@ public final actor SmartCardConnection: Connection, InternalConnection {
     }
     
     deinit {
-        Logger.smartCard.debug(#function)
+        Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function)")
     }
 }
 
@@ -96,7 +99,7 @@ fileprivate actor SmartCardManager {
     func connection() async throws -> SmartCardConnection {
         let task = Task { [connectionTask] in
             if let connectionTask {
-                Logger.smartCard.debug("A call to connection() is already awaiting a connection, cancel it before proceeding.")
+                Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function): a function call is already awaiting a connection, cancel it before proceeding.")
                 connectionTask.cancel()
             }
             return try await self._connection()
@@ -107,12 +110,13 @@ fileprivate actor SmartCardManager {
         } onCancel: {
             task.cancel()
         }
-        Logger.smartCard.debug("returned: \(String(describing: value))")
+        Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function): returned: \(String(describing: value))")
         return value
     }
     
     // Only allow one connect() at a time
     private func _connection() async throws -> SmartCardConnection {
+        Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function)")
         
         if let currentConnection {
             await currentConnection.close(error: nil)
@@ -126,6 +130,7 @@ fileprivate actor SmartCardManager {
                     return
                 }
                 smartCardWrapper.connection { result in
+                    Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: result))")
                     switch result {
                     case .success(let smartCard):
                         let connection = SmartCardConnection(smartCard: smartCard, closingHandler: { [weak self] in
@@ -144,13 +149,16 @@ fileprivate actor SmartCardManager {
                 }
             }
         } onCancel: {
+            Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function): cancelled, call smartCardWrapper.stop()")
             smartCardWrapper.stop()
         }
     }
     
     func didDisconnect() async -> Error? {
         return await withCheckedContinuation { (continuation: CheckedContinuation<Error?, Never>) in // try to remove variable definition in the future
+            Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function): Await `Error?`.")
             smartCardWrapper.connectionDidClose { error in
+                Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function): connectionDidClose with: \(error)")
                 continuation.resume(returning: error)
             }
         }
@@ -176,6 +184,7 @@ fileprivate class TKSmartCardWrapper {
     
     internal func connection(completion handler: @escaping (Result<TKSmartCard, Error>) -> Void) {
         queue.async {
+            Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function)")
             // Signal closure and cancel previous connection handlers
             // Swap out old handlers to the new ones
             self.closingHandler?(ConnectionError.closed)
@@ -206,6 +215,7 @@ fileprivate class TKSmartCardWrapper {
     
     internal func connectionDidClose(completion handler: @escaping (Error?) -> Void) {
         queue.async {
+            Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function)")
             assert(self.closingHandler == nil, "Closing completion already registered.")
             self.closingHandler = handler
         }
@@ -213,6 +223,7 @@ fileprivate class TKSmartCardWrapper {
     
     private func observeManagerChanges() {
         self.queue.async {
+            Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function)")
             self.state = .monitoring
             self.managerObservation = self.manager?.observe(\.slotNames) { [weak self] manager, value in
                 guard let self else { return }
@@ -256,6 +267,7 @@ fileprivate class TKSmartCardWrapper {
         self.managerObservation = self.manager?.observe(\.slotNames) { [weak self] manager, value in
             guard let self else { return }
             self.queue.async {
+                Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function): slot change: \(String(describing: value))")
                 // If slotNames is empty the TKSmartCard did disconnect
                 if manager.slotNames.isEmpty {
                     self.closingHandler?(nil) // should we signal an error?
@@ -271,7 +283,7 @@ fileprivate class TKSmartCardWrapper {
         queue.async {
             guard self.state != .initatingSession else { return }
             self.state = .initatingSession
-            Logger.smartCard.debug("TKSmartCardWrapper, initiatingSession for slot: \(slot)")
+            Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function) withSlot: \(String(describing: slot))")
             if let smartCard = slot.makeSmartCard() {
                 smartCard.beginSession { [weak self] success, error in
                     self?.queue.async {
@@ -298,6 +310,7 @@ fileprivate class TKSmartCardWrapper {
     // Stop monitoring and return to ready state and if connected end the TKSmartCard session.
     internal func stop() {
         queue.async {
+            Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function)")
             switch self.state {
             case .ready:
                 break;

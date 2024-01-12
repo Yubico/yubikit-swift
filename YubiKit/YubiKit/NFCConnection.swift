@@ -51,28 +51,28 @@ public final actor NFCConnection: Connection, InternalConnection {
     }
     
     public static func connection() async throws -> Connection {
-        Logger.nfc.debug(#function)
+        Logger.nfc.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await manager.connection(alertMessage: nil)
     }
     
     /// The same function as ``connection()`` but with the option to set a message that will be displayed to the
     /// user in the iOS NFC alert.'
     public static func connection(alertMessage message: String?) async throws -> Connection {
-        Logger.nfc.debug(#function)
+        Logger.nfc.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: message))")
         return try await manager.connection(alertMessage: message)
     }
     
     /// Before creating a new NFCConnection you can supply a string that will be displayed to the user in the iOS NFC alert. Use this
     /// to inform the user what the purpose of scanning the YubiKey is. For example: "Scan YubiKey to calculate OATH accounts.".
     public nonisolated func setAlertMessage(_ message: String) {
-        Logger.nfc.debug(#function)
+        Logger.nfc.debug("\(String(describing: self).lastComponent), \(#function): \(message)")
         Task {
             await tagReaderSession?.session.alertMessage = message
         }
     }
     
     public func close(error: Error?) async {
-        Logger.nfc.debug(#function)
+        Logger.nfc.debug("\(String(describing: self).lastComponent), \(#function)")
         if let error {
             await close(result: .failure(error))
         } else {
@@ -83,7 +83,7 @@ public final actor NFCConnection: Connection, InternalConnection {
     /// NFCConnection can be closed with an optional message in addition to the ``Connection/close(error:)`` method defined in the Connection protocol.
     /// The message will be displayed on the iOS NFC alert when it dismisses.
     public func close(message: String?) async {
-        Logger.nfc.debug(#function)
+        Logger.nfc.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: message))")
         if let message {
             await close(result: .success(message))
         } else {
@@ -108,6 +108,7 @@ public final actor NFCConnection: Connection, InternalConnection {
     }
     
     private func close(result: Result<String, Error>?) async {
+        Logger.nfc.debug("\(String(describing: self).lastComponent), \(#function)")
         closingHandler?(result)
         tagReaderSession = nil
         // Workaround for the NFC session being active for an additional 4 seconds after
@@ -120,7 +121,7 @@ public final actor NFCConnection: Connection, InternalConnection {
     }
     
     deinit {
-        Logger.nfc.debug("deinit")
+        Logger.nfc.debug("\(String(describing: self).lastComponent), \(#function)")
     }
 }
 
@@ -138,7 +139,7 @@ fileprivate actor NFCConnectionManager {
     func connection(alertMessage message: String?) async throws -> NFCConnection {
         let task = Task { [connectionTask] in
             if let connectionTask {
-                Logger.smartCard.debug("A call to connection() is already awaiting a connection, cancel it before proceeding.")
+                Logger.nfc.debug("\(String(describing: self).lastComponent), \(#function): a function call is already awaiting a connection, cancel it before proceeding.")
                 connectionTask.cancel()
             }
             return try await self._connection(alertMessage: message)
@@ -149,7 +150,7 @@ fileprivate actor NFCConnectionManager {
         } onCancel: {
             task.cancel()
         }
-        Logger.nfc.debug("returned: \(String(describing: value))")
+        Logger.nfc.debug("\(String(describing: self).lastComponent), \(#function): returned: \(String(describing: value))")
         return value
     }
     

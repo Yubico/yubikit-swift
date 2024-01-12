@@ -16,4 +16,5 @@ import Foundation
 
 extension String: Error, LocalizedError {
     public var errorDescription: String? { self }
+    internal var lastComponent: String { self.components(separatedBy: ".").last ?? self }
 }

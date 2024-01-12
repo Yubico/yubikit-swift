@@ -29,6 +29,7 @@ public final actor LightningConnection: Connection, InternalConnection {
         return _session
     }
     func setSession(_ session: Session?) async {
+        Logger.lightning.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: session))")
         _session =  session
     }
 
@@ -42,16 +43,17 @@ public final actor LightningConnection: Connection, InternalConnection {
     fileprivate init(connection: AccessoryConnection, closingHandler handler: @escaping () -> Void) {
         self.accessoryConnection = connection
         self.closingHandler = handler
+        Logger.lightning.debug("\(String(describing: self).lastComponent), \(#function)")
     }
 
     // Starts lightning and wait for a connection
     public static func connection() async throws -> Connection {
-        Logger.lightning.debug(#function)
+        Logger.lightning.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await manager.connection()
     }
     
     public func close(error: Error?) async {
-        Logger.lightning.debug(#function)
+        Logger.lightning.debug("\(String(describing: self).lastComponent), \(#function)")
         closingHandler?()
         closingContinuations.forEach { continuation in
             continuation.resume(returning: error)
@@ -61,6 +63,7 @@ public final actor LightningConnection: Connection, InternalConnection {
     }
     
     fileprivate func closedByManager(error: Error?) {
+        Logger.lightning.debug("\(String(describing: self).lastComponent), \(#function)")
         closingContinuations.forEach { continuation in
             continuation.resume(returning: error)
         }
@@ -81,11 +84,11 @@ public final actor LightningConnection: Connection, InternalConnection {
         guard let accessoryConnection, let outputStream = accessoryConnection.session.outputStream, let inputStream = accessoryConnection.session.inputStream else { throw ConnectionError.noConnection }
         var data = Data([0x00]) // YLP iAP2 Signal
         data.append(apdu.data)
-
         try outputStream.writeToYubiKey(data: data)
         while true {
             try await Task.sleep(for: .seconds(commandProcessingTime))
             let result = try inputStream.readFromYubiKey()
+            Logger.lightning.debug("\(String(describing: self).lastComponent) \(#function): readFromYubiKey: \(result.hexEncodedString)")
             guard result.count >= 2 else { throw ConnectionError.missingResult }
             let status = ResponseStatusCode(data: result.subdata(in: result.count-2..<result.count))
 
@@ -102,7 +105,7 @@ public final actor LightningConnection: Connection, InternalConnection {
     }
     
     deinit {
-        Logger.lightning.debug(#function)
+        Logger.lightning.debug("\(String(describing: self).lastComponent) \(#function)")
     }
 }
 
@@ -113,9 +116,10 @@ fileprivate actor LightningConnectionManager {
     
     var connectionTask: Task<LightningConnection, Error>?
     func connection() async throws -> LightningConnection {
+        Logger.lightning.debug("\(String(describing: self).lastComponent), \(#function)")
         let task = Task { [connectionTask] in
             if let connectionTask {
-                Logger.lightning.debug("A call to connection() is already awaiting a connection, cancel it before proceeding.")
+                Logger.lightning.debug("\(String(describing: self).lastComponent), \(#function): a function call is already awaiting a connection, cancel it before proceeding.")
                 connectionTask.cancel()
             }
             return try await self._connection()
@@ -126,12 +130,12 @@ fileprivate actor LightningConnectionManager {
         } onCancel: {
             task.cancel()
         }
-        Logger.lightning.debug("returned: \(String(describing: value))")
+        Logger.lightning.debug("\(String(describing: self).lastComponent), \(#function): returned: \(String(describing: value))")
         return value
     }
     
     private func _connection() async throws -> LightningConnection {
-        
+        Logger.lightning.debug("\(String(describing: self).lastComponent), \(#function)")
         if let currentConnection {
             await currentConnection.close(error: nil)
             self.currentConnection = nil
@@ -218,6 +222,7 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
     private var closingHandler: ((Error?) -> Void)?
     
     internal func connection(completion handler: @escaping (Result<AccessoryConnection, Error>) -> Void) {
+        Logger.lightning.debug("EAAccessoryWrapper, \(#function)")
         queue.async {
             // Signal closure and cancel previous connection handlers
             // Swap out old handlers to the new ones
@@ -241,14 +246,14 @@ fileprivate class EAAccessoryWrapper: NSObject, StreamDelegate {
     }
     
     func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
-        Logger.lightning.debug("EAAccessoryWrapper, Got stream event: \(String(describing: eventCode)) on stream: \(aStream)")
+        Logger.lightning.debug("EAAccessoryWrapper, \(#function): Got stream event: \(String(describing: eventCode)) on stream: \(aStream)")
     }
     
     private func connectToKey(with accessory: EAAccessory) -> AccessoryConnection? {
         guard accessory.isYubiKey else { return nil }
         guard let session = EASession(accessory: accessory, forProtocol: "com.yubico.ylp") else { return nil }
         let connection = AccessoryConnection(accessory: accessory, session: session)
-        Logger.lightning.debug("EAAccessoryWrapper, connected to: \(session)")
+        Logger.lightning.debug("EAAccessoryWrapper, \(#function), connected to: \(session)")
         connection.open()
         connection.session.outputStream!.delegate = self
         connection.session.inputStream!.delegate = self

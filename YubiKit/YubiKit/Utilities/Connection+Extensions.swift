@@ -35,12 +35,12 @@ enum Application {
 extension Connection {
     
     public func send(apdu: APDU) async throws -> Data {
-        Logger.connection.debug("send(): \(apdu)")
+        Logger.connection.debug("Connection+Extension, \(#function): \(apdu)")
         return try await sendRecursive(apdu: apdu)
     }
     
     func selectApplication(_ application: Application) async throws -> Data {
-        Logger.connection.debug("selectApplication(\(String(describing: application)))")
+        Logger.connection.debug("Connection+Extension, \(#function): \(String(describing: application))")
         do {
             return try await send(apdu: application.selectApplicationAPDU)
         } catch {
@@ -55,9 +55,7 @@ extension Connection {
     }
     
     private func sendRecursive(apdu: APDU, data: Data = Data(), readMoreData: Bool = false) async throws -> Data {
-        if data.count > 0 {
-            Logger.connection.debug("sendRecursive() accumulated data: \(data))")
-        }
+        Logger.connection.debug("Connection+Extension, \(#function): accumulated data: \(data)")
 
         let response: Response
         
@@ -69,8 +67,6 @@ extension Connection {
         } else {
             ins = 0xc0
         }
-
-        guard let internalConnection = self as? InternalConnection else { fatalError() }
         if readMoreData {
             let apdu =  APDU(cla: 0, ins: ins, p1: 0, p2: 0, command: nil, type: .short)
             response = try await internalConnection.send(apdu: apdu)
@@ -79,7 +75,7 @@ extension Connection {
         }
         
         guard response.statusCode == .ok || response.statusCode == .moreData else {
-            Logger.connection.error("send() failed with statusCode: \(response.statusCode.rawValue.data.hexEncodedString)")
+            Logger.connection.error("Connection+Extension, \(#function): failed with statusCode: \(response.statusCode.rawValue.data.hexEncodedString)")
             throw ResponseError(statusCode: response.statusCode)
         }
         
@@ -87,7 +83,7 @@ extension Connection {
         if response.statusCode == .moreData {
             return try await sendRecursive(apdu: apdu, data: newData, readMoreData: true)
         } else {
-            Logger.connection.debug("send() response: \(newData.hexEncodedString)")
+            Logger.connection.debug("Connection+Extension, \(#function): response: \(newData.hexEncodedString)")
             return newData
         }
     }
