@@ -26,7 +26,7 @@ extension Logger {
     
     static let oath = Logger(subsystem: subsystem, category: "OATH")
     static let management = Logger(subsystem: subsystem, category: "Management")
-    
+    static let piv = Logger(subsystem: subsystem, category: "PIV")
     
     nonisolated static func export() async throws -> String {
         Logger.system.info("Logger, export(): compiling logs.")

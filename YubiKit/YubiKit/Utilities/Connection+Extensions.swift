@@ -19,6 +19,7 @@ import OSLog
 enum Application {
     case oath
     case management
+    case piv
     
     var selectApplicationAPDU: APDU {
         let data: Data
@@ -27,7 +28,10 @@ enum Application {
             data = Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x21, 0x01])
         case .management:
             data = Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17])
+        case .piv:
+            data = Data([0xA0, 0x00, 0x00, 0x03, 0x08])
         }
+        
         return APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: data, type: .short)
     }
 }
@@ -39,6 +43,7 @@ extension Connection {
         return try await sendRecursive(apdu: apdu)
     }
     
+    @discardableResult
     func selectApplication(_ application: Application) async throws -> Data {
         Logger.connection.debug("Connection+Extension, \(#function): \(String(describing: application))")
         do {

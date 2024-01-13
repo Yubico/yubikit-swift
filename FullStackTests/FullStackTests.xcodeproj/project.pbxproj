@@ -20,6 +20,7 @@
 		B4F9375A2B518A8B0007D394 /* AllowedConnections.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937592B518A8B0007D394 /* AllowedConnections.swift */; };
 		B4F9375C2B519C270007D394 /* allowed-yubikeys.csv in Resources */ = {isa = PBXBuildFile; fileRef = B4F9375B2B5199AE0007D394 /* allowed-yubikeys.csv */; };
 		B4F9375F2B519D940007D394 /* Logger+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */; };
+		B4F937642B51A7DD0007D394 /* PIVFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -63,6 +64,7 @@
 		B4F937592B518A8B0007D394 /* AllowedConnections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllowedConnections.swift; sourceTree = SOURCE_ROOT; };
 		B4F9375B2B5199AE0007D394 /* allowed-yubikeys.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "allowed-yubikeys.csv"; sourceTree = "<group>"; };
 		B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Extensions.swift"; sourceTree = "<group>"; };
+		B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVFullStackTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -141,6 +143,7 @@
 				51BBE41D273D1AA400DA47CC /* OATHFullStackTests.swift */,
 				B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */,
 				B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */,
+				B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -270,6 +273,7 @@
 				B481051F2AAB6029006664AE /* ConnectionFullStackTests.swift in Sources */,
 				B4F9375F2B519D940007D394 /* Logger+Extensions.swift in Sources */,
 				51BBE41E273D1AA400DA47CC /* OATHFullStackTests.swift in Sources */,
+				B4F937642B51A7DD0007D394 /* PIVFullStackTests.swift in Sources */,
 				B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
