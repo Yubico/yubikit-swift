@@ -16,9 +16,9 @@ import Foundation
 import CommonCrypto
 import CryptoKit
 
-enum PIVPadding {
+public enum PIVPadding {
     
-    func pad(data: Data, keyType: PIVKeyType, algorithm: SecKeyAlgorithm) async throws -> Data {
+    public static func pad(data: Data, keyType: PIVKeyType, algorithm: SecKeyAlgorithm) throws -> Data {
         if keyType == .RSA1024 || keyType == .RSA2048 {
             let keySize = keyType.size * 8
             let attributes = [kSecAttrKeyType: kSecAttrKeyTypeRSA,
@@ -80,9 +80,9 @@ enum PIVPadding {
             if hash.count == keySize {
                 return hash
             } else if hash.count > keySize {
-                return data.subdata(in: 0..<keySize) // FIXME: verify that this the correct range.
+                return hash.subdata(in: 0..<keySize)
             } else if hash.count < keySize {
-                return data + Data(count: keySize - hash.count) // FIXME: verify that this the correct range.
+                return Data(count: keySize - hash.count) + hash
             }
         } else {
             throw "Unknown key type"

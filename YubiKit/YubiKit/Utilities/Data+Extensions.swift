@@ -62,6 +62,17 @@ extension Data {
         }
     }
     
+    public init?(hexEncodedString: String) {
+        let string = hexEncodedString.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: " ", with: "")
+        guard string.count.isMultiple(of: 2) else { return nil }
+        let chars = string.map { $0 }
+        let bytes = stride(from: 0, to: chars.count, by: 2)
+            .map { String(chars[$0]) + String(chars[$0 + 1]) }
+            .compactMap { UInt8($0, radix: 16) }
+        guard string.count / bytes.count == 2 else { return nil }
+        self.init(bytes)
+    }
+    
     public var hexEncodedString: String {
         return reduce("") {$0 + String(format: "%02x", $1)}
     }
