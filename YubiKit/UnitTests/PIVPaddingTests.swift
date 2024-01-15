@@ -117,4 +117,36 @@ final class PIVPaddingTests: XCTestCase {
             XCTFail("Failed padding data with error: \(error)")
         }
     }
+    
+    func testUnpadRSAEncryptionPKCS1Padded() throws {
+        let data = Data(hexEncodedString: "00022b781255b78f9570844701748107f506effbea5f0822b41dded192938906cefe16eef190d4cf7f7b0866badf94ca0e4e08fda43e4619edec2703987a56a78aa4c2d36a8f89c43f1f9c0ab681e45a759744ef946d65d95e74536b28b83cdc1c62e36c014c8b4a50c178a54306ce7395240e0048656c6c6f20576f726c6421")!
+        do {
+            let result = try PIVPadding.unpadRSAData(data, algorithm: .rsaEncryptionPKCS1)
+            let expected = "Hello World!".data(using: .utf8)!
+            XCTAssertEqual(result, expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
+        } catch {
+            XCTFail("Failed padding data with error: \(error)")
+        }
+    }
+    
+    func testUnpadRSAEncryptionOAEPSHA224() throws {
+        let data = Data(hexEncodedString: "00bcbb35b6ef5c94a85fb3439a6dabda617a08963cf81023bac19c619b024cb71b8aee25cc30991279c908198ba623fba88547741dbf17a6f2a737ec95542b56b2b429bea8bd3145af7c8f144dcf804b89d3f9de21d6d6dc852fc91c666b8582bf348e1388ac2f54651ae6a1f5355c8d96daf96c922a9f1a499d890412d09454")!
+        do {
+            let result = try PIVPadding.unpadRSAData(data, algorithm: .rsaEncryptionOAEPSHA224)
+            let expected = "Hello World!".data(using: .utf8)!
+            XCTAssertEqual(result, expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
+        } catch {
+            XCTFail("Failed padding data with error: \(error)")
+        }
+    }
+    
+    func testUnpadMalformedData() throws {
+        let data = Data(hexEncodedString: "00bcbb35b6ef5c94a85fb3439a6dabda617a08963cf81023bac19c619b024cb71b8aee25cc30991279c908198ba623fba88547741dbf17a6f2a737ec95542b56b2b429bea8bd3145af7c8f144dcf804b89d3f9de21d6d6dc852fc91c666b8582bf348e1388ac2f54651ae6a1f5355c8d96daf96c922a9f1a499d890412d09454")!
+        do {
+            let _ = try PIVPadding.unpadRSAData(data, algorithm: .rsaEncryptionPKCS1)
+            XCTFail("unpadRSAData returned although the data had the wrong size.")
+        } catch {
+            XCTAssert(true, "Failed as expeced with: \(error)")
+        }
+    }
 }

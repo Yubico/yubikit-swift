@@ -16,6 +16,10 @@ import Foundation
 import CommonCrypto
 import CryptoKit
 
+public enum PIVPaddingError: Error {
+    case unsupportedAlgorithm, unknownKeyType, unknownPaddingError, wrongInputBufferSize
+}
+
 public enum PIVPadding {
     
     public static func pad(data: Data, keyType: PIVKeyType, algorithm: SecKeyAlgorithm) throws -> Data {
@@ -27,13 +31,14 @@ public enum PIVPadding {
             guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
                   let publicKey = SecKeyCopyPublicKey(privateKey)
             else {
-                throw error as? Error ?? "Failed casting CFError to Error"
+                throw error!.takeRetainedValue() as Error
             }
             guard let signedData = SecKeyCreateSignature(privateKey, algorithm, data as CFData, &error) else {
-                throw error as? Error ?? "Failed casting CFError to Error"
+                throw error!.takeRetainedValue() as Error
+
             }
-            guard let encryptedData = SecKeyCreateEncryptedData(publicKey, SecKeyAlgorithm.rsaEncryptionRaw, signedData, &error) else {
-                throw error as? Error ?? "Failed casting CFError to Error"
+            guard let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionRaw, signedData, &error) else {
+                throw error!.takeRetainedValue() as Error
             }
             return encryptedData as Data
         } else if keyType == .ECCP256 || keyType == .ECCP384 {
@@ -74,7 +79,7 @@ public enum PIVPadding {
                 SecKeyAlgorithm.ecdsaSignatureDigestX962SHA512:
                 hash = data
             default:
-                throw "Unsupported algorithm"
+                throw PIVPaddingError.unsupportedAlgorithm
             }
             let keySize = Int(keyType.size)
             if hash.count == keySize {
@@ -85,8 +90,35 @@ public enum PIVPadding {
                 return Data(count: keySize - hash.count) + hash
             }
         } else {
-            throw "Unknown key type"
+            throw PIVPaddingError.unknownKeyType
         }
-        throw "Failed to pad message"
+        throw PIVPaddingError.unknownPaddingError
+    }
+    
+    public static func unpadRSAData(_ data: Data, algorithm: SecKeyAlgorithm) throws -> Data {
+        let size: UInt
+        switch data.count {
+        case 1024 / 8:
+            size = 1024
+        case 2048 / 8:
+            size = 2048
+        default:
+            throw PIVPaddingError.wrongInputBufferSize
+        }
+        let attributes = [kSecAttrKeyType: kSecAttrKeyTypeRSA,
+                    kSecAttrKeySizeInBits: size] as [CFString : Any]
+        var error: Unmanaged<CFError>?
+        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
+              let publicKey = SecKeyCopyPublicKey(privateKey)
+        else {
+            throw error!.takeRetainedValue() as Error
+        }
+        guard let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionRaw, data as CFData, &error) else {
+            throw error!.takeRetainedValue() as Error
+        }
+        guard let decryptedData = SecKeyCreateDecryptedData(privateKey, algorithm, encryptedData, &error) else {
+            throw error!.takeRetainedValue() as Error
+        }
+        return decryptedData as Data
     }
 }
