@@ -40,6 +40,7 @@
 		B4F937622B51A44E0007D394 /* PIVSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937612B51A44E0007D394 /* PIVSession.swift */; };
 		B4F937662B51EBAF0007D394 /* PIVPadding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937652B51EBAF0007D394 /* PIVPadding.swift */; };
 		B4F937682B55105B0007D394 /* PIVPaddingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937672B55105B0007D394 /* PIVPaddingTests.swift */; };
+		B4F9376F2B557E740007D394 /* SecKey+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F9376E2B557E740007D394 /* SecKey+Extensions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -87,6 +88,7 @@
 		B4F937612B51A44E0007D394 /* PIVSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVSession.swift; sourceTree = "<group>"; };
 		B4F937652B51EBAF0007D394 /* PIVPadding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVPadding.swift; sourceTree = "<group>"; };
 		B4F937672B55105B0007D394 /* PIVPaddingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVPaddingTests.swift; sourceTree = "<group>"; };
+		B4F9376E2B557E740007D394 /* SecKey+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SecKey+Extensions.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -200,6 +202,7 @@
 			children = (
 				B4F937612B51A44E0007D394 /* PIVSession.swift */,
 				B4F937652B51EBAF0007D394 /* PIVPadding.swift */,
+				B4F9376E2B557E740007D394 /* SecKey+Extensions.swift */,
 			);
 			path = PIV;
 			sourceTree = "<group>";
@@ -352,6 +355,7 @@
 				B4F937662B51EBAF0007D394 /* PIVPadding.swift in Sources */,
 				B4BE3AB5292E1ECB00CC30CB /* Sequence+Extensions.swift in Sources */,
 				B4F10D4F2AFD39D600F0AFCA /* String+Extensions.swift in Sources */,
+				B4F9376F2B557E740007D394 /* SecKey+Extensions.swift in Sources */,
 				B41B61862743FC4E004C37BF /* Session.swift in Sources */,
 				B40BCB7B2940F1C5009F39BD /* Response.swift in Sources */,
 				B405283729894E7600FC33AB /* DeviceConfig.swift in Sources */,

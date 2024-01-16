@@ -29,3 +29,9 @@ extension Sequence where Element == TKTLVRecord {
         }
     }
 }
+
+extension Sequence where Element == TKTLVRecord {
+    func recordWithTag(_ tag: TKTLVTag) -> TKTLVRecord? {
+        return self.first(where: { $0.tag == tag })
+    }
+}

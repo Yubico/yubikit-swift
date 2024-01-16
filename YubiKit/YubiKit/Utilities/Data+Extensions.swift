@@ -80,6 +80,16 @@ extension Data {
     static func random(length: Int) -> Data {
         return Data((0..<length).map { _ in UInt8.random(in: 0...UInt8.max) })
     }
+    
+    func padOrTrim(to length: Int) -> Data {
+        if self.count == length {
+            return self
+        } else if self.count > length {
+            return self.subdata(in: self.count - length ..< self.count)
+        } else {
+            return Data(count: length - self.count) + self
+        }
+    }
 }
 
 

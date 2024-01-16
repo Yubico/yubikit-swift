@@ -162,7 +162,7 @@ public final actor OATHSession: Session, InternalSession {
         try await connection.send(apdu: apdu)
     }
     
-    /// List credentials on YubiKe
+    /// List credentials on YubiKey
     ///
     /// >Note: The requires touch property of Credential will always be set to false when using `listCredentials()`. If you need this property use ``calculateCodes(timestamp:)`` instead.
     /// - Returns: An array of Credentials.

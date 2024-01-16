@@ -22,7 +22,7 @@ public enum PIVPaddingError: Error {
 
 public enum PIVPadding {
     
-    public static func pad(data: Data, keyType: PIVKeyType, algorithm: SecKeyAlgorithm) throws -> Data {
+    public static func padData(_ data: Data, keyType: PIVKeyType, algorithm: SecKeyAlgorithm) throws -> Data {
         if keyType == .RSA1024 || keyType == .RSA2048 {
             let keySize = keyType.size * 8
             let attributes = [kSecAttrKeyType: kSecAttrKeyTypeRSA,
