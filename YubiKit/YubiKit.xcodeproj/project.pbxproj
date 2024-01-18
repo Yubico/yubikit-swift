@@ -41,6 +41,8 @@
 		B4F937662B51EBAF0007D394 /* PIVPadding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937652B51EBAF0007D394 /* PIVPadding.swift */; };
 		B4F937682B55105B0007D394 /* PIVPaddingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937672B55105B0007D394 /* PIVPaddingTests.swift */; };
 		B4F9376F2B557E740007D394 /* SecKey+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F9376E2B557E740007D394 /* SecKey+Extensions.swift */; };
+		B4F937752B57E3830007D394 /* Gzip in Frameworks */ = {isa = PBXBuildFile; productRef = B4F937742B57E3830007D394 /* Gzip */; };
+		B4F937782B593A6B0007D394 /* EncryptDecryptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937762B5939960007D394 /* EncryptDecryptTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -89,6 +91,7 @@
 		B4F937652B51EBAF0007D394 /* PIVPadding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVPadding.swift; sourceTree = "<group>"; };
 		B4F937672B55105B0007D394 /* PIVPaddingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVPaddingTests.swift; sourceTree = "<group>"; };
 		B4F9376E2B557E740007D394 /* SecKey+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SecKey+Extensions.swift"; sourceTree = "<group>"; };
+		B4F937762B5939960007D394 /* EncryptDecryptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptDecryptTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -96,6 +99,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B4F937752B57E3830007D394 /* Gzip in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -155,6 +159,7 @@
 			children = (
 				B4235A4C2976E18000BCD126 /* OATHCredentialTemplateUnitTests.swift */,
 				B4F937672B55105B0007D394 /* PIVPaddingTests.swift */,
+				B4F937762B5939960007D394 /* EncryptDecryptTests.swift */,
 			);
 			path = UnitTests;
 			sourceTree = "<group>";
@@ -236,6 +241,9 @@
 			dependencies = (
 			);
 			name = YubiKit;
+			packageProductDependencies = (
+				B4F937742B57E3830007D394 /* Gzip */,
+			);
 			productName = YubiKit;
 			productReference = 51BBE3E6273D1A3800DA47CC /* YubiKit.framework */;
 			productType = "com.apple.product-type.framework";
@@ -285,6 +293,9 @@
 				Base,
 			);
 			mainGroup = 51BBE3DC273D1A3800DA47CC;
+			packageReferences = (
+				B4F937732B57E3830007D394 /* XCRemoteSwiftPackageReference "GzipSwift" */,
+			);
 			productRefGroup = 51BBE3E7273D1A3800DA47CC /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -377,6 +388,7 @@
 			files = (
 				B4235A4D2976E18000BCD126 /* OATHCredentialTemplateUnitTests.swift in Sources */,
 				B4F937682B55105B0007D394 /* PIVPaddingTests.swift in Sources */,
+				B4F937782B593A6B0007D394 /* EncryptDecryptTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -654,6 +666,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B4F937732B57E3830007D394 /* XCRemoteSwiftPackageReference "GzipSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/1024jp/GzipSwift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.0.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B4F937742B57E3830007D394 /* Gzip */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B4F937732B57E3830007D394 /* XCRemoteSwiftPackageReference "GzipSwift" */;
+			productName = Gzip;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 51BBE3DD273D1A3800DA47CC /* Project object */;
 }

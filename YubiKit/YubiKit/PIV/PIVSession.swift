@@ -17,6 +17,7 @@ import CryptoKit
 import CryptoTokenKit
 import CommonCrypto
 import OSLog
+import Gzip
 
 /// Touch policy for PIV application.
 public enum PIVTouchPolicy: UInt8 {
@@ -40,6 +41,21 @@ public enum PIVSlot: UInt8 {
     case keyManagement = 0x9d
     case cardAuth = 0x9e
     case attestation = 0xf9
+    
+    var objectId: Data {
+        switch self {
+        case .authentication:
+            return Data([0x5f, 0xc1, 0x05])
+        case .signature:
+            return Data([0x5f, 0xc1, 0x0a])
+        case .keyManagement:
+            return Data([0x5f, 0xc1, 0x0b])
+        case .cardAuth:
+            return Data([0x5f, 0xc1, 0x01])
+        case .attestation:
+            return Data([0x5f, 0xff, 0x01])
+        }
+    }
 }
 
 public enum PIVKeyType: UInt8 {
@@ -106,8 +122,48 @@ public enum PIVSessionError: Error {
     case invalidResponse
     case authenticationFailed
     case responseDataNotTLVFormatted
-};
+    case failedCreatingCertificate
+    case badKeyLength
+}
 
+public enum PIVManagementKeyType: UInt8 {
+    case tripleDES = 0x03
+    case AES128 = 0x08
+    case AES192 = 0x0a
+    case AES256 = 0x0c
+    
+    var keyLength: Int {
+        switch self {
+        case .tripleDES, .AES192:
+            return 24
+        case .AES128:
+            return 16
+        case .AES256:
+            return 32
+        }
+    }
+    
+    var challengeLength: Int {
+        switch self {
+        case .tripleDES:
+            return 8
+        case .AES128, .AES192, .AES256:
+            return 16
+        }
+    }
+    
+    var ccAlgorithm: UInt32 {
+        switch self {
+        case .tripleDES:
+            return UInt32(kCCAlgorithm3DES)
+        case .AES128, .AES192, .AES256:
+            return UInt32(kCCAlgorithmAES)
+        }
+    }
+}
+
+// Special slot for the management key
+fileprivate let tagSlotCardManagement: TKTLVTag = 0x9b;
 
 // Instructions
 fileprivate let insAuthenticate: UInt8 = 0x87
@@ -313,5 +369,94 @@ public final actor PIVSession: Session, InternalSession {
         _ = try await connection.send(apdu: apdu)
         return keyType
     }
+    
+    public func putCertificate(certificate: SecCertificate, inSlot slot:PIVSlot, compress: Bool) async throws {
+        var certData = SecCertificateCopyData(certificate)
+        if compress {
+           certData = try (certData as NSData).compressed(using: .zlib)
+        }
+        var data = Data()
+        data.append(TKBERTLVRecord(tag: tagCertificate, value: certData as Data).data)
+        let isCompressed = compress ? 1 : 0
+        data.append(TKBERTLVRecord(tag: tagCertificateInfo, value: isCompressed.data).data)
+        data.append(TKBERTLVRecord(tag: tagLRC, value: Data()).data)
+        _ = try await self.putObject(data, objectId: slot.objectId)
+        
+    }
+    
+    private func putObject(_ data: Data, objectId: Data) async throws {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        var data = Data()
+        data.append(TKBERTLVRecord(tag: tagObjectId, value: objectId).data)
+        data.append(TKBERTLVRecord(tag: tagObjectData, value: data).data)
+        let apdu = APDU(cla: 0, ins: insPutData, p1: 0x3f, p2: 0xff, command: data, type: .extended)
+        _ = try await connection.send(apdu: apdu)
+    }
+    
+    public func getCertificateInSlot(_ slot: PIVSlot) async throws -> SecCertificate {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        let command = TKBERTLVRecord(tag: tagObjectId, value: slot.objectId).data
+        let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command)
+        let result = try await connection.send(apdu: apdu)
+        guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
+              let objectData = records.recordWithTag(tagObjectData)?.value,
+              let subRecords = TKBERTLVRecord.sequenceOfRecords(from: objectData),
+              var certificateData = subRecords.recordWithTag(tagCertificate)?.data
+        else { throw PIVSessionError.dataParseError }
 
+        if let certificateInfo = subRecords.recordWithTag(tagCertificateInfo)?.data,
+           !certificateInfo.isEmpty,
+           certificateInfo.bytes[0] == 1 {
+            certificateData = try certificateData.gunzipped()
+        }
+        guard let certificate = SecCertificateCreateWithData(nil, certificateData as CFData) else { throw PIVSessionError.failedCreatingCertificate }
+        return certificate
+    }
+    
+    public func deleteCertificateInSlot(slot: PIVSlot) async throws {
+        _ = try await putObject(Data(), objectId: slot.objectId)
+    }
+    
+    public func setManagementKey(_ managementKeyData: Data, type: PIVManagementKeyType, requiresTouch: Bool) async throws -> Data {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        let tlv = TKBERTLVRecord(tag: tagSlotCardManagement, value: managementKeyData)
+        var data = Data([type.rawValue])
+        data.append(tlv.data)
+        let apdu = APDU(cla: 0, ins: insSetManagementKey, p1: 0xff, p2: requiresTouch ? 0xfe : 0xff, command: data, type: .short)
+        return try await connection.send(apdu: apdu)
+    }
+
+    public func authenticateWith(managementKey: Data, keyType: PIVManagementKeyType) async throws {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        guard keyType.keyLength == managementKey.count else { throw PIVSessionError.badKeyLength }
+        
+        let witness = TKBERTLVRecord(tag: tagAuthWitness, value: Data()).data
+        let command = TKBERTLVRecord(tag: tagDynAuth, value: witness).data
+        let witnessApdu = APDU(cla: 0, ins: insAuthenticate, p1: keyType.rawValue, p2: UInt8(tagSlotCardManagement), command: command, type: .extended)
+        let witnessResult = try await connection.send(apdu: witnessApdu)
+        
+        guard let dynAuthRecord = TKBERTLVRecord(from: witnessResult),
+              dynAuthRecord.tag == tagDynAuth,
+              let witnessRecord = TKBERTLVRecord(from: dynAuthRecord.value),
+              witnessRecord.tag == tagAuthWitness
+        else { throw PIVSessionError.responseDataNotTLVFormatted }
+        let decryptedWitness = try witnessRecord.data.decrypt(algorithm: keyType.ccAlgorithm, key: managementKey)
+        let decryptedWitnessRecord = TKBERTLVRecord(tag: tagAuthWitness, value: decryptedWitness)
+        let challengeSent = Data.random(length: keyType.challengeLength)
+        let challengeRecord = TKBERTLVRecord(tag: tagChallenge, value: challengeSent)
+        var data = Data()
+        data.append(witnessRecord.data)
+        data.append(challengeRecord.data)
+        let authRecord = TKBERTLVRecord(tag: tagDynAuth, value: data)
+        let challengeApdu = APDU(cla: 0, ins: insAuthenticate, p1: keyType.rawValue, p2: UInt8(tagSlotCardManagement), command: authRecord.data, type: .extended)
+        let challengeResult = try await connection.send(apdu: challengeApdu)
+        
+        guard let dynAuthRecord = TKBERTLVRecord(from: challengeResult),
+              dynAuthRecord.tag == tagDynAuth,
+              let encryptedChallengeRecord = TKBERTLVRecord(from: dynAuthRecord.value),
+              encryptedChallengeRecord.tag == tagAuthResponse
+        else { throw PIVSessionError.responseDataNotTLVFormatted }
+        let challengeReturned = try encryptedChallengeRecord.value.decrypt(algorithm: keyType.ccAlgorithm, key: managementKey)
+        guard challengeSent == challengeReturned else { throw PIVSessionError.authenticationFailed }
+    }
 }

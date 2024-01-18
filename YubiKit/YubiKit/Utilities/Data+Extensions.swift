@@ -13,8 +13,54 @@
 // limitations under the License.
 
 import Foundation
+import CommonCrypto
+
+enum PIVEncryptionError: Error {
+    case cryptorError(CCCryptorStatus)
+    case missingData
+    case unsupportedAlgorithm
+}
 
 extension Data {
+    
+    public func encrypt(algorithm: CCAlgorithm, key: Data) throws -> Data {
+        try cryptOperation(UInt32(kCCEncrypt), algorithm: algorithm, key: key)
+    }
+    
+    public func decrypt(algorithm: CCAlgorithm, key: Data) throws -> Data {
+        try cryptOperation(UInt32(kCCDecrypt), algorithm: algorithm, key: key)
+    }
+    
+    private func cryptOperation(_ operation: CCOperation, algorithm: CCAlgorithm, key: Data) throws -> Data {
+        guard !key.isEmpty else { throw PIVEncryptionError.missingData }
+        
+        let blockSize: Int
+        switch Int(algorithm) {
+        case kCCAlgorithm3DES:
+            blockSize = kCCBlockSize3DES
+        case kCCAlgorithmAES:
+            blockSize = kCCBlockSizeAES128
+        default:
+            throw PIVEncryptionError.unsupportedAlgorithm
+        }
+        
+        var outLength: Int = 0
+        let bufferLength = self.count + blockSize
+        var buffer = Data(count: bufferLength)
+
+        let cryptorStatus: CCCryptorStatus = buffer.withUnsafeMutableBytes { buffer in
+            self.withUnsafeBytes { dataBytes in
+                key.withUnsafeBytes { keyBytes in
+                    var ccRef: CCCryptorRef?
+                    CCCryptorCreate(operation, algorithm, CCOptions(kCCOptionECBMode), keyBytes.baseAddress, key.count, nil, &ccRef)
+                    return CCCryptorUpdate(ccRef, dataBytes.baseAddress, self.count, buffer.baseAddress, bufferLength, &outLength)
+                }
+            }
+        }
+        
+        guard cryptorStatus == kCCSuccess else { throw PIVEncryptionError.cryptorError(cryptorStatus) }
+        return buffer.subdata(in: 0..<outLength)
+    }
     
     var bytes: [UInt8] {
         [UInt8](self)
