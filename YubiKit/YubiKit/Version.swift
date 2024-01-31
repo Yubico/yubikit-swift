@@ -29,6 +29,18 @@ public struct Version: Comparable, CustomStringConvertible {
         micro = bytes[2]
     }
     
+    internal init?(withString string: String) {
+        let components = string.components(separatedBy: ".")
+        guard components.count == 3,
+              let major = UInt8(components[0]),
+              let minor = UInt8(components[1]),
+              let micro = UInt8(components[2])
+        else { return nil }
+        self.major = major
+        self.minor = minor
+        self.micro = micro
+    }
+    
     public static func < (lhs: Version, rhs: Version) -> Bool {
         if lhs.major != rhs.major {
             return lhs.major < rhs.major

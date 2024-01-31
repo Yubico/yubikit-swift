@@ -362,7 +362,7 @@ public final actor OATHSession: Session, InternalSession {
             let expectedResult = challenge.hmacSha1(usingKey: accessKey)
             guard resultTlv.value == expectedResult else { throw OATHSessionError.unexpectedData }
         } catch {
-            if let reponseError = error as? ResponseError, reponseError.statusCode == .wrongData {
+            if let reponseError = error as? ResponseError, reponseError.responseStatus.status == .incorrectParameters {
                 throw OATHSessionError.wrongPassword
             } else {
                 throw error

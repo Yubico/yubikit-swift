@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 55;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -14,7 +14,7 @@
 		B41B61882743FE18004C37BF /* OATHListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61872743FE18004C37BF /* OATHListModel.swift */; };
 		B456E217274E750D004471DE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E216274E750D004471DE /* SettingsView.swift */; };
 		B456E219274FC967004471DE /* SettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E218274FC967004471DE /* SettingsModel.swift */; };
-		B4C083712B4ECBAB00368197 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = B4C083702B4ECBAB00368197 /* YubiKit */; };
+		B4F937582B5150D60007D394 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = B4F937572B5150D60007D394 /* YubiKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B4C083712B4ECBAB00368197 /* YubiKit in Frameworks */,
+				B4F937582B5150D60007D394 /* YubiKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -111,7 +111,7 @@
 			);
 			name = OATHSample;
 			packageProductDependencies = (
-				B4C083702B4ECBAB00368197 /* YubiKit */,
+				B4F937572B5150D60007D394 /* YubiKit */,
 			);
 			productName = OATHSample;
 			productReference = 51A1AC0A273D537500F999A4 /* OATHSample.app */;
@@ -142,7 +142,7 @@
 			);
 			mainGroup = 51A1AC01273D537500F999A4;
 			packageReferences = (
-				B4C0836F2B4ECBAB00368197 /* XCRemoteSwiftPackageReference "yubikit-swift" */,
+				B4F937562B5150D60007D394 /* XCLocalSwiftPackageReference "../.." */,
 			);
 			productRefGroup = 51A1AC0B273D537500F999A4 /* Products */;
 			projectDirPath = "";
@@ -394,21 +394,16 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		B4C0836F2B4ECBAB00368197 /* XCRemoteSwiftPackageReference "yubikit-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Yubico/yubikit-swift/";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		B4F937562B5150D60007D394 /* XCLocalSwiftPackageReference "../.." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../..;
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		B4C083702B4ECBAB00368197 /* YubiKit */ = {
+		B4F937572B5150D60007D394 /* YubiKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = B4C0836F2B4ECBAB00368197 /* XCRemoteSwiftPackageReference "yubikit-swift" */;
 			productName = YubiKit;
 		};
 /* End XCSwiftPackageProductDependency section */

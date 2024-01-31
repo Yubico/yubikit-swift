@@ -112,6 +112,12 @@ public enum PIVKeyType: UInt8 {
     }
 }
 
+public enum PIVVerifyPinResult {
+    case success(Int)
+    case fail(Int)
+    case pinLocked
+}
+
 public enum PIVSessionError: Error {
     case invalidCipherTextLength
     case unsupportedOperation
@@ -124,6 +130,27 @@ public enum PIVSessionError: Error {
     case responseDataNotTLVFormatted
     case failedCreatingCertificate
     case badKeyLength
+    case invalidInput
+}
+
+public struct PIVManagementKeyMetadata {
+    
+    public enum PIVTouchPolicy: UInt8 {
+        case defaultPolicy = 0x0
+        case never = 0x1
+        case always = 0x2
+        case cached = 0x3
+    }
+    
+    public let isDefault: Bool
+    public let keyType: PIVManagementKeyType
+    public let touchPolicy: PIVTouchPolicy
+}
+
+public struct PIVPinPukMetadata {
+    let isDefault: Bool
+    let retriesTotal: Int
+    let retriesRemaining: Int
 }
 
 public enum PIVManagementKeyType: UInt8 {
@@ -162,47 +189,12 @@ public enum PIVManagementKeyType: UInt8 {
     }
 }
 
-// Special slot for the management key
-fileprivate let tagSlotCardManagement: TKTLVTag = 0x9b;
-
-// Instructions
-fileprivate let insAuthenticate: UInt8 = 0x87
-fileprivate let insVerify: UInt8 = 0x20
-fileprivate let insReset: UInt8 = 0xfb
-fileprivate let insGetVersion: UInt8 = 0xfd
-fileprivate let insGetSerial: UInt8 = 0xf8
-fileprivate let insGetMetadata: UInt8 = 0xf7
-fileprivate let insGetData: UInt8 = 0xcb
-fileprivate let insPutData: UInt8 = 0xdb
-fileprivate let insImportKey: UInt8 = 0xfe
-fileprivate let insChangeReference: UInt8 = 0x24
-fileprivate let insResetRetry: UInt8 = 0x2c
-fileprivate let insSetManagementKey: UInt8 = 0xff
-fileprivate let insSetPinPukAttempts: UInt8 = 0xfa
-fileprivate let insGenerateAsymetric: UInt8 = 0x47;
-fileprivate let insAttest: UInt8 = 0xf9;
-
-// Tags
-fileprivate let tagMetadataDefault: TKTLVTag = 0x05
-fileprivate let tagMetadataAlgorithm: TKTLVTag = 0x01
-fileprivate let tagMetadataTouchPolicy: TKTLVTag = 0x02
-fileprivate let tagMetadataRetries: TKTLVTag = 0x06
-fileprivate let tagDynAuth: TKTLVTag = 0x7c
-fileprivate let tagAuthWitness: TKTLVTag = 0x80
-fileprivate let tagChallenge: TKTLVTag = 0x81
-fileprivate let tagExponentiation: TKTLVTag = 0x85
-fileprivate let tagAuthResponse: TKTLVTag = 0x82
-fileprivate let tagGenAlgorithm: TKTLVTag = 0x80
-fileprivate let tagObjectData: TKTLVTag = 0x53
-fileprivate let tagObjectId: TKTLVTag = 0x5c
-fileprivate let tagCertificate: TKTLVTag = 0x70
-fileprivate let tagCertificateInfo: TKTLVTag = 0x71
-fileprivate let tagLRC: TKTLVTag = 0xfe
-fileprivate let tagPinPolicy: TKTLVTag = 0xaa
-fileprivate let tagTouchpolicy: TKTLVTag = 0xab
-
 public final actor PIVSession: Session, InternalSession {
+    
     public var version: Version
+    private var currentPinAttempts = 0
+    private var maxPinAttempts = 3
+    
     private weak var _connection: Connection?
     internal func connection() async -> Connection? {
         return _connection
@@ -256,22 +248,7 @@ public final actor PIVSession: Session, InternalSession {
         let result = try await usePrivateKeyInSlot(slot, keyType: keyType, message: data, exponentiation: false)
         return try PIVPadding.unpadRSAData(result, algorithm: algorithm)
     }
-
     
-    private func usePrivateKeyInSlot(_ slot: PIVSlot, keyType: PIVKeyType, message: Data, exponentiation: Bool) async throws -> Data {
-        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function): slot: \(String(describing: slot)), type: \(String(describing: keyType)), message: \(message.hexEncodedString), exponentiation: \(exponentiation)")
-        guard let connection = _connection else { throw SessionError.noConnection }
-        var recordsData = Data()
-        recordsData.append(TKBERTLVRecord(tag: tagAuthResponse, value: Data()).data)
-        recordsData.append(TKBERTLVRecord(tag: exponentiation ? tagExponentiation : tagChallenge, value: message).data)
-        let command = TKBERTLVRecord(tag: tagDynAuth, value: recordsData).data
-        let apdu = APDU(cla: 0, ins: insAuthenticate, p1: keyType.rawValue, p2: slot.rawValue, command: command)
-        let resultData = try await connection.send(apdu: apdu)
-        guard let result = TKBERTLVRecord.init(from: resultData), result.tag == tagDynAuth else { throw PIVSessionError.responseDataNotTLVFormatted }
-        guard let data = TKBERTLVRecord(from: result.value), data.tag == tagAuthResponse else { throw PIVSessionError.responseDataNotTLVFormatted }
-        return data.value
-    }
-
     public func calculateSecretKeyInSlot(slot: PIVSlot, peerPublicKey: SecKey) async throws -> Data {
         guard let keyType = peerPublicKey.type, keyType != .ECCP256, keyType != .ECCP384 else { throw "unsupported key" }
         var error: Unmanaged<CFError>?
@@ -373,7 +350,7 @@ public final actor PIVSession: Session, InternalSession {
     public func putCertificate(certificate: SecCertificate, inSlot slot:PIVSlot, compress: Bool) async throws {
         var certData = SecCertificateCopyData(certificate)
         if compress {
-           certData = try (certData as NSData).compressed(using: .zlib)
+            certData = try (certData as NSData).compressed(using: .zlib)
         }
         var data = Data()
         data.append(TKBERTLVRecord(tag: tagCertificate, value: certData as Data).data)
@@ -382,15 +359,6 @@ public final actor PIVSession: Session, InternalSession {
         data.append(TKBERTLVRecord(tag: tagLRC, value: Data()).data)
         _ = try await self.putObject(data, objectId: slot.objectId)
         
-    }
-    
-    private func putObject(_ data: Data, objectId: Data) async throws {
-        guard let connection = _connection else { throw SessionError.noConnection }
-        var data = Data()
-        data.append(TKBERTLVRecord(tag: tagObjectId, value: objectId).data)
-        data.append(TKBERTLVRecord(tag: tagObjectData, value: data).data)
-        let apdu = APDU(cla: 0, ins: insPutData, p1: 0x3f, p2: 0xff, command: data, type: .extended)
-        _ = try await connection.send(apdu: apdu)
     }
     
     public func getCertificateInSlot(_ slot: PIVSlot) async throws -> SecCertificate {
@@ -403,7 +371,7 @@ public final actor PIVSession: Session, InternalSession {
               let subRecords = TKBERTLVRecord.sequenceOfRecords(from: objectData),
               var certificateData = subRecords.recordWithTag(tagCertificate)?.data
         else { throw PIVSessionError.dataParseError }
-
+        
         if let certificateInfo = subRecords.recordWithTag(tagCertificateInfo)?.data,
            !certificateInfo.isEmpty,
            certificateInfo.bytes[0] == 1 {
@@ -425,7 +393,7 @@ public final actor PIVSession: Session, InternalSession {
         let apdu = APDU(cla: 0, ins: insSetManagementKey, p1: 0xff, p2: requiresTouch ? 0xfe : 0xff, command: data, type: .short)
         return try await connection.send(apdu: apdu)
     }
-
+    
     public func authenticateWith(managementKey: Data, keyType: PIVManagementKeyType) async throws {
         guard let connection = _connection else { throw SessionError.noConnection }
         guard keyType.keyLength == managementKey.count else { throw PIVSessionError.badKeyLength }
@@ -459,4 +427,285 @@ public final actor PIVSession: Session, InternalSession {
         let challengeReturned = try encryptedChallengeRecord.value.decrypt(algorithm: keyType.ccAlgorithm, key: managementKey)
         guard challengeSent == challengeReturned else { throw PIVSessionError.authenticationFailed }
     }
+    
+    
+    public func reset() async throws {
+        try await blockPin()
+        guard let connection = _connection else { throw SessionError.noConnection }
+        let apdu = APDU(cla: 0, ins: insReset, p1: 0, p2: 0)
+        _ = try await connection.send(apdu: apdu)
+    }
+    
+    public func serialNumber() async throws -> UInt32 {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        let apdu = APDU(cla: 0, ins: insGetSerial, p1: 0, p2: 0)
+        let result = try await connection.send(apdu: apdu)
+        return CFSwapInt32BigToHost(result.uint32)
+    }
+    
+    public func verifyPin(_ pin: String) async throws -> PIVVerifyPinResult {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        guard let pinData = pin.paddedPinData() else { throw PIVSessionError.invalidPin }
+        let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: 0x80, command: pinData)
+        do {
+            _ = try await connection.send(apdu: apdu)
+            currentPinAttempts = maxPinAttempts
+            return .success(currentPinAttempts)
+        } catch {
+            guard let responseError = error as? ResponseError,
+                  let retriesLeft = responseError.responseStatus.pinRetriesLeft(version: self.version)
+            else { throw error }
+            if retriesLeft > 0 {
+                return .fail(retriesLeft)
+            } else {
+                return .pinLocked
+            }
+        }
+    }
+    
+    public func setPin(_ newPin: String, oldPin: String) async throws {
+        return try await _ = changeReference(ins: insChangeReference, p2: p2Pin, valueOne: oldPin, valueTwo: newPin)
+    }
+
+    public func setPuk(_ newPuk: String, oldPuk: String) async throws {
+        return try await _ = changeReference(ins: insChangeReference, p2: p2Puk, valueOne: oldPuk, valueTwo: newPuk)
+    }
+    
+    public func unblockPinWithPuk(_ puk: String, newPin: String) async throws {
+        return try await _ = changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
+    }
+
+
+    
+    public func getPinMetadata() async throws -> PIVPinPukMetadata {
+        try await getPinPukMetadata(p2: p2Pin)
+    }
+    
+    public func getPukMetadata() async throws -> PIVPinPukMetadata {
+        try await getPinPukMetadata(p2: p2Puk)
+    }
+    
+    public func getManagementKeyMetadataWithCompletion() async throws -> PIVManagementKeyMetadata {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2SlotCardmanagement)
+        let result = try await connection.send(apdu: apdu)
+        guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
+              let isDefault = records.recordWithTag(tagMetadataDefault)?.value.bytes[0],
+              let rawTouchPolicy = records.recordWithTag(tagMetadataTouchPolicy)?.value.bytes[1],
+              let touchPolicy = PIVManagementKeyMetadata.PIVTouchPolicy(rawValue: rawTouchPolicy)
+        else { throw PIVSessionError.responseDataNotTLVFormatted }
+        
+        let keyType: PIVManagementKeyType
+        if let rawKeyType = records.recordWithTag(tagMetadataAlgorithm)?.value.bytes[0] {
+            guard let parsedKeyType = PIVManagementKeyType(rawValue: rawKeyType) else { throw PIVSessionError.unknownKeyType }
+            keyType = parsedKeyType
+        } else {
+            keyType = .tripleDES
+        }
+        return PIVManagementKeyMetadata(isDefault: isDefault != 0, keyType: keyType, touchPolicy: touchPolicy)
+    }
+    
+    public func getPinAttempts() async throws -> Int {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: p2Pin)
+        do {
+            _ = try await connection.send(apdu: apdu)
+            return currentPinAttempts
+        } catch {
+            guard let responseError = error as? ResponseError else { throw error }
+            let retries = retriesFrom(responseError: responseError)
+            if retries < 0 {
+                throw error
+            } else {
+                return retries
+            }
+        }
+    }
+    
+    public func setPinAttempts(_ pinAttempts: Int, pukAttempts: Int) async throws {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        guard let pinAttempts = UInt8(exactly: pinAttempts),
+              let pukAttempts = UInt8(exactly: pukAttempts) else { throw PIVSessionError.invalidInput }
+        let apdu = APDU(cla: 0, ins: insSetPinPukAttempts, p1: pinAttempts, p2: pukAttempts)
+        _ = try await connection.send(apdu: apdu)
+        maxPinAttempts = Int(pinAttempts)
+        currentPinAttempts = Int(pinAttempts)
+    }
+    
+    public func blockPin(counter: Int = 0) async throws {
+        let result = try await verifyPin("")
+        switch result {
+        case .success(_), .fail(_):
+            if counter < 15 {
+                try await blockPin(counter: counter + 1)
+            }
+        case .pinLocked:
+            return
+        }
+    }
+    
+    public func blockPuk(counter: Int = 0) async throws {
+        let retries = try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: "", valueTwo: "")
+        if retries <= 0 || counter > 15 {
+            return
+        } else {
+            try await blockPuk(counter: counter + 1)
+        }
+    }
+    
 }
+
+
+
+
+extension PIVSession {
+    
+    private func usePrivateKeyInSlot(_ slot: PIVSlot, keyType: PIVKeyType, message: Data, exponentiation: Bool) async throws -> Data {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function): slot: \(String(describing: slot)), type: \(String(describing: keyType)), message: \(message.hexEncodedString), exponentiation: \(exponentiation)")
+        guard let connection = _connection else { throw SessionError.noConnection }
+        var recordsData = Data()
+        recordsData.append(TKBERTLVRecord(tag: tagAuthResponse, value: Data()).data)
+        recordsData.append(TKBERTLVRecord(tag: exponentiation ? tagExponentiation : tagChallenge, value: message).data)
+        let command = TKBERTLVRecord(tag: tagDynAuth, value: recordsData).data
+        let apdu = APDU(cla: 0, ins: insAuthenticate, p1: keyType.rawValue, p2: slot.rawValue, command: command)
+        let resultData = try await connection.send(apdu: apdu)
+        guard let result = TKBERTLVRecord.init(from: resultData), result.tag == tagDynAuth else { throw PIVSessionError.responseDataNotTLVFormatted }
+        guard let data = TKBERTLVRecord(from: result.value), data.tag == tagAuthResponse else { throw PIVSessionError.responseDataNotTLVFormatted }
+        return data.value
+    }
+    
+    private func putObject(_ data: Data, objectId: Data) async throws {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        var data = Data()
+        data.append(TKBERTLVRecord(tag: tagObjectId, value: objectId).data)
+        data.append(TKBERTLVRecord(tag: tagObjectData, value: data).data)
+        let apdu = APDU(cla: 0, ins: insPutData, p1: 0x3f, p2: 0xff, command: data, type: .extended)
+        _ = try await connection.send(apdu: apdu)
+    }
+    
+    private func changeReference(ins: UInt8, p2: UInt8, valueOne: String, valueTwo: String) async throws -> Int {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        guard let paddedValueOne = valueOne.paddedPinData(), let paddedValueTwo = valueTwo.paddedPinData() else { throw PIVSessionError.invalidPin }
+        let data = paddedValueOne + paddedValueTwo
+        let apdu = APDU(cla: 0, ins: ins, p1: 0, p2: p2, command: data)
+        do {
+            let _ = try await connection.send(apdu: apdu)
+            return currentPinAttempts
+        } catch {
+            guard let responseError = error as? ResponseError else { throw PIVSessionError.invalidResponse }
+            let retries = retriesFrom(responseError: responseError)
+            if retries >= 0 {
+                if p2 == 0x80 {
+                    currentPinAttempts = retries;
+                }
+            }
+            return retries
+        }
+    }
+    
+    private func getPinPukMetadata(p2: UInt8) async throws -> PIVPinPukMetadata {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2)
+        let result = try await connection.send(apdu: apdu)
+        guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
+              let isDefault = records.recordWithTag(tagMetadataDefault)?.value.bytes[0],
+              let retriesTotal = records.recordWithTag(tagMetadataRetries)?.value.bytes[0],
+              let retriesRemaining = records.recordWithTag(tagMetadataRetries)?.value.bytes[1]
+        else { throw PIVSessionError.responseDataNotTLVFormatted }
+        
+        return PIVPinPukMetadata(isDefault: isDefault != 0, retriesTotal: Int(retriesTotal), retriesRemaining: Int(retriesRemaining))
+    }
+    
+    private func retriesFrom(responseError: ResponseError) -> Int {
+        let statusCode = responseError.responseStatus.rawStatus
+        if statusCode == 0x6983 {
+            return 0
+        } else if self.version > Version(withString: "1.0.4")! {
+            if statusCode >= 0x6300 && statusCode <= 0x63ff {
+                return Int(statusCode & 0xff);
+            }
+        } else {
+            if statusCode >= 0x63c0 && statusCode <= 0x63cf {
+                return Int(statusCode & 0xf);
+            }
+        }
+        return -1
+    }
+}
+
+
+
+
+fileprivate extension ResponseStatus {
+    func pinRetriesLeft(version: Version) -> Int? {
+        if (self.rawStatus == 0x6983) {
+            return 0;
+        }
+        if version > Version(withString: "1.0.4")! {
+            if (self.rawStatus >= 0x6300 && self.rawStatus <= 0x63ff) {
+                return Int(self.rawStatus & 0xff);
+            }
+        } else {
+            if (self.rawStatus >= 0x63c0 && self.rawStatus <= 0x63cf) {
+                return Int(self.rawStatus & 0xf);
+            }
+        }
+        return nil
+    }
+}
+
+fileprivate extension String {
+    func paddedPinData() -> Data? {
+        guard var data = self.data(using: .utf8) else { return nil }
+        let paddingSize = 8 - data.count
+        for _ in 0..<paddingSize {
+            data.append(0xff)
+        }
+        return data
+    }
+}
+
+
+// Special slot for the management key
+fileprivate let tagSlotCardManagement: TKTLVTag = 0x9b;
+
+// Instructions
+fileprivate let insAuthenticate: UInt8 = 0x87
+fileprivate let insVerify: UInt8 = 0x20
+fileprivate let insReset: UInt8 = 0xfb
+fileprivate let insGetVersion: UInt8 = 0xfd
+fileprivate let insGetSerial: UInt8 = 0xf8
+fileprivate let insGetMetadata: UInt8 = 0xf7
+fileprivate let insGetData: UInt8 = 0xcb
+fileprivate let insPutData: UInt8 = 0xdb
+fileprivate let insImportKey: UInt8 = 0xfe
+fileprivate let insChangeReference: UInt8 = 0x24
+fileprivate let insResetRetry: UInt8 = 0x2c
+fileprivate let insSetManagementKey: UInt8 = 0xff
+fileprivate let insSetPinPukAttempts: UInt8 = 0xfa
+fileprivate let insGenerateAsymetric: UInt8 = 0x47;
+fileprivate let insAttest: UInt8 = 0xf9;
+
+// Tags
+fileprivate let tagMetadataDefault: TKTLVTag = 0x05
+fileprivate let tagMetadataAlgorithm: TKTLVTag = 0x01
+fileprivate let tagMetadataTouchPolicy: TKTLVTag = 0x02
+fileprivate let tagMetadataRetries: TKTLVTag = 0x06
+fileprivate let tagDynAuth: TKTLVTag = 0x7c
+fileprivate let tagAuthWitness: TKTLVTag = 0x80
+fileprivate let tagChallenge: TKTLVTag = 0x81
+fileprivate let tagExponentiation: TKTLVTag = 0x85
+fileprivate let tagAuthResponse: TKTLVTag = 0x82
+fileprivate let tagGenAlgorithm: TKTLVTag = 0x80
+fileprivate let tagObjectData: TKTLVTag = 0x53
+fileprivate let tagObjectId: TKTLVTag = 0x5c
+fileprivate let tagCertificate: TKTLVTag = 0x70
+fileprivate let tagCertificateInfo: TKTLVTag = 0x71
+fileprivate let tagLRC: TKTLVTag = 0xfe
+fileprivate let tagPinPolicy: TKTLVTag = 0xaa
+fileprivate let tagTouchpolicy: TKTLVTag = 0xab
+
+// P2
+fileprivate let p2Pin: UInt8 = 0x80
+fileprivate let p2Puk: UInt8 = 0x81
+fileprivate let p2SlotCardmanagement: UInt8 = 0x9b

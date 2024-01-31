@@ -35,13 +35,13 @@
 		B4BE3AB5292E1ECB00CC30CB /* Sequence+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AB4292E1ECB00CC30CB /* Sequence+Extensions.swift */; };
 		B4BE3AB7292E207900CC30CB /* Array+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AB6292E207900CC30CB /* Array+Extensions.swift */; };
 		B4BE3ABA292E24C700CC30CB /* Base32.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AB9292E24C700CC30CB /* Base32.swift */; };
+		B4C9C5782B694C3D00388DEB /* Gzip in Frameworks */ = {isa = PBXBuildFile; productRef = B4C9C5772B694C3D00388DEB /* Gzip */; };
 		B4F068B92861CFC300555AFE /* SmartCardConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F068B82861CFC300555AFE /* SmartCardConnection.swift */; };
 		B4F10D4F2AFD39D600F0AFCA /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F10D4E2AFD39D600F0AFCA /* String+Extensions.swift */; };
 		B4F937622B51A44E0007D394 /* PIVSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937612B51A44E0007D394 /* PIVSession.swift */; };
 		B4F937662B51EBAF0007D394 /* PIVPadding.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937652B51EBAF0007D394 /* PIVPadding.swift */; };
 		B4F937682B55105B0007D394 /* PIVPaddingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937672B55105B0007D394 /* PIVPaddingTests.swift */; };
 		B4F9376F2B557E740007D394 /* SecKey+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F9376E2B557E740007D394 /* SecKey+Extensions.swift */; };
-		B4F937752B57E3830007D394 /* Gzip in Frameworks */ = {isa = PBXBuildFile; productRef = B4F937742B57E3830007D394 /* Gzip */; };
 		B4F937782B593A6B0007D394 /* EncryptDecryptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937762B5939960007D394 /* EncryptDecryptTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -99,7 +99,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B4F937752B57E3830007D394 /* Gzip in Frameworks */,
+				B4C9C5782B694C3D00388DEB /* Gzip in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -242,7 +242,7 @@
 			);
 			name = YubiKit;
 			packageProductDependencies = (
-				B4F937742B57E3830007D394 /* Gzip */,
+				B4C9C5772B694C3D00388DEB /* Gzip */,
 			);
 			productName = YubiKit;
 			productReference = 51BBE3E6273D1A3800DA47CC /* YubiKit.framework */;
@@ -294,7 +294,7 @@
 			);
 			mainGroup = 51BBE3DC273D1A3800DA47CC;
 			packageReferences = (
-				B4F937732B57E3830007D394 /* XCRemoteSwiftPackageReference "GzipSwift" */,
+				B4C9C5762B694C3D00388DEB /* XCRemoteSwiftPackageReference "Gzip" */,
 			);
 			productRefGroup = 51BBE3E7273D1A3800DA47CC /* Products */;
 			projectDirPath = "";
@@ -668,20 +668,20 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		B4F937732B57E3830007D394 /* XCRemoteSwiftPackageReference "GzipSwift" */ = {
+		B4C9C5762B694C3D00388DEB /* XCRemoteSwiftPackageReference "Gzip" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/1024jp/GzipSwift";
+			repositoryURL = "https://github.com/jensutbult/Gzip";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 6.0.1;
+				branch = main;
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		B4F937742B57E3830007D394 /* Gzip */ = {
+		B4C9C5772B694C3D00388DEB /* Gzip */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = B4F937732B57E3830007D394 /* XCRemoteSwiftPackageReference "GzipSwift" */;
+			package = B4C9C5762B694C3D00388DEB /* XCRemoteSwiftPackageReference "Gzip" */;
 			productName = Gzip;
 		};
 /* End XCSwiftPackageProductDependency section */

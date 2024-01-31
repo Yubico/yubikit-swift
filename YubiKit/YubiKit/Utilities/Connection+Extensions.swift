@@ -50,8 +50,8 @@ extension Connection {
             return try await send(apdu: application.selectApplicationAPDU)
         } catch {
             guard let error = error as? ResponseError else { throw error }
-            switch error.statusCode {
-            case .insNotSupported, .missingFile:
+            switch error.responseStatus.status {
+            case .invalidInstruction, .fileNotFound:
                 throw SessionError.missingApplication
             default:
                 throw error
@@ -79,13 +79,13 @@ extension Connection {
             response = try await internalConnection.send(apdu: apdu)
         }
         
-        guard response.statusCode == .ok || response.statusCode == .moreData else {
-            Logger.connection.error("Connection+Extension, \(#function): failed with statusCode: \(response.statusCode.rawValue.data.hexEncodedString)")
-            throw ResponseError(statusCode: response.statusCode)
+        guard response.responseStatus.status == .ok || response.responseStatus.sw1 == 0x61 else {
+            Logger.connection.error("Connection+Extension, \(#function): failed with statusCode: \(response.responseStatus.rawStatus.data.hexEncodedString)")
+            throw ResponseError(responseStatus: response.responseStatus)
         }
         
         let newData = data + response.data
-        if response.statusCode == .moreData {
+        if response.responseStatus.sw1 == 0x61 {
             return try await sendRecursive(apdu: apdu, data: newData, readMoreData: true)
         } else {
             Logger.connection.debug("Connection+Extension, \(#function): response: \(newData.hexEncodedString)")

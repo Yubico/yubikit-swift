@@ -90,10 +90,10 @@ public final actor LightningConnection: Connection, InternalConnection {
             let result = try inputStream.readFromYubiKey()
             Logger.lightning.debug("\(String(describing: self).lastComponent) \(#function): readFromYubiKey: \(result.hexEncodedString)")
             guard result.count >= 2 else { throw ConnectionError.missingResult }
-            let status = ResponseStatusCode(data: result.subdata(in: result.count-2..<result.count))
+            let status = ResponseStatus(data: result.subdata(in: result.count-2..<result.count))
 
             // BUG #62 - Workaround for WTX == 0x01 while status is 0x9000 (success).
-            if (status == .ok) || result.bytes[0] != 0x01 {
+            if (status.status == .ok) || result.bytes[0] != 0x01 {
                 if result.bytes[0] == 0x00 { // Remove the YLP key protocol header
                     return Response(rawData: result.subdata(in: 1..<result.count))
                 } else if result.bytes[0] == 0x01 { // Remove the YLP key protocol header and the WTX

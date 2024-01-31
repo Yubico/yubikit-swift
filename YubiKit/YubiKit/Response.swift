@@ -22,49 +22,60 @@ internal struct Response: CustomStringConvertible {
         } else {
             data = Data()
         }
-        statusCode = ResponseStatusCode(data: rawData.subdata(in: rawData.count - 2..<rawData.count))!
+        responseStatus = ResponseStatus(data: rawData.subdata(in: rawData.count - 2..<rawData.count))
     }
     
     internal init(data: Data, sw1: UInt8, sw2: UInt8) {
         self.data = data
-        statusCode = ResponseStatusCode(sw1: sw1, sw2: sw2)!
+        responseStatus = ResponseStatus(sw1: sw1, sw2: sw2)
     }
     
     /// The data returned in the response.
     public let data: Data
     
     /// Status code of the response
-    internal let statusCode: ResponseStatusCode
+    internal let responseStatus: ResponseStatus
     public var description: String {
-        return "<Result: \(statusCode) (\(statusCode.rawValue.data.hexEncodedString), length: \(data.count)>"
+        return "<Response: \(responseStatus.status) \(responseStatus.rawStatus.data.hexEncodedString), length: \(data.count)>"
     }
 }
 
-
-extension ResponseStatusCode {
-    
-    internal init?(sw1: UInt8, sw2: UInt8) {
-        if sw1 == 0x61 {
-            self.init(rawValue: UInt16(sw1) << 8 + UInt16(0))
-        } else {
-            self.init(rawValue: UInt16(sw1) << 8 + UInt16(sw2))
-        }
+public struct ResponseStatus {
+    public enum StatusCode: UInt16 {
+        case ok = 0x9000
+        case noInputData = 0x6285
+        case verifyFailNoRetry = 0x63C0
+        case memoryError = 0x6581
+        case wrongLength = 0x6700
+        case securityConditionNotSatisfied = 0x6982
+        case authMethodBlocked = 0x6983
+        case dataInvalid = 0x6984
+        case conditionsNotSatisfied = 0x6985
+        case commandNotAllowed = 0x6986
+        case incorrectParameters = 0x6A80
+        case fileNotFound = 0x6A82
+        case noSpace = 0x6A84
+        case wrongParametersP1P2 = 0x6B00
+        case invalidInstruction = 0x6D00
+        case claNotSupported = 0x6E00
+        case commandAborted = 0x6F00
+        case unknown = 0x0000
     }
     
-    internal init?(data: Data) {
+    public let status: StatusCode
+    public let rawStatus: UInt16
+    public var sw1: UInt8 { UInt8((rawStatus & 0xff00) >> 8) }
+    public var sw2: UInt8 { UInt8(rawStatus & 0xff00) }
+    
+    internal init(sw1: UInt8, sw2: UInt8) {
+        rawStatus = UInt16(sw1) << 8 + UInt16(sw2)
+        status = StatusCode(rawValue: rawStatus) ?? .unknown
+    }
+    
+    internal init(data: Data) {
         let value = data.uint16.bigEndian
-        if UInt8(value >> 8) == 0x61 {
-            self.init(rawValue: UInt16(0x61) << 8 + UInt16(0))
-        } else {
-            self.init(rawValue: value)
-        }
-    }
-    
-    public var sw1: UInt8 {
-        UInt8((self.rawValue & 0xff00) >> 8)
-    }
-    
-    public var sw2: UInt8 {
-        UInt8(self.rawValue & 0x00ff)
+        let sw1 = UInt8((value & 0xff00) >> 8)
+        let sw2 = UInt8(value & 0x00ff)
+        self.init(sw1: sw1, sw2: sw2)
     }
 }
