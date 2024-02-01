@@ -290,7 +290,7 @@ public final actor PIVSession: Session, InternalSession {
             guard let modulus = records.recordWithTag(0x81)?.value,
                   let exponentData = records.recordWithTag(0x82)?.value
             else { throw PIVSessionError.invalidResponse }
-            let modulusData = 0x00.data + modulus
+            let modulusData = UInt8(0x00).data + modulus
             var data = Data()
             data.append(TKBERTLVRecord(tag: 0x02, value: modulusData).data)
             data.append(TKBERTLVRecord(tag: 0x02, value: exponentData).data)
@@ -408,12 +408,12 @@ public final actor PIVSession: Session, InternalSession {
               let witnessRecord = TKBERTLVRecord(from: dynAuthRecord.value),
               witnessRecord.tag == tagAuthWitness
         else { throw PIVSessionError.responseDataNotTLVFormatted }
-        let decryptedWitness = try witnessRecord.data.decrypt(algorithm: keyType.ccAlgorithm, key: managementKey)
+        let decryptedWitness = try witnessRecord.value.decrypt(algorithm: keyType.ccAlgorithm, key: managementKey)
         let decryptedWitnessRecord = TKBERTLVRecord(tag: tagAuthWitness, value: decryptedWitness)
         let challengeSent = Data.random(length: keyType.challengeLength)
         let challengeRecord = TKBERTLVRecord(tag: tagChallenge, value: challengeSent)
         var data = Data()
-        data.append(witnessRecord.data)
+        data.append(decryptedWitnessRecord.data)
         data.append(challengeRecord.data)
         let authRecord = TKBERTLVRecord(tag: tagDynAuth, value: data)
         let challengeApdu = APDU(cla: 0, ins: insAuthenticate, p1: keyType.rawValue, p2: UInt8(tagSlotCardManagement), command: authRecord.data, type: .extended)
@@ -431,6 +431,7 @@ public final actor PIVSession: Session, InternalSession {
     
     public func reset() async throws {
         try await blockPin()
+        try await blockPuk()
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: insReset, p1: 0, p2: 0)
         _ = try await connection.send(apdu: apdu)
@@ -443,6 +444,7 @@ public final actor PIVSession: Session, InternalSession {
         return CFSwapInt32BigToHost(result.uint32)
     }
     
+    @discardableResult
     public func verifyPin(_ pin: String) async throws -> PIVVerifyPinResult {
         guard let connection = _connection else { throw SessionError.noConnection }
         guard let pinData = pin.paddedPinData() else { throw PIVSessionError.invalidPin }
@@ -452,14 +454,16 @@ public final actor PIVSession: Session, InternalSession {
             currentPinAttempts = maxPinAttempts
             return .success(currentPinAttempts)
         } catch {
-            guard let responseError = error as? ResponseError,
-                  let retriesLeft = responseError.responseStatus.pinRetriesLeft(version: self.version)
+            guard let responseError = error as? ResponseError //,
             else { throw error }
-            if retriesLeft > 0 {
-                return .fail(retriesLeft)
-            } else {
-                return .pinLocked
+            if let retriesLeft = responseError.responseStatus.pinRetriesLeft(version: self.version) {
+                if retriesLeft > 0 {
+                    return .fail(retriesLeft)
+                } else {
+                    return .pinLocked
+                }
             }
+            throw PIVSessionError.authenticationFailed
         }
     }
     
@@ -567,7 +571,7 @@ extension PIVSession {
         recordsData.append(TKBERTLVRecord(tag: tagAuthResponse, value: Data()).data)
         recordsData.append(TKBERTLVRecord(tag: exponentiation ? tagExponentiation : tagChallenge, value: message).data)
         let command = TKBERTLVRecord(tag: tagDynAuth, value: recordsData).data
-        let apdu = APDU(cla: 0, ins: insAuthenticate, p1: keyType.rawValue, p2: slot.rawValue, command: command)
+        let apdu = APDU(cla: 0, ins: insAuthenticate, p1: keyType.rawValue, p2: slot.rawValue, command: command, type: .extended)
         let resultData = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.init(from: resultData), result.tag == tagDynAuth else { throw PIVSessionError.responseDataNotTLVFormatted }
         guard let data = TKBERTLVRecord(from: result.value), data.tag == tagAuthResponse else { throw PIVSessionError.responseDataNotTLVFormatted }
@@ -639,9 +643,10 @@ extension PIVSession {
 fileprivate extension ResponseStatus {
     func pinRetriesLeft(version: Version) -> Int? {
         if (self.rawStatus == 0x6983) {
+            print("hepp")
             return 0;
         }
-        if version > Version(withString: "1.0.4")! {
+        if version < Version(withString: "1.0.4")! {
             if (self.rawStatus >= 0x6300 && self.rawStatus <= 0x63ff) {
                 return Int(self.rawStatus & 0xff);
             }
