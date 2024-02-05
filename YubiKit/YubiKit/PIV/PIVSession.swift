@@ -131,6 +131,7 @@ public enum PIVSessionError: Error {
     case failedCreatingCertificate
     case badKeyLength
     case invalidInput
+    case unsupportedKeyType
 }
 
 public struct PIVManagementKeyMetadata {
@@ -250,18 +251,17 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func calculateSecretKeyInSlot(slot: PIVSlot, peerPublicKey: SecKey) async throws -> Data {
-        guard let keyType = peerPublicKey.type, keyType != .ECCP256, keyType != .ECCP384 else { throw "unsupported key" }
+        guard let keyType = peerPublicKey.type, (keyType == .ECCP256 || keyType == .ECCP384) else { throw PIVSessionError.unsupportedKeyType }
         var error: Unmanaged<CFError>?
         guard let externalRepresentation = SecKeyCopyExternalRepresentation(peerPublicKey, &error) as? Data else {
             throw error!.takeRetainedValue() as Error
         }
-        var data = Data()
-        data.append(externalRepresentation.subdata(in: 0 ..< 1 + 2 * Int(keyType.size)))
-        return try await usePrivateKeyInSlot(slot, keyType: keyType, message: Data(), exponentiation: true)
+        let data = externalRepresentation.subdata(in: 0 ..< 1 + 2 * Int(keyType.size))
+        return try await usePrivateKeyInSlot(slot, keyType: keyType, message: data, exponentiation: true)
     }
     
     public func attestKeyInSlot(slot: PIVSlot) async throws -> SecCertificate {
-        let apdu = APDU(cla: 0, ins: insAttest, p1: slot.rawValue, p2: 0)
+        let apdu = APDU(cla: 0, ins: insAttest, p1: slot.rawValue, p2: 0, type: .extended)
         guard let connection = _connection else { throw SessionError.noConnection }
         let result = try await connection.send(apdu: apdu)
         guard let certificate = SecCertificateCreateWithData(nil, result as CFData) else { throw PIVSessionError.dataParseError }
@@ -305,6 +305,7 @@ public final actor PIVSession: Session, InternalSession {
         }
     }
     
+    @discardableResult
     public func putKey(key: SecKey, inSlot slot: PIVSlot, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy) async throws -> PIVKeyType {
         guard let connection = _connection else { throw SessionError.noConnection }
         guard let keyType = key.type else { throw PIVSessionError.unknownKeyType }
@@ -342,7 +343,7 @@ public final actor PIVSession: Session, InternalSession {
         if touchPolicy != .default {
             data.append(TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data).data)
         }
-        let apdu = APDU(cla: 0, ins: insImportKey, p1: keyType.rawValue, p2: slot.rawValue, command: data)
+        let apdu = APDU(cla: 0, ins: insImportKey, p1: keyType.rawValue, p2: slot.rawValue, command: data, type: .extended)
         _ = try await connection.send(apdu: apdu)
         return keyType
     }
