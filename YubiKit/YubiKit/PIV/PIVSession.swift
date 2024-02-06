@@ -370,7 +370,7 @@ public final actor PIVSession: Session, InternalSession {
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
               let objectData = records.recordWithTag(tagObjectData)?.value,
               let subRecords = TKBERTLVRecord.sequenceOfRecords(from: objectData),
-              var certificateData = subRecords.recordWithTag(tagCertificate)?.data
+              var certificateData = subRecords.recordWithTag(tagCertificate)?.value
         else { throw PIVSessionError.dataParseError }
         
         if let certificateInfo = subRecords.recordWithTag(tagCertificateInfo)?.data,
