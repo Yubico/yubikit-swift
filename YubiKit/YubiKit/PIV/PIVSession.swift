@@ -112,7 +112,7 @@ public enum PIVKeyType: UInt8 {
     }
 }
 
-public enum PIVVerifyPinResult {
+public enum PIVVerifyPinResult: Equatable {
     case success(Int)
     case fail(Int)
     case pinLocked
@@ -348,13 +348,13 @@ public final actor PIVSession: Session, InternalSession {
         return keyType
     }
     
-    public func putCertificate(certificate: SecCertificate, inSlot slot:PIVSlot, compress: Bool) async throws {
-        var certData = SecCertificateCopyData(certificate)
+    public func putCertificate(certificate: SecCertificate, inSlot slot:PIVSlot, compress: Bool = false) async throws {
+        var certData = SecCertificateCopyData(certificate) as Data
         if compress {
-            certData = try (certData as NSData).compressed(using: .zlib)
+            certData = try certData.gzipped()
         }
         var data = Data()
-        data.append(TKBERTLVRecord(tag: tagCertificate, value: certData as Data).data)
+        data.append(TKBERTLVRecord(tag: tagCertificate, value: certData).data)
         let isCompressed: UInt8 = compress ? 1 : 0
         data.append(TKBERTLVRecord(tag: tagCertificateInfo, value: isCompressed.data).data)
         data.append(TKBERTLVRecord(tag: tagLRC, value: Data()).data)
@@ -386,13 +386,13 @@ public final actor PIVSession: Session, InternalSession {
         try await putObject(Data(), objectId: slot.objectId)
     }
     
-    public func setManagementKey(_ managementKeyData: Data, type: PIVManagementKeyType, requiresTouch: Bool) async throws -> Data {
+    public func setManagementKey(_ managementKeyData: Data, type: PIVManagementKeyType, requiresTouch: Bool) async throws {
         guard let connection = _connection else { throw SessionError.noConnection }
         let tlv = TKBERTLVRecord(tag: tagSlotCardManagement, value: managementKeyData)
         var data = Data([type.rawValue])
         data.append(tlv.data)
         let apdu = APDU(cla: 0, ins: insSetManagementKey, p1: 0xff, p2: requiresTouch ? 0xfe : 0xff, command: data, type: .short)
-        return try await connection.send(apdu: apdu)
+        try await connection.send(apdu: apdu)
     }
     
     public func authenticateWith(managementKey: Data, keyType: PIVManagementKeyType) async throws {
@@ -625,7 +625,7 @@ extension PIVSession {
         let statusCode = responseError.responseStatus.rawStatus
         if statusCode == 0x6983 {
             return 0
-        } else if self.version > Version(withString: "1.0.4")! {
+        } else if self.version < Version(withString: "1.0.4")! {
             if statusCode >= 0x6300 && statusCode <= 0x63ff {
                 return Int(statusCode & 0xff);
             }

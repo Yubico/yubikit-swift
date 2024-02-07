@@ -95,7 +95,7 @@ public enum ConnectionError: Error {
 /// A ResponseError containing the status code.
 public struct ResponseError: Error {
     /// Status code of the response.
-    let responseStatus: ResponseStatus
+    public let responseStatus: ResponseStatus
 }
 
 

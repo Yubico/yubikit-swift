@@ -20,6 +20,7 @@ final class PIVFullStackTests: XCTestCase {
             let signature = try await session.signWithKeyInSlot(.signature, keyType: .ECCP256, algorithm: .ecdsaSignatureMessageX962SHA256, message: message)
             var error: Unmanaged<CFError>?
             let result = SecKeyVerifySignature(publicKey, SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256, message as CFData, signature as CFData, &error);
+            XCTAssertTrue(result)
             if let error {
                 XCTFail((error.takeRetainedValue() as Error).localizedDescription)
             }
@@ -35,6 +36,7 @@ final class PIVFullStackTests: XCTestCase {
             let signature = try await session.signWithKeyInSlot(.signature, keyType: .RSA1024, algorithm: .rsaSignatureMessagePKCS1v15SHA512, message: message)
             var error: Unmanaged<CFError>?
             let result = SecKeyVerifySignature(publicKey, SecKeyAlgorithm.rsaSignatureMessagePKCS1v15SHA512, message as CFData, signature as CFData, &error);
+            XCTAssertTrue(result)
             if let error {
                 XCTFail((error.takeRetainedValue() as Error).localizedDescription)
             }
@@ -243,17 +245,134 @@ final class PIVFullStackTests: XCTestCase {
             let attestKeyData = SecKeyCopyExternalRepresentation(attestKey, nil)!
             let keyData = SecKeyCopyExternalRepresentation(publicKey, nil)!
             XCTAssert((attestKeyData as Data) == (keyData as Data))
-            
         }
     }
     
     let testCertificate = SecCertificateCreateWithData(nil, Data(base64Encoded: "MIIBKzCB0qADAgECAhQTuU25u6oazORvKfTleabdQaDUGzAKBggqhkjOPQQDAjAWMRQwEgYDVQQDDAthbW9zLmJ1cnRvbjAeFw0yMTAzMTUxMzU5MjVaFw0yODA1MTcwMDAwMDBaMBYxFDASBgNVBAMMC2Ftb3MuYnVydG9uMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEofwN6S+atSZmzeLK7aSI+mJJwxh0oUBiCOngHLeToYeanrTGvCZQ2AK/R9esnqSxMyBUDp91UO4F6U4c6RTooTAKBggqhkjOPQQDAgNIADBFAiAnj/KUSpW7l5wnenQEbwWudK/7q3WtyrqdB0H1xc258wIhALDLImzu3S+0TT2/ggM95LLWE4Llfa2RQM71bnW6zqqn")! as CFData)!
-
+    
     func testPutAndReadCertificate() throws {
         runAuthenticatedPIVTest { session in
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: false)
             let retrievedCertificate = try await session.getCertificateInSlot(.authentication)
             XCTAssert(self.testCertificate == retrievedCertificate)
+        }
+    }
+    
+    func testPutCompressedAndReadCertificate() throws {
+        runAuthenticatedPIVTest { session in
+            try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: true)
+            let retrievedCertificate = try await session.getCertificateInSlot(.authentication)
+            XCTAssert(self.testCertificate == retrievedCertificate)
+        }
+    }
+    
+    func testPutAndDeleteCertificate() throws {
+        runAuthenticatedPIVTest { session in
+            try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication)
+            try await session.deleteCertificateInSlot(slot: .authentication)
+            do {
+                _ = try await session.getCertificateInSlot(.authentication)
+                XCTFail("Deleted certificate still present on YubiKey.")
+            } catch {
+                guard let error = error as? ResponseError else {  XCTFail("Deleted certificate returned unexpected error: \(error)"); return }
+                XCTAssert(error.responseStatus.status == .fileNotFound)
+            }
+        }
+    }
+    
+    func testAuthenticateWithDefaultManagementKey() throws {
+        runPIVTest { session in
+            try await session.reset()
+            let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
+            do {
+                try await session.authenticateWith(managementKey: defaultManagementKey, keyType: .tripleDES)
+            } catch {
+                XCTFail("Failed authenticating with default management key.")
+            }
+        }
+    }
+    
+    func testSet3DESManagementKey() throws {
+        runAuthenticatedPIVTest { session in
+            let newManagementKey = Data(hexEncodedString: "3ec950f1c126b314a80edd752694c328656db96f1c65cc4f")!
+            do {
+                try await session.setManagementKey(newManagementKey, type: .tripleDES, requiresTouch: false)
+                try await session.authenticateWith(managementKey: newManagementKey, keyType: .tripleDES)
+            } catch {
+                XCTFail("Failed setting new management key with: \(error)")
+            }
+        }
+    }
+    
+    func testSetAESManagementKey() throws {
+        runAuthenticatedPIVTest { session in
+            let newManagementKey = Data(hexEncodedString: "f7ef787b46aa50de066bdade00aee17fc2b710372b722de5")!
+            do {
+                try await session.setManagementKey(newManagementKey, type: .AES192, requiresTouch: false)
+                try await session.authenticateWith(managementKey: newManagementKey, keyType: .AES192)
+            } catch {
+                XCTFail("Failed setting new management key with: \(error)")
+            }
+        }
+    }
+    
+    func testAuthenticateWithWrongManagementKey() throws {
+        runPIVTest { session in
+            try await session.reset()
+            let defaultManagementKey = Data(hexEncodedString: "010101010101010101010101010101010101010101010101")!
+            do {
+                try await session.authenticateWith(managementKey: defaultManagementKey, keyType: .tripleDES)
+                XCTFail("Successfully authenticated with the wrong management key.")
+            } catch {
+                guard let error = error as? ResponseError else { XCTFail("Failed with unexpected error: \(error)"); return }
+                XCTAssert(error.responseStatus.status == .securityConditionNotSatisfied)
+            }
+        }
+    }
+    
+    func testVerifyPIN() throws {
+        runAuthenticatedPIVTest { session in
+            do {
+                let result = try await session.verifyPin("123456")
+                if case .success(let counter) = result {
+                    XCTAssertEqual(counter, 3)
+                } else {
+                    XCTFail("Got unexpected result from verifyPin: \(result)")
+                }
+            } catch {
+                XCTFail("Got unexpected error verifying pin: \(error)")
+            }
+        }
+    }
+    
+    func testVerifyPINRetryCount() throws {
+        runAuthenticatedPIVTest { session in
+            let resultOne = try await session.verifyPin("654321")
+            if case .fail(let counter) = resultOne {
+                XCTAssertEqual(counter, 2)
+            } else {
+                XCTFail("Got unexpected result from verifyPin: \(resultOne)")
+            }
+            let resultTwo = try await session.verifyPin("101010")
+            if case .fail(let counter) = resultTwo {
+                XCTAssertEqual(counter, 1)
+            } else {
+                XCTFail("Got unexpected result from verifyPin: \(resultTwo)")
+            }
+            let resultThree = try await session.verifyPin("142857")
+            XCTAssert(resultThree == .pinLocked)
+            let resultFour = try await session.verifyPin("740737")
+            XCTAssert(resultFour == .pinLocked)
+        }
+    }
+    
+    func testGetPinAttempts() throws {
+        runAuthenticatedPIVTest { session in
+            var count = try await session.getPinAttempts()
+            XCTAssertEqual(count, 3)
+            _ = try await session.verifyPin("740601")
+            count = try await session.getPinAttempts()
+            XCTAssertEqual(count, 2)
         }
     }
 }
