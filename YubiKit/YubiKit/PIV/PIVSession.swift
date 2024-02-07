@@ -344,7 +344,7 @@ public final actor PIVSession: Session, InternalSession {
             data.append(TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data).data)
         }
         let apdu = APDU(cla: 0, ins: insImportKey, p1: keyType.rawValue, p2: slot.rawValue, command: data, type: .extended)
-        _ = try await connection.send(apdu: apdu)
+        try await connection.send(apdu: apdu)
         return keyType
     }
     
@@ -355,25 +355,25 @@ public final actor PIVSession: Session, InternalSession {
         }
         var data = Data()
         data.append(TKBERTLVRecord(tag: tagCertificate, value: certData as Data).data)
-        let isCompressed = compress ? 1 : 0
+        let isCompressed: UInt8 = compress ? 1 : 0
         data.append(TKBERTLVRecord(tag: tagCertificateInfo, value: isCompressed.data).data)
         data.append(TKBERTLVRecord(tag: tagLRC, value: Data()).data)
-        _ = try await self.putObject(data, objectId: slot.objectId)
-        
+        try await self.putObject(data, objectId: slot.objectId)
     }
     
     public func getCertificateInSlot(_ slot: PIVSlot) async throws -> SecCertificate {
         guard let connection = _connection else { throw SessionError.noConnection }
         let command = TKBERTLVRecord(tag: tagObjectId, value: slot.objectId).data
-        let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command)
+        let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command, type: .extended)
         let result = try await connection.send(apdu: apdu)
+
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
               let objectData = records.recordWithTag(tagObjectData)?.value,
               let subRecords = TKBERTLVRecord.sequenceOfRecords(from: objectData),
-              var certificateData = subRecords.recordWithTag(tagCertificate)?.data
+              var certificateData = subRecords.recordWithTag(tagCertificate)?.value
         else { throw PIVSessionError.dataParseError }
         
-        if let certificateInfo = subRecords.recordWithTag(tagCertificateInfo)?.data,
+        if let certificateInfo = subRecords.recordWithTag(tagCertificateInfo)?.value,
            !certificateInfo.isEmpty,
            certificateInfo.bytes[0] == 1 {
             certificateData = try certificateData.gunzipped()
@@ -383,7 +383,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func deleteCertificateInSlot(slot: PIVSlot) async throws {
-        _ = try await putObject(Data(), objectId: slot.objectId)
+        try await putObject(Data(), objectId: slot.objectId)
     }
     
     public func setManagementKey(_ managementKeyData: Data, type: PIVManagementKeyType, requiresTouch: Bool) async throws -> Data {
@@ -435,7 +435,7 @@ public final actor PIVSession: Session, InternalSession {
         try await blockPuk()
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: insReset, p1: 0, p2: 0)
-        _ = try await connection.send(apdu: apdu)
+        try await connection.send(apdu: apdu)
     }
     
     public func serialNumber() async throws -> UInt32 {
@@ -451,7 +451,7 @@ public final actor PIVSession: Session, InternalSession {
         guard let pinData = pin.paddedPinData() else { throw PIVSessionError.invalidPin }
         let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: 0x80, command: pinData)
         do {
-            _ = try await connection.send(apdu: apdu)
+            try await connection.send(apdu: apdu)
             currentPinAttempts = maxPinAttempts
             return .success(currentPinAttempts)
         } catch {
@@ -514,7 +514,7 @@ public final actor PIVSession: Session, InternalSession {
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: p2Pin)
         do {
-            _ = try await connection.send(apdu: apdu)
+            try await connection.send(apdu: apdu)
             return currentPinAttempts
         } catch {
             guard let responseError = error as? ResponseError else { throw error }
@@ -532,7 +532,7 @@ public final actor PIVSession: Session, InternalSession {
         guard let pinAttempts = UInt8(exactly: pinAttempts),
               let pukAttempts = UInt8(exactly: pukAttempts) else { throw PIVSessionError.invalidInput }
         let apdu = APDU(cla: 0, ins: insSetPinPukAttempts, p1: pinAttempts, p2: pukAttempts)
-        _ = try await connection.send(apdu: apdu)
+        try await connection.send(apdu: apdu)
         maxPinAttempts = Int(pinAttempts)
         currentPinAttempts = Int(pinAttempts)
     }
@@ -581,11 +581,11 @@ extension PIVSession {
     
     private func putObject(_ data: Data, objectId: Data) async throws {
         guard let connection = _connection else { throw SessionError.noConnection }
-        var data = Data()
-        data.append(TKBERTLVRecord(tag: tagObjectId, value: objectId).data)
-        data.append(TKBERTLVRecord(tag: tagObjectData, value: data).data)
-        let apdu = APDU(cla: 0, ins: insPutData, p1: 0x3f, p2: 0xff, command: data, type: .extended)
-        _ = try await connection.send(apdu: apdu)
+        var command = Data()
+        command.append(TKBERTLVRecord(tag: tagObjectId, value: objectId).data)
+        command.append(TKBERTLVRecord(tag: tagObjectData, value: data).data)
+        let apdu = APDU(cla: 0, ins: insPutData, p1: 0x3f, p2: 0xff, command: command, type: .extended)
+        try await connection.send(apdu: apdu)
     }
     
     private func changeReference(ins: UInt8, p2: UInt8, valueOne: String, valueTwo: String) async throws -> Int {
@@ -594,7 +594,7 @@ extension PIVSession {
         let data = paddedValueOne + paddedValueTwo
         let apdu = APDU(cla: 0, ins: ins, p1: 0, p2: p2, command: data)
         do {
-            let _ = try await connection.send(apdu: apdu)
+            try await connection.send(apdu: apdu)
             return currentPinAttempts
         } catch {
             guard let responseError = error as? ResponseError else { throw PIVSessionError.invalidResponse }

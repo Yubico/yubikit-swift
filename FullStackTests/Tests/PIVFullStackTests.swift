@@ -245,7 +245,16 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssert((attestKeyData as Data) == (keyData as Data))
             
         }
-        
+    }
+    
+    let testCertificate = SecCertificateCreateWithData(nil, Data(base64Encoded: "MIIBKzCB0qADAgECAhQTuU25u6oazORvKfTleabdQaDUGzAKBggqhkjOPQQDAjAWMRQwEgYDVQQDDAthbW9zLmJ1cnRvbjAeFw0yMTAzMTUxMzU5MjVaFw0yODA1MTcwMDAwMDBaMBYxFDASBgNVBAMMC2Ftb3MuYnVydG9uMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEofwN6S+atSZmzeLK7aSI+mJJwxh0oUBiCOngHLeToYeanrTGvCZQ2AK/R9esnqSxMyBUDp91UO4F6U4c6RTooTAKBggqhkjOPQQDAgNIADBFAiAnj/KUSpW7l5wnenQEbwWudK/7q3WtyrqdB0H1xc258wIhALDLImzu3S+0TT2/ggM95LLWE4Llfa2RQM71bnW6zqqn")! as CFData)!
+
+    func testPutAndReadCertificate() throws {
+        runAuthenticatedPIVTest { session in
+            try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: false)
+            let retrievedCertificate = try await session.getCertificateInSlot(.authentication)
+            XCTAssert(self.testCertificate == retrievedCertificate)
+        }
     }
 }
 
