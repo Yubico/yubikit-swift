@@ -25,6 +25,8 @@ public protocol Session: AnyObject {
     /// Returns a new session using the supplied connection.
     static func session(withConnection connection: Connection) async throws -> Self
     
+    func supports(_ feature: SessionFeature) -> Bool
+
     /// End the session. This will remove its internal connection and discard any state saved by the session.
     /// The connection to the YubiKey will be kept open.
     func end() async
@@ -42,8 +44,13 @@ extension InternalSession {
     }
 }
 
+public protocol SessionFeature {
+    func isSupported(by version: Version) -> Bool
+}
+
 public enum SessionError: Error {
     case noConnection
+    case notSupported
     case activeSession
     case missingApplication
     case unexpectedStatusCode

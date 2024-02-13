@@ -20,6 +20,7 @@
 		B41B61842743FC2E004C37BF /* Connection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61832743FC2E004C37BF /* Connection.swift */; };
 		B41B61862743FC4E004C37BF /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61852743FC4E004C37BF /* Session.swift */; };
 		B4235A4D2976E18000BCD126 /* OATHCredentialTemplateUnitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4235A4C2976E18000BCD126 /* OATHCredentialTemplateUnitTests.swift */; };
+		B424CF5B2B7A2A1600AC8EBF /* PIVSessionFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B424CF5A2B7A2A1600AC8EBF /* PIVSessionFeature.swift */; };
 		B4451F00275FD2B5002690BB /* APDU.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4451EFF275FD2B5002690BB /* APDU.swift */; };
 		B456E213274D2403004471DE /* NFCConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E212274D2403004471DE /* NFCConnection.swift */; };
 		B456E215274D2453004471DE /* LightningConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E214274D2453004471DE /* LightningConnection.swift */; };
@@ -70,6 +71,7 @@
 		B41B61832743FC2E004C37BF /* Connection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Connection.swift; sourceTree = "<group>"; };
 		B41B61852743FC4E004C37BF /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
 		B4235A4C2976E18000BCD126 /* OATHCredentialTemplateUnitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHCredentialTemplateUnitTests.swift; sourceTree = "<group>"; };
+		B424CF5A2B7A2A1600AC8EBF /* PIVSessionFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVSessionFeature.swift; sourceTree = "<group>"; };
 		B4451EFF275FD2B5002690BB /* APDU.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APDU.swift; sourceTree = "<group>"; };
 		B456E212274D2403004471DE /* NFCConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCConnection.swift; sourceTree = "<group>"; };
 		B456E214274D2453004471DE /* LightningConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LightningConnection.swift; sourceTree = "<group>"; };
@@ -208,6 +210,7 @@
 				B4F937612B51A44E0007D394 /* PIVSession.swift */,
 				B4F937652B51EBAF0007D394 /* PIVPadding.swift */,
 				B4F9376E2B557E740007D394 /* SecKey+Extensions.swift */,
+				B424CF5A2B7A2A1600AC8EBF /* PIVSessionFeature.swift */,
 			);
 			path = PIV;
 			sourceTree = "<group>";
@@ -355,6 +358,7 @@
 				B4BE3AAF292E1CBC00CC30CB /* Data+Extensions.swift in Sources */,
 				B4BE3AA8292BCA1300CC30CB /* OATHSession+Extensions.swift in Sources */,
 				B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */,
+				B424CF5B2B7A2A1600AC8EBF /* PIVSessionFeature.swift in Sources */,
 				B47FDD992939FAD100AFF70A /* ConnectionHelper.swift in Sources */,
 				B4451F00275FD2B5002690BB /* APDU.swift in Sources */,
 				B401F7762B17B8DD00C541D1 /* Logger+Extensions.swift in Sources */,

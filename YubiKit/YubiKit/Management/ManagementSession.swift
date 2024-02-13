@@ -80,6 +80,10 @@ public final actor ManagementSession: Session, InternalSession {
         return try DeviceInfo(withData: data, fallbackVersion: version)
     }
     
+    nonisolated public func supports(_ feature: SessionFeature) -> Bool {
+        return true
+    }
+    
     /// Check whether an application is supported over the specified transport.
     public func isApplicationSupported(_ application: ApplicationType, overTransport transport: DeviceTransport) async throws -> Bool {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")

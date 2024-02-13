@@ -149,9 +149,9 @@ public struct PIVManagementKeyMetadata {
 }
 
 public struct PIVPinPukMetadata {
-    let isDefault: Bool
-    let retriesTotal: Int
-    let retriesRemaining: Int
+    public let isDefault: Bool
+    public let retriesTotal: Int
+    public let retriesRemaining: Int
 }
 
 public enum PIVManagementKeyType: UInt8 {
@@ -192,7 +192,7 @@ public enum PIVManagementKeyType: UInt8 {
 
 public final actor PIVSession: Session, InternalSession {
     
-    public var version: Version
+    nonisolated public let version: Version
     private var currentPinAttempts = 0
     private var maxPinAttempts = 3
     
@@ -228,6 +228,10 @@ public final actor PIVSession: Session, InternalSession {
     
     public func end() async {
         
+    }
+    
+    nonisolated public func supports(_ feature: SessionFeature) -> Bool {
+        return feature.isSupported(by: version)
     }
     
     public func signWithKeyInSlot(_ slot: PIVSlot, keyType: PIVKeyType, algorithm: SecKeyAlgorithm, message: Data) async throws -> Data {
@@ -439,6 +443,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func serialNumber() async throws -> UInt32 {
+        guard self.supports(PIVSessionFeature.serialNumber) else { throw SessionError.notSupported }
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: insGetSerial, p1: 0, p2: 0)
         let result = try await connection.send(apdu: apdu)
@@ -490,7 +495,7 @@ public final actor PIVSession: Session, InternalSession {
         try await getPinPukMetadata(p2: p2Puk)
     }
     
-    public func getManagementKeyMetadataWithCompletion() async throws -> PIVManagementKeyMetadata {
+    public func getManagementKeyMetadata() async throws -> PIVManagementKeyMetadata {
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2SlotCardmanagement)
         let result = try await connection.send(apdu: apdu)
@@ -527,7 +532,7 @@ public final actor PIVSession: Session, InternalSession {
         }
     }
     
-    public func setPinAttempts(_ pinAttempts: Int, pukAttempts: Int) async throws {
+    public func set(pinAttempts: Int, pukAttempts: Int) async throws {
         guard let connection = _connection else { throw SessionError.noConnection }
         guard let pinAttempts = UInt8(exactly: pinAttempts),
               let pukAttempts = UInt8(exactly: pukAttempts) else { throw PIVSessionError.invalidInput }
