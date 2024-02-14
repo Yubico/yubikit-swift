@@ -375,6 +375,146 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssertEqual(count, 2)
         }
     }
+    
+    func testSetPinPukAttempts() throws {
+        runAuthenticatedPIVTest { session in
+            try await session.verifyPin("123456")
+            try await session.set(pinAttempts: 5, pukAttempts: 6)
+            if session.supports(PIVSessionFeature.metadata) {
+                let pinResult = try await session.getPinMetadata()
+                XCTAssertEqual(pinResult.retriesRemaining, 5)
+                let pukResult = try await session.getPukMetadata()
+                XCTAssertEqual(pukResult.retriesRemaining, 6)
+            } else {
+                let result = try await session.getPinAttempts()
+                XCTAssertEqual(result, 5)
+            }
+        }
+    }
+    
+    func testVersion() throws {
+        runAuthenticatedPIVTest { session in
+            let version = session.version
+            XCTAssertEqual(version.major, 5)
+            XCTAssert(version.minor == 2 || version.minor == 3 || version.minor == 4)
+            print("✅ Got version: \(session.version.major).\(session.version.minor).\(session.version.micro)")
+        }
+    }
+    
+    func testSerialNumber() throws {
+        runPIVTest { session in
+            guard session.supports(PIVSessionFeature.serialNumber) else { print("⚠️ Skip testSerialNumber()"); return }
+            let serialNumber = try await session.serialNumber()
+            XCTAssert(serialNumber > 0)
+            print("✅ Got serial number: \(serialNumber)")
+        }
+    }
+    
+    func testManagementKeyMetadata() throws {
+        runPIVTest { session in
+            guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testManagementKeyMetadata()"); return }
+            let metadata = try await session.getManagementKeyMetadata()
+            XCTAssertEqual(metadata.isDefault, true)
+            XCTAssertEqual(metadata.keyType, .tripleDES)
+            XCTAssertEqual(metadata.touchPolicy, .never)
+        }
+        
+    }
+    
+    func testAESManagementKeyMetadata() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testAESManagementKeyMetadata()"); return }
+            let aesManagementKey = Data([0xf7, 0xef, 0x78, 0x7b, 0x46, 0xaa, 0x50, 0xde, 0x06, 0x6b, 0xda, 0xde, 0x00, 0xae, 0xe1, 0x7f, 0xc2, 0xb7, 0x10, 0x37, 0x2b, 0x72, 0x2d, 0xe5])
+            try await session.setManagementKey(aesManagementKey, type: .AES192, requiresTouch: true)
+            let metadata = try await session.getManagementKeyMetadata()
+            XCTAssertEqual(metadata.isDefault, false)
+            XCTAssertEqual(metadata.keyType, .AES192)
+            XCTAssertEqual(metadata.touchPolicy, .always)
+        }
+    }
+    
+    func testPinMetadata() throws {
+        runPIVTest { session in
+            guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testPinMetadata()"); return }
+            let result = try await session.getPinMetadata()
+            XCTAssertEqual(result.isDefault, true)
+            XCTAssertEqual(result.retriesTotal, 3)
+            XCTAssertEqual(result.retriesRemaining, 3)
+        }
+    }
+    
+    func testPinMetadataRetries() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testPinMetadataRetries()"); return }
+            try await session.verifyPin("111111")
+            let result = try await session.getPinMetadata()
+            XCTAssertEqual(result.isDefault, true)
+            XCTAssertEqual(result.retriesTotal, 3)
+            XCTAssertEqual(result.retriesRemaining, 2)
+        }
+    }
+    
+    func testPukMetadata() throws {
+        runPIVTest { session in
+            guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testPukMetadata()"); return }
+            let result = try await session.getPukMetadata()
+            XCTAssertEqual(result.isDefault, true)
+            XCTAssertEqual(result.retriesTotal, 3)
+            XCTAssertEqual(result.retriesRemaining, 3)
+        }
+        
+    }
+    
+    func testSetPin() throws {
+        runPIVTest { session in
+            try await session.setPin("654321", oldPin: "123456")
+            let result = try await session.verifyPin("654321")
+            switch result {
+            case .success(let retries):
+                XCTAssertEqual(retries, 3)
+            case .fail(_):
+                XCTFail()
+            case .pinLocked:
+                XCTFail()
+            }
+        }
+    }
+    
+    func testUnblockPin() throws {
+        runPIVTest { session in
+            try await session.blockPin()
+            let verifyBlockedPin = try await session.verifyPin("123456")
+            guard verifyBlockedPin == .pinLocked else { XCTFail("Pin failed to block."); return }
+            try await session.unblockPinWithPuk("12345678", newPin: "222222")
+            let verifyUnblockedPin = try await session.verifyPin("222222")
+            switch verifyUnblockedPin {
+            case .success(_):
+                return;
+            case .fail(_):
+                XCTFail("Failed verifiying with unblocked pin.")
+            case .pinLocked:
+                XCTFail("Pin still blocked after unblocking with puk.")
+            }
+        }
+    }
+    
+    func testSetPukAndUnblock() throws {
+        runPIVTest { session in
+            try await session.setPuk("87654321", oldPuk: "12345678")
+            try await session.blockPin()
+            try await session.unblockPinWithPuk("87654321", newPin: "654321")
+            let result = try await session.verifyPin("654321")
+            switch result {
+            case .success(_):
+                return
+            case .fail(_):
+                XCTFail("Failed verifying new pin.")
+            case .pinLocked:
+                XCTFail("Pin still blocked after unblocking with new puk.")
+            }
+        }
+        
+    }
 }
 
 extension XCTestCase {
