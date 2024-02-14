@@ -294,6 +294,7 @@ final class PIVFullStackTests: XCTestCase {
     
     func testSet3DESManagementKey() throws {
         runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.aesKey) else { print("⚠️ Skip testSet3DESManagementKey()"); return }
             let newManagementKey = Data(hexEncodedString: "3ec950f1c126b314a80edd752694c328656db96f1c65cc4f")!
             do {
                 try await session.setManagementKey(newManagementKey, type: .tripleDES, requiresTouch: false)
@@ -306,6 +307,7 @@ final class PIVFullStackTests: XCTestCase {
     
     func testSetAESManagementKey() throws {
         runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.aesKey) else { print("⚠️ Skip testSetAESManagementKey()"); return }
             let newManagementKey = Data(hexEncodedString: "f7ef787b46aa50de066bdade00aee17fc2b710372b722de5")!
             do {
                 try await session.setManagementKey(newManagementKey, type: .AES192, requiresTouch: false)
@@ -404,7 +406,7 @@ final class PIVFullStackTests: XCTestCase {
     func testSerialNumber() throws {
         runPIVTest { session in
             guard session.supports(PIVSessionFeature.serialNumber) else { print("⚠️ Skip testSerialNumber()"); return }
-            let serialNumber = try await session.serialNumber()
+            let serialNumber = try await session.getSerialNumber()
             XCTAssert(serialNumber > 0)
             print("✅ Got serial number: \(serialNumber)")
         }
@@ -434,7 +436,7 @@ final class PIVFullStackTests: XCTestCase {
     }
     
     func testPinMetadata() throws {
-        runPIVTest { session in
+        runAuthenticatedPIVTest { session in
             guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testPinMetadata()"); return }
             let result = try await session.getPinMetadata()
             XCTAssertEqual(result.isDefault, true)

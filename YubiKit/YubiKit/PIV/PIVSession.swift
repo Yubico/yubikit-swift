@@ -265,7 +265,8 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func attestKeyInSlot(slot: PIVSlot) async throws -> SecCertificate {
-        let apdu = APDU(cla: 0, ins: insAttest, p1: slot.rawValue, p2: 0, type: .extended)
+        guard self.supports(PIVSessionFeature.attestation) else { throw SessionError.notSupported }
+        let apdu = APDU(cla: 0, ins: insAttest, p1: slot.rawValue, p2: 0)
         guard let connection = _connection else { throw SessionError.noConnection }
         let result = try await connection.send(apdu: apdu)
         guard let certificate = SecCertificateCreateWithData(nil, result as CFData) else { throw PIVSessionError.dataParseError }
@@ -274,6 +275,7 @@ public final actor PIVSession: Session, InternalSession {
     
     public func generateKeyInSlot(slot: PIVSlot, type: PIVKeyType, pinPolicy: PIVPinPolicy = .default, touchPolicy: PIVTouchPolicy = .default) async throws -> SecKey {
         guard let connection = _connection else { throw SessionError.noConnection }
+        try checkKeyFeatures(keyType: type, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: true)
         let tlv = TKBERTLVRecord(tag: tagGenAlgorithm, value: type.rawValue.data)
         let tlvContainer = TKBERTLVRecord(tag: 0xac, value: tlv.data) // What is 0xac?
         let apdu = APDU(cla: 0, ins: insGenerateAsymetric, p1: 0, p2: slot.rawValue, command: tlvContainer.data)
@@ -313,6 +315,7 @@ public final actor PIVSession: Session, InternalSession {
     public func putKey(key: SecKey, inSlot slot: PIVSlot, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy) async throws -> PIVKeyType {
         guard let connection = _connection else { throw SessionError.noConnection }
         guard let keyType = key.type else { throw PIVSessionError.unknownKeyType }
+        try checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
         var error: Unmanaged<CFError>?
         guard let cfKeyData = SecKeyCopyExternalRepresentation(key, &error) else { throw error!.takeRetainedValue() as Error }
         let keyData = cfKeyData as Data
@@ -350,6 +353,18 @@ public final actor PIVSession: Session, InternalSession {
         let apdu = APDU(cla: 0, ins: insImportKey, p1: keyType.rawValue, p2: slot.rawValue, command: data, type: .extended)
         try await connection.send(apdu: apdu)
         return keyType
+    }
+    
+    private func checkKeyFeatures(keyType: PIVKeyType, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy, generateKey: Bool) throws {
+        if keyType == .ECCP384 {
+            guard self.supports(PIVSessionFeature.p384) else { throw SessionError.notSupported }
+        }
+        if pinPolicy != .default || touchPolicy != .default {
+            guard self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
+        }
+        if generateKey && (keyType == .RSA1024 || keyType == .RSA2048) {
+            guard self.supports(PIVSessionFeature.rsaGeneration) else { throw SessionError.notSupported }
+        }
     }
     
     public func putCertificate(certificate: SecCertificate, inSlot slot:PIVSlot, compress: Bool = false) async throws {
@@ -392,6 +407,12 @@ public final actor PIVSession: Session, InternalSession {
     
     public func setManagementKey(_ managementKeyData: Data, type: PIVManagementKeyType, requiresTouch: Bool) async throws {
         guard let connection = _connection else { throw SessionError.noConnection }
+        if requiresTouch {
+            guard self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
+        }
+        if type == .tripleDES {
+            guard self.supports(PIVSessionFeature.aesKey) else { throw SessionError.notSupported }
+        }
         let tlv = TKBERTLVRecord(tag: tagSlotCardManagement, value: managementKeyData)
         var data = Data([type.rawValue])
         data.append(tlv.data)
@@ -433,6 +454,26 @@ public final actor PIVSession: Session, InternalSession {
         guard challengeSent == challengeReturned else { throw PIVSessionError.authenticationFailed }
     }
     
+    public func getManagementKeyMetadata() async throws -> PIVManagementKeyMetadata {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        guard self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
+        let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2SlotCardmanagement)
+        let result = try await connection.send(apdu: apdu)
+        guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
+              let isDefault = records.recordWithTag(tagMetadataDefault)?.value.bytes[0],
+              let rawTouchPolicy = records.recordWithTag(tagMetadataTouchPolicy)?.value.bytes[1],
+              let touchPolicy = PIVManagementKeyMetadata.PIVTouchPolicy(rawValue: rawTouchPolicy)
+        else { throw PIVSessionError.responseDataNotTLVFormatted }
+        
+        let keyType: PIVManagementKeyType
+        if let rawKeyType = records.recordWithTag(tagMetadataAlgorithm)?.value.bytes[0] {
+            guard let parsedKeyType = PIVManagementKeyType(rawValue: rawKeyType) else { throw PIVSessionError.unknownKeyType }
+            keyType = parsedKeyType
+        } else {
+            keyType = .tripleDES
+        }
+        return PIVManagementKeyMetadata(isDefault: isDefault != 0, keyType: keyType, touchPolicy: touchPolicy)
+    }
     
     public func reset() async throws {
         try await blockPin()
@@ -442,7 +483,7 @@ public final actor PIVSession: Session, InternalSession {
         try await connection.send(apdu: apdu)
     }
     
-    public func serialNumber() async throws -> UInt32 {
+    public func getSerialNumber() async throws -> UInt32 {
         guard self.supports(PIVSessionFeature.serialNumber) else { throw SessionError.notSupported }
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: insGetSerial, p1: 0, p2: 0)
@@ -485,8 +526,6 @@ public final actor PIVSession: Session, InternalSession {
         return try await _ = changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
     }
 
-
-    
     public func getPinMetadata() async throws -> PIVPinPukMetadata {
         try await getPinPukMetadata(p2: p2Pin)
     }
@@ -495,39 +534,25 @@ public final actor PIVSession: Session, InternalSession {
         try await getPinPukMetadata(p2: p2Puk)
     }
     
-    public func getManagementKeyMetadata() async throws -> PIVManagementKeyMetadata {
-        guard let connection = _connection else { throw SessionError.noConnection }
-        let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2SlotCardmanagement)
-        let result = try await connection.send(apdu: apdu)
-        guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
-              let isDefault = records.recordWithTag(tagMetadataDefault)?.value.bytes[0],
-              let rawTouchPolicy = records.recordWithTag(tagMetadataTouchPolicy)?.value.bytes[1],
-              let touchPolicy = PIVManagementKeyMetadata.PIVTouchPolicy(rawValue: rawTouchPolicy)
-        else { throw PIVSessionError.responseDataNotTLVFormatted }
-        
-        let keyType: PIVManagementKeyType
-        if let rawKeyType = records.recordWithTag(tagMetadataAlgorithm)?.value.bytes[0] {
-            guard let parsedKeyType = PIVManagementKeyType(rawValue: rawKeyType) else { throw PIVSessionError.unknownKeyType }
-            keyType = parsedKeyType
-        } else {
-            keyType = .tripleDES
-        }
-        return PIVManagementKeyMetadata(isDefault: isDefault != 0, keyType: keyType, touchPolicy: touchPolicy)
-    }
-    
     public func getPinAttempts() async throws -> Int {
         guard let connection = _connection else { throw SessionError.noConnection }
-        let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: p2Pin)
-        do {
-            try await connection.send(apdu: apdu)
-            return currentPinAttempts
-        } catch {
-            guard let responseError = error as? ResponseError else { throw error }
-            let retries = retriesFrom(responseError: responseError)
-            if retries < 0 {
-                throw error
-            } else {
-                return retries
+        if self.supports(PIVSessionFeature.metadata) {
+            let metadata = try await getPinMetadata()
+            return metadata.retriesRemaining
+        } else {
+            let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: p2Pin)
+            do {
+                try await connection.send(apdu: apdu)
+                // Already verified, no way to know true count
+                return currentPinAttempts
+            } catch {
+                guard let responseError = error as? ResponseError else { throw error }
+                let retries = retriesFrom(responseError: responseError)
+                if retries < 0 {
+                    throw error
+                } else {
+                    return retries
+                }
             }
         }
     }
@@ -615,6 +640,7 @@ extension PIVSession {
     
     private func getPinPukMetadata(p2: UInt8) async throws -> PIVPinPukMetadata {
         guard let connection = _connection else { throw SessionError.noConnection }
+        guard self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2)
         let result = try await connection.send(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
