@@ -265,6 +265,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func attestKeyInSlot(slot: PIVSlot) async throws -> SecCertificate {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(PIVSessionFeature.attestation) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insAttest, p1: slot.rawValue, p2: 0)
         guard let connection = _connection else { throw SessionError.noConnection }
@@ -274,10 +275,13 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func generateKeyInSlot(slot: PIVSlot, type: PIVKeyType, pinPolicy: PIVPinPolicy = .default, touchPolicy: PIVTouchPolicy = .default) async throws -> SecKey {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         try checkKeyFeatures(keyType: type, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: true)
-        let tlv = TKBERTLVRecord(tag: tagGenAlgorithm, value: type.rawValue.data)
-        let tlvContainer = TKBERTLVRecord(tag: 0xac, value: tlv.data) // What is 0xac?
+        let records: [TKBERTLVRecord] = [TKBERTLVRecord(tag: tagGenAlgorithm, value: type.rawValue.data),
+                                         pinPolicy != .default ? TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data) : nil,
+                                         touchPolicy != .default ? TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data) : nil].compactMap { $0 }
+        let tlvContainer = TKBERTLVRecord(tag: 0xac, records: records)
         let apdu = APDU(cla: 0, ins: insGenerateAsymetric, p1: 0, p2: slot.rawValue, command: tlvContainer.data)
         let result = try await connection.send(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
@@ -313,6 +317,7 @@ public final actor PIVSession: Session, InternalSession {
     
     @discardableResult
     public func putKey(key: SecKey, inSlot slot: PIVSlot, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy) async throws -> PIVKeyType {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         guard let keyType = key.type else { throw PIVSessionError.unknownKeyType }
         try checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
@@ -356,6 +361,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     private func checkKeyFeatures(keyType: PIVKeyType, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy, generateKey: Bool) throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         if keyType == .ECCP384 {
             guard self.supports(PIVSessionFeature.p384) else { throw SessionError.notSupported }
         }
@@ -368,6 +374,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func putCertificate(certificate: SecCertificate, inSlot slot:PIVSlot, compress: Bool = false) async throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         var certData = SecCertificateCopyData(certificate) as Data
         if compress {
             certData = try certData.gzipped()
@@ -381,6 +388,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func getCertificateInSlot(_ slot: PIVSlot) async throws -> SecCertificate {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         let command = TKBERTLVRecord(tag: tagObjectId, value: slot.objectId).data
         let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command, type: .extended)
@@ -402,10 +410,12 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func deleteCertificateInSlot(slot: PIVSlot) async throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await putObject(Data(), objectId: slot.objectId)
     }
     
     public func setManagementKey(_ managementKeyData: Data, type: PIVManagementKeyType, requiresTouch: Bool) async throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         if requiresTouch {
             guard self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
@@ -421,6 +431,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func authenticateWith(managementKey: Data, keyType: PIVManagementKeyType) async throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         guard keyType.keyLength == managementKey.count else { throw PIVSessionError.badKeyLength }
         
@@ -455,6 +466,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func getManagementKeyMetadata() async throws -> PIVManagementKeyMetadata {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         guard self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2SlotCardmanagement)
@@ -476,6 +488,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func reset() async throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await blockPin()
         try await blockPuk()
         guard let connection = _connection else { throw SessionError.noConnection }
@@ -484,6 +497,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func getSerialNumber() async throws -> UInt32 {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(PIVSessionFeature.serialNumber) else { throw SessionError.notSupported }
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: insGetSerial, p1: 0, p2: 0)
@@ -493,6 +507,7 @@ public final actor PIVSession: Session, InternalSession {
     
     @discardableResult
     public func verifyPin(_ pin: String) async throws -> PIVVerifyPinResult {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         guard let pinData = pin.paddedPinData() else { throw PIVSessionError.invalidPin }
         let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: 0x80, command: pinData)
@@ -515,26 +530,32 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func setPin(_ newPin: String, oldPin: String) async throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await _ = changeReference(ins: insChangeReference, p2: p2Pin, valueOne: oldPin, valueTwo: newPin)
     }
 
     public func setPuk(_ newPuk: String, oldPuk: String) async throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await _ = changeReference(ins: insChangeReference, p2: p2Puk, valueOne: oldPuk, valueTwo: newPuk)
     }
     
     public func unblockPinWithPuk(_ puk: String, newPin: String) async throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await _ = changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
     }
 
     public func getPinMetadata() async throws -> PIVPinPukMetadata {
-        try await getPinPukMetadata(p2: p2Pin)
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
+        return try await getPinPukMetadata(p2: p2Pin)
     }
     
     public func getPukMetadata() async throws -> PIVPinPukMetadata {
-        try await getPinPukMetadata(p2: p2Puk)
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
+        return try await getPinPukMetadata(p2: p2Puk)
     }
     
     public func getPinAttempts() async throws -> Int {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         if self.supports(PIVSessionFeature.metadata) {
             let metadata = try await getPinMetadata()
@@ -558,6 +579,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func set(pinAttempts: Int, pukAttempts: Int) async throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         guard let pinAttempts = UInt8(exactly: pinAttempts),
               let pukAttempts = UInt8(exactly: pukAttempts) else { throw PIVSessionError.invalidInput }
@@ -568,6 +590,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func blockPin(counter: Int = 0) async throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let result = try await verifyPin("")
         switch result {
         case .success(_), .fail(_):
@@ -580,6 +603,7 @@ public final actor PIVSession: Session, InternalSession {
     }
     
     public func blockPuk(counter: Int = 0) async throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let retries = try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: "", valueTwo: "")
         if retries <= 0 || counter > 15 {
             return
@@ -675,7 +699,6 @@ extension PIVSession {
 fileprivate extension ResponseStatus {
     func pinRetriesLeft(version: Version) -> Int? {
         if (self.rawStatus == 0x6983) {
-            print("hepp")
             return 0;
         }
         if version < Version(withString: "1.0.4")! {
