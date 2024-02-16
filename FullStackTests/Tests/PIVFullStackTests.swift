@@ -7,10 +7,13 @@
 
 import XCTest
 import YubiKit
+import OSLog
 
 @testable import FullStackTests
 
 final class PIVFullStackTests: XCTestCase {
+    
+    let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
     
     func testSignECCP256() throws {
         runAuthenticatedPIVTest { session in
@@ -198,7 +201,7 @@ final class PIVFullStackTests: XCTestCase {
     
     func testGenerateRSA1024Key() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA1024, pinPolicy: .always, touchPolicy: .cached)
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA1024, pinPolicy: .never, touchPolicy: .cached)
             let attributes = SecKeyCopyAttributes(publicKey) as! [String: Any]
             XCTAssert(attributes[kSecAttrKeySizeInBits as String] as! Int == 1024)
             XCTAssert(attributes[kSecAttrKeyType as String] as! String == kSecAttrKeyTypeRSA as String)
@@ -239,8 +242,10 @@ final class PIVFullStackTests: XCTestCase {
 
     func testAttestRSAKey() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .keyManagement, type: .RSA1024)
-            let cert = try await session.attestKeyInSlot(slot: .keyManagement)
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA1024)
+            XCTAssertNotNil(publicKey)
+            let cert = try await session.attestKeyInSlot(slot: .signature)
+            XCTAssertNotNil(cert)
             let attestKey = SecCertificateCopyKey(cert)!
             let attestKeyData = SecKeyCopyExternalRepresentation(attestKey, nil)!
             let keyData = SecKeyCopyExternalRepresentation(publicKey, nil)!
@@ -282,10 +287,8 @@ final class PIVFullStackTests: XCTestCase {
     
     func testAuthenticateWithDefaultManagementKey() throws {
         runPIVTest { session in
-            try await session.reset()
-            let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
             do {
-                try await session.authenticateWith(managementKey: defaultManagementKey, keyType: .tripleDES)
+                try await session.authenticateWith(managementKey: self.defaultManagementKey, keyType: .tripleDES)
             } catch {
                 XCTFail("Failed authenticating with default management key.")
             }
@@ -320,10 +323,9 @@ final class PIVFullStackTests: XCTestCase {
     
     func testAuthenticateWithWrongManagementKey() throws {
         runPIVTest { session in
-            try await session.reset()
-            let defaultManagementKey = Data(hexEncodedString: "010101010101010101010101010101010101010101010101")!
+            let wrongManagementKey = Data(hexEncodedString: "010101010101010101010101010101010101010101010101")!
             do {
-                try await session.authenticateWith(managementKey: defaultManagementKey, keyType: .tripleDES)
+                try await session.authenticateWith(managementKey: wrongManagementKey, keyType: .tripleDES)
                 XCTFail("Successfully authenticated with the wrong management key.")
             } catch {
                 guard let error = error as? ResponseError else { XCTFail("Failed with unexpected error: \(error)"); return }
@@ -395,11 +397,11 @@ final class PIVFullStackTests: XCTestCase {
     }
     
     func testVersion() throws {
-        runAuthenticatedPIVTest { session in
+        runPIVTest { session in
             let version = session.version
             XCTAssertEqual(version.major, 5)
             XCTAssert(version.minor == 2 || version.minor == 3 || version.minor == 4)
-            print("✅ Got version: \(session.version.major).\(session.version.minor).\(session.version.micro)")
+            print("➡️ Version: \(session.version.major).\(session.version.minor).\(session.version.micro)")
         }
     }
     
@@ -408,7 +410,7 @@ final class PIVFullStackTests: XCTestCase {
             guard session.supports(PIVSessionFeature.serialNumber) else { print("⚠️ Skip testSerialNumber()"); return }
             let serialNumber = try await session.getSerialNumber()
             XCTAssert(serialNumber > 0)
-            print("✅ Got serial number: \(serialNumber)")
+            print("➡️ Serial number: \(serialNumber)")
         }
     }
     
@@ -426,7 +428,7 @@ final class PIVFullStackTests: XCTestCase {
     func testAESManagementKeyMetadata() throws {
         runAuthenticatedPIVTest { session in
             guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testAESManagementKeyMetadata()"); return }
-            let aesManagementKey = Data([0xf7, 0xef, 0x78, 0x7b, 0x46, 0xaa, 0x50, 0xde, 0x06, 0x6b, 0xda, 0xde, 0x00, 0xae, 0xe1, 0x7f, 0xc2, 0xb7, 0x10, 0x37, 0x2b, 0x72, 0x2d, 0xe5])
+            let aesManagementKey = Data(hexEncodedString: "f7ef787b46aa50de066bdade00aee17fc2b710372b722de5")!
             try await session.setManagementKey(aesManagementKey, type: .AES192, requiresTouch: true)
             let metadata = try await session.getManagementKeyMetadata()
             XCTAssertEqual(metadata.isDefault, false)
@@ -528,7 +530,10 @@ extension XCTestCase {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
             let connection = try await AllowedConnections.anyConnection()
             let session = try await PIVSession.session(withConnection: connection)
+            try await session.reset()
+            Logger.test.debug("⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ PIV Session test ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️")
             try await test(session)
+            Logger.test.debug("✅ \(testName) passed")
         }
     }
     
@@ -541,9 +546,11 @@ extension XCTestCase {
             let connection = try await AllowedConnections.anyConnection()
             let session = try await PIVSession.session(withConnection: connection)
             try await session.reset()
-            let defaultManagementKey = Data([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08])
+            let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
             try await session.authenticateWith(managementKey: defaultManagementKey, keyType: .tripleDES)
+            Logger.test.debug("⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ PIV Session test ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️")
             try await test(session)
+            Logger.test.debug("✅ \(testName) passed")
         }
     }
 }
