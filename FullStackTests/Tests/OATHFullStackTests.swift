@@ -172,7 +172,7 @@ extension XCTestCase {
             let connection = try await AllowedConnections.anyConnection()
             var session = try await OATHSession.session(withConnection: connection)
             try await session.reset()
-            
+            session = try await OATHSession.session(withConnection: connection)
             if populated {
                 let secret = "abba".base32DecodedData!
                 let credentialOne = OATHSession.CredentialTemplate(type: .TOTP(), algorithm: .SHA1, secret: secret, issuer: "TOTP SHA1", name: "6 digits, 30 sec", digits: 6)
