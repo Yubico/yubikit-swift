@@ -64,12 +64,25 @@ public final actor PIVSession: Session, InternalSession {
         return feature.isSupported(by: version)
     }
     
+    /// Create a signature for a given message.
+    /// - Parameters:
+    ///   - slot: The slot containing the private key to use.
+    ///   - keyType: The type of the key stored in the slot.
+    ///   - algorithm: The signing algorithm to use.
+    ///   - message: The message to hash.
+    /// - Returns: The generated signature for the message.
     public func signWithKeyInSlot(_ slot: PIVSlot, keyType: PIVKeyType, algorithm: SecKeyAlgorithm, message: Data) async throws -> Data {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let data = try PIVPadding.padData(message, keyType: keyType, algorithm: algorithm)
         return try await usePrivateKeyInSlot(slot, keyType: keyType, message: data, exponentiation: false)
     }
     
+    /// Decrypt a RSA-encrypted message.
+    /// - Parameters:
+    ///   - slot: The slot containing the private key to use.
+    ///   - algorithm: The algorithm used for encryption.
+    ///   - data: The encrypted data to decrypt.
+    /// - Returns: The decrypted data.
     public func decryptWithKeyInSlot(slot: PIVSlot, algorithm: SecKeyAlgorithm, encrypted data: Data) async throws -> Data {
         let keyType: PIVKeyType
         switch data.count {
@@ -84,6 +97,11 @@ public final actor PIVSession: Session, InternalSession {
         return try PIVPadding.unpadRSAData(result, algorithm: algorithm)
     }
     
+    /// Perform an ECDH operation with a given public key to compute a shared secret.
+    /// - Parameters:
+    ///   - slot: The slot containing the private EC key to use.
+    ///   - peerPublicKey: The peer public key for the operation.
+    /// - Returns: The shared secret.
     public func calculateSecretKeyInSlot(slot: PIVSlot, peerPublicKey: SecKey) async throws -> Data {
         guard let keyType = peerPublicKey.type, (keyType == .ECCP256 || keyType == .ECCP384) else { throw PIVSessionError.unsupportedKeyType }
         var error: Unmanaged<CFError>?
@@ -94,6 +112,20 @@ public final actor PIVSession: Session, InternalSession {
         return try await usePrivateKeyInSlot(slot, keyType: keyType, message: data, exponentiation: true)
     }
     
+    /// Creates an attestation certificate for a private key which was generated on the YubiKey.
+    ///
+    /// A high level description of the thinking and how this can be used can be found at
+    /// [](https://developers.yubico.com/PIV/Introduction/PIV_attestation.html).
+    /// Attestation works through a special key slot called "f9" this comes pre-loaded from factory
+    /// with a key and cert signed by Yubico, but can be overwritten. After a key has been generated
+    /// in a normal slot it can be attested by this special key
+    ///
+    /// This method requires authentication.
+    ///
+    /// >Note: This functionality requires support for attestation, available on YubiKey 4.3 or later.
+    ///
+    /// - Parameter slot: The slot containing the private key to use.
+    /// - Returns: The attestation certificate.
     public func attestKeyInSlot(slot: PIVSlot) async throws -> SecCertificate {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(PIVSessionFeature.attestation) else { throw SessionError.notSupported }
@@ -104,6 +136,22 @@ public final actor PIVSession: Session, InternalSession {
         return certificate
     }
     
+    /// Generates a new key pair within the YubiKey.
+    ///
+    /// This method requires authentication and pin verification.
+    ///
+    /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIVPinPolicy.never`.
+    ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
+    ///        `PIVKeyType.ECCP348` requires P384 support, available on YubiKey 4 or later.
+    ///        ``PIVPinPolicy`` or ``PIVTouchPolicy`` other than `defaultPolicy` require support for usage policy, available on YubiKey 4 or later.
+    ///        `PIVTouchPolicy.cached` requires support for touch cached, available on YubiKey 4.3 or later.
+    ///
+    /// - Parameters:
+    ///   - slot: The slot to generate the new key in.
+    ///   - type: Which algorithm is used for key generation.
+    ///   - pinPolicy: The PIN policy for using the private key.
+    ///   - touchPolicy: The touch policy for using the private key.
+    /// - Returns: The generated public key.
     public func generateKeyInSlot(slot: PIVSlot, type: PIVKeyType, pinPolicy: PIVPinPolicy = .`defaultPolicy`, touchPolicy: PIVTouchPolicy = .`defaultPolicy`) async throws -> SecKey {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
@@ -145,6 +193,21 @@ public final actor PIVSession: Session, InternalSession {
         }
     }
     
+    /// Import a private key into a slot.
+    ///
+    /// This method requires authentication.
+    ///
+    /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIVPinPolicy.never`.
+    ///        `PIVKeyType.ECCP348` requires P384 support, available on YubiKey 4 or later.
+    ///        ``PIVPinPolicy`` or ``PIVTouchPolicy`` other than `defaultPolicy` require support for usage policy,
+    ///        available on YubiKey 4 or later.
+    ///
+    /// - Parameters:
+    ///   - key: The private key to import.
+    ///   - slot: The slot to write the key to.
+    ///   - pinPolicy: The PIN policy for using the private key.
+    ///   - touchPolicy: The touch policy for using the private key.
+    /// - Returns: The type of the stored key.
     @discardableResult
     public func putKey(key: SecKey, inSlot slot: PIVSlot, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy) async throws -> PIVKeyType {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
@@ -190,7 +253,21 @@ public final actor PIVSession: Session, InternalSession {
         return keyType
     }
     
-    public func putCertificate(certificate: SecCertificate, inSlot slot:PIVSlot, compress: Bool = false) async throws {
+    /// Writes an X.509 certificate to a slot on the YubiKey.
+    ///
+    /// This method requires authentication.
+    ///
+    /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIVPinProtocol.never`.
+    ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
+    ///        `PIVKeyType.ECCP348` requires P384 support, available on YubiKey 4 or later.
+    ///        ``PIVPinPolicy`` or ``PIVTouchPolicy`` other than `defaultPolicy` require support for usage policy, available on YubiKey 4 or later.
+    ///        `PIVTouchPolicy.cached` requires support for touch cached, available on YubiKey 4.3 or later.
+    ///
+    /// - Parameters:
+    ///   - certificate: Certificate to write.
+    ///   - slot: The slot to write the certificate to.
+    ///   - compress: If true the certificate will be compressed before being stored on the YubiKey.
+    public func putCertificate(certificate: SecCertificate, inSlot slot: PIVSlot, compress: Bool = false) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         var certData = SecCertificateCopyData(certificate) as Data
         if compress {
@@ -204,6 +281,9 @@ public final actor PIVSession: Session, InternalSession {
         try await self.putObject(data, objectId: slot.objectId)
     }
     
+    /// Reads the X.509 certificate stored in the specified slot on the YubiKey.
+    /// - Parameter slot: The slot where the certificate is stored.
+    /// - Returns: The X.509 certificate.
     public func getCertificateInSlot(_ slot: PIVSlot) async throws -> SecCertificate {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
@@ -226,11 +306,23 @@ public final actor PIVSession: Session, InternalSession {
         return certificate
     }
     
+    /// Deletes the X.509 certificate stored in the specified slot on the YubiKey.
+    ///
+    /// This method requires authentication.
+    ///
+    /// >Note: This does NOT delete any corresponding private key.
+    ///
+    /// - Parameter slot: The slot where the certificate is stored.
     public func deleteCertificateInSlot(slot: PIVSlot) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await putObject(Data(), objectId: slot.objectId)
     }
     
+    /// Set a new management key.
+    /// - Parameters:
+    ///   - managementKeyData: The new management key as Data.
+    ///   - type: The management key type.
+    ///   - requiresTouch: Set to true to require touch for authentication.
     public func setManagementKey(_ managementKeyData: Data, type: PIVManagementKeyType, requiresTouch: Bool) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
@@ -247,6 +339,10 @@ public final actor PIVSession: Session, InternalSession {
         try await connection.send(apdu: apdu)
     }
     
+    /// Authenticate with the Management Key.
+    /// - Parameters:
+    ///   - managementKey: The management key as Data.
+    ///   - keyType: The management key type.
     public func authenticateWith(managementKey: Data, keyType: PIVManagementKeyType) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
@@ -300,6 +396,8 @@ public final actor PIVSession: Session, InternalSession {
         return PIVSlotMetadata(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generated: origin == originGenerated, publicKey: publicKey)
     }
     
+    /// Reads metadata about the card management key
+    /// - Returns: The metadata for the management key.
     public func getManagementKeyMetadata() async throws -> PIVManagementKeyMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
@@ -322,6 +420,7 @@ public final actor PIVSession: Session, InternalSession {
         return PIVManagementKeyMetadata(isDefault: isDefault != 0, keyType: keyType, touchPolicy: touchPolicy)
     }
     
+    /// Resets the PIV application to just-installed state.
     public func reset() async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await blockPin()
@@ -331,6 +430,12 @@ public final actor PIVSession: Session, InternalSession {
         try await connection.send(apdu: apdu)
     }
     
+    /// Get the serial number of the YubiKey.
+    ///
+    /// >Note: This requires the SERIAL_API_VISIBILE flag to be set on one of the YubiOTP slots (it is set by default).
+    ///        This functionality requires support for feature serial, available on YubiKey 5 or later.
+    ///
+    /// - Returns: The serial number.
     public func getSerialNumber() async throws -> UInt32 {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(PIVSessionFeature.serialNumber) else { throw SessionError.notSupported }
@@ -340,6 +445,11 @@ public final actor PIVSession: Session, InternalSession {
         return CFSwapInt32BigToHost(result.uint32)
     }
     
+    /// Authenticate with pin.
+    /// - Parameter pin: The UTF8 encoded pin. Default pin code is 123456.
+    /// - Returns: Returns the number of retries left. If 0 pin authentication has been
+    ///            blocked. Note that 15 is the higheset number of retries left that will be returned even if
+    ///            remaining tries is higher.
     @discardableResult
     public func verifyPin(_ pin: String) async throws -> PIVVerifyPinResult {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
@@ -364,31 +474,56 @@ public final actor PIVSession: Session, InternalSession {
         }
     }
     
+    /// Set a new pin code for the YubiKey.
+    /// - Parameters:
+    ///   - newPin: The new UTF8 encoded pin.
+    ///   - oldPin: Old pin code. UTF8 encoded.
     public func setPin(_ newPin: String, oldPin: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await _ = changeReference(ins: insChangeReference, p2: p2Pin, valueOne: oldPin, valueTwo: newPin)
     }
-
+    
+    /// Set a new puk code for the YubiKey.
+    /// - Parameters:
+    ///   - newPuk: The new UTF8 encoded puk.
+    ///   - oldPuk: Old puk code. UTF8 encoded.
     public func setPuk(_ newPuk: String, oldPuk: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await _ = changeReference(ins: insChangeReference, p2: p2Puk, valueOne: oldPuk, valueTwo: newPuk)
     }
     
+    /// Unblock a blocked pin code with the puk code.
+    /// - Parameters:
+    ///   - puk: The UTF8 encoded puk.
+    ///   - newPin: The new UTF8 encoded pin.
     public func unblockPinWithPuk(_ puk: String, newPin: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await _ = changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
     }
-
+    
+    /// Reads metadata about the pin, such as total number of retries, attempts left, and if the pin has
+    /// been changed from the default value.
+    /// - Returns: The pin metadata.
     public func getPinMetadata() async throws -> PIVPinPukMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await getPinPukMetadata(p2: p2Pin)
     }
     
+    /// Reads metadata about the puk, such as total number of retries, attempts left, and if the puk has
+    /// been changed from the default value.
+    /// - Returns: The puk metadata.
     public func getPukMetadata() async throws -> PIVPinPukMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await getPinPukMetadata(p2: p2Puk)
     }
     
+    ///  Retrieve the number of pin attempts left for the YubiKey.
+    ///
+    /// >Note: If this command is run in a session where the correct pin has already been verified,
+    ///        the correct value will not be retrievable, and the value returned may be incorrect if the
+    ///        number of total attempts has been changed from the default.
+    ///
+    /// - Returns: Number of pin attempts left.
     public func getPinAttempts() async throws -> Int {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
@@ -413,6 +548,13 @@ public final actor PIVSession: Session, InternalSession {
         }
     }
     
+    /// Set the number of retries available for pin and puk entry.
+    ///
+    /// This method requires authentication and pin verification.
+    ///
+    /// - Parameters:
+    ///   - pinAttempts: The number of attempts to allow for pin entry before blocking the pin.
+    ///   - pukAttempts: The number of attempts to allow for puk entry before blocking the puk.
     public func set(pinAttempts: Int, pukAttempts: Int) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
