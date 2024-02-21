@@ -21,7 +21,7 @@ import Gzip
 
 /// Touch policy for PIV application.
 public enum PIVTouchPolicy: UInt8 {
-    case `default` = 0x0
+    case defaultPolicy = 0x0
     case never = 0x1
     case always = 0x2
     case cached = 0x3
@@ -29,9 +29,9 @@ public enum PIVTouchPolicy: UInt8 {
 
 /// Pin policy for PIV application.
 public enum PIVPinPolicy: UInt8 {
-    case `default` = 0x0
+    case defaultPolicy = 0x0
     case never = 0x1
-    case nce = 0x2
+    case once = 0x2
     case always = 0x3
 };
 
@@ -136,16 +136,17 @@ public enum PIVSessionError: Error {
 
 public struct PIVManagementKeyMetadata {
     
-    public enum PIVTouchPolicy: UInt8 {
-        case defaultPolicy = 0x0
-        case never = 0x1
-        case always = 0x2
-        case cached = 0x3
-    }
-    
     public let isDefault: Bool
     public let keyType: PIVManagementKeyType
     public let touchPolicy: PIVTouchPolicy
+}
+
+public struct PIVSlotMetadata {
+    public let keyType: PIVKeyType
+    public let pinPolicy: PIVPinPolicy
+    public let touchPolicy: PIVTouchPolicy
+    public let generated: Bool
+    public let publicKey: Data
 }
 
 public struct PIVPinPukMetadata {
@@ -274,13 +275,13 @@ public final actor PIVSession: Session, InternalSession {
         return certificate
     }
     
-    public func generateKeyInSlot(slot: PIVSlot, type: PIVKeyType, pinPolicy: PIVPinPolicy = .default, touchPolicy: PIVTouchPolicy = .default) async throws -> SecKey {
+    public func generateKeyInSlot(slot: PIVSlot, type: PIVKeyType, pinPolicy: PIVPinPolicy = .`defaultPolicy`, touchPolicy: PIVTouchPolicy = .`defaultPolicy`) async throws -> SecKey {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         try checkKeyFeatures(keyType: type, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: true)
         let records: [TKBERTLVRecord] = [TKBERTLVRecord(tag: tagGenAlgorithm, value: type.rawValue.data),
-                                         pinPolicy != .default ? TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data) : nil,
-                                         touchPolicy != .default ? TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data) : nil].compactMap { $0 }
+                                         pinPolicy != .`defaultPolicy` ? TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data) : nil,
+                                         touchPolicy != .`defaultPolicy` ? TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data) : nil].compactMap { $0 }
         let tlvContainer = TKBERTLVRecord(tag: 0xac, records: records)
         let apdu = APDU(cla: 0, ins: insGenerateAsymetric, p1: 0, p2: slot.rawValue, command: tlvContainer.data)
         let result = try await connection.send(apdu: apdu)
@@ -349,10 +350,10 @@ public final actor PIVSession: Session, InternalSession {
         case .unknown:
             throw PIVSessionError.unknownKeyType
         }
-        if pinPolicy != .default {
+        if pinPolicy != .`defaultPolicy` {
             data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
         }
-        if touchPolicy != .default {
+        if touchPolicy != .`defaultPolicy` {
             data.append(TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data).data)
         }
         let apdu = APDU(cla: 0, ins: insImportKey, p1: keyType.rawValue, p2: slot.rawValue, command: data, type: .extended)
@@ -365,7 +366,7 @@ public final actor PIVSession: Session, InternalSession {
         if keyType == .ECCP384 {
             guard self.supports(PIVSessionFeature.p384) else { throw SessionError.notSupported }
         }
-        if pinPolicy != .default || touchPolicy != .default {
+        if pinPolicy != .`defaultPolicy` || touchPolicy != .`defaultPolicy` {
             guard self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
         }
         if generateKey && (keyType == .RSA1024 || keyType == .RSA2048) {
@@ -465,6 +466,24 @@ public final actor PIVSession: Session, InternalSession {
         guard challengeSent == challengeReturned else { throw PIVSessionError.authenticationFailed }
     }
     
+    public func getSlotMetadata(_ slot: PIVSlot) async throws -> PIVSlotMetadata {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
+        guard let connection = _connection else { throw SessionError.noConnection }
+        guard self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
+        let result = try await connection.send(apdu: APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: slot.rawValue))
+        guard let records = TKBERTLVRecord.sequenceOfRecords(from: result) else { throw PIVSessionError.dataParseError }
+        
+        guard let rawKeyType = records.recordWithTag(tagMetadataAlgorithm)?.value.bytes[0], let keyType = PIVKeyType(rawValue: rawKeyType),
+              let policyBytes = records.recordWithTag(tagMetadataPolicy)?.value.bytes, policyBytes.count > 1,
+              let pinPolicy = PIVPinPolicy(rawValue: policyBytes[indexPinPolicy]),
+              let touchPolicy = PIVTouchPolicy(rawValue: policyBytes[indexTouchPolicy]),
+              let origin = records.recordWithTag(tagMetadataOrigin)?.value.uint8,
+              let publicKey = records.recordWithTag(tagMetadataPublicKey)?.value
+        else { throw PIVSessionError.dataParseError }
+        
+        return PIVSlotMetadata(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generated: origin == originGenerated, publicKey: publicKey)
+    }
+    
     public func getManagementKeyMetadata() async throws -> PIVManagementKeyMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
@@ -472,9 +491,9 @@ public final actor PIVSession: Session, InternalSession {
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2SlotCardmanagement)
         let result = try await connection.send(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
-              let isDefault = records.recordWithTag(tagMetadataDefault)?.value.bytes[0],
-              let rawTouchPolicy = records.recordWithTag(tagMetadataTouchPolicy)?.value.bytes[1],
-              let touchPolicy = PIVManagementKeyMetadata.PIVTouchPolicy(rawValue: rawTouchPolicy)
+              let isDefault = records.recordWithTag(tagMetadataIsDefault)?.value.bytes[0],
+              let rawTouchPolicy = records.recordWithTag(tagMetadataPolicy)?.value.bytes[1],
+              let touchPolicy = PIVTouchPolicy(rawValue: rawTouchPolicy)
         else { throw PIVSessionError.responseDataNotTLVFormatted }
         
         let keyType: PIVManagementKeyType
@@ -668,7 +687,7 @@ extension PIVSession {
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2)
         let result = try await connection.send(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
-              let isDefault = records.recordWithTag(tagMetadataDefault)?.value.bytes[0],
+              let isDefault = records.recordWithTag(tagMetadataIsDefault)?.value.bytes[0],
               let retriesTotal = records.recordWithTag(tagMetadataRetries)?.value.bytes[0],
               let retriesRemaining = records.recordWithTag(tagMetadataRetries)?.value.bytes[1]
         else { throw PIVSessionError.responseDataNotTLVFormatted }
@@ -747,10 +766,6 @@ fileprivate let insGenerateAsymetric: UInt8 = 0x47;
 fileprivate let insAttest: UInt8 = 0xf9;
 
 // Tags
-fileprivate let tagMetadataDefault: TKTLVTag = 0x05
-fileprivate let tagMetadataAlgorithm: TKTLVTag = 0x01
-fileprivate let tagMetadataTouchPolicy: TKTLVTag = 0x02
-fileprivate let tagMetadataRetries: TKTLVTag = 0x06
 fileprivate let tagDynAuth: TKTLVTag = 0x7c
 fileprivate let tagAuthWitness: TKTLVTag = 0x80
 fileprivate let tagChallenge: TKTLVTag = 0x81
@@ -764,6 +779,23 @@ fileprivate let tagCertificateInfo: TKTLVTag = 0x71
 fileprivate let tagLRC: TKTLVTag = 0xfe
 fileprivate let tagPinPolicy: TKTLVTag = 0xaa
 fileprivate let tagTouchpolicy: TKTLVTag = 0xab
+
+
+// Metadata tags
+fileprivate let tagMetadataAlgorithm: TKTLVTag = 0x01
+fileprivate let tagMetadataOrigin: TKTLVTag = 0x03
+fileprivate let tagMetadataPublicKey: TKTLVTag = 0x04
+fileprivate let tagMetadataIsDefault: TKTLVTag = 0x05
+fileprivate let tagMetadataRetries: TKTLVTag = 0x06
+fileprivate let tagMetadataPolicy: TKTLVTag = 0x02
+
+fileprivate let originGenerated: UInt8 = 1
+fileprivate let originImported: UInt8 = 2
+
+fileprivate let indexPinPolicy: Int = 0
+fileprivate let indexTouchPolicy: Int = 1
+fileprivate let indexRetriesTotal: Int = 0
+fileprivate let indexRetriesRemaining: Int = 1
 
 // P2
 fileprivate let p2Pin: UInt8 = 0x80

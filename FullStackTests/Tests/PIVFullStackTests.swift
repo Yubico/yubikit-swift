@@ -288,7 +288,14 @@ final class PIVFullStackTests: XCTestCase {
     func testAuthenticateWithDefaultManagementKey() throws {
         runPIVTest { session in
             do {
-                try await session.authenticateWith(managementKey: self.defaultManagementKey, keyType: .tripleDES)
+                let keyType: PIVManagementKeyType
+                if session.supports(PIVSessionFeature.metadata) {
+                    let metadata = try await session.getManagementKeyMetadata()
+                    keyType = metadata.keyType
+                } else {
+                    keyType = .tripleDES
+                }
+                try await session.authenticateWith(managementKey: self.defaultManagementKey, keyType: keyType)
             } catch {
                 XCTFail("Failed authenticating with default management key.")
             }
@@ -325,7 +332,14 @@ final class PIVFullStackTests: XCTestCase {
         runPIVTest { session in
             let wrongManagementKey = Data(hexEncodedString: "010101010101010101010101010101010101010101010101")!
             do {
-                try await session.authenticateWith(managementKey: wrongManagementKey, keyType: .tripleDES)
+                let keyType: PIVManagementKeyType
+                if session.supports(PIVSessionFeature.metadata) {
+                    let metadata = try await session.getManagementKeyMetadata()
+                    keyType = metadata.keyType
+                } else {
+                    keyType = .tripleDES
+                }
+                try await session.authenticateWith(managementKey: wrongManagementKey, keyType: keyType)
                 XCTFail("Successfully authenticated with the wrong management key.")
             } catch {
                 guard let error = error as? ResponseError else { XCTFail("Failed with unexpected error: \(error)"); return }
@@ -400,7 +414,7 @@ final class PIVFullStackTests: XCTestCase {
         runPIVTest { session in
             let version = session.version
             XCTAssertEqual(version.major, 5)
-            XCTAssert(version.minor == 2 || version.minor == 3 || version.minor == 4)
+            XCTAssert(version.minor == 2 || version.minor == 3 || version.minor == 4 || version.minor == 7)
             print("➡️ Version: \(session.version.major).\(session.version.minor).\(session.version.micro)")
         }
     }
@@ -419,8 +433,38 @@ final class PIVFullStackTests: XCTestCase {
             guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testManagementKeyMetadata()"); return }
             let metadata = try await session.getManagementKeyMetadata()
             XCTAssertEqual(metadata.isDefault, true)
-            XCTAssertEqual(metadata.keyType, .tripleDES)
+            print("➡️ Management key type: \(metadata.keyType)")
+            print("➡️ Management touch policy: \(metadata.touchPolicy)")
+        }
+        
+    }
+    
+    func testSlotMetadata() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testSlotMetadata()"); return }
+            _ = try await session.generateKeyInSlot(slot: .authentication, type: .ECCP256, pinPolicy: .always, touchPolicy: .always)
+            var metadata = try await session.getSlotMetadata(.authentication)
+            XCTAssertEqual(metadata.keyType, .ECCP256)
+            XCTAssertEqual(metadata.pinPolicy, .always)
+            XCTAssertEqual(metadata.touchPolicy, .always)
+            XCTAssertEqual(metadata.generated, true)
+            XCTAssertTrue(metadata.publicKey.count > 0)
+
+            _ = try await session.generateKeyInSlot(slot: .authentication, type: .ECCP384, pinPolicy: .never, touchPolicy: .never)
+            metadata = try await session.getSlotMetadata(.authentication)
+            XCTAssertEqual(metadata.keyType, .ECCP384)
+            XCTAssertEqual(metadata.pinPolicy, .never)
             XCTAssertEqual(metadata.touchPolicy, .never)
+            XCTAssertEqual(metadata.generated, true)
+            XCTAssertTrue(metadata.publicKey.count > 0)
+
+            _ = try await session.generateKeyInSlot(slot: .authentication, type: .ECCP256, pinPolicy: .once, touchPolicy: .cached)
+            metadata = try await session.getSlotMetadata(.authentication)
+            XCTAssertEqual(metadata.keyType, .ECCP256)
+            XCTAssertEqual(metadata.pinPolicy, .once)
+            XCTAssertEqual(metadata.touchPolicy, .cached)
+            XCTAssertEqual(metadata.generated, true)
+            XCTAssertTrue(metadata.publicKey.count > 0)
         }
         
     }
@@ -547,7 +591,14 @@ extension XCTestCase {
             let session = try await PIVSession.session(withConnection: connection)
             try await session.reset()
             let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
-            try await session.authenticateWith(managementKey: defaultManagementKey, keyType: .tripleDES)
+            let keyType: PIVManagementKeyType
+            if session.supports(PIVSessionFeature.metadata) {
+                let metadata = try await session.getManagementKeyMetadata()
+                keyType = metadata.keyType
+            } else {
+                keyType = .tripleDES
+            }
+            try await session.authenticateWith(managementKey: defaultManagementKey, keyType: keyType)
             Logger.test.debug("⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ PIV Session test ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️")
             try await test(session)
             Logger.test.debug("✅ \(testName) passed")
