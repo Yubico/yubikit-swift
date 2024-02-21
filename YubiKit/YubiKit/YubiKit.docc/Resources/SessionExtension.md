@@ -14,6 +14,11 @@
 
 - ``end()``
 
+### Session feature support
+
+- ``SessionFeature``
+- ``supports(_:)``
+
 ### Errors
 
 - ``SessionError``

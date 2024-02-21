@@ -67,3 +67,4 @@ communication with the YubiKey.
 - ``Session``
 - ``OATHSession``
 - ``ManagementSession``
+- ``PIVSession``
