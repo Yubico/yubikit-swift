@@ -20,9 +20,9 @@ public enum PIVPaddingError: Error {
     case unsupportedAlgorithm, unknownKeyType, unknownPaddingError, wrongInputBufferSize
 }
 
-public enum PIVPadding {
+internal enum PIVPadding {
     
-    public static func padData(_ data: Data, keyType: PIVKeyType, algorithm: SecKeyAlgorithm) throws -> Data {
+    internal static func padData(_ data: Data, keyType: PIVKeyType, algorithm: SecKeyAlgorithm) throws -> Data {
         if keyType == .RSA1024 || keyType == .RSA2048 {
             let keySize = keyType.size * 8
             let attributes = [kSecAttrKeyType: kSecAttrKeyTypeRSA,
@@ -95,7 +95,7 @@ public enum PIVPadding {
         throw PIVPaddingError.unknownPaddingError
     }
     
-    public static func unpadRSAData(_ data: Data, algorithm: SecKeyAlgorithm) throws -> Data {
+    internal static func unpadRSAData(_ data: Data, algorithm: SecKeyAlgorithm) throws -> Data {
         let size: UInt
         switch data.count {
         case 1024 / 8:
