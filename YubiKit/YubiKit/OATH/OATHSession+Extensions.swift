@@ -214,6 +214,26 @@ extension OATHSession {
 
     }
     
+    internal struct CredentialIdentifier {
+        static func identifier(name: String, issuer: String?, type: OATHSession.CredentialType) -> String {
+            let key: String
+            if let issuer {
+                key = "\(issuer):\(name)"
+            } else {
+                key = name
+            }
+            if case let .TOTP(period) = type {
+                if period != oathDefaultPeriod {
+                    return "\(String(format: "%.0f", period))/\(key)"
+                } else {
+                    return key
+                }
+            } else {
+                return key
+            }
+        }
+    }
+    
     /// Template object holding all required information to add a new ``Credential`` to a YubiKey.
     public struct CredentialTemplate {
         
@@ -230,21 +250,7 @@ extension OATHSession {
         ///
         /// The Credential ID is calculated based on the combination of the issuer, the name, and (for TOTP credentials) the validity period.
         public var identifier: String {
-            let key: String
-            if let issuer {
-                key = "\(issuer):\(name)"
-            } else {
-                key = name
-            }
-            if case let .TOTP(period) = type {
-                if period != oathDefaultPeriod {
-                    return "\(String(format: "%.0f", period))/\(key)"
-                } else {
-                    return key
-                }
-            } else {
-                return key
-            }
+            return CredentialIdentifier.identifier(name: name, issuer: issuer, type: type)
         }
         
         /// Creates a CredentialTemplate by parsing a [otpauth:// URI](https://github.com/google/google-authenticator/wiki/Key-Uri-Format).

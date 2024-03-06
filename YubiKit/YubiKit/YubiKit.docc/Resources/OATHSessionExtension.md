@@ -15,6 +15,7 @@
 ### Running commands in the OATH application
 
 - ``addCredential(template:)``
+- ``renameCredential(_:newName:newIssuer:)``
 - ``deleteCredential(_:)``
 - ``listCredentials()``
 - ``calculateCode(credential:timestamp:)``

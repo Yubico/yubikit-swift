@@ -63,6 +63,9 @@ public final actor OATHSession: Session, InternalSession {
     }
     
     private let selectResponse: SelectResponse
+    public nonisolated var version: Version {
+        selectResponse.version
+    }
     
     private init(connection: Connection) async throws {
         self.selectResponse = try await Self.selectApplication(withConnection: connection)
@@ -115,7 +118,7 @@ public final actor OATHSession: Session, InternalSession {
     }
     
     nonisolated public func supports(_ feature: SessionFeature) -> Bool {
-        return true
+        return feature.isSupported(by: version)
     }
     
     /// Adds a new Credential to the YubiKey.
@@ -153,6 +156,27 @@ public final actor OATHSession: Session, InternalSession {
         let apdu = APDU(cla: 0x00, ins: 0x01, p1: 0x00, p2: 0x00, command: data)
         try await connection.send(apdu: apdu)
         return Credential(deviceId: selectResponse.deviceId, id: nameData, type: template.type, name: template.name, issuer: template.issuer, requiresTouch: template.requiresTouch)
+    }
+    
+    /// Sends to the key an OATH Rename request to update issuer and account on an existing credential.
+    ///
+    /// >Note: This functionality requires support for renaming, available on YubiKey 5.3 or later.
+    ///
+    /// - Parameters:
+    ///   - credential: The credential to rename.
+    ///   - newName: The new account name.
+    ///   - newIssuer: The new issuer.
+    public func renameCredential(_ credential: Credential, newName: String, newIssuer: String?) async throws {
+        guard self.supports(OATHSessionFeature.rename) else { throw SessionError.notSupported }
+        guard let connection = _connection else { throw SessionError.noConnection }
+        guard let currentId = CredentialIdentifier.identifier(name: credential.name, issuer: credential.issuer, type: credential.type).data(using: .utf8),
+              let renamedId = CredentialIdentifier.identifier(name: newName, issuer: newIssuer, type: credential.type).data(using: .utf8)
+        else { throw OATHSessionError.unexpectedData }
+        var data = Data()
+        data.append(TKBERTLVRecord(tag: 0x71, value: currentId).data)
+        data.append(TKBERTLVRecord(tag: 0x71, value: renamedId).data)
+        let apdu = APDU(cla: 0, ins: 0x05, p1: 0, p2: 0, command: data)
+        try await connection.send(apdu: apdu)
     }
     
     /// Deletes an existing Credential from the YubiKey.

@@ -41,8 +41,6 @@
 - ``blockPin(counter:)``
 - ``blockPuk(counter:)``
 
-
-
 ### Return types
 
 - ``PIVTouchPolicy``
@@ -54,6 +52,10 @@
 - ``PIVSlotMetadata``
 - ``PIVPinPukMetadata``
 - ``PIVManagementKeyType``
+
+### PIV Sesson features
+
+-``PIVSessionFeature``
 
 ### Errors
 

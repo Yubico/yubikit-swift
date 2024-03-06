@@ -129,6 +129,40 @@ class OATHFullStackTests: XCTestCase {
         }
     }
     
+    func testRenameCredential() throws {
+        runOATHTest(populated: false) { session in
+            let template = OATHSession.CredentialTemplate(type: .TOTP(), algorithm: .SHA1, secret: "abba".base32DecodedData!, issuer: "Original Issuer", name: "Original Name", digits: 6)
+            try await session.addCredential(template: template)
+            guard let credential = try await session.listCredentials().first else { XCTFail("Failed adding credential to YubiKey."); return }
+            do {
+                try await session.renameCredential(credential, newName: "New Name", newIssuer: "New Issuer")
+                guard let renamedCredential = try await session.listCredentials().first else { XCTFail("Failed reading renamed credential from YubiKey."); return }
+                XCTAssertEqual(renamedCredential.name, "New Name")
+                XCTAssertEqual(renamedCredential.issuer, "New Issuer")
+            } catch {
+                guard let error = error as? SessionError, error == .notSupported else {  XCTFail("Unexpected error: \(error)"); return  }
+                print("⚠️ Skip testRenameCredential()")
+            }
+        }
+    }
+    
+    func testRenameCredentialNoIssuer() throws {
+        runOATHTest(populated: false) { session in
+            let template = OATHSession.CredentialTemplate(type: .TOTP(), algorithm: .SHA1, secret: "abba".base32DecodedData!, issuer: "Original Issuer", name: "Original Name", digits: 6)
+            try await session.addCredential(template: template)
+            guard let credential = try await session.listCredentials().first else { XCTFail("Failed adding credential to YubiKey."); return }
+            do {
+                try await session.renameCredential(credential, newName: "New Name", newIssuer: nil)
+                guard let renamedCredential = try await session.listCredentials().first else { XCTFail("Failed reading renamed credential from YubiKey."); return }
+                XCTAssertEqual(renamedCredential.name, "New Name")
+                XCTAssertNil(renamedCredential.issuer)
+            } catch {
+                guard let error = error as? SessionError, error == .notSupported else {  XCTFail("Unexpected error: \(error)"); return  }
+                print("⚠️ Skip testRenameCredentialNoIssuer()")
+            }
+        }
+    }
+    
     func testDeleteCredential() throws {
         runOATHTest() { session in
             let credentials = try await session.listCredentials()
