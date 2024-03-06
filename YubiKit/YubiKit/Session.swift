@@ -25,6 +25,7 @@ public protocol Session: AnyObject {
     /// Returns a new session using the supplied connection.
     static func session(withConnection connection: Connection) async throws -> Self
     
+    /// Determine wether the Session supports the specific feature.
     func supports(_ feature: SessionFeature) -> Bool
 
     /// End the session. This will remove its internal connection and discard any state saved by the session.

@@ -16,22 +16,31 @@ import Foundation
 import CommonCrypto
 
 
-/// Touch policy for PIV application.
+/// The touch policy of a private key defines whether or not a user presence check (physical touch) is required to use the key.
 public enum PIVTouchPolicy: UInt8 {
+    /// The default behavior for the particular key slot is used, which is always `.never`.
     case defaultPolicy = 0x0
+    /// Touch is never required for using the key.
     case never = 0x1
+    /// Touch is always required for using the key.
     case always = 0x2
+    /// Touch is required, but cached for 15s after use, allowing multiple uses.
     case cached = 0x3
 }
 
-/// Pin policy for PIV application.
+/// The PIN policy of a private key defines whether or not a PIN is required to use the key.
 public enum PIVPinPolicy: UInt8 {
+    /// The default behavior for the particular key slot is used.
     case defaultPolicy = 0x0
+    /// The PIN is never required for using the key.
     case never = 0x1
+    /// The PIN must be verified for the session, prior to using the key.
     case once = 0x2
+    /// The PIN must be verified each time the key is to be used, just prior to using it.
     case always = 0x3
 };
 
+/// The slot to use in the PIV application.
 public enum PIVSlot: UInt8 {
     case authentication = 0x9a
     case signature = 0x9c
@@ -55,6 +64,7 @@ public enum PIVSlot: UInt8 {
     }
 }
 
+// PIV key type.
 public enum PIVKeyType: UInt8 {
     case RSA1024 = 0x06
     case RSA2048 = 0x07
@@ -62,6 +72,7 @@ public enum PIVKeyType: UInt8 {
     case ECCP384 = 0x14
     case unknown = 0x00
     
+    /// Create a new PIVKeyType from a SecKey.
     public init?(_ secKey: SecKey) {
         guard let dict = SecKeyCopyAttributes(secKey) else { return nil }
         let attributes = dict as NSDictionary
@@ -93,6 +104,7 @@ public enum PIVKeyType: UInt8 {
         }
     }
     
+    /// The size of the key.
     var size: UInt {
         switch (self) {
         case .ECCP256:
@@ -109,12 +121,17 @@ public enum PIVKeyType: UInt8 {
     }
 }
 
+/// Result of a pin verification.
 public enum PIVVerifyPinResult: Equatable {
+    /// Verification was successful. The associated value holds the number of pin retries left.
     case success(Int)
+    /// Verification failed. The associated value holds the number of pin retries left.
     case fail(Int)
+    /// PIN has been locked.
     case pinLocked
 }
 
+/// PIV session specific errors.
 public enum PIVSessionError: Error {
     case invalidCipherTextLength
     case unsupportedOperation
@@ -131,33 +148,52 @@ public enum PIVSessionError: Error {
     case unsupportedKeyType
 }
 
+/// Metadata about the card management key.
 public struct PIVManagementKeyMetadata {
-    
+    /// Whether or not the default card management key is set.
     public let isDefault: Bool
+    /// The algorithm of key used for the Management Key.
     public let keyType: PIVManagementKeyType
+    /// Whether or not the YubiKey sensor needs to be touched when performing authentication.
     public let touchPolicy: PIVTouchPolicy
 }
 
+/// Metadata about a key in a slot.
 public struct PIVSlotMetadata {
+    /// The algorithm and size of the key.
     public let keyType: PIVKeyType
+    /// The PIN policy of a private key defines whether or not a PIN is required to use the key.
     public let pinPolicy: PIVPinPolicy
+    /// The touch policy of a private key defines whether or not a user presence check (physical touch) is required to use the key.
     public let touchPolicy: PIVTouchPolicy
+    /// Whether the key was generated on the YubiKey or imported.
     public let generated: Bool
+    /// Returns the public key corresponding to the key in the slot.
     public let publicKey: Data
 }
 
+/// Metadata about the PIN or PUK.
 public struct PIVPinPukMetadata {
+    /// Whether or not the default PIN/PUK is set.
     public let isDefault: Bool
+    /// The number of PIN/PUK attempts available after successful verification.
     public let retriesTotal: Int
+    /// The number of PIN/PUK attempts currently remaining.
     public let retriesRemaining: Int
 }
 
+/// PIV management key type.
 public enum PIVManagementKeyType: UInt8 {
+    /// 3-des (default)
     case tripleDES = 0x03
+    /// AES-128
     case AES128 = 0x08
+    /// AES-192
     case AES192 = 0x0a
+    /// AES-256
     case AES256 = 0x0c
     
+    /// The length of the key.
     var keyLength: Int {
         switch self {
         case .tripleDES, .AES192:
@@ -169,6 +205,7 @@ public enum PIVManagementKeyType: UInt8 {
         }
     }
     
+    /// The length of the challenge.
     var challengeLength: Int {
         switch self {
         case .tripleDES:
@@ -178,6 +215,7 @@ public enum PIVManagementKeyType: UInt8 {
         }
     }
     
+    /// The corresponding ccAlgorithm for this PIVManagementKeyType.
     var ccAlgorithm: UInt32 {
         switch self {
         case .tripleDES:
