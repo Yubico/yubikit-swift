@@ -16,12 +16,16 @@ import Foundation
 
 public enum OATHSessionFeature: SessionFeature {
     
-    case rename
-     
+    case rename, touch, sha512
+    
     public func isSupported(by version: Version) -> Bool {
         switch self {
         case .rename:
             return version >= Version(withString: "5.3.0")!
+        case .touch:
+            return version >= Version(withString: "4.2.0")!
+        case .sha512:
+            return version >= Version(withString: "4.3.1")!
         }
     }
 }

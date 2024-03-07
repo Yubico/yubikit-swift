@@ -172,6 +172,44 @@ class OATHFullStackTests: XCTestCase {
         }
     }
     
+    func testSHA512Feature() throws {
+        runOATHTest(populated: false) { session in
+            let template = OATHSession.CredentialTemplate(type: .TOTP(), algorithm: .SHA512, secret: "abba2".base32DecodedData!, issuer: "SHA-512", name: "FeatureTest")
+            do {
+                try await session.addCredential(template: template)
+                guard let credential = try await session.listCredentials().first else { XCTFail("Failed adding SHA512 credential."); return }
+                XCTAssertEqual(credential.hashAlgorithm!, .SHA512)
+                XCTAssertEqual(String(data: credential.id, encoding: .utf8), template.identifier)
+            } catch {
+                guard let error = error as? SessionError, error == .notSupported else {  XCTFail("Unexpected error: \(error)"); return  }
+                print("⚠️ Skip testSHA512Feature()")
+            }
+        }
+    }
+    
+    func testTouchFeature() throws {
+        runOATHTest(populated: false) { session in
+            do {
+                let touchTemplate = OATHSession.CredentialTemplate(type: .TOTP(), algorithm: .SHA256, secret: "abba2".base32DecodedData!, issuer: "Touch", name: "FeatureTest", requiresTouch: true)
+                try await session.addCredential(template: touchTemplate)
+                guard let touchCredential = try await session.calculateCodes().first else { XCTFail("Failed adding touch required credential."); return }
+                XCTAssertEqual(String(data: touchCredential.0.id, encoding: .utf8), touchTemplate.identifier)
+                XCTAssertTrue(touchCredential.0.requiresTouch)
+                XCTAssertNil(touchCredential.1)
+                try await session.deleteCredential(touchCredential.0)
+                let noTouchTemplate = OATHSession.CredentialTemplate(type: .TOTP(), algorithm: .SHA256, secret: "abba2".base32DecodedData!, issuer: "Touch", name: "FeatureTest", requiresTouch: false)
+                try await session.addCredential(template: noTouchTemplate)
+                guard let noTouchCredential = try await session.calculateCodes().first else { XCTFail("Failed adding no touch required credential."); return }
+                XCTAssertEqual(String(data: noTouchCredential.0.id, encoding: .utf8), noTouchTemplate.identifier)
+                XCTAssertNotNil(noTouchCredential.1)
+                XCTAssertFalse(noTouchCredential.0.requiresTouch)
+            } catch {
+                guard let error = error as? SessionError, error == .notSupported else {  XCTFail("Unexpected error: \(error)"); return  }
+                print("⚠️ Skip testTouchFeature()")
+            }
+        }
+    }
+    
     func testDeleteAccessKey() throws {
         runOATHTest(password: "password") { session in
             do {

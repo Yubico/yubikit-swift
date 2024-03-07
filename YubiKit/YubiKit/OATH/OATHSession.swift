@@ -126,13 +126,19 @@ public final actor OATHSession: Session, InternalSession {
     /// The Credential ID (see ``OATHSession/CredentialTemplate/identifier``) must be unique to the YubiKey, or the
     /// existing Credential with the same ID will be overwritten.
     ///
-    /// Setting requireTouch requires support for FEATURE_TOUCH, available on YubiKey 4.2 or later.
-    /// Using SHA-512 requires support for FEATURE_SHA512, available on YubiKey 4.3.1 or later.
+    /// Setting requireTouch requires support for touch, available on YubiKey 4.2 or later.
+    /// Using SHA-512 requires support for SHA-512, available on YubiKey 4.3.1 or later.
     /// - Parameter template: The template describing the credential.
     /// - Returns: The newly added credential.
     @discardableResult
     public func addCredential(template: CredentialTemplate) async throws -> Credential {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
+        if template.algorithm == .SHA512 {
+            guard self.supports(OATHSessionFeature.sha512) else { throw SessionError.notSupported }
+        }
+        if template.requiresTouch {
+            guard self.supports(OATHSessionFeature.touch) else { throw SessionError.notSupported }
+        }
         guard let connection = _connection else { throw SessionError.noConnection }
         guard let nameData = template.identifier.data(using: .utf8) else { throw OATHSessionError.unexpectedData }
         let nameTlv = TKBERTLVRecord(tag: 0x71, value: nameData)
