@@ -78,34 +78,34 @@ public struct DeviceInfo {
     /// The mutable configuration of the YubiKey.
     public let config: DeviceConfig
     
-    internal let isUSBSupportedTag: TKTLVTag = 0x01
-    internal let serialNumberTag: TKTLVTag = 0x02
-    internal let isUSBEnabledTag: TKTLVTag = 0x03
-    internal let formFactorTag: TKTLVTag = 0x04
-    internal let firmwareVersionTag: TKTLVTag = 0x05
-    internal let autoEjectTimeoutTag: TKTLVTag = 0x06
-    internal let challengeResponseTimeoutTag: TKTLVTag = 0x07
-    internal let deviceFlagsTag: TKTLVTag = 0x08
-    internal let isNFCSupportedTag: TKTLVTag = 0x0d
-    internal let isNFCEnabledTag: TKTLVTag = 0x0e
-    internal let isConfigLockedTag: TKTLVTag = 0x0a
+    internal let tagIsUSBSupported: TKTLVTag = 0x01
+    internal let tagSerialNumber: TKTLVTag = 0x02
+    internal let tagIsUSBEnabled: TKTLVTag = 0x03
+    internal let tagFormFactor: TKTLVTag = 0x04
+    internal let tagFirmwareVersion: TKTLVTag = 0x05
+    internal let tagAutoEjectTimeout: TKTLVTag = 0x06
+    internal let tagChallengeResponseTimeout: TKTLVTag = 0x07
+    internal let tagDeviceFlags: TKTLVTag = 0x08
+    internal let tagIsNFCSupported: TKTLVTag = 0x0d
+    internal let tagIsNFCEnabled: TKTLVTag = 0x0e
+    internal let tagIsConfigLocked: TKTLVTag = 0x0a
     
     internal init(withData data: Data, fallbackVersion: Version) throws {
         guard let count = data.bytes.first, count > 0 else { throw ManagementSessionError.missingData }
         guard let tlvs = TKBERTLVRecord.dictionaryOfData(from: data.subdata(in: 1..<data.count)) else { throw ManagementSessionError.unexpectedData }
         
-        if let versionData = tlvs[firmwareVersionTag] {
+        if let versionData = tlvs[tagFirmwareVersion] {
             guard let parsedVersion = Version(withData: versionData) else { throw ManagementSessionError.unexpectedData }
             self.version = parsedVersion
         } else {
             self.version = fallbackVersion
         }
         
-        self.isConfigLocked = tlvs[isConfigLockedTag]?.integer == 1
+        self.isConfigLocked = tlvs[tagIsConfigLocked]?.integer == 1
         
-        self.serialNumber = tlvs[serialNumberTag]?.integer ?? 0
+        self.serialNumber = tlvs[tagSerialNumber]?.integer ?? 0
         
-        if let rawFormFactor = tlvs[formFactorTag]?.uint8 {
+        if let rawFormFactor = tlvs[tagFormFactor]?.uint8 {
             self.isFips = (rawFormFactor & 0x80) != 0
             self.isSky = (rawFormFactor & 0x40) != 0
             if let formFactor = FormFactor(rawValue: rawFormFactor) {
@@ -124,37 +124,37 @@ public struct DeviceInfo {
               // 4.2.4 doesn't report supported capabilities correctly, but they are always 0x3f.
             supportedCapabilities[DeviceTransport.usb] = 0x3f
           } else {
-            supportedCapabilities[DeviceTransport.usb] = tlvs[isUSBSupportedTag]?.integer ?? 0
+            supportedCapabilities[DeviceTransport.usb] = tlvs[tagIsUSBSupported]?.integer ?? 0
           }
         
         var enabledCapabilities = [DeviceTransport: UInt]()
-        if tlvs[isUSBEnabledTag] != nil && version.major != 4 {
+        if tlvs[tagIsUSBEnabled] != nil && version.major != 4 {
               // YK4 reports this incorrectly, instead use supportedCapabilities and USB mode.
-            enabledCapabilities[DeviceTransport.usb] = tlvs[isUSBEnabledTag]?.integer ?? 0
+            enabledCapabilities[DeviceTransport.usb] = tlvs[tagIsUSBEnabled]?.integer ?? 0
           }
         
-        if let nfcSupported = tlvs[isNFCSupportedTag]?.integer {
+        if let nfcSupported = tlvs[tagIsNFCSupported]?.integer {
             supportedCapabilities[DeviceTransport.nfc] = nfcSupported
-            enabledCapabilities[DeviceTransport.nfc] = tlvs[isNFCEnabledTag]?.integer ?? 0
+            enabledCapabilities[DeviceTransport.nfc] = tlvs[tagIsNFCEnabled]?.integer ?? 0
         }
         self.supportedCapabilities = supportedCapabilities
         
         // DeviceConfig
         let autoEjectTimeout: TimeInterval
-        if let timeout = tlvs[autoEjectTimeoutTag]?.integer {
+        if let timeout = tlvs[tagAutoEjectTimeout]?.integer {
             autoEjectTimeout = TimeInterval(timeout)
         } else {
             autoEjectTimeout = 0
         }
         
         let challengeResponseTimeout: TimeInterval
-        if let timeout = tlvs[challengeResponseTimeoutTag]?.integer {
+        if let timeout = tlvs[tagChallengeResponseTimeout]?.integer {
             challengeResponseTimeout = TimeInterval(timeout)
         } else {
             challengeResponseTimeout = 0
         }
         
-        let deviceFlags: UInt = tlvs[deviceFlagsTag]?.integer ?? 0
+        let deviceFlags = UInt8(tlvs[tagDeviceFlags]?.integer ?? 0)
         
         self.config = DeviceConfig(autoEjectTimeout: autoEjectTimeout, challengeResponseTimeout: challengeResponseTimeout, deviceFlags: deviceFlags, enabledCapabilities: enabledCapabilities)
     }

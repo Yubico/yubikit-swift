@@ -25,6 +25,8 @@ public enum ManagementSessionError: Error {
     case unexpectedData
     /// YubiKey did not return any data.
     case missingData
+    /// Device configuration too large
+    case configTooLarge
 }
 
 /// An interface to the Management application on the YubiKey.
@@ -70,18 +72,28 @@ public final actor ManagementSession: Session, InternalSession {
         await internalConnection?.setSession(nil)
         await setConnection(nil)
     }
+    
+    nonisolated public func supports(_ feature: SessionFeature) -> Bool {
+        return feature.isSupported(by: version)
+    }
 
     /// Returns the DeviceInfo for the connected YubiKey.
     public func getDeviceInfo() async throws -> DeviceInfo {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
+        guard self.supports(ManagementFeature.deviceInfo) else { throw SessionError.notSupported }
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0x1d, p1: 0, p2: 0)
         let data = try await connection.send(apdu: apdu)
         return try DeviceInfo(withData: data, fallbackVersion: version)
     }
     
-    nonisolated public func supports(_ feature: SessionFeature) -> Bool {
-        return true
+    public func updateDeviceConfig(_ config: DeviceConfig, reboot: Bool, lockCode: Data? = nil, newLockCode: Data? = nil) async throws {
+        Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
+        guard self.supports(ManagementFeature.deviceConfig) else { throw SessionError.notSupported }
+        guard let connection = _connection else { throw SessionError.noConnection }
+        let data = try config.data(reboot: reboot, lockCode: lockCode, newLockCode: newLockCode)
+        let apdu = APDU(cla: 0, ins: 0x1c, p1: 0, p2: 0, command: data)
+        try await connection.send(apdu: apdu)
     }
     
     /// Check whether an application is supported over the specified transport.
@@ -101,33 +113,18 @@ public final actor ManagementSession: Session, InternalSession {
     /// Enable or disable an application over the specified transport.
     public func setEnabled(_ enabled: Bool, application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function): \(enabled), application: \(String(describing: application)), overTransport: \(String(describing: transport)), reboot: \(reboot)")
-        guard let connection = _connection else { throw SessionError.noConnection }
         let deviceInfo = try await getDeviceInfo()
         guard enabled != deviceInfo.config.isApplicationEnabled(application, overTransport: transport) else { return }
         guard deviceInfo.isApplicationSupported(application, overTransport: transport) else {
             throw ManagementSessionError.applicationNotSupported
         }
-        let config = deviceInfo.config.deviceConfigWithEnabled(enabled, application: application, overTransport: transport)
+        guard let config = deviceInfo.config.deviceConfig(enabling: enabled, application: application, overTransport: transport) else { return }
         
-        guard let newConfigValue = config?.enabledCapabilities[transport] else {
+        guard config.enabledCapabilities[transport] != nil else {
             throw ManagementSessionError.unexpectedYubikeyConfigState
         }
         
-        var data = Data()
-        data.append(UInt8(newConfigValue & 0xff00 >> 8))
-        data.append(UInt8(newConfigValue & 0xff))
-        
-        if reboot {
-            data.append([0x0c, 0x00], count: 2)
-        }
-        let tlv = TKBERTLVRecord(tag: transport == .nfc ? deviceInfo.isNFCEnabledTag : deviceInfo.isUSBEnabledTag , value: data)
-        
-        var command = Data()
-        command.append(tlv.data.count.data.uint8)
-        command.append(tlv.data)
-        
-        let apdu = APDU(cla: 0, ins: 0x1c, p1: 0, p2: 0, command: command)
-        try await connection.send(apdu: apdu)
+        try await updateDeviceConfig(config, reboot: reboot)
     }
     
     /// Disable an application over the specified transport.

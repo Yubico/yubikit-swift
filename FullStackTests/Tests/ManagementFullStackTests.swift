@@ -43,7 +43,69 @@ class ManagementFullStackTests: XCTestCase {
         }
     }
     
-    func testDisableAndEnableOATH() throws {
+    func testTimeouts() throws {
+        runManagementTest { _, session, _ in
+            let deviceInfo = try await session.getDeviceInfo()
+            let config = deviceInfo.config.deviceConfig(autoEjectTimeout: 320.0, challengeResponseTimeout: 135.0)
+            try await session.updateDeviceConfig(config, reboot: false)
+            let info = try await session.getDeviceInfo()
+            XCTAssertEqual(info.config.challengeResponseTimeout, 135.0)
+            XCTAssertEqual(info.config.autoEjectTimeout, 320.0)
+            #if os(iOS)
+            await connection.nfcConnection?.close(message: "Test successful!")
+            #endif
+        }
+    }
+    
+    func testDisableAndEnableConfigOATHandPIVoverUSB() throws {
+        runManagementTest { connection, session, transport in
+            let deviceInfo = try await session.getDeviceInfo()
+            guard let disableConfig = deviceInfo.config.deviceConfig(enabling: false, application: .oath, overTransport: .usb)?.deviceConfig(enabling: false, application: .piv, overTransport: .usb) else { XCTFail(); return }
+            try await session.updateDeviceConfig(disableConfig, reboot: false)
+            let disabledInfo = try await session.getDeviceInfo()
+            XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.oath, overTransport: .usb))
+            XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.piv, overTransport: .usb))
+            let oathSession = try? await OATHSession.session(withConnection: connection)
+            if transport == .usb {
+                XCTAssert(oathSession == nil)
+            }
+            let managementSession = try await ManagementSession.session(withConnection: connection)
+            guard let enableConfig = deviceInfo.config.deviceConfig(enabling: true, application: .oath, overTransport: .usb)?.deviceConfig(enabling: true, application: .piv, overTransport: .usb) else { XCTFail(); return }
+            try await managementSession.updateDeviceConfig(enableConfig, reboot: false)
+            #if os(iOS)
+            await connection.nfcConnection?.close(message: "Test successful!")
+            #endif
+            let enabledInfo = try await managementSession.getDeviceInfo()
+            XCTAssert(enabledInfo.config.isApplicationEnabled(.oath, overTransport: .usb))
+            XCTAssert(enabledInfo.config.isApplicationEnabled(.piv, overTransport: .usb))
+        }
+    }
+    
+    func testDisableAndEnableConfigOATHandPIVoverNFC() throws {
+        runManagementTest { connection, session, transport in
+            let deviceInfo = try await session.getDeviceInfo()
+            guard let disableConfig = deviceInfo.config.deviceConfig(enabling: false, application: .oath, overTransport: .nfc)?.deviceConfig(enabling: false, application: .piv, overTransport: .nfc) else { XCTFail(); return }
+            try await session.updateDeviceConfig(disableConfig, reboot: false)
+            let disabledInfo = try await session.getDeviceInfo()
+            XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.oath, overTransport: .nfc))
+            XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.piv, overTransport: .nfc))
+            let oathSession = try? await OATHSession.session(withConnection: connection)
+            if transport == .nfc {
+                XCTAssert(oathSession == nil)
+            }
+            let managementSession = try await ManagementSession.session(withConnection: connection)
+            guard let enableConfig = deviceInfo.config.deviceConfig(enabling: true, application: .oath, overTransport: .nfc)?.deviceConfig(enabling: true, application: .piv, overTransport: .nfc) else { XCTFail(); return }
+            try await managementSession.updateDeviceConfig(enableConfig, reboot: false)
+            #if os(iOS)
+            await connection.nfcConnection?.close(message: "Test successful!")
+            #endif
+            let enabledInfo = try await managementSession.getDeviceInfo()
+            XCTAssert(enabledInfo.config.isApplicationEnabled(.oath, overTransport: .nfc))
+            XCTAssert(enabledInfo.config.isApplicationEnabled(.piv, overTransport: .nfc))
+        }
+    }
+    
+    func testDisableAndEnableWithHelperOATH() throws {
         runManagementTest { connection, session, transport in
             try await session.setEnabled(false, application: .oath, overTransport: transport)
             var info = try await session.getDeviceInfo()

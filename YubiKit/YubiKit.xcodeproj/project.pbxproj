@@ -27,6 +27,7 @@
 		B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E21A274FCA26004471DE /* ManagementSession.swift */; };
 		B47FDD992939FAD100AFF70A /* ConnectionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B47FDD982939FAD100AFF70A /* ConnectionHelper.swift */; };
 		B47FDD9B293A15AE00AFF70A /* NSLock+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B47FDD9A293A15AE00AFF70A /* NSLock+Extensions.swift */; };
+		B49F90C42B9F30A400C10F0B /* ManagementFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B49F90C32B9F30A400C10F0B /* ManagementFeature.swift */; };
 		B4AEC5AB2B0CF38B004F3BE7 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = B4AEC5AA2B0CF38B004F3BE7 /* README.md */; };
 		B4B124732B98B33C0099BEDB /* OATHSessionFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B124722B98B33C0099BEDB /* OATHSessionFeature.swift */; };
 		B4BE3AA8292BCA1300CC30CB /* OATHSession+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AA7292BCA1300CC30CB /* OATHSession+Extensions.swift */; };
@@ -80,6 +81,7 @@
 		B456E21A274FCA26004471DE /* ManagementSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementSession.swift; sourceTree = "<group>"; };
 		B47FDD982939FAD100AFF70A /* ConnectionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionHelper.swift; sourceTree = "<group>"; };
 		B47FDD9A293A15AE00AFF70A /* NSLock+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSLock+Extensions.swift"; sourceTree = "<group>"; };
+		B49F90C32B9F30A400C10F0B /* ManagementFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementFeature.swift; sourceTree = "<group>"; };
 		B4AEC5AA2B0CF38B004F3BE7 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
 		B4B124722B98B33C0099BEDB /* OATHSessionFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHSessionFeature.swift; sourceTree = "<group>"; };
 		B4BE3AA7292BCA1300CC30CB /* OATHSession+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OATHSession+Extensions.swift"; sourceTree = "<group>"; };
@@ -205,6 +207,7 @@
 				B456E21A274FCA26004471DE /* ManagementSession.swift */,
 				B40528322987C31E00FC33AB /* DeviceInfo.swift */,
 				B405283629894E7600FC33AB /* DeviceConfig.swift */,
+				B49F90C32B9F30A400C10F0B /* ManagementFeature.swift */,
 			);
 			path = Management;
 			sourceTree = "<group>";
@@ -373,6 +376,7 @@
 				B4FF44A32B862BCE0070750D /* PIVDataTypes.swift in Sources */,
 				B408BA8F2948FA2100001B2F /* Stream+Extensions.swift in Sources */,
 				B4BE3AB3292E1E6D00CC30CB /* TKTLVRecord+Extensions.swift in Sources */,
+				B49F90C42B9F30A400C10F0B /* ManagementFeature.swift in Sources */,
 				B456E215274D2453004471DE /* LightningConnection.swift in Sources */,
 				B4B124732B98B33C0099BEDB /* OATHSessionFeature.swift in Sources */,
 				B4F937662B51EBAF0007D394 /* PIVPadding.swift in Sources */,
