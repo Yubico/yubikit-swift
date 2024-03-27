@@ -14,7 +14,7 @@
 
 import Foundation
 
-internal struct Response: CustomStringConvertible {
+public struct Response: CustomStringConvertible {
 
     internal init(rawData: Data) {
         if rawData.count > 2 {
@@ -31,16 +31,17 @@ internal struct Response: CustomStringConvertible {
     }
     
     /// The data returned in the response.
+    /// >Note: The data does not contain the response code. It is stored in the `ResponseStatus`.
     public let data: Data
     
     /// Status code of the response
-    internal let responseStatus: ResponseStatus
+    public let responseStatus: ResponseStatus
     public var description: String {
         return "<Response: \(responseStatus.status) \(responseStatus.rawStatus.data.hexEncodedString), length: \(data.count)>"
     }
 }
 
-public struct ResponseStatus {
+public struct ResponseStatus: Equatable {
     public enum StatusCode: UInt16 {
         case ok = 0x9000
         case noInputData = 0x6285

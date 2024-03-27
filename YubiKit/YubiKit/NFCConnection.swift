@@ -100,7 +100,7 @@ public final actor NFCConnection: Connection, InternalConnection {
         }
     }
     
-    internal func send(apdu: APDU) async throws -> Response {
+    public func sendManually(apdu: APDU) async throws -> Response {
         guard let tag else { throw ConnectionError.noConnection }
         guard let apdu = apdu.nfcIso7816Apdu else { throw NFCConnectionError.malformedAPDU }
         let result: (Data, UInt8, UInt8) = try await tag.sendCommand(apdu: apdu)

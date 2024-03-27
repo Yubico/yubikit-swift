@@ -74,9 +74,9 @@ extension Connection {
         }
         if readMoreData {
             let apdu =  APDU(cla: 0, ins: ins, p1: 0, p2: 0, command: nil, type: .short)
-            response = try await internalConnection.send(apdu: apdu)
+            response = try await self.sendManually(apdu: apdu)
         } else {
-            response = try await internalConnection.send(apdu: apdu)
+            response = try await self.sendManually(apdu: apdu)
         }
         
         guard response.responseStatus.status == .ok || response.responseStatus.sw1 == 0x61 else {

@@ -80,7 +80,7 @@ public final actor LightningConnection: Connection, InternalConnection {
         }
     }
     
-    internal func send(apdu: APDU) async throws -> Response {
+    public func sendManually(apdu: APDU) async throws -> Response {
         guard let accessoryConnection, let outputStream = accessoryConnection.session.outputStream, let inputStream = accessoryConnection.session.inputStream else { throw ConnectionError.noConnection }
         var data = Data([0x00]) // YLP iAP2 Signal
         data.append(apdu.data)

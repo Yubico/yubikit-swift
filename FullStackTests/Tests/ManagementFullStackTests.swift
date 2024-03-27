@@ -44,7 +44,7 @@ class ManagementFullStackTests: XCTestCase {
     }
     
     func testTimeouts() throws {
-        runManagementTest { _, session, _ in
+        runManagementTest { connection, session, _ in
             let deviceInfo = try await session.getDeviceInfo()
             let config = deviceInfo.config.deviceConfig(autoEjectTimeout: 320.0, challengeResponseTimeout: 135.0)
             try await session.updateDeviceConfig(config, reboot: false)

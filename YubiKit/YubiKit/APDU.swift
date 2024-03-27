@@ -18,21 +18,26 @@ import Foundation
 /// Data model for encapsulating an APDU command, as defined by the ISO/IEC 7816-4 standard.
 public struct APDU: CustomStringConvertible {
     
-    public var description: String {
-        return "APDU(cla: \(cla.hexValue), ins: \(ins.hexValue), p1: \(p1.hexValue), p2: \(p2.hexValue), command: \(data.hexEncodedString), type: \(String(describing: type))"
-    }
-    
     public enum ApduType {
         case short
         case extended
     }
     
-    private let cla: UInt8
-    private let ins: UInt8
-    private let p1: UInt8
-    private let p2: UInt8
-    private let command: Data?
-    private let type: ApduType
+    private struct ExplicitAPDU {
+        let cla: UInt8
+        let ins: UInt8
+        let p1: UInt8
+        let p2: UInt8
+        let command: Data?
+        let type: ApduType
+    }
+    
+    private enum APDUStorage {
+        case explicit(ExplicitAPDU)
+        case rawData(Data)
+    }
+    
+    private let storage: APDUStorage
     
     /// Creates an APDU struct.
     /// - Parameters:
@@ -43,44 +48,59 @@ public struct APDU: CustomStringConvertible {
     ///   - command: The command data.
     ///   - type: The type of the APDU, short or extended.
     public init(cla: UInt8, ins: UInt8, p1: UInt8, p2: UInt8, command: Data? = nil, type: ApduType = .short) {
-        self.cla = cla
-        self.ins = ins
-        self.p1 = p1
-        self.p2 = p2
-        self.command = command
-        self.type = type
+        self.storage = .explicit(ExplicitAPDU(cla: cla, ins: ins, p1: p1, p2: p2, command: command, type: type))
+    }
+    
+    /// Creates an APDU struct.
+    /// - Parameters:
+    ///   - data: The raw data to send to they YubiKey.
+    public init(data: Data) {
+        self.storage = .rawData(data)
     }
     
     public var data: Data {
-        var data = Data()
-        data.append(cla)
-        data.append(ins)
-        data.append(p1)
-        data.append(p2)
+        switch storage {
+        case .explicit(let apdu):
+            var data = Data()
+            data.append(apdu.cla)
+            data.append(apdu.ins)
+            data.append(apdu.p1)
+            data.append(apdu.p2)
+            switch apdu.type {
+            case .short:
+                if let command = apdu.command, command.count > 0 {
+                    guard command.count < UInt8.max else { fatalError() }
+                    let length = UInt8(command.count)
+                    data.append(length)
+                    data.append(command)
+                }
+            case .extended:
+                if let command = apdu.command, command.count > 0 {
+                    let lengthHigh: UInt8 = UInt8(command.count / 256)
+                    let lengthLow: UInt8 = UInt8(command.count % 256)
+                    data.append(0x00)
+                    data.append(lengthHigh)
+                    data.append(lengthLow)
+                    data.append(command)
+                } else {
+                    data.append(0x00)
+                    data.append(0x00)
+                    data.append(0x00)
+                }
+            }
 
-        switch type {
-        case .short:
-            if let command, command.count > 0 {
-                guard command.count < UInt8.max else { fatalError() }
-                let length = UInt8(command.count)
-                data.append(length)
-                data.append(command)
-            }
-        case .extended:
-            if let command, command.count > 0 {
-                let lengthHigh: UInt8 = UInt8(command.count / 256)
-                let lengthLow: UInt8 = UInt8(command.count % 256)
-                data.append(0x00)
-                data.append(lengthHigh)
-                data.append(lengthLow)
-                data.append(command)
-            } else {
-                data.append(0x00)
-                data.append(0x00)
-                data.append(0x00)
-            }
+            return data
+        case .rawData(let data):
+            return data
         }
-
-        return data
+    }
+    
+    public var description: String {
+        switch storage {
+        case .explicit(let apdu):
+            return "APDU(cla: \(apdu.cla.hexValue), ins: \(apdu.ins.hexValue), p1: \(apdu.p1.hexValue), p2: \(apdu.p2.hexValue), command: \(apdu.command?.hexEncodedString ?? "nil"), type: \(String(describing: apdu.type))"
+        case .rawData(let data):
+            return "APDU(data: \(data.hexEncodedString))"
+        }
     }
 }
