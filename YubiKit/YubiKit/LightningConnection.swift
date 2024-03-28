@@ -80,11 +80,10 @@ public final actor LightningConnection: Connection, InternalConnection {
         }
     }
     
-    public func sendManually(apdu: APDU) async throws -> Response {
+    public func send(data: Data) async throws -> Data {
         guard let accessoryConnection, let outputStream = accessoryConnection.session.outputStream, let inputStream = accessoryConnection.session.inputStream else { throw ConnectionError.noConnection }
-        var data = Data([0x00]) // YLP iAP2 Signal
-        data.append(apdu.data)
-        try outputStream.writeToYubiKey(data: data)
+        // Append YLP iAP2 Signal
+        try outputStream.writeToYubiKey(data: Data([0x00]) + data)
         while true {
             try await Task.sleep(for: .seconds(commandProcessingTime))
             let result = try inputStream.readFromYubiKey()
@@ -95,9 +94,9 @@ public final actor LightningConnection: Connection, InternalConnection {
             // BUG #62 - Workaround for WTX == 0x01 while status is 0x9000 (success).
             if (status.status == .ok) || result.bytes[0] != 0x01 {
                 if result.bytes[0] == 0x00 { // Remove the YLP key protocol header
-                    return Response(rawData: result.subdata(in: 1..<result.count))
+                    return result.subdata(in: 1..<result.count)
                 } else if result.bytes[0] == 0x01 { // Remove the YLP key protocol header and the WTX
-                    return Response(rawData: result.subdata(in: 4..<result.count))
+                    return result.subdata(in: 4..<result.count)
                 }
                 throw ConnectionError.unexpectedResult
             }

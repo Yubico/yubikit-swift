@@ -121,11 +121,13 @@ class ConnectionFullStackTests: XCTestCase {
             let connection = try await Connection.connection()
             // Select Management application
             let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17]), type: .short)
-            let result = try await connection.sendManually(apdu: apdu)
+            let resultData = try await connection.send(data: apdu.data)
+            let result = Response(rawData: resultData)
             XCTAssertEqual(result.responseStatus.status, .ok)
             /// Get version number
             let deviceInfoApdu = APDU(cla: 0, ins: 0x1d, p1: 0, p2: 0)
-            let deviceInfoResult = try await connection.sendManually(apdu: deviceInfoApdu)
+            let deviceInfoResultData = try await connection.send(data: deviceInfoApdu.data)
+            let deviceInfoResult = Response(rawData: deviceInfoResultData)
             XCTAssertEqual(deviceInfoResult.responseStatus.status, .ok)
             let records = TKBERTLVRecord.sequenceOfRecords(from: deviceInfoResult.data.subdata(in: 1..<deviceInfoResult.data.count))
             guard let versionData = records?.filter({ $0.tag == 0x05 }).first?.value else { XCTFail("No YubiKey version record in result."); return }
@@ -138,7 +140,8 @@ class ConnectionFullStackTests: XCTestCase {
             XCTAssertEqual(major, 5)
             // Try to select non existing application
             let notFoundApdu =  APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: Data([0x01, 0x02, 0x03]), type: .short)
-            let notFoundResult = try await connection.sendManually(apdu: notFoundApdu)
+            let notFoundResultData = try await connection.send(data: notFoundApdu.data)
+            let notFoundResult = Response(rawData: notFoundResultData)
             if !(notFoundResult.responseStatus.status == .fileNotFound || notFoundResult.responseStatus.status == .incorrectParameters || notFoundResult.responseStatus.status == .invalidInstruction) {
                 XCTFail("Unexpected result: \(notFoundResult.responseStatus)")
             }

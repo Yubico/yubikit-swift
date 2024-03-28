@@ -16,7 +16,7 @@ import Foundation
 
 public struct Response: CustomStringConvertible {
 
-    internal init(rawData: Data) {
+    public init(rawData: Data) {
         if rawData.count > 2 {
             data = rawData.subdata(in: 0..<rawData.count - 2)
         } else {

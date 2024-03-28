@@ -78,10 +78,9 @@ public final actor SmartCardConnection: Connection, InternalConnection {
         }
     }
     
-    public func sendManually(apdu: APDU) async throws -> Response {
+    public func send(data: Data) async throws -> Data {
         guard let smartCard else { throw ConnectionError.noConnection }
-        let data = try await smartCard.transmit(apdu.data)
-        return Response(rawData: data)
+        return try await smartCard.transmit(data)
     }
     
     deinit {

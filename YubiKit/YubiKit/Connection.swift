@@ -57,13 +57,13 @@ public protocol Connection: AnyObject {
     @discardableResult
     func send(apdu: APDU) async throws -> Data
     
-    /// Send an APDU to the Connection and handle the result manually.
+    /// Send a command as Data to the Connection and handle the result manually.
     ///
-    /// This will send the APDU to the YubiKey using the Connection. The result will be wrapped in
-    /// a Response containing the Data and the ResponseStatus. If the returned data is to big for a
-    /// single read operation this has to be handled manually.
+    /// This will send the Data to the YubiKey using the Connection. The full result will be
+    /// returned as Data. If the returned data is to big for a single read operation this has
+    /// to be handled manually.
     @discardableResult
-    func sendManually(apdu: APDU) async throws -> Response
+    func send(data: Data) async throws -> Data
 }
 
 internal protocol InternalConnection {

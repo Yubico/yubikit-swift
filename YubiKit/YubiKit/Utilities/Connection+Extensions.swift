@@ -62,6 +62,7 @@ extension Connection {
     private func sendRecursive(apdu: APDU, data: Data = Data(), readMoreData: Bool = false) async throws -> Data {
         Logger.connection.debug("Connection+Extension, \(#function): accumulated data: \(data)")
 
+        let responseData: Data
         let response: Response
         
         let ins: UInt8
@@ -74,10 +75,11 @@ extension Connection {
         }
         if readMoreData {
             let apdu =  APDU(cla: 0, ins: ins, p1: 0, p2: 0, command: nil, type: .short)
-            response = try await self.sendManually(apdu: apdu)
+            responseData = try await self.send(data: apdu.data)
         } else {
-            response = try await self.sendManually(apdu: apdu)
+            responseData = try await self.send(data: apdu.data)
         }
+        response = Response(rawData: responseData)
         
         guard response.responseStatus.status == .ok || response.responseStatus.sw1 == 0x61 else {
             Logger.connection.error("Connection+Extension, \(#function): failed with statusCode: \(response.responseStatus.rawStatus.data.hexEncodedString)")
