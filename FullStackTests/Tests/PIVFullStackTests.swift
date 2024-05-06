@@ -210,10 +210,30 @@ final class PIVFullStackTests: XCTestCase {
     }
     
     func testGenerateRSA2048Key() throws {
-        runAuthenticatedPIVTest { session in
+        runAuthenticatedPIVTest(withTimeout: 50) { session in
             let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA2048, pinPolicy: .always, touchPolicy: .cached)
             let attributes = SecKeyCopyAttributes(publicKey) as! [String: Any]
             XCTAssert(attributes[kSecAttrKeySizeInBits as String] as! Int == 2048)
+            XCTAssert(attributes[kSecAttrKeyType as String] as! String == kSecAttrKeyTypeRSA as String)
+            XCTAssert(attributes[kSecAttrKeyClass as String] as! String == kSecAttrKeyClassPublic as String)
+        }
+    }
+    
+    func testGenerateRSA3072Key() throws {
+        runAuthenticatedPIVTest(withTimeout: 200) { session in
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA3072, pinPolicy: .always, touchPolicy: .cached)
+            let attributes = SecKeyCopyAttributes(publicKey) as! [String: Any]
+            XCTAssert(attributes[kSecAttrKeySizeInBits as String] as! Int == 3072)
+            XCTAssert(attributes[kSecAttrKeyType as String] as! String == kSecAttrKeyTypeRSA as String)
+            XCTAssert(attributes[kSecAttrKeyClass as String] as! String == kSecAttrKeyClassPublic as String)
+        }
+    }
+    
+    func testGenerateRSA4096Key() throws {
+        runAuthenticatedPIVTest(withTimeout: 200) { session in
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA4096, pinPolicy: .always, touchPolicy: .cached)
+            let attributes = SecKeyCopyAttributes(publicKey) as! [String: Any]
+            XCTAssert(attributes[kSecAttrKeySizeInBits as String] as! Int == 4096)
             XCTAssert(attributes[kSecAttrKeyType as String] as! String == kSecAttrKeyTypeRSA as String)
             XCTAssert(attributes[kSecAttrKeyClass as String] as! String == kSecAttrKeyClassPublic as String)
         }
