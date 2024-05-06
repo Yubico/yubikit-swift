@@ -181,7 +181,7 @@ public final actor PIVSession: Session, InternalSession {
             var error: Unmanaged<CFError>?
             guard let publicKey = SecKeyCreateWithData(eccKeyData as CFData, attributes, &error) else { throw error!.takeRetainedValue() as Error }
             return publicKey
-        case .RSA1024, .RSA2048:
+        case .RSA1024, .RSA2048, .RSA3072, .RSA4096:
             guard let modulus = records.recordWithTag(0x81)?.value,
                   let exponentData = records.recordWithTag(0x82)?.value
             else { throw PIVSessionError.invalidResponse }
@@ -226,7 +226,7 @@ public final actor PIVSession: Session, InternalSession {
         let keyData = cfKeyData as Data
         var data = Data()
         switch keyType {
-        case .RSA1024, .RSA2048:
+        case .RSA1024, .RSA2048, .RSA3072, .RSA4096:
             guard let recordsData = TKBERTLVRecord(from: keyData),
                   let records = TKBERTLVRecord.sequenceOfRecords(from: recordsData.value)
             else { throw PIVSessionError.dataParseError }
