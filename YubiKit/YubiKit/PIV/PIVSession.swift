@@ -657,6 +657,9 @@ extension PIVSession {
         if generateKey && (keyType == .RSA1024 || keyType == .RSA2048) {
             guard self.supports(PIVSessionFeature.rsaGeneration) else { throw SessionError.notSupported }
         }
+        if generateKey && (keyType == .RSA3072 || keyType == .RSA4096) {
+            guard self.supports(PIVSessionFeature.rsa3072and4096) else { throw SessionError.notSupported }
+        }
     }
     
     private func getPinPukMetadata(p2: UInt8) async throws -> PIVPinPukMetadata {

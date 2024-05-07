@@ -16,7 +16,7 @@ import Foundation
 
 public enum PIVSessionFeature: SessionFeature {
     
-    case usagePolicy, aesKey, serialNumber, metadata, attestation, p384, touchCached, rsaGeneration
+    case usagePolicy, aesKey, serialNumber, metadata, attestation, p384, touchCached, rsaGeneration, rsa3072and4096
      
     public func isSupported(by version: Version) -> Bool {
         switch self {
@@ -36,6 +36,8 @@ public enum PIVSessionFeature: SessionFeature {
             return version >= Version(withString: "4.3.0")!
         case .rsaGeneration:
             return version < Version(withString: "4.2.6")! || version >= Version(withString: "4.3.5")!
+        case .rsa3072and4096:
+            return version >= Version(withString: "5.7.0")!
         }
     }
 }
