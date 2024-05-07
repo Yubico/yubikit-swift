@@ -82,7 +82,6 @@ public enum PIVKeyType: UInt8 {
         guard let type = attributes[kSecAttrKeyType] as? String else { return nil }
         let secAttrKeyTypeRSA = kSecAttrKeyTypeRSA as String
         let secAttrKeyTypeEC = kSecAttrKeyTypeEC as String
-        let secAttrKeyTypeECSECPrimeRandom = kSecAttrKeyTypeECSECPrimeRandom as String
         switch type {
         case secAttrKeyTypeRSA:
             switch size {
