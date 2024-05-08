@@ -38,21 +38,21 @@ public enum ApplicationType: UInt {
 
 /// The physical form factor of a YubiKey.
 public enum FormFactor: UInt8 {
-    // Used when information about the YubiKey's form factor isn't available.
+    /// Used when information about the YubiKey's form factor isn't available.
     case unknown = 0x00
-    // A keychain-sized YubiKey with a USB-A connector.
+    /// A keychain-sized YubiKey with a USB-A connector.
     case usbAKeychain = 0x01
-    // A nano-sized YubiKey with a USB-A connector.
+    /// A nano-sized YubiKey with a USB-A connector.
     case usbANano = 0x02
-    // A keychain-sized YubiKey with a USB-C connector.
+    /// A keychain-sized YubiKey with a USB-C connector.
     case usbCKeychain = 0x03
-    // A nano-sized YubiKey with a USB-C connector.
+    /// A nano-sized YubiKey with a USB-C connector.
     case usbCNano = 0x04
-    // A keychain-sized YubiKey with both USB-C and Lightning connectors.
+    /// A keychain-sized YubiKey with both USB-C and Lightning connectors.
     case usbCLightning = 0x05
-    // A keychain-sized YubiKey with fingerprint sensor and USB-A connector.
+    /// A keychain-sized YubiKey with fingerprint sensor and USB-A connector.
     case usbABio = 0x06
-    // A keychain-sized YubiKey with fingerprint sensor and USB-C connector.
+    /// A keychain-sized YubiKey with fingerprint sensor and USB-C connector.
     case usbCBio = 0x07
 }
 

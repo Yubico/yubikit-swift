@@ -68,6 +68,8 @@ public enum PIVSlot: UInt8 {
 public enum PIVKeyType: UInt8 {
     case RSA1024 = 0x06
     case RSA2048 = 0x07
+    case RSA3072 = 0x05
+    case RSA4096 = 0x16
     case ECCP256 = 0x11
     case ECCP384 = 0x14
     case unknown = 0x00
@@ -87,6 +89,10 @@ public enum PIVKeyType: UInt8 {
                 self = .RSA1024
             case 2048:
                 self = .RSA2048
+            case 3072:
+                self = .RSA3072
+            case 4096:
+                self = .RSA4096
             default:
                 return nil
             }
@@ -108,15 +114,19 @@ public enum PIVKeyType: UInt8 {
     var size: UInt {
         switch (self) {
         case .ECCP256:
-            return 256 / 8;
+            return 256 / 8
         case .ECCP384:
-            return 384 / 8;
+            return 384 / 8
         case .RSA1024:
-            return 1024 / 8;
+            return 1024 / 8
         case .RSA2048:
-            return 2048 / 8;
+            return 2048 / 8
+        case .RSA3072:
+            return 3072 / 8
+        case .RSA4096:
+            return 4096 / 8
         default:
-            return 0;
+            return 0
         }
     }
 }

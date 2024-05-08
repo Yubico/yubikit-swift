@@ -24,22 +24,13 @@ public struct DeviceConfig {
     public let enabledCapabilities: [DeviceTransport: UInt]
     
     internal let tagUSBEnabled: TKTLVTag = 0x03
-    //    private static final int TAG_USB_ENABLED = 0x03;
     internal let tagAutoEjectTimeout: TKTLVTag = 0x06
-    //    private static final int TAG_AUTO_EJECT_TIMEOUT = 0x06;
     internal let tagChallengeResponseTimeout: TKTLVTag = 0x07
-    //    private static final int TAG_CHALLENGE_RESPONSE_TIMEOUT = 0x07;
     internal let tagDeviceFlags: TKTLVTag = 0x08
-    //    private static final int TAG_DEVICE_FLAGS = 0x08;
     internal let tagNFCEnabled: TKTLVTag = 0x0e
-    //    private static final int TAG_NFC_ENABLED = 0x0e;
     internal let tagConfigurationLock: TKTLVTag = 0x0a
-    //    private static final int TAG_CONFIGURATION_LOCK = 0x0a;
     internal let tagUnlock: TKTLVTag = 0x0b
-    //    private static final int TAG_UNLOCK = 0x0b;
     internal let tagReboot: TKTLVTag = 0x0c
-    //    private static final int TAG_REBOOT = 0x0c;
-    
     
     public func isApplicationEnabled(_ application: ApplicationType, overTransport transport: DeviceTransport) -> Bool {
         guard let mask = enabledCapabilities[transport] else { return false }
