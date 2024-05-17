@@ -31,13 +31,14 @@ public struct DeviceConfig {
     internal let tagConfigurationLock: TKTLVTag = 0x0a
     internal let tagUnlock: TKTLVTag = 0x0b
     internal let tagReboot: TKTLVTag = 0x0c
+    internal let tagNFCRestricted: TKTLVTag = 0x17
     
-    public func isApplicationEnabled(_ application: ApplicationType, overTransport transport: DeviceTransport) -> Bool {
+    public func isApplicationEnabled(_ application: Capability, overTransport transport: DeviceTransport) -> Bool {
         guard let mask = enabledCapabilities[transport] else { return false }
         return (mask & application.rawValue) == application.rawValue
     }
     
-    public func deviceConfig(enabling: Bool, application: ApplicationType, overTransport transport: DeviceTransport) -> DeviceConfig? {
+    public func deviceConfig(enabling: Bool, application: Capability, overTransport transport: DeviceTransport) -> DeviceConfig? {
         guard let oldMask = enabledCapabilities[transport] else { return nil }
         let newMask = enabling ? oldMask | application.rawValue : oldMask & ~application.rawValue
         var newEnabledCapabilities = enabledCapabilities
