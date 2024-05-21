@@ -22,20 +22,63 @@ public struct DeviceConfig {
     public let challengeResponseTimeout: TimeInterval?
     public let deviceFlags: UInt8?
     public let enabledCapabilities: [DeviceTransport: UInt]
+    public let isNFCRestricted: Bool?
     
     internal let tagUSBEnabled: TKTLVTag = 0x03
     internal let tagAutoEjectTimeout: TKTLVTag = 0x06
     internal let tagChallengeResponseTimeout: TKTLVTag = 0x07
     internal let tagDeviceFlags: TKTLVTag = 0x08
+    internal let tagNFCSupported: TKTLVTag = 0x0d
     internal let tagNFCEnabled: TKTLVTag = 0x0e
     internal let tagConfigurationLock: TKTLVTag = 0x0a
     internal let tagUnlock: TKTLVTag = 0x0b
     internal let tagReboot: TKTLVTag = 0x0c
     internal let tagNFCRestricted: TKTLVTag = 0x17
     
+    internal init(withTlvs tlvs: [TKTLVTag : Data], version: Version) throws {
+        if let timeout = tlvs[tagAutoEjectTimeout]?.integer {
+            self.autoEjectTimeout = TimeInterval(timeout)
+        } else {
+            self.autoEjectTimeout = 0
+        }
+        
+        if let timeout = tlvs[tagChallengeResponseTimeout]?.integer {
+            self.challengeResponseTimeout = TimeInterval(timeout)
+        } else {
+            self.challengeResponseTimeout = 0
+        }
+        
+        self.deviceFlags = tlvs[tagDeviceFlags]?.uint8
+        
+        var enabledCapabilities = [DeviceTransport: UInt]()
+        if tlvs[tagUSBEnabled] != nil && version.major != 4 {
+            // YK4 reports this incorrectly, instead use supportedCapabilities and USB mode.
+            enabledCapabilities[DeviceTransport.usb] = tlvs[tagUSBEnabled]?.integer ?? 0
+        }
+        
+        if tlvs[tagNFCSupported] != nil {
+            enabledCapabilities[DeviceTransport.nfc] = tlvs[tagNFCEnabled]?.integer ?? 0
+        }
+        self.enabledCapabilities = enabledCapabilities
+        if let isNFCRestricted = tlvs[tagNFCRestricted]?.integer {
+            self.isNFCRestricted = isNFCRestricted == 1
+        } else {
+            self.isNFCRestricted = nil
+        }
+    }
+    
     public func isApplicationEnabled(_ application: Capability, overTransport transport: DeviceTransport) -> Bool {
         guard let mask = enabledCapabilities[transport] else { return false }
         return (mask & application.rawValue) == application.rawValue
+    }
+    
+    
+    private init(autoEjectTimeout: TimeInterval?, challengeResponseTimeout: TimeInterval?, deviceFlags: UInt8?, enabledCapabilities: [DeviceTransport : UInt], isNFCRestricted: Bool?) {
+        self.autoEjectTimeout = autoEjectTimeout
+        self.challengeResponseTimeout = challengeResponseTimeout
+        self.deviceFlags = deviceFlags
+        self.enabledCapabilities = enabledCapabilities
+        self.isNFCRestricted = isNFCRestricted
     }
     
     public func deviceConfig(enabling: Bool, application: Capability, overTransport transport: DeviceTransport) -> DeviceConfig? {
@@ -47,11 +90,16 @@ public struct DeviceConfig {
         return DeviceConfig(autoEjectTimeout: autoEjectTimeout,
                             challengeResponseTimeout: challengeResponseTimeout,
                             deviceFlags: deviceFlags,
-                            enabledCapabilities: newEnabledCapabilities)
+                            enabledCapabilities: newEnabledCapabilities,
+                            isNFCRestricted: self.isNFCRestricted)
     }
     
     public func deviceConfig(autoEjectTimeout: TimeInterval, challengeResponseTimeout: TimeInterval) -> DeviceConfig {
-        return Self.init(autoEjectTimeout: autoEjectTimeout, challengeResponseTimeout: challengeResponseTimeout, deviceFlags: self.deviceFlags, enabledCapabilities: self.enabledCapabilities)
+        return Self.init(autoEjectTimeout: autoEjectTimeout, challengeResponseTimeout: challengeResponseTimeout, deviceFlags: self.deviceFlags, enabledCapabilities: self.enabledCapabilities, isNFCRestricted: self.isNFCRestricted)
+    }
+    
+    public func deviceConfig(nfcRestricted: Bool) -> DeviceConfig {
+        return Self.init(autoEjectTimeout: self.autoEjectTimeout, challengeResponseTimeout: self.challengeResponseTimeout, deviceFlags: self.deviceFlags, enabledCapabilities: self.enabledCapabilities, isNFCRestricted: nfcRestricted)
     }
     
     internal func data(reboot: Bool, lockCode: Data?, newLockCode: Data?) throws -> Data {
@@ -81,6 +129,11 @@ public struct DeviceConfig {
         if let newLockCode {
             data.append(TKBERTLVRecord(tag: tagConfigurationLock, value: newLockCode).data)
         }
+        
+        if let isNFCRestricted, isNFCRestricted {
+            data.append(TKBERTLVRecord(tag: tagNFCRestricted, value: UInt8(0x01).data).data)
+        }
+        
         guard data.count <= 0xff else { throw ManagementSessionError.configTooLarge }
         
         return UInt8(data.count).data + data

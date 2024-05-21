@@ -41,7 +41,26 @@ public enum FormFactor: UInt8 {
 }
 
 /// Contains metadata, including Device Configuration, of a YubiKey.
-public struct DeviceInfo {
+public struct DeviceInfo: CustomStringConvertible {
+    
+    public var description: String {
+"""
+YubiKey \(formFactor) \(version) (#\(serialNumber))
+Supported capabilities: \(supportedCapabilities)
+Enabled capabilities: \(config.enabledCapabilities)
+isConfigLocked: \(isConfigLocked)
+isFips: \(isFips)
+isSky: \(isSky)
+partNumber: \(partNumber)
+isFipsCapable: \(isFIPSCapable)
+isFipsApproved: \(isFIPSApproved)
+pinComplexity: \(pinComplexity)
+resetBlocked: \(isResetBlocked)
+fpsVersion: \(String(describing: fpsVersion))
+stmVersion: \(String(describing: stmVersion))
+"""
+    }
+    
     /// Returns the serial number of the YubiKey, if available.
     ///
     /// The serial number can be read if the YubiKey has a serial number, and one of the YubiOTP slots
@@ -99,24 +118,7 @@ public struct DeviceInfo {
     
     internal init(withTlvs tlvs: [TKTLVTag : Data], fallbackVersion: Version) throws {
         
-        if let data = tlvs[tagFirmwareVersion], let version = Version(withData: data) {
-            self.version = version
-        } else {
-            self.version = fallbackVersion
-        }
-        if let data = tlvs[tagFPSVersion], let version = Version(withData: data), version.description != "0.0.0" {
-            self.fpsVersion = version
-        } else {
-            self.fpsVersion = nil
-        }
-        if let data = tlvs[tagSTMVersion], let version = Version(withData: data), version.description != "0.0.0" {
-            self.stmVersion = version
-        } else {
-            self.stmVersion = nil
-        }
-
         self.isConfigLocked = tlvs[tagConfigLocked]?.integer == 1
-        
         self.serialNumber = tlvs[tagSerialNumber]?.integer ?? 0
         
         if let rawFormFactor = tlvs[tagFormFactor]?.uint8 {
@@ -133,53 +135,45 @@ public struct DeviceInfo {
             self.isSky = false
         }
         
-        self.partNumber = tlvs[tagPartNumber]?.stringUTF8 ?? ""
-        
         self.isFIPSCapable = Capability.translateMaskFrom(fipsMask: tlvs[tagFIPSCapable]?.integer ?? 0)
         self.isFIPSApproved = Capability.translateMaskFrom(fipsMask: tlvs[tagFIPSCapable]?.integer ?? 0)
         
+        self.pinComplexity = tlvs[tagPINComplexity]?.integer == 1
+
+        self.isResetBlocked = tlvs[tagResetBlocked]?.integer ?? 0
+
+        if let data = tlvs[tagFirmwareVersion], let version = Version(withData: data) {
+            self.version = version
+        } else {
+            self.version = fallbackVersion
+        }
+        if let data = tlvs[tagFPSVersion], let version = Version(withData: data), version.description != "0.0.0" {
+            self.fpsVersion = version
+        } else {
+            self.fpsVersion = nil
+        }
+        if let data = tlvs[tagSTMVersion], let version = Version(withData: data), version.description != "0.0.0" {
+            self.stmVersion = version
+        } else {
+            self.stmVersion = nil
+        }
+
+        self.partNumber = tlvs[tagPartNumber]?.stringUTF8 ?? ""
+
         var supportedCapabilities = [DeviceTransport: UInt]()
         if (version.major == 4 && version.minor == 2 && version.micro == 4) {
-              // 4.2.4 doesn't report supported capabilities correctly, but they are always 0x3f.
+            // 4.2.4 doesn't report supported capabilities correctly, but they are always 0x3f.
             supportedCapabilities[DeviceTransport.usb] = 0x3f
-          } else {
+        } else {
             supportedCapabilities[DeviceTransport.usb] = tlvs[tagUSBSupported]?.integer ?? 0
-          }
-        
-        var enabledCapabilities = [DeviceTransport: UInt]()
-        if tlvs[tagUSBEnabled] != nil && version.major != 4 {
-              // YK4 reports this incorrectly, instead use supportedCapabilities and USB mode.
-            enabledCapabilities[DeviceTransport.usb] = tlvs[tagUSBEnabled]?.integer ?? 0
-          }
+        }
         
         if let nfcSupported = tlvs[tagNFCSupported]?.integer {
             supportedCapabilities[DeviceTransport.nfc] = nfcSupported
-            enabledCapabilities[DeviceTransport.nfc] = tlvs[tagNFCEnabled]?.integer ?? 0
         }
         self.supportedCapabilities = supportedCapabilities
         
-        // DeviceConfig
-        let autoEjectTimeout: TimeInterval
-        if let timeout = tlvs[tagAutoEjectTimeout]?.integer {
-            autoEjectTimeout = TimeInterval(timeout)
-        } else {
-            autoEjectTimeout = 0
-        }
-        
-        let challengeResponseTimeout: TimeInterval
-        if let timeout = tlvs[tagChallengeResponseTimeout]?.integer {
-            challengeResponseTimeout = TimeInterval(timeout)
-        } else {
-            challengeResponseTimeout = 0
-        }
-        
-        let deviceFlags = UInt8(tlvs[tagDeviceFlags]?.integer ?? 0)
-        
-        self.pinComplexity = tlvs[tagPINComplexity]?.integer == 1
-        
-        self.isResetBlocked = tlvs[tagResetBlocked]?.integer ?? 0
-        
-        self.config = DeviceConfig(autoEjectTimeout: autoEjectTimeout, challengeResponseTimeout: challengeResponseTimeout, deviceFlags: deviceFlags, enabledCapabilities: enabledCapabilities)
+        self.config = try DeviceConfig(withTlvs: tlvs, version: self.version)
     }
     
     /// Returns whether or not a specific transport is available on this YubiKey.
