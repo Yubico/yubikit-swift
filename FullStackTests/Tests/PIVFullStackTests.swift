@@ -285,6 +285,7 @@ final class PIVFullStackTests: XCTestCase {
     
     func testMoveKey() throws {
         runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.moveDelete) else { print("⚠️ Skip testMoveKey()"); return }
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication)
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .signature)
             let publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .RSA1024, pinPolicy: .always, touchPolicy: .always)
@@ -305,6 +306,7 @@ final class PIVFullStackTests: XCTestCase {
     
     func testDeleteKey() throws {
         runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.moveDelete) else { print("⚠️ Skip testDeleteKey()"); return }
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: true)
             let publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .RSA1024, pinPolicy: .always, touchPolicy: .always)
             let slotMetadata = try await session.getSlotMetadata(.authentication)
