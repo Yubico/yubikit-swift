@@ -252,8 +252,6 @@ public final actor PIVSession: Session, InternalSession {
 
     /// Delete key from slot. This method requires authentication with the management key.
     ///
-    /// >Note: It is not possible to delete key from the attestation slot.
-    ///
     /// - Parameter slot: Slot to delete the key from.
     public func deleteKey(in slot: PIVSlot) async throws {
         guard self.supports(PIVSessionFeature.moveDelete) else { throw SessionError.notSupported }
