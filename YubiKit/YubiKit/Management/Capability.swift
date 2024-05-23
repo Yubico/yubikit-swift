@@ -29,7 +29,7 @@ public enum Capability: UInt {
 
 
 extension Capability {
-    static func translateMaskFrom(fipsMask: UInt) -> UInt {
+    internal static func translateMaskFrom(fipsMask: UInt) -> UInt {
         var capabilities: UInt = 0;
         if fipsMask & 0b00000001 != 0 {
             capabilities |= Capability.FIDO2.bit;
