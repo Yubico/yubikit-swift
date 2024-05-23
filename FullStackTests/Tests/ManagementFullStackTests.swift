@@ -119,6 +119,7 @@ class ManagementFullStackTests: XCTestCase {
         }
     }    
     
+    // Tests are run in alphabetical order. If running the tests via NFC this will disable NFC for all the following tests making them fail, hence the Z in the name.
     func testZNFCRestricted() throws {
         runManagementTest { connection, session, transport in
             guard session.version >= Version(withString: "5.7.0")! else {
