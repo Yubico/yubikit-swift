@@ -136,7 +136,7 @@ stmVersion: \(String(describing: stmVersion))
         }
         
         self.isFIPSCapable = Capability.translateMaskFrom(fipsMask: tlvs[tagFIPSCapable]?.integer ?? 0)
-        self.isFIPSApproved = Capability.translateMaskFrom(fipsMask: tlvs[tagFIPSCapable]?.integer ?? 0)
+        self.isFIPSApproved = Capability.translateMaskFrom(fipsMask: tlvs[tagFIPSApproved]?.integer ?? 0)
         
         self.pinComplexity = tlvs[tagPINComplexity]?.integer == 1
 
