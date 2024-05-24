@@ -71,7 +71,7 @@ stmVersion: \(String(describing: stmVersion))
     /// Returns the form factor of the YubiKey.
     public let formFactor: FormFactor
 
-    public let partNumber: String
+    public let partNumber: String?
     
     public let isFIPSCapable: UInt
     
@@ -158,7 +158,7 @@ stmVersion: \(String(describing: stmVersion))
             self.stmVersion = nil
         }
 
-        self.partNumber = tlvs[tagPartNumber]?.stringUTF8 ?? ""
+        self.partNumber = tlvs[tagPartNumber]?.stringUTF8.flatMap { $0.isEmpty ? nil : $0 }
 
         var supportedCapabilities = [DeviceTransport: UInt]()
         if (version.major == 4 && version.minor == 2 && version.micro == 4) {
