@@ -54,6 +54,7 @@ public struct ResponseStatus: Equatable {
         case conditionsNotSatisfied = 0x6985
         case commandNotAllowed = 0x6986
         case incorrectParameters = 0x6A80
+        case referencedDataNotFound = 0x6a88
         case fileNotFound = 0x6A82
         case noSpace = 0x6A84
         case wrongParametersP1P2 = 0x6B00

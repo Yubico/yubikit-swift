@@ -283,6 +283,45 @@ final class PIVFullStackTests: XCTestCase {
         }
     }
     
+    func testMoveKey() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.moveDelete) else { print("⚠️ Skip testMoveKey()"); return }
+            try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication)
+            try await session.putCertificate(certificate: self.testCertificate, inSlot: .signature)
+            let publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .RSA1024, pinPolicy: .always, touchPolicy: .always)
+            let authSlotMetadata = try await session.getSlotMetadata(.authentication)
+            XCTAssertEqual(publicKey, authSlotMetadata.publicKey)
+            try await session.moveKey(sourceSlot: .authentication, destinationSlot: .signature)
+            let signSlotMetadata = try await session.getSlotMetadata(.signature)
+            XCTAssertEqual(publicKey, signSlotMetadata.publicKey)
+            do {
+                _ = try await session.getSlotMetadata(.authentication)
+                XCTFail("Got metadata when we should have thrown a referenceDataNotFound exception.")
+            } catch {
+                guard let responseError = error as? ResponseError else { XCTFail("Unexpected error: \(error)"); return }
+                XCTAssertTrue(responseError.responseStatus.status == .referencedDataNotFound)
+            }
+        }
+    }
+    
+    func testDeleteKey() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.moveDelete) else { print("⚠️ Skip testDeleteKey()"); return }
+            try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: true)
+            let publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .RSA1024, pinPolicy: .always, touchPolicy: .always)
+            let slotMetadata = try await session.getSlotMetadata(.authentication)
+            XCTAssertEqual(publicKey, slotMetadata.publicKey)
+            try await session.deleteKey(in: .authentication)
+            do {
+                _ = try await session.getSlotMetadata(.authentication)
+                XCTFail("Got metadata when we should have thrown a referenceDataNotFound exception.")
+            } catch {
+                guard let responseError = error as? ResponseError else { XCTFail("Unexpected error: \(error)"); return }
+                XCTAssertTrue(responseError.responseStatus.status == .referencedDataNotFound)
+            }
+        }
+    }
+    
     func testPutCompressedAndReadCertificate() throws {
         runAuthenticatedPIVTest { session in
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: true)
@@ -462,29 +501,29 @@ final class PIVFullStackTests: XCTestCase {
     func testSlotMetadata() throws {
         runAuthenticatedPIVTest { session in
             guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testSlotMetadata()"); return }
-            _ = try await session.generateKeyInSlot(slot: .authentication, type: .ECCP256, pinPolicy: .always, touchPolicy: .always)
+            var publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .ECCP256, pinPolicy: .always, touchPolicy: .always)
             var metadata = try await session.getSlotMetadata(.authentication)
             XCTAssertEqual(metadata.keyType, .ECCP256)
             XCTAssertEqual(metadata.pinPolicy, .always)
             XCTAssertEqual(metadata.touchPolicy, .always)
             XCTAssertEqual(metadata.generated, true)
-            XCTAssertTrue(metadata.publicKey.count > 0)
+            XCTAssertEqual(metadata.publicKey, publicKey)
 
-            _ = try await session.generateKeyInSlot(slot: .authentication, type: .ECCP384, pinPolicy: .never, touchPolicy: .never)
+            publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .ECCP384, pinPolicy: .never, touchPolicy: .never)
             metadata = try await session.getSlotMetadata(.authentication)
             XCTAssertEqual(metadata.keyType, .ECCP384)
             XCTAssertEqual(metadata.pinPolicy, .never)
             XCTAssertEqual(metadata.touchPolicy, .never)
             XCTAssertEqual(metadata.generated, true)
-            XCTAssertTrue(metadata.publicKey.count > 0)
+            XCTAssertEqual(metadata.publicKey, publicKey)
 
-            _ = try await session.generateKeyInSlot(slot: .authentication, type: .ECCP256, pinPolicy: .once, touchPolicy: .cached)
+            publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .ECCP256, pinPolicy: .once, touchPolicy: .cached)
             metadata = try await session.getSlotMetadata(.authentication)
             XCTAssertEqual(metadata.keyType, .ECCP256)
             XCTAssertEqual(metadata.pinPolicy, .once)
             XCTAssertEqual(metadata.touchPolicy, .cached)
             XCTAssertEqual(metadata.generated, true)
-            XCTAssertTrue(metadata.publicKey.count > 0)
+            XCTAssertEqual(metadata.publicKey, publicKey)
         }
         
     }

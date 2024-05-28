@@ -179,7 +179,7 @@ public struct PIVSlotMetadata {
     /// Whether the key was generated on the YubiKey or imported.
     public let generated: Bool
     /// Returns the public key corresponding to the key in the slot.
-    public let publicKey: Data
+    public let publicKey: SecKey
 }
 
 /// Metadata about the PIN or PUK.

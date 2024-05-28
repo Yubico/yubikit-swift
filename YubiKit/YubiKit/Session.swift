@@ -55,4 +55,5 @@ public enum SessionError: Error {
     case activeSession
     case missingApplication
     case unexpectedStatusCode
+    case illegalArgument
 }

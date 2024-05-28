@@ -170,34 +170,9 @@ public final actor PIVSession: Session, InternalSession {
         let apdu = APDU(cla: 0, ins: insGenerateAsymetric, p1: 0, p2: slot.rawValue, command: tlvContainer.data)
         let result = try await connection.send(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
-              let record = records.recordWithTag(0x7F49),
-              let records = TKBERTLVRecord.sequenceOfRecords(from: record.value)
+              let record = records.recordWithTag(0x7F49)
         else { throw PIVSessionError.invalidResponse }
-        switch type {
-        case .ECCP256, .ECCP384:
-            guard let eccKeyData = records.recordWithTag(0x86)?.value else { throw PIVSessionError.invalidResponse }
-            let attributes = [kSecAttrKeyType: kSecAttrKeyTypeEC,
-                             kSecAttrKeyClass: kSecAttrKeyClassPublic] as CFDictionary
-            var error: Unmanaged<CFError>?
-            guard let publicKey = SecKeyCreateWithData(eccKeyData as CFData, attributes, &error) else { throw error!.takeRetainedValue() as Error }
-            return publicKey
-        case .RSA1024, .RSA2048, .RSA3072, .RSA4096:
-            guard let modulus = records.recordWithTag(0x81)?.value,
-                  let exponentData = records.recordWithTag(0x82)?.value
-            else { throw PIVSessionError.invalidResponse }
-            let modulusData = UInt8(0x00).data + modulus
-            var data = Data()
-            data.append(TKBERTLVRecord(tag: 0x02, value: modulusData).data)
-            data.append(TKBERTLVRecord(tag: 0x02, value: exponentData).data)
-            let keyRecord = TKBERTLVRecord(tag: 0x30, value: data)
-            let attributes = [kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                             kSecAttrKeyClass: kSecAttrKeyClassPublic] as CFDictionary
-            var error: Unmanaged<CFError>?
-            guard let publicKey = SecKeyCreateWithData(keyRecord.data as CFData, attributes, &error) else { throw error!.takeRetainedValue() as Error }
-            return publicKey
-        case .unknown:
-            throw PIVSessionError.unknownKeyType
-        }
+        return try SecKey.secKey(fromYubiKeyData: record.value, type: type)
     }
     
     /// Import a private key into a slot.
@@ -258,6 +233,32 @@ public final actor PIVSession: Session, InternalSession {
         let apdu = APDU(cla: 0, ins: insImportKey, p1: keyType.rawValue, p2: slot.rawValue, command: data, type: .extended)
         try await connection.send(apdu: apdu)
         return keyType
+    }
+    
+    /// Move key from one slot to another. The source slot must not be the attestation slot and the
+    /// destination slot must be empty. This method requires authentication with the management key.
+    ///
+    /// - Parameters:
+    ///   - sourceSlot: Slot to move the key from.
+    ///   - destinationSlot: Slot to move the key to.
+    public func moveKey(sourceSlot: PIVSlot, destinationSlot: PIVSlot) async throws {
+        guard self.supports(PIVSessionFeature.moveDelete) else { throw SessionError.notSupported }
+        guard sourceSlot != PIVSlot.attestation else { throw SessionError.illegalArgument }
+        guard let connection = _connection else { throw SessionError.noConnection }
+        Logger.piv.debug("Move key from \(String(describing: sourceSlot)) to \(String(describing: destinationSlot)), \(#function)")
+        let apdu = APDU(cla: 0, ins: insMoveKey, p1: destinationSlot.rawValue, p2: sourceSlot.rawValue)
+        try await connection.send(apdu: apdu)
+    }
+
+    /// Delete key from slot. This method requires authentication with the management key.
+    ///
+    /// - Parameter slot: Slot to delete the key from.
+    public func deleteKey(in slot: PIVSlot) async throws {
+        guard self.supports(PIVSessionFeature.moveDelete) else { throw SessionError.notSupported }
+        guard let connection = _connection else { throw SessionError.noConnection }
+        Logger.piv.debug("Delete key in \(String(describing: slot)), \(#function)")
+        let apdu = APDU(cla: 0, ins: insMoveKey, p1: 0xff, p2: slot.rawValue)
+        try await connection.send(apdu: apdu)
     }
     
     /// Writes an X.509 certificate to a slot on the YubiKey.
@@ -397,7 +398,8 @@ public final actor PIVSession: Session, InternalSession {
               let pinPolicy = PIVPinPolicy(rawValue: policyBytes[indexPinPolicy]),
               let touchPolicy = PIVTouchPolicy(rawValue: policyBytes[indexTouchPolicy]),
               let origin = records.recordWithTag(tagMetadataOrigin)?.value.uint8,
-              let publicKey = records.recordWithTag(tagMetadataPublicKey)?.value
+              let publicKeyData = records.recordWithTag(tagMetadataPublicKey)?.value,
+              let publicKey = try? SecKey.secKey(fromYubiKeyData: publicKeyData, type: keyType)
         else { throw PIVSessionError.dataParseError }
         
         return PIVSlotMetadata(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generated: origin == originGenerated, publicKey: publicKey)
@@ -735,6 +737,7 @@ fileprivate let insGetSerial: UInt8 = 0xf8
 fileprivate let insGetMetadata: UInt8 = 0xf7
 fileprivate let insGetData: UInt8 = 0xcb
 fileprivate let insPutData: UInt8 = 0xdb
+fileprivate let insMoveKey: UInt8 = 0xf6
 fileprivate let insImportKey: UInt8 = 0xfe
 fileprivate let insChangeReference: UInt8 = 0x24
 fileprivate let insResetRetry: UInt8 = 0x2c
