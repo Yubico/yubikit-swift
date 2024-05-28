@@ -29,7 +29,8 @@ public struct Version: Comparable, CustomStringConvertible {
         micro = bytes[2]
     }
     
-    internal init?(withString string: String) {
+    /// Create a new Version from a version string, e.g. "5.7.0".
+    public init?(withString string: String) {
         let components = string.components(separatedBy: ".")
         guard components.count == 3,
               let major = UInt8(components[0]),

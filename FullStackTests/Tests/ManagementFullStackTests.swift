@@ -32,11 +32,7 @@ class ManagementFullStackTests: XCTestCase {
     func testGetDeviceInfo() throws {
         runManagementTest { connection, session, _ in
             let info = try await session.getDeviceInfo()
-            print(info)
-            print("PIV enabled over usb: \(info.config.isApplicationEnabled(.piv, overTransport: .usb))")
-            print("PIV enabled over nfc: \(info.config.isApplicationEnabled(.piv, overTransport: .nfc))")
-            print("PIV supported over usb: \(info.isApplicationSupported(.piv, overTransport: .usb))")
-            print("PIV supported over nfc: \(info.isApplicationSupported(.piv, overTransport: .nfc))")
+            print("✅ Successfully got device info:\n\(info)")
             #if os(iOS)
             await connection.nfcConnection?.close(message: "Test successful!")
             #endif
@@ -60,67 +56,97 @@ class ManagementFullStackTests: XCTestCase {
     func testDisableAndEnableConfigOATHandPIVoverUSB() throws {
         runManagementTest { connection, session, transport in
             let deviceInfo = try await session.getDeviceInfo()
-            guard let disableConfig = deviceInfo.config.deviceConfig(enabling: false, application: .oath, overTransport: .usb)?.deviceConfig(enabling: false, application: .piv, overTransport: .usb) else { XCTFail(); return }
+            guard let disableConfig = deviceInfo.config.deviceConfig(enabling: false, application: .OATH, overTransport: .usb)?.deviceConfig(enabling: false, application: .PIV, overTransport: .usb) else { XCTFail(); return }
             try await session.updateDeviceConfig(disableConfig, reboot: false)
             let disabledInfo = try await session.getDeviceInfo()
-            XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.oath, overTransport: .usb))
-            XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.piv, overTransport: .usb))
+            XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.OATH, overTransport: .usb))
+            XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.PIV, overTransport: .usb))
             let oathSession = try? await OATHSession.session(withConnection: connection)
             if transport == .usb {
                 XCTAssert(oathSession == nil)
             }
             let managementSession = try await ManagementSession.session(withConnection: connection)
-            guard let enableConfig = deviceInfo.config.deviceConfig(enabling: true, application: .oath, overTransport: .usb)?.deviceConfig(enabling: true, application: .piv, overTransport: .usb) else { XCTFail(); return }
+            guard let enableConfig = deviceInfo.config.deviceConfig(enabling: true, application: .OATH, overTransport: .usb)?.deviceConfig(enabling: true, application: .PIV, overTransport: .usb) else { XCTFail(); return }
             try await managementSession.updateDeviceConfig(enableConfig, reboot: false)
+            let enabledInfo = try await managementSession.getDeviceInfo()
+            XCTAssert(enabledInfo.config.isApplicationEnabled(.OATH, overTransport: .usb))
+            XCTAssert(enabledInfo.config.isApplicationEnabled(.PIV, overTransport: .usb))
             #if os(iOS)
             await connection.nfcConnection?.close(message: "Test successful!")
             #endif
-            let enabledInfo = try await managementSession.getDeviceInfo()
-            XCTAssert(enabledInfo.config.isApplicationEnabled(.oath, overTransport: .usb))
-            XCTAssert(enabledInfo.config.isApplicationEnabled(.piv, overTransport: .usb))
         }
     }
     
     func testDisableAndEnableConfigOATHandPIVoverNFC() throws {
         runManagementTest { connection, session, transport in
             let deviceInfo = try await session.getDeviceInfo()
-            guard let disableConfig = deviceInfo.config.deviceConfig(enabling: false, application: .oath, overTransport: .nfc)?.deviceConfig(enabling: false, application: .piv, overTransport: .nfc) else { XCTFail(); return }
+            guard deviceInfo.hasTransport(.nfc) else { print("⚠️ No NFC YubiKey. Skip test."); return }
+            guard let disableConfig = deviceInfo.config.deviceConfig(enabling: false, application: .OATH, overTransport: .nfc)?.deviceConfig(enabling: false, application: .PIV, overTransport: .nfc) else { XCTFail(); return }
             try await session.updateDeviceConfig(disableConfig, reboot: false)
             let disabledInfo = try await session.getDeviceInfo()
-            XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.oath, overTransport: .nfc))
-            XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.piv, overTransport: .nfc))
+            XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.OATH, overTransport: .nfc))
+            XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.PIV, overTransport: .nfc))
             let oathSession = try? await OATHSession.session(withConnection: connection)
             if transport == .nfc {
                 XCTAssert(oathSession == nil)
             }
             let managementSession = try await ManagementSession.session(withConnection: connection)
-            guard let enableConfig = deviceInfo.config.deviceConfig(enabling: true, application: .oath, overTransport: .nfc)?.deviceConfig(enabling: true, application: .piv, overTransport: .nfc) else { XCTFail(); return }
+            guard let enableConfig = deviceInfo.config.deviceConfig(enabling: true, application: .OATH, overTransport: .nfc)?.deviceConfig(enabling: true, application: .PIV, overTransport: .nfc) else { XCTFail(); return }
             try await managementSession.updateDeviceConfig(enableConfig, reboot: false)
+            let enabledInfo = try await managementSession.getDeviceInfo()
+            XCTAssert(enabledInfo.config.isApplicationEnabled(.OATH, overTransport: .nfc))
+            XCTAssert(enabledInfo.config.isApplicationEnabled(.PIV, overTransport: .nfc))
             #if os(iOS)
             await connection.nfcConnection?.close(message: "Test successful!")
             #endif
-            let enabledInfo = try await managementSession.getDeviceInfo()
-            XCTAssert(enabledInfo.config.isApplicationEnabled(.oath, overTransport: .nfc))
-            XCTAssert(enabledInfo.config.isApplicationEnabled(.piv, overTransport: .nfc))
         }
     }
     
     func testDisableAndEnableWithHelperOATH() throws {
         runManagementTest { connection, session, transport in
-            try await session.setEnabled(false, application: .oath, overTransport: transport)
+            try await session.setEnabled(false, application: .OATH, overTransport: transport)
             var info = try await session.getDeviceInfo()
-            XCTAssertFalse(info.config.isApplicationEnabled(.oath, overTransport: transport))
+            XCTAssertFalse(info.config.isApplicationEnabled(.OATH, overTransport: transport))
             let oathSession = try? await OATHSession.session(withConnection: connection)
             XCTAssert(oathSession == nil)
             let managementSession = try await ManagementSession.session(withConnection: connection)
-            try await managementSession.setEnabled(true, application: .oath, overTransport: transport)
+            try await managementSession.setEnabled(true, application: .OATH, overTransport: transport)
             info = try await managementSession.getDeviceInfo()
+            XCTAssert(info.config.isApplicationEnabled(.OATH, overTransport: transport))
             #if os(iOS)
             await connection.nfcConnection?.close(message: "Test successful!")
             #endif
-            XCTAssert(info.config.isApplicationEnabled(.oath, overTransport: transport))
         }
     }    
+    
+    // Tests are run in alphabetical order. If running the tests via NFC this will disable NFC for all the following tests making them fail, hence the Z in the name.
+    func testZNFCRestricted() throws {
+        runManagementTest { connection, session, transport in
+            guard session.version >= Version(withString: "5.7.0")! else {
+                print("⚠️ YubiKey without support for NFC restricted. Skip test.")
+                return
+            }
+            let info = try await session.getDeviceInfo()
+            let newConfig = info.config.deviceConfig(nfcRestricted: true)
+            try await session.updateDeviceConfig(newConfig, reboot: false)
+            let updatedInfo = try await session.getDeviceInfo()
+            XCTAssertEqual(updatedInfo.config.isNFCRestricted, true)
+            if transport == .nfc {
+            #if os(iOS)
+                await connection.nfcConnection?.close(message: "NFC is now restriced until this YubiKey has been inserted into a USB port.")
+                do {
+                    let newConnection = try await ConnectionHelper.anyConnection()
+                    _ = try await ManagementSession.session(withConnection: newConnection)
+                    XCTFail("Got connection even if NFC restriced was turned on!")
+                } catch {
+                    print("✅ Failed creating ManagementSession as expected.")
+                }
+            #endif
+            }
+            print("✅ NFC is now restriced until this YubiKey has been inserted into a USB port.")
+            print("⚠️ Note that no more NFC testing will be possible until NFC restriction has been disabled for this key!")
+        }
+    }
 }
 
 extension XCTestCase {

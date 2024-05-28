@@ -82,9 +82,22 @@ public final actor ManagementSession: Session, InternalSession {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(ManagementFeature.deviceInfo) else { throw SessionError.notSupported }
         guard let connection = _connection else { throw SessionError.noConnection }
-        let apdu = APDU(cla: 0, ins: 0x1d, p1: 0, p2: 0)
-        let data = try await connection.send(apdu: apdu)
-        return try DeviceInfo(withData: data, fallbackVersion: version)
+        
+        var page: UInt8 = 0
+        var hasMoreData = true
+        var result = [TKTLVTag : Data]()
+        while hasMoreData {
+            let apdu = APDU(cla: 0, ins: 0x1d, p1: page, p2: 0)
+            let data = try await connection.send(apdu: apdu)
+            guard let count = data.bytes.first, count > 0 else { throw ManagementSessionError.missingData }
+            guard let tlvs = TKBERTLVRecord.dictionaryOfData(from: data.subdata(in: 1..<data.count)) else { throw ManagementSessionError.unexpectedData }
+            Logger.management.debug("\(String(describing: self).lastComponent), \(#function): page: \(page), data: \(data.hexEncodedString)")
+            result.merge(tlvs) { (_, new) in new }
+            hasMoreData = tlvs[0x10] != nil
+            page += 1
+        }
+        
+        return try DeviceInfo(withTlvs: result, fallbackVersion: version)
     }
     
     public func updateDeviceConfig(_ config: DeviceConfig, reboot: Bool, lockCode: Data? = nil, newLockCode: Data? = nil) async throws {
@@ -97,21 +110,21 @@ public final actor ManagementSession: Session, InternalSession {
     }
     
     /// Check whether an application is supported over the specified transport.
-    public func isApplicationSupported(_ application: ApplicationType, overTransport transport: DeviceTransport) async throws -> Bool {
+    public func isApplicationSupported(_ application: Capability, overTransport transport: DeviceTransport) async throws -> Bool {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         let deviceInfo = try await getDeviceInfo()
         return deviceInfo.isApplicationSupported(application, overTransport: transport)
     }
     
     /// Check whether an application is enabled over the specified transport.
-    public func isApplicationEnabled(_ application: ApplicationType, overTransport transport: DeviceTransport) async throws -> Bool {
+    public func isApplicationEnabled(_ application: Capability, overTransport transport: DeviceTransport) async throws -> Bool {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         let deviceInfo = try await getDeviceInfo()
         return deviceInfo.config.isApplicationEnabled(application, overTransport: transport)
     }
     
     /// Enable or disable an application over the specified transport.
-    public func setEnabled(_ enabled: Bool, application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
+    public func setEnabled(_ enabled: Bool, application: Capability, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function): \(enabled), application: \(String(describing: application)), overTransport: \(String(describing: transport)), reboot: \(reboot)")
         let deviceInfo = try await getDeviceInfo()
         guard enabled != deviceInfo.config.isApplicationEnabled(application, overTransport: transport) else { return }
@@ -128,13 +141,13 @@ public final actor ManagementSession: Session, InternalSession {
     }
     
     /// Disable an application over the specified transport.
-    public func disableApplication(_ application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
+    public func disableApplication(_ application: Capability, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: application)), overTransport: \(String(describing: transport)), reboot: \(reboot)")
         try await setEnabled(false, application: application, overTransport: transport, reboot: reboot)
     }
     
     /// Enable an application over the specified transport.
-    public func enableApplication(_ application: ApplicationType, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
+    public func enableApplication(_ application: Capability, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: application)), overTransport: \(String(describing: transport)), reboot: \(reboot)")
         try await setEnabled(true, application: application, overTransport: transport, reboot: reboot)
     }
