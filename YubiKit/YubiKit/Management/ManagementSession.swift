@@ -78,6 +78,8 @@ public final actor ManagementSession: Session, InternalSession {
     }
 
     /// Returns the DeviceInfo for the connected YubiKey.
+    ///
+    /// >Note: This functionality requires support for device info available on YubiKey 4.1 or later.
     public func getDeviceInfo() async throws -> DeviceInfo {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(ManagementFeature.deviceInfo) else { throw SessionError.notSupported }
@@ -100,6 +102,16 @@ public final actor ManagementSession: Session, InternalSession {
         return try DeviceInfo(withTlvs: result, fallbackVersion: version)
     }
     
+    /// Write device config to a YubiKey 5 or later.
+    ///
+    /// >Note: This functionality requires support for device config, available on YubiKey 5 or later.
+    /// 
+    /// - Parameters:
+    ///   - config: The device configuration to write.
+    ///   - reboot: If true cause the YubiKey to immediately reboot, applying the new configuration.
+    ///   - lockCode: The current lock code. Required if a configuration lock code is set.
+    ///   - newLockCode: Changes or removes (if 16 byte all-zero) the configuration lock code.
+    ///
     public func updateDeviceConfig(_ config: DeviceConfig, reboot: Bool, lockCode: Data? = nil, newLockCode: Data? = nil) async throws {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(ManagementFeature.deviceConfig) else { throw SessionError.notSupported }
