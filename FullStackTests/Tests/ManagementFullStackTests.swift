@@ -133,7 +133,7 @@ class ManagementFullStackTests: XCTestCase {
             }
             do {
                 try await session.updateDeviceConfig(config.deviceConfig(enabling: false, application: .OATH, overTransport: .usb)!, reboot: false)
-                XCTFail("Failed setting new lock code")
+                XCTFail("Successfully updated config although no lock code was supplied and it should have been enabled.")
             } catch {
                 print("✅ Failed updating device config (as expected) without using lock code.")
             }
