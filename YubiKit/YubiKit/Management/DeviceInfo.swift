@@ -51,7 +51,7 @@ Enabled capabilities: \(config.enabledCapabilities)
 isConfigLocked: \(isConfigLocked)
 isFips: \(isFips)
 isSky: \(isSky)
-partNumber: \(partNumber)
+partNumber: \(String(describing: partNumber))
 isFipsCapable: \(isFIPSCapable)
 isFipsApproved: \(isFIPSApproved)
 pinComplexity: \(pinComplexity)
@@ -124,7 +124,7 @@ stmVersion: \(String(describing: stmVersion))
         if let rawFormFactor = tlvs[tagFormFactor]?.uint8 {
             self.isFips = (rawFormFactor & 0x80) != 0
             self.isSky = (rawFormFactor & 0x40) != 0
-            if let formFactor = FormFactor(rawValue: rawFormFactor) {
+            if let formFactor = FormFactor(rawValue: rawFormFactor & 0x0f) {
                 self.formFactor = formFactor
             } else {
                 self.formFactor = .unknown

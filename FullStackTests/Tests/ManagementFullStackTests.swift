@@ -17,6 +17,9 @@ import YubiKit
 
 @testable import FullStackTests
 
+fileprivate let lockCode =      Data(hexEncodedString: "01020304050607080102030405060708")!
+fileprivate let clearLockCode = Data(hexEncodedString: "00000000000000000000000000000000")!
+
 class ManagementFullStackTests: XCTestCase {
     
     func testReadKeyVersion() throws {
@@ -119,6 +122,30 @@ class ManagementFullStackTests: XCTestCase {
         }
     }    
     
+    func testLockCode() throws {
+        runManagementTest { connection, session, transport in
+            let config = try await  session.getDeviceInfo().config
+            do {
+                try await session.updateDeviceConfig(config, reboot: false, newLockCode: lockCode)
+                print("✅ Lock code set to: \(lockCode.hexEncodedString)")
+            } catch {
+                XCTFail("Failed setting new lock code")
+            }
+            do {
+                try await session.updateDeviceConfig(config.deviceConfig(enabling: false, application: .OATH, overTransport: .usb)!, reboot: false)
+                XCTFail("Failed setting new lock code")
+            } catch {
+                print("✅ Failed updating device config (as expected) without using lock code.")
+            }
+            do {
+                try await session.updateDeviceConfig(config.deviceConfig(enabling: false, application: .OATH, overTransport: .usb)!, reboot: false, lockCode: lockCode)
+                print("✅ Succesfully updated device config using lock code.")
+            } catch {
+                XCTFail("Failed to update device config even though lock code was supplied.")
+            }
+        }
+    }
+    
     // Tests are run in alphabetical order. If running the tests via NFC this will disable NFC for all the following tests making them fail, hence the Z in the name.
     func testZNFCRestricted() throws {
         runManagementTest { connection, session, transport in
@@ -169,6 +196,9 @@ extension XCTestCase {
             #endif
             
             let session = try await ManagementSession.session(withConnection: connection)
+            let config = try await session.getDeviceInfo().config
+            // Try removing the lock code.
+            try? await session.updateDeviceConfig(config, reboot: false, lockCode: lockCode, newLockCode: clearLockCode)
             try await test(connection, session, transport)
         }
     }

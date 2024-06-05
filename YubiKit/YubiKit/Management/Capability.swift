@@ -30,22 +30,22 @@ public enum Capability: UInt {
 
 extension Capability {
     internal static func translateMaskFrom(fipsMask: UInt) -> UInt {
-        var capabilities: UInt = 0;
+        var capabilities: UInt = 0
         if fipsMask & 0b00000001 != 0 {
-            capabilities |= Capability.FIDO2.bit;
+            capabilities |= Capability.FIDO2.bit
         }
         if fipsMask & 0b00000010 != 0 {
-            capabilities |= Capability.PIV.bit;
+            capabilities |= Capability.PIV.bit
         }
         if fipsMask & 0b00000100 != 0 {
-            capabilities |= Capability.OPENPGP.bit;
+            capabilities |= Capability.OPENPGP.bit
         }
         if fipsMask & 0b00001000 != 0 {
-            capabilities |= Capability.OATH.bit;
+            capabilities |= Capability.OATH.bit
         }
         if fipsMask & 0b00010000 != 0 {
-            capabilities |= Capability.HSMAUTH.bit;
+            capabilities |= Capability.HSMAUTH.bit
         }
-        return capabilities;
+        return capabilities
     }
 }

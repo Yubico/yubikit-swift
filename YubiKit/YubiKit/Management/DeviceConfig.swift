@@ -110,6 +110,9 @@ public struct DeviceConfig {
         if let lockCode {
             data.append(TKBERTLVRecord(tag: tagUnlock, value: lockCode).data)
         }
+        if let newLockCode {
+            data.append(TKBERTLVRecord(tag: tagConfigurationLock, value: newLockCode).data)
+        }
         if let usbEnabled = enabledCapabilities[.usb] {
             data.append(TKBERTLVRecord(tag: tagUSBEnabled, value: UInt16(usbEnabled).bigEndian.data).data)
         }
@@ -126,10 +129,6 @@ public struct DeviceConfig {
         if let deviceFlags {
             data.append(TKBERTLVRecord(tag: tagDeviceFlags, value: deviceFlags.data).data)
         }
-        if let newLockCode {
-            data.append(TKBERTLVRecord(tag: tagConfigurationLock, value: newLockCode).data)
-        }
-        
         if let isNFCRestricted, isNFCRestricted {
             data.append(TKBERTLVRecord(tag: tagNFCRestricted, value: UInt8(0x01).data).data)
         }
