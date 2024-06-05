@@ -18,9 +18,20 @@ import CryptoTokenKit
 /// Describes the configuration of a YubiKey which can be altered via the Management application.
 public struct DeviceConfig {
     
+    /// The timeout used when in CCID-only mode with flag eject enabled.
     public let autoEjectTimeout: TimeInterval?
+    
+    /// The timeout value used by the YubiOTP application when waiting for a user presence check (physical touch).
     public let challengeResponseTimeout: TimeInterval?
+    
+    /// The device flags that are set.
     public let deviceFlags: UInt8?
+    
+    /// The currently enabled capabilities for a given ``DeviceTransport``. The enabled capabilities are represented as
+    /// ``Capability`` bits being set (1) or not (0).
+    ///
+    ///>Note: This method will return null if the given transport is not supported by the YubiKey, OR if the enabled
+    /// capabilities state isn't readable. The YubiKey 4 series, for example, does not return enabled-status for USB
     public let enabledCapabilities: [DeviceTransport: UInt]
     public let isNFCRestricted: Bool?
     

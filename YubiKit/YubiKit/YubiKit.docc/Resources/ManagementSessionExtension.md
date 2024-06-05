@@ -14,6 +14,7 @@
 ### Running commands in the Management application
 
 - ``getDeviceInfo()``
+- ``updateDeviceConfig(_:reboot:lockCode:newLockCode:)``
 - ``isApplicationSupported(_:overTransport:)``
 - ``isApplicationEnabled(_:overTransport:)``
 - ``setEnabled(_:application:overTransport:reboot:)``
@@ -27,7 +28,7 @@
 
 ### Enumerations
 
-- ``ApplicationType``
+- ``Capability``
 - ``DeviceTransport``
 - ``FormFactor``
 

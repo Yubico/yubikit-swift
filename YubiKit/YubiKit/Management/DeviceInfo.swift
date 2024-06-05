@@ -61,26 +61,25 @@ stmVersion: \(String(describing: stmVersion))
 """
     }
     
-    /// Returns the serial number of the YubiKey, if available.
+    /// The serial number of the YubiKey, if available.
     ///
     /// The serial number can be read if the YubiKey has a serial number, and one of the YubiOTP slots
     /// is configured with the SERIAL_API_VISIBLE flag.
     public let serialNumber: UInt
-    /// Returns the version number of the YubiKey firmware.
+    /// The version number of the YubiKey firmware.
     public let version: Version
-    /// Returns the form factor of the YubiKey.
+    /// the form factor of the YubiKey.
     public let formFactor: FormFactor
-
+    /// The part number of the YubiKey.
     public let partNumber: String?
-    
+    /// FIPS capable flags.
     public let isFIPSCapable: UInt
-    
+    /// FIPS approved flags.
     public let isFIPSApproved: UInt
-    
+    /// The FPS version.
     public let fpsVersion: Version?
-    
+    /// The STM version
     public let stmVersion: Version?
-    
     /// Returns the supported (not necessarily enabled) capabilities for a given transport.
     public let supportedCapabilities: [DeviceTransport: UInt]
     /// Returns whether or not a Configuration Lock is set for the Management application on the YubiKey.
@@ -93,7 +92,7 @@ stmVersion: \(String(describing: stmVersion))
     public let config: DeviceConfig
     /// PIN complexity
     public let pinComplexity: Bool
-    
+    /// The reset blocked flag.
     public let isResetBlocked: UInt
     
     internal let tagUSBSupported: TKTLVTag = 0x01
