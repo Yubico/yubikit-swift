@@ -250,13 +250,13 @@ public struct PIVBioMetadata {
     /// If this method returns 0 and ``isConfigured`` returns true, the device is blocked for
     /// biometric match and the client should invoke PIN based authentication to reset the biometric
     /// match retry counter.
-    public let attemptsRemaining: Int
+    public let attemptsRemaining: UInt
     
     /// Indicates whether a temporary PIN has been generated in the YubiKey in relation to a
     /// successful biometric match. Is true if a temporary PIN has been generated.
     public let temporaryPin: Bool
     
-    internal init(isConfigured: Bool, attemptsRemaining: Int, temporaryPin: Bool) {
+    internal init(isConfigured: Bool, attemptsRemaining: UInt, temporaryPin: Bool) {
         self.isConfigured = isConfigured
         self.attemptsRemaining = attemptsRemaining
         self.temporaryPin = temporaryPin

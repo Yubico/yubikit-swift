@@ -601,9 +601,28 @@ public final actor PIVSession: Session, InternalSession {
         }
     }
     
+    /// Reads metadata specific to YubiKey Bio multi-protocol.
+    ///
+    /// - Returns: Metadata about the key.
+    public func getBioMetadata() async throws -> PIVBioMetadata {
+        guard let connection = _connection else { throw SessionError.noConnection }
+        do {
+            let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: UInt8(tagSlotOCCAuth))
+            let data = try await connection.send(apdu: apdu)
+            let records = TKBERTLVRecord.sequenceOfRecords(from: data)
+            guard let isConfigured = records?.recordWithTag(tagMetadataBioConfigured)?.value.integer,
+                  let retries = records?.recordWithTag(tagMetadataRetries)?.value.integer,
+                  let temporaryPin = records?.recordWithTag(tagMetadataTemporaryPIN)?.value.integer else { throw PIVSessionError.dataParseError }
+            return PIVBioMetadata(isConfigured: isConfigured == 1, attemptsRemaining: retries, temporaryPin: temporaryPin == 1)
+        } catch {
+            if let responseError = error as? ResponseError, responseError.responseStatus.status == .referencedDataNotFound {
+                throw SessionError.notSupported
+            } else {
+                throw error
+            }
+        }
+    }
 }
-
-
 
 
 extension PIVSession {
@@ -730,6 +749,7 @@ fileprivate extension String {
 
 // Special slot for the management key
 fileprivate let tagSlotCardManagement: TKTLVTag = 0x9b;
+fileprivate let tagSlotOCCAuth: TKTLVTag = 0x96
 
 // Instructions
 fileprivate let insAuthenticate: UInt8 = 0x87
@@ -781,7 +801,11 @@ fileprivate let indexTouchPolicy: Int = 1
 fileprivate let indexRetriesTotal: Int = 0
 fileprivate let indexRetriesRemaining: Int = 1
 
-// P2
+fileprivate let tagMetadataBioConfigured: TKTLVTag = 0x07
+fileprivate let tagMetadataTemporaryPIN: TKTLVTag = 0x08
+
 fileprivate let p2Pin: UInt8 = 0x80
 fileprivate let p2Puk: UInt8 = 0x81
 fileprivate let p2SlotCardmanagement: UInt8 = 0x9b
+
+fileprivate let temporaryPinLength: Int = 16
