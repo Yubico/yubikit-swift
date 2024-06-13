@@ -79,7 +79,7 @@ public final actor ManagementSession: Session, InternalSession {
 
     /// Returns the DeviceInfo for the connected YubiKey.
     ///
-    /// >Note: This functionality requires support for device info available on YubiKey 4.1 or later.
+    /// >Note: This functionality requires support for ``ManagementFeature/deviceInfo``, available on YubiKey 4.1 or later.
     public func getDeviceInfo() async throws -> DeviceInfo {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(ManagementFeature.deviceInfo) else { throw SessionError.notSupported }
@@ -104,7 +104,7 @@ public final actor ManagementSession: Session, InternalSession {
     
     /// Write device config to a YubiKey 5 or later.
     ///
-    /// >Note: This functionality requires support for device config, available on YubiKey 5 or later.
+    /// >Note: This functionality requires support for ``ManagementFeature/deviceConfig``, available on YubiKey 5 or later.
     /// 
     /// - Parameters:
     ///   - config: The device configuration to write.
@@ -162,6 +162,16 @@ public final actor ManagementSession: Session, InternalSession {
     public func enableApplication(_ application: Capability, overTransport transport: DeviceTransport, reboot: Bool = false) async throws {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: application)), overTransport: \(String(describing: transport)), reboot: \(reboot)")
         try await setEnabled(true, application: application, overTransport: transport, reboot: reboot)
+    }
+    
+    /// Perform a device-wide reset in Bio Multi-protocol Edition devices.
+    ///
+    /// >Note: This functionality requires support for ``ManagementFeature/deviceReset``, available on YubiKey 5.6 or later.
+    public func deviceReset() async throws {
+        guard self.supports(ManagementFeature.deviceReset) else { throw SessionError.notSupported }
+        guard let connection = _connection else { throw SessionError.noConnection }
+        let apdu = APDU(cla: 0, ins: 0x1f, p1: 0, p2: 0)
+        try await connection.send(apdu: apdu)
     }
     
     deinit {

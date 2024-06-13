@@ -209,8 +209,8 @@
 				B456E21A274FCA26004471DE /* ManagementSession.swift */,
 				B40528322987C31E00FC33AB /* DeviceInfo.swift */,
 				B405283629894E7600FC33AB /* DeviceConfig.swift */,
-				B49F90C32B9F30A400C10F0B /* ManagementFeature.swift */,
 				B400642F2BF728D600CD2FAF /* Capability.swift */,
+				B49F90C32B9F30A400C10F0B /* ManagementFeature.swift */,
 			);
 			path = Management;
 			sourceTree = "<group>";

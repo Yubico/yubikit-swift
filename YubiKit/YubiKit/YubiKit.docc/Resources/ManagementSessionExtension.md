@@ -20,6 +20,7 @@
 - ``setEnabled(_:application:overTransport:reboot:)``
 - ``enableApplication(_:overTransport:reboot:)``
 - ``disableApplication(_:overTransport:reboot:)``
+- ``deviceReset()``
 
 ### Return types
 
@@ -31,6 +32,7 @@
 - ``Capability``
 - ``DeviceTransport``
 - ``FormFactor``
+- ``ManagementFeature``
 
 ### Errors
 
