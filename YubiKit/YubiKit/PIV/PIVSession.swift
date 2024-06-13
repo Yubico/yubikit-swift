@@ -386,6 +386,9 @@ public final actor PIVSession: Session, InternalSession {
         guard challengeSent == challengeReturned else { throw PIVSessionError.authenticationFailed }
     }
     
+    /// Reads metadata about the private key stored in a slot.
+    /// - Parameter slot: The slot to read metadata about.
+    /// - Returns: The metadata for the slot.
     public func getSlotMetadata(_ slot: PIVSlot) async throws -> PIVSlotMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }

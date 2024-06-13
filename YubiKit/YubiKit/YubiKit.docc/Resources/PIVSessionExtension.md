@@ -52,12 +52,14 @@
 - ``PIVSlotMetadata``
 - ``PIVPinPukMetadata``
 - ``PIVManagementKeyType``
+- ``PIVBioMetadata``
 
-### PIV Sesson features
+### PIV Session features
 
--``PIVSessionFeature``
+- ``PIVSessionFeature``
 
 ### Errors
 
 - ``PIVSessionError``
+- ``PIVPaddingError``
 
