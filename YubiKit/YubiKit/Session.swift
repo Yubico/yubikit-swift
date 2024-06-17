@@ -56,4 +56,5 @@ public enum SessionError: Error {
     case missingApplication
     case unexpectedStatusCode
     case illegalArgument
+    case invalidPin(Int)
 }

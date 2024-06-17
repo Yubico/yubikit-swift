@@ -40,6 +40,9 @@
 - ``set(pinAttempts:pukAttempts:)``
 - ``blockPin(counter:)``
 - ``blockPuk(counter:)``
+- ``getBioMetadata()``
+- ``verifyUv(requestTemporaryPin:checkOnly:)``
+- ``verifyTemporaryPin(_:)``
 
 ### Return types
 
