@@ -38,6 +38,10 @@ public enum PIVPinPolicy: UInt8 {
     case once = 0x2
     /// The PIN must be verified each time the key is to be used, just prior to using it.
     case always = 0x3
+    /// PIN or biometrics must be verified for the session, prior to using the key.
+    case matchOnce = 0x4
+    /// PIN or biometrics must be verified each time the key is to be used, just prior to using it.
+    case matchAlways = 0x5
 };
 
 /// The slot to use in the PIV application.
