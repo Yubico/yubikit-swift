@@ -162,7 +162,7 @@ public final actor PIVSession: Session, InternalSession {
     public func generateKeyInSlot(slot: PIVSlot, type: PIVKeyType, pinPolicy: PIVPinPolicy = .`defaultPolicy`, touchPolicy: PIVTouchPolicy = .`defaultPolicy`) async throws -> SecKey {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
-        try checkKeyFeatures(keyType: type, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: true)
+        try await checkKeyFeatures(keyType: type, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: true)
         let records: [TKBERTLVRecord] = [TKBERTLVRecord(tag: tagGenAlgorithm, value: type.rawValue.data),
                                          pinPolicy != .`defaultPolicy` ? TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data) : nil,
                                          touchPolicy != .`defaultPolicy` ? TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data) : nil].compactMap { $0 }
@@ -195,7 +195,7 @@ public final actor PIVSession: Session, InternalSession {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         guard let keyType = key.type else { throw PIVSessionError.unknownKeyType }
-        try checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
+        try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
         var error: Unmanaged<CFError>?
         guard let cfKeyData = SecKeyCopyExternalRepresentation(key, &error) else { throw error!.takeRetainedValue() as Error }
         let keyData = cfKeyData as Data
@@ -386,6 +386,9 @@ public final actor PIVSession: Session, InternalSession {
         guard challengeSent == challengeReturned else { throw PIVSessionError.authenticationFailed }
     }
     
+    /// Reads metadata about the private key stored in a slot.
+    /// - Parameter slot: The slot to read metadata about.
+    /// - Returns: The metadata for the slot.
     public func getSlotMetadata(_ slot: PIVSlot) async throws -> PIVSlotMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
@@ -598,9 +601,99 @@ public final actor PIVSession: Session, InternalSession {
         }
     }
     
+    /// Reads metadata specific to YubiKey Bio multi-protocol.
+    ///
+    /// - Returns: Metadata about the key.
+    public func getBioMetadata() async throws -> PIVBioMetadata {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
+        guard let connection = _connection else { throw SessionError.noConnection }
+        do {
+            let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: UInt8(tagSlotOCCAuth))
+            let data = try await connection.send(apdu: apdu)
+            let records = TKBERTLVRecord.sequenceOfRecords(from: data)
+            guard let isConfigured = records?.recordWithTag(tagMetadataBioConfigured)?.value.integer,
+                  let retries = records?.recordWithTag(tagMetadataRetries)?.value.integer,
+                  let temporaryPin = records?.recordWithTag(tagMetadataTemporaryPIN)?.value.integer else { throw PIVSessionError.dataParseError }
+            return PIVBioMetadata(isConfigured: isConfigured == 1, attemptsRemaining: retries, temporaryPin: temporaryPin == 1)
+        } catch {
+            if let responseError = error as? ResponseError, responseError.responseStatus.status == .referencedDataNotFound {
+                throw SessionError.notSupported
+            } else {
+                throw error
+            }
+        }
+    }
+    
+    /// Authenticate with YubiKey Bio multi-protocol capabilities.
+    ///
+    /// >Note: Before calling this method, clients must verify that the authenticator is bio-capable and
+    ///        not blocked for bio matching.
+    /// - Parameters:
+    ///   - requestTemporaryPin: After successful match generate a temporary PIN.
+    ///   - checkOnly: Check verification state of biometrics, don't perform UV.
+    /// - Returns: Temporary pin if requestTemporaryPin is true, otherwise null.
+    public func verifyUv(requestTemporaryPin: Bool, checkOnly: Bool) async throws -> Data? {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
+        if requestTemporaryPin && checkOnly {
+            throw SessionError.illegalArgument
+        }
+        guard let connection = _connection else { throw SessionError.noConnection }
+        do {
+            var data: Data? = nil
+            if !checkOnly {
+                if requestTemporaryPin {
+                    data = TKBERTLVRecord(tag: 0x02, value: Data()).data
+                } else {
+                    data = TKBERTLVRecord(tag: 0x03, value: Data()).data
+                }
+            }
+            let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: UInt8(tagSlotOCCAuth), command: data)
+            let response = try await connection.send(apdu: apdu)
+            return requestTemporaryPin ? response : nil
+        } catch {
+            guard let responseError = error as? ResponseError else { throw error }
+            guard responseError.responseStatus.status != .referencedDataNotFound else { throw SessionError.notSupported }
+            let retries = retriesFrom(responseError: responseError)
+            if retries >= 0 {
+                throw SessionError.invalidPin(retries)
+            } else {
+                // Status code returned error, not number of retries
+                throw error
+            }
+        }
+    }
+    
+    /// Authenticate YubiKey Bio multi-protocol with temporary PIN.
+    ///
+    /// The PIN has to be generated by calling ``verifyUv(requestTemporaryPin:checkOnly:)`` and is
+    /// valid only for operations during this session and depending on slot {@link PinPolicy}.
+    ///
+    /// >Note: Before calling this method, clients must verify that the authenticator is bio-capable and
+    ///        not blocked for bio matching.
+    ///
+    /// - Parameter pin: Temporary pin.
+    public func verifyTemporaryPin(_ pin: Data) async throws {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
+        guard pin.count == temporaryPinLength else { throw SessionError.illegalArgument }
+        guard let connection = _connection else { throw SessionError.noConnection }
+        do {
+            let data = TKBERTLVRecord(tag: 0x01, value: pin).data
+            let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: UInt8(tagSlotOCCAuth), command: data)
+            try await connection.send(apdu: apdu)
+            return
+        } catch {
+            guard let responseError = error as? ResponseError else { throw error }
+            guard responseError.responseStatus.status != .referencedDataNotFound else { throw SessionError.notSupported }
+            let retries = retriesFrom(responseError: responseError)
+            if retries >= 0 {
+                throw SessionError.invalidPin(retries)
+            } else {
+                // Status code returned error, not number of retries
+                throw error
+            }
+        }
+    }
 }
-
-
 
 
 extension PIVSession {
@@ -648,13 +741,16 @@ extension PIVSession {
         }
     }
     
-    private func checkKeyFeatures(keyType: PIVKeyType, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy, generateKey: Bool) throws {
+    private func checkKeyFeatures(keyType: PIVKeyType, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy, generateKey: Bool) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         if keyType == .ECCP384 {
             guard self.supports(PIVSessionFeature.p384) else { throw SessionError.notSupported }
         }
         if pinPolicy != .`defaultPolicy` || touchPolicy != .`defaultPolicy` {
             guard self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
+        }
+        if pinPolicy == .matchAlways || pinPolicy == .matchOnce {
+            _  = try await self.getBioMetadata() // This will throw SessionError.notSupported if the key is not a Bio key.
         }
         if generateKey && (keyType == .RSA1024 || keyType == .RSA2048) {
             guard self.supports(PIVSessionFeature.rsaGeneration) else { throw SessionError.notSupported }
@@ -727,6 +823,7 @@ fileprivate extension String {
 
 // Special slot for the management key
 fileprivate let tagSlotCardManagement: TKTLVTag = 0x9b;
+fileprivate let tagSlotOCCAuth: TKTLVTag = 0x96
 
 // Instructions
 fileprivate let insAuthenticate: UInt8 = 0x87
@@ -778,7 +875,11 @@ fileprivate let indexTouchPolicy: Int = 1
 fileprivate let indexRetriesTotal: Int = 0
 fileprivate let indexRetriesRemaining: Int = 1
 
-// P2
+fileprivate let tagMetadataBioConfigured: TKTLVTag = 0x07
+fileprivate let tagMetadataTemporaryPIN: TKTLVTag = 0x08
+
 fileprivate let p2Pin: UInt8 = 0x80
 fileprivate let p2Puk: UInt8 = 0x81
 fileprivate let p2SlotCardmanagement: UInt8 = 0x9b
+
+fileprivate let temporaryPinLength: Int = 16

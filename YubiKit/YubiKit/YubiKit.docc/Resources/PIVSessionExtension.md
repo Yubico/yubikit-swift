@@ -40,6 +40,9 @@
 - ``set(pinAttempts:pukAttempts:)``
 - ``blockPin(counter:)``
 - ``blockPuk(counter:)``
+- ``getBioMetadata()``
+- ``verifyUv(requestTemporaryPin:checkOnly:)``
+- ``verifyTemporaryPin(_:)``
 
 ### Return types
 
@@ -52,12 +55,14 @@
 - ``PIVSlotMetadata``
 - ``PIVPinPukMetadata``
 - ``PIVManagementKeyType``
+- ``PIVBioMetadata``
 
-### PIV Sesson features
+### PIV Session features
 
--``PIVSessionFeature``
+- ``PIVSessionFeature``
 
 ### Errors
 
 - ``PIVSessionError``
+- ``PIVPaddingError``
 

@@ -622,9 +622,86 @@ final class PIVFullStackTests: XCTestCase {
         }
         
     }
+
+    // This will test auth on a YubiKey Bio. To run the test at least one fingerprint needs to be registered.
+    func testBioAuthentication() throws {
+        runAsyncTest {
+            let connection = try await AllowedConnections.anyConnection()
+            let managementSession = try await ManagementSession.session(withConnection: connection)
+            let deviceInfo = try await managementSession.getDeviceInfo()
+            guard deviceInfo.formFactor == .usbCBio || deviceInfo.formFactor == .usbABio else {
+                print("⚠️ Skip testBioAuthentication()")
+                return
+            }
+            let pivSession = try await PIVSession.session(withConnection: connection)
+            var bioMetadata = try await pivSession.getBioMetadata()
+            if !bioMetadata.isConfigured {
+                let message = "No fingerprints registered for this yubikey or there's an error in getBioMetadata()."
+                print("⚠️ \(message)")
+                XCTFail(message)
+                return
+            }
+            XCTAssertTrue(bioMetadata.attemptsRemaining > 0)
+            var verifyResult = try await pivSession.verifyUv(requestTemporaryPin: false, checkOnly: false)
+            XCTAssertNil(verifyResult)
+            Logger.test.debug("✅ verifyUV() passed")
+            guard let pinData = try await pivSession.verifyUv(requestTemporaryPin: true, checkOnly: false) else {
+                XCTFail("Pin data returned was nil. Expected a value.")
+                return
+            }
+            Logger.test.debug("✅ got temporary pin: \(pinData.hexEncodedString).")
+            bioMetadata = try await pivSession.getBioMetadata()
+            XCTAssertTrue(bioMetadata.temporaryPin)
+            Logger.test.debug("✅ temporary pin reported as set.")
+            verifyResult = try await pivSession.verifyUv(requestTemporaryPin: false, checkOnly: true)
+            XCTAssertNil(verifyResult)
+            Logger.test.debug("✅ verifyUv successful.")
+            try await pivSession.verifyTemporaryPin(pinData)
+            Logger.test.debug("✅ temporary pin verified.")
+        }
+    }
+    
+    func testBioPinPolicyErrorOnNonBioKey() throws {
+        runAsyncTest {
+            let connection = try await AllowedConnections.anyConnection()
+            let managementSession = try await ManagementSession.session(withConnection: connection)
+            let deviceInfo = try await managementSession.getDeviceInfo()
+            guard deviceInfo.formFactor != .usbCBio && deviceInfo.formFactor != .usbABio else {
+                print("⚠️ Skip testBioPinPolicyErrorOnNonBioKey() since this is a bio key.")
+                return
+            }
+            let session = try await PIVSession.session(withConnection: connection)
+            try await self.authenticate(with: session)
+            do {
+                _ = try await session.generateKeyInSlot(slot: .signature, type: .ECCP384, pinPolicy: .matchAlways, touchPolicy: .defaultPolicy)
+            } catch {
+                guard let sessionError = error as? SessionError else { throw error }
+                XCTAssertEqual(sessionError, SessionError.notSupported)
+            }
+            do {
+                _ = try await session.generateKeyInSlot(slot: .signature, type: .ECCP384, pinPolicy: .matchOnce, touchPolicy: .defaultPolicy)
+            } catch {
+                guard let sessionError = error as? SessionError else { throw error }
+                XCTAssertEqual(sessionError, SessionError.notSupported)
+            }
+        }
+    }
 }
 
 extension XCTestCase {
+    
+    func authenticate(with session: PIVSession) async throws {
+        let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
+        let keyType: PIVManagementKeyType
+        if session.supports(PIVSessionFeature.metadata) {
+            let metadata = try await session.getManagementKeyMetadata()
+            keyType = metadata.keyType
+        } else {
+            keyType = .tripleDES
+        }
+        try await session.authenticateWith(managementKey: defaultManagementKey, keyType: keyType)
+    }
+    
     func runPIVTest(named testName: String = #function,
                      in file: StaticString = #file,
                      at line: UInt = #line,
@@ -649,15 +726,7 @@ extension XCTestCase {
             let connection = try await AllowedConnections.anyConnection()
             let session = try await PIVSession.session(withConnection: connection)
             try await session.reset()
-            let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
-            let keyType: PIVManagementKeyType
-            if session.supports(PIVSessionFeature.metadata) {
-                let metadata = try await session.getManagementKeyMetadata()
-                keyType = metadata.keyType
-            } else {
-                keyType = .tripleDES
-            }
-            try await session.authenticateWith(managementKey: defaultManagementKey, keyType: keyType)
+            try await self.authenticate(with: session)
             Logger.test.debug("⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ PIV Session test ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️")
             try await test(session)
             Logger.test.debug("✅ \(testName) passed")
