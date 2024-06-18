@@ -674,12 +674,13 @@ public final actor PIVSession: Session, InternalSession {
     /// - Parameter pin: Temporary pin.
     public func verifyTemporaryPin(_ pin: Data) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard pin.count != temporaryPinLength else { throw SessionError.illegalArgument }
+        guard pin.count == temporaryPinLength else { throw SessionError.illegalArgument }
         guard let connection = _connection else { throw SessionError.noConnection }
         do {
             let data = TKBERTLVRecord(tag: 0x01, value: pin).data
             let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: UInt8(tagSlotOCCAuth), command: data)
             try await connection.send(apdu: apdu)
+            return
         } catch {
             guard let responseError = error as? ResponseError else { throw error }
             guard responseError.responseStatus.status != .referencedDataNotFound else { throw SessionError.notSupported }

@@ -174,6 +174,28 @@ class ManagementFullStackTests: XCTestCase {
             print("⚠️ Note that no more NFC testing will be possible until NFC restriction has been disabled for this key!")
         }
     }
+    
+    func testBioDeviceReset() throws {
+        runManagementTest { connection, session, transport in
+            let deviceInfo = try await session.getDeviceInfo()
+            guard deviceInfo.formFactor == .usbCBio || deviceInfo.formFactor == .usbABio else {
+                print("⚠️ Skip testBioDeviceReset()")
+                return
+            }
+            try await session.deviceReset()
+            var pivSession = try await PIVSession.session(withConnection: connection)
+            var pinMetadata = try await pivSession.getPinMetadata()
+            XCTAssertTrue(pinMetadata.isDefault)
+            try await pivSession.setPin("654321", oldPin: "123456")
+            pinMetadata = try await pivSession.getPinMetadata()
+            XCTAssertFalse(pinMetadata.isDefault)
+            let managementSession = try await ManagementSession.session(withConnection: connection)
+            try await managementSession.deviceReset()
+            pivSession = try await PIVSession.session(withConnection: connection)
+            pinMetadata = try await pivSession.getPinMetadata()
+            XCTAssertTrue(pinMetadata.isDefault)
+        }
+    }
 }
 
 extension XCTestCase {

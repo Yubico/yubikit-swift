@@ -58,3 +58,26 @@ public enum SessionError: Error {
     case illegalArgument
     case invalidPin(Int)
 }
+
+extension SessionError: Equatable {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.noConnection, .noConnection):
+            return true
+        case (.notSupported, .notSupported):
+            return true
+        case (.activeSession, .activeSession):
+            return true
+        case (.missingApplication, .missingApplication):
+            return true
+        case (.unexpectedStatusCode, .unexpectedStatusCode):
+            return true
+        case (.illegalArgument, .illegalArgument):
+            return true
+        case (.invalidPin(_), .invalidPin(_)):
+            return true
+        default:
+            return false
+        }
+    }
+}
