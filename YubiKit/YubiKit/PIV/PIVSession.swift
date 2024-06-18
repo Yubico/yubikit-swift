@@ -162,7 +162,7 @@ public final actor PIVSession: Session, InternalSession {
     public func generateKeyInSlot(slot: PIVSlot, type: PIVKeyType, pinPolicy: PIVPinPolicy = .`defaultPolicy`, touchPolicy: PIVTouchPolicy = .`defaultPolicy`) async throws -> SecKey {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
-        try checkKeyFeatures(keyType: type, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: true)
+        try await checkKeyFeatures(keyType: type, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: true)
         let records: [TKBERTLVRecord] = [TKBERTLVRecord(tag: tagGenAlgorithm, value: type.rawValue.data),
                                          pinPolicy != .`defaultPolicy` ? TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data) : nil,
                                          touchPolicy != .`defaultPolicy` ? TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data) : nil].compactMap { $0 }
@@ -195,7 +195,7 @@ public final actor PIVSession: Session, InternalSession {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard let connection = _connection else { throw SessionError.noConnection }
         guard let keyType = key.type else { throw PIVSessionError.unknownKeyType }
-        try checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
+        try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
         var error: Unmanaged<CFError>?
         guard let cfKeyData = SecKeyCopyExternalRepresentation(key, &error) else { throw error!.takeRetainedValue() as Error }
         let keyData = cfKeyData as Data
@@ -741,13 +741,16 @@ extension PIVSession {
         }
     }
     
-    private func checkKeyFeatures(keyType: PIVKeyType, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy, generateKey: Bool) throws {
+    private func checkKeyFeatures(keyType: PIVKeyType, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy, generateKey: Bool) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         if keyType == .ECCP384 {
             guard self.supports(PIVSessionFeature.p384) else { throw SessionError.notSupported }
         }
         if pinPolicy != .`defaultPolicy` || touchPolicy != .`defaultPolicy` {
             guard self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
+        }
+        if pinPolicy == .matchAlways || pinPolicy == .matchOnce {
+            _  = try await self.getBioMetadata() // This will throw SessionError.notSupported if the key is not a Bio key.
         }
         if generateKey && (keyType == .RSA1024 || keyType == .RSA2048) {
             guard self.supports(PIVSessionFeature.rsaGeneration) else { throw SessionError.notSupported }
