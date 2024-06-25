@@ -684,13 +684,7 @@ public final actor PIVSession: Session, InternalSession {
         } catch {
             guard let responseError = error as? ResponseError else { throw error }
             guard responseError.responseStatus.status != .referencedDataNotFound else { throw SessionError.notSupported }
-            let retries = retriesFrom(responseError: responseError)
-            if retries >= 0 {
-                throw SessionError.invalidPin(retries)
-            } else {
-                // Status code returned error, not number of retries
-                throw error
-            }
+            throw error
         }
     }
 }
