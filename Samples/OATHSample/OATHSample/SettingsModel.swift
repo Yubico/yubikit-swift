@@ -40,7 +40,7 @@ class SettingsModel: SettingsModelProtocol {
                     self.connection = "NFC"
                     await nfcConnection.close(message: "YubiKey version read")
                 } else {
-                    self.connection = connection as? SmartCardConnection != nil ? "SmartCard" : "Lightning"
+                    self.connection = "" //connection as? SmartCardConnection != nil ? "SmartCard" : "Lightning"
                 }
                 #else
                 self.connection = "SmartCard"

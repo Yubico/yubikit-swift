@@ -13,9 +13,9 @@
 // limitations under the License.
 
 import Foundation
-import CryptoTokenKit
+@preconcurrency import CryptoTokenKit
 import OSLog
-
+/*
 /// A connection to the YubiKey utilizing the USB-C port and the TKSmartCard implementation from
 /// the CryptoTokenKit framework.
 @available(iOS 16.0, macOS 13.0, *)
@@ -338,3 +338,4 @@ public enum SmartCardConnectionError: Error {
     /// CryptoTokenKit failed to start a session for the TKSmartCard.
     case beginSessionFailed
 }
+*/

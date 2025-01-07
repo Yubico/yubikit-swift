@@ -15,7 +15,7 @@
 import OSLog
 
 extension Logger {
-    private static var subsystem = "com.yubico.YubiKit"
+    private static let subsystem = "com.yubico.YubiKit"
     
     static let system = Logger(subsystem: subsystem, category: "System")
     static let connection = Logger(subsystem: subsystem, category: "Connection")

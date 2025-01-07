@@ -20,7 +20,7 @@ import Foundation
 ///
 /// Protocol implemented in ``LightningConnection``, ``NFCConnection`` and ``SmartCardConnection``.
 
-public protocol Connection: AnyObject {
+public protocol Connection: AnyObject, Sendable {
     
     /// Create a new Connection to the YubiKey.
     ///
@@ -66,7 +66,7 @@ public protocol Connection: AnyObject {
     func send(data: Data) async throws -> Data
 }
 
-internal protocol InternalConnection {
+internal protocol InternalConnection: Sendable {
     func session() async -> Session?
     func setSession(_ session: Session?) async
 }

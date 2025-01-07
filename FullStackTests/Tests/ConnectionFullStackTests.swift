@@ -21,7 +21,7 @@ import CryptoTokenKit
 class ConnectionFullStackTests: XCTestCase {
 
     // Change Connection to test different types of connections
-    typealias Connection = SmartCardConnection
+    typealias Connection = NFCConnection
     
     #if os(iOS)
     func testNFCAlertMessage() throws {
@@ -29,7 +29,7 @@ class ConnectionFullStackTests: XCTestCase {
             do {
                 let connection = try await NFCConnection.connection(alertMessage: "Test Alert Message")
                 guard try await connection.isAllowed() else { XCTFail("🚨 YubiKey not in allow-list!"); return }
-                connection.nfcConnection?.setAlertMessage("Updated Alert Message")
+                await connection.nfcConnection?.setAlertMessage("Updated Alert Message")
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 await connection.nfcConnection?.close(message: "Closing Alert Message")
             } catch {

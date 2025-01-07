@@ -56,13 +56,13 @@ public enum ConnectionHelper {
                     return try await NFCConnection.connection(alertMessage: nfcAlertMessage)
                 }
             }
-            group.addTask {
-                return try await LightningConnection.connection()
-            }
+//            group.addTask {
+//                return try await LightningConnection.connection()
+//            }
             #endif
-            group.addTask {
-                return try await SmartCardConnection.connection()
-            }
+//            group.addTask {
+//                return try await SmartCardConnection.connection()
+//            }
             let result = try await group.next()!
             group.cancelAll()
             return result
@@ -73,15 +73,19 @@ public enum ConnectionHelper {
     /// Returns either a LightningConnection or a SmartCardConnection. If a YubiKey is present it will return the connection
     /// immediately. If no key is present it will wait and return the connection once a YubiKey has been inserted into the device.
     public static func anyWiredConnection() async throws -> Connection {
+        
+        try await Task.sleep(for: .seconds(100000))
+        
+        
         let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
             #if os(iOS)
-            group.addTask {
-                return try await LightningConnection.connection()
-            }
+//            group.addTask {
+//                return try await LightningConnection.connection()
+//            }
             #endif
-            group.addTask {
-                return try await SmartCardConnection.connection()
-            }
+//            group.addTask {
+//                return try await SmartCardConnection.connection()
+//            }
             let result = try await group.next()!
             group.cancelAll()
             return result

@@ -15,16 +15,16 @@
 import Foundation
 import CommonCrypto
 
-private var hotpCode: UInt8 = 0x10
-private var totpCode: UInt8 = 0x20
+private let hotpCode: UInt8 = 0x10
+private let totpCode: UInt8 = 0x20
 
 extension OATHSession {
     
-    public enum CredentialTemplateError: Error {
+    public enum CredentialTemplateError: Error, Sendable {
         case missingScheme, missingName, missingSecret, parseType, parseAlgorithm
     }
     
-    public enum CredentialType: CustomStringConvertible {
+    public enum CredentialType: Sendable, CustomStringConvertible {
         
         case HOTP(counter: UInt32 = 0)
         case TOTP(period: TimeInterval = 30)
@@ -74,14 +74,14 @@ extension OATHSession {
         }
     }
     
-    public enum HashAlgorithm: UInt8 {
+    public enum HashAlgorithm: UInt8, Sendable {
         case SHA1   = 0x01
         case SHA256 = 0x02
         case SHA512 = 0x03
     }
     
     /// A reference to an OATH Credential stored on a YubiKey.
-    public struct Credential: Identifiable, CustomStringConvertible {
+    public struct Credential: Identifiable, CustomStringConvertible, Sendable {
 
         /// Device ID of the YubiKey.
         public let deviceId: String
@@ -170,7 +170,7 @@ extension OATHSession {
     }
 
     /// A one-time OATH code, calculated from a ``Credential`` stored in a YubiKey.
-    public struct Code: Identifiable, CustomStringConvertible {
+    public struct Code: Identifiable, Sendable, CustomStringConvertible {
         
         public var description: String {
             let dateFormatter = DateFormatter()

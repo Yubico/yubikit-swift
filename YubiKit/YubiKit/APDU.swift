@@ -16,14 +16,14 @@ import Foundation
 
 
 /// Data model for encapsulating an APDU command, as defined by the ISO/IEC 7816-4 standard.
-public struct APDU: CustomStringConvertible {
+public struct APDU: CustomStringConvertible, Sendable {
     
-    public enum ApduType {
+    public enum ApduType: Sendable {
         case short
         case extended
     }
     
-    private struct ExplicitAPDU {
+    private struct ExplicitAPDU: Sendable {
         let cla: UInt8
         let ins: UInt8
         let p1: UInt8
@@ -32,7 +32,7 @@ public struct APDU: CustomStringConvertible {
         let type: ApduType
     }
     
-    private enum APDUStorage {
+    private enum APDUStorage: Sendable {
         case explicit(ExplicitAPDU)
         case rawData(Data)
     }

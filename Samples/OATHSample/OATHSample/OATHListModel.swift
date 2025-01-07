@@ -97,15 +97,16 @@ struct Account: Identifiable {
 extension Connection {
     var connectionType: String {
         #if os(iOS)
-        if self as? NFCConnection != nil {
-            return "NFC"
-        } else if self as? LightningConnection != nil {
-            return "Lightning"
-        } else if self as? SmartCardConnection != nil {
-            return "SmartCard"
-        } else {
-            return "Unknown"
-        }
+        return "NFC"
+//        if self as? NFCConnection != nil {
+//            return "NFC"
+//        } else if self as? LightningConnection != nil {
+//            return "Lightning"
+//        } else if self as? SmartCardConnection != nil {
+//            return "SmartCard"
+//        } else {
+//            return "Unknown"
+//        }
         #else
         if self as? SmartCardConnection != nil {
             return "SmartCard"

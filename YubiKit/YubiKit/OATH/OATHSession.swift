@@ -298,7 +298,7 @@ public final actor OATHSession: Session, InternalSession {
         let data = try await connection.send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else { throw OATHSessionError.responseDataNotTLVFormatted }
         
-        return try await result.asyncMap { (name, response) in
+        return try await result.asyncMap { @Sendable (name, response) in
             guard name.tag == 0x71 else { throw OATHSessionError.unexpectedTag }
 
             guard let credentialId = CredentialIdParser(data: name.value) else { throw OATHSessionError.unexpectedData }

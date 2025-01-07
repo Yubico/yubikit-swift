@@ -435,8 +435,8 @@ public final actor PIVSession: Session, InternalSession {
     /// Resets the PIV application to just-installed state.
     public func reset() async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        try await blockPin()
-        try await blockPuk()
+//        try await blockPin()
+//        try await blockPuk()
         guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: insReset, p1: 0, p2: 0)
         try await connection.send(apdu: apdu)
