@@ -22,7 +22,7 @@ enum PIVEncryptionError: Error {
 }
 
 extension Data {
-
+    
     internal func aescmac(key: Data) throws -> Data {
         
         let constZero = Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
@@ -41,40 +41,27 @@ extension Data {
             subKey2 = constRb.xor(with: subKey2)
         }
         
-        let lastBlockIsComplete: Bool
-        let blockCount = (self.count + blockSize - 1) / blockSize
-        if blockCount == 0 {
-            lastBlockIsComplete = false
-        } else {
-            lastBlockIsComplete = self.count % blockSize == 0
-        }
+        let lastBlockIsComplete = self.count % blockSize == 0 && self.count > 0
+        
         let paddedData: Data
-        if !lastBlockIsComplete {
-            paddedData = self.bitPadded()
-        } else {
-            paddedData = self
-        }
-        
-        var blocks = stride(from: 0, to: paddedData.count, by: blockSize).map {
-            paddedData[$0..<Swift.min($0 + blockSize, paddedData.count)]
-        }
-        
-        var lastBlock = blocks.popLast()!
+        var lastIv: Data
         if lastBlockIsComplete {
-            lastBlock = lastBlock.xor(with: subKey1)
+            lastIv = subKey1
+            paddedData = self
         } else {
-            lastBlock = lastBlock.xor(with: subKey2)
+            lastIv = subKey2
+            paddedData = self.bitPadded()
+        }
+        let messageSkippingLastBlock = paddedData.subdata(in: 0..<(paddedData.count - blockSize))
+        let lastBlock = paddedData.subdata(in: messageSkippingLastBlock.count..<paddedData.count)
+        
+        if messageSkippingLastBlock.count != 0 {
+            // CBC encrypt the message (minus the last block) with a zero IV, and keep only the last block:
+            let first = try messageSkippingLastBlock.encrypt(algorithm: algorithm, key: key, iv: iv).subdata(in: (messageSkippingLastBlock.count - blockSize)..<messageSkippingLastBlock.count)
+            lastIv = lastIv.xor(with: first)
         }
         
-        var x = constZero
-        var y = constZero
-        
-        for block in blocks {
-            y = block.xor(with: x)
-            x = try y.encrypt(algorithm: algorithm, key: key, iv: iv)
-        }
-        y = lastBlock.xor(with: x)
-        return try y.encrypt(algorithm: algorithm, key: key, iv: iv)
+        return try lastBlock.encrypt(algorithm: algorithm, key: key, iv: lastIv)
     }
     
     private func bitPadded() -> Data {
