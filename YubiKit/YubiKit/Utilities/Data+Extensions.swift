@@ -57,8 +57,8 @@ extension Data {
         
         if messageSkippingLastBlock.count != 0 {
             // CBC encrypt the message (minus the last block) with a zero IV, and keep only the last block:
-            let first = try messageSkippingLastBlock.encrypt(algorithm: algorithm, key: key, iv: iv).subdata(in: (messageSkippingLastBlock.count - blockSize)..<messageSkippingLastBlock.count)
-            lastIv = lastIv.xor(with: first)
+            let encryptedBlock = try messageSkippingLastBlock.encrypt(algorithm: algorithm, key: key, iv: iv).subdata(in: (messageSkippingLastBlock.count - blockSize)..<messageSkippingLastBlock.count)
+            lastIv = lastIv.xor(with: encryptedBlock)
         }
         
         return try lastBlock.encrypt(algorithm: algorithm, key: key, iv: lastIv)
