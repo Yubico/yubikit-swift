@@ -22,16 +22,80 @@ enum PIVEncryptionError: Error {
 }
 
 extension Data {
-    
-    public func encrypt(algorithm: CCAlgorithm, key: Data) throws -> Data {
-        try cryptOperation(UInt32(kCCEncrypt), algorithm: algorithm, key: key)
+
+    internal func authenticate(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws -> Data {
+        
+        let constZero = Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        let constRb = Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87])
+        let blockSize = 16
+        
+        let l = try constZero.encrypt(algorithm: algorithm, key: key, iv: iv)
+        var subKey1 = l.shiftedLeftByOne()
+        if (l.bytes[0] & 0x80) != 0 {
+            subKey1 = constRb.xor(with: subKey1)
+        }
+        var subKey2 = subKey1.shiftedLeftByOne()
+        if (subKey1.bytes[0] & 0x80) != 0 {
+            subKey2 = constRb.xor(with: subKey2)
+        }
+        
+        let lastBlockIsComplete: Bool
+        let blockCount = (self.count + blockSize - 1) / blockSize
+        if blockCount == 0 {
+            lastBlockIsComplete = false
+        } else {
+            lastBlockIsComplete = self.count % blockSize == 0
+        }
+        let paddedData: Data
+        if !lastBlockIsComplete {
+            paddedData = self.bitPadded()
+        } else {
+            paddedData = self
+        }
+        
+        var blocks = stride(from: 0, to: paddedData.count, by: blockSize).map {
+            paddedData[$0..<Swift.min($0 + blockSize, paddedData.count)]
+        }
+        
+        var lastBlock = blocks.popLast()!
+        if lastBlockIsComplete {
+            lastBlock = lastBlock.xor(with: subKey1)
+        } else {
+            lastBlock = lastBlock.xor(with: subKey2)
+        }
+        
+        var x = constZero
+        var y = constZero
+        
+        for block in blocks {
+            y = block.xor(with: x)
+            x = try y.encrypt(algorithm: algorithm, key: key, iv: iv)
+        }
+        y = lastBlock.xor(with: x)
+        return try y.encrypt(algorithm: algorithm, key: key, iv: iv)
     }
     
-    public func decrypt(algorithm: CCAlgorithm, key: Data) throws -> Data {
-        try cryptOperation(UInt32(kCCDecrypt), algorithm: algorithm, key: key)
+    private func bitPadded() -> Data {
+        let msgLength = self.count
+        let blockSize = 16
+        var paddedData = self
+        paddedData.append(0x80)
+        if msgLength % blockSize < blockSize {
+            return paddedData + Data(count: blockSize - 1 - (msgLength % blockSize))
+        } else {
+            return paddedData + Data(count: blockSize + blockSize - 1 - (msgLength % blockSize))
+        }
     }
     
-    private func cryptOperation(_ operation: CCOperation, algorithm: CCAlgorithm, key: Data) throws -> Data {
+    internal func encrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws -> Data {
+        try cryptOperation(UInt32(kCCEncrypt), algorithm: algorithm, key: key, iv: iv)
+    }
+    
+    internal func decrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws -> Data {
+        try cryptOperation(UInt32(kCCDecrypt), algorithm: algorithm, key: key, iv: iv)
+    }
+    
+    private func cryptOperation(_ operation: CCOperation, algorithm: CCAlgorithm, key: Data, iv: Data?) throws -> Data {
         guard !key.isEmpty else { throw PIVEncryptionError.missingData }
         
         let blockSize: Int
@@ -47,13 +111,28 @@ extension Data {
         var outLength: Int = 0
         let bufferLength = self.count + blockSize
         var buffer = Data(count: bufferLength)
+        let options = iv == nil ? CCOptions(kCCOptionECBMode) : 0
+        let iv = iv ?? Data()
 
         let cryptorStatus: CCCryptorStatus = buffer.withUnsafeMutableBytes { buffer in
             self.withUnsafeBytes { dataBytes in
                 key.withUnsafeBytes { keyBytes in
-                    var ccRef: CCCryptorRef?
-                    CCCryptorCreate(operation, algorithm, CCOptions(kCCOptionECBMode), keyBytes.baseAddress, key.count, nil, &ccRef)
-                    return CCCryptorUpdate(ccRef, dataBytes.baseAddress, self.count, buffer.baseAddress, bufferLength, &outLength)
+                    iv.withUnsafeBytes { ivBytes in
+                        var ccRef: CCCryptorRef?
+                        CCCryptorCreate(operation,
+                                        algorithm,
+                                        options,
+                                        keyBytes.baseAddress,
+                                        key.count,
+                                        iv.count > 0 ? ivBytes.baseAddress : nil,
+                                        &ccRef)
+                        return CCCryptorUpdate(ccRef,
+                                               dataBytes.baseAddress,
+                                               self.count,
+                                               buffer.baseAddress,
+                                               bufferLength,
+                                               &outLength)
+                    }
                 }
             }
         }
@@ -135,6 +214,29 @@ extension Data {
         } else {
             return Data(count: length - self.count) + self
         }
+    }
+    
+    func xor(with key: Data) -> Data {
+        let resultLength = Swift.min(self.count, key.count)
+        var result = Data(count: resultLength)
+        for i in 0..<resultLength {
+            let byte = self.bytes[i] ^ key.bytes[i]
+            result[i] = byte
+        }
+        return result
+    }
+    
+    func shiftedLeftByOne() -> Data {
+        var shifted = Data(count: bytes.count).bytes
+        let last = self.count - 1
+        for index in 0..<last {
+            shifted[index] = self.bytes[index] << 1
+            if (self.bytes[index + 1] & 0x80) != 0 {
+                shifted[index] += 0x01
+          }
+        }
+        shifted[last] = self.bytes[last] << 1
+        return Data(shifted)
     }
 }
 
