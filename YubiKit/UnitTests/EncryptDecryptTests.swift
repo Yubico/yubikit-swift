@@ -95,44 +95,40 @@ final class EncryptDecryptTests: XCTestCase {
     
     func testAESCMAC_0() throws {
         let key = Data(hexEncodedString: "2b7e1516 28aed2a6 abf71588 09cf4f3c")!
-        let iv = Data(hexEncodedString: "00000000 00000000 00000000 00000000")!
         let msg = Data()
         let expectedMac = Data(hexEncodedString: "bb1d6929 e9593728 7fa37d12 9b756746")!
         do {
-            let result = try msg.authenticate(algorithm: CCAlgorithm(kCCAlgorithmAES), key: key, iv: iv)
+            let result = try msg.aescmac(key: key)
             XCTAssertEqual(result, expectedMac)
         }
     }
     
     func testAESCMAC_16() throws {
         let key = Data(hexEncodedString: "2b7e1516 28aed2a6 abf71588 09cf4f3c")!
-        let iv = Data(hexEncodedString: "00000000 00000000 00000000 00000000")!
         let msg = Data(hexEncodedString: "6bc1bee2 2e409f96 e93d7e11 7393172a")!
         let expectedMac = Data(hexEncodedString: "070a16b4 6b4d4144 f79bdd9d d04a287c")!
         do {
-            let result = try msg.authenticate(algorithm: CCAlgorithm(kCCAlgorithmAES), key: key, iv: iv)
+            let result = try msg.aescmac(key: key)
             XCTAssertEqual(result, expectedMac)
         }
     }
     
     func testAESCMAC_40() throws {
         let key = Data(hexEncodedString: "2b7e1516 28aed2a6 abf71588 09cf4f3c")!
-        let iv = Data(hexEncodedString: "00000000 00000000 00000000 00000000")!
         let msg = Data(hexEncodedString: "6bc1bee2 2e409f96 e93d7e11 7393172a ae2d8a57 1e03ac9c 9eb76fac 45af8e51 30c81c46 a35ce411")!
         let expectedMac = Data(hexEncodedString: "dfa66747 de9ae630 30ca3261 1497c827")!
         do {
-            let result = try msg.authenticate(algorithm: CCAlgorithm(kCCAlgorithmAES), key: key, iv: iv)
+            let result = try msg.aescmac(key: key)
             XCTAssertEqual(result, expectedMac)
         }
     }
     
     func testAESCMAC_64() throws {
         let key = Data(hexEncodedString: "2b7e1516 28aed2a6 abf71588 09cf4f3c")!
-        let iv = Data(hexEncodedString: "00000000 00000000 00000000 00000000")!
         let msg = Data(hexEncodedString: "6bc1bee2 2e409f96 e93d7e11 7393172a ae2d8a57 1e03ac9c 9eb76fac 45af8e51 30c81c46 a35ce411 e5fbc119 1a0a52ef f69f2445 df4f9b17 ad2b417b e66c3710")!
         let expectedMac = Data(hexEncodedString: "51f0bebf 7e3b9d92 fc497417 79363cfe")!
         do {
-            let result = try msg.authenticate(algorithm: CCAlgorithm(kCCAlgorithmAES), key: key, iv: iv)
+            let result = try msg.aescmac(key: key)
             XCTAssertEqual(result, expectedMac)
         }
     }

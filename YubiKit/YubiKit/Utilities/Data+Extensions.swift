@@ -23,11 +23,13 @@ enum PIVEncryptionError: Error {
 
 extension Data {
 
-    internal func authenticate(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws -> Data {
+    internal func aescmac(key: Data) throws -> Data {
         
         let constZero = Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
         let constRb = Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87])
         let blockSize = 16
+        let algorithm = CCAlgorithm(kCCAlgorithmAES128)
+        let iv = Data(constZero)
         
         let l = try constZero.encrypt(algorithm: algorithm, key: key, iv: iv)
         var subKey1 = l.shiftedLeftByOne()
