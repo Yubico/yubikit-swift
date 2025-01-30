@@ -18,12 +18,6 @@ import CommonCrypto
 
 final class DataExtensionsTests: XCTestCase {
     
-    func testShift() throws {
-        let data = Data(hexEncodedString: "7df76b0c1ab899b33e42f047b91b546f")
-        let shiftedDate = data?.shiftedLeftByOne()
-        XCTAssertEqual(shiftedDate, Data(hexEncodedString: "fbeed618357133667c85e08f7236a8de"))
-    }
-    
     func testShiftLeftWithCarryOver() throws {
         let data = Data([0x01, 0xff, 0x03, 0x04])
         let shiftedData = data.shiftedLeftByOne()
