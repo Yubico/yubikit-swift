@@ -53,20 +53,4 @@ final class DataExtensionsTests: XCTestCase {
         print(result.hexEncodedString)
         XCTAssertEqual(result, Data([0xb5, 0x90]))
     }
-    
-    func testXorLongerData() throws {
-        let data = Data([0x1F, 0x2B, 0x3C])
-        let key = Data([0xAA, 0xBB])
-        let result = data.xor(with: key)
-        print(result.hexEncodedString)
-        XCTAssertEqual(result, Data([0xb5, 0x90]))
-    }
-    
-    func testXorLongerKey() throws {
-        let data = Data([0xAA, 0xBB])
-        let key = Data([0x1F, 0x2B, 0x3C])
-        let result = data.xor(with: key)
-        print(result.hexEncodedString)
-        XCTAssertEqual(result, Data([0xb5, 0x90]))
-    }
 }

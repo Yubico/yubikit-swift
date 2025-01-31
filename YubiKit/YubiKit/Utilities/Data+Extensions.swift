@@ -15,7 +15,7 @@
 import Foundation
 import CommonCrypto
 
-enum PIVEncryptionError: Error {
+public enum PIVEncryptionError: Error {
     case cryptorError(CCCryptorStatus)
     case missingData
     case unsupportedAlgorithm
@@ -130,11 +130,11 @@ extension Data {
         return buffer.subdata(in: 0..<outLength)
     }
     
-    var bytes: [UInt8] {
+    internal var bytes: [UInt8] {
         [UInt8](self)
     }
     
-    var uint8: UInt8 {
+    internal var uint8: UInt8 {
         get {
             var number: UInt8 = 0
             self.copyBytes(to:&number, count: MemoryLayout<UInt8>.size)
@@ -142,21 +142,21 @@ extension Data {
         }
     }
     
-    var uint16: UInt16 {
+    internal var uint16: UInt16 {
         get {
             let i16array = self.withUnsafeBytes { $0.load(as: UInt16.self) }
             return i16array
         }
     }
     
-    var uint32: UInt32 {
+    internal var uint32: UInt32 {
         get {
             let i32array = self.withUnsafeBytes { $0.load(as: UInt32.self) }
             return i32array
         }
     }
     
-    var uuid: NSUUID? {
+    internal var uuid: NSUUID? {
         get {
             var bytes = [UInt8](repeating: 0, count: self.count)
             self.copyBytes(to:&bytes, count: self.count * MemoryLayout<UInt32>.size)
@@ -164,19 +164,19 @@ extension Data {
         }
     }
     
-    var stringASCII: String? {
+    internal var stringASCII: String? {
         get {
             return NSString(data: self, encoding: String.Encoding.ascii.rawValue) as String?
         }
     }
     
-    var stringUTF8: String? {
+    internal var stringUTF8: String? {
         get {
             return NSString(data: self, encoding: String.Encoding.utf8.rawValue) as String?
         }
     }
     
-    public init?(hexEncodedString: String) {
+    internal init?(hexEncodedString: String) {
         let string = hexEncodedString.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: " ", with: "")
         guard string.count.isMultiple(of: 2) else { return nil }
         let chars = string.map { $0 }
@@ -187,15 +187,15 @@ extension Data {
         self.init(bytes)
     }
     
-    public var hexEncodedString: String {
+    internal var hexEncodedString: String {
         return reduce("") {$0 + String(format: "%02x", $1)}
     }
     
-    static func random(length: Int) -> Data {
+    internal static func random(length: Int) -> Data {
         return Data((0..<length).map { _ in UInt8.random(in: 0...UInt8.max) })
     }
     
-    func padOrTrim(to length: Int) -> Data {
+    internal func padOrTrim(to length: Int) -> Data {
         if self.count == length {
             return self
         } else if self.count > length {
@@ -205,17 +205,17 @@ extension Data {
         }
     }
     
-    func xor(with key: Data) -> Data {
-        let resultLength = Swift.min(self.count, key.count)
-        var result = Data(count: resultLength)
-        for i in 0..<resultLength {
+    internal func xor(with key: Data) -> Data {
+        guard self.count == key.count else { fatalError("XOR Data with different lengths is not supported") }
+        var result = Data(count: self.count)
+        for i in 0..<self.count {
             let byte = self.bytes[i] ^ key.bytes[i]
             result[i] = byte
         }
         return result
     }
     
-    func shiftedLeftByOne() -> Data {
+    internal func shiftedLeftByOne() -> Data {
         var shifted = Data(count: bytes.count).bytes
         let last = self.count - 1
         for index in 0..<last {
@@ -231,37 +231,37 @@ extension Data {
 
 
 extension Int {
-    var data: Data {
+    internal var data: Data {
         var int = self
         return Data(bytes: &int, count: MemoryLayout<Int>.size)
     }
 }
 
 extension UInt8 {
-    var data: Data {
+    internal var data: Data {
         var int = self
         return Data(bytes: &int, count: MemoryLayout<UInt8>.size)
     }
     
-    var hexValue: String {
+    internal var hexValue: String {
         return String(format: "%02x", self)
     }
 }
 
 extension UInt16 {
-    var data: Data {
+    internal var data: Data {
         var int = self
         return Data(bytes: &int, count: MemoryLayout<UInt16>.size)
     }
 }
 
 extension UInt32 {
-    var data: Data {
+    internal var data: Data {
         var int = self
         return Data(bytes: &int, count: MemoryLayout<UInt32>.size)
     }
     
-    var byteArrayLittleEndian: [UInt8] {
+    internal var byteArrayLittleEndian: [UInt8] {
         return [
             UInt8((self & 0xFF000000) >> 24),
             UInt8((self & 0x00FF0000) >> 16),
@@ -272,12 +272,12 @@ extension UInt32 {
 }
 
 extension UInt64 {
-    var data: Data {
+    internal var data: Data {
         var int = self
         return Data(bytes: &int, count: MemoryLayout<UInt64>.size)
     }
     
-    var byteArrayLittleEndian: [UInt8] {
+    internal var byteArrayLittleEndian: [UInt8] {
         return [
             UInt8((self & 0xFF00000000000000) >> 56),
             UInt8((self & 0x00FF000000000000) >> 48),
