@@ -144,6 +144,24 @@ extension Data {
         return zip(self, other).reduce(0) { $0 | ($1.0 ^ $1.1) } == 0
     }
     
+    internal func sha1() -> Data {
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+        CC_SHA1(self.bytes, UInt32(self.count), &digest)
+        return Data(digest)
+    }
+    
+    internal func sha256() -> Data {
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        CC_SHA256(self.bytes, UInt32(self.count), &digest)
+        return Data(digest)
+    }
+    
+    internal func sha512() -> Data {
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA512_DIGEST_LENGTH))
+        CC_SHA512(self.bytes, UInt32(self.count), &digest)
+        return Data(digest)
+    }
+    
     internal var bytes: [UInt8] {
         [UInt8](self)
     }

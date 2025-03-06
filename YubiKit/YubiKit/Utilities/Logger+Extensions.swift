@@ -27,7 +27,8 @@ extension Logger {
     static let oath = Logger(subsystem: subsystem, category: "OATH")
     static let management = Logger(subsystem: subsystem, category: "Management")
     static let piv = Logger(subsystem: subsystem, category: "PIV")
-    
+    static let securityDomain = Logger(subsystem: subsystem, category: "SecurityDomain")
+
     nonisolated static func export() async throws -> String {
         Logger.system.info("Logger, export(): compiling logs.")
         let store = try OSLogStore(scope: .currentProcessIdentifier)

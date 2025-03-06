@@ -29,6 +29,8 @@
 		B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E21A274FCA26004471DE /* ManagementSession.swift */; };
 		B45DAFB52D54B8480081E336 /* SCPState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B45DAFB42D54B8420081E336 /* SCPState.swift */; };
 		B45DAFB72D54F9E10081E336 /* SCPSessionKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = B45DAFB62D54F9DC0081E336 /* SCPSessionKeys.swift */; };
+		B47A99A02D79C1B80001A805 /* SCP11KeyParams.swift in Sources */ = {isa = PBXBuildFile; fileRef = B47A999F2D79C1B30001A805 /* SCP11KeyParams.swift */; };
+		B47A99A22D79C2BF0001A805 /* SecurityDomainSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B47A99A12D79C2B50001A805 /* SecurityDomainSession.swift */; };
 		B47FDD992939FAD100AFF70A /* ConnectionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B47FDD982939FAD100AFF70A /* ConnectionHelper.swift */; };
 		B47FDD9B293A15AE00AFF70A /* NSLock+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B47FDD9A293A15AE00AFF70A /* NSLock+Extensions.swift */; };
 		B49F90C42B9F30A400C10F0B /* ManagementFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B49F90C32B9F30A400C10F0B /* ManagementFeature.swift */; };
@@ -94,6 +96,8 @@
 		B456E21A274FCA26004471DE /* ManagementSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementSession.swift; sourceTree = "<group>"; };
 		B45DAFB42D54B8420081E336 /* SCPState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPState.swift; sourceTree = "<group>"; };
 		B45DAFB62D54F9DC0081E336 /* SCPSessionKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPSessionKeys.swift; sourceTree = "<group>"; };
+		B47A999F2D79C1B30001A805 /* SCP11KeyParams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCP11KeyParams.swift; sourceTree = "<group>"; };
+		B47A99A12D79C2B50001A805 /* SecurityDomainSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityDomainSession.swift; sourceTree = "<group>"; };
 		B47FDD982939FAD100AFF70A /* ConnectionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionHelper.swift; sourceTree = "<group>"; };
 		B47FDD9A293A15AE00AFF70A /* NSLock+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSLock+Extensions.swift"; sourceTree = "<group>"; };
 		B49F90C32B9F30A400C10F0B /* ManagementFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementFeature.swift; sourceTree = "<group>"; };
@@ -241,6 +245,7 @@
 		B4D1780B2D3F8C140081BA4E /* SCP */ = {
 			isa = PBXGroup;
 			children = (
+				B47A99A12D79C2B50001A805 /* SecurityDomainSession.swift */,
 				B45DAFB62D54F9DC0081E336 /* SCPSessionKeys.swift */,
 				B45DAFB42D54B8420081E336 /* SCPState.swift */,
 				B4D178142D3F906C0081BA4E /* StaticKeys.swift */,
@@ -248,6 +253,7 @@
 				B4D1780E2D3F8C540081BA4E /* SCPKeyRef.swift */,
 				B4D1780C2D3F8C1C0081BA4E /* SCPKeyParams.swift */,
 				B4D178122D3F8FF90081BA4E /* SCP03KeyParams.swift */,
+				B47A999F2D79C1B30001A805 /* SCP11KeyParams.swift */,
 				B4D178072D3803D50081BA4E /* SCPProcessor.swift */,
 			);
 			path = SCP;
@@ -439,8 +445,10 @@
 				B40064302BF728D600CD2FAF /* Capability.swift in Sources */,
 				B4F068B92861CFC300555AFE /* SmartCardConnection.swift in Sources */,
 				B4F937622B51A44E0007D394 /* PIVSession.swift in Sources */,
+				B47A99A02D79C1B80001A805 /* SCP11KeyParams.swift in Sources */,
 				B40CBD6029090C49007D7D23 /* Version.swift in Sources */,
 				B4BE3AB1292E1E3800CC30CB /* CryptoKit+Extensions.swift in Sources */,
+				B47A99A22D79C2BF0001A805 /* SecurityDomainSession.swift in Sources */,
 				51BBE3EB273D1A3800DA47CC /* YubiKit.docc in Sources */,
 				B45DAFB52D54B8480081E336 /* SCPState.swift in Sources */,
 				B4D178132D3F8FF90081BA4E /* SCP03KeyParams.swift in Sources */,
