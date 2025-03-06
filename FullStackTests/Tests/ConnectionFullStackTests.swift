@@ -13,10 +13,8 @@
 // limitations under the License.
 
 import XCTest
-import YubiKit
+@testable import YubiKit
 import CryptoTokenKit
-
-@testable import FullStackTests
 
 class ConnectionFullStackTests: XCTestCase {
 

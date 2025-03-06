@@ -6,10 +6,8 @@
 //
 
 import XCTest
-import YubiKit
+@testable import YubiKit
 import OSLog
-
-@testable import FullStackTests
 
 final class PIVFullStackTests: XCTestCase {
     

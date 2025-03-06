@@ -35,20 +35,24 @@ public final actor PIVSession: Session {
     
     private let connection: Connection
 
-    private init(connection: Connection) async throws {
+    private init(connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws {
         try await connection.selectApplication(.piv)
         let versionApdu = APDU(cla: 0, ins: 0xfd, p1: 0, p2: 0)
         guard let version = try await Version(withData: connection.send(apdu: versionApdu)) else {
             throw PIVSessionError.dataParseError
         }
         self.version = version
-        self.connection = connection
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: version))")
+        if let scpKeyParams {
+            let processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
+            await internalConnection?.setProcessor(processor)
+        }
+        self.connection = connection
     }
     
-    public static func session(withConnection connection: Connection) async throws -> PIVSession {
+    public static func session(withConnection connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws -> PIVSession {
         // Return new PIVSession
-        return try await PIVSession(connection: connection)
+        return try await PIVSession(connection: connection, scpKeyParams: scpKeyParams)
     }
     
     nonisolated public func supports(_ feature: SessionFeature) -> Bool {

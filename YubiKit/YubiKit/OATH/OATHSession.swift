@@ -62,8 +62,12 @@ public final actor OATHSession: Session {
         selectResponse.version
     }
     
-    private init(connection: Connection) async throws {
+    private init(connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws {
         self.selectResponse = try await Self.selectApplication(withConnection: connection)
+        if let scpKeyParams {
+            let processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
+            await internalConnection?.setProcessor(processor)
+        }
         self.connection = connection
     }
     
@@ -84,10 +88,10 @@ public final actor OATHSession: Session {
         return SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
     }
     
-    public static func session(withConnection connection: Connection) async throws -> OATHSession {
+    public static func session(withConnection connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws -> OATHSession {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: connection))")
         // Create a new OATHSession
-        let session = try await OATHSession(connection: connection)
+        let session = try await OATHSession(connection: connection, scpKeyParams: scpKeyParams)
         return session
     }
     
