@@ -71,6 +71,14 @@ public final actor LightningConnection: Connection {
         }
     }
     
+    private var processor: Processor? = nil
+    internal func getProcessor() async -> Processor? {
+        return processor
+    }
+    internal func setProcessor(_ processor: Processor?) async {
+        self.processor = processor
+    }
+    
     public func send(data: Data) async throws -> Data {
         guard let accessoryConnection, let outputStream = accessoryConnection.session.outputStream, let inputStream = accessoryConnection.session.inputStream else { throw ConnectionError.noConnection }
         // Append YLP iAP2 Signal

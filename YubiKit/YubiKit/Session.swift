@@ -23,7 +23,7 @@ import Foundation
 public protocol Session: Sendable {
     
     /// Returns a new session using the supplied connection.
-    static func session(withConnection connection: Connection) async throws -> Self
+    static func session(withConnection connection: Connection, scpKeyParams: SCPKeyParams?) async throws -> Self
     
     /// Determine wether the Session supports the specific feature.
     func supports(_ feature: SessionFeature) -> Bool

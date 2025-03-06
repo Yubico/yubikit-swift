@@ -40,17 +40,21 @@ public final actor ManagementSession: Session {
 
     public nonisolated let version: Version
 
-    private init(connection: Connection) async throws {
+    private init(connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws {
         let result = try await connection.selectApplication(.management)
         guard let version = Version(withManagementResult: result) else { throw ManagementSessionError.unexpectedData }
         self.version = version
+        if let scpKeyParams {
+            let processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
+            await internalConnection?.setProcessor(processor)
+        }
         self.connection = connection
     }
     
-    public static func session(withConnection connection: Connection) async throws -> ManagementSession {
+    public static func session(withConnection connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws -> ManagementSession {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         // Create a new ManagementSession
-        let session = try await ManagementSession(connection: connection)
+        let session = try await ManagementSession(connection: connection, scpKeyParams: scpKeyParams)
         return session
     }
     
