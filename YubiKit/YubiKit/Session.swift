@@ -27,10 +27,6 @@ public protocol Session: Sendable {
     
     /// Determine wether the Session supports the specific feature.
     func supports(_ feature: SessionFeature) -> Bool
-
-    /// End the session. This will remove its internal connection and discard any state saved by the session.
-    /// The connection to the YubiKey will be kept open.
-    func end() async
 }
 
 public protocol SessionFeature {

@@ -32,7 +32,6 @@ public enum ManagementSessionError: Error {
 extension ManagementSession {
     @discardableResult
     func send(apdu: APDU) async throws -> Data {
-        guard let connection else { throw SessionError.noConnection }
         return try await connection.send(apdu: apdu)
     }
 }
@@ -44,8 +43,8 @@ extension ManagementSession {
 /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
 public final actor ManagementSession: Session {
     
-    var connection: Connection?
-    
+    let connection: Connection
+
     public nonisolated let version: Version
 
     private init(connection: Connection) async throws {
@@ -60,11 +59,6 @@ public final actor ManagementSession: Session {
         // Create a new ManagementSession
         let session = try await ManagementSession(connection: connection)
         return session
-    }
-    
-    public func end() async {
-        Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
-        connection = nil
     }
     
     nonisolated public func supports(_ feature: SessionFeature) -> Bool {

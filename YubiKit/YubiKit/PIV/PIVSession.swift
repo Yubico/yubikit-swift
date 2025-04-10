@@ -30,7 +30,6 @@ import Gzip
 extension PIVSession {
     @discardableResult
     func send(apdu: APDU) async throws -> Data {
-        guard let connection else { throw SessionError.noConnection }
         return try await connection.send(apdu: apdu)
     }
 }
@@ -41,7 +40,7 @@ public final actor PIVSession: Session {
     private var currentPinAttempts = 0
     private var maxPinAttempts = 3
     
-    var connection: Connection?
+    let connection: Connection
     
     private init(connection: Connection) async throws {
         try await connection.selectApplication(.piv)
@@ -50,17 +49,13 @@ public final actor PIVSession: Session {
             throw PIVSessionError.dataParseError
         }
         self.version = version
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: version))")
         self.connection = connection
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: version))")
     }
     
     public static func session(withConnection connection: Connection) async throws -> PIVSession {
         // Return new PIVSession
         return try await PIVSession(connection: connection)
-    }
-    
-    public func end() async {
-        connection = nil
     }
     
     nonisolated public func supports(_ feature: SessionFeature) -> Bool {

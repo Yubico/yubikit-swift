@@ -55,8 +55,8 @@ extension OATHSession {
 /// more about OATH on the [Yubico developer website](https://developers.yubico.com/OATH/).
 public final actor OATHSession: Session {
     
-    var connection: Connection?
-    
+    private(set) var connection: Connection?
+
     private struct SelectResponse {
         let salt: Data
         let challenge: Data?
@@ -96,11 +96,6 @@ public final actor OATHSession: Session {
         // Create a new OATHSession
         let session = try await OATHSession(connection: connection)
         return session
-    }
-    
-    public func end() async {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
-        self.connection = nil
     }
     
     public func reset() async throws {
