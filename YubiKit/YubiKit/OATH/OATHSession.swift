@@ -40,13 +40,6 @@ public enum OATHSessionError: Error {
     case badCalculation
 }
 
-extension OATHSession {
-    @discardableResult
-    func send(apdu: APDU) async throws -> Data {
-        guard let connection else { throw SessionError.noConnection }
-        return try await connection.send(apdu: apdu, insSendRemaining: 0xa5)
-    }
-}
 
 /// An interface to the OATH application on the YubiKey.
 ///
@@ -395,6 +388,12 @@ public final actor OATHSession: Session {
     
     deinit {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
+    }
+
+    @discardableResult
+    private func send(apdu: APDU) async throws -> Data {
+        guard let connection else { throw SessionError.noConnection }
+        return try await connection.send(apdu: apdu, insSendRemaining: 0xa5)
     }
 }
 

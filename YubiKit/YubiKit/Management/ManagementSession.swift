@@ -29,13 +29,6 @@ public enum ManagementSessionError: Error {
     case configTooLarge
 }
 
-extension ManagementSession {
-    @discardableResult
-    func send(apdu: APDU) async throws -> Data {
-        return try await connection.send(apdu: apdu)
-    }
-}
-
 /// An interface to the Management application on the YubiKey.
 ///
 /// Use the Management application to get information and configure a YubiKey.
@@ -161,6 +154,11 @@ public final actor ManagementSession: Session {
     
     deinit {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
+    }
+
+    @discardableResult
+    private func send(apdu: APDU) async throws -> Data {
+        return try await connection.send(apdu: apdu)
     }
 }
 
