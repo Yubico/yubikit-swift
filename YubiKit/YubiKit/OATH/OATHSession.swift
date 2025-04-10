@@ -40,20 +40,22 @@ public enum OATHSessionError: Error {
     case badCalculation
 }
 
+extension OATHSession {
+    @discardableResult
+    func send(apdu: APDU) async throws -> Data {
+        guard let connection else { throw SessionError.noConnection }
+        return try await connection.send(apdu: apdu, insSendRemaining: 0xa5)
+    }
+}
+
 /// An interface to the OATH application on the YubiKey.
 ///
 /// The OATHSession is an interface to the OATH appcliation on the YubiKey that will
 /// let you store, calculate and edit TOTP and HOTP credentials on the YubiKey. Learn
 /// more about OATH on the [Yubico developer website](https://developers.yubico.com/OATH/).
-public final actor OATHSession: Session, InternalSession {
+public final actor OATHSession: Session {
     
-    private weak var _connection: Connection?
-    internal func connection() async -> Connection? {
-        return _connection
-    }
-    internal func setConnection(_ connection: Connection?) async {
-        _connection = connection
-    }
+    var connection: Connection?
     
     private struct SelectResponse {
         let salt: Data
@@ -69,9 +71,7 @@ public final actor OATHSession: Session, InternalSession {
     
     private init(connection: Connection) async throws {
         self.selectResponse = try await Self.selectApplication(withConnection: connection)
-        self._connection = connection
-        let internalConnection = await internalConnection()
-        await internalConnection?.setSession(self)
+        self.connection = connection
     }
     
     private static func selectApplication(withConnection connection: Connection) async throws -> SelectResponse {
@@ -93,10 +93,6 @@ public final actor OATHSession: Session, InternalSession {
     
     public static func session(withConnection connection: Connection) async throws -> OATHSession {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: connection))")
-        // Close active session if there is one
-        let internalConnection = connection as! InternalConnection
-        let currentSession = await internalConnection.session()
-        await currentSession?.end()
         // Create a new OATHSession
         let session = try await OATHSession(connection: connection)
         return session
@@ -104,17 +100,14 @@ public final actor OATHSession: Session, InternalSession {
     
     public func end() async {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
-        let internalConnection = await internalConnection()
-        await internalConnection?.setSession(nil)
-        self._connection = nil
+        self.connection = nil
     }
     
     public func reset() async throws {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad)
-        try await connection.send(apdu: apdu)
-        self._connection = nil
+        try await send(apdu: apdu)
+        self.connection = nil
     }
     
     nonisolated public func supports(_ feature: SessionFeature) -> Bool {
@@ -139,7 +132,7 @@ public final actor OATHSession: Session, InternalSession {
         if template.requiresTouch {
             guard self.supports(OATHSessionFeature.touch) else { throw SessionError.notSupported }
         }
-        guard let connection = _connection else { throw SessionError.noConnection }
+        guard let connection = connection else { throw SessionError.noConnection }
         guard let nameData = template.identifier.data(using: .utf8) else { throw OATHSessionError.unexpectedData }
         let nameTlv = TKBERTLVRecord(tag: 0x71, value: nameData)
         var keyData = Data()
@@ -160,7 +153,7 @@ public final actor OATHSession: Session, InternalSession {
         }
         
         let apdu = APDU(cla: 0x00, ins: 0x01, p1: 0x00, p2: 0x00, command: data)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
         return Credential(deviceId: selectResponse.deviceId, id: nameData, type: template.type, name: template.name, issuer: template.issuer, requiresTouch: template.requiresTouch)
     }
     
@@ -174,7 +167,6 @@ public final actor OATHSession: Session, InternalSession {
     ///   - newIssuer: The new issuer.
     public func renameCredential(_ credential: Credential, newName: String, newIssuer: String?) async throws {
         guard self.supports(OATHSessionFeature.rename) else { throw SessionError.notSupported }
-        guard let connection = _connection else { throw SessionError.noConnection }
         guard let currentId = CredentialIdentifier.identifier(name: credential.name, issuer: credential.issuer, type: credential.type).data(using: .utf8),
               let renamedId = CredentialIdentifier.identifier(name: newName, issuer: newIssuer, type: credential.type).data(using: .utf8)
         else { throw OATHSessionError.unexpectedData }
@@ -182,17 +174,17 @@ public final actor OATHSession: Session, InternalSession {
         data.append(TKBERTLVRecord(tag: 0x71, value: currentId).data)
         data.append(TKBERTLVRecord(tag: 0x71, value: renamedId).data)
         let apdu = APDU(cla: 0, ins: 0x05, p1: 0, p2: 0, command: data)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
     }
     
     /// Deletes an existing Credential from the YubiKey.
     /// - Parameter credential: The credential that will be deleted from the YubiKey.
     public func deleteCredential(_ credential: Credential) async throws {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(credential)")
-        guard let connection = _connection else { throw SessionError.noConnection }
+        guard let connection = connection else { throw SessionError.noConnection }
         let deleteTlv = TKBERTLVRecord(tag: 0x71, value: credential.id)
         let apdu = APDU(cla: 0, ins: 0x02, p1: 0, p2: 0, command: deleteTlv.data)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
     }
     
     /// List credentials on YubiKey
@@ -201,9 +193,8 @@ public final actor OATHSession: Session, InternalSession {
     /// - Returns: An array of Credentials.
     public func listCredentials() async throws -> [Credential] {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
-        let data = try await connection.send(apdu: apdu)
+        let data = try await send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else { throw OATHSessionError.responseDataNotTLVFormatted }
         return try result.map {
             guard $0.tag == 0x72 else { throw OATHSessionError.unexpectedTag }
@@ -232,13 +223,12 @@ public final actor OATHSession: Session, InternalSession {
     /// - Returns: Calculated code.
     public func calculateCode(credential: Credential, timestamp: Date = Date()) async throws -> Code {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): credential: \(credential), timeStamp: \(timestamp)")
-        guard let connection = _connection else { throw SessionError.noConnection }
 
         guard credential.deviceId == selectResponse.deviceId else { throw OATHSessionError.credentialNotPresentOnCurrentYubiKey }
         let challengeTLV: TKBERTLVRecord
         
         switch credential.type {
-        case .HOTP(counter: let counter):
+        case .HOTP:
             challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: Data())
         case .TOTP(period: let period):
             let time = timestamp.timeIntervalSince1970
@@ -250,7 +240,7 @@ public final actor OATHSession: Session, InternalSession {
         let nameTLV = TKBERTLVRecord(tag: tagName, value: credential.id)
         let apdu = APDU(cla: 0x00, ins: 0xa2, p1: 0, p2: 1, command: nameTLV.data + challengeTLV.data, type: .extended)
         
-        let data = try await connection.send(apdu: apdu)
+        let data = try await send(apdu: apdu)
         guard let result = TKBERTLVRecord.init(from: data) else { throw OATHSessionError.responseDataNotTLVFormatted }
         
         guard let digits = result.value.first else { throw OATHSessionError.unexpectedData }
@@ -270,12 +260,11 @@ public final actor OATHSession: Session, InternalSession {
     /// - Returns: The calculated response.
     public func calculateResponse(credentialId: Data, challenge: Data) async throws -> Data {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): credentialId: \(credentialId.hexEncodedString), challenge: \(challenge.hexEncodedString)")
-        guard let connection = _connection else { throw SessionError.noConnection }
         var data = Data()
         data.append(TKBERTLVRecord(tag: tagName, value: credentialId).data)
         data.append(TKBERTLVRecord(tag: tagChallenge, value: challenge).data)
         let apdu = APDU(cla: 0, ins: 0xa2, p1: 0, p2: 0, command: data)
-        let result = try await connection.send(apdu: apdu)
+        let result = try await send(apdu: apdu)
         guard let result = TKBERTLVRecord.init(from: result) else { throw OATHSessionError.responseDataNotTLVFormatted }
         guard result.tag == tagResponse || result.data.count > 0 else { throw OATHSessionError.badCalculation }
         return result.value.dropFirst()
@@ -294,8 +283,7 @@ public final actor OATHSession: Session, InternalSession {
         let bigChallenge = CFSwapInt64HostToBig(challenge)
         let challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, command: challengeTLV.data)
-        guard let connection = _connection else { throw SessionError.noConnection }
-        let data = try await connection.send(apdu: apdu)
+        let data = try await send(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else { throw OATHSessionError.responseDataNotTLVFormatted }
         
         return try await result.asyncMap { (name, response) in
@@ -357,7 +345,6 @@ public final actor OATHSession: Session, InternalSession {
     /// - Parameter accessKey: The shared secret key used to unlock access to the application.
     public func setAccessKey(_ accessKey: Data) async throws {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)")
-        guard let connection = _connection else { throw SessionError.noConnection }
         let header = CredentialType.TOTP().code | HashAlgorithm.SHA1.rawValue
         var data = Data([header])
         data.append(accessKey)
@@ -371,7 +358,7 @@ public final actor OATHSession: Session, InternalSession {
         let response = challenge.hmacSha1(usingKey: accessKey)
         let responseTlv = TKBERTLVRecord(tag: tagResponse, value: response)
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: keyTlv.data + challengeTlv.data + responseTlv.data)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
     }
     
     /// Unlock OATH application on the YubiKey. Once unlocked other commands may be sent to the key.
@@ -381,7 +368,7 @@ public final actor OATHSession: Session, InternalSession {
     /// - Parameter accessKey: The shared access key.
     public func unlockWithAccessKey(_ accessKey: Data) async throws {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)")
-        guard let connection = _connection, let responseChallenge = self.selectResponse.challenge else { throw SessionError.noConnection }
+        guard let connection, let responseChallenge = self.selectResponse.challenge else { throw SessionError.noConnection }
         let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
         let challenge = Data.random(length: 8)
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
@@ -408,8 +395,7 @@ public final actor OATHSession: Session, InternalSession {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         let tlv = TKBERTLVRecord(tag: tagSetCodeKey, value: Data())
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: tlv.data)
-        guard let connection = _connection else { throw SessionError.noConnection }
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
     }
     
     deinit {
@@ -428,7 +414,7 @@ extension OATHSession {
     /// - Parameter password: A user-supplied password.
     /// - Returns: Access key for unlocking the session.
     public func deriveAccessKey(from password: String) throws -> Data {
-        guard _connection != nil else { throw SessionError.noConnection }
+        guard let _ = connection else { throw SessionError.noConnection }
         var derivedKey = Data(count: 16)
         try derivedKey.withUnsafeMutableBytes { (outputBytes: UnsafeMutableRawBufferPointer) in
             let status = CCKeyDerivationPBKDF(CCPBKDFAlgorithm(kCCPBKDF2),

@@ -20,7 +20,7 @@ import Foundation
 /// of communicating with the different applications on the YubiKey.
 ///
 /// The protocol is implemented by ``OATHSession`` and ``ManagementSession``.
-public protocol Session: AnyObject {
+public protocol Session: Sendable {
     
     /// Returns a new session using the supplied connection.
     static func session(withConnection connection: Connection) async throws -> Self
@@ -31,18 +31,6 @@ public protocol Session: AnyObject {
     /// End the session. This will remove its internal connection and discard any state saved by the session.
     /// The connection to the YubiKey will be kept open.
     func end() async
-}
-
-internal protocol InternalSession {
-    func connection() async -> Connection?
-    func setConnection(_ connection: Connection?) async
-}
-
-extension InternalSession {
-    func internalConnection() async -> InternalConnection? {
-        let connection = await connection()
-        return connection as? InternalConnection
-    }
 }
 
 public protocol SessionFeature {

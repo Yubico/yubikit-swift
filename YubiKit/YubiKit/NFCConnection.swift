@@ -26,17 +26,9 @@ import OSLog
 ///
 /// > Note: NFC is only supported on iPhones from iPhone 6 and forward. It will not work on iPads since there's no NFC chip in these devices.
 @available(iOS 16.0, *)
-public final actor NFCConnection: Connection, InternalConnection {
+public final actor NFCConnection: Connection {
     
     private static let manager = NFCConnectionManager()
-    
-    private weak var _session: Session?
-    func session() async -> Session? {
-        return _session
-    }
-    func setSession(_ session: Session?) async {
-        _session =  session
-    }
     
     private var tagReaderSession: TagReaderSession?
     private var tag: NFCISO7816Tag? { tagReaderSession?.tag }
