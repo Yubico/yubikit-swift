@@ -39,6 +39,7 @@ public enum SessionError: Error {
     case missingApplication
     case unexpectedResult
     case unexpectedStatusCode
+    case unexpectedResponse
     case illegalArgument
     case invalidPin(Int)
 }
@@ -55,6 +56,8 @@ extension SessionError: Equatable {
         case (.unexpectedResult, .unexpectedResult):
             return true
         case (.unexpectedStatusCode, .unexpectedStatusCode):
+            return true
+        case (.unexpectedResponse, .unexpectedResponse):
             return true
         case (.illegalArgument, .illegalArgument):
             return true

@@ -21,6 +21,30 @@ class SCPFullStackTests: XCTestCase {
     // Change Connection to test different types of connections
     typealias Connection = SmartCardConnection
     
+    
+    func testGetSupportedCaIdentifiers() throws {
+        runAsyncTest {
+            do {
+                let connection = try await AllowedConnections.anyConnection()
+                let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
+                let info = try await securityDomainSession.getSupportedCaIdentifiers(kloc: true, klcc: true)
+                print(info)
+            }
+        }
+    }
+    
+    
+    func testGetInformation() throws {
+        runAsyncTest {
+            do {
+                let connection = try await AllowedConnections.anyConnection()
+                let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
+                let info = try await securityDomainSession.getKeyInformation()
+                print(info)
+            }
+        }
+    }
+    
     func testSCP11b() throws {
         runAsyncTest() {
             do {

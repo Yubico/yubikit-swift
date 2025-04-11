@@ -14,7 +14,7 @@
 
 import Foundation
 
-public struct SCPKeyRef: Equatable {
+public struct SCPKeyRef: Equatable, Hashable {
     
     internal init(kid: UInt8, kvn: UInt8) {
         self.kid = kid

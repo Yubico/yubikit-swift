@@ -53,17 +53,6 @@ extension Connection {
         }
     }
     
-    private func send(apdu: APDU, useProcessor: Bool = true) async throws -> Data {
-        let internalConnection = self as! InternalConnection
-        if useProcessor, let processor = await internalConnection.getProcessor() {
-            print("👾 send data using processor")
-            return try await processor.send(apdu: apdu, using: self)
-        } else {
-            print("👾 send data without processor")
-            return try await sendRecursive(apdu: apdu)
-        }
-    }
-    
     @discardableResult
     internal func selectApplication(_ application: Application) async throws -> Data {
         Logger.connection.debug("Connection+Extension, \(#function): \(String(describing: application))")
