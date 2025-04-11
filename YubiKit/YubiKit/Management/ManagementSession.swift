@@ -36,7 +36,7 @@ public enum ManagementSessionError: Error {
 /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
 public final actor ManagementSession: Session {
     
-    let connection: Connection
+    private let connection: Connection
 
     public nonisolated let version: Version
 

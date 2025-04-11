@@ -48,7 +48,7 @@ public enum OATHSessionError: Error {
 /// more about OATH on the [Yubico developer website](https://developers.yubico.com/OATH/).
 public final actor OATHSession: Session {
     
-    private(set) var connection: Connection?
+    private let connection: Connection
 
     private struct SelectResponse {
         let salt: Data
@@ -95,7 +95,6 @@ public final actor OATHSession: Session {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad)
         try await send(apdu: apdu)
-        self.connection = nil
     }
     
     nonisolated public func supports(_ feature: SessionFeature) -> Bool {
@@ -120,7 +119,6 @@ public final actor OATHSession: Session {
         if template.requiresTouch {
             guard self.supports(OATHSessionFeature.touch) else { throw SessionError.notSupported }
         }
-        guard let connection = connection else { throw SessionError.noConnection }
         guard let nameData = template.identifier.data(using: .utf8) else { throw OATHSessionError.unexpectedData }
         let nameTlv = TKBERTLVRecord(tag: 0x71, value: nameData)
         var keyData = Data()
@@ -169,7 +167,6 @@ public final actor OATHSession: Session {
     /// - Parameter credential: The credential that will be deleted from the YubiKey.
     public func deleteCredential(_ credential: Credential) async throws {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(credential)")
-        guard let connection = connection else { throw SessionError.noConnection }
         let deleteTlv = TKBERTLVRecord(tag: 0x71, value: credential.id)
         let apdu = APDU(cla: 0, ins: 0x02, p1: 0, p2: 0, command: deleteTlv.data)
         try await send(apdu: apdu)
@@ -356,7 +353,7 @@ public final actor OATHSession: Session {
     /// - Parameter accessKey: The shared access key.
     public func unlockWithAccessKey(_ accessKey: Data) async throws {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)")
-        guard let connection, let responseChallenge = self.selectResponse.challenge else { throw SessionError.noConnection }
+        guard let responseChallenge = self.selectResponse.challenge else { throw SessionError.unexpectedResult }
         let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
         let challenge = Data.random(length: 8)
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
@@ -392,7 +389,6 @@ public final actor OATHSession: Session {
 
     @discardableResult
     private func send(apdu: APDU) async throws -> Data {
-        guard let connection else { throw SessionError.noConnection }
         return try await connection.send(apdu: apdu, insSendRemaining: 0xa5)
     }
 }
@@ -408,7 +404,6 @@ extension OATHSession {
     /// - Parameter password: A user-supplied password.
     /// - Returns: Access key for unlocking the session.
     public func deriveAccessKey(from password: String) throws -> Data {
-        guard let _ = connection else { throw SessionError.noConnection }
         var derivedKey = Data(count: 16)
         try derivedKey.withUnsafeMutableBytes { (outputBytes: UnsafeMutableRawBufferPointer) in
             let status = CCKeyDerivationPBKDF(CCPBKDFAlgorithm(kCCPBKDF2),

@@ -33,8 +33,8 @@ public final actor PIVSession: Session {
     private var currentPinAttempts = 0
     private var maxPinAttempts = 3
     
-    let connection: Connection
-    
+    private let connection: Connection
+
     private init(connection: Connection) async throws {
         try await connection.selectApplication(.piv)
         let versionApdu = APDU(cla: 0, ins: 0xfd, p1: 0, p2: 0)

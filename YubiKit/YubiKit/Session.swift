@@ -34,10 +34,10 @@ public protocol SessionFeature {
 }
 
 public enum SessionError: Error {
-    case noConnection
     case notSupported
     case activeSession
     case missingApplication
+    case unexpectedResult
     case unexpectedStatusCode
     case illegalArgument
     case invalidPin(Int)
@@ -46,13 +46,13 @@ public enum SessionError: Error {
 extension SessionError: Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
-        case (.noConnection, .noConnection):
-            return true
         case (.notSupported, .notSupported):
             return true
         case (.activeSession, .activeSession):
             return true
         case (.missingApplication, .missingApplication):
+            return true
+        case (.unexpectedResult, .unexpectedResult):
             return true
         case (.unexpectedStatusCode, .unexpectedStatusCode):
             return true
