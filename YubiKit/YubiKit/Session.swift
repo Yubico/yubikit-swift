@@ -20,29 +20,13 @@ import Foundation
 /// of communicating with the different applications on the YubiKey.
 ///
 /// The protocol is implemented by ``OATHSession`` and ``ManagementSession``.
-public protocol Session: AnyObject {
+public protocol Session: Sendable {
     
     /// Returns a new session using the supplied connection.
     static func session(withConnection connection: Connection) async throws -> Self
     
     /// Determine wether the Session supports the specific feature.
     func supports(_ feature: SessionFeature) -> Bool
-
-    /// End the session. This will remove its internal connection and discard any state saved by the session.
-    /// The connection to the YubiKey will be kept open.
-    func end() async
-}
-
-internal protocol InternalSession {
-    func connection() async -> Connection?
-    func setConnection(_ connection: Connection?) async
-}
-
-extension InternalSession {
-    func internalConnection() async -> InternalConnection? {
-        let connection = await connection()
-        return connection as? InternalConnection
-    }
 }
 
 public protocol SessionFeature {
@@ -50,10 +34,10 @@ public protocol SessionFeature {
 }
 
 public enum SessionError: Error {
-    case noConnection
     case notSupported
     case activeSession
     case missingApplication
+    case unexpectedResult
     case unexpectedStatusCode
     case illegalArgument
     case invalidPin(Int)
@@ -62,13 +46,13 @@ public enum SessionError: Error {
 extension SessionError: Equatable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
-        case (.noConnection, .noConnection):
-            return true
         case (.notSupported, .notSupported):
             return true
         case (.activeSession, .activeSession):
             return true
         case (.missingApplication, .missingApplication):
+            return true
+        case (.unexpectedResult, .unexpectedResult):
             return true
         case (.unexpectedStatusCode, .unexpectedStatusCode):
             return true

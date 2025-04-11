@@ -34,43 +34,24 @@ public enum ManagementSessionError: Error {
 /// Use the Management application to get information and configure a YubiKey.
 /// Read more about the Management application on the
 /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
-public final actor ManagementSession: Session, InternalSession {
+public final actor ManagementSession: Session {
     
-    private weak var _connection: Connection?
-    internal func connection() async -> Connection? {
-        return _connection
-    }
-    internal func setConnection(_ connection: Connection?) async {
-        _connection = connection
-    }
-    
+    private let connection: Connection
+
     public nonisolated let version: Version
 
     private init(connection: Connection) async throws {
         let result = try await connection.selectApplication(.management)
         guard let version = Version(withManagementResult: result) else { throw ManagementSessionError.unexpectedData }
         self.version = version
-        self._connection = connection
-        let internalConnection = await self.internalConnection()
-        await internalConnection?.setSession(self)
+        self.connection = connection
     }
     
     public static func session(withConnection connection: Connection) async throws -> ManagementSession {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
-        // Close active session if there is one
-        let internalConnection = connection as? InternalConnection
-        let currentSession = await internalConnection?.session()
-        await currentSession?.end()
         // Create a new ManagementSession
         let session = try await ManagementSession(connection: connection)
         return session
-    }
-    
-    public func end() async {
-        Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
-        let internalConnection = await internalConnection()
-        await internalConnection?.setSession(nil)
-        await setConnection(nil)
     }
     
     nonisolated public func supports(_ feature: SessionFeature) -> Bool {
@@ -83,14 +64,13 @@ public final actor ManagementSession: Session, InternalSession {
     public func getDeviceInfo() async throws -> DeviceInfo {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(ManagementFeature.deviceInfo) else { throw SessionError.notSupported }
-        guard let connection = _connection else { throw SessionError.noConnection }
         
         var page: UInt8 = 0
         var hasMoreData = true
         var result = [TKTLVTag : Data]()
         while hasMoreData {
             let apdu = APDU(cla: 0, ins: 0x1d, p1: page, p2: 0)
-            let data = try await connection.send(apdu: apdu)
+            let data = try await send(apdu: apdu)
             guard let count = data.bytes.first, count > 0 else { throw ManagementSessionError.missingData }
             guard let tlvs = TKBERTLVRecord.dictionaryOfData(from: data.subdata(in: 1..<data.count)) else { throw ManagementSessionError.unexpectedData }
             Logger.management.debug("\(String(describing: self).lastComponent), \(#function): page: \(page), data: \(data.hexEncodedString)")
@@ -115,10 +95,9 @@ public final actor ManagementSession: Session, InternalSession {
     public func updateDeviceConfig(_ config: DeviceConfig, reboot: Bool, lockCode: Data? = nil, newLockCode: Data? = nil) async throws {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(ManagementFeature.deviceConfig) else { throw SessionError.notSupported }
-        guard let connection = _connection else { throw SessionError.noConnection }
         let data = try config.data(reboot: reboot, lockCode: lockCode, newLockCode: newLockCode)
         let apdu = APDU(cla: 0, ins: 0x1c, p1: 0, p2: 0, command: data)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
     }
     
     /// Check whether an application is supported over the specified transport.
@@ -169,13 +148,17 @@ public final actor ManagementSession: Session, InternalSession {
     /// >Note: This functionality requires support for ``ManagementFeature/deviceReset``, available on YubiKey 5.6 or later.
     public func deviceReset() async throws {
         guard self.supports(ManagementFeature.deviceReset) else { throw SessionError.notSupported }
-        guard let connection = _connection else { throw SessionError.noConnection }
         let apdu = APDU(cla: 0, ins: 0x1f, p1: 0, p2: 0)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
     }
     
     deinit {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
+    }
+
+    @discardableResult
+    private func send(apdu: APDU) async throws -> Data {
+        return try await connection.send(apdu: apdu)
     }
 }
 

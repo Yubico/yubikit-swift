@@ -20,18 +20,9 @@ import OSLog
 
 /// A connection to the YubiKey utilizing the Lightning port and External Accessory framework.
 @available(iOS 16.0, *)
-public final actor LightningConnection: Connection, InternalConnection {
+public final actor LightningConnection: Connection {
 
     private static let manager = LightningConnectionManager()
-
-    private weak var _session: Session?
-    func session() async -> Session? {
-        return _session
-    }
-    func setSession(_ session: Session?) async {
-        Logger.lightning.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: session))")
-        _session =  session
-    }
 
     private let commandProcessingTime = 0.002;
     private var accessoryConnection: AccessoryConnection?

@@ -37,17 +37,30 @@ enum Application {
 }
 
 extension Connection {
-    
     public func send(apdu: APDU) async throws -> Data {
+        try await send(apdu: apdu, insSendRemaining: nil)
+    }
+
+    @discardableResult
+    public func send(apdu: APDU, insSendRemaining: UInt8?) async throws -> Data {
         Logger.connection.debug("Connection+Extension, \(#function): \(apdu)")
-        return try await sendRecursive(apdu: apdu)
+
+        if let insSendRemaining {
+            return try await sendRecursive(apdu: apdu, readMoreData: false, insSendRemaining: insSendRemaining)
+        } else {
+            return try await sendRecursive(apdu: apdu, readMoreData: false)
+        }
     }
     
     @discardableResult
     func selectApplication(_ application: Application) async throws -> Data {
         Logger.connection.debug("Connection+Extension, \(#function): \(String(describing: application))")
         do {
-            return try await send(apdu: application.selectApplicationAPDU)
+            if application == .oath {
+                return try await send(apdu: application.selectApplicationAPDU, insSendRemaining: 0xa5)
+            } else {
+                return try await send(apdu: application.selectApplicationAPDU)
+            }
         } catch {
             guard let error = error as? ResponseError else { throw error }
             switch error.responseStatus.status {
@@ -59,22 +72,14 @@ extension Connection {
         }
     }
     
-    private func sendRecursive(apdu: APDU, data: Data = Data(), readMoreData: Bool = false) async throws -> Data {
+    private func sendRecursive(apdu: APDU, data: Data = Data(), readMoreData: Bool, insSendRemaining: UInt8 = 0xc0) async throws -> Data {
         Logger.connection.debug("Connection+Extension, \(#function): accumulated data: \(data)")
 
         let responseData: Data
         let response: Response
-        
-        let ins: UInt8
-        guard let internalConnection = self as? InternalConnection else { fatalError() }
-        let session = await internalConnection.session()
-        if session as? OATHSession != nil {
-            ins = 0xa5
-        } else {
-            ins = 0xc0
-        }
+
         if readMoreData {
-            let apdu =  APDU(cla: 0, ins: ins, p1: 0, p2: 0, command: nil, type: .short)
+            let apdu =  APDU(cla: 0, ins: insSendRemaining, p1: 0, p2: 0, command: nil, type: .short)
             responseData = try await self.send(data: apdu.data)
         } else {
             responseData = try await self.send(data: apdu.data)
@@ -88,7 +93,7 @@ extension Connection {
         
         let newData = data + response.data
         if response.responseStatus.sw1 == 0x61 {
-            return try await sendRecursive(apdu: apdu, data: newData, readMoreData: true)
+            return try await sendRecursive(apdu: apdu, data: newData, readMoreData: true, insSendRemaining: insSendRemaining)
         } else {
             Logger.connection.debug("Connection+Extension, \(#function): response: \(newData.hexEncodedString)")
             return newData

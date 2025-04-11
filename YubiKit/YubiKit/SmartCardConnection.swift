@@ -19,22 +19,13 @@ import OSLog
 /// A connection to the YubiKey utilizing the USB-C port and the TKSmartCard implementation from
 /// the CryptoTokenKit framework.
 @available(iOS 16.0, macOS 13.0, *)
-public final actor SmartCardConnection: Connection, InternalConnection {
+public final actor SmartCardConnection: Connection {
     
     private static let manager = SmartCardManager()
     
     public static func connection() async throws -> Connection {
         Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await manager.connection()
-    }
-    
-    private weak var _session: Session?
-    func session() async -> Session? {
-        return _session
-    }
-    func setSession(_ session: Session?) async {
-        Logger.smartCard.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: session))")
-        _session =  session
     }
 
     private var smartCard: TKSmartCard?
