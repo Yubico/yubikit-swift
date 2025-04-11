@@ -1,6 +1,15 @@
-xcuserdata/
+# macOS
 .DS_Store
+
+# Xcode
+xcuserdata/
+
+# SwiftPM
 /.swiftpm
+.build/
+Package.resolved
+
+# Backup & temp files
 *~
 \#*\#
 .\#*
