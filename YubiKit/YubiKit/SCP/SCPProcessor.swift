@@ -16,15 +16,15 @@ import CryptoTokenKit
 
 fileprivate let insInitializeUpdate: UInt8 = 0x50
 
+internal enum SCPKid: UInt8 {
+    case scp03 = 0x01
+    case scp11a = 0x11
+    case scp11b = 0x13
+    case scp11c = 0x15
+}
+
 internal class SCPProcessor: Processor {
-    
-    enum SCPKid: UInt8 {
-        case scp03 = 0x01
-        case scp11a = 0x11
-        case scp11b = 0x13
-        case scp11c = 0x15
-    }
-    
+
     private var state: SCPState
     
     internal init(connection: Connection, keyParams: SCPKeyParams) async throws {
@@ -87,6 +87,12 @@ internal class SCPProcessor: Processor {
             
             let pkSdEcka = scp11Params.pkSdEcka
             
+            if let pkSdEckaData = SecKeyCopyExternalRepresentation(pkSdEcka, nil) as Data? {
+                print("pkSdEcka: \(pkSdEckaData.hexEncodedString)")
+            } else {
+                print("Failed to extract pkSdEcka external representation")
+            }
+            
             let attributes = [kSecAttrKeyType: kSecAttrKeyTypeEC, kSecAttrKeySizeInBits: 256] as [CFString : Any]
             
             var error: Unmanaged<CFError>?
@@ -99,6 +105,10 @@ internal class SCPProcessor: Processor {
                 fatalError((error!.takeRetainedValue() as Error).localizedDescription)
             }
             let epkOceEckaData = externalRepresentation.subdata(in: 0 ..< 1 + 2 * Int(32)) // TODO: Get correct size from key attributes
+            print("externalRepresentation: \(externalRepresentation.hexEncodedString)")
+            print("epkOceEckaData: \(epkOceEckaData.hexEncodedString)")
+
+            print("params: \(Data([0x11, params]).hexEncodedString)")
             
             // GPC v2.3 Amendment F (SCP11) v1.4 §7.6.2.3
             let data = TKBERTLVRecord(tag: 0xa6, value: TKBERTLVRecord(tag: 0x90, value: Data([0x11, params])).data +
@@ -106,9 +116,10 @@ internal class SCPProcessor: Processor {
                                                         TKBERTLVRecord(tag: 0x80, value: keyType).data +
                                                         TKBERTLVRecord(tag: 0x81, value: keyLen).data
                                       ).data + TKBERTLVRecord(tag: 0x5f49, value: epkOceEckaData).data
-            
+            print("data: \(data.hexEncodedString)")
             let skOceEcka = scp11Params.skOceEcka ?? eskOceEcka
             let ins: UInt8 = kid == .scp11b ? 0x88 : 0x82
+            print("👾 Sending: \(APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data))")
             let response = try await connection.send(apdu: APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data))
             
             guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: response), tlvs.count == 2 else { fatalError() }
@@ -129,13 +140,20 @@ internal class SCPProcessor: Processor {
             var keys = [Data]()
 
             for counter in UInt32(1)...UInt32(4) {
+                print("counter: \(counter.bigEndian)")
+                print("hex counter: \(counter.bigEndian.data.hexEncodedString)")
                 let data = keyMaterial + counter.bigEndian.data + sharedInfo
                 var digest = data.sha256()
                 keys.append(digest.extract(16)!)
                 keys.append(digest)
             }
-            
+
+            print("keys[0]: \(keys[0].hexEncodedString)")
+//            keyAgreementData = Data(count: 151)
             let genReceipt = try keyAgreementData.aescmac(key: keys[0])
+            
+            print("receipt: \(receipt.hexEncodedString)")
+            print("genReceipt: \(genReceipt.hexEncodedString)")
             
             guard genReceipt.constantTimeCompare(receipt) else { fatalError() }
             
@@ -158,17 +176,17 @@ internal class SCPProcessor: Processor {
     }
     
     private func send(apdu: APDU, using connection: any Connection, encrypt: Bool) async throws -> Data {
-        print("👾 process \(apdu), \(state)")
+        print("👾 send(... encrypt: \(encrypt)) \(apdu), \(state)")
         let data: Data
         if encrypt {
             data = try state.encrypt(apdu.command ?? Data())
         } else {
             data = apdu.command ?? Data()
         }
-        let cla = apdu.cla   | 0x04
+        let cla = apdu.cla | 0x04
 
         let mac = try state.mac(data: APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + Data(count: 8)).data.dropLast(8))
-        
+        print("👾 processed apdu: \(APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac))")
         var result = try await connection.sendRecursive(apdu: APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac))
         
         if !result.isEmpty {

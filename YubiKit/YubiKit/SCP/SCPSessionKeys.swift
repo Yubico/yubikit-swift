@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import Foundation
+
 struct SCPSessionKeys: CustomDebugStringConvertible {
     var debugDescription: String {
         "SCPSessionKeys(senc: \(senc.hexEncodedString), smac: \(smac.hexEncodedString), srmac: \(srmac.hexEncodedString), dek: \(String(describing: dek?.hexEncodedString)))"

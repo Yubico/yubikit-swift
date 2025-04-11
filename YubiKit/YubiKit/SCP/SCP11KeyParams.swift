@@ -14,6 +14,7 @@
 
 
 import CommonCrypto
+import Security
 
 public struct SCP11KeyParams: SCPKeyParams {
     public var keyRef: SCPKeyRef
@@ -22,6 +23,7 @@ public struct SCP11KeyParams: SCPKeyParams {
     public let skOceEcka: SecKey?
     public let certificates: [SecCertificate]
     
+    // remove nullable fields in objc
     init(keyRef: SCPKeyRef, pkSdEcka: SecKey, oceKeyRef: SCPKeyRef? = nil, skOceEcka: SecKey? = nil, certificates: [SecCertificate] = []) {
         guard 0xff & keyRef.kid == 0x13 else {
             fatalError("Invalid KID for SCP03")
