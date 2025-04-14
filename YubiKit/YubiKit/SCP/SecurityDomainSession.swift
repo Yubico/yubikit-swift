@@ -130,6 +130,12 @@ public final actor SecurityDomainSession: Session {
         return identifiers
     }
     
+    /// Store the certificate chain for a given key.
+    ///
+    /// Requires off-card entity verification.
+    /// Certificates should be in order, with the leaf certificate last.
+    /// - Parameter keyRef: a reference to the key for which to store the certificates
+    /// - Parameter certificates: the certificates to store
     public func storeCertificateBundle(keyRef: SCPKeyRef, certificiates: [SecCertificate]) async throws {
         Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
 
@@ -143,17 +149,28 @@ public final actor SecurityDomainSession: Session {
         try await storeData(data)
     }
     
+    
+    /// Store which certificate serial numbers that can be used for a given key.
+    ///
+    /// Requires off-card entity verification.
+    /// If no allowlist is stored, any certificate signed by the CA can be used.
+    /// - Parameter keyRef: a reference to the key for which to store the allowlist
+    /// - Parameter serials: the list of serial numbers to store
     public func storeAllowlist(keyRef: SCPKeyRef, serials: [Data]) async throws {
         Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
-
+        
         var serialsData = Data()
         serials.forEach { serial in
             serialsData.append(TKBERTLVRecord(tag: 0x93, value: serial).data)
         }
-        var data = TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data + TKBERTLVRecord(tag: 0x70, value: serialsData).data
+        let data = TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data + TKBERTLVRecord(tag: 0x70, value: serialsData).data
         try await storeData(data)
     }
     
+    /// Store the SKI (Subject Key Identifier) for the CA of a given key.
+    /// Requires off-card entity verification.
+    /// - Parameter keyRef: a reference to the key for which to store the CA issuer
+    /// - Parameter ski: the Subject Key Identifier to store
     public func storeCaIssuer(keyRef: SCPKeyRef, ski: Data) async throws {
         Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
 
@@ -168,6 +185,13 @@ public final actor SecurityDomainSession: Session {
         try await storeData(data)
     }
     
+    /// Delete one (or more) keys.
+    ///
+    /// Requires off-card entity verification.
+    /// All keys matching the given KID and/or KVN will be deleted (0 is treated as a wildcard).
+    /// To delete the final key you must set deleteLast = true.
+    /// - Parameter keyRef: a reference to the key to delete
+    /// - Parameter deleteLast: must be true if deleting the final key, false otherwise
     public func deleteKey(keyRef: SCPKeyRef, deleteLast: Bool = false) async throws {
         Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
 
@@ -198,6 +222,12 @@ public final actor SecurityDomainSession: Session {
         try await send(apdu: apdu)
     }
 
+    /// Generate a new SCP11 key.
+    ///
+    /// Requires off-card entity verification.
+    /// - Parameter keyRef: the KID-KVN pair to assign the new key
+    /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
+    /// - Returns: the public key from the generated key pair
     public func generateEcKey(keyRef: SCPKeyRef, replaceKvn: UInt8) async throws -> SecKey {
         Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
         
@@ -221,6 +251,11 @@ public final actor SecurityDomainSession: Session {
         return key
     }
     
+    /// Imports an SCP03 key set.
+    /// Requires off-card entity verification.
+    /// - Parameter keyRef: the KID-KVN pair to assign the new key set, KID must be 1
+    /// - Parameter keys: the key material to import
+    /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
     public func putKey(keyRef: SCPKeyRef, keys: StaticKeys, replaceKvn: UInt8) async throws {
         guard keyRef.kid == SCPKid.scp03.rawValue else {
             throw SessionError.illegalArgument
@@ -257,9 +292,11 @@ public final actor SecurityDomainSession: Session {
         Logger.securityDomain.info("SCP03 Key set imported")
     }
     
-    
-
-    
+    /// Imports a secret key for SCP11.
+    /// Requires off-card entity verification.
+    /// - Parameter keyRef: the KID-KVN pair to assign the new secret key, KID must be 0x11, 0x13, or 0x15
+    /// - Parameter secretKey: a private EC key used to authenticate the SD
+    /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
     public func putKey(keyRef: SCPKeyRef, privateKey: SecKey, replaceKvn: UInt8) async throws {
         Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
 
@@ -294,6 +331,11 @@ public final actor SecurityDomainSession: Session {
         Logger.securityDomain.info("SCP11 private key imported")
     }
     
+    /// Imports a public key for authentication of the off-card entity for SCP11a/c.
+    /// Requires off-card entity verification.
+    /// - Parameter keyRef: the KID-KVN pair to assign the new public key
+    /// - Parameter publicKey: a public EC key used as CA to authenticate the off-card entity
+    /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
     public func putKey(keyRef: SCPKeyRef, publicKey: SecKey, replaceKvn: UInt8) async throws {
         Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
 
@@ -323,6 +365,9 @@ public final actor SecurityDomainSession: Session {
         Logger.securityDomain.debug("SCP11 public key imported")
     }
     
+    /// Perform a factory reset of the Security Domain.
+    /// This will remove all keys and associated data, as well as restore the default SCP03 static keys,
+    /// and generate a new (attestable) SCP11b key.
     public func reset() async throws {
         Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
 
