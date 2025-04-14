@@ -13,9 +13,7 @@
 // limitations under the License.
 
 import XCTest
-import YubiKit
-
-@testable import FullStackTests
+@testable import YubiKit
 
 fileprivate let lockCode =      Data(hexEncodedString: "01020304050607080102030405060708")!
 fileprivate let clearLockCode = Data(hexEncodedString: "00000000000000000000000000000000")!

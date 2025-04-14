@@ -57,6 +57,7 @@ A0000006472F0001  // FIDO/U2F
 A0000005272101    // OATH
 A000000308        // PIV
 A000000527200101  // YubiKey application/OTP (for HMAC SHA1 challenge-response)
+A000000151000000  // Security Domain
 ```
 
 ![An image showing the list of nfc identifiers added.](nfc-identifiers-list.png)

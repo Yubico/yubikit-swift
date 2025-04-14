@@ -47,7 +47,7 @@ public struct APDU: CustomStringConvertible {
     ///   - p2: The second instruction paramater byte.
     ///   - command: The command data.
     ///   - type: The type of the APDU, short or extended.
-    public init(cla: UInt8, ins: UInt8, p1: UInt8, p2: UInt8, command: Data? = nil, type: ApduType = .short) {
+    public init(cla: UInt8, ins: UInt8, p1: UInt8, p2: UInt8, command: Data? = nil, type: ApduType = .extended) {
         self.storage = .explicit(ExplicitAPDU(cla: cla, ins: ins, p1: p1, p2: p2, command: command, type: type))
     }
     
@@ -56,6 +56,51 @@ public struct APDU: CustomStringConvertible {
     ///   - data: The raw data to send to they YubiKey.
     public init(data: Data) {
         self.storage = .rawData(data)
+    }
+    
+    public var cla: UInt8 {
+        switch storage {
+        case .explicit(let apdu):
+            return apdu.cla
+        case .rawData(let data):
+            return data.suffix(1).uint8
+        }
+    }
+    
+    public var ins: UInt8 {
+        switch storage {
+        case .explicit(let apdu):
+            return apdu.ins
+        case .rawData:
+            fatalError()
+        }
+    }
+    
+    public var p1: UInt8 {
+        switch storage {
+        case .explicit(let apdu):
+            return apdu.p1
+        case .rawData:
+            fatalError()
+        }
+    }
+    
+    public var p2: UInt8 {
+        switch storage {
+        case .explicit(let apdu):
+            return apdu.p2
+        case .rawData:
+            fatalError()
+        }
+    }
+    
+    public var command: Data? {
+        switch storage {
+        case .explicit(let apdu):
+            return apdu.command
+        case .rawData:
+            fatalError()
+        }
     }
     
     public var data: Data {

@@ -42,7 +42,7 @@ public struct Response: CustomStringConvertible {
 }
 
 public struct ResponseStatus: Equatable {
-    public enum StatusCode: UInt16 {
+    public enum StatusCode: UInt16, CustomStringConvertible {
         case ok = 0x9000
         case noInputData = 0x6285
         case verifyFailNoRetry = 0x63C0
@@ -62,6 +62,8 @@ public struct ResponseStatus: Equatable {
         case claNotSupported = 0x6E00
         case commandAborted = 0x6F00
         case unknown = 0x0000
+        
+        public var description: String { "0x\(self.rawValue.bigEndian.data.hexEncodedString)" }
     }
     
     public let status: StatusCode

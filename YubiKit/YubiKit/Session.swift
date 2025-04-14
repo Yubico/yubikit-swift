@@ -23,7 +23,7 @@ import Foundation
 public protocol Session: Sendable {
     
     /// Returns a new session using the supplied connection.
-    static func session(withConnection connection: Connection) async throws -> Self
+    static func session(withConnection connection: Connection, scpKeyParams: SCPKeyParams?) async throws -> Self
     
     /// Determine wether the Session supports the specific feature.
     func supports(_ feature: SessionFeature) -> Bool
@@ -39,6 +39,7 @@ public enum SessionError: Error {
     case missingApplication
     case unexpectedResult
     case unexpectedStatusCode
+    case unexpectedResponse
     case illegalArgument
     case invalidPin(Int)
 }
@@ -55,6 +56,8 @@ extension SessionError: Equatable {
         case (.unexpectedResult, .unexpectedResult):
             return true
         case (.unexpectedStatusCode, .unexpectedStatusCode):
+            return true
+        case (.unexpectedResponse, .unexpectedResponse):
             return true
         case (.illegalArgument, .illegalArgument):
             return true

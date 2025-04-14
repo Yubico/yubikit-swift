@@ -13,9 +13,7 @@
 // limitations under the License.
 
 import XCTest
-import YubiKit
-
-@testable import FullStackTests
+@testable import YubiKit
 
 class OATHFullStackTests: XCTestCase {
     
