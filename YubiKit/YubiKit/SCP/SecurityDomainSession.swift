@@ -3,41 +3,24 @@ import CryptoTokenKit
 import OSLog
 
 
-public final actor SecurityDomainSession: Session, InternalSession {
+public final actor SecurityDomainSession: Session {
     
-    private var _connection: Connection?
-    internal func connection() async -> Connection? {
-        return _connection
-    }
-    internal func setConnection(_ connection: Connection?) async {
-        _connection = connection
-    }
+    private let connection: Connection
+    private let processor: SCPProcessor?
 
     private init(connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws {
         let result = try await connection.selectApplication(.securityDomain)
-        self._connection = connection
-        let internalConnection = await self.internalConnection()
+        self.connection = connection
         if let scpKeyParams {
-            let processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
-            await internalConnection?.setProcessor(processor)
+            processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
+        } else {
+            processor = nil
         }
-        await internalConnection?.setSession(self)
     }
     
     public static func session(withConnection connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws -> SecurityDomainSession {
         Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
-        let internalConnection = connection as? InternalConnection
-        let currentSession = await internalConnection?.session()
-        await currentSession?.end()
-        let session = try await SecurityDomainSession(connection: connection, scpKeyParams: scpKeyParams)
-        return session
-    }
-    
-    public func end() async {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
-        let internalConnection = await internalConnection()
-        await internalConnection?.setSession(nil)
-        await setConnection(nil)
+        return try await SecurityDomainSession(connection: connection, scpKeyParams: scpKeyParams)
     }
     
     nonisolated public func supports(_ feature: SessionFeature) -> Bool {
@@ -45,12 +28,10 @@ public final actor SecurityDomainSession: Session, InternalSession {
     }
     
     public func getData(tag: UInt16, data: Data?) async throws -> Data {
-        guard let connection = _connection else { throw SessionError.noConnection }
         return try await connection.send(apdu: APDU(cla: 0x00, ins: 0xCA, p1: UInt8(tag >> 8) , p2: UInt8(tag & 0xff), command: data))
     }
     
     public func storeData(_ data: Data) async throws {
-        guard let connection = _connection else { throw SessionError.noConnection }
         try await connection.send(apdu: APDU(cla: 0x00, ins: 0xE2, p1: 0x90, p2: 0x00, command: data))
     }
     
@@ -181,8 +162,6 @@ public final actor SecurityDomainSession: Session, InternalSession {
     }
     
     public func deleteKey(keyRef: SCPKeyRef, deleteLast: Bool = false) async throws {
-        guard let connection = _connection else { throw SessionError.noConnection }
-        
         var kid = keyRef.kid
         let kvn = keyRef.kvn
 
@@ -218,7 +197,6 @@ public final actor SecurityDomainSession: Session, InternalSession {
 
         let apdu = APDU(cla: 0x80, ins: 0xF1, p1: replaceKvn, p2: keyRef.kid, command: data)
 
-        guard let connection = _connection else { throw SessionError.noConnection }
         let response = try await connection.send(apdu: apdu)
         
         guard let tlv = TKBERTLVRecord(from: response), tlv.tag == 0xB0 else {

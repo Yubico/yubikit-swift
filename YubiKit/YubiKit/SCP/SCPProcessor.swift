@@ -23,15 +23,15 @@ internal enum SCPKid: UInt8 {
     case scp11c = 0x15
 }
 
-internal class SCPProcessor: Processor {
+internal class SCPProcessor {
 
     private var state: SCPState
     
-    internal init(connection: Connection, keyParams: SCPKeyParams) async throws {
+    internal init(connection: Connection, keyParams: SCPKeyParams, insSendRemaining: UInt8 = 0xc0) async throws {
         if let scp03Params = keyParams as? SCP03KeyParams {
             let hostChallenge = Data.random(length: 8)
             print("Send challenge: \(hostChallenge.hexEncodedString)")
-            var result = try await connection.send(apdu: APDU(cla: 0x80, ins: insInitializeUpdate, p1: keyParams.keyRef.kvn, p2: 0x00, command: hostChallenge))
+            var result = try await connection.send(apdu: APDU(cla: 0x80, ins: insInitializeUpdate, p1: keyParams.keyRef.kvn, p2: 0x00, command: hostChallenge), insSendRemaining: insSendRemaining)
             
             guard let diversificationData = result.extract(10),
                   let keyInfo = result.extract(3),
@@ -52,7 +52,7 @@ internal class SCPProcessor: Processor {
             self.state = SCPState(sessionKeys: sessionKeys, macChain: Data(count: 16))
 
             let finalizeApdu = APDU(cla: 0x84, ins: 0x82, p1: 0x33, p2: 0, command: hostCryptogram)
-            let finalizeResult = try await self.send(apdu: finalizeApdu, using: connection, encrypt: false)
+            _ = try await self.send(apdu: finalizeApdu, using: connection, encrypt: false, insSendRemaining: insSendRemaining)
             
             print("✅ done configuring SCP03")
             return
@@ -171,11 +171,11 @@ internal class SCPProcessor: Processor {
         self.state = state
     }
     
-    internal func send(apdu: APDU, using connection: any Connection) async throws -> Data {
-        return try await self.send(apdu: apdu, using: connection, encrypt: true)
+    internal func send(apdu: APDU, using connection: any Connection, insSendRemaining: UInt8 = 0xc0) async throws -> Data {
+        return try await self.send(apdu: apdu, using: connection, encrypt: true, insSendRemaining: insSendRemaining)
     }
     
-    private func send(apdu: APDU, using connection: any Connection, encrypt: Bool) async throws -> Data {
+    private func send(apdu: APDU, using connection: any Connection, encrypt: Bool, insSendRemaining: UInt8) async throws -> Data {
         print("👾 send(... encrypt: \(encrypt)) \(apdu), \(state)")
         let data: Data
         if encrypt {
@@ -187,7 +187,7 @@ internal class SCPProcessor: Processor {
 
         let mac = try state.mac(data: APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + Data(count: 8)).data.dropLast(8))
         print("👾 processed apdu: \(APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac))")
-        var result = try await connection.sendRecursive(apdu: APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac))
+        var result = try await connection.send(apdu: APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac), insSendRemaining: insSendRemaining)
         
         if !result.isEmpty {
            result = try state.unmac(data: result, sw: 0x9000)

@@ -33,6 +33,7 @@ public final actor PIVSession: Session {
     private var maxPinAttempts = 3
     
     private let connection: Connection
+    private let processor: SCPProcessor?
 
     private init(connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws {
         try await connection.selectApplication(.piv)
@@ -41,12 +42,13 @@ public final actor PIVSession: Session {
             throw PIVSessionError.dataParseError
         }
         self.version = version
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: version))")
         if let scpKeyParams {
-            let processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
-            await internalConnection?.setProcessor(processor)
+            processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
+        } else {
+            processor = nil
         }
         self.connection = connection
+        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: version))")
     }
     
     public static func session(withConnection connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws -> PIVSession {
@@ -124,7 +126,7 @@ public final actor PIVSession: Session {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(PIVSessionFeature.attestation) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insAttest, p1: slot.rawValue, p2: 0)
-        let result = try await connection.send(apdu: apdu)
+        let result = try await send(apdu: apdu)
         guard let certificate = SecCertificateCreateWithData(nil, result as CFData) else { throw PIVSessionError.dataParseError }
         return certificate
     }
@@ -153,7 +155,7 @@ public final actor PIVSession: Session {
                                          touchPolicy != .`defaultPolicy` ? TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data) : nil].compactMap { $0 }
         let tlvContainer = TKBERTLVRecord(tag: 0xac, records: records)
         let apdu = APDU(cla: 0, ins: insGenerateAsymetric, p1: 0, p2: slot.rawValue, command: tlvContainer.data)
-        let result = try await connection.send(apdu: apdu)
+        let result = try await send(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
               let record = records.recordWithTag(0x7F49)
         else { throw PIVSessionError.invalidResponse }
@@ -215,7 +217,7 @@ public final actor PIVSession: Session {
             data.append(TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data).data)
         }
         let apdu = APDU(cla: 0, ins: insImportKey, p1: keyType.rawValue, p2: slot.rawValue, command: data, type: .extended)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
         return keyType
     }
     
@@ -230,7 +232,7 @@ public final actor PIVSession: Session {
         guard sourceSlot != PIVSlot.attestation else { throw SessionError.illegalArgument }
         Logger.piv.debug("Move key from \(String(describing: sourceSlot)) to \(String(describing: destinationSlot)), \(#function)")
         let apdu = APDU(cla: 0, ins: insMoveKey, p1: destinationSlot.rawValue, p2: sourceSlot.rawValue)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
     }
 
     /// Delete key from slot. This method requires authentication with the management key.
@@ -240,7 +242,7 @@ public final actor PIVSession: Session {
         guard self.supports(PIVSessionFeature.moveDelete) else { throw SessionError.notSupported }
         Logger.piv.debug("Delete key in \(String(describing: slot)), \(#function)")
         let apdu = APDU(cla: 0, ins: insMoveKey, p1: 0xff, p2: slot.rawValue)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
     }
     
     /// Writes an X.509 certificate to a slot on the YubiKey.
@@ -278,7 +280,7 @@ public final actor PIVSession: Session {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let command = TKBERTLVRecord(tag: tagObjectId, value: slot.objectId).data
         let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command, type: .extended)
-        let result = try await connection.send(apdu: apdu)
+        let result = try await send(apdu: apdu)
 
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
               let objectData = records.recordWithTag(tagObjectData)?.value,
@@ -324,7 +326,7 @@ public final actor PIVSession: Session {
         var data = Data([type.rawValue])
         data.append(tlv.data)
         let apdu = APDU(cla: 0, ins: insSetManagementKey, p1: 0xff, p2: requiresTouch ? 0xfe : 0xff, command: data, type: .short)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
     }
     
     /// Authenticate with the Management Key.
@@ -338,7 +340,7 @@ public final actor PIVSession: Session {
         let witness = TKBERTLVRecord(tag: tagAuthWitness, value: Data()).data
         let command = TKBERTLVRecord(tag: tagDynAuth, value: witness).data
         let witnessApdu = APDU(cla: 0, ins: insAuthenticate, p1: keyType.rawValue, p2: UInt8(tagSlotCardManagement), command: command, type: .extended)
-        let witnessResult = try await connection.send(apdu:  witnessApdu)
+        let witnessResult = try await send(apdu:  witnessApdu)
         
         guard let dynAuthRecord = TKBERTLVRecord(from: witnessResult),
               dynAuthRecord.tag == tagDynAuth,
@@ -354,7 +356,7 @@ public final actor PIVSession: Session {
         data.append(challengeRecord.data)
         let authRecord = TKBERTLVRecord(tag: tagDynAuth, value: data)
         let challengeApdu = APDU(cla: 0, ins: insAuthenticate, p1: keyType.rawValue, p2: UInt8(tagSlotCardManagement), command: authRecord.data, type: .extended)
-        let challengeResult = try await connection.send(apdu: challengeApdu)
+        let challengeResult = try await send(apdu: challengeApdu)
 
         guard let dynAuthRecord = TKBERTLVRecord(from: challengeResult),
               dynAuthRecord.tag == tagDynAuth,
@@ -371,7 +373,7 @@ public final actor PIVSession: Session {
     public func getSlotMetadata(_ slot: PIVSlot) async throws -> PIVSlotMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
-        let result = try await connection.send(apdu: APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: slot.rawValue))
+        let result = try await send(apdu: APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: slot.rawValue))
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result) else { throw PIVSessionError.dataParseError }
         
         guard let rawKeyType = records.recordWithTag(tagMetadataAlgorithm)?.value.bytes[0], let keyType = PIVKeyType(rawValue: rawKeyType),
@@ -392,7 +394,7 @@ public final actor PIVSession: Session {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2SlotCardmanagement)
-        let result = try await connection.send(apdu: apdu)
+        let result = try await send(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
               let isDefault = records.recordWithTag(tagMetadataIsDefault)?.value.bytes[0],
               let rawTouchPolicy = records.recordWithTag(tagMetadataPolicy)?.value.bytes[1],
@@ -415,7 +417,7 @@ public final actor PIVSession: Session {
         try await blockPin()
         try await blockPuk()
         let apdu = APDU(cla: 0, ins: insReset, p1: 0, p2: 0)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
     }
     
     /// Get the serial number of the YubiKey.
@@ -428,7 +430,7 @@ public final actor PIVSession: Session {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(PIVSessionFeature.serialNumber) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insGetSerial, p1: 0, p2: 0)
-        let result = try await connection.send(apdu: apdu)
+        let result = try await send(apdu: apdu)
         return CFSwapInt32BigToHost(result.uint32)
     }
     
@@ -443,7 +445,7 @@ public final actor PIVSession: Session {
         guard let pinData = pin.paddedPinData() else { throw PIVSessionError.invalidPin }
         let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: 0x80, command: pinData)
         do {
-            try await connection.send(apdu: apdu)
+            try await send(apdu: apdu)
             currentPinAttempts = maxPinAttempts
             return .success(currentPinAttempts)
         } catch {
@@ -518,7 +520,7 @@ public final actor PIVSession: Session {
         } else {
             let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: p2Pin)
             do {
-                try await connection.send(apdu: apdu)
+                try await send(apdu: apdu)
                 // Already verified, no way to know true count
                 return currentPinAttempts
             } catch {
@@ -545,7 +547,7 @@ public final actor PIVSession: Session {
         guard let pinAttempts = UInt8(exactly: pinAttempts),
               let pukAttempts = UInt8(exactly: pukAttempts) else { throw PIVSessionError.invalidInput }
         let apdu = APDU(cla: 0, ins: insSetPinPukAttempts, p1: pinAttempts, p2: pukAttempts)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
         maxPinAttempts = Int(pinAttempts)
         currentPinAttempts = Int(pinAttempts)
     }
@@ -580,7 +582,7 @@ public final actor PIVSession: Session {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         do {
             let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: UInt8(tagSlotOCCAuth))
-            let data = try await connection.send(apdu: apdu)
+            let data = try await send(apdu: apdu)
             let records = TKBERTLVRecord.sequenceOfRecords(from: data)
             guard let isConfigured = records?.recordWithTag(tagMetadataBioConfigured)?.value.integer,
                   let retries = records?.recordWithTag(tagMetadataRetries)?.value.integer,
@@ -618,7 +620,7 @@ public final actor PIVSession: Session {
                 }
             }
             let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: UInt8(tagSlotOCCAuth), command: data)
-            let response = try await connection.send(apdu: apdu)
+            let response = try await send(apdu: apdu)
             return requestTemporaryPin ? response : nil
         } catch {
             guard let responseError = error as? ResponseError else { throw error }
@@ -648,7 +650,7 @@ public final actor PIVSession: Session {
         do {
             let data = TKBERTLVRecord(tag: 0x01, value: pin).data
             let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: UInt8(tagSlotOCCAuth), command: data)
-            try await connection.send(apdu: apdu)
+            try await send(apdu: apdu)
             return
         } catch {
             guard let responseError = error as? ResponseError else { throw error }
@@ -668,7 +670,7 @@ extension PIVSession {
         recordsData.append(TKBERTLVRecord(tag: exponentiation ? tagExponentiation : tagChallenge, value: message).data)
         let command = TKBERTLVRecord(tag: tagDynAuth, value: recordsData).data
         let apdu = APDU(cla: 0, ins: insAuthenticate, p1: keyType.rawValue, p2: slot.rawValue, command: command, type: .extended)
-        let resultData = try await connection.send(apdu: apdu)
+        let resultData = try await send(apdu: apdu)
         guard let result = TKBERTLVRecord.init(from: resultData), result.tag == tagDynAuth else { throw PIVSessionError.responseDataNotTLVFormatted }
         guard let data = TKBERTLVRecord(from: result.value), data.tag == tagAuthResponse else { throw PIVSessionError.responseDataNotTLVFormatted }
         return data.value
@@ -679,7 +681,7 @@ extension PIVSession {
         command.append(TKBERTLVRecord(tag: tagObjectId, value: objectId).data)
         command.append(TKBERTLVRecord(tag: tagObjectData, value: data).data)
         let apdu = APDU(cla: 0, ins: insPutData, p1: 0x3f, p2: 0xff, command: command, type: .extended)
-        try await connection.send(apdu: apdu)
+        try await send(apdu: apdu)
     }
     
     private func changeReference(ins: UInt8, p2: UInt8, valueOne: String, valueTwo: String) async throws -> Int {
@@ -687,7 +689,7 @@ extension PIVSession {
         let data = paddedValueOne + paddedValueTwo
         let apdu = APDU(cla: 0, ins: ins, p1: 0, p2: p2, command: data)
         do {
-            try await connection.send(apdu: apdu)
+            try await send(apdu: apdu)
             return currentPinAttempts
         } catch {
             guard let responseError = error as? ResponseError else { throw PIVSessionError.invalidResponse }
@@ -723,7 +725,7 @@ extension PIVSession {
     private func getPinPukMetadata(p2: UInt8) async throws -> PIVPinPukMetadata {
         guard self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2)
-        let result = try await connection.send(apdu: apdu)
+        let result = try await send(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
               let isDefault = records.recordWithTag(tagMetadataIsDefault)?.value.bytes[0],
               let retriesTotal = records.recordWithTag(tagMetadataRetries)?.value.bytes[0],
@@ -747,6 +749,15 @@ extension PIVSession {
             }
         }
         return -1
+    }
+    
+    @discardableResult
+    private func send(apdu: APDU) async throws -> Data {
+        if let processor {
+            return try await processor.send(apdu: apdu, using: connection)
+        } else {
+            return try await connection.send(apdu: apdu)
+        }
     }
 }
 
