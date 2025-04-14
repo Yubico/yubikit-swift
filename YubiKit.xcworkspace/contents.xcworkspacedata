@@ -2,19 +2,12 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "group:YubiKit/YubiKit.xcodeproj">
+      location = "group:.">
    </FileRef>
    <FileRef
       location = "group:FullStackTests/FullStackTests.xcodeproj">
    </FileRef>
    <FileRef
-      location = "group:Package.swift">
+      location = "group:Samples/OATHSample/OATHSample.xcodeproj">
    </FileRef>
-   <Group
-      location = "group:Samples"
-      name = "Samples">
-      <FileRef
-         location = "group:OATHSample/OATHSample.xcodeproj">
-      </FileRef>
-   </Group>
 </Workspace>
