@@ -3,17 +3,16 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 55;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		51A1AC25273D59E200F999A4 /* YubiKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51A1AC24273D59E200F999A4 /* YubiKit.framework */; };
-		51A1AC26273D59E200F999A4 /* YubiKit.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 51A1AC24273D59E200F999A4 /* YubiKit.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		51BBE40D273D1AA100DA47CC /* TestHostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE40C273D1AA100DA47CC /* TestHostApp.swift */; };
 		51BBE40F273D1AA100DA47CC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE40E273D1AA100DA47CC /* ContentView.swift */; };
 		51BBE411273D1AA400DA47CC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51BBE410273D1AA400DA47CC /* Assets.xcassets */; };
 		51BBE414273D1AA400DA47CC /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51BBE413273D1AA400DA47CC /* Preview Assets.xcassets */; };
 		51BBE41E273D1AA400DA47CC /* OATHFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE41D273D1AA400DA47CC /* OATHFullStackTests.swift */; };
+		6C2AEE0F2DAD52E600C9683A /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C2AEE0E2DAD52E600C9683A /* YubiKit */; };
 		B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */; };
 		B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */; };
 		B481051F2AAB6029006664AE /* ConnectionFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */; };
@@ -33,22 +32,7 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		51A1AC27273D59E200F999A4 /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				51A1AC26273D59E200F999A4 /* YubiKit.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
-		51A1AC24273D59E200F999A4 /* YubiKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = YubiKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		51BBE409273D1AA100DA47CC /* FullStackTests.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FullStackTests.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		51BBE40C273D1AA100DA47CC /* TestHostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHostApp.swift; sourceTree = "<group>"; };
 		51BBE40E273D1AA100DA47CC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -72,7 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				51A1AC25273D59E200F999A4 /* YubiKit.framework in Frameworks */,
+				6C2AEE0F2DAD52E600C9683A /* YubiKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -89,7 +73,6 @@
 		51A1AC23273D59E200F999A4 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				51A1AC24273D59E200F999A4 /* YubiKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -167,7 +150,6 @@
 				51BBE405273D1AA100DA47CC /* Sources */,
 				51BBE406273D1AA100DA47CC /* Frameworks */,
 				51BBE407273D1AA100DA47CC /* Resources */,
-				51A1AC27273D59E200F999A4 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -224,6 +206,9 @@
 				Base,
 			);
 			mainGroup = 51BBE400273D1AA100DA47CC;
+			packageReferences = (
+				6C2AEE0D2DAD52E600C9683A /* XCLocalSwiftPackageReference "../../swift-sdk" */,
+			);
 			productRefGroup = 51BBE40A273D1AA100DA47CC /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -568,6 +553,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		6C2AEE0D2DAD52E600C9683A /* XCLocalSwiftPackageReference "../../swift-sdk" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../../swift-sdk";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6C2AEE0E2DAD52E600C9683A /* YubiKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = YubiKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 51BBE401273D1AA100DA47CC /* Project object */;
 }
