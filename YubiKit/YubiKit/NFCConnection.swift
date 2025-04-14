@@ -92,14 +92,6 @@ public final actor NFCConnection: Connection {
         }
     }
     
-    private var processor: Processor? = nil
-    internal func getProcessor() async -> Processor? {
-        return processor
-    }
-    internal func setProcessor(_ processor: Processor?) async {
-        self.processor = processor
-    }
-    
     public func send(data: Data) async throws -> Data {
         guard let tag else { throw ConnectionError.noConnection }
         guard let apdu = APDU(data: data).nfcIso7816Apdu else { throw NFCConnectionError.malformedAPDU }

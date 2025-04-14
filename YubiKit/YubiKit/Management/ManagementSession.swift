@@ -37,6 +37,7 @@ public enum ManagementSessionError: Error {
 public final actor ManagementSession: Session {
     
     private let connection: Connection
+    private let processor: SCPProcessor?
 
     public nonisolated let version: Version
 
@@ -45,8 +46,9 @@ public final actor ManagementSession: Session {
         guard let version = Version(withManagementResult: result) else { throw ManagementSessionError.unexpectedData }
         self.version = version
         if let scpKeyParams {
-            let processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
-            await internalConnection?.setProcessor(processor)
+            processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
+        } else {
+            processor = nil
         }
         self.connection = connection
     }
@@ -162,7 +164,11 @@ public final actor ManagementSession: Session {
 
     @discardableResult
     private func send(apdu: APDU) async throws -> Data {
-        return try await connection.send(apdu: apdu)
+        if let processor {
+            return try await processor.send(apdu: apdu, using: connection)
+        } else {
+            return try await connection.send(apdu: apdu)
+        }
     }
 }
 

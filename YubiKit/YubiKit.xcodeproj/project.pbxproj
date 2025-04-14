@@ -45,7 +45,6 @@
 		B4BE3AB7292E207900CC30CB /* Array+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AB6292E207900CC30CB /* Array+Extensions.swift */; };
 		B4BE3ABA292E24C700CC30CB /* Base32.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4BE3AB9292E24C700CC30CB /* Base32.swift */; };
 		B4C9C5782B694C3D00388DEB /* Gzip in Frameworks */ = {isa = PBXBuildFile; productRef = B4C9C5772B694C3D00388DEB /* Gzip */; };
-		B4D178062D3803A20081BA4E /* Processor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D178052D3803A20081BA4E /* Processor.swift */; };
 		B4D178082D3803DB0081BA4E /* SCPProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D178072D3803D50081BA4E /* SCPProcessor.swift */; };
 		B4D1780D2D3F8C280081BA4E /* SCPKeyParams.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D1780C2D3F8C1C0081BA4E /* SCPKeyParams.swift */; };
 		B4D1780F2D3F8C560081BA4E /* SCPKeyRef.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D1780E2D3F8C540081BA4E /* SCPKeyRef.swift */; };
@@ -111,7 +110,6 @@
 		B4BE3AB4292E1ECB00CC30CB /* Sequence+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sequence+Extensions.swift"; sourceTree = "<group>"; };
 		B4BE3AB6292E207900CC30CB /* Array+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Array+Extensions.swift"; sourceTree = "<group>"; };
 		B4BE3AB9292E24C700CC30CB /* Base32.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Base32.swift; sourceTree = "<group>"; };
-		B4D178052D3803A20081BA4E /* Processor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Processor.swift; sourceTree = "<group>"; };
 		B4D178072D3803D50081BA4E /* SCPProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPProcessor.swift; sourceTree = "<group>"; };
 		B4D1780C2D3F8C1C0081BA4E /* SCPKeyParams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPKeyParams.swift; sourceTree = "<group>"; };
 		B4D1780E2D3F8C540081BA4E /* SCPKeyRef.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPKeyRef.swift; sourceTree = "<group>"; };
@@ -174,7 +172,6 @@
 				51BBE3EA273D1A3800DA47CC /* YubiKit.docc */,
 				B41B61832743FC2E004C37BF /* Connection.swift */,
 				B40BCB7C29422721009F39BD /* Connection+Extensions.swift */,
-				B4D178052D3803A20081BA4E /* Processor.swift */,
 				B41B61852743FC4E004C37BF /* Session.swift */,
 				B4451EFF275FD2B5002690BB /* APDU.swift */,
 				B40BCB7A2940F1C5009F39BD /* Response.swift */,
@@ -418,7 +415,6 @@
 				B4D178112D3F8CD40081BA4E /* SCPDataEncryptor.swift in Sources */,
 				B424CF5B2B7A2A1600AC8EBF /* PIVSessionFeature.swift in Sources */,
 				B4D178152D3F906F0081BA4E /* StaticKeys.swift in Sources */,
-				B4D178062D3803A20081BA4E /* Processor.swift in Sources */,
 				B47FDD992939FAD100AFF70A /* ConnectionHelper.swift in Sources */,
 				B4451F00275FD2B5002690BB /* APDU.swift in Sources */,
 				B401F7762B17B8DD00C541D1 /* Logger+Extensions.swift in Sources */,

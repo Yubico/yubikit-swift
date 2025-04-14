@@ -49,6 +49,7 @@ public enum OATHSessionError: Error {
 public final actor OATHSession: Session {
     
     private let connection: Connection
+    private let processor: SCPProcessor?
 
     private struct SelectResponse {
         let salt: Data
@@ -65,8 +66,9 @@ public final actor OATHSession: Session {
     private init(connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws {
         self.selectResponse = try await Self.selectApplication(withConnection: connection)
         if let scpKeyParams {
-            let processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
-            await internalConnection?.setProcessor(processor)
+            processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams, insSendRemaining: 0xa5)
+        } else {
+            processor = nil
         }
         self.connection = connection
     }
@@ -393,7 +395,11 @@ public final actor OATHSession: Session {
 
     @discardableResult
     private func send(apdu: APDU) async throws -> Data {
-        return try await connection.send(apdu: apdu, insSendRemaining: 0xa5)
+        if let processor {
+            return try await processor.send(apdu: apdu, using: connection, insSendRemaining: 0xa5)
+        } else {
+            return try await connection.send(apdu: apdu, insSendRemaining: 0xa5)
+        }
     }
 }
 
