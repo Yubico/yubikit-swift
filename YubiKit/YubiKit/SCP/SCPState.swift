@@ -28,7 +28,7 @@ struct SCPState: CustomDebugStringConvertible {
         self.macChain = macChain
     }
     
-    mutating func encrypt(_ data: Data) throws -> Data {
+    internal mutating func encrypt(_ data: Data) throws -> Data {
         print("👾 encrypt \(data.hexEncodedString) using \(self)")
         let paddedData = data.bitPadded()
         var ivData = Data(count: 12)
@@ -38,7 +38,7 @@ struct SCPState: CustomDebugStringConvertible {
         return try paddedData.encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES128), key: sessionKeys.senc, iv: iv)
     }
     
-    mutating func decrypt(_ data: Data) throws -> Data {
+    internal mutating func decrypt(_ data: Data) throws -> Data {
         print("decrypt: \(data.hexEncodedString)")
         var ivData = Data()
         ivData.append(UInt8(0x80))
@@ -55,7 +55,7 @@ struct SCPState: CustomDebugStringConvertible {
         return unpadData(decrypted)!
     }
     
-    func unpadData(_ data: Data) -> Data? {
+    private func unpadData(_ data: Data) -> Data? {
         guard let lastNonZeroIndex = data.lastIndex(where: { $0 != 0x00 }) else {
             return nil // The data is entirely zero or empty.
         }
@@ -68,13 +68,13 @@ struct SCPState: CustomDebugStringConvertible {
         return nil // Invalid padding scheme
     }
     
-    mutating func mac(data: Data) throws -> Data {
+    internal mutating func mac(data: Data) throws -> Data {
         let message = macChain + data
         self.macChain = try message.aescmac(key: sessionKeys.smac)
         return macChain.prefix(8)
     }
     
-    mutating func unmac(data: Data, sw: UInt16) throws -> Data {
+    internal mutating func unmac(data: Data, sw: UInt16) throws -> Data {
         let message = data.prefix(data.count - 8) + sw.bigEndian.data
         let rmac = try (macChain + message).aescmac(key: sessionKeys.srmac).prefix(8)
         guard rmac.constantTimeCompare(data.suffix(8)) else { throw "Tantrum" }

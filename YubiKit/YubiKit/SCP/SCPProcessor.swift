@@ -25,7 +25,7 @@ internal enum SCPKid: UInt8 {
 
 internal class SCPProcessor {
 
-    private var state: SCPState
+    internal var state: SCPState
     
     internal init(connection: Connection, keyParams: SCPKeyParams, insSendRemaining: UInt8 = 0xc0) async throws {
         if let scp03Params = keyParams as? SCP03KeyParams {
