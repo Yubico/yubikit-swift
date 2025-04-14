@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 55;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -13,6 +13,7 @@
 		51BBE414273D1AA400DA47CC /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51BBE413273D1AA400DA47CC /* Preview Assets.xcassets */; };
 		51BBE41E273D1AA400DA47CC /* OATHFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE41D273D1AA400DA47CC /* OATHFullStackTests.swift */; };
 		6C2AEE0F2DAD52E600C9683A /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C2AEE0E2DAD52E600C9683A /* YubiKit */; };
+		6C8465362DADB1C600788FB7 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8465352DADB1C600788FB7 /* YubiKit */; };
 		B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */; };
 		B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */; };
 		B481051F2AAB6029006664AE /* ConnectionFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */; };
@@ -56,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6C8465362DADB1C600788FB7 /* YubiKit in Frameworks */,
 				6C2AEE0F2DAD52E600C9683A /* YubiKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -207,6 +209,7 @@
 			);
 			mainGroup = 51BBE400273D1AA100DA47CC;
 			packageReferences = (
+				6C8465342DADB1C600788FB7 /* XCLocalSwiftPackageReference "../" */,
 			);
 			productRefGroup = 51BBE40A273D1AA100DA47CC /* Products */;
 			projectDirPath = "";
@@ -553,8 +556,19 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		6C8465342DADB1C600788FB7 /* XCLocalSwiftPackageReference "../" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../";
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		6C2AEE0E2DAD52E600C9683A /* YubiKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = YubiKit;
+		};
+		6C8465352DADB1C600788FB7 /* YubiKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = YubiKit;
 		};
