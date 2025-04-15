@@ -1,7 +1,3 @@
-//
-//  Data+Gzip.swift
-//
-
 /*
  The MIT License (MIT)
 
