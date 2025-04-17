@@ -65,15 +65,12 @@ extension Data {
     }
     
     internal func bitPadded() -> Data {
-        let msgLength = self.count
         let blockSize = 16
         var paddedData = self
         paddedData.append(0x80)
-        if msgLength % blockSize < blockSize {
-            return paddedData + Data(count: blockSize - 1 - (msgLength % blockSize))
-        } else {
-            return paddedData + Data(count: blockSize + blockSize - 1 - (msgLength % blockSize))
-        }
+        let remainder = self.count % blockSize
+        let zeroPadding = remainder == 0 ? blockSize - 1 : blockSize - 1 - remainder
+        return paddedData + Data(count: zeroPadding)
     }
     
     internal func encrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws -> Data {
