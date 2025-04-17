@@ -48,7 +48,6 @@
 		B4D178082D3803DB0081BA4E /* SCPProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D178072D3803D50081BA4E /* SCPProcessor.swift */; };
 		B4D1780D2D3F8C280081BA4E /* SCPKeyParams.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D1780C2D3F8C1C0081BA4E /* SCPKeyParams.swift */; };
 		B4D1780F2D3F8C560081BA4E /* SCPKeyRef.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D1780E2D3F8C540081BA4E /* SCPKeyRef.swift */; };
-		B4D178112D3F8CD40081BA4E /* SCPDataEncryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D178102D3F8CCC0081BA4E /* SCPDataEncryptor.swift */; };
 		B4D178132D3F8FF90081BA4E /* SCP03KeyParams.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D178122D3F8FF90081BA4E /* SCP03KeyParams.swift */; };
 		B4D178152D3F906F0081BA4E /* StaticKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D178142D3F906C0081BA4E /* StaticKeys.swift */; };
 		B4F068B92861CFC300555AFE /* SmartCardConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F068B82861CFC300555AFE /* SmartCardConnection.swift */; };
@@ -113,7 +112,6 @@
 		B4D178072D3803D50081BA4E /* SCPProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPProcessor.swift; sourceTree = "<group>"; };
 		B4D1780C2D3F8C1C0081BA4E /* SCPKeyParams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPKeyParams.swift; sourceTree = "<group>"; };
 		B4D1780E2D3F8C540081BA4E /* SCPKeyRef.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPKeyRef.swift; sourceTree = "<group>"; };
-		B4D178102D3F8CCC0081BA4E /* SCPDataEncryptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPDataEncryptor.swift; sourceTree = "<group>"; };
 		B4D178122D3F8FF90081BA4E /* SCP03KeyParams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCP03KeyParams.swift; sourceTree = "<group>"; };
 		B4D178142D3F906C0081BA4E /* StaticKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaticKeys.swift; sourceTree = "<group>"; };
 		B4F068B82861CFC300555AFE /* SmartCardConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCardConnection.swift; sourceTree = "<group>"; };
@@ -246,7 +244,6 @@
 				B45DAFB62D54F9DC0081E336 /* SCPSessionKeys.swift */,
 				B45DAFB42D54B8420081E336 /* SCPState.swift */,
 				B4D178142D3F906C0081BA4E /* StaticKeys.swift */,
-				B4D178102D3F8CCC0081BA4E /* SCPDataEncryptor.swift */,
 				B4D1780E2D3F8C540081BA4E /* SCPKeyRef.swift */,
 				B4D1780C2D3F8C1C0081BA4E /* SCPKeyParams.swift */,
 				B4D178122D3F8FF90081BA4E /* SCP03KeyParams.swift */,
@@ -412,7 +409,6 @@
 				B4BE3AAF292E1CBC00CC30CB /* Data+Extensions.swift in Sources */,
 				B4BE3AA8292BCA1300CC30CB /* OATHSession+Extensions.swift in Sources */,
 				B456E21B274FCA26004471DE /* ManagementSession.swift in Sources */,
-				B4D178112D3F8CD40081BA4E /* SCPDataEncryptor.swift in Sources */,
 				B424CF5B2B7A2A1600AC8EBF /* PIVSessionFeature.swift in Sources */,
 				B4D178152D3F906F0081BA4E /* StaticKeys.swift in Sources */,
 				B47FDD992939FAD100AFF70A /* ConnectionHelper.swift in Sources */,
