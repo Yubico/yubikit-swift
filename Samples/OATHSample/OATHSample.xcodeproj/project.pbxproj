@@ -11,6 +11,8 @@
 		51A1AC10273D537500F999A4 /* OATHListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51A1AC0F273D537500F999A4 /* OATHListView.swift */; };
 		51A1AC12273D537800F999A4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51A1AC11273D537800F999A4 /* Assets.xcassets */; };
 		51A1AC15273D537800F999A4 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51A1AC14273D537800F999A4 /* Preview Assets.xcassets */; };
+		6C8465302DADB11200788FB7 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C84652F2DADB11200788FB7 /* YubiKit */; };
+		6C8465332DADB13300788FB7 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8465322DADB13300788FB7 /* YubiKit */; };
 		B41B61882743FE18004C37BF /* OATHListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B61872743FE18004C37BF /* OATHListModel.swift */; };
 		B456E217274E750D004471DE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E216274E750D004471DE /* SettingsView.swift */; };
 		B456E219274FC967004471DE /* SettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456E218274FC967004471DE /* SettingsModel.swift */; };
@@ -37,6 +39,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6C8465332DADB13300788FB7 /* YubiKit in Frameworks */,
+				6C8465302DADB11200788FB7 /* YubiKit in Frameworks */,
 				B4F937582B5150D60007D394 /* YubiKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -112,6 +116,8 @@
 			name = OATHSample;
 			packageProductDependencies = (
 				B4F937572B5150D60007D394 /* YubiKit */,
+				6C84652F2DADB11200788FB7 /* YubiKit */,
+				6C8465322DADB13300788FB7 /* YubiKit */,
 			);
 			productName = OATHSample;
 			productReference = 51A1AC0A273D537500F999A4 /* OATHSample.app */;
@@ -142,7 +148,7 @@
 			);
 			mainGroup = 51A1AC01273D537500F999A4;
 			packageReferences = (
-				B4F937562B5150D60007D394 /* XCLocalSwiftPackageReference "../.." */,
+				6C8465312DADB13300788FB7 /* XCLocalSwiftPackageReference "../../" */,
 			);
 			productRefGroup = 51A1AC0B273D537500F999A4 /* Products */;
 			projectDirPath = "";
@@ -395,13 +401,21 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		B4F937562B5150D60007D394 /* XCLocalSwiftPackageReference "../.." */ = {
+		6C8465312DADB13300788FB7 /* XCLocalSwiftPackageReference "../../" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../..;
+			relativePath = "../../";
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		6C84652F2DADB11200788FB7 /* YubiKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = YubiKit;
+		};
+		6C8465322DADB13300788FB7 /* YubiKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = YubiKit;
+		};
 		B4F937572B5150D60007D394 /* YubiKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = YubiKit;

@@ -17,7 +17,6 @@ import CryptoKit
 import CryptoTokenKit
 import CommonCrypto
 import OSLog
-import Gzip
 
 
 /// An interface to the PIV application on the YubiKey.
