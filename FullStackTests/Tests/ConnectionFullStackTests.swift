@@ -54,7 +54,7 @@ class ConnectionFullStackTests: XCTestCase {
 
     func testSmartCardConnectionWithSlot() throws {
         runAsyncTest {
-            let allSlots = try await SmartCardSlot.all
+            let allSlots = try await SmartCardConnection.availableSlots
             allSlots.enumerated().forEach { index, slot in
                 print("\(index): \(slot.name)")
             }

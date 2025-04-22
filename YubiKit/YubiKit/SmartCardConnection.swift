@@ -17,6 +17,9 @@ import OSLog
 
 @preconcurrency import CryptoTokenKit.TKSmartCard
 
+/// A connection to the YubiKey utilizing the USB-C port and the TKSmartCard implementation from
+/// the CryptoTokenKit framework.
+@available(iOS 16.0, macOS 13.0, *)
 public struct SmartCardConnection: Sendable {
     let slot: SmartCardSlot
 
@@ -29,6 +32,13 @@ public struct SmartCardConnection: Sendable {
 
     private var isConnected: Bool {
         get async { await manager.isConnected(for: self) }
+    }
+
+    static var availableSlots: [SmartCardSlot] {
+        get async throws {
+            let allSlots = try await SmartCardConnectionsManager.shared.slots
+            return allSlots.filter { slot in slot.name.lowercased().contains("yubikey") }
+        }
     }
 }
 
@@ -88,16 +98,13 @@ public enum SmartCardConnectionError: Error {
     case beginSessionFailed
 }
 
-// Used to "key" a card / connection
-// Possible to enumerate all availble slots by calling `.all`
-public struct SmartCardSlot: Sendable, Hashable {
-    let name: String
+// Used to indentify a card / connection.
+// Exposed when calling `SmartCardConnection.availableSlots`
+// and when creating a connection with SmartCardConnection.connection(slot:)
+public struct SmartCardSlot: Sendable, Hashable, CustomStringConvertible {
+    public let name: String
 
-    static var all: [SmartCardSlot] {
-        get async throws {
-            try await SmartCardConnectionsManager.shared.slots
-        }
-    }
+    public var description: String { name }
 
     fileprivate init(name: String) {
         self.name = name
