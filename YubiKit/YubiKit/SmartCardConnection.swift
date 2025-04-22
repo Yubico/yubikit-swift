@@ -60,8 +60,7 @@ extension SmartCardConnection: Connection {
 
     // @TraceScope
     public func connectionDidClose() async -> Error? {
-
-        return await didClose.value
+        return try? await didClose.value()
     }
 
     // @TraceScope

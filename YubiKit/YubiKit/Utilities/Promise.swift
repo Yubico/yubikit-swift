@@ -16,29 +16,56 @@ import Foundation
 
 /// Simple one‑time broadcast promise.
 ///
-/// - get `value` to suspend until someone calls `fulfill(_:)`
+/// - call `value()` to suspend until someone calls `fulfill(_:)`
 /// - call `fulfill(_:)` exactly once to resume everyone
-actor Promise<Value: Sendable> {
-    private var continuations: [CheckedContinuation<Value, Never>] = []
-    private var backingValue: Value? = nil
+final class Promise<Value: Sendable>: Sendable {
+    private struct DisposedError: Error { }
 
-    /// Suspend until `fulfill(_:)` is called (or return immediately if already fulfilled).
-    var value: Value {
-        get async {
+    private let state = MutableState()
+
+    private actor MutableState {
+        var continuations: [CheckedContinuation<Value, Error>] = []
+        var backingValue: Value?
+
+        func value() async throws -> Value {
             if let value = backingValue {
                 return value
             }
-            return await withCheckedContinuation { continuation in
+            return try await withCheckedThrowingContinuation { continuation in
                 continuations.append(continuation)
             }
         }
+
+        func fulfill(_ value: Value) {
+            guard backingValue == nil else { return }
+            backingValue = value
+            continuations.forEach { $0.resume(returning: value) }
+            continuations.removeAll()
+        }
+
+        func cancel() {
+            guard backingValue == nil else { return }
+            continuations.forEach { $0.resume(throwing: DisposedError()) }
+            continuations.removeAll()
+        }
+    }
+
+    /// Suspend until `fulfill(_:)` is called (or return immediately if already fulfilled).
+    ///
+    /// - Note: Upon deinitialization, any tasks awaiting 'value()' will resume with a 'DisposedError'.
+    func value() async throws -> Value {
+        try await state.value()
     }
 
     /// Resume all waiters with `value`, clear them, and stash the result.
-    func fulfill(_ value: Value) {
-        guard backingValue == nil else { return }
-        backingValue = value
-        continuations.forEach { $0.resume(returning: value) }
-        continuations.removeAll()
+    func fulfill(_ value: Value) async {
+        await state.fulfill(value)
+    }
+
+    /// Cancels any pending waiters when the promise is deinitialized.
+    ///
+    /// - Note: Upon deinitialization, any tasks awaiting `value()` will resume with a `DisposedError`.
+    deinit {
+        Task { [state] in await state.cancel() }
     }
 }
