@@ -51,7 +51,21 @@ class ConnectionFullStackTests: XCTestCase {
     }
     
     #endif
-    
+
+    func testSmartCardConnectionWithSlot() throws {
+        runAsyncTest {
+            let allSlots = try await SmartCardSlot.all
+            allSlots.enumerated().forEach { index, slot in
+                print("\(index): \(slot.name)")
+            }
+            let random = allSlots.randomElement()
+            XCTAssertNotNil(random) // we need at least one YubiKey connected
+            let connection = try await SmartCardConnection.connection(slot: random!)
+            print("✅ Got connection \(connection)")
+            XCTAssertNotNil(connection)
+        }
+    }
+
     func testSingleConnection() throws {
         runAsyncTest() {
             do {
