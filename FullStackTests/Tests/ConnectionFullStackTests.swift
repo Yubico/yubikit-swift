@@ -55,7 +55,7 @@ class ConnectionFullStackTests: XCTestCase {
     func testSingleConnection() throws {
         runAsyncTest() {
             do {
-                let connection = try await AllowedConnections.anyConnection()
+                let connection = try await Connection.connection()
                 print("✅ Got connection \(connection)")
                 XCTAssertNotNil(connection)
             } catch {
