@@ -14,12 +14,21 @@
 
 import OSLog
 
+protocol HasLogger {
+    static var logger: Logger { get }
+}
+
+protocol HasSmartCardLogger: HasLogger { }
+extension HasSmartCardLogger {
+    static var logger: Logger { .smartCard }
+}
+
 extension Logger {
-    private static var subsystem = "com.yubico.YubiKit"
-    
+    private static let subsystem = "com.yubico.YubiKit"
+
     static let system = Logger(subsystem: subsystem, category: "System")
     static let connection = Logger(subsystem: subsystem, category: "Connection")
-    
+
     static let nfc = Logger(subsystem: subsystem, category: "NFC")
     static let lightning = Logger(subsystem: subsystem, category: "Lightning")
     static let smartCard = Logger(subsystem: subsystem, category: "SmartCard")
@@ -44,3 +53,56 @@ extension Logger {
         return entries
     }
 }
+
+
+// MARK: - RAII style scope tracer
+// Will be wrapped in a '@TraceScope' macro when Swift 6 is available
+/*
+class _Trace {
+    let name: String
+    let logger: Logger
+
+    init(_ name: String, logger: Logger) {
+        self.name = name
+        self.logger = logger
+        logger.trace(">>> \(name, privacy: .public)")
+    }
+
+    deinit {
+        logger.trace("<<< \(self.name, privacy: .public)")
+    }
+}
+
+// MARK: - These functions trace with a message
+extension HasLogger {
+    // static helper
+    @inline(__always)
+    static func trace(_ function: String = #function,
+                      logger: Logger = logger,
+                      message: String) {
+
+        let typeName = String(describing: type(of: self))
+        let label = "\(typeName).\(function)"
+
+        logger.trace("  \(label): \(message)")
+    }
+
+    // instance helper
+    @inline(__always)
+    func trace(_ function: String = #function,
+               logger: Logger = logger,
+               message: String) {
+
+        let typeName = String(describing: type(of: self))
+        var label = "\(typeName).\(function)"
+
+        if let obj = self as AnyObject? {
+            let ptr = Unmanaged.passUnretained(obj).toOpaque()
+            let ptrStr = String(format: "0x%08x", UInt(bitPattern: ptr) & 0xFFFFFFFF)
+            label = "\(typeName)[\(ptrStr)].\(function)"
+        }
+
+        logger.trace("  \(label): \(message)")
+    }
+}
+ */

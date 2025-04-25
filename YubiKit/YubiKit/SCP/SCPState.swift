@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import CommonCrypto
+import Foundation
 
 struct SCPState: CustomDebugStringConvertible {
     var debugDescription: String {
