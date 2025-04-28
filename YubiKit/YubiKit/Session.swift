@@ -34,14 +34,22 @@ public protocol SessionFeature {
 }
 
 public enum SessionError: Error {
-    case notSupported
+    case notSupported(_: String?) // consider renaming to illegalState to match Java sdk
     case activeSession
     case missingApplication
     case unexpectedResult
     case unexpectedStatusCode
     case unexpectedResponse
-    case illegalArgument
+    case illegalArgument(_: String?)
     case invalidPin(Int)
+
+    static var illegalArgument: Self {
+        return .illegalArgument(nil)
+    }
+
+    static var notSupported: Self {
+        return .notSupported(nil)
+    }
 }
 
 extension SessionError: Equatable {

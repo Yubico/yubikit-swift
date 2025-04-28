@@ -212,13 +212,14 @@ public final actor SecurityDomainSession: Session {
         
         var data = Data()
         if kid != 0 {
-            data.append(TKBERTLVRecord(tag: 0xD0, value: kid.data).data)
+            data.append(TKSimpleTLVRecord(tag: 0xD0, value: kid.data).data)
         }
         if kvn != 0 {
-            data.append(TKBERTLVRecord(tag: 0xD2, value: kvn.data).data)
+            data.append(TKSimpleTLVRecord(tag: 0xD2, value: kvn.data).data)
         }
 
         let apdu = APDU(cla: 0x80, ins: 0xE4, p1: 0, p2: deleteLast ? 1 : 0, command: data)
+        print(apdu)
         try await send(apdu: apdu)
     }
 
@@ -258,31 +259,34 @@ public final actor SecurityDomainSession: Session {
     /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
     public func putKey(keyRef: SCPKeyRef, keys: StaticKeys, replaceKvn: UInt8) async throws {
         guard keyRef.kid == SCPKid.scp03.rawValue else {
-            throw SessionError.illegalArgument
+            throw SessionError.illegalArgument("KID must be 0x01 for SCP03 key sets")
         }
         guard let dek = keys.dek else {
-            throw SessionError.illegalArgument
+            throw SessionError.illegalArgument("New DEK must be set in static keys")
         }
         guard let processor else {
-            throw SessionError.notSupported
+            throw SessionError.notSupported("No session DEK key available")
         }
-        
+
         var data = Data([keyRef.kvn])
         var expected = Data([keyRef.kvn])
 
-        let defaultKcvIv = Data([0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01])
-        
+        let defaultKcvIv: Data = .init(repeating: 0x01, count: 16)
+
         for key in [keys.enc, keys.mac, dek] {
-            let kcv = try! defaultKcvIv.encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES128),
-                                                key: key,
-                                                iv: Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])).prefix(3)
-            let encryptedKey = try! processor.state.encrypt(key)
-            data.append(TKBERTLVRecord(tag: 0x88, value: encryptedKey).data)
+            let kcv = SCPState.cbcEncrypt(key: key, data: defaultKcvIv)!.prefix(3)
+
+            let currentDek = processor.state.sessionKeys.dek!
+
+            let encryptedKey = SCPState.cbcEncrypt(key: currentDek, data: key)
+            data.append(TKSimpleTLVRecord(tag: 0x88, value: encryptedKey!).data)
             data.append(UInt8(kcv.count))
             data.append(kcv)
             expected.append(kcv)
         }
-        
+
+        assert(data.bytes.count == 1 + 3 * (18 + 4), "Unexpected command data length")
+
         let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: 0x80 | keyRef.kid, command: data)
         let resp = try await send(apdu: apdu)
         

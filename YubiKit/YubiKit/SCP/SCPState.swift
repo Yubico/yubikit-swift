@@ -81,4 +81,41 @@ struct SCPState: CustomDebugStringConvertible {
         guard rmac.constantTimeCompare(data.suffix(8)) else { throw "Tantrum" }
         return Data(message.prefix(message.count - 2))
     }
+
+    static func cbcEncrypt(key: Data, data: Data) -> Data? {
+        // AES requires key sizes of 16, 24 or 32 bytes
+        guard [kCCKeySizeAES128, kCCKeySizeAES192, kCCKeySizeAES256].contains(key.count) else {
+            return nil
+        }
+
+        let iv = Data(repeating: 0, count: kCCBlockSizeAES128)
+        var outBytes = [UInt8](repeating: 0, count: data.count + kCCBlockSizeAES128)
+        var outLength = 0
+
+        let status = key.withUnsafeBytes { keyBuf in
+            iv.withUnsafeBytes { ivBuf in
+                data.withUnsafeBytes { dataBuf in
+                    CCCrypt(
+                        CCOperation(kCCEncrypt),
+                        CCAlgorithm(kCCAlgorithmAES),
+                        CCOptions(0),              // NoPadding, no PKCS7
+                        keyBuf.baseAddress,        // key pointer
+                        key.count,                 // key length
+                        ivBuf.baseAddress,         // iv pointer
+                        dataBuf.baseAddress,       // input pointer
+                        data.count,                // input length
+                        &outBytes,                 // output buffer
+                        outBytes.count,            // output buffer length
+                        &outLength                 // output bytes written
+                    )
+                }
+            }
+        }
+
+        guard status == kCCSuccess else {
+            return nil
+        }
+
+        return Data(bytes: outBytes, count: outLength)
+    }
 }
