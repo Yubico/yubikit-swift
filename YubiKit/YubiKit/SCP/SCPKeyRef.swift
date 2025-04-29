@@ -15,13 +15,22 @@
 import Foundation
 
 public struct SCPKeyRef: Equatable, Hashable {
-    
-    internal init(kid: UInt8, kvn: UInt8) {
+
+    public typealias Kid = UInt8
+
+    internal init(kid: Kid, kvn: UInt8) {
         self.kid = kid
         self.kvn = kvn
     }
     
-    public let kid: UInt8
+    public let kid: Kid
     public let kvn: UInt8
     public var data: Data { Data([kid, kvn]) }
+}
+
+extension SCPKeyRef.Kid {
+    static let scp03: SCPKeyRef.Kid  = 0x01
+    static let scp11a: SCPKeyRef.Kid = 0x11
+    static let scp11b: SCPKeyRef.Kid = 0x13
+    static let scp11c: SCPKeyRef.Kid = 0x15
 }

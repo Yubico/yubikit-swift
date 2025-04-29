@@ -16,12 +16,7 @@ import CryptoTokenKit
 
 fileprivate let insInitializeUpdate: UInt8 = 0x50
 
-internal enum SCPKid: UInt8 {
-    case scp03 = 0x01
-    case scp11a = 0x11
-    case scp11b = 0x13
-    case scp11c = 0x15
-}
+typealias SCPKid  = SCPKeyRef.Kid
 
 internal class SCPProcessor {
 
@@ -36,17 +31,19 @@ internal class SCPProcessor {
             guard let diversificationData = result.extract(10),
                   let keyInfo = result.extract(3),
                   let cardChallenge = result.extract(8),
-                  let cardCryptogram = result.extract(8) else { fatalError("Unexpected result") }
-            
+                  let cardCryptogram = result.extract(8) else {
+                throw SCPError.unexpectedResponse("Malformed SCP03 response")
+            }
+
             let context = hostChallenge + cardChallenge
             let sessionKeys = scp03Params.staticKeys.derive(context: context)
-            
+
             let genCardCryptogram = try StaticKeys.deriveKey(key: sessionKeys.smac, t: 0x00, context: context, l: 0x40)
-            
+
             guard genCardCryptogram.constantTimeCompare(cardCryptogram) == true else {
-                throw SessionError.illegalArgument
+                throw SCPError.unexpectedResponse("Wrong SCP03 key set")
             }
-            
+
             let hostCryptogram = try StaticKeys.deriveKey(key: sessionKeys.smac, t: 0x01, context: context, l: 0x40)
             
             self.state = SCPState(sessionKeys: sessionKeys, macChain: Data(count: 16))
@@ -59,28 +56,17 @@ internal class SCPProcessor {
         }
         
         if let scp11Params = keyParams as? SCP11KeyParams {
-            let kid = SCPKid(rawValue: keyParams.keyRef.kid)
-            
+            let kid = keyParams.keyRef.kid
+
             let params: UInt8
             
             switch kid {
-            case .scp11a:
-                params = 0b01
-                fatalError()
             case .scp11b:
                 params = 0b00
-            case .scp11c:
-                params = 0b11
-                fatalError()
             default:
-                fatalError()
+                throw SCPError.illegalArgument("Invalid SCP11 KID")
             }
-            
-            if kid == .scp11a || kid == .scp11c {
-                // TODO: implement SCP11a and SCP11c
-                fatalError()
-            }
-            
+
             let keyUsage = Data([0x3c]) // AUTHENTICATED | C_MAC | C_DECRYPTION | R_MAC | R_ENCRYPTION
             let keyType = Data([0x88]) // AES
             let keyLen = Data([16]) // 128-bit
@@ -121,9 +107,13 @@ internal class SCPProcessor {
             let ins: UInt8 = kid == .scp11b ? 0x88 : 0x82
             print("👾 Sending: \(APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data))")
             let response = try await connection.send(apdu: APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data))
-            
-            guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: response), tlvs.count == 2 else { fatalError() }
-            guard tlvs[0].tag == 0x5f49, tlvs[1].tag == 0x86 else { fatalError() }
+
+            guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: response), tlvs.count == 2 else {
+                throw SCPError.unexpectedResponse
+            }
+            guard tlvs[0].tag == 0x5f49, tlvs[1].tag == 0x86 else {
+                throw SCPError.unexpectedResponse
+            }
             let epkSdEckaEncodedPoint = tlvs[0].value
             let receipt = tlvs[1].value
             let keyAgreementData = data + tlvs[0].data
@@ -149,22 +139,24 @@ internal class SCPProcessor {
             }
 
             print("keys[0]: \(keys[0].hexEncodedString)")
-//            keyAgreementData = Data(count: 151)
             let genReceipt = try keyAgreementData.aescmac(key: keys[0])
             
             print("receipt: \(receipt.hexEncodedString)")
             print("genReceipt: \(genReceipt.hexEncodedString)")
-            
-            guard genReceipt.constantTimeCompare(receipt) else { fatalError() }
-            
+
+            guard genReceipt.constantTimeCompare(receipt) else {
+                throw SCPError.unexpectedResponse("Receipt does not match")
+            }
+
             let sessionKeys = SCPSessionKeys(senc: keys[1], smac: keys[2], srmac: keys[3], dek: keys[4])
             self.state = SCPState(sessionKeys: sessionKeys, macChain: receipt)
             
             print("✅ done configuring SCP11")
             return
         }
-        
-        fatalError("Not implemented")
+
+        // Not implemented
+        throw SCPError.notSupported
     }
     
     internal init(state: SCPState) {

@@ -50,15 +50,20 @@ class SCPFullStackTests: XCTestCase {
             do {
                 let connection = try await AllowedConnections.anyConnection()
                 let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
-                let scpKeyRef = SCPKeyRef(kid: 0x13, kvn: 0x01)
+                let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
                 let certificates = try await securityDomainSession.getCertificateBundle(scpKeyRef: scpKeyRef)
-                guard let last = certificates.last, let publicKey = SecCertificateCopyKey(last) else { fatalError() }
+                guard let last = certificates.last,
+                      let publicKey = SecCertificateCopyKey(last)
+                else {
+                    XCTFail()
+                    return
+                }
                 let scp11KeyParams = SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
                 let managementSession = try  await ManagementSession.session(withConnection: connection, scpKeyParams: scp11KeyParams)
                 let deviceInfo = try await managementSession.getDeviceInfo()
                 XCTAssertNotNil(deviceInfo)
             } catch {
-                XCTFail("🚨 Failed with: \(error)")
+                XCTFail("Failed with: \(error)")
             }
         }
     }
@@ -68,12 +73,12 @@ class SCPFullStackTests: XCTestCase {
             do {
                 let connection = try await AllowedConnections.anyConnection()
                 let defaultKey = Data([0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f])
-                let scpKeyParams = SCP03KeyParams(keyRef: SCPKeyRef(kid: 0x01, kvn: 0xff), staticKeys: StaticKeys(enc: defaultKey, mac: defaultKey, dek: defaultKey))
+                let scpKeyParams = SCP03KeyParams(keyRef: SCPKeyRef(kid: .scp03, kvn: 0xff), staticKeys: StaticKeys(enc: defaultKey, mac: defaultKey, dek: defaultKey))
                 let managementSession = try  await ManagementSession.session(withConnection: connection, scpKeyParams: scpKeyParams)
                 let deviceInfo = try await managementSession.getDeviceInfo()
                 XCTAssertNotNil(deviceInfo)
             } catch {
-                XCTFail("🚨 Failed with: \(error)")
+                XCTFail("Failed with: \(error)")
             }
         }
     }

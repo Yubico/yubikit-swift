@@ -14,12 +14,12 @@
 		51BBE41E273D1AA400DA47CC /* OATHFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE41D273D1AA400DA47CC /* OATHFullStackTests.swift */; };
 		6C2AEE0F2DAD52E600C9683A /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C2AEE0E2DAD52E600C9683A /* YubiKit */; };
 		6C8465362DADB1C600788FB7 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8465352DADB1C600788FB7 /* YubiKit */; };
+		6C991EE72DBF7914005693C9 /* SCP11bFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C991EE62DBF7914005693C9 /* SCP11bFullStackTests.swift */; };
 		B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */; };
 		B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */; };
 		B47E17EC2DAE7DDF007E34D5 /* SCP03FullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B47E17EB2DAE7DC5007E34D5 /* SCP03FullStackTests.swift */; };
 		B481051F2AAB6029006664AE /* ConnectionFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */; };
 		B4A597B72D9D682A00444D97 /* SCPFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4A597B62D9D682A00444D97 /* SCPFullStackTests.swift */; };
-		B4A597BC2DA3D43100444D97 /* SecurityDomainFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4A597BB2DA3D42200444D97 /* SecurityDomainFullStackTests.swift */; };
 		B4F9375A2B518A8B0007D394 /* AllowedConnections.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937592B518A8B0007D394 /* AllowedConnections.swift */; };
 		B4F9375C2B519C270007D394 /* allowed-yubikeys.csv in Resources */ = {isa = PBXBuildFile; fileRef = B4F9375B2B5199AE0007D394 /* allowed-yubikeys.csv */; };
 		B4F9375F2B519D940007D394 /* Logger+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */; };
@@ -44,6 +44,7 @@
 		51BBE413273D1AA400DA47CC /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		51BBE419273D1AA400DA47CC /* FullStackTestsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FullStackTestsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		51BBE41D273D1AA400DA47CC /* OATHFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHFullStackTests.swift; sourceTree = "<group>"; };
+		6C991EE62DBF7914005693C9 /* SCP11bFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCP11bFullStackTests.swift; sourceTree = "<group>"; };
 		B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCTestCase+Extensions.swift"; sourceTree = "<group>"; };
 		B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementFullStackTests.swift; sourceTree = "<group>"; };
 		B45C0B6928FEE1250077EE2A /* FullStackTests.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FullStackTests.entitlements; sourceTree = "<group>"; };
@@ -51,7 +52,6 @@
 		B47E17EB2DAE7DC5007E34D5 /* SCP03FullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCP03FullStackTests.swift; sourceTree = "<group>"; };
 		B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionFullStackTests.swift; sourceTree = "<group>"; };
 		B4A597B62D9D682A00444D97 /* SCPFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPFullStackTests.swift; sourceTree = "<group>"; };
-		B4A597BB2DA3D42200444D97 /* SecurityDomainFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityDomainFullStackTests.swift; sourceTree = "<group>"; };
 		B4F937592B518A8B0007D394 /* AllowedConnections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllowedConnections.swift; sourceTree = SOURCE_ROOT; };
 		B4F9375B2B5199AE0007D394 /* allowed-yubikeys.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "allowed-yubikeys.csv"; sourceTree = "<group>"; };
 		B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Extensions.swift"; sourceTree = "<group>"; };
@@ -132,7 +132,7 @@
 			isa = PBXGroup;
 			children = (
 				B47E17EB2DAE7DC5007E34D5 /* SCP03FullStackTests.swift */,
-				B4A597BB2DA3D42200444D97 /* SecurityDomainFullStackTests.swift */,
+				6C991EE62DBF7914005693C9 /* SCP11bFullStackTests.swift */,
 				B4A597B62D9D682A00444D97 /* SCPFullStackTests.swift */,
 				51BBE41D273D1AA400DA47CC /* OATHFullStackTests.swift */,
 				B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */,
@@ -273,7 +273,7 @@
 				51BBE41E273D1AA400DA47CC /* OATHFullStackTests.swift in Sources */,
 				B4F937642B51A7DD0007D394 /* PIVFullStackTests.swift in Sources */,
 				B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */,
-				B4A597BC2DA3D43100444D97 /* SecurityDomainFullStackTests.swift in Sources */,
+				6C991EE72DBF7914005693C9 /* SCP11bFullStackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -571,7 +571,7 @@
 /* Begin XCLocalSwiftPackageReference section */
 		6C8465342DADB1C600788FB7 /* XCLocalSwiftPackageReference "../" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../";
+			relativePath = ../;
 		};
 /* End XCLocalSwiftPackageReference section */
 

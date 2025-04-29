@@ -18,7 +18,7 @@ import CryptoTokenKit
 
 class SCP03FullStackTests: XCTestCase {
     
-    static let defaultKeyRef = SCPKeyRef(kid: 0x01, kvn: 0xff)
+    static let defaultKeyRef = SCPKeyRef(kid: .scp03, kvn: 0xff)
     static let defaultKey = Data([0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f])
     static let defaultKeyParams = SCP03KeyParams(keyRef: defaultKeyRef, staticKeys: StaticKeys(enc: defaultKey, mac: defaultKey, dek: defaultKey))
 
@@ -53,7 +53,7 @@ class SCP03FullStackTests: XCTestCase {
             let sk = Data([0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
                            0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47])
             let staticKeys = StaticKeys(enc: sk, mac: sk, dek: sk)
-            let keyRef = SCPKeyRef(kid: 0x01, kvn: 0x01)
+            let keyRef = SCPKeyRef(kid: .scp03, kvn: 0x01)
             let params = SCP03KeyParams(keyRef: keyRef, staticKeys: staticKeys)
 
             // import new key
@@ -90,8 +90,8 @@ class SCP03FullStackTests: XCTestCase {
             let sk2dek = generateRandomKey()
             let staticKeys2 = StaticKeys(enc: sk2enc, mac: sk2mac, dek: sk2dek)
 
-            let keyRef1 = SCPKeyRef(kid: 0x01, kvn: 0x10)
-            let keyRef2 = SCPKeyRef(kid: 0x01, kvn: 0x55)
+            let keyRef1 = SCPKeyRef(kid: .scp03, kvn: 0x10)
+            let keyRef2 = SCPKeyRef(kid: .scp03, kvn: 0x55)
             let params1 = SCP03KeyParams(keyRef: keyRef1, staticKeys: staticKeys1)
             let params2 = SCP03KeyParams(keyRef: keyRef2, staticKeys: staticKeys2)
 
@@ -145,8 +145,8 @@ class SCP03FullStackTests: XCTestCase {
             let sk1 = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
             let sk2 = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
 
-            let keyRef1 = SCPKeyRef(kid: 0x01, kvn: 0x10)
-            let keyRef2 = SCPKeyRef(kid: 0x01, kvn: 0x55)
+            let keyRef1 = SCPKeyRef(kid: .scp03, kvn: 0x10)
+            let keyRef2 = SCPKeyRef(kid: .scp03, kvn: 0x55)
 
             let params1 = SCP03KeyParams(keyRef: keyRef1, staticKeys: sk1)
             let params2 = SCP03KeyParams(keyRef: keyRef2, staticKeys: sk2)
@@ -184,7 +184,7 @@ class SCP03FullStackTests: XCTestCase {
             let connection = try await AllowedConnections.anyConnection()
 
             let sk = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
-            let keyRef = SCPKeyRef(kid: 0x01, kvn: 0x01)
+            let keyRef = SCPKeyRef(kid: .scp03, kvn: 0x01)
             let params = SCP03KeyParams(keyRef: keyRef, staticKeys: sk)
 
             // reset YubiKey's SCP state to the factory default

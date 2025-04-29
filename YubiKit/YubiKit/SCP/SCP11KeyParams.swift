@@ -23,10 +23,19 @@ public struct SCP11KeyParams: SCPKeyParams {
     public let skOceEcka: SecKey?
     public let certificates: [SecCertificate]
     
-    // remove nullable fields in objc
     init(keyRef: SCPKeyRef, pkSdEcka: SecKey, oceKeyRef: SCPKeyRef? = nil, skOceEcka: SecKey? = nil, certificates: [SecCertificate] = []) {
-        guard 0xff & keyRef.kid == 0x13 else {
-            fatalError("Invalid KID for SCP03")
+        switch (keyRef.kid) {
+        case .scp11b:
+            if (oceKeyRef != nil || skOceEcka != nil || !certificates.isEmpty) {
+                fatalError("Cannot provide oceKeyRef, skOceEcka or certificates for SCP11b")
+            }
+        case .scp11a:
+        case .scp11c:
+            if (oceKeyRef == nil || skOceEcka == nil || certificates.isEmpty) {
+                fatalError("Must provide oceKeyRef, skOceEcka or certificates for SCP11a/c")
+            }
+        default:
+            fatalError("KID must be 0x11, 0x13, or 0x15 for SCP11")
         }
         self.keyRef = keyRef
         self.pkSdEcka = pkSdEcka

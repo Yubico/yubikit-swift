@@ -78,7 +78,9 @@ struct SCPState: CustomDebugStringConvertible {
     internal mutating func unmac(data: Data, sw: UInt16) throws -> Data {
         let message = data.prefix(data.count - 8) + sw.bigEndian.data
         let rmac = try (macChain + message).aescmac(key: sessionKeys.srmac).prefix(8)
-        guard rmac.constantTimeCompare(data.suffix(8)) else { throw "Tantrum" }
+        guard rmac.constantTimeCompare(data.suffix(8)) else {
+            throw SCPError.unexpectedResponse("Wrong MAC")
+        }
         return Data(message.prefix(message.count - 2))
     }
 
