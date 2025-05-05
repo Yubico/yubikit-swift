@@ -18,14 +18,11 @@ import CryptoTokenKit
 
 final class SCP03FullStackTests: XCTestCase {
 
-    static let defaultKeyRef = SCPKeyRef(kid: .scp03, kvn: 0xff)
-    static let defaultKey = Data([0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f])
-    static let defaultKeyParams = SCP03KeyParams(keyRef: defaultKeyRef, staticKeys: StaticKeys(enc: defaultKey, mac: defaultKey, dek: defaultKey))
-
     func testDefaultKeys() throws {
         runSCPTest { [self] in
 
-            let managementSession = try  await ManagementSession.session(withConnection: connection, scpKeyParams: Self.defaultKeyParams)
+            let managementSession = try  await ManagementSession.session(withConnection: connection,
+                                                                         scpKeyParams: defaultKeyParams)
             _ = try await managementSession.getDeviceInfo()
             XCTAssertTrue(true) // reached here
         }
@@ -38,7 +35,8 @@ final class SCP03FullStackTests: XCTestCase {
             try await SecurityDomainSession.session(withConnection: connection).reset()
 
             // new session that authenticates with the default keys
-            let session = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: Self.defaultKeyParams)
+            let session = try await SecurityDomainSession.session(withConnection: connection,
+                                                                  scpKeyParams: defaultKeyParams)
 
             // new keys
             let sk = Data([0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
@@ -59,7 +57,7 @@ final class SCP03FullStackTests: XCTestCase {
             // shouldn't work anymore and must throw an error
             do {
                 let _ = try await SecurityDomainSession.session(withConnection: connection,
-                                                                scpKeyParams: Self.defaultKeyParams)
+                                                                scpKeyParams: defaultKeyParams)
                 XCTFail("Should not reach here")
             } catch {
                 XCTAssertTrue(true)
@@ -90,7 +88,8 @@ final class SCP03FullStackTests: XCTestCase {
             try await SecurityDomainSession.session(withConnection: connection).reset()
 
             // import first key using default credentials
-            var session = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: Self.defaultKeyParams)
+            var session = try await SecurityDomainSession.session(withConnection: connection,
+                                                                  scpKeyParams: defaultKeyParams)
             try await session.putKey(keyRef: keyRef1, keys: staticKeys1, replaceKvn: 0)
 
             // authenticate with first key and import second
@@ -145,7 +144,8 @@ final class SCP03FullStackTests: XCTestCase {
             try await SecurityDomainSession.session(withConnection: connection).reset()
 
             // import keyRef1 with default credentials
-            var session = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: Self.defaultKeyParams)
+            var session = try await SecurityDomainSession.session(withConnection: connection,
+                                                                  scpKeyParams: defaultKeyParams)
             try await session.putKey(keyRef: keyRef1, keys: sk1, replaceKvn: 0)
 
             // authenticate with keyRef1 and replace it with keyRef2
@@ -197,7 +197,8 @@ final class SCP03FullStackTests: XCTestCase {
             }
 
             // Authenticate successfully with default key after failure
-            let session = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: Self.defaultKeyParams)
+            let session = try await SecurityDomainSession.session(withConnection: connection,
+                                                                  scpKeyParams: defaultKeyParams)
             _ = try await session.getKeyInformation()
             XCTAssertTrue(true)
         }

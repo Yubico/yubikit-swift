@@ -49,8 +49,6 @@ private var _connection: Connection!
 
 private let _defaultKeyParams: SCP03KeyParams = {
     let defaultKeyRef = SCPKeyRef(kid: .scp03, kvn: 0xff)
-    let defaultKey = Data([0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
-                           0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f])
     return SCP03KeyParams(keyRef: defaultKeyRef,
-                          staticKeys: StaticKeys(enc: defaultKey, mac: defaultKey, dek: defaultKey))
+                          staticKeys: StaticKeys.defaultKeys())
 }()
