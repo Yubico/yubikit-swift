@@ -115,12 +115,15 @@ internal class SCPProcessor {
             var error: Unmanaged<CFError>?
             guard let eskOceEcka = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
                   let epkOceEcka = SecKeyCopyPublicKey(eskOceEcka) else {
-                fatalError((error!.takeRetainedValue() as Error).localizedDescription)
+                let error: Error = error!.takeRetainedValue()
+                throw SCPError.wrapped(error)
             }
 
             guard let externalRepresentation = SecKeyCopyExternalRepresentation(epkOceEcka, &error) as? Data else {
-                fatalError((error!.takeRetainedValue() as Error).localizedDescription)
+                let error: Error = error!.takeRetainedValue()
+                throw SCPError.wrapped(error)
             }
+
             let epkOceEckaData = externalRepresentation.subdata(in: 0 ..< 1 + 2 * Int(32)) // TODO: Get correct size from key attributes
             print("externalRepresentation: \(externalRepresentation.hexEncodedString)")
             print("epkOceEckaData: \(epkOceEckaData.hexEncodedString)")

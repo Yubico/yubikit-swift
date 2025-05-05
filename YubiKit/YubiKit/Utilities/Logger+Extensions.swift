@@ -36,7 +36,7 @@ extension Logger {
     static let nfc = Logger(subsystem: subsystem, category: "NFC")
     static let lightning = Logger(subsystem: subsystem, category: "Lightning")
     static let smartCard = Logger(subsystem: subsystem, category: "SmartCard")
-    
+
     static let oath = Logger(subsystem: subsystem, category: "OATH")
     static let management = Logger(subsystem: subsystem, category: "Management")
     static let piv = Logger(subsystem: subsystem, category: "PIV")

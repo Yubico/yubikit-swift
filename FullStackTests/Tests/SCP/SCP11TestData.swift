@@ -82,8 +82,6 @@ NhjOla4n7fzKkiDN6t4Gjngfe6yhRANCAASYyRCUFDM7fb0iOwyaO4ayzp+vh7Uh
 onFbCuzgYKMLHplN3r8cyQNuso0J5UqZUwVyllE1EAF2Pu+RlJvtnYD2
 -----END PRIVATE KEY-----
 """
-
-    static let password = "password"
 }
 
 // MARK: - Private helpers to parse from PEM
