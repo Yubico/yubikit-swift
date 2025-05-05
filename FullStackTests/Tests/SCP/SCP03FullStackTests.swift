@@ -43,7 +43,7 @@ final class SCP03FullStackTests: XCTestCase {
                            0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47])
             let staticKeys = StaticKeys(enc: sk, mac: sk, dek: sk)
             let keyRef = SCPKeyRef(kid: .scp03, kvn: 0x01)
-            let params = SCP03KeyParams(keyRef: keyRef, staticKeys: staticKeys)
+            let params = try SCP03KeyParams(keyRef: keyRef, staticKeys: staticKeys)
 
             // import new key
             try await session.putKey(keyRef: keyRef, keys: staticKeys, replaceKvn: 0)
@@ -81,8 +81,8 @@ final class SCP03FullStackTests: XCTestCase {
 
             let keyRef1 = SCPKeyRef(kid: .scp03, kvn: 0x10)
             let keyRef2 = SCPKeyRef(kid: .scp03, kvn: 0x55)
-            let params1 = SCP03KeyParams(keyRef: keyRef1, staticKeys: staticKeys1)
-            let params2 = SCP03KeyParams(keyRef: keyRef2, staticKeys: staticKeys2)
+            let params1 = try SCP03KeyParams(keyRef: keyRef1, staticKeys: staticKeys1)
+            let params2 = try SCP03KeyParams(keyRef: keyRef2, staticKeys: staticKeys2)
 
             // reset YubiKey's SCP state to the factory default
             try await SecurityDomainSession.session(withConnection: connection).reset()
@@ -137,8 +137,8 @@ final class SCP03FullStackTests: XCTestCase {
             let keyRef1 = SCPKeyRef(kid: .scp03, kvn: 0x10)
             let keyRef2 = SCPKeyRef(kid: .scp03, kvn: 0x55)
 
-            let params1 = SCP03KeyParams(keyRef: keyRef1, staticKeys: sk1)
-            let params2 = SCP03KeyParams(keyRef: keyRef2, staticKeys: sk2)
+            let params1 = try SCP03KeyParams(keyRef: keyRef1, staticKeys: sk1)
+            let params2 = try SCP03KeyParams(keyRef: keyRef2, staticKeys: sk2)
 
             // reset to factory default
             try await SecurityDomainSession.session(withConnection: connection).reset()
@@ -172,7 +172,7 @@ final class SCP03FullStackTests: XCTestCase {
 
             let sk = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
             let keyRef = SCPKeyRef(kid: .scp03, kvn: 0x01)
-            let params = SCP03KeyParams(keyRef: keyRef, staticKeys: sk)
+            let params = try SCP03KeyParams(keyRef: keyRef, staticKeys: sk)
 
             // reset YubiKey's SCP state to the factory default
             try await SecurityDomainSession.session(withConnection: connection).reset()

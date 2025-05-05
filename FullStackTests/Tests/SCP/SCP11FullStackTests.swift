@@ -134,7 +134,7 @@ final class SCP11aFullStackTests: XCTestCase {
                                                             scpKeyParams: self.defaultKeyParams)
         try await session.putKey(keyRef: scp03Ref, keys: staticKeys, replaceKvn: 0)
 
-        return SCP03KeyParams(keyRef: scp03Ref, staticKeys: staticKeys)
+        return try SCP03KeyParams(keyRef: scp03Ref, staticKeys: staticKeys)
     }
 }
 
@@ -177,7 +177,7 @@ final class SCP11bFullStackTests: XCTestCase {
             SecTrustCreateWithCertificates(first, SecPolicyCreateBasicX509(), &trust)
             let cert = SecTrustCopyKey(trust!)! // make sure we can read the public key
 
-            let params = SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: cert)
+            let params = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: cert)
 
             do {
                 let _ = try await ManagementSession.session(withConnection: connection, scpKeyParams: params)
@@ -217,7 +217,7 @@ final class SCP11bFullStackTests: XCTestCase {
 
             try await securityDomainSession.putKey(keyRef: scpKeyRef, privateKey: privateKey, replaceKvn: 0)
 
-            let params = SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
+            let params = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
             let _ = try await ManagementSession.session(withConnection: connection, scpKeyParams: params)
 
             XCTAssert(true, "Successfully imported key pair and authenticated")
@@ -302,10 +302,10 @@ private extension SecurityDomainSession {
         let sk = Scp11TestData.secretKey
 
         // Return all parameters needed for establishing an SCP11 session
-        return SCP11KeyParams(keyRef: sessionRef,
-                              pkSdEcka: publicKey,
-                              oceKeyRef: oceRef,
-                              skOceEcka: sk,
-                              certificates: [ka, ecka])
+        return try SCP11KeyParams(keyRef: sessionRef,
+                                  pkSdEcka: publicKey,
+                                  oceKeyRef: oceRef,
+                                  skOceEcka: sk,
+                                  certificates: [ka, ecka])
     }
 }
