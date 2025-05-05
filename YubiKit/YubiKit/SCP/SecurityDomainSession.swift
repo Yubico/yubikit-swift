@@ -439,42 +439,6 @@ public final actor SecurityDomainSession: Session {
         }
         Logger.securityDomain.info("SCP11 private key imported")
     }
-
-    /*
-    /// Imports a public key for authentication of the off-card entity for SCP11a/c.
-    /// Requires off-card entity verification.
-    /// - Parameter keyRef: the KID-KVN pair to assign the new public key
-    /// - Parameter publicKey: a public EC key used as CA to authenticate the off-card entity
-    /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
-    public func putKey(keyRef: SCPKeyRef, publicKey: SecKey, replaceKvn: UInt8) async throws(SCPError) {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
-
-        guard publicKey.isSECP256R1Key() else {
-            throw SCPError.illegalArgument
-        }
-
-        var error: Unmanaged<CFError>?
-        guard let publicKeyData = SecKeyCopyExternalRepresentation(publicKey, &error) as Data? else {
-            throw error.map { .wrapped($0.takeRetainedValue()) } ?? .illegalArgument
-        }
-
-        var data = Data()
-        data.append(keyRef.kvn)
-        let expected = Data([keyRef.kvn])
-
-        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKeyData).data)
-        data.append(TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data)
-        data.append(0x00)
-
-        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: keyRef.kid, command: data)
-        let resp = try await send(apdu: apdu)
-        guard resp.constantTimeCompare(expected) else {
-            throw .unexpectedResponse
-        }
-
-        Logger.securityDomain.debug("SCP11 public key imported")
-    }
-    */
     
     /// Perform a factory reset of the Security Domain.
     /// This will remove all keys and associated data, as well as restore the default SCP03 static keys,
