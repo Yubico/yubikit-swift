@@ -99,9 +99,8 @@ extension Data {
         var outLength: Int = 0
         let bufferLength = self.count + blockSize
         var buffer = Data(count: bufferLength)
-        //        let options = iv == nil ? CCOptions(kCCOptionECBMode) : 0
         let iv = iv ?? Data()
-        
+
         let cryptorStatus: CCCryptorStatus = buffer.withUnsafeMutableBytes { bufferBytes in
             self.withUnsafeBytes { dataBytes in
                 key.withUnsafeBytes { keyBytes in

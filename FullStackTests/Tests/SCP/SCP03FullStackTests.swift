@@ -16,33 +16,24 @@ import XCTest
 @testable import YubiKit
 import CryptoTokenKit
 
-class SCP03FullStackTests: XCTestCase {
-    
+final class SCP03FullStackTests: XCTestCase {
+
     static let defaultKeyRef = SCPKeyRef(kid: .scp03, kvn: 0xff)
     static let defaultKey = Data([0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f])
     static let defaultKeyParams = SCP03KeyParams(keyRef: defaultKeyRef, staticKeys: StaticKeys(enc: defaultKey, mac: defaultKey, dek: defaultKey))
 
     func testDefaultKeys() throws {
-        runAsyncTest() {
-            let connection = try await AllowedConnections.anyConnection()
+        runSCPTest { [self] in
 
-            // reset YubiKey's SCP state to the factory default
-            try await SecurityDomainSession.session(withConnection: connection).reset()
-
-            do {
-                let managementSession = try  await ManagementSession.session(withConnection: connection, scpKeyParams: Self.defaultKeyParams)
-                _ = try await managementSession.getDeviceInfo()
-                XCTAssertTrue(true) // reached here
-            } catch {
-                XCTFail("Failed with: \(error)")
-            }
+            let managementSession = try  await ManagementSession.session(withConnection: connection, scpKeyParams: Self.defaultKeyParams)
+            _ = try await managementSession.getDeviceInfo()
+            XCTAssertTrue(true) // reached here
         }
     }
 
     func testImportKey() throws {
-        runAsyncTest {
-            let connection = try await AllowedConnections.anyConnection()
-
+        runSCPTest { [self] in
+            
             // reset YubiKey's SCP state to the factory default
             try await SecurityDomainSession.session(withConnection: connection).reset()
 
@@ -77,7 +68,7 @@ class SCP03FullStackTests: XCTestCase {
     }
 
     func testDeleteKey() throws {
-        runAsyncTest {
+        runSCPTest { [self] in
 
             // generate two random static key sets
             let sk1enc = generateRandomKey()
@@ -94,8 +85,6 @@ class SCP03FullStackTests: XCTestCase {
             let keyRef2 = SCPKeyRef(kid: .scp03, kvn: 0x55)
             let params1 = SCP03KeyParams(keyRef: keyRef1, staticKeys: staticKeys1)
             let params2 = SCP03KeyParams(keyRef: keyRef2, staticKeys: staticKeys2)
-
-            let connection = try await AllowedConnections.anyConnection()
 
             // reset YubiKey's SCP state to the factory default
             try await SecurityDomainSession.session(withConnection: connection).reset()
@@ -141,7 +130,8 @@ class SCP03FullStackTests: XCTestCase {
     }
 
     func testReplaceKey() throws {
-        runAsyncTest {
+        runSCPTest { [self] in
+
             let sk1 = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
             let sk2 = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
 
@@ -150,8 +140,6 @@ class SCP03FullStackTests: XCTestCase {
 
             let params1 = SCP03KeyParams(keyRef: keyRef1, staticKeys: sk1)
             let params2 = SCP03KeyParams(keyRef: keyRef2, staticKeys: sk2)
-
-            let connection = try await AllowedConnections.anyConnection()
 
             // reset to factory default
             try await SecurityDomainSession.session(withConnection: connection).reset()
@@ -180,8 +168,7 @@ class SCP03FullStackTests: XCTestCase {
     }
 
     func testWrongKey() throws {
-        runAsyncTest {
-            let connection = try await AllowedConnections.anyConnection()
+        runSCPTest { [self] in
 
             let sk = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
             let keyRef = SCPKeyRef(kid: .scp03, kvn: 0x01)

@@ -17,14 +17,10 @@ import XCTest
 import CryptoKit
 
 // MARK: - SCP 11a
-final class SCP11aFullStackTests: SCP11FullStackTests {
+final class SCP11aFullStackTests: XCTestCase {
 
-    func testScp11aAuthenticate() throws {
-        runAsyncTest {
-            let connection = try await AllowedConnections.anyConnection()
-
-            // reset YubiKey's SCP state to the factory default
-            try await SecurityDomainSession.session(withConnection: connection).reset()
+    func testAuthenticate() throws {
+        runSCPTest { [self] in
 
             let scpKeyRef = SCPKeyRef(kid: .scp11a, kvn: 0x03)
 
@@ -42,8 +38,9 @@ final class SCP11aFullStackTests: SCP11FullStackTests {
         }
     }
 
-    func testScp11aAllowList() throws {
-        runAsyncTest {
+    func testAllowList() throws {
+        runSCPTest { [self] in
+
             let connection = try await AllowedConnections.anyConnection()
 
             // Reset YubiKey SCP state to factory defaults
@@ -76,12 +73,8 @@ final class SCP11aFullStackTests: SCP11FullStackTests {
         }
     }
 
-    func testScp11aAllowListBlocked() throws {
-        runAsyncTest { [unowned self] in
-            let connection = try await AllowedConnections.anyConnection()
-
-            // Reset YubiKey SCP state to factory defaults
-            try await SecurityDomainSession.session(withConnection: connection).reset()
+    func testAllowListBlocked() throws {
+        runSCPTest { [self] in
 
             let kvn: UInt8 = 0x03
             let scpKeyRef = SCPKeyRef(kid: .scp11a, kvn: kvn)
@@ -146,14 +139,10 @@ final class SCP11aFullStackTests: SCP11FullStackTests {
 }
 
 // MARK: - SCP 11b
-final class SCP11bFullStackTests: SCP11FullStackTests {
+final class SCP11bFullStackTests: XCTestCase {
 
-    func testScp11bAuthenticate() throws {
-        runAsyncTest {
-            let connection = try await AllowedConnections.anyConnection()
-
-            // reset YubiKey's SCP state to the factory default
-            try await SecurityDomainSession.session(withConnection: connection).reset()
+    func testAuthenticate() throws {
+        runSCPTest { [self] in
 
             let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
@@ -176,12 +165,8 @@ final class SCP11bFullStackTests: SCP11FullStackTests {
         }
     }
 
-    func testScp11bWrongPubKey() throws {
-        runAsyncTest {
-            let connection = try await AllowedConnections.anyConnection()
-
-            // reset YubiKey's SCP state to the factory default
-            try await SecurityDomainSession.session(withConnection: connection).reset()
+    func testWrongPubKey() throws {
+        runSCPTest { [self] in
 
             let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
@@ -207,12 +192,8 @@ final class SCP11bFullStackTests: SCP11FullStackTests {
         }
     }
 
-    func testScp11bImport() throws {
-        runAsyncTest {
-            let connection = try await AllowedConnections.anyConnection()
-
-            // reset YubiKey's SCP state to the factory default
-            try await SecurityDomainSession.session(withConnection: connection).reset()
+    func testImport() throws {
+        runSCPTest { [self] in
 
             let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: self.defaultKeyParams)
 
@@ -241,6 +222,52 @@ final class SCP11bFullStackTests: SCP11FullStackTests {
 
             XCTAssert(true, "Successfully imported key pair and authenticated")
         }
+    }
+}
+
+// MARK: - SCP 11c
+final class SCP11cFullStackTests: XCTestCase {
+
+    func testAuthenticate() throws {
+        runSCPTest { [self] in
+
+            let scpKeyRef = SCPKeyRef(kid: .scp11c, kvn: 0x03)
+
+            // first we load keys using SCP03
+            var securityDomainSession = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: self.defaultKeyParams)
+            let scpKeyParams = try await securityDomainSession.loadKeys(scpKeyRef)
+
+            // then we reauthenticate using 11c
+            securityDomainSession = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: scpKeyParams)
+
+            // delete the previously loaded keys
+            do {
+                try await securityDomainSession.deleteKey(keyRef: scpKeyRef)
+            } catch {
+                if case let SCPError.wrapped(error) = error, let error = error as? ResponseError {
+                    XCTAssert(error.responseStatus.status == .securityConditionNotSatisfied)
+                } else {
+                    XCTFail("Failed: Wrong error type: \(error)")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Helpers
+private extension SecCertificate {
+    var getSKI: Data? {
+        guard let pubKey = SecCertificateCopyKey(self) else {
+            return nil
+        }
+
+        var keyErr: Unmanaged<CFError>?
+        guard let rawKey = SecKeyCopyExternalRepresentation(pubKey, &keyErr) as Data? else {
+            return nil
+        }
+
+        let digest = Insecure.SHA1.hash(data: rawKey)
+        return Data(digest)
     }
 }
 
@@ -280,68 +307,5 @@ private extension SecurityDomainSession {
                               oceKeyRef: oceRef,
                               skOceEcka: sk,
                               certificates: [ka, ecka])
-    }
-}
-
-// MARK: - SCP 11c
-final class SCP11cFullStackTests: SCP11FullStackTests {
-
-    func testScp11cAuthenticate() throws {
-        runAsyncTest {
-            let connection = try await AllowedConnections.anyConnection()
-
-            // reset YubiKey's SCP state to the factory default
-            try await SecurityDomainSession.session(withConnection: connection).reset()
-
-            let scpKeyRef = SCPKeyRef(kid: .scp11c, kvn: 0x03)
-
-            // first we load keys using SCP03
-            var securityDomainSession = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: self.defaultKeyParams)
-            let scpKeyParams = try await securityDomainSession.loadKeys(scpKeyRef)
-
-            // then we reauthenticate using 11c
-            securityDomainSession = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: scpKeyParams)
-
-            // delete the previously loaded keys
-            do {
-                try await securityDomainSession.deleteKey(keyRef: scpKeyRef)
-            } catch {
-                if case let SCPError.wrapped(error) = error, let error = error as? ResponseError {
-                    XCTAssert(error.responseStatus.status == .securityConditionNotSatisfied)
-                } else {
-                    XCTFail("Failed: Wrong error type: \(error)")
-                }
-            }
-        }
-    }
-}
-
-
-// MARK: - Parent helper class (tests nothing)
-class SCP11FullStackTests: XCTestCase {
-    let defaultKeyParams: SCP03KeyParams = {
-        let defaultKeyRef = SCPKeyRef(kid: .scp03, kvn: 0xff)
-        let defaultKey = Data([0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
-                               0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f])
-        return SCP03KeyParams(keyRef: defaultKeyRef,
-                              staticKeys: StaticKeys(enc: defaultKey, mac: defaultKey, dek: defaultKey))
-    }()
-}
-
-
-// MARK: - Helpers
-private extension SecCertificate {
-    var getSKI: Data? {
-        guard let pubKey = SecCertificateCopyKey(self) else {
-            return nil
-        }
-
-        var keyErr: Unmanaged<CFError>?
-        guard let rawKey = SecKeyCopyExternalRepresentation(pubKey, &keyErr) as Data? else {
-            return nil
-        }
-
-        let digest = Insecure.SHA1.hash(data: rawKey)
-        return Data(digest)
     }
 }

@@ -18,6 +18,10 @@ protocol HasLogger {
     static var logger: Logger { get }
 }
 
+extension HasLogger {
+    var logger: Logger { Self.logger }
+}
+
 protocol HasSmartCardLogger: HasLogger { }
 extension HasSmartCardLogger {
     static var logger: Logger { .smartCard }
