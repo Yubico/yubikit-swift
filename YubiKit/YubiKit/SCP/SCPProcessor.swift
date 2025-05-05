@@ -18,14 +18,14 @@ fileprivate let insInitializeUpdate: UInt8 = 0x50
 
 typealias SCPKid  = SCPKeyRef.Kid
 
-internal class SCPProcessor {
+internal class SCPProcessor: HasSCPLogger {
 
     internal var state: SCPState
 
     internal init(connection: Connection, keyParams: SCPKeyParams, insSendRemaining: UInt8 = 0xc0) async throws {
         if let scp03Params = keyParams as? SCP03KeyParams {
             let hostChallenge = Data.random(length: 8)
-            print("Send challenge: \(hostChallenge.hexEncodedString)")
+            Self.trace(message: "send challenge: \(hostChallenge.hexEncodedString)")
             var result = try await connection.send(apdu: APDU(cla: 0x80, ins: insInitializeUpdate, p1: keyParams.keyRef.kvn, p2: 0x00, command: hostChallenge), insSendRemaining: insSendRemaining)
 
             guard let _ = result.extract(10), // diversificationData
@@ -51,7 +51,7 @@ internal class SCPProcessor {
             let finalizeApdu = APDU(cla: 0x84, ins: 0x82, p1: 0x33, p2: 0, command: hostCryptogram)
             _ = try await self.send(apdu: finalizeApdu, using: connection, encrypt: false, insSendRemaining: insSendRemaining)
 
-            print("✅ done configuring SCP03")
+            trace(message: "done configuring SCP03")
             return
         }
 
@@ -85,7 +85,7 @@ internal class SCPProcessor {
                     let certDer = SecCertificateCopyData(cert) as Data
                     // For every cert except the last, set bit 7 of P2 to indicate "more blocks"
                     let p2: UInt8 = oceRef.kid | (index < certificates.count - 1 ? 0x80 : 0x00)
-                    print("👾 Sending certificate \(index)")
+                    Self.trace(message: "sending certificate \(index)")
                     _ = try await connection.send(
                         apdu: APDU(
                             cla: 0x80,
@@ -105,9 +105,9 @@ internal class SCPProcessor {
             let pkSdEcka = scp11Params.pkSdEcka
 
             if let pkSdEckaData = SecKeyCopyExternalRepresentation(pkSdEcka, nil) as Data? {
-                print("pkSdEcka: \(pkSdEckaData.hexEncodedString)")
+                Self.trace(message: "pkSdEcka: \(pkSdEckaData.hexEncodedString)")
             } else {
-                print("Failed to extract pkSdEcka external representation")
+                Self.trace(message: "Failed to extract pkSdEcka external representation")
             }
 
             let attributes = [kSecAttrKeyType: kSecAttrKeyTypeEC, kSecAttrKeySizeInBits: 256] as [CFString : Any]
@@ -125,10 +125,10 @@ internal class SCPProcessor {
             }
 
             let epkOceEckaData = externalRepresentation.subdata(in: 0 ..< 1 + 2 * Int(32)) // TODO: Get correct size from key attributes
-            print("externalRepresentation: \(externalRepresentation.hexEncodedString)")
-            print("epkOceEckaData: \(epkOceEckaData.hexEncodedString)")
+            Self.trace(message: "externalRepresentation: \(externalRepresentation.hexEncodedString)")
+            Self.trace(message: "epkOceEckaData: \(epkOceEckaData.hexEncodedString)")
 
-            print("params: \(Data([0x11, params]).hexEncodedString)")
+            Self.trace(message: "params: \(Data([0x11, params]).hexEncodedString)")
 
             // GPC v2.3 Amendment F (SCP11) v1.4 §7.6.2.3
             let data = TKBERTLVRecord(tag: 0xa6, value: TKBERTLVRecord(tag: 0x90, value: Data([0x11, params])).data +
@@ -136,10 +136,10 @@ internal class SCPProcessor {
                                                         TKBERTLVRecord(tag: 0x80, value: keyType).data +
                                                         TKBERTLVRecord(tag: 0x81, value: keyLen).data
                                       ).data + TKBERTLVRecord(tag: 0x5f49, value: epkOceEckaData).data
-            print("data: \(data.hexEncodedString)")
+            Self.trace(message: "data: \(data.hexEncodedString)")
             let skOceEcka = scp11Params.skOceEcka ?? eskOceEcka
             let ins: UInt8 = kid == .scp11b ? 0x88 : 0x82
-            print("👾 Sending: \(APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data))")
+            Self.trace(message: "sending: \(APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data))")
             let response = try await connection.send(apdu: APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data))
 
             guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: response), tlvs.count == 2 else {
@@ -164,19 +164,19 @@ internal class SCPProcessor {
             var keys = [Data]()
 
             for counter in UInt32(1)...UInt32(4) {
-                print("counter: \(counter.bigEndian)")
-                print("hex counter: \(counter.bigEndian.data.hexEncodedString)")
+                Self.trace(message: "counter: \(counter.bigEndian)")
+                Self.trace(message: "hex counter: \(counter.bigEndian.data.hexEncodedString)")
                 let data = keyMaterial + counter.bigEndian.data + sharedInfo
                 var digest = data.sha256()
                 keys.append(digest.extract(16)!)
                 keys.append(digest)
             }
 
-            print("keys[0]: \(keys[0].hexEncodedString)")
+            Self.trace(message: "keys[0]: \(keys[0].hexEncodedString)")
             let genReceipt = try keyAgreementData.aescmac(key: keys[0])
             
-            print("receipt: \(receipt.hexEncodedString)")
-            print("genReceipt: \(genReceipt.hexEncodedString)")
+            Self.trace(message: "receipt: \(receipt.hexEncodedString)")
+            Self.trace(message: "genReceipt: \(genReceipt.hexEncodedString)")
 
             guard genReceipt.constantTimeCompare(receipt) else {
                 throw SCPError.unexpectedResponse("Receipt does not match")
@@ -185,7 +185,7 @@ internal class SCPProcessor {
             let sessionKeys = SCPSessionKeys(senc: keys[1], smac: keys[2], srmac: keys[3], dek: keys[4])
             self.state = SCPState(sessionKeys: sessionKeys, macChain: receipt)
 
-            print("✅ done configuring SCP11")
+            Self.trace(message: "done configuring SCP11")
             return
         }
 
@@ -202,7 +202,7 @@ internal class SCPProcessor {
     }
 
     private func send(apdu: APDU, using connection: any Connection, encrypt: Bool, insSendRemaining: UInt8) async throws -> Data {
-        print("👾 send(... encrypt: \(encrypt)) \(apdu), \(state)")
+        trace(message: "send(... encrypt: \(encrypt)) \(apdu), \(state)")
         let data: Data
         if encrypt {
             data = try state.encrypt(apdu.command ?? Data())
@@ -212,7 +212,7 @@ internal class SCPProcessor {
         let cla = apdu.cla | 0x04
 
         let mac = try state.mac(data: APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + Data(count: 8)).data.dropLast(8))
-        print("👾 processed apdu: \(APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac))")
+        trace(message: "processed apdu: \(APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac))")
         var result = try await connection.send(apdu: APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac), insSendRemaining: insSendRemaining)
 
         if !result.isEmpty {

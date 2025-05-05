@@ -15,7 +15,7 @@
 import CommonCrypto
 import Foundation
 
-struct SCPState: CustomDebugStringConvertible {
+struct SCPState: CustomDebugStringConvertible, HasSCPLogger {
     var debugDescription: String {
         "SCPState(sessionKeys: \(sessionKeys), macChain: \(macChain.hexEncodedString), encCounter: \(encCounter)"
     }
@@ -30,7 +30,8 @@ struct SCPState: CustomDebugStringConvertible {
     }
     
     internal mutating func encrypt(_ data: Data) throws -> Data {
-        print("👾 encrypt \(data.hexEncodedString) using \(self)")
+        trace(message: "encrypt \(data.hexEncodedString) using \(self)")
+
         let paddedData = data.bitPadded()
         var ivData = Data(count: 12)
         ivData.append(self.encCounter.bigEndian.data)
@@ -40,7 +41,8 @@ struct SCPState: CustomDebugStringConvertible {
     }
     
     internal mutating func decrypt(_ data: Data) throws -> Data {
-        print("decrypt: \(data.hexEncodedString)")
+        trace(message: "decrypt: \(data.hexEncodedString)")
+
         var ivData = Data()
         ivData.append(UInt8(0x80))
         ivData.append(Data(count: 11))
@@ -52,7 +54,9 @@ struct SCPState: CustomDebugStringConvertible {
         defer {
             decrypted.secureClear()
         }
-        print("decrypted: \(decrypted.hexEncodedString)")
+
+        trace(message: "\(decrypted.hexEncodedString)")
+
         return unpadData(decrypted)!
     }
     

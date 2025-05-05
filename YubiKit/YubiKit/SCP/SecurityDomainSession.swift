@@ -28,8 +28,8 @@ public enum SCPError: Error {
     static var notSupported: SCPError { .notSupported(nil) }
 }
 
-public final actor SecurityDomainSession: Session {
-    
+public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
+
     private let connection: Connection
     private let processor: SCPProcessor?
 
@@ -46,46 +46,44 @@ public final actor SecurityDomainSession: Session {
             throw .wrapped(error)
         }
     }
-    
+
+    // @TraceScope
     public static func session(withConnection connection: Connection,
                                scpKeyParams: SCPKeyParams? = nil) async throws(SCPError) -> SecurityDomainSession {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await SecurityDomainSession(connection: connection, scpKeyParams: scpKeyParams)
     }
     
     nonisolated public func supports(_ feature: SessionFeature) -> Bool {
         return true
     }
-    
+
+    // @TraceScope
     public func getData(tag: UInt16, data: Data?) async throws(SCPError) -> Data {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await send(apdu: APDU(cla: 0x00, ins: 0xCA, p1: UInt8(tag >> 8),
                                          p2: UInt8(tag & 0xff),
                                          command: data))
     }
-    
+
+    // @TraceScope
     public func storeData(_ data: Data) async throws(SCPError) {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
         do {
             try await send(apdu: APDU(cla: 0x00, ins: 0xE2, p1: 0x90, p2: 0x00, command: data))
         } catch {
             throw .wrapped(error)
         }
     }
-    
-    public func getCardRecognitionData() async throws(SCPError) -> Data {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
 
+    // @TraceScope
+    public func getCardRecognitionData() async throws(SCPError) -> Data {
         let data = try await self.getData(tag: 0x66, data: nil)
         guard let tlv = TKBERTLVRecord(from: data), tlv.tag == 0x73 else {
             throw .unexpectedResponse
         }
         return tlv.value
     }
-    
-    public func getKeyInformation() async throws(SCPError) -> [SCPKeyRef: [UInt8: UInt8]] {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
 
+    // @TraceScope
+    public func getKeyInformation() async throws(SCPError) -> [SCPKeyRef: [UInt8: UInt8]] {
         let tlvData: Data = try await self.getData(tag: 0xE0, data: nil)
         guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: tlvData) else {
             throw SCPError.unexpectedResponse
@@ -117,9 +115,9 @@ public final actor SecurityDomainSession: Session {
 
         return keys
     }
-    
+
+    // @TraceScope
     public func getCertificateBundle(scpKeyRef: SCPKeyRef) async throws(SCPError) -> [SecCertificate] {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
 
         do {
             let result = try await getData(tag: 0xBF21, data: TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: scpKeyRef.data).data).data)
@@ -141,9 +139,9 @@ public final actor SecurityDomainSession: Session {
             }
         }
     }
-    
+
+    // @TraceScope
     public func getSupportedCaIdentifiers(kloc: Bool, klcc: Bool) async throws(SCPError) -> [SCPKeyRef: Data] {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
 
         if !kloc && !klcc {
             throw .illegalArgument
@@ -186,8 +184,8 @@ public final actor SecurityDomainSession: Session {
     /// Certificates should be in order, with the leaf certificate last.
     /// - Parameter keyRef: a reference to the key for which to store the certificates
     /// - Parameter certificates: the certificates to store
+    // @TraceScope
     public func storeCertificateBundle(keyRef: SCPKeyRef, certificiates: [SecCertificate]) async throws(SCPError) {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
 
         var certsData = Data()
         certificiates.forEach { certificate in
@@ -206,8 +204,8 @@ public final actor SecurityDomainSession: Session {
     /// If no allowlist is stored, any certificate signed by the CA can be used.
     /// - Parameter keyRef: a reference to the key for which to store the allowlist
     /// - Parameter serials: the list of serial numbers to store
+    // @TraceScope
     public func storeAllowlist(keyRef: SCPKeyRef, serials: [Data]) async throws(SCPError) {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
         
         var serialsData = Data()
         serials.forEach { serial in
@@ -221,9 +219,8 @@ public final actor SecurityDomainSession: Session {
     /// Requires off-card entity verification.
     /// - Parameter keyRef: a reference to the key for which to store the CA issuer
     /// - Parameter ski: the Subject Key Identifier to store
+    // @TraceScope
     public func storeCaIssuer(keyRef: SCPKeyRef, ski: Data) async throws(SCPError) {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
-
         let klcc: UInt8
         switch keyRef.kid {
         case SCPKid.scp11a, SCPKid.scp11b, SCPKid.scp11c: klcc = 1
@@ -242,9 +239,8 @@ public final actor SecurityDomainSession: Session {
     /// To delete the final key you must set deleteLast = true.
     /// - Parameter keyRef: a reference to the key to delete
     /// - Parameter deleteLast: must be true if deleting the final key, false otherwise
+    // @TraceScope
     public func deleteKey(keyRef: SCPKeyRef, deleteLast: Bool = false) async throws(SCPError) {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
-
         var kid = keyRef.kid
         let kvn = keyRef.kvn
 
@@ -279,9 +275,8 @@ public final actor SecurityDomainSession: Session {
     /// - Parameter keyRef: the KID-KVN pair to assign the new key
     /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
     /// - Returns: the public key from the generated key pair
+    // @TraceScope
     public func generateEcKey(keyRef: SCPKeyRef, replaceKvn: UInt8) async throws(SCPError) -> SecKey {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
-
         let params = TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data
         var data = Data()
         data.append(keyRef.kvn.data)
@@ -310,6 +305,7 @@ public final actor SecurityDomainSession: Session {
     /// - Parameter keyRef: the KID-KVN pair to assign the new key set, KID must be 1
     /// - Parameter keys: the key material to import
     /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
+    // @TraceScope
     public func putKey(keyRef: SCPKeyRef, keys: StaticKeys, replaceKvn: UInt8) async throws(SCPError) {
         guard keyRef.kid == .scp03 else {
             throw SCPError.illegalArgument("KID must be 0x01 for SCP03 key sets")
@@ -346,7 +342,8 @@ public final actor SecurityDomainSession: Session {
         guard resp.constantTimeCompare(expected) else {
             throw .unexpectedResponse
         }
-        Logger.securityDomain.info("SCP03 Key set imported")
+
+        trace(message: "SCP03 Key set imported")
     }
 
     /// Imports a public key for SCP11a/c authentication of the off-card entity.
@@ -356,8 +353,8 @@ public final actor SecurityDomainSession: Session {
     ///   - publicKey: EC public key (must be prime256v1) used as CA to authenticate the off-card entity.
     ///   - replaceKvn: Set to a non-zero KVN to delete/replace an existing key before import.
     /// - Throws: `KeyImportError` on validation failures or any error from the APDU exchange.
+    // @TraceScope
     func putKey(keyRef: SCPKeyRef, from certificate: SecCertificate, replaceKvn: UInt8) async throws(SCPError) {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
 
         let publicKey: PublicKeyValues
 
@@ -389,7 +386,7 @@ public final actor SecurityDomainSession: Session {
             throw .unexpectedResponse
         }
 
-        Logger.securityDomain.info("SCP11 public key imported")
+        trace(message: "SCP11 public key imported")
     }
 
 
@@ -398,9 +395,8 @@ public final actor SecurityDomainSession: Session {
     /// - Parameter keyRef: the KID-KVN pair to assign the new secret key, KID must be 0x11, 0x13, or 0x15
     /// - Parameter secretKey: a private EC key used to authenticate the SD
     /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
+    // @TraceScope
     public func putKey(keyRef: SCPKeyRef, privateKey: SecKey, replaceKvn: UInt8) async throws(SCPError) {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
-
         guard privateKey.isSECP256R1Key() else {
             throw .illegalArgument // Expected SECP256R1 private key size
         }
@@ -437,17 +433,17 @@ public final actor SecurityDomainSession: Session {
         guard resp.constantTimeCompare(Data([keyRef.kvn])) else {
             throw .unexpectedResponse
         }
-        Logger.securityDomain.info("SCP11 private key imported")
+
+        trace(message: "SCP11 private key imported")
     }
     
     /// Perform a factory reset of the Security Domain.
     /// This will remove all keys and associated data, as well as restore the default SCP03 static keys,
     /// and generate a new (attestable) SCP11b key.
+    // @TraceScope
     public func reset() async throws(SCPError) {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
-
         let data = Data(repeating: 0x00, count: 8)
-        let keyInfo = try await getKeyInformation() // Can throw exceptions as noted in getKeyInformation
+        let keyInfo = try await getKeyInformation()
 
         for (keyRefInitial, _) in keyInfo {
             var keyRef = keyRefInitial
@@ -493,11 +489,7 @@ public final actor SecurityDomainSession: Session {
                 }
             }
         }
-        Logger.securityDomain.debug("SCP keys reset")
-    }
-    
-    deinit {
-        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
+        trace(message: "SCP keys reset")
     }
     
     @discardableResult
