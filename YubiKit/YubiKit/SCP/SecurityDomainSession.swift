@@ -1,3 +1,17 @@
+// Copyright Yubico AB
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import Foundation
 import CryptoTokenKit
 import CryptoKit
@@ -139,7 +153,8 @@ public final actor SecurityDomainSession: Session {
             do {
                 data.append(try await getData(tag: 0xFF33, data: nil))
             } catch {
-                if let responseError = error as? ResponseError,
+                if case let .wrapped(inner) = error,
+                   let responseError = inner as? ResponseError,
                    responseError.responseStatus.status != .referencedDataNotFound { throw error }
             }
         }
@@ -147,7 +162,8 @@ public final actor SecurityDomainSession: Session {
             do {
                 data.append(try await getData(tag: 0xFF34, data: nil))
             } catch {
-                if let responseError = error as? ResponseError,
+                if case let .wrapped(inner) = error,
+                   let responseError = inner as? ResponseError,
                    responseError.responseStatus.status != .referencedDataNotFound { throw error }
             }
         }
@@ -332,7 +348,51 @@ public final actor SecurityDomainSession: Session {
         }
         Logger.securityDomain.info("SCP03 Key set imported")
     }
-    
+
+    /// Imports a public key for SCP11a/c authentication of the off-card entity.
+    ///
+    /// - Parameters:
+    ///   - keyRef: The KID/KVN pair where the new public key will be stored.
+    ///   - publicKey: EC public key (must be prime256v1) used as CA to authenticate the off-card entity.
+    ///   - replaceKvn: Set to a non-zero KVN to delete/replace an existing key before import.
+    /// - Throws: `KeyImportError` on validation failures or any error from the APDU exchange.
+    func putKey(keyRef: SCPKeyRef, from certificate: SecCertificate, replaceKvn: UInt8) async throws(SCPError) {
+        Logger.securityDomain.debug("\(String(describing: self).lastComponent), \(#function)")
+
+        let publicKey: PublicKeyValues
+
+        do {
+            publicKey = try PublicKeyValues.from(certificate: certificate)
+        } catch {
+            throw SCPError.wrapped(error)
+        }
+
+        // -- validate curve
+        guard publicKey.curve == .prime256v1 else {
+            throw SCPError.notSupported("Unsupported curve: \(publicKey.curve)")
+        }
+
+        // -- TLV build
+        var data = Data()
+        data.append(keyRef.kvn) // KVN
+
+        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKey.rawRepresentation).data) // EC point
+        data.append(TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data) // params = P-256
+        data.append(0x00) // END TLV list
+
+        // -- send APDU
+        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: keyRef.kid, command: data)
+        let resp = try await send(apdu: apdu)
+
+        // -- verify KCV
+        guard resp.constantTimeCompare(Data([keyRef.kvn])) else {
+            throw .unexpectedResponse
+        }
+
+        Logger.securityDomain.info("SCP11 public key imported")
+    }
+
+
     /// Imports a secret key for SCP11.
     /// Requires off-card entity verification.
     /// - Parameter keyRef: the KID-KVN pair to assign the new secret key, KID must be 0x11, 0x13, or 0x15
@@ -379,7 +439,8 @@ public final actor SecurityDomainSession: Session {
         }
         Logger.securityDomain.info("SCP11 private key imported")
     }
-    
+
+    /*
     /// Imports a public key for authentication of the off-card entity for SCP11a/c.
     /// Requires off-card entity verification.
     /// - Parameter keyRef: the KID-KVN pair to assign the new public key
@@ -413,6 +474,7 @@ public final actor SecurityDomainSession: Session {
 
         Logger.securityDomain.debug("SCP11 public key imported")
     }
+    */
     
     /// Perform a factory reset of the Security Domain.
     /// This will remove all keys and associated data, as well as restore the default SCP03 static keys,
@@ -446,7 +508,7 @@ public final actor SecurityDomainSession: Session {
             for _ in 0..<65 {
                 do {
                     _ = try await send(apdu: apdu)
-                } catch let error as SCPError {
+                } catch let error {
                     guard case let .wrapped(error) = error, let error = error as? ResponseError else {
                         throw error
                     }

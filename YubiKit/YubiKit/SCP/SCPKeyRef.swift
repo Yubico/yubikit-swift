@@ -18,7 +18,7 @@ public struct SCPKeyRef: Equatable, Hashable {
 
     public typealias Kid = UInt8
 
-    internal init(kid: Kid, kvn: UInt8) {
+    public init(kid: Kid, kvn: UInt8) {
         self.kid = kid
         self.kvn = kvn
     }
@@ -28,7 +28,7 @@ public struct SCPKeyRef: Equatable, Hashable {
     public var data: Data { Data([kid, kvn]) }
 }
 
-extension SCPKeyRef.Kid {
+public extension SCPKeyRef.Kid {
     static let scp03: SCPKeyRef.Kid  = 0x01
     static let scp11a: SCPKeyRef.Kid = 0x11
     static let scp11b: SCPKeyRef.Kid = 0x13

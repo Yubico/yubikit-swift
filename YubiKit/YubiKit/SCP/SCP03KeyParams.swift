@@ -16,7 +16,7 @@ public struct SCP03KeyParams: SCPKeyParams {
     public var keyRef: SCPKeyRef
     public var staticKeys: StaticKeys
     
-    init(keyRef: SCPKeyRef, staticKeys: StaticKeys) {
+    public init(keyRef: SCPKeyRef, staticKeys: StaticKeys) {
         if 0xFF & keyRef.kid > 3 {
             fatalError("Invalid KID for SCP03")
         }

@@ -23,13 +23,14 @@ public struct SCP11KeyParams: SCPKeyParams {
     public let skOceEcka: SecKey?
     public let certificates: [SecCertificate]
     
-    init(keyRef: SCPKeyRef, pkSdEcka: SecKey, oceKeyRef: SCPKeyRef? = nil, skOceEcka: SecKey? = nil, certificates: [SecCertificate] = []) {
+    public init(keyRef: SCPKeyRef, pkSdEcka: SecKey, oceKeyRef: SCPKeyRef? = nil, skOceEcka: SecKey? = nil, certificates: [SecCertificate] = []) {
         switch (keyRef.kid) {
         case .scp11b:
             if (oceKeyRef != nil || skOceEcka != nil || !certificates.isEmpty) {
                 fatalError("Cannot provide oceKeyRef, skOceEcka or certificates for SCP11b")
             }
         case .scp11a:
+            fallthrough
         case .scp11c:
             if (oceKeyRef == nil || skOceEcka == nil || certificates.isEmpty) {
                 fatalError("Must provide oceKeyRef, skOceEcka or certificates for SCP11a/c")

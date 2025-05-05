@@ -97,7 +97,7 @@ class OATHFullStackTests: XCTestCase {
             let template = OATHSession.CredentialTemplate(type: .TOTP(), algorithm: .SHA1, secret: "abba2".base32DecodedData!, issuer: "15 Issuer", name: "15 begin with numbers", digits: 6)
             try await session.addCredential(template: template)
             let list = try await session.listCredentials()
-            guard let credential = list.first else { throw "Failed to add credential" }
+            let credential = try XCTUnwrap(list.first, "Failed to add credential")
             let code = try await session.calculateCode(credential: credential)
             print("Got code: \(code.code)")
             XCTAssertNotNil(code.code)

@@ -24,12 +24,16 @@ public struct StaticKeys {
     let mac: Data
     let dek: Data?
     
-    init(enc: Data, mac: Data, dek: Data?) {
+    public init(enc: Data, mac: Data, dek: Data?) {
         self.enc =  enc
         self.mac = mac
         self.dek = dek
     }
-    
+
+    public static func defaultKeys() -> StaticKeys {
+        StaticKeys(enc: defaultKey, mac: defaultKey, dek: defaultKey)
+    }
+
     func derive(context: Data) -> SCPSessionKeys {
         return SCPSessionKeys(senc: try! Self.deriveKey(key: enc, t: 0x4, context: context, l: 0x80),
                               smac: try! Self.deriveKey(key: mac, t: 0x6, context: context, l: 0x80),
@@ -38,20 +42,16 @@ public struct StaticKeys {
         )
     }
     
-    static func defaultKeys() -> StaticKeys {
-        StaticKeys(enc: defaultKey, mac: defaultKey, dek: defaultKey)
-    }
-    
-    internal static func deriveKey(key:  Data, t: Int8, context: Data, l: Int16) throws -> Data {
-        guard l == 0x40 || l == 0x80 else { throw "Invalid argument" }
-        
+    static func deriveKey(key:  Data, t: Int8, context: Data, l: Int16) throws -> Data {
+        guard l == 0x40 || l == 0x80 else { throw SCPError.illegalArgument }
+
         var i = Data(count: 11)
         i.append(t.data)
         i.append(UInt8(0).data)
         i.append(l.bigEndian.data)
         i.append(UInt8(1).data)
         i.append(context)
-        
+
         let digest = try i.aescmac(key: key)
         return digest.prefix(Int(l/8))
     }

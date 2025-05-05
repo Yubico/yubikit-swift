@@ -15,6 +15,7 @@
 import Foundation
 import YubiKit
 import OSLog
+import XCTest
 
 extension Connection {
     func isAllowed() async throws -> Bool {
@@ -34,13 +35,15 @@ public enum AllowedConnections {
 
     public static func anyConnection(nfcAlertMessage: String? = nil) async throws -> Connection {
         let connection = try await ConnectionHelper.anyConnection(nfcAlertMessage: nfcAlertMessage)
-        guard try await connection.isAllowed() else { throw "YubiKey is not in allowed connections list." }
+        let isAllowed = try await connection.isAllowed()
+        _ = try XCTUnwrap(isAllowed, "YubiKey is not in allowed connections list.")
         return connection
     }
     
     public static func anyWiredConnection() async throws -> Connection {
         let connection = try await ConnectionHelper.anyWiredConnection()
-        guard try await connection.isAllowed() else { throw "YubiKey is not in allowed connections list." }
+        let isAllowed = try await connection.isAllowed()
+        _ = try XCTUnwrap(isAllowed, "YubiKey is not in allowed connections list.")
         return connection
     }
     
