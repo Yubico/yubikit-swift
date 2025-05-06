@@ -14,6 +14,7 @@
 
 import Foundation
 import CryptoTokenKit
+import CommonCrypto
 import CryptoKit
 import OSLog
 
@@ -22,6 +23,7 @@ public enum SCPError: Error {
     case illegalArgument(String?)
     case notSupported(String?)
     case wrapped(Error)
+    case encryptionFailed(String?)
 
     static var unexpectedResponse: SCPError { .unexpectedResponse(nil) }
     static var illegalArgument: SCPError { .illegalArgument(nil) }
@@ -323,12 +325,12 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         let defaultKcvIv: Data = .init(repeating: 0x01, count: 16)
 
         for key in [keys.enc, keys.mac, dek] {
-            let kcv = SCPState.cbcEncrypt(key: key, data: defaultKcvIv)!.prefix(3)
+            let kcv = try defaultKcvIv.cbcEncrypt(key: key).prefix(3)
 
             let currentDek = processor.state.sessionKeys.dek!
 
-            let encryptedKey = SCPState.cbcEncrypt(key: currentDek, data: key)
-            data.append(TKBERTLVRecord(tag: 0x88, value: encryptedKey!).data)
+            let encryptedKey = try key.cbcEncrypt(key: currentDek)
+            data.append(TKBERTLVRecord(tag: 0x88, value: encryptedKey).data)
             data.append(UInt8(kcv.count))
             data.append(kcv)
             expected.append(kcv)
@@ -419,7 +421,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         } catch { throw .wrapped(error) }
 
         let currentDek = processor.state.sessionKeys.dek!
-        let encryptedSecret = SCPState.cbcEncrypt(key: currentDek, data: rawSecret)!
+        let encryptedSecret = try rawSecret.cbcEncrypt(key: currentDek)
         precondition(encryptedSecret.count == 32)
 
         var data = Data()
@@ -515,5 +517,18 @@ private extension SecKey {
             return false
         }
         return keyType == kSecAttrKeyTypeECSECPrimeRandom as String && keySize == 256
+    }
+}
+
+private extension Data {
+    func cbcEncrypt(key: Data) throws(SCPError) -> Data {
+        // zero IV for CBC
+        let iv = Data(repeating: 0, count: kCCBlockSizeAES128)
+
+        do {
+            return try encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES), key: key, iv: iv)
+        } catch {
+            throw SCPError.encryptionFailed(error.localizedDescription)
+        }
     }
 }
