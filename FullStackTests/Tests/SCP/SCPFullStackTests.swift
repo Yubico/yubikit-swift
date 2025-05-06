@@ -22,7 +22,7 @@ class SCPFullStackTests: XCTestCase {
         runSCPTest { [self] in
             let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
             let info = try await securityDomainSession.getSupportedCaIdentifiers(kloc: true, klcc: true)
-            print(info)
+            XCTAssertTrue(info != [:])
         }
     }
 
@@ -31,7 +31,7 @@ class SCPFullStackTests: XCTestCase {
         runSCPTest { [self] in
             let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
             let info = try await securityDomainSession.getKeyInformation()
-            print(info)
+            XCTAssertTrue(info != [:])
         }
     }
     
@@ -55,10 +55,10 @@ class SCPFullStackTests: XCTestCase {
     
     func testSCP03() throws {
         runSCPTest { [self] in
-            let defaultKey = Data([0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f])
-            let scpKeyParams = try SCP03KeyParams(keyRef: SCPKeyRef(kid: .scp03, kvn: 0xff), staticKeys: StaticKeys(enc: defaultKey, mac: defaultKey, dek: defaultKey))
+            let scpKeyParams = try SCP03KeyParams(keyRef: SCPKeyRef(kid: .scp03, kvn: 0xff),
+                                                  staticKeys: StaticKeys.defaultKeys())
             let managementSession = try  await ManagementSession.session(withConnection: connection, scpKeyParams: scpKeyParams)
-            let deviceInfo = try await managementSession.getDeviceInfo()
+            let deviceInfo = try? await managementSession.getDeviceInfo()
             XCTAssertNotNil(deviceInfo)
         }
     }

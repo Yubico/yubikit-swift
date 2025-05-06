@@ -17,7 +17,7 @@ import CommonCrypto
 import Security
 
 public struct SCP11KeyParams: SCPKeyParams {
-    public var keyRef: SCPKeyRef
+    public let keyRef: SCPKeyRef
     public let pkSdEcka: SecKey
     public let oceKeyRef: SCPKeyRef?
     public let skOceEcka: SecKey?

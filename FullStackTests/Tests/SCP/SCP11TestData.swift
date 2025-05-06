@@ -127,9 +127,6 @@ private extension Optional where Wrapped == SecKey {
         ]
 
         guard let key = SecKeyCreateWithData(rep, attrs, &err) else {
-            if let error = err?.takeRetainedValue() {
-                print("SecKeyCreateWithData error: \(error)")
-            }
             self = nil
             return
         }
