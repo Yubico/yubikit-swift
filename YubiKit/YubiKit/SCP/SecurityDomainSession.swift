@@ -63,13 +63,13 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     public func getData(tag: UInt16, data: Data?) async throws(SCPError) -> Data {
         return try await send(apdu: APDU(cla: 0x00, ins: 0xCA, p1: UInt8(tag >> 8),
                                          p2: UInt8(tag & 0xff),
-                                         command: data))
+                                         command: data, type: .extended))
     }
 
     // @TraceScope
     public func storeData(_ data: Data) async throws(SCPError) {
         do {
-            try await send(apdu: APDU(cla: 0x00, ins: 0xE2, p1: 0x90, p2: 0x00, command: data))
+            try await send(apdu: APDU(cla: 0x00, ins: 0xE2, p1: 0x90, p2: 0x00, command: data, type: .extended))
         } catch {
             throw .wrapped(error)
         }
@@ -266,8 +266,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
             data.append(TKBERTLVRecord(tag: 0xD2, value: kvn.data).data)
         }
 
-        let apdu = APDU(cla: 0x80, ins: 0xE4, p1: 0, p2: deleteLast ? 1 : 0, command: data)
-        print(apdu)
+        let apdu = APDU(cla: 0x80, ins: 0xE4, p1: 0, p2: deleteLast ? 1 : 0, command: data, type: .extended)
         try await send(apdu: apdu)
     }
 
@@ -284,7 +283,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         data.append(keyRef.kvn.data)
         data.append(contentsOf: params)
 
-        let apdu = APDU(cla: 0x80, ins: 0xF1, p1: replaceKvn, p2: keyRef.kid, command: data)
+        let apdu = APDU(cla: 0x80, ins: 0xF1, p1: replaceKvn, p2: keyRef.kid, command: data, type: .extended)
 
         let response = try await send(apdu: apdu)
 
@@ -338,7 +337,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
 
         assert(data.bytes.count == 1 + 3 * (18 + 4), "Unexpected command data length")
 
-        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: 0x80 | keyRef.kid, command: data)
+        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: 0x80 | keyRef.kid, command: data, type: .extended)
         let resp = try await send(apdu: apdu)
 
         guard resp.constantTimeCompare(expected) else {
@@ -380,7 +379,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         data.append(0x00) // END TLV list
 
         // -- send APDU
-        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: keyRef.kid, command: data)
+        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: keyRef.kid, command: data, type: .extended)
         let resp = try await send(apdu: apdu)
 
         // -- verify KCV
@@ -430,7 +429,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         data.append(TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data)
         data.append(0x00)
 
-        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: keyRef.kid, command: data)
+        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: keyRef.kid, command: data, type: .extended)
         let resp = try await send(apdu: apdu)
         guard resp.constantTimeCompare(Data([keyRef.kvn])) else {
             throw .unexpectedResponse
@@ -465,7 +464,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
                 ins = 0x2A
             }
             
-            let apdu = APDU(cla: 0x80, ins: ins, p1: keyRef.kvn, p2: keyRef.kid, command: data)
+            let apdu = APDU(cla: 0x80, ins: ins, p1: keyRef.kvn, p2: keyRef.kid, command: data, type: .extended)
 
             for _ in 0..<65 {
                 do {

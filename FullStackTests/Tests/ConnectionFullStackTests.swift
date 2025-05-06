@@ -134,7 +134,7 @@ class ConnectionFullStackTests: XCTestCase {
         runAsyncTest {
             let connection = try await Connection.connection()
             // Select Management application
-            let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17]), type: .short)
+            let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17]))
             let resultData = try await connection.send(data: apdu.data)
             let result = Response(rawData: resultData)
             XCTAssertEqual(result.responseStatus.status, .ok)
@@ -153,7 +153,7 @@ class ConnectionFullStackTests: XCTestCase {
             print("✅ Got version: \(major).\(minor).\(micro)")
             XCTAssertEqual(major, 5)
             // Try to select non existing application
-            let notFoundApdu =  APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: Data([0x01, 0x02, 0x03]), type: .short)
+            let notFoundApdu =  APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: Data([0x01, 0x02, 0x03]))
             let notFoundResultData = try await connection.send(data: notFoundApdu.data)
             let notFoundResult = Response(rawData: notFoundResultData)
             if !(notFoundResult.responseStatus.status == .fileNotFound || notFoundResult.responseStatus.status == .incorrectParameters || notFoundResult.responseStatus.status == .invalidInstruction) {

@@ -38,7 +38,7 @@ public struct APDU: CustomStringConvertible {
     ///   - command: The command data.
     ///   - type: The type of the APDU, short or extended.
     public init(cla: UInt8, ins: UInt8, p1: UInt8, p2: UInt8,
-                command: Data? = nil, type: ApduType = .extended) {
+                command: Data? = nil, type: ApduType = .short) {
         self.cla = cla
         self.ins = ins
         self.p1 = p1

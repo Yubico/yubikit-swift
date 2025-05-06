@@ -35,7 +35,7 @@ enum Application {
             data = Data([0xA0, 0x00, 0x00, 0x01, 0x51, 0x00, 0x00, 0x00])
         }
         
-        return APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: data, type: .short)
+        return APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: data)
     }
 }
 
@@ -82,7 +82,7 @@ extension Connection {
         let response: Response
 
         if readMoreData {
-            let apdu =  APDU(cla: 0, ins: insSendRemaining, p1: 0, p2: 0, command: nil, type: .short)
+            let apdu =  APDU(cla: 0, ins: insSendRemaining, p1: 0, p2: 0, command: nil)
             responseData = try await self.send(data: apdu.data)
         } else {
             responseData = try await self.send(data: apdu.data)

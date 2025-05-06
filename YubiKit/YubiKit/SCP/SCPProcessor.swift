@@ -26,7 +26,7 @@ internal class SCPProcessor: HasSCPLogger {
         if let scp03Params = keyParams as? SCP03KeyParams {
             let hostChallenge = Data.random(length: 8)
             Self.trace(message: "send challenge: \(hostChallenge.hexEncodedString)")
-            var result = try await connection.send(apdu: APDU(cla: 0x80, ins: insInitializeUpdate, p1: keyParams.keyRef.kvn, p2: 0x00, command: hostChallenge), insSendRemaining: insSendRemaining)
+            var result = try await connection.send(apdu: APDU(cla: 0x80, ins: insInitializeUpdate, p1: keyParams.keyRef.kvn, p2: 0x00, command: hostChallenge, type: .extended), insSendRemaining: insSendRemaining)
 
             guard let _ = result.extract(10), // diversificationData
                   let _ = result.extract(3), // keyInfo
@@ -48,7 +48,7 @@ internal class SCPProcessor: HasSCPLogger {
 
             self.state = SCPState(sessionKeys: sessionKeys, macChain: Data(count: 16))
 
-            let finalizeApdu = APDU(cla: 0x84, ins: 0x82, p1: 0x33, p2: 0, command: hostCryptogram)
+            let finalizeApdu = APDU(cla: 0x84, ins: 0x82, p1: 0x33, p2: 0, command: hostCryptogram, type: .extended)
             _ = try await self.send(apdu: finalizeApdu, using: connection, encrypt: false, insSendRemaining: insSendRemaining)
 
             trace(message: "done configuring SCP03")
@@ -139,8 +139,8 @@ internal class SCPProcessor: HasSCPLogger {
             Self.trace(message: "data: \(data.hexEncodedString)")
             let skOceEcka = scp11Params.skOceEcka ?? eskOceEcka
             let ins: UInt8 = kid == .scp11b ? 0x88 : 0x82
-            Self.trace(message: "sending: \(APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data))")
-            let response = try await connection.send(apdu: APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data))
+            Self.trace(message: "sending: \(APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data, type: .extended))")
+            let response = try await connection.send(apdu: APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data, type: .extended))
 
             guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: response), tlvs.count == 2 else {
                 throw SCPError.unexpectedResponse
@@ -211,9 +211,11 @@ internal class SCPProcessor: HasSCPLogger {
         }
         let cla = apdu.cla | 0x04
 
-        let mac = try state.mac(data: APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + Data(count: 8)).data.dropLast(8))
-        trace(message: "processed apdu: \(APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac))")
-        var result = try await connection.send(apdu: APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac), insSendRemaining: insSendRemaining)
+        let mac = try state.mac(data: APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + Data(count: 8), type: .extended).data.dropLast(8))
+
+        let apdu = APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac, type: .extended)
+        trace(message: "processed apdu: \(apdu)")
+        var result = try await connection.send(apdu: apdu, insSendRemaining: insSendRemaining)
 
         if !result.isEmpty {
            result = try state.unmac(data: result, sw: 0x9000)
