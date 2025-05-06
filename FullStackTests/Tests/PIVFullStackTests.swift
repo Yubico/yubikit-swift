@@ -63,8 +63,14 @@ final class PIVFullStackTests: XCTestCase {
         runAuthenticatedPIVTest { session in
             let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA1024)
             let data = "Hello world!".data(using: .utf8)!
-            let encryptedData = try XCTUnwrap(SecKeyCreateEncryptedData(publicKey, .rsaEncryptionPKCS1, data as CFData, nil),
-                                              "Failed to encrypt data.")
+
+            let encryptedData = try XCTUnwrap(
+                SecKeyCreateEncryptedData(publicKey,
+                                          .rsaEncryptionPKCS1,
+                                          data as CFData,
+                                          nil),
+                "Failed to encrypt data.")
+
             try await session.verifyPin("123456")
             let decryptedData = try await session.decryptWithKeyInSlot(slot: .signature, algorithm: .rsaEncryptionPKCS1, encrypted: encryptedData as Data)
             XCTAssertEqual(data, decryptedData)

@@ -36,14 +36,14 @@ public enum AllowedConnections {
     public static func anyConnection(nfcAlertMessage: String? = nil) async throws -> Connection {
         let connection = try await ConnectionHelper.anyConnection(nfcAlertMessage: nfcAlertMessage)
         let isAllowed = try await connection.isAllowed()
-        _ = try XCTUnwrap(isAllowed, "YubiKey is not in allowed connections list.")
+        XCTAssertTrue(isAllowed, "YubiKey is not in allowed connections list.")
         return connection
     }
     
     public static func anyWiredConnection() async throws -> Connection {
         let connection = try await ConnectionHelper.anyWiredConnection()
         let isAllowed = try await connection.isAllowed()
-        _ = try XCTUnwrap(isAllowed, "YubiKey is not in allowed connections list.")
+        XCTAssertTrue(isAllowed, "YubiKey is not in allowed connections list.")
         return connection
     }
     
