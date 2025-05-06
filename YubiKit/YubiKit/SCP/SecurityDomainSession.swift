@@ -356,26 +356,26 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     ///   - replaceKvn: Set to a non-zero KVN to delete/replace an existing key before import.
     /// - Throws: `KeyImportError` on validation failures or any error from the APDU exchange.
     // @TraceScope
-    func putKey(keyRef: SCPKeyRef, from certificate: SecCertificate, replaceKvn: UInt8) async throws(SCPError) {
+    func putKey(keyRef: SCPKeyRef, publicKey: SecKey, replaceKvn: UInt8) async throws(SCPError) {
 
-        let publicKey: PublicKeyValues
+        let publicKeyWrapper: PublicKeyValues
 
         do {
-            publicKey = try PublicKeyValues.from(certificate: certificate)
+            publicKeyWrapper = try PublicKeyValues.from(secKey: publicKey)
         } catch {
             throw SCPError.wrapped(error)
         }
 
         // -- validate curve
-        guard publicKey.curve == .prime256v1 else {
-            throw SCPError.notSupported("Unsupported curve: \(publicKey.curve)")
+        guard publicKeyWrapper.curve == .prime256v1 else {
+            throw SCPError.notSupported("Unsupported curve: \(publicKeyWrapper.curve)")
         }
 
         // -- TLV build
         var data = Data()
         data.append(keyRef.kvn) // KVN
 
-        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKey.rawRepresentation).data) // EC point
+        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKeyWrapper.rawRepresentation).data) // EC point
         data.append(TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data) // params = P-256
         data.append(0x00) // END TLV list
 

@@ -287,7 +287,8 @@ private extension SecurityDomainSession {
 
         // Upload the CA public key to the YubiKey so it can verify signatures
         let ca = Scp11TestData.caCert
-        try await putKey(keyRef: oceRef, from: ca, replaceKvn: 0)
+        let certificatePublicKey = SecCertificateCopyKey(ca)!
+        try await putKey(keyRef: oceRef, publicKey: certificatePublicKey, replaceKvn: 0)
 
         // Extract the CA certificate's Subject Key Identifier for issuer referencing
         let ski = try XCTUnwrap(ca.getSKI, "CA certificate missing Subject Key Identifier")

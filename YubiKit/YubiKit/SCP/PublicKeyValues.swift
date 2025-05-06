@@ -17,7 +17,6 @@ import Foundation
 /// Holds the X and Y coordinates and curve for an EC public key
 struct PublicKeyValues {
     enum Error: Swift.Error {
-        case invalidCertificate
         case invalidKeyRepresentation(String?)
         case unsupportedKeyType
 
@@ -60,16 +59,6 @@ struct PublicKeyValues {
             throw Error.invalidKeyRepresentation(error?.localizedDescription)
         }
         return try PublicKeyValues(rawRepresentation: data)
-    }
-
-    /// Extract PublicKeyValues directly from a SecCertificate
-    /// - Parameter certificate: Certificate containing an EC public key
-    /// - Returns: Parsed PublicKeyValues
-    static func from(certificate: SecCertificate) throws -> PublicKeyValues {
-        guard let secKey = SecCertificateCopyKey(certificate) else {
-            throw Error.invalidCertificate
-        }
-        return try from(secKey: secKey)
     }
 }
 
