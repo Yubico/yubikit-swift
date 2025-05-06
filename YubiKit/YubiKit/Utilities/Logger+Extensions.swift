@@ -14,13 +14,29 @@
 
 import OSLog
 
+// MARK: - Generic Protocol
 protocol HasLogger {
     static var logger: Logger { get }
 }
 
+extension HasLogger {
+    var logger: Logger { Self.logger }
+}
+
+// MARK: - Specific Protocols
 protocol HasSmartCardLogger: HasLogger { }
 extension HasSmartCardLogger {
     static var logger: Logger { .smartCard }
+}
+
+protocol HasSecurityDomainLogger: HasLogger { }
+extension HasSecurityDomainLogger {
+    static var logger: Logger { .securityDomain }
+}
+
+protocol HasSCPLogger: HasLogger { }
+extension HasSCPLogger {
+    static var logger: Logger { .scp }
 }
 
 extension Logger {
@@ -36,7 +52,10 @@ extension Logger {
     static let oath = Logger(subsystem: subsystem, category: "OATH")
     static let management = Logger(subsystem: subsystem, category: "Management")
     static let piv = Logger(subsystem: subsystem, category: "PIV")
+    fileprivate static let securityDomain = Logger(subsystem: subsystem, category: "SecurityDomain")
 
+    fileprivate static let scp = Logger(subsystem: subsystem, category: "SCP")
+    
     nonisolated static func export() async throws -> String {
         Logger.system.info("Logger, export(): compiling logs.")
         let store = try OSLogStore(scope: .currentProcessIdentifier)
@@ -72,6 +91,7 @@ class _Trace {
     }
 }
 
+*/
 // MARK: - These functions trace with a message
 extension HasLogger {
     // static helper
@@ -83,7 +103,7 @@ extension HasLogger {
         let typeName = String(describing: type(of: self))
         let label = "\(typeName).\(function)"
 
-        logger.trace("  \(label): \(message)")
+        logger.trace("\(label): \(message)")
     }
 
     // instance helper
@@ -95,13 +115,13 @@ extension HasLogger {
         let typeName = String(describing: type(of: self))
         var label = "\(typeName).\(function)"
 
+        
         if let obj = self as AnyObject? {
             let ptr = Unmanaged.passUnretained(obj).toOpaque()
             let ptrStr = String(format: "0x%08x", UInt(bitPattern: ptr) & 0xFFFFFFFF)
             label = "\(typeName)[\(ptrStr)].\(function)"
         }
 
-        logger.trace("  \(label): \(message)")
+        logger.trace("\(label): \(message)")
     }
 }
- */

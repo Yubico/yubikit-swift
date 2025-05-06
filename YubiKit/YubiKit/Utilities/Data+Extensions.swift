@@ -64,27 +64,26 @@ extension Data {
         return try lastBlock.encrypt(algorithm: algorithm, key: key, iv: lastIv)
     }
     
-    private func bitPadded() -> Data {
-        let msgLength = self.count
+    internal func bitPadded() -> Data {
         let blockSize = 16
         var paddedData = self
         paddedData.append(0x80)
-        if msgLength % blockSize < blockSize {
-            return paddedData + Data(count: blockSize - 1 - (msgLength % blockSize))
-        } else {
-            return paddedData + Data(count: blockSize + blockSize - 1 - (msgLength % blockSize))
-        }
+        let remainder = self.count % blockSize
+        let zeroPadding = remainder == 0 ? blockSize - 1 : blockSize - 1 - remainder
+        return paddedData + Data(count: zeroPadding)
     }
     
     internal func encrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws -> Data {
-        try cryptOperation(UInt32(kCCEncrypt), algorithm: algorithm, key: key, iv: iv)
+        let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
+        return try cryptOperation(UInt32(kCCEncrypt), algorithm: algorithm, mode: mode, key: key, iv: iv)
     }
     
     internal func decrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws -> Data {
-        try cryptOperation(UInt32(kCCDecrypt), algorithm: algorithm, key: key, iv: iv)
+        let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
+        return try cryptOperation(UInt32(kCCDecrypt), algorithm: algorithm, mode: mode, key: key, iv: iv)
     }
     
-    private func cryptOperation(_ operation: CCOperation, algorithm: CCAlgorithm, key: Data, iv: Data?) throws -> Data {
+    internal func cryptOperation(_ operation: CCOperation, algorithm: CCAlgorithm, mode: CCMode, key: Data, iv: Data?) throws -> Data {
         guard !key.isEmpty else { throw PIVEncryptionError.missingData }
         
         let blockSize: Int
@@ -100,25 +99,31 @@ extension Data {
         var outLength: Int = 0
         let bufferLength = self.count + blockSize
         var buffer = Data(count: bufferLength)
-        let options = iv == nil ? CCOptions(kCCOptionECBMode) : 0
         let iv = iv ?? Data()
 
-        let cryptorStatus: CCCryptorStatus = buffer.withUnsafeMutableBytes { buffer in
+        let cryptorStatus: CCCryptorStatus = buffer.withUnsafeMutableBytes { bufferBytes in
             self.withUnsafeBytes { dataBytes in
                 key.withUnsafeBytes { keyBytes in
                     iv.withUnsafeBytes { ivBytes in
-                        var ccRef: CCCryptorRef?
-                        CCCryptorCreate(operation,
-                                        algorithm,
-                                        options,
-                                        keyBytes.baseAddress,
-                                        key.count,
-                                        iv.count > 0 ? ivBytes.baseAddress : nil,
-                                        &ccRef)
-                        return CCCryptorUpdate(ccRef,
+                        var cryptorRef: CCCryptorRef?
+                        CCCryptorCreateWithMode(
+                            operation,
+                            mode,
+                            algorithm,
+                            CCPadding(ccNoPadding),
+                            iv.count > 0 ? ivBytes.baseAddress : nil,
+                            keyBytes.baseAddress,
+                            key.count,
+                            nil,
+                            0,
+                            0,
+                            0,
+                            &cryptorRef
+                        )
+                        return CCCryptorUpdate(cryptorRef,
                                                dataBytes.baseAddress,
                                                self.count,
-                                               buffer.baseAddress,
+                                               bufferBytes.baseAddress,
                                                bufferLength,
                                                &outLength)
                     }
@@ -128,6 +133,29 @@ extension Data {
         
         guard cryptorStatus == kCCSuccess else { throw PIVEncryptionError.cryptorError(cryptorStatus) }
         return buffer.subdata(in: 0..<outLength)
+    }
+    
+    internal func constantTimeCompare(_ other: Data) -> Bool {
+        guard self.count == other.count else { return false }
+        return zip(self, other).reduce(0) { $0 | ($1.0 ^ $1.1) } == 0
+    }
+    
+    internal func sha1() -> Data {
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+        CC_SHA1(self.bytes, UInt32(self.count), &digest)
+        return Data(digest)
+    }
+    
+    internal func sha256() -> Data {
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        CC_SHA256(self.bytes, UInt32(self.count), &digest)
+        return Data(digest)
+    }
+    
+    internal func sha512() -> Data {
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA512_DIGEST_LENGTH))
+        CC_SHA512(self.bytes, UInt32(self.count), &digest)
+        return Data(digest)
     }
     
     internal var bytes: [UInt8] {
@@ -222,10 +250,22 @@ extension Data {
             shifted[index] = self.bytes[index] << 1
             if (self.bytes[index + 1] & 0x80) != 0 {
                 shifted[index] += 0x01
-          }
+            }
         }
         shifted[last] = self.bytes[last] << 1
         return Data(shifted)
+    }
+    
+    internal mutating func extract(_ count: Int) -> Data? {
+        guard count > 0, count <= self.count else { return nil }
+        let extractedData = self.prefix(count)
+        self.removeFirst(count)
+        return extractedData
+    }
+    
+    internal mutating func secureClear() {
+        self.resetBytes(in: 0..<self.count)
+        self.removeAll()
     }
 }
 
@@ -248,10 +288,24 @@ extension UInt8 {
     }
 }
 
+extension Int8 {
+    internal var data: Data {
+        var int = self
+        return Data(bytes: &int, count: MemoryLayout<Int8>.size)
+    }
+}
+
 extension UInt16 {
     internal var data: Data {
         var int = self
         return Data(bytes: &int, count: MemoryLayout<UInt16>.size)
+    }
+}
+
+extension Int16 {
+    internal var data: Data {
+        var int = self
+        return Data(bytes: &int, count: MemoryLayout<Int16>.size)
     }
 }
 

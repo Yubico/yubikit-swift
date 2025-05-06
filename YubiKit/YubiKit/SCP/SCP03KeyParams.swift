@@ -12,8 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
-
-extension String {
-    internal var lastComponent: String { self.components(separatedBy: ".").last ?? self }
+public struct SCP03KeyParams: SCPKeyParams {
+    public var keyRef: SCPKeyRef
+    public var staticKeys: StaticKeys
+    
+    public init(keyRef: SCPKeyRef, staticKeys: StaticKeys) throws(SCPError) {
+        if 0xFF & keyRef.kid > 3 {
+            throw .illegalArgument("Invalid KID for SCP03")
+        }
+        self.keyRef = keyRef
+        self.staticKeys = staticKeys
+    }
 }

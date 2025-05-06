@@ -49,6 +49,7 @@ public enum OATHSessionError: Error {
 public final actor OATHSession: Session {
     
     private let connection: Connection
+    private let processor: SCPProcessor?
 
     private struct SelectResponse {
         let salt: Data
@@ -62,8 +63,13 @@ public final actor OATHSession: Session {
         selectResponse.version
     }
     
-    private init(connection: Connection) async throws {
+    private init(connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws {
         self.selectResponse = try await Self.selectApplication(withConnection: connection)
+        if let scpKeyParams {
+            processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams, insSendRemaining: 0xa5)
+        } else {
+            processor = nil
+        }
         self.connection = connection
     }
     
@@ -84,10 +90,10 @@ public final actor OATHSession: Session {
         return SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
     }
     
-    public static func session(withConnection connection: Connection) async throws -> OATHSession {
+    public static func session(withConnection connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws -> OATHSession {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: connection))")
         // Create a new OATHSession
-        let session = try await OATHSession(connection: connection)
+        let session = try await OATHSession(connection: connection, scpKeyParams: scpKeyParams)
         return session
     }
     
@@ -389,7 +395,11 @@ public final actor OATHSession: Session {
 
     @discardableResult
     private func send(apdu: APDU) async throws -> Data {
-        return try await connection.send(apdu: apdu, insSendRemaining: 0xa5)
+        if let processor {
+            return try await processor.send(apdu: apdu, using: connection, insSendRemaining: 0xa5)
+        } else {
+            return try await connection.send(apdu: apdu, insSendRemaining: 0xa5)
+        }
     }
 }
 

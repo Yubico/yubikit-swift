@@ -50,9 +50,9 @@ public protocol Connection: Sendable {
     ///
     /// This will send the APDU to the YubiKey using the Connection. Commands returning data to big
     /// to be handled by a single read operation will be handled automatically by the SDK and the
-    /// complete result will be returned by the function. Only operations returning a 0x9100 status
+    /// complete result will be returned by the function. Only operations returning a 0x9000 status
     /// code will return data. Operations returning a 0x61XX (more data) status code will be handled
-    /// by the SDK until they finish with a 0x9100 or an error. For all other status codes a ResponseError
+    /// by the SDK until they finish with a 0x9000 or an error. For all other status codes a ResponseError
     /// wrapping the status code will be thrown.
     @discardableResult
     func send(apdu: APDU) async throws -> Data

@@ -14,6 +14,23 @@
 
 import Foundation
 
-extension String {
-    internal var lastComponent: String { self.components(separatedBy: ".").last ?? self }
+public struct SCPKeyRef: Equatable, Hashable {
+
+    public typealias Kid = UInt8
+
+    public init(kid: Kid, kvn: UInt8) {
+        self.kid = kid
+        self.kvn = kvn
+    }
+    
+    public let kid: Kid
+    public let kvn: UInt8
+    public var data: Data { Data([kid, kvn]) }
+}
+
+public extension SCPKeyRef.Kid {
+    static let scp03: SCPKeyRef.Kid  = 0x01
+    static let scp11a: SCPKeyRef.Kid = 0x11
+    static let scp11b: SCPKeyRef.Kid = 0x13
+    static let scp11c: SCPKeyRef.Kid = 0x15
 }

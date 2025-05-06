@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
-
-extension String {
-    internal var lastComponent: String { self.components(separatedBy: ".").last ?? self }
+public protocol SCPKeyParams {
+    var keyRef: SCPKeyRef { get }
 }

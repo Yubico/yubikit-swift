@@ -14,6 +14,20 @@
 
 import Foundation
 
-extension String {
-    internal var lastComponent: String { self.components(separatedBy: ".").last ?? self }
+struct SCPSessionKeys: CustomDebugStringConvertible {
+    var debugDescription: String {
+        "SCPSessionKeys(senc: \(senc.hexEncodedString), smac: \(smac.hexEncodedString), srmac: \(srmac.hexEncodedString), dek: \(String(describing: dek?.hexEncodedString)))"
+    }
+    
+    let senc: Data
+    let smac: Data
+    let srmac: Data
+    let dek: Data?
+    
+    init(senc: Data, smac: Data, srmac: Data, dek: Data?) {
+        self.senc = senc
+        self.smac = smac
+        self.srmac = srmac
+        self.dek = dek
+    }
 }
