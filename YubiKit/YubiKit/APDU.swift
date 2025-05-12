@@ -15,9 +15,9 @@
 import Foundation
 
 /// Data model for encapsulating an APDU command, as defined by the ISO/IEC 7816-4 standard.
-public struct APDU: CustomStringConvertible {
+public struct APDU: Sendable, CustomStringConvertible {
 
-    public enum ApduType {
+    public enum ApduType: Sendable {
         case short
         case extended
     }

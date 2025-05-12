@@ -41,8 +41,8 @@ public struct Response: CustomStringConvertible {
     }
 }
 
-public struct ResponseStatus: Equatable {
-    public enum StatusCode: UInt16, CustomStringConvertible {
+public struct ResponseStatus: Equatable, Sendable {
+    public enum StatusCode: UInt16, CustomStringConvertible, Sendable {
         case ok = 0x9000
         case noInputData = 0x6285
         case verifyFailNoRetry = 0x63C0

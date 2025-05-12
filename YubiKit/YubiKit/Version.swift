@@ -15,7 +15,7 @@
 import Foundation
 
 /// The firmware version of the YubiKey.
-public struct Version: Comparable, CustomStringConvertible {
+public struct Version: Sendable, Comparable, CustomStringConvertible {
     
     public let major: UInt8
     public let minor: UInt8

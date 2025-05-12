@@ -20,7 +20,7 @@ struct PublicKeyValues {
         case invalidKeyRepresentation(String?)
         case unsupportedKeyType
 
-        static var invalidKeyRepresentation = Error.invalidKeyRepresentation(nil)
+        static let invalidKeyRepresentation = Error.invalidKeyRepresentation(nil)
     }
 
     let curve: ECKeyCurve

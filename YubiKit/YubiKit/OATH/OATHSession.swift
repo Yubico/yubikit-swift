@@ -275,9 +275,10 @@ public final actor OATHSession: Session {
         let challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, command: challengeTLV.data)
         let data = try await send(apdu: apdu)
-        guard let result = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else { throw OATHSessionError.responseDataNotTLVFormatted }
-        
-        return try await result.asyncMap { (name, response) in
+        guard let records = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else { throw OATHSessionError.responseDataNotTLVFormatted }
+
+        var results: [(Credential, Code?)] = []
+        for (name, response) in records {
             guard name.tag == 0x71 else { throw OATHSessionError.unexpectedTag }
 
             guard let credentialId = CredentialIdParser(data: name.value) else { throw OATHSessionError.unexpectedData }
@@ -296,17 +297,22 @@ public final actor OATHSession: Session {
             if response.value.count == 5 {
                 if credentialId.period != oathDefaultPeriod {
                     let code = try await self.calculateCode(credential: credential, timestamp: timestamp)
-                    return (credential, code)
+                    results.append((credential, code))
+                    continue
                 } else {
                     let digits = response.value.first!
                     let code = UInt32(bigEndian: response.value.subdata(in: 1..<response.value.count).uint32)
                     let stringCode = String(format: "%0\(digits)d", UInt(code))
-                    return (credential, Code(code: stringCode, timestamp: timestamp, credentialType: credentialType))
+                    results.append((credential, Code(code: stringCode, timestamp: timestamp, credentialType: credentialType)))
+                    continue
                 }
             } else {
-                return (credential, nil)
+                results.append((credential, nil))
+                continue
             }
         }
+
+        return results
     }
     
     /// Sets an Access Key derived from a password. Once a key is set, any usage of the credentials stored will

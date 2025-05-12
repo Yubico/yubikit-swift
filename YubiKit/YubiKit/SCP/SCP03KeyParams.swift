@@ -13,9 +13,9 @@
 // limitations under the License.
 
 public struct SCP03KeyParams: SCPKeyParams {
-    public var keyRef: SCPKeyRef
-    public var staticKeys: StaticKeys
-    
+    public let keyRef: SCPKeyRef
+    public let staticKeys: StaticKeys
+
     public init(keyRef: SCPKeyRef, staticKeys: StaticKeys) throws(SCPError) {
         if 0xFF & keyRef.kid > 3 {
             throw .illegalArgument("Invalid KID for SCP03")

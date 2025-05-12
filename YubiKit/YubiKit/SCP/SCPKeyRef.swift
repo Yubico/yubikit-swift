@@ -14,7 +14,7 @@
 
 import Foundation
 
-public struct SCPKeyRef: Equatable, Hashable {
+public struct SCPKeyRef: Equatable, Hashable, Sendable {
 
     public typealias Kid = UInt8
 
