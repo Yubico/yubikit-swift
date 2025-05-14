@@ -403,7 +403,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         for key in [keys.enc, keys.mac, dek] {
             let kcv = try defaultKcvIv.cbcEncrypt(key: key).prefix(3)
 
-            let currentDek = processor.state.sessionKeys.dek!
+            let currentDek = await processor.state.sessionKeys.dek!
 
             let encryptedKey = try key.cbcEncrypt(key: currentDek)
             data.append(TKBERTLVRecord(tag: 0x88, value: encryptedKey).data)
@@ -498,7 +498,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
             precondition(rawSecret.count == 32)
         } catch { throw .wrapped(error) }
 
-        let currentDek = processor.state.sessionKeys.dek!
+        let currentDek = await processor.state.sessionKeys.dek!
         let encryptedSecret = try rawSecret.cbcEncrypt(key: currentDek)
         precondition(encryptedSecret.count == 32)
 

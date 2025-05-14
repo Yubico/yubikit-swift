@@ -18,7 +18,7 @@ fileprivate let insInitializeUpdate: UInt8 = 0x50
 
 typealias SCPKid  = SCPKeyRef.Kid
 
-internal class SCPProcessor: HasSCPLogger {
+internal actor SCPProcessor: HasSCPLogger {
 
     internal var state: SCPState
 
