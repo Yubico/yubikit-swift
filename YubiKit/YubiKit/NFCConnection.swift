@@ -94,7 +94,7 @@ public final actor NFCConnection: Connection {
     
     public func send(data: Data) async throws -> Data {
         guard let tag else { throw ConnectionError.noConnection }
-        guard let apdu = APDU(data: data).nfcIso7816Apdu else { throw NFCConnectionError.malformedAPDU }
+        guard let apdu = NFCISO7816APDU(data: data) else { throw NFCConnectionError.malformedAPDU }
         let result: (Data, UInt8, UInt8) = try await tag.sendCommand(apdu: apdu)
         return result.0 + result.1.data + result.2.data
     }
@@ -327,12 +327,6 @@ extension NFCTagWrapper.State: Equatable {
         default:
             return false
         }
-    }
-}
-
-extension APDU {
-    var nfcIso7816Apdu: NFCISO7816APDU? {
-        return NFCISO7816APDU(data: self.data)
     }
 }
 
