@@ -43,7 +43,7 @@ class ConnectionFullStackTests: XCTestCase {
             do {
                 let connection = try await NFCConnection.connection(alertMessage: "Test Alert Message")
                 guard try await connection.isAllowed() else { XCTFail("🚨 YubiKey not in allow-list!"); return }
-                await connection.close(error: "Closing Error Message")
+                await connection.close(error: nil)
             } catch {
                 XCTFail("🚨 Failed with: \(error)")
             }
