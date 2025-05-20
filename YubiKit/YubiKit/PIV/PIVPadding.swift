@@ -23,10 +23,12 @@ public enum PIVPaddingError: Error {
 internal enum PIVPadding {
     
     internal static func padData(_ data: Data, keyType: PIVKeyType, algorithm: SecKeyAlgorithm) throws -> Data {
-        if keyType == .RSA1024 || keyType == .RSA2048 {
-            let keySize = keyType.size * 8
-            let attributes = [kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                        kSecAttrKeySizeInBits: keySize] as [CFString : Any]
+        switch keyType {
+
+        case let .rsa(keySize):
+            let attributes = [
+                kSecAttrKeyType: kSecAttrKeyTypeRSA,
+                kSecAttrKeySizeInBits: keySize.keySizeInBits] as [CFString : Any]
             var error: Unmanaged<CFError>?
             guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
                   let publicKey = SecKeyCopyPublicKey(privateKey)
@@ -35,13 +37,13 @@ internal enum PIVPadding {
             }
             guard let signedData = SecKeyCreateSignature(privateKey, algorithm, data as CFData, &error) else {
                 throw error!.takeRetainedValue() as Error
-
             }
             guard let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionRaw, signedData, &error) else {
                 throw error!.takeRetainedValue() as Error
             }
             return encryptedData as Data
-        } else if keyType == .ECCP256 || keyType == .ECCP384 {
+
+        case .ecc:
             var hash: Data
             switch algorithm {
             case SecKeyAlgorithm.ecdsaSignatureMessageX962SHA1:
@@ -81,7 +83,7 @@ internal enum PIVPadding {
             default:
                 throw PIVPaddingError.unsupportedAlgorithm
             }
-            let keySize = Int(keyType.size)
+            let keySize = keyType.sizeInBytes
             if hash.count == keySize {
                 return hash
             } else if hash.count > keySize {
@@ -89,8 +91,6 @@ internal enum PIVPadding {
             } else if hash.count < keySize {
                 return Data(count: keySize - hash.count) + hash
             }
-        } else {
-            throw PIVPaddingError.unknownKeyType
         }
         throw PIVPaddingError.unknownPaddingError
     }

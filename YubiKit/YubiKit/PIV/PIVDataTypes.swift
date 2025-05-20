@@ -13,8 +13,6 @@
 // limitations under the License.
 
 import Foundation
-import CommonCrypto
-
 
 /// The touch policy of a private key defines whether or not a user presence check (physical touch) is required to use the key.
 public enum PIVTouchPolicy: UInt8 {
@@ -69,69 +67,66 @@ public enum PIVSlot: UInt8 {
 }
 
 // PIV key type.
-public enum PIVKeyType: UInt8 {
-    case RSA1024 = 0x06
-    case RSA2048 = 0x07
-    case RSA3072 = 0x05
-    case RSA4096 = 0x16
-    case ECCP256 = 0x11
-    case ECCP384 = 0x14
-    case unknown = 0x00
-    
-    /// Create a new PIVKeyType from a SecKey.
-    public init?(_ secKey: SecKey) {
-        guard let dict = SecKeyCopyAttributes(secKey) else { return nil }
-        let attributes = dict as NSDictionary
-        guard let size = attributes[kSecAttrKeySizeInBits] as? Int else { return nil }
-        guard let type = attributes[kSecAttrKeyType] as? String else { return nil }
-        let secAttrKeyTypeRSA = kSecAttrKeyTypeRSA as String
-        let secAttrKeyTypeEC = kSecAttrKeyTypeEC as String
-        switch type {
-        case secAttrKeyTypeRSA:
-            switch size {
-            case 1024:
-                self = .RSA1024
-            case 2048:
-                self = .RSA2048
-            case 3072:
-                self = .RSA3072
-            case 4096:
-                self = .RSA4096
-            default:
-                return nil
+public enum PIVKeyType: RawRepresentable, Equatable {
+
+    case rsa(RSA.KeySize)
+    case ecc(EC.Curve)
+
+    // TODO:
+    // 0xE0: Edwards Digital Signature Algorithm (EdDSA) key, using Curve25519
+    // 0xE1: Elliptic-Curve Diffie-Hellman (ECDH) protocol key, using Curve25519
+    //
+    // Ed25519: ONLY be used for signing & X25519 ONLY be used for keyAgreement
+
+    public var rawValue: UInt8 {
+        switch self {
+        case .rsa(let size):
+            return switch size {
+            case .bits1024: 0x06
+            case .bits2048: 0x07
+            case .bits3072: 0x05
+            case .bits4096: 0x16
             }
-        case secAttrKeyTypeEC:
-            switch size {
-            case 256:
-                self = .ECCP256
-            case 384:
-                self = .ECCP384
-            default:
-                return nil
+        case .ecc(let curve):
+            return switch curve {
+            case .p256: 0x11
+            case .p384: 0x14
             }
-        default:
-            return nil
         }
     }
-    
-    /// The size of the key.
-    var size: UInt {
-        switch (self) {
-        case .ECCP256:
-            return 256 / 8
-        case .ECCP384:
-            return 384 / 8
-        case .RSA1024:
-            return 1024 / 8
-        case .RSA2048:
-            return 2048 / 8
-        case .RSA3072:
-            return 3072 / 8
-        case .RSA4096:
-            return 4096 / 8
-        default:
-            return 0
+
+    public init?(rawValue: UInt8) {
+        switch rawValue {
+        case 0x06: self = .rsa(.bits1024)
+        case 0x07: self = .rsa(.bits2048)
+        case 0x05: self = .rsa(.bits3072)
+        case 0x16: self = .rsa(.bits4096)
+
+        case 0x11: self = .ecc(.p256)
+        case 0x14: self = .ecc(.p384)
+
+        default: return nil
         }
+    }
+
+    public init?(kind: CryptoKeyKind) {
+        switch kind {
+        case .rsa(let size):
+            self.self = .rsa(size)
+        case .ec(let curve):
+            self.self = .ecc(curve)
+        }
+    }
+
+    public var sizeInBits: Int {
+        return switch (self) {
+        case .rsa(let keySize): keySize.rawValue
+        case .ecc(let curve): curve.keySizeInBits
+        }
+    }
+
+    public var sizeInBytes: Int {
+        sizeInBits / 8
     }
 }
 
@@ -159,7 +154,6 @@ public enum PIVSessionError: Error {
     case failedCreatingCertificate
     case badKeyLength
     case invalidInput
-    case unsupportedKeyType
 }
 
 /// Metadata about the card management key.
@@ -183,7 +177,7 @@ public struct PIVSlotMetadata {
     /// Whether the key was generated on the YubiKey or imported.
     public let generated: Bool
     /// Returns the public key corresponding to the key in the slot.
-    public let publicKey: SecKey
+    public let publicKey: PublicKey
 }
 
 /// Metadata about the PIN or PUK.
@@ -226,16 +220,6 @@ public enum PIVManagementKeyType: UInt8 {
             return 8
         case .AES128, .AES192, .AES256:
             return 16
-        }
-    }
-    
-    /// The corresponding ccAlgorithm for this PIVManagementKeyType.
-    var ccAlgorithm: UInt32 {
-        switch self {
-        case .tripleDES:
-            return UInt32(kCCAlgorithm3DES)
-        case .AES128, .AES192, .AES256:
-            return UInt32(kCCAlgorithmAES)
         }
     }
 }
