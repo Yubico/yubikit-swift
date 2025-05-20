@@ -27,7 +27,7 @@ extension PIVSession {
                 throw PIVSessionError.invalidResponse
             }
 
-            guard let key = EC.PublicKey(uncompressedRepresentation: keyData),
+            guard let key = EC.PublicKey(uncompressedPoint: keyData),
                   key.curve == curve else {
                 throw PIVSessionError.dataParseError
             }
@@ -40,7 +40,7 @@ extension PIVSession {
                 throw PIVSessionError.invalidResponse
             }
 
-            guard let key = RSA.PublicKey(size: keySize, n: modulus, e: exponent) else {
+            guard let key = RSA.PublicKey(n: modulus, e: exponent), key.size == keySize else {
                 throw PIVSessionError.badKeyLength
             }
 

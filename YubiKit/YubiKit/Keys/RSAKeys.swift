@@ -47,12 +47,11 @@ public enum RSA {
 
         /// Initializes an RSA public key.
         /// - Parameters:
-        ///   - size: Key size (bits).
-        ///   - n: Modulus (big endian, no sign).
-        ///   - e: Exponent (big endian).
+        ///   - n: Modulus
+        ///   - e: Exponent
         ///   - Returns: PublicKey if modulus size matches; otherwise nil.
-        public init?(size: KeySize, n: Data, e: Data) {
-            guard n.count == size.keySizeInBytes else { return nil }
+        public init?(n: Data, e: Data) {
+            guard let size = KeySize(rawValue: n.count * 8) else { return nil }
 
             self.size = size
             self.n = n
@@ -63,15 +62,15 @@ public enum RSA {
     /// RSA private key with associated public key and CRT components.
     /// Uses PKCS #1 DER encoding.
     public struct PrivateKey: Sendable, Equatable {
-        public let peer: PublicKey
+        public let publicKey: PublicKey
 
         // Shared
         public var n: Data {
-            peer.n
+            publicKey.n
         }
 
         public var size: KeySize {
-            peer.size
+            publicKey.size
         }
 
         // Private exponent
@@ -86,21 +85,41 @@ public enum RSA {
 
         /// Initializes an RSA private key.
         /// - Parameters:
-        ///   - peer: Corresponding public key.
+        ///   - publicKey: Corresponding public key.
         ///   - d: Private exponent.
         ///   - p: Prime factor 1.
         ///   - q: Prime factor 2.
         ///   - dP: d mod (p-1).
         ///   - dQ: d mod (q-1).
         ///   - qInv: q⁻¹ mod p.
-        public init(peer: PublicKey, d: Data, p: Data, q: Data, dP: Data, dQ: Data, qInv: Data) {
-            self.peer = peer
+        public init(publicKey: PublicKey, d: Data, p: Data, q: Data, dP: Data, dQ: Data, qInv: Data) {
+            self.publicKey = publicKey
             self.d = d
             self.p = p
             self.q = q
             self.dP = dP
             self.dQ = dQ
             self.qInv = qInv
+        }
+
+        /// Initializes an RSA private key.
+        /// - Parameters:
+        ///   - size: Key size (bits)
+        ///   - n: Modulus
+        ///   - e: Public Exponent
+        ///   - d: Private exponent
+        ///   - p: Prime factor 1
+        ///   - q: Prime factor 2
+        ///   - dP: d mod (p-1)
+        ///   - dQ: d mod (q-1)
+        ///   - qInv: q⁻¹ mod p
+        public init?(n: Data, e: Data, d: Data, p: Data, q: Data, dP: Data, dQ: Data, qInv: Data) {
+
+            guard let publicKey = PublicKey(n: n, e: e) else {
+                return nil
+            }
+
+            self.init(publicKey: publicKey, d: d, p: p, q: q, dP: dP, dQ: dQ, qInv: qInv)
         }
     }
 }
@@ -122,7 +141,7 @@ extension RSA.PublicKey {
     ///   - size: Key size (bits).
     ///   - pkcs1: DER bytes: `SEQUENCE { modulus INTEGER, exponent INTEGER }`.
     ///   - Returns: PublicKey if valid; otherwise nil.
-    init?(size: RSA.KeySize, pkcs1: Data) {
+    init?(pkcs1: Data) {
         var data = pkcs1
 
         do {
@@ -130,6 +149,8 @@ extension RSA.PublicKey {
 
             let n = try PKCS1.Decoder.integer(&data)
             let e = try PKCS1.Decoder.integer(&data)
+
+            guard let size = RSA.KeySize(rawValue: n.count * 8) else { return nil }
 
             self.size = size
             self.n = n
@@ -151,7 +172,7 @@ public extension RSA.PrivateKey {
         body.append(PKCS1.Encoder.integer(Data([0x00])))
 
         body.append(PKCS1.Encoder.integer(n))
-        body.append(PKCS1.Encoder.integer(peer.e))
+        body.append(PKCS1.Encoder.integer(publicKey.e))
         body.append(PKCS1.Encoder.integer(d))
         body.append(PKCS1.Encoder.integer(p))
         body.append(PKCS1.Encoder.integer(q))
@@ -167,7 +188,7 @@ public extension RSA.PrivateKey {
     ///   - size: Key size (bits).
     ///   - pkcs1: DER bytes for the full private key.
     ///   - Returns: PrivateKey if valid; otherwise nil.
-    init?(size: RSA.KeySize, pkcs1: Data) {
+    init?(pkcs1: Data) {
         var data = pkcs1
 
         do {
@@ -175,7 +196,9 @@ public extension RSA.PrivateKey {
 
             let version = try PKCS1.Decoder.integer(&data)
             // We only support two‑prime RSA (version = 0)
-            guard version.count == 1, version.first == 0 else { throw PKCS1.Error(message: "Unsupported version") }
+            guard version.count == 1,
+                  version.first == 0
+            else { throw PKCS1.Error(message: "Unsupported version") }
 
             let n = try PKCS1.Decoder.integer(&data)
             let e       = try PKCS1.Decoder.integer(&data)
@@ -186,11 +209,11 @@ public extension RSA.PrivateKey {
             let dQ      = try PKCS1.Decoder.integer(&data)
             let qInv    = try PKCS1.Decoder.integer(&data)
 
-            guard let peer: RSA.PublicKey = .init(size: size, n: n, e: e) else {
-                throw PKCS1.Error(message: "Failed to create public peer key")
+            guard let publicKey: RSA.PublicKey = .init(n: n, e: e) else {
+                throw PKCS1.Error(message: "Failed to create public key")
             }
 
-            self.peer = peer
+            self.publicKey = publicKey
             self.d = d
             self.p = p
             self.q = q

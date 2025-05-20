@@ -112,9 +112,9 @@ public enum PIVKeyType: RawRepresentable, Equatable {
     public init?(kind: CryptoKeyKind) {
         switch kind {
         case .rsa(let size):
-            self.self = .rsa(size)
+            self = .rsa(size)
         case .ec(let curve):
-            self.self = .ecc(curve)
+            self = .ecc(curve)
         }
     }
 

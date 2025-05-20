@@ -362,7 +362,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
             throw SCPError.unexpectedResponse
         }
 
-        guard let key = EC.PublicKey(uncompressedRepresentation: tlv.value) else {
+        guard let key = EC.PublicKey(uncompressedPoint: tlv.value) else {
             throw SCPError.unexpectedResponse
         }
 
@@ -436,7 +436,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         var data = Data()
         data.append(keyRef.kvn) // KVN
 
-        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKey.uncompressedRepresentation).data) // EC point
+        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKey.uncompressedPoint).data) // EC point
         data.append(TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data) // params = P-256
         data.append(0x00) // END TLV list
 

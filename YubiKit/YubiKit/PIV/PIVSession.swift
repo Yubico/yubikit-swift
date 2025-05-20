@@ -96,13 +96,13 @@ public final actor PIVSession: Session {
     /// Perform an ECDH operation with a given public key to compute a shared secret.
     /// - Parameters:
     ///   - slot: The slot containing the private EC key to use.
-    ///   - peerPublicKey: The peer public key for the operation.
+    ///   - peerKey: The peer public key for the operation.
     /// - Returns: The shared secret.
     public func calculateSecretKeyInSlot(slot: PIVSlot, peerKey: EC.PublicKey) async throws -> Data {
 
         return try await usePrivateKeyInSlot(slot,
                                              keyType: .ecc(peerKey.curve),
-                                             message: peerKey.uncompressedRepresentation,
+                                             message: peerKey.uncompressedPoint,
                                              exponentiation: true)
     }
     

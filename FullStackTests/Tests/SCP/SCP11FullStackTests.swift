@@ -202,7 +202,7 @@ final class SCP11bFullStackTests: XCTestCase {
                 XCTFail("Failed: Couldn't create key pair: \(error)")
             }
 
-            let publicKey = privateKey.peer
+            let publicKey = privateKey.publicKey
 
             try await securityDomainSession.putKey(keyRef: scpKeyRef, privateKey: privateKey, replaceKvn: 0)
 
@@ -264,7 +264,7 @@ private extension SecurityDomainSession {
         try await putKey(keyRef: oceRef, publicKey: certificatePublicKey, replaceKvn: 0)
 
         // Extract the CA certificate's Subject Key Identifier for issuer referencing
-        let ski = Insecure.SHA1.hash(data: certificatePublicKey.uncompressedRepresentation).data
+        let ski = Insecure.SHA1.hash(data: certificatePublicKey.uncompressedPoint).data
 
         // Store the CA issuer identifier on the YubiKey
         try await storeCaIssuer(keyRef: oceRef, ski: ski)

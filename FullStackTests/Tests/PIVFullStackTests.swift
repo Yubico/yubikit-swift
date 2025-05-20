@@ -115,7 +115,7 @@ final class PIVFullStackTests: XCTestCase {
             }
 
             let privateKey = try XCTUnwrap(EC.PrivateKey.random(curve: .p256))
-            let publicKey = privateKey.peer
+            let publicKey = privateKey.publicKey
 
             try await session.verifyPin("123456")
             let yubiKeySecret = try await session.calculateSecretKeyInSlot(slot: .signature, peerKey: publicKey)
@@ -135,7 +135,7 @@ final class PIVFullStackTests: XCTestCase {
             }
 
             let privateKey = try XCTUnwrap(EC.PrivateKey.random(curve: .p384))
-            let publicKey = privateKey.peer
+            let publicKey = privateKey.publicKey
 
             try await session.verifyPin("123456")
             let yubiKeySecret = try await session.calculateSecretKeyInSlot(slot: .signature, peerKey: publicKey)
@@ -154,7 +154,7 @@ final class PIVFullStackTests: XCTestCase {
                 XCTFail("Failed to create keys")
                 return
             }
-            let publicKey = privateKey.peer
+            let publicKey = privateKey.publicKey
 
             let keyType = try await session.putKey(key: .rsa(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
             XCTAssert(keyType == .rsa(.bits1024))
@@ -178,7 +178,7 @@ final class PIVFullStackTests: XCTestCase {
                 XCTFail("Failed to create keys")
                 return
             }
-            let publicKey = privateKey.peer
+            let publicKey = privateKey.publicKey
 
             let keyType = try await session.putKey(key: .rsa(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
             XCTAssert(keyType == .rsa(.bits2048))
@@ -198,7 +198,7 @@ final class PIVFullStackTests: XCTestCase {
     func testPutECCP256Key() throws {
         runAuthenticatedPIVTest { session in
             let privateKey = try XCTUnwrap(EC.PrivateKey.random(curve: .p256))
-            let publicKey = privateKey.peer
+            let publicKey = privateKey.publicKey
 
             let keyType = try await session.putKey(key: .ec(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
             XCTAssert(keyType == .ecc(.p256))
@@ -218,7 +218,7 @@ final class PIVFullStackTests: XCTestCase {
     func testPutECCP384Key() throws {
         runAuthenticatedPIVTest { session in
             let privateKey = try XCTUnwrap(EC.PrivateKey.random(curve: .p384))
-            let publicKey = privateKey.peer
+            let publicKey = privateKey.publicKey
 
             let keyType = try await session.putKey(key: .ec(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
             XCTAssert(keyType == .ecc(.p384))

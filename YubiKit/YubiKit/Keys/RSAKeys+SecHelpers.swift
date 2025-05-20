@@ -40,7 +40,7 @@ public extension RSA.PrivateKey {
             return nil
         }
 
-        return RSA.PrivateKey(size: keySize, pkcs1: pkcs1)
+        return RSA.PrivateKey(pkcs1: pkcs1)
     }
 }
 

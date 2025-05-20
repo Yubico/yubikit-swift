@@ -82,15 +82,17 @@ private extension SecKey {
 
         switch keyType {
         case kSecAttrKeyTypeRSA:
-            guard let keySize = RSA.KeySize(rawValue: attributes[kSecAttrKeySizeInBits] as! Int) else {
+            let key = RSA.PublicKey(pkcs1: blob)
+
+            guard let keySize = RSA.KeySize(rawValue: attributes[kSecAttrKeySizeInBits] as! Int),
+                  keySize == key?.size else {
                 return nil // unsupported RSA keySize
             }
 
-            let key = RSA.PublicKey(size: keySize, pkcs1: blob)
             return key.map { .rsa($0) }
 
         case kSecAttrKeyTypeECSECPrimeRandom:
-            let key = EC.PublicKey(uncompressedRepresentation: blob)
+            let key = EC.PublicKey(uncompressedPoint: blob)
             return key.map { .ec($0) }
         default:
             return nil // unsupported

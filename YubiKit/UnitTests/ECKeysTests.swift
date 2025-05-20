@@ -41,9 +41,9 @@ final class ECKeysTests: XCTestCase {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {
             let privKey = EC.PrivateKey.random(curve: curve)!
-            XCTAssertEqual(privKey.peer.curve, curve)
-            XCTAssertEqual(privKey.peer.x.count, curve.keySizeInBytes)
-            XCTAssertEqual(privKey.peer.y.count, curve.keySizeInBytes)
+            XCTAssertEqual(privKey.publicKey.curve, curve)
+            XCTAssertEqual(privKey.publicKey.x.count, curve.keySizeInBytes)
+            XCTAssertEqual(privKey.publicKey.y.count, curve.keySizeInBytes)
             XCTAssertEqual(privKey.k.count, curve.keySizeInBytes)
         }
     }
@@ -55,7 +55,7 @@ final class ECKeysTests: XCTestCase {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {
             let privKey = EC.PrivateKey.random(curve: curve)!
-            let pubKey = privKey.peer
+            let pubKey = privKey.publicKey
 
             let secPrivKey = privKey.asSecKey()
             let secPubKey = pubKey.asSecKey()
@@ -74,23 +74,23 @@ final class ECKeysTests: XCTestCase {
             let privKey = EC.PrivateKey.random(curve: curve)!
 
             // Encode to uncompressed representation
-            let privRaw = privKey.uncompressedRepresentation
-            let pubRaw = privKey.peer.uncompressedRepresentation
+            let privRaw = privKey.uncompressedPoint
+            let pubRaw = privKey.publicKey.uncompressedPoint
 
             // Decode back from uncompressed representation
-            let decodedPriv = EC.PrivateKey(uncompressedRepresentation: privRaw)
-            let decodedPub = EC.PublicKey(uncompressedRepresentation: pubRaw)
+            let decodedPriv = EC.PrivateKey(uncompressedPoint: privRaw)
+            let decodedPub = EC.PublicKey(uncompressedPoint: pubRaw)
 
             // Compare all components of private key
             XCTAssertNotNil(decodedPriv)
-            XCTAssertEqual(decodedPriv?.peer.x, privKey.peer.x)
-            XCTAssertEqual(decodedPriv?.peer.y, privKey.peer.y)
+            XCTAssertEqual(decodedPriv?.publicKey.x, privKey.publicKey.x)
+            XCTAssertEqual(decodedPriv?.publicKey.y, privKey.publicKey.y)
             XCTAssertEqual(decodedPriv?.k, privKey.k)
 
             // Compare all components of public key
             XCTAssertNotNil(decodedPub)
-            XCTAssertEqual(decodedPub?.x, privKey.peer.x)
-            XCTAssertEqual(decodedPub?.y, privKey.peer.y)
+            XCTAssertEqual(decodedPub?.x, privKey.publicKey.x)
+            XCTAssertEqual(decodedPub?.y, privKey.publicKey.y)
         }
     }
 
@@ -99,9 +99,9 @@ final class ECKeysTests: XCTestCase {
         let invalid = Data([0x00, 0x01, 0x02])
         let curves: [EC.Curve] = [.p256, .p384]
         for _ in curves {
-            let decodedPriv = EC.PrivateKey(uncompressedRepresentation: invalid)
+            let decodedPriv = EC.PrivateKey(uncompressedPoint: invalid)
             XCTAssertNil(decodedPriv)
-            let decodedPub = EC.PublicKey(uncompressedRepresentation: invalid)
+            let decodedPub = EC.PublicKey(uncompressedPoint: invalid)
             XCTAssertNil(decodedPub)
         }
     }
@@ -113,7 +113,7 @@ final class ECKeysTests: XCTestCase {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {
             let originalPrivKey = EC.PrivateKey.random(curve: curve)!
-            let originalPubKey = originalPrivKey.peer
+            let originalPubKey = originalPrivKey.publicKey
 
             let publicSecKey = try XCTUnwrap(originalPubKey.asSecKey())
             var error: Unmanaged<CFError>?
@@ -122,7 +122,7 @@ final class ECKeysTests: XCTestCase {
 
             // Re-initialize EC.PublicKey from this uncompressed data
             if let pubRaw = publicDERFromSecKey {
-                let roundTrippedPubKey = EC.PublicKey(uncompressedRepresentation: pubRaw)
+                let roundTrippedPubKey = EC.PublicKey(uncompressedPoint: pubRaw)
                 XCTAssertNotNil(roundTrippedPubKey)
                 XCTAssertEqual(roundTrippedPubKey?.x, originalPubKey.x)
                 XCTAssertEqual(roundTrippedPubKey?.y, originalPubKey.y)
@@ -145,10 +145,10 @@ final class ECKeysTests: XCTestCase {
 
             // Re-initialize EC.PrivateKey from this uncompressed data
             if let privRaw = privateDERFromSecKey {
-                let roundTrippedPrivKey = EC.PrivateKey(uncompressedRepresentation: privRaw)
+                let roundTrippedPrivKey = EC.PrivateKey(uncompressedPoint: privRaw)
                 XCTAssertNotNil(roundTrippedPrivKey)
-                XCTAssertEqual(roundTrippedPrivKey?.peer.x, originalPrivKey.peer.x)
-                XCTAssertEqual(roundTrippedPrivKey?.peer.y, originalPrivKey.peer.y)
+                XCTAssertEqual(roundTrippedPrivKey?.publicKey.x, originalPrivKey.publicKey.x)
+                XCTAssertEqual(roundTrippedPrivKey?.publicKey.y, originalPrivKey.publicKey.y)
                 XCTAssertEqual(roundTrippedPrivKey?.k, originalPrivKey.k)
             }
         }

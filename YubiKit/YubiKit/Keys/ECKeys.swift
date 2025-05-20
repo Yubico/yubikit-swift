@@ -57,10 +57,10 @@ public enum EC {
         }
 
         /// Initialize a public key from SEC1 uncompressed EC point format (0x04 || X || Y).
-        /// - Parameter uncompressedRepresentation: Data in SEC1 format.
+        /// - Parameter uncompressedPoint: Data in SEC1 format.
         /// - Returns: PublicKey if valid, otherwise nil.
-        public init?(uncompressedRepresentation: Data) {
-            var data = uncompressedRepresentation
+        public init?(uncompressedPoint: Data) {
+            var data = uncompressedPoint
             guard data.extract(1)?.bytes == [0x04] else {
                 // invalid representation
                 return nil
@@ -78,7 +78,7 @@ public enum EC {
         }
 
         /// SEC1 uncompressed EC point representation (0x04 || X || Y).
-        public var uncompressedRepresentation: Data {
+        public var uncompressedPoint: Data {
             var result = Data([0x04])
             result.append(contentsOf: x)
             result.append(contentsOf: y)
@@ -88,22 +88,22 @@ public enum EC {
 
     /// An elliptic curve private key with associated public key and secret scalar k.
     public struct PrivateKey: Sendable, Equatable {
-        public let peer: PublicKey
+        public let publicKey: PublicKey
 
-        public var curve: Curve { peer.curve }
+        public var curve: Curve { publicKey.curve }
 
         public let k: Data // secret scalar
 
         /// Uncompressed representation of private key as 0x04 || X || Y || K.
-        public var uncompressedRepresentation: Data {
-            return peer.uncompressedRepresentation + k
+        public var uncompressedPoint: Data {
+            return publicKey.uncompressedPoint + k
         }
 
         /// Initialize a private key from 0x04 || X || Y || K bytes.
-        /// - Parameter uncompressedRepresentation: Data in custom uncompressed format.
+        /// - Parameter uncompressedPoint: Data in custom uncompressed format.
         /// - Returns: PrivateKey if valid, otherwise nil.
-        public init?(uncompressedRepresentation: Data) {
-            var data = uncompressedRepresentation
+        public init?(uncompressedPoint: Data) {
+            var data = uncompressedPoint
             guard data.extract(1)?.bytes == [0x04] else {
                 // invalid representation
                 return nil
@@ -118,7 +118,7 @@ public enum EC {
                 return nil
             }
 
-            self.peer = .init(curve: curve, x: x, y: y)
+            self.publicKey = .init(curve: curve, x: x, y: y)
             self.k = k
         }
     }
