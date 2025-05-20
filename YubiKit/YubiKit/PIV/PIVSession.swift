@@ -120,12 +120,12 @@ public final actor PIVSession: Session {
     ///
     /// - Parameter slot: The slot containing the private key to use.
     /// - Returns: The attestation certificate.
-    public func attestKeyInSlot(slot: PIVSlot) async throws -> Certificate {
+    public func attestKeyInSlot(slot: PIVSlot) async throws -> X509Cert {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(PIVSessionFeature.attestation) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insAttest, p1: slot.rawValue, p2: 0)
         let result = try await send(apdu: apdu)
-        return Certificate(der: result)
+        return X509Cert(der: result)
     }
     
     /// Generates a new key pair within the YubiKey.
@@ -255,7 +255,7 @@ public final actor PIVSession: Session {
     ///   - certificate: Certificate to write.
     ///   - slot: The slot to write the certificate to.
     ///   - compress: If true the certificate will be compressed before being stored on the YubiKey.
-    public func putCertificate(certificate: Certificate, inSlot slot: PIVSlot, compress: Bool = false) async throws {
+    public func putCertificate(certificate: X509Cert, inSlot slot: PIVSlot, compress: Bool = false) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         var certData = certificate.der
         if compress {
@@ -272,7 +272,7 @@ public final actor PIVSession: Session {
     /// Reads the X.509 certificate stored in the specified slot on the YubiKey.
     /// - Parameter slot: The slot where the certificate is stored.
     /// - Returns: The X.509 certificate.
-    public func getCertificateInSlot(_ slot: PIVSlot) async throws -> Certificate {
+    public func getCertificateInSlot(_ slot: PIVSlot) async throws -> X509Cert {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let command = TKBERTLVRecord(tag: tagObjectId, value: slot.objectId).data
         let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command, type: .extended)
@@ -289,7 +289,7 @@ public final actor PIVSession: Session {
            certificateInfo.bytes[0] == 1 {
             certificateData = try certificateData.gunzipped()
         }
-        return Certificate(der: certificateData)
+        return X509Cert(der: certificateData)
     }
     
     /// Deletes the X.509 certificate stored in the specified slot on the YubiKey.

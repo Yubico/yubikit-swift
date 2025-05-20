@@ -148,7 +148,7 @@ final class SCP11bFullStackTests: XCTestCase {
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
 
             let chain = try await securityDomainSession.getCertificateBundle(scpKeyRef: scpKeyRef)
-            let leaf: Certificate = chain.last!
+            let leaf: X509Cert = chain.last!
             _ = leaf.publicKey // make sure we can read the public key
 
             do {
@@ -170,7 +170,7 @@ final class SCP11bFullStackTests: XCTestCase {
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
 
             let chain = try await securityDomainSession.getCertificateBundle(scpKeyRef: scpKeyRef)
-            let first: Certificate = chain.first!
+            let first: X509Cert = chain.first!
             let publicKey = first.publicKey!.asEC()! // make sure we can read the public key
 
             let params = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)

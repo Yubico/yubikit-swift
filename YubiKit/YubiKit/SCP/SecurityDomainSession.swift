@@ -175,14 +175,14 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     /// - Throws: ``SCPError`` if the command fails or the response format is invalid.
     /// - Returns: An array of ``SecCertificate`` objects representing the certificate chain.
     // @TraceScope
-    public func getCertificateBundle(scpKeyRef: SCPKeyRef) async throws(SCPError) -> [Certificate] {
+    public func getCertificateBundle(scpKeyRef: SCPKeyRef) async throws(SCPError) -> [X509Cert] {
 
         do {
             let result = try await getData(tag: 0xBF21, data: TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: scpKeyRef.data).data).data)
             guard let rawCerts = TKBERTLVRecord.sequenceOfRecords(from: result) else {
                 throw SCPError.unexpectedResponse
             }
-            let certs = rawCerts.map { Certificate(der: $0.data) }
+            let certs = rawCerts.map { X509Cert(der: $0.data) }
             return certs
         } catch {
             if let reponseError = error as? ResponseError, reponseError.responseStatus.status == .referencedDataNotFound {
@@ -251,7 +251,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
-    public func storeCertificateBundle(keyRef: SCPKeyRef, certificiates: [Certificate]) async throws(SCPError) {
+    public func storeCertificateBundle(keyRef: SCPKeyRef, certificiates: [X509Cert]) async throws(SCPError) {
 
         var certsData = Data()
         certificiates.forEach { certificate in

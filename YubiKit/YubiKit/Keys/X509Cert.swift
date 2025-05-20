@@ -12,23 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// # Certificate
+/// X.509 Certificate wrapper for DER encoding and public key extraction.
+/// Provides methods for working with SecCertificate and extracting cryptographic keys.
+///
 import Foundation
 
-// X.509
-public struct Certificate: Sendable {
-    // X.509 DER representation
+public struct X509Cert: Sendable {
+    /// X.509 DER-encoded certificate data.
     public let der: Data
 
+    /// Initialize a certificate from DER data.
+    /// - Parameter der: The DER-encoded certificate data.
     public init(der: Data) {
         self.der = der
     }
 
+    /// Returns this certificate as a SecCertificate.
+    /// - Returns: The native SecCertificate, or nil if DER is invalid.
     public func asSecCertificate() -> SecCertificate? {
         SecCertificateCreateWithData(nil, der as CFData)
     }
 }
 
-public extension Certificate {
+public extension X509Cert {
+    /// Converts a SecKey to a PublicKey (.rsa or .ec).
+    /// Returns nil if unsupported or extraction fails.
     var publicKey: PublicKey? {
         guard let cert = asSecCertificate() else {
             // invalid der
@@ -50,8 +59,9 @@ public extension Certificate {
     }
 }
 
-private extension SecKey {
 
+// MARK: - Private helper
+private extension SecKey {
     func asPublicKey() -> PublicKey? {
         let attributes = SecKeyCopyAttributes(self) as! [CFString: Any]
 

@@ -20,13 +20,13 @@ public struct SCP11KeyParams: SCPKeyParams {
     public let pkSdEcka: EC.PublicKey
     public let oceKeyRef: SCPKeyRef?
     public let skOceEcka: EC.PrivateKey?
-    public let certificates: [Certificate]
+    public let certificates: [X509Cert]
 
     public init(keyRef: SCPKeyRef,
                 pkSdEcka: EC.PublicKey,
                 oceKeyRef: SCPKeyRef? = nil,
                 skOceEcka: EC.PrivateKey? = nil,
-                certificates: [Certificate] = []) throws(SCPError) {
+                certificates: [X509Cert] = []) throws(SCPError) {
         switch (keyRef.kid) {
         case .scp11b:
             if (oceKeyRef != nil || skOceEcka != nil || !certificates.isEmpty) {

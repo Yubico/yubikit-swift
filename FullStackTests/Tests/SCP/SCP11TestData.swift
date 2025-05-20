@@ -22,7 +22,7 @@ import CryptoKit
 enum Scp11TestData {
 
     // cert.ca-kloc.ecdsa.pem
-    static let caCert = [Certificate](pem: caPem)![0]
+    static let caCert = [X509Cert](pem: caPem)![0]
     private static let caPem: String = """
 -----BEGIN CERTIFICATE-----
 MIIB2zCCAYGgAwIBAgIUSf59wIpCKOrNGNc5FMPTD9zDGVAwCgYIKoZIzj0EAwIw
@@ -39,7 +39,7 @@ TieYeSoKZn6MM4rOAiEA1S/+7ez/gxDl01ztKeoHiUiW4FbEG4JUCzIITaGxVvM=
 """
 
     // cert.ka-kloc.ecdsa.pem
-    static let kaCert = [Certificate](pem: kaPem)![0]
+    static let kaCert = [X509Cert](pem: kaPem)![0]
     private static let kaPem: String = """
 -----BEGIN CERTIFICATE-----
 MIIB8DCCAZegAwIBAgIUf0lxsK1R+EydqZKLLV/vXhaykgowCgYIKoZIzj0EAwIw
@@ -57,7 +57,7 @@ ijkE8e+9dTazSPLf24lSIf0IGC8=
 """
 
     // cert.oce.ecka.pem
-    static let eckaCert = [Certificate](pem: eckaPem)![0]
+    static let eckaCert = [X509Cert](pem: eckaPem)![0]
     static let eckaPem: String = """
 -----BEGIN CERTIFICATE-----
 MIIBwjCCAWmgAwIBAgIUa5ACiACQn5/81kE0aTMkJ0j76a0wCgYIKoZIzj0EAwIw
@@ -86,18 +86,18 @@ onFbCuzgYKMLHplN3r8cyQNuso0J5UqZUwVyllE1EAF2Pu+RlJvtnYD2
 
 // MARK: - Private helpers to parse from PEM
 
-private extension [Certificate] {
+private extension [X509Cert] {
     init?(pem: String) {
         let regex = try! NSRegularExpression(pattern: "-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----", options: [.dotMatchesLineSeparators])
         let matches = regex.matches(in: pem, options: [], range: NSRange(location: 0, length: pem.utf16.count))
 
-        var certs: [Certificate] = []
+        var certs: [X509Cert] = []
 
         for match in matches {
             if let range = Range(match.range(at: 1), in: pem) {
                 let base64 = pem[range].replacingOccurrences(of: "\n", with: "")
                 if let derData = Data(base64Encoded: base64) {
-                    certs.append(Certificate(der: derData))
+                    certs.append(X509Cert(der: derData))
                 } else {
                     // Certificate parsing failed
                     return nil
