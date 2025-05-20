@@ -41,7 +41,7 @@ class SCPFullStackTests: XCTestCase {
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
             let certificates = try await securityDomainSession.getCertificateBundle(scpKeyRef: scpKeyRef)
             guard let last = certificates.last,
-                  let publicKey = SecCertificateCopyKey(last)
+                  let publicKey = last.publicKey?.asEC()
             else {
                 XCTFail()
                 return

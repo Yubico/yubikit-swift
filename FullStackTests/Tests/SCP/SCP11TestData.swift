@@ -22,7 +22,7 @@ import CryptoKit
 enum Scp11TestData {
 
     // cert.ca-kloc.ecdsa.pem
-    static let caCert = [SecCertificate](pem: caPem)![0]
+    static let caCert = [Certificate](pem: caPem)![0]
     private static let caPem: String = """
 -----BEGIN CERTIFICATE-----
 MIIB2zCCAYGgAwIBAgIUSf59wIpCKOrNGNc5FMPTD9zDGVAwCgYIKoZIzj0EAwIw
@@ -39,7 +39,7 @@ TieYeSoKZn6MM4rOAiEA1S/+7ez/gxDl01ztKeoHiUiW4FbEG4JUCzIITaGxVvM=
 """
 
     // cert.ka-kloc.ecdsa.pem
-    static let kaCert = [SecCertificate](pem: kaPem)![0]
+    static let kaCert = [Certificate](pem: kaPem)![0]
     private static let kaPem: String = """
 -----BEGIN CERTIFICATE-----
 MIIB8DCCAZegAwIBAgIUf0lxsK1R+EydqZKLLV/vXhaykgowCgYIKoZIzj0EAwIw
@@ -57,7 +57,7 @@ ijkE8e+9dTazSPLf24lSIf0IGC8=
 """
 
     // cert.oce.ecka.pem
-    static let eckaCert = [SecCertificate](pem: eckaPem)![0]
+    static let eckaCert = [Certificate](pem: eckaPem)![0]
     static let eckaPem: String = """
 -----BEGIN CERTIFICATE-----
 MIIBwjCCAWmgAwIBAgIUa5ACiACQn5/81kE0aTMkJ0j76a0wCgYIKoZIzj0EAwIw
@@ -74,7 +74,7 @@ Xfx/i/gUmwCTdA+dFrc1jWYZ8qVd6Q==
 """
 
     // sk.oce.ecka.pem
-    static let secretKey = SecKey?(pem: secretKeyPem)!
+    static let secretKey = EC.PrivateKey(pem: secretKeyPem)!
     static let secretKeyPem = """
 -----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgTWGyQ5Nmm3WG0Hfc
@@ -86,19 +86,18 @@ onFbCuzgYKMLHplN3r8cyQNuso0J5UqZUwVyllE1EAF2Pu+RlJvtnYD2
 
 // MARK: - Private helpers to parse from PEM
 
-private extension [SecCertificate] {
+private extension [Certificate] {
     init?(pem: String) {
         let regex = try! NSRegularExpression(pattern: "-----BEGIN CERTIFICATE-----(.*?)-----END CERTIFICATE-----", options: [.dotMatchesLineSeparators])
         let matches = regex.matches(in: pem, options: [], range: NSRange(location: 0, length: pem.utf16.count))
 
-        var certs: [SecCertificate] = []
+        var certs: [Certificate] = []
 
         for match in matches {
             if let range = Range(match.range(at: 1), in: pem) {
                 let base64 = pem[range].replacingOccurrences(of: "\n", with: "")
-                if let derData = Data(base64Encoded: base64),
-                   let cert = SecCertificateCreateWithData(nil, derData as CFData) {
-                    certs.append(cert)
+                if let derData = Data(base64Encoded: base64) {
+                    certs.append(Certificate(der: derData))
                 } else {
                     // Certificate parsing failed
                     return nil
@@ -110,25 +109,16 @@ private extension [SecCertificate] {
     }
 }
 
-private extension Optional where Wrapped == SecKey {
+private extension EC.PrivateKey {
     init?(pem: String) {
         guard let pkcs8Key = try? P256.Signing.PrivateKey(pemRepresentation: pem) else {
-            self = nil
-            return
+            return nil
         }
 
-        let rep = pkcs8Key.x963Representation as CFData
+        let rep = pkcs8Key.x963Representation as Data
 
-        var err: Unmanaged<CFError>?
-        let attrs: NSDictionary = [
-            kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
-            kSecAttrKeyClass: kSecAttrKeyClassPrivate,
-            kSecAttrKeySizeInBits: 256
-        ]
-
-        guard let key = SecKeyCreateWithData(rep, attrs, &err) else {
-            self = nil
-            return
+        guard let key = EC.PrivateKey(uncompressedRepresentation: rep) else {
+            return nil
         }
 
         self = key

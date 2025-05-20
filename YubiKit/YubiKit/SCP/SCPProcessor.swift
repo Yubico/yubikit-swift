@@ -82,7 +82,6 @@ internal actor SCPProcessor: HasSCPLogger {
                 let oceRef = scp11Params.oceKeyRef ?? SCPKeyRef(kid: 0x00, kvn: 0x00)
 
                 for (index, cert) in certificates.enumerated() {
-                    let certDer = SecCertificateCopyData(cert) as Data
                     // For every cert except the last, set bit 7 of P2 to indicate "more blocks"
                     let p2: UInt8 = oceRef.kid | (index < certificates.count - 1 ? 0x80 : 0x00)
                     Self.trace(message: "sending certificate \(index)")
@@ -92,7 +91,7 @@ internal actor SCPProcessor: HasSCPLogger {
                             ins: 0x2A,      // PERFORM SECURITY OPERATION
                             p1: oceRef.kvn, // 3
                             p2: p2, // -112
-                            command: certDer,
+                            command: cert.der,
                             type: .extended)
                     )
                 }
@@ -103,29 +102,14 @@ internal actor SCPProcessor: HasSCPLogger {
             let keyLen = Data([16]) // 128-bit
 
             let pkSdEcka = scp11Params.pkSdEcka
+            Self.trace(message: "pkSdEcka: \(pkSdEcka.uncompressedRepresentation.hexEncodedString)")
 
-            if let pkSdEckaData = SecKeyCopyExternalRepresentation(pkSdEcka, nil) as Data? {
-                Self.trace(message: "pkSdEcka: \(pkSdEckaData.hexEncodedString)")
-            } else {
-                Self.trace(message: "Failed to extract pkSdEcka external representation")
+            guard let eskOceEcka = try? EC.PrivateKey.random(curve: .p256) else {
+                throw SCPError.encryptionFailed("Failed to generate private key")
             }
+            let epkOceEcka = eskOceEcka.peer
 
-            let attributes = [kSecAttrKeyType: kSecAttrKeyTypeEC, kSecAttrKeySizeInBits: 256] as [CFString : Any]
-
-            var error: Unmanaged<CFError>?
-            guard let eskOceEcka = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-                  let epkOceEcka = SecKeyCopyPublicKey(eskOceEcka) else {
-                let error: Error = error!.takeRetainedValue()
-                throw SCPError.wrapped(error)
-            }
-
-            guard let externalRepresentation = SecKeyCopyExternalRepresentation(epkOceEcka, &error) as? Data else {
-                let error: Error = error!.takeRetainedValue()
-                throw SCPError.wrapped(error)
-            }
-
-            let epkOceEckaData = externalRepresentation.subdata(in: 0 ..< 1 + 2 * Int(32)) // TODO: Get correct size from key attributes
-            Self.trace(message: "externalRepresentation: \(externalRepresentation.hexEncodedString)")
+            let epkOceEckaData = epkOceEcka.uncompressedRepresentation
             Self.trace(message: "epkOceEckaData: \(epkOceEckaData.hexEncodedString)")
 
             Self.trace(message: "params: \(Data([0x11, params]).hexEncodedString)")
@@ -153,12 +137,14 @@ internal actor SCPProcessor: HasSCPLogger {
             let keyAgreementData = data + tlvs[0].data
             let sharedInfo = keyUsage + keyType + keyLen
 
-            let pkAttributes = [kSecAttrKeyType: kSecAttrKeyTypeEC,
-                               kSecAttrKeyClass: kSecAttrKeyClassPublic] as CFDictionary
-            guard let epkSdEcka = SecKeyCreateWithData(epkSdEckaEncodedPoint as CFData, pkAttributes, &error) else { throw error!.takeRetainedValue() as Error }
+            guard let epkSdEcka = EC.PublicKey(uncompressedRepresentation: epkSdEckaEncodedPoint) else {
+                throw SCPError.notSupported("Unable to parse EC public key")
+            }
 
-            let keyAgreement1 = SecKeyCopyKeyExchangeResult(eskOceEcka, .ecdhKeyExchangeStandard, epkSdEcka, [String: Any]() as CFDictionary, nil)! as Data
-            let keyAgreement2 = SecKeyCopyKeyExchangeResult(skOceEcka, .ecdhKeyExchangeStandard, pkSdEcka, [String: Any]() as CFDictionary, nil)! as Data
+            guard let keyAgreement1 = eskOceEcka.sharedSecret(with: epkSdEcka),
+                  let keyAgreement2 = skOceEcka.sharedSecret(with: pkSdEcka) else {
+                throw SCPError.encryptionFailed("Unable to generate shared secret")
+            }
             let keyMaterial = keyAgreement1 + keyAgreement2
 
             var keys = [Data]()
@@ -225,5 +211,28 @@ internal actor SCPProcessor: HasSCPLogger {
         }
 
         return result
+    }
+}
+
+private extension EC.PrivateKey {
+    /// Perform an ECDH key-agreement with the passed public key
+    /// and return the raw shared secret bytes.
+    func sharedSecret(with publicKey: EC.PublicKey) -> Data? {
+        guard let privateSecKey = asSecKey(), let associatedPublicSecKey = publicKey.asSecKey() else {
+            return nil
+        }
+
+        var cfError: Unmanaged<CFError>?
+        guard let secretData = SecKeyCopyKeyExchangeResult(
+            privateSecKey,
+            .ecdhKeyExchangeStandard,
+            associatedPublicSecKey,
+            [:] as CFDictionary,
+            &cfError
+        ) as Data? else {
+            return nil
+        }
+
+        return secretData
     }
 }
