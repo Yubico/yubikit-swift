@@ -16,6 +16,7 @@
 /// Defines RSA public and private key types and DER encoding/decoding utilities for PKCS #1.
 
 import Foundation
+import CryptoTokenKit
 
 public enum RSA {
 
@@ -237,54 +238,34 @@ private enum PKCS1 {
 
         /// DER-encodes a SEQUENCE containing `body`.
         ///
-        /// - Returns: `0x30 || length || body`
+        /// - Returns: BER‑TLV encoded `SEQUENCE` record (tag 0x30).
         static func sequence(_ body: Data) -> Data {
-            if body.isEmpty { return Data() }
-
-            var out = Data([0x30])          // SEQUENCE tag
-            out.append(encodeLength(body.count))
-            out.append(body)
-            return out
+            guard !body.isEmpty else { return Data() }
+            let record = TKBERTLVRecord(tag: 0x30, value: body)
+            return record.data
         }
 
-        /// DER-encodes an INTEGER.
+        /// DER‑encodes an INTEGER.
         ///
-        /// - Parameter value: Big-endian magnitude bytes (positive integer).
-        /// - Returns: `0x02 || length || value`
+        /// - Parameter value: Big‑endian magnitude bytes (positive integer).
+        /// - Returns: BER‑TLV encoded `INTEGER` record (tag 0x02).
         static func integer(_ value: Data) -> Data {
             if value.isEmpty { return Data() }
 
             var content = value
 
             // Strip redundant leading 0x00
-            while content.count > 1 && content.bytes.first == 0x00 {
+            while content.count > 1 && content.first == 0x00 {
                 content.removeFirst()
             }
 
             // Add sign byte if MSB is 1 (ensure positive)
-            if let firstByte = content.bytes.first, firstByte & 0x80 != 0 {
+            if let firstByte = content.first, firstByte & 0x80 != 0 {
                 content = [0x00] + content
             }
 
-            return Data([0x02]) + encodeLength(content.count) + content
-        }
-
-        // MARK: - Helpers
-
-        /// DER length encoder (definite form, up to 4 bytes of length).
-        private static func encodeLength(_ len: Int) -> Data {
-            guard len >= 0 else { return Data()}
-
-            if len < 0x80 { // Short form
-                return Data([UInt8(len)])
-            } else { // Long form
-                var tmp = withUnsafeBytes(of: UInt32(len).bigEndian, Array.init)
-                // strip leading zeros
-                while tmp.first == 0 { tmp.removeFirst() }
-                var out = Data([0x80 | UInt8(tmp.count)])
-                out.append(contentsOf: tmp)
-                return out
-            }
+            let record = TKBERTLVRecord(tag: 0x02, value: content)
+            return record.data
         }
     }
 
@@ -295,19 +276,19 @@ private enum PKCS1 {
         ///
         /// On return `data` starts at the first byte **inside** the SEQUENCE.
         ///
-        /// - Parameter data: Buffer to parse (advanced past the SEQUENCE header).
+        /// - Parameter data: Buffer to parse (will be replaced by the SEQUENCE body).
         /// - Throws: `PKCS1.Error` if the tag, length, or remaining bytes are invalid.
         static func sequenceHeader(_ data: inout Data) throws {
-            // Tag
-            guard data.first == 0x30 else { throw PKCS1.Error(message: "Expected SEQUENCE") }
-            data.removeFirst()
+            guard let record = TKBERTLVRecord.sequenceOfRecords(from: data)?.first,
+                  record.tag == 0x30 else {
+                throw PKCS1.Error(message: "Expected SEQUENCE")
+            }
 
-            // Length
-            let length = try decodeLength(&data)
+            guard data.count >= record.data.count else {
+                throw PKCS1.Error(message: "Truncated SEQUENCE")
+            }
 
-            // Sanity-check: make sure we actually have that many bytes left
-            guard data.count >= length else { throw PKCS1.Error(message: "Truncated SEQUENCE") }
-            // Nothing else to do: the caller will now read `length` bytes worth of fields.
+            data.replaceSubrange(0..<record.data.count, with: record.value)
         }
 
         /// Reads an ASN.1 DER INTEGER and returns its raw bytes.
@@ -316,47 +297,24 @@ private enum PKCS1 {
         /// - Returns: The INTEGER content bytes.
         /// - Throws: `PKCS1.Error` if the tag/length/contents are malformed.
         static func integer(_ data: inout Data) throws -> Data {
-            // Tag
-            guard data.first == 0x02 else { throw PKCS1.Error(message: "Expected INTEGER") }
-            data.removeFirst()
-
-            // Length
-            let length = try decodeLength(&data)
-
-            // Value
-            guard data.count >= length else { throw PKCS1.Error(message: "Truncated INTEGER") }
-            let value = data.prefix(length)
-            data.removeFirst(length)
-
-            // Strip any leading padding 0x00 bytes (non‑canonical positive INTEGER encoding)
-            var trimmed = Data(value)
-            while trimmed.count > 1 && trimmed.first == 0x00 {
-                trimmed.removeFirst()
+            guard let record = TKBERTLVRecord.sequenceOfRecords(from: data)?.first,
+                  record.tag == 0x02 else {
+                throw PKCS1.Error(message: "Expected INTEGER")
             }
 
-            return trimmed
-        }
-
-        // MARK: - Helpers
-
-        /// DER length decoder (definite form only).
-        private static func decodeLength(_ data: inout Data) throws -> Int {
-            guard let first = data.first else { throw PKCS1.Error(message: "Missing length") }
-            data.removeFirst()
-
-            if first & 0x80 == 0 { // Short form (≤ 127)
-                return Int(first)
-            } else { // Long form
-                let octets = Int(first & 0x7F)
-                guard octets > 0, octets <= 4, data.count >= octets else {
-                    throw PKCS1.Error(message: "Invalid length")
-                }
-                var length: Int = 0
-                for _ in 0..<octets {
-                    length = (length << 8) | Int(data.removeFirst())
-                }
-                return length
+            guard data.count >= record.data.count else {
+                throw PKCS1.Error(message: "Truncated INTEGER")
             }
+
+            // strip any leading padding 0x00 bytes (non‑canonical positive INTEGER encoding)
+            var value = Data(record.value)
+            while value.count > 1 && value.first == 0x00 {
+                value.removeFirst()
+            }
+
+            // advance the buffer
+            data.removeFirst(record.data.count)
+            return value
         }
     }
 }
