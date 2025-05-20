@@ -80,13 +80,8 @@ public final actor PIVSession: Session {
     ///   - data: The encrypted data to decrypt.
     /// - Returns: The decrypted data.
     public func decryptWithKeyInSlot(slot: PIVSlot, algorithm: SecKeyAlgorithm, encrypted data: Data) async throws -> Data {
-        let keyType: PIVKeyType
-        switch data.count {
-        case RSA.KeySize.bits1024.keySizeInBytes:
-            keyType = .rsa(.bits1024)
-        case RSA.KeySize.bits2048.keySizeInBytes:
-            keyType = .rsa(.bits2048)
-        default:
+        let validTypes = RSA.KeySize.allCases.compactMap { PIVKeyType(kind: .rsa($0)) }
+        guard let keyType = validTypes.first(where: { $0.sizeInBytes == data.count }) else {
             throw PIVSessionError.invalidCipherTextLength
         }
         let result = try await usePrivateKeyInSlot(slot, keyType: keyType, message: data, exponentiation: false)

@@ -147,71 +147,54 @@ final class PIVFullStackTests: XCTestCase {
         }
     }
 
-    func testPutRSA1024Key() throws {
+    func testPutRSAKeys() throws {
         runAuthenticatedPIVTest { session in
 
-            guard let privateKey = RSA.PrivateKey.random(keySize: .bits1024) else {
-                XCTFail("Failed to create keys")
-                return
-            }
-            let publicKey = privateKey.publicKey
+            for keySize in [RSA.KeySize.bits1024, .bits2048, .bits3072, .bits4096] {
 
-            let keyType = try await session.putKey(key: .rsa(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
-            XCTAssert(keyType == .rsa(.bits1024))
-            let dataToEncrypt = "Hello World!".data(using: .utf8)!
-            guard let publicKey = publicKey.asSecKey(),
-                  let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionPKCS1, dataToEncrypt as CFData, nil) as Data?
-            else {
-                XCTFail("Failed encrypting data with SecKeyCreateEncryptedData().")
-                return
+                guard let privateKey = RSA.PrivateKey.random(keySize: keySize) else {
+                    XCTFail("Failed to create keys")
+                    return
+                }
+                let publicKey = privateKey.publicKey
+
+                let keyType = try await session.putKey(key: .rsa(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
+                XCTAssert(keyType == .rsa(keySize))
+                let dataToEncrypt = "Hello World!".data(using: .utf8)!
+                guard let publicKey = publicKey.asSecKey(),
+                      let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionPKCS1, dataToEncrypt as CFData, nil) as Data?
+                else {
+                    XCTFail("Failed encrypting data with SecKeyCreateEncryptedData().")
+                    return
+                }
+                try await session.verifyPin("123456")
+                let decryptedData = try await session.decryptWithKeyInSlot(slot: .signature, algorithm: .rsaEncryptionPKCS1, encrypted: encryptedData)
+                XCTAssert(dataToEncrypt == decryptedData)
             }
-            try await session.verifyPin("123456")
-            let decryptedData = try await session.decryptWithKeyInSlot(slot: .signature, algorithm: .rsaEncryptionPKCS1, encrypted: encryptedData)
-            XCTAssert(dataToEncrypt == decryptedData)
         }
     }
 
-    func testPutRSA2048Key() throws {
+    func testPutECCPKeys() throws {
         runAuthenticatedPIVTest { session in
 
-            guard let privateKey = RSA.PrivateKey.random(keySize: .bits2048) else {
-                XCTFail("Failed to create keys")
-                return
-            }
-            let publicKey = privateKey.publicKey
+            for curve in [EC.Curve.p256, .p384] {
 
-            let keyType = try await session.putKey(key: .rsa(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
-            XCTAssert(keyType == .rsa(.bits2048))
-            let dataToEncrypt = "Hello World!".data(using: .utf8)!
-            guard let publicKey = publicKey.asSecKey(),
-                  let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionPKCS1, dataToEncrypt as CFData, nil) as Data?
-            else {
-                XCTFail("Failed encrypting data with SecKeyCreateEncryptedData().")
-                return
-            }
-            try await session.verifyPin("123456")
-            let decryptedData = try await session.decryptWithKeyInSlot(slot: .signature, algorithm: .rsaEncryptionPKCS1, encrypted: encryptedData)
-            XCTAssert(dataToEncrypt == decryptedData)
-        }
-    }
+                let privateKey = try XCTUnwrap(EC.PrivateKey.random(curve: curve))
+                let publicKey = privateKey.publicKey
 
-    func testPutECCP256Key() throws {
-        runAuthenticatedPIVTest { session in
-            let privateKey = try XCTUnwrap(EC.PrivateKey.random(curve: .p256))
-            let publicKey = privateKey.publicKey
-
-            let keyType = try await session.putKey(key: .ec(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
-            XCTAssert(keyType == .ecc(.p256))
-            try await session.verifyPin("123456")
-            let message = "Hello World!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(.signature, keyType: .ecc(.p256), algorithm: .ecdsaSignatureMessageX962SHA256, message: message)
-            var error: Unmanaged<CFError>?
-            let result = SecKeyVerifySignature(publicKey.asSecKey()!, SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256, message as CFData, signature as CFData, &error);
-            if let error = error {
-                XCTFail((error.takeRetainedValue() as Error).localizedDescription)
-                return
+                let keyType = try await session.putKey(key: .ec(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
+                XCTAssert(keyType == .ecc(curve))
+                try await session.verifyPin("123456")
+                let message = "Hello World!".data(using: .utf8)!
+                let signature = try await session.signWithKeyInSlot(.signature, keyType: .ecc(curve), algorithm: .ecdsaSignatureMessageX962SHA256, message: message)
+                var error: Unmanaged<CFError>?
+                let result = SecKeyVerifySignature(publicKey.asSecKey()!, SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256, message as CFData, signature as CFData, &error);
+                if let error = error {
+                    XCTFail((error.takeRetainedValue() as Error).localizedDescription)
+                    return
+                }
+                XCTAssertTrue(result)
             }
-            XCTAssertTrue(result)
         }
     }
 

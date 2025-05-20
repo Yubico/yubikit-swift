@@ -21,7 +21,7 @@ import CryptoTokenKit
 public enum RSA {
 
     /// Supported RSA key sizes (in bits).
-    public enum KeySize: Int, Sendable {
+    public enum KeySize: Int, Sendable, CaseIterable {
         case bits1024 = 1024
         case bits2048 = 2048
         case bits3072 = 3072

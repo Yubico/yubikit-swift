@@ -96,17 +96,16 @@ internal enum PIVPadding {
     }
     
     internal static func unpadRSAData(_ data: Data, algorithm: SecKeyAlgorithm) throws -> Data {
-        let size: UInt
-        switch data.count {
-        case 1024 / 8:
-            size = 1024
-        case 2048 / 8:
-            size = 2048
-        default:
+
+        let validTypes = RSA.KeySize.allCases.compactMap { PIVKeyType(kind: .rsa($0)) }
+        guard let keyType = validTypes.first(where: { $0.sizeInBytes == data.count }) else {
             throw PIVPaddingError.wrongInputBufferSize
         }
-        let attributes = [kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                    kSecAttrKeySizeInBits: size] as [CFString : Any]
+
+        let attributes = [
+            kSecAttrKeyType: kSecAttrKeyTypeRSA,
+            kSecAttrKeySizeInBits: keyType.sizeInBits] as [CFString : Any]
+
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
               let publicKey = SecKeyCopyPublicKey(privateKey)
