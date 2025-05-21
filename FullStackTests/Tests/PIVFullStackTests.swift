@@ -148,9 +148,9 @@ final class PIVFullStackTests: XCTestCase {
     }
 
     func testPutRSAKeys() throws {
-        runAuthenticatedPIVTest { session in
+        runAuthenticatedPIVTest(withTimeout: 200) { session in
 
-            for keySize in [RSA.KeySize.bits1024, .bits2048, .bits3072, .bits4096] {
+            for keySize in RSA.KeySize.allCases {
 
                 guard let privateKey = RSA.PrivateKey.random(keySize: keySize) else {
                     XCTFail("Failed to create keys")

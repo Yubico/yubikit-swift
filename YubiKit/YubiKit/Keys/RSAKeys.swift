@@ -105,7 +105,6 @@ public enum RSA {
 
         /// Initializes an RSA private key.
         /// - Parameters:
-        ///   - size: Key size (bits)
         ///   - n: Modulus
         ///   - e: Public Exponent
         ///   - d: Private exponent
