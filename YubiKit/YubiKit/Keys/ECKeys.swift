@@ -95,15 +95,15 @@ public enum EC {
         public let k: Data // secret scalar
 
         /// Uncompressed representation of private key as 0x04 || X || Y || K.
-        public var uncompressedPoint: Data {
+        public var uncompressedRepresentation: Data {
             return publicKey.uncompressedPoint + k
         }
 
-        /// Initialize a private key from 0x04 || X || Y || K bytes.
-        /// - Parameter uncompressedPoint: Data in custom uncompressed format.
+        /// Initialize a private key from 0x04 || X || Y || K
+        /// - Parameter uncompressedRepresentation: uncompressedPoint + K
         /// - Returns: PrivateKey if valid, otherwise nil.
-        public init?(uncompressedPoint: Data) {
-            var data = uncompressedPoint
+        public init?(uncompressedRepresentation: Data) {
+            var data = uncompressedRepresentation
             guard data.extract(1)?.bytes == [0x04] else {
                 // invalid representation
                 return nil

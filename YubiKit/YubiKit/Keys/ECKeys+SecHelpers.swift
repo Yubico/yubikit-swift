@@ -40,7 +40,7 @@ public extension EC.PrivateKey {
             return nil
         }
 
-        return EC.PrivateKey(uncompressedPoint: keyData)
+        return EC.PrivateKey(uncompressedRepresentation: keyData)
     }
 
     /// Convert this EC private key to a native SecKey.
@@ -53,7 +53,7 @@ public extension EC.PrivateKey {
         ]
 
         var err: Unmanaged<CFError>?
-        return SecKeyCreateWithData(uncompressedPoint as CFData,
+        return SecKeyCreateWithData(uncompressedRepresentation as CFData,
                                     attributes as CFDictionary, &err)
     }
 }

@@ -117,7 +117,7 @@ private extension EC.PrivateKey {
 
         let rep = pkcs8Key.x963Representation as Data
 
-        guard let key = EC.PrivateKey(uncompressedPoint: rep) else {
+        guard let key = EC.PrivateKey(uncompressedRepresentation: rep) else {
             return nil
         }
 
