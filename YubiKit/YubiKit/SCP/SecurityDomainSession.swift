@@ -175,17 +175,14 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     /// - Throws: ``SCPError`` if the command fails or the response format is invalid.
     /// - Returns: An array of ``SecCertificate`` objects representing the certificate chain.
     // @TraceScope
-    public func getCertificateBundle(scpKeyRef: SCPKeyRef) async throws(SCPError) -> [SecCertificate] {
+    public func getCertificateBundle(scpKeyRef: SCPKeyRef) async throws(SCPError) -> [X509Cert] {
 
         do {
             let result = try await getData(tag: 0xBF21, data: TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: scpKeyRef.data).data).data)
             guard let rawCerts = TKBERTLVRecord.sequenceOfRecords(from: result) else {
                 throw SCPError.unexpectedResponse
             }
-            let certs = rawCerts.map { SecCertificateCreateWithData(nil, $0.data as CFData) }.compactMap { $0 }
-            guard certs.count == rawCerts.count else {
-                throw SCPError.unexpectedResponse
-            }
+            let certs = rawCerts.map { X509Cert(der: $0.data) }
             return certs
         } catch {
             if let reponseError = error as? ResponseError, reponseError.responseStatus.status == .referencedDataNotFound {
@@ -254,12 +251,11 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
-    public func storeCertificateBundle(keyRef: SCPKeyRef, certificiates: [SecCertificate]) async throws(SCPError) {
+    public func storeCertificateBundle(keyRef: SCPKeyRef, certificiates: [X509Cert]) async throws(SCPError) {
 
         var certsData = Data()
         certificiates.forEach { certificate in
-            let certData = SecCertificateCopyData(certificate) as Data
-            certsData.append(certData)
+            certsData.append(certificate.der)
         }
         let data = TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data +
         TKBERTLVRecord(tag: 0xBF21, value: certsData).data
@@ -352,7 +348,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     /// - Throws: ``SCPError`` if command transmission fails or the response format is invalid.
     /// - Returns: the public key from the generated key pair
     // @TraceScope
-    public func generateEcKey(keyRef: SCPKeyRef, replaceKvn: UInt8) async throws(SCPError) -> SecKey {
+    public func generateEcKey(keyRef: SCPKeyRef, replaceKvn: UInt8) async throws(SCPError) -> EC.PublicKey {
         let params = TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data
         var data = Data()
         data.append(keyRef.kvn.data)
@@ -366,11 +362,8 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
             throw SCPError.unexpectedResponse
         }
 
-        var error: Unmanaged<CFError>?
-        let attributes = [kSecAttrKeyType: kSecAttrKeyTypeEC,
-                         kSecAttrKeyClass: kSecAttrKeyClassPublic] as CFDictionary
-        guard let key = SecKeyCreateWithData(tlv.value as CFData, attributes, &error) else {
-            throw .wrapped(error!.takeRetainedValue())
+        guard let key = EC.PublicKey(uncompressedPoint: tlv.value) else {
+            throw SCPError.unexpectedResponse
         }
 
         return key
@@ -432,26 +425,18 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     ///   - replaceKvn: Set to a non-zero KVN to delete/replace an existing key before import.
     /// - Throws: `KeyImportError` on validation failures or any error from the APDU exchange.
     // @TraceScope
-    func putKey(keyRef: SCPKeyRef, publicKey: SecKey, replaceKvn: UInt8) async throws(SCPError) {
-
-        let publicKeyWrapper: PublicKeyValues
-
-        do {
-            publicKeyWrapper = try PublicKeyValues.from(secKey: publicKey)
-        } catch {
-            throw SCPError.wrapped(error)
-        }
+    public func putKey(keyRef: SCPKeyRef, publicKey: EC.PublicKey, replaceKvn: UInt8) async throws(SCPError) {
 
         // -- validate curve
-        guard publicKeyWrapper.curve == .prime256v1 else {
-            throw SCPError.notSupported("Unsupported curve: \(publicKeyWrapper.curve)")
+        guard publicKey.curve == .p256 else {
+            throw SCPError.notSupported("Unsupported curve: \(publicKey.curve)")
         }
 
         // -- TLV build
         var data = Data()
         data.append(keyRef.kvn) // KVN
 
-        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKeyWrapper.rawRepresentation).data) // EC point
+        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKey.uncompressedPoint).data) // EC point
         data.append(TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data) // params = P-256
         data.append(0x00) // END TLV list
 
@@ -476,8 +461,8 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
-    public func putKey(keyRef: SCPKeyRef, privateKey: SecKey, replaceKvn: UInt8) async throws(SCPError) {
-        guard privateKey.isSECP256R1Key() else {
+    public func putKey(keyRef: SCPKeyRef, privateKey: EC.PrivateKey, replaceKvn: UInt8) async throws(SCPError) {
+        guard privateKey.curve == .p256 else {
             throw .illegalArgument // Expected SECP256R1 private key size
         }
 
@@ -485,14 +470,9 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
             throw .notSupported
         }
 
-        var error: Unmanaged<CFError>?
-        guard let privateKeyData = SecKeyCopyExternalRepresentation(privateKey, &error) as Data? else {
-            throw error.map { .wrapped($0.takeRetainedValue()) } ?? .illegalArgument
-        }
-
         let rawSecret: Data
         do {
-            let secretScalar = privateKeyData.suffix(32) // last 32 bytes
+            let secretScalar = privateKey.k
             let p256 = try P256.Signing.PrivateKey(rawRepresentation: secretScalar)
             rawSecret = p256.rawRepresentation
             precondition(rawSecret.count == 32)
@@ -585,18 +565,6 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         } catch {
             throw .wrapped(error)
         }
-    }
-}
-
-private extension SecKey {
-    func isSECP256R1Key() -> Bool {
-        guard let attributes = SecKeyCopyAttributes(self) as? [CFString: Any] else {
-            return false
-        }
-        guard let keyType = attributes[kSecAttrKeyType] as? String, let keySize = attributes[kSecAttrKeySizeInBits] as? Int else {
-            return false
-        }
-        return keyType == kSecAttrKeyTypeECSECPrimeRandom as String && keySize == 256
     }
 }
 

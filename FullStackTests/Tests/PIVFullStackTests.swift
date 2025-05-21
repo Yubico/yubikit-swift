@@ -14,15 +14,23 @@ import OSLog
 final class PIVFullStackTests: XCTestCase {
     
     let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
-    
+
     func testSignECCP256() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .ECCP256)
+            guard case let .ec(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p256)) else {
+                XCTFail("Failed to generate key in slot")
+                return
+            }
+
             try await session.verifyPin("123456")
             let message = "Hello world!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(.signature, keyType: .ECCP256, algorithm: .ecdsaSignatureMessageX962SHA256, message: message)
+            let signature = try await session.signWithKeyInSlot(.signature, keyType: .ecc(.p256),
+                                                                algorithm: .ecdsaSignatureMessageX962SHA256,
+                                                                message: message)
             var error: Unmanaged<CFError>?
-            let result = SecKeyVerifySignature(publicKey, SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256, message as CFData, signature as CFData, &error);
+            let result = SecKeyVerifySignature(publicKey.asSecKey()!,
+                                               SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256,
+                                               message as CFData, signature as CFData, &error);
             XCTAssertTrue(result)
             if let error {
                 XCTFail((error.takeRetainedValue() as Error).localizedDescription)
@@ -30,15 +38,23 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssert(true)
         }
     }
-    
+
     func testSignRSA1024() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA1024)
+            guard case let .rsa(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024)) else {
+                XCTFail("Failed to generate key in slot")
+                return
+            }
+
             try await session.verifyPin("123456")
             let message = "Hello world!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(.signature, keyType: .RSA1024, algorithm: .rsaSignatureMessagePKCS1v15SHA512, message: message)
+            let signature = try await session.signWithKeyInSlot(.signature, keyType: .rsa(.bits1024),
+                                                                algorithm: .rsaSignatureMessagePKCS1v15SHA512,
+                                                                message: message)
             var error: Unmanaged<CFError>?
-            let result = SecKeyVerifySignature(publicKey, SecKeyAlgorithm.rsaSignatureMessagePKCS1v15SHA512, message as CFData, signature as CFData, &error);
+            let result = SecKeyVerifySignature(publicKey.asSecKey()!,
+                                               SecKeyAlgorithm.rsaSignatureMessagePKCS1v15SHA512,
+                                               message as CFData, signature as CFData, &error);
             XCTAssertTrue(result)
             if let error {
                 XCTFail((error.takeRetainedValue() as Error).localizedDescription)
@@ -46,26 +62,40 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssert(true)
         }
     }
-        
+
     func testDecryptRSA2048() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA2048)
+            guard case let .rsa(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits2048)) else {
+                XCTFail("Failed to generate key in slot")
+                return
+            }
+
             let data = "Hello world!".data(using: .utf8)!
-            let encryptedData = try XCTUnwrap(SecKeyCreateEncryptedData(publicKey, .rsaEncryptionPKCS1, data as CFData, nil),
-                                              "Failed to encrypt data.")
+
+            let encryptedData = try XCTUnwrap(
+                SecKeyCreateEncryptedData(publicKey.asSecKey()!,
+                                          .rsaEncryptionPKCS1,
+                                          data as CFData,
+                                          nil),
+                "Failed to encrypt data.")
+
             try await session.verifyPin("123456")
             let decryptedData = try await session.decryptWithKeyInSlot(slot: .signature, algorithm: .rsaEncryptionPKCS1, encrypted: encryptedData as Data)
             XCTAssertEqual(data, decryptedData)
         }
     }
-    
+
     func testDecryptRSA1024() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA1024)
+            guard case let .rsa(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024)) else {
+                XCTFail("Failed to generate key in slot")
+                return
+            }
+
             let data = "Hello world!".data(using: .utf8)!
 
             let encryptedData = try XCTUnwrap(
-                SecKeyCreateEncryptedData(publicKey,
+                SecKeyCreateEncryptedData(publicKey.asSecKey()!,
                                           .rsaEncryptionPKCS1,
                                           data as CFData,
                                           nil),
@@ -79,126 +109,107 @@ final class PIVFullStackTests: XCTestCase {
     
     func testSharedSecretEC256() throws {
         runAuthenticatedPIVTest { session in
-            let yubiKeyPublicKey = try await session.generateKeyInSlot(slot: .signature, type: .ECCP256)
-            let attributes = [kSecAttrKeyType: kSecAttrKeyTypeEC,
-                        kSecAttrKeySizeInBits: 256] as [CFString : Any]
-            var error: Unmanaged<CFError>?
-            guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-                  let publicKey = SecKeyCopyPublicKey(privateKey) else {
-                XCTFail((error!.takeRetainedValue() as Error).localizedDescription)
+            guard case let .ec(yubiKeyPublicKey) = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p256)) else {
+                XCTFail("Failed to generate key in slot")
                 return
             }
+
+            let privateKey = try XCTUnwrap(EC.PrivateKey.random(curve: .p256))
+            let publicKey = privateKey.publicKey
+
             try await session.verifyPin("123456")
-            let yubiKeySecret = try await session.calculateSecretKeyInSlot(slot: .signature, peerPublicKey: publicKey)
-            let softwareSecret = SecKeyCopyKeyExchangeResult(privateKey, .ecdhKeyExchangeStandard, yubiKeyPublicKey, [String: Any]() as CFDictionary, nil)! as Data
+            let yubiKeySecret = try await session.calculateSecretKeyInSlot(slot: .signature, peerKey: publicKey)
+            let softwareSecret = SecKeyCopyKeyExchangeResult(privateKey.asSecKey()!,
+                                                             .ecdhKeyExchangeStandard,
+                                                             yubiKeyPublicKey.asSecKey()!,
+                                                             [String: Any]() as CFDictionary, nil)! as Data
             XCTAssert(softwareSecret == yubiKeySecret)
         }
     }
-    
+
     func testSharedSecretEC384() throws {
         runAuthenticatedPIVTest { session in
-            let yubiKeyPublicKey = try await session.generateKeyInSlot(slot: .signature, type: .ECCP384)
-            let attributes = [kSecAttrKeyType: kSecAttrKeyTypeEC,
-                        kSecAttrKeySizeInBits: 384] as [CFString : Any]
-            var error: Unmanaged<CFError>?
-            guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-                  let publicKey = SecKeyCopyPublicKey(privateKey) else {
-                XCTFail((error!.takeRetainedValue() as Error).localizedDescription)
+            guard case let .ec(yubiKeyPublicKey) = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p384)) else {
+                XCTFail("Failed to generate key in slot")
                 return
             }
+
+            let privateKey = try XCTUnwrap(EC.PrivateKey.random(curve: .p384))
+            let publicKey = privateKey.publicKey
+
             try await session.verifyPin("123456")
-            let yubiKeySecret = try await session.calculateSecretKeyInSlot(slot: .signature, peerPublicKey: publicKey)
-            let softwareSecret = SecKeyCopyKeyExchangeResult(privateKey, .ecdhKeyExchangeStandard, yubiKeyPublicKey, [String: Any]() as CFDictionary, nil)! as Data
+            let yubiKeySecret = try await session.calculateSecretKeyInSlot(slot: .signature, peerKey: publicKey)
+            let softwareSecret = SecKeyCopyKeyExchangeResult(privateKey.asSecKey()!,
+                                                             .ecdhKeyExchangeStandard,
+                                                             yubiKeyPublicKey.asSecKey()!,
+                                                             [String: Any]() as CFDictionary, nil)! as Data
             XCTAssert(softwareSecret == yubiKeySecret)
         }
     }
-    
-    func testPutRSA1024Key() throws {
-        runAuthenticatedPIVTest { session in
-            let attributes = [kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                        kSecAttrKeySizeInBits: 1024] as [CFString : Any]
-            var error: Unmanaged<CFError>?
-            guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-                  let publicKey = SecKeyCopyPublicKey(privateKey) else {
-                XCTFail((error!.takeRetainedValue() as Error).localizedDescription)
-                return
+
+    func testPutRSAKeys() throws {
+        runAuthenticatedPIVTest(withTimeout: 200) { session in
+
+            for keySize in RSA.KeySize.allCases {
+
+                guard let privateKey = RSA.PrivateKey.random(keySize: keySize) else {
+                    XCTFail("Failed to create keys")
+                    return
+                }
+                let publicKey = privateKey.publicKey
+
+                let keyType = try await session.putKey(key: .rsa(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
+                XCTAssert(keyType == .rsa(keySize))
+                let dataToEncrypt = "Hello World!".data(using: .utf8)!
+                guard let publicKey = publicKey.asSecKey(),
+                      let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionPKCS1, dataToEncrypt as CFData, nil) as Data?
+                else {
+                    XCTFail("Failed encrypting data with SecKeyCreateEncryptedData().")
+                    return
+                }
+                try await session.verifyPin("123456")
+                let decryptedData = try await session.decryptWithKeyInSlot(slot: .signature, algorithm: .rsaEncryptionPKCS1, encrypted: encryptedData)
+                XCTAssert(dataToEncrypt == decryptedData)
             }
-            let keyType = try await session.putKey(key: privateKey, inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
-            XCTAssert(keyType == .RSA1024)
-            let dataToEncrypt = "Hello World!".data(using: .utf8)!
-            guard let encryptedData = SecKeyCreateEncryptedData(publicKey, SecKeyAlgorithm.rsaEncryptionPKCS1, dataToEncrypt as CFData, nil) as Data? else {
-                XCTFail("Failed encrypting data with SecKeyCreateEncryptedData().")
-                return
-            }
-            try await session.verifyPin("123456")
-            let decryptedData = try await session.decryptWithKeyInSlot(slot: .signature, algorithm: .rsaEncryptionPKCS1, encrypted: encryptedData)
-            XCTAssert(dataToEncrypt == decryptedData)
         }
     }
-    
-    func testPutRSA2048Key() throws {
+
+    func testPutECCPKeys() throws {
         runAuthenticatedPIVTest { session in
-            let attributes = [kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                        kSecAttrKeySizeInBits: 2048] as [CFString : Any]
-            var error: Unmanaged<CFError>?
-            guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-                  let publicKey = SecKeyCopyPublicKey(privateKey) else {
-                XCTFail((error!.takeRetainedValue() as Error).localizedDescription)
-                return
+
+            for curve in [EC.Curve.p256, .p384] {
+
+                let privateKey = try XCTUnwrap(EC.PrivateKey.random(curve: curve))
+                let publicKey = privateKey.publicKey
+
+                let keyType = try await session.putKey(key: .ec(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
+                XCTAssert(keyType == .ecc(curve))
+                try await session.verifyPin("123456")
+                let message = "Hello World!".data(using: .utf8)!
+                let signature = try await session.signWithKeyInSlot(.signature, keyType: .ecc(curve), algorithm: .ecdsaSignatureMessageX962SHA256, message: message)
+                var error: Unmanaged<CFError>?
+                let result = SecKeyVerifySignature(publicKey.asSecKey()!, SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256, message as CFData, signature as CFData, &error);
+                if let error = error {
+                    XCTFail((error.takeRetainedValue() as Error).localizedDescription)
+                    return
+                }
+                XCTAssertTrue(result)
             }
-            let keyType = try await session.putKey(key: privateKey, inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
-            XCTAssert(keyType == .RSA2048)
-            let dataToEncrypt = "Hello World!".data(using: .utf8)!
-            guard let encryptedData = SecKeyCreateEncryptedData(publicKey, SecKeyAlgorithm.rsaEncryptionPKCS1, dataToEncrypt as CFData, nil) as Data? else {
-                XCTFail("Failed encrypting data with SecKeyCreateEncryptedData().")
-                return
-            }
-            try await session.verifyPin("123456")
-            let decryptedData = try await session.decryptWithKeyInSlot(slot: .signature, algorithm: .rsaEncryptionPKCS1, encrypted: encryptedData)
-            XCTAssert(dataToEncrypt == decryptedData)
         }
     }
-    
-    func testPutECCP256Key() throws {
-        runAuthenticatedPIVTest { session in
-            let attributes = [kSecAttrKeyType: kSecAttrKeyTypeEC,
-                        kSecAttrKeySizeInBits: 256] as [CFString : Any]
-            var error: Unmanaged<CFError>?
-            guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-                  let publicKey = SecKeyCopyPublicKey(privateKey) else {
-                XCTFail((error!.takeRetainedValue() as Error).localizedDescription)
-                return
-            }
-            let keyType = try await session.putKey(key: privateKey, inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
-            XCTAssert(keyType == .ECCP256)
-            try await session.verifyPin("123456")
-            let message = "Hello World!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(.signature, keyType: .ECCP256, algorithm: .ecdsaSignatureMessageX962SHA256, message: message)
-            let result = SecKeyVerifySignature(publicKey, SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256, message as CFData, signature as CFData, &error);
-            if let error = error {
-                XCTFail((error.takeRetainedValue() as Error).localizedDescription)
-                return
-            }
-            XCTAssertTrue(result)
-        }
-    }
-    
+
     func testPutECCP384Key() throws {
         runAuthenticatedPIVTest { session in
-            let attributes = [kSecAttrKeyType: kSecAttrKeyTypeEC,
-                        kSecAttrKeySizeInBits: 384] as [CFString : Any]
-            var error: Unmanaged<CFError>?
-            guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-                  let publicKey = SecKeyCopyPublicKey(privateKey) else {
-                XCTFail((error!.takeRetainedValue() as Error).localizedDescription)
-                return
-            }
-            let keyType = try await session.putKey(key: privateKey, inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
-            XCTAssert(keyType == .ECCP384)
+            let privateKey = try XCTUnwrap(EC.PrivateKey.random(curve: .p384))
+            let publicKey = privateKey.publicKey
+
+            let keyType = try await session.putKey(key: .ec(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
+            XCTAssert(keyType == .ecc(.p384))
             try await session.verifyPin("123456")
             let message = "Hello World!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(.signature, keyType: .ECCP384, algorithm: .ecdsaSignatureMessageX962SHA256, message: message)
-            let result = SecKeyVerifySignature(publicKey, SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256, message as CFData, signature as CFData, &error);
+            let signature = try await session.signWithKeyInSlot(.signature, keyType: .ecc(.p384), algorithm: .ecdsaSignatureMessageX962SHA256, message: message)
+            var error: Unmanaged<CFError>?
+            let result = SecKeyVerifySignature(publicKey.asSecKey()!, SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256, message as CFData, signature as CFData, &error);
             if let error = error {
                 XCTFail((error.takeRetainedValue() as Error).localizedDescription)
                 return
@@ -206,88 +217,79 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssertTrue(result)
         }
     }
-    
+
     func testGenerateRSA1024Key() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA1024, pinPolicy: .never, touchPolicy: .cached)
-            let attributes = SecKeyCopyAttributes(publicKey) as! [String: Any]
-            XCTAssert(attributes[kSecAttrKeySizeInBits as String] as! Int == 1024)
-            XCTAssert(attributes[kSecAttrKeyType as String] as! String == kSecAttrKeyTypeRSA as String)
-            XCTAssert(attributes[kSecAttrKeyClass as String] as! String == kSecAttrKeyClassPublic as String)
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024),
+                                                                pinPolicy: .always, touchPolicy: .cached).asRSA()
+            XCTAssertNotNil(publicKey)
+            XCTAssert(publicKey!.size == .bits1024)
         }
     }
-    
+
     func testGenerateRSA2048Key() throws {
         runAuthenticatedPIVTest(withTimeout: 50) { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA2048, pinPolicy: .always, touchPolicy: .cached)
-            let attributes = SecKeyCopyAttributes(publicKey) as! [String: Any]
-            XCTAssert(attributes[kSecAttrKeySizeInBits as String] as! Int == 2048)
-            XCTAssert(attributes[kSecAttrKeyType as String] as! String == kSecAttrKeyTypeRSA as String)
-            XCTAssert(attributes[kSecAttrKeyClass as String] as! String == kSecAttrKeyClassPublic as String)
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits2048),
+                                                                pinPolicy: .always, touchPolicy: .cached).asRSA()
+            XCTAssertNotNil(publicKey)
+            XCTAssert(publicKey!.size == .bits2048)
         }
     }
-    
+
     func testGenerateRSA3072Key() throws {
         runAuthenticatedPIVTest(withTimeout: 200) { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA3072, pinPolicy: .always, touchPolicy: .cached)
-            let attributes = SecKeyCopyAttributes(publicKey) as! [String: Any]
-            XCTAssert(attributes[kSecAttrKeySizeInBits as String] as! Int == 3072)
-            XCTAssert(attributes[kSecAttrKeyType as String] as! String == kSecAttrKeyTypeRSA as String)
-            XCTAssert(attributes[kSecAttrKeyClass as String] as! String == kSecAttrKeyClassPublic as String)
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits3072),
+                                                                pinPolicy: .always, touchPolicy: .cached).asRSA()
+            XCTAssertNotNil(publicKey)
+            XCTAssert(publicKey!.size == .bits3072)
         }
     }
-    
+
     func testGenerateRSA4096Key() throws {
         runAuthenticatedPIVTest(withTimeout: 200) { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA4096, pinPolicy: .always, touchPolicy: .cached)
-            let attributes = SecKeyCopyAttributes(publicKey) as! [String: Any]
-            XCTAssert(attributes[kSecAttrKeySizeInBits as String] as! Int == 4096)
-            XCTAssert(attributes[kSecAttrKeyType as String] as! String == kSecAttrKeyTypeRSA as String)
-            XCTAssert(attributes[kSecAttrKeyClass as String] as! String == kSecAttrKeyClassPublic as String)
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits4096), pinPolicy: .always, touchPolicy: .cached).asRSA()
+            XCTAssertNotNil(publicKey)
+            XCTAssert(publicKey!.size == .bits4096)
         }
     }
     
     func testGenerateECCP256Key() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .ECCP256, pinPolicy: .always, touchPolicy: .cached)
-            let attributes = SecKeyCopyAttributes(publicKey) as! [String: Any]
-            XCTAssert(attributes[kSecAttrKeySizeInBits as String] as! Int == 256)
-            XCTAssert(attributes[kSecAttrKeyType as String] as! String == kSecAttrKeyTypeEC as String)
-            XCTAssert(attributes[kSecAttrKeyClass as String] as! String == kSecAttrKeyClassPublic as String)
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p256), pinPolicy: .always, touchPolicy: .cached).asEC()
+            XCTAssertNotNil(publicKey)
+            XCTAssert(publicKey!.curve == .p256)
         }
     }
 
     
     func testGenerateECCP384Key() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .ECCP384, pinPolicy: .always, touchPolicy: .cached)
-            let attributes = SecKeyCopyAttributes(publicKey) as! [String: Any]
-            XCTAssert(attributes[kSecAttrKeySizeInBits as String] as! Int == 384)
-            XCTAssert(attributes[kSecAttrKeyType as String] as! String == kSecAttrKeyTypeEC as String)
-            XCTAssert(attributes[kSecAttrKeyClass as String] as! String == kSecAttrKeyClassPublic as String)
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p384), pinPolicy: .always, touchPolicy: .cached).asEC()
+            XCTAssertNotNil(publicKey)
+            XCTAssert(publicKey!.curve == .p384)
         }
     }
 
     func testAttestRSAKey() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .RSA1024)
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024)).asRSA()
             XCTAssertNotNil(publicKey)
+
             let cert = try await session.attestKeyInSlot(slot: .signature)
-            XCTAssertNotNil(cert)
-            let attestKey = SecCertificateCopyKey(cert)!
-            let attestKeyData = SecKeyCopyExternalRepresentation(attestKey, nil)!
-            let keyData = SecKeyCopyExternalRepresentation(publicKey, nil)!
-            XCTAssert((attestKeyData as Data) == (keyData as Data))
+            let attestKey = cert.publicKey?.asRSA()
+            XCTAssertNotNil(attestKey)
+
+            XCTAssert(attestKey! == publicKey!)
         }
     }
-    
-    let testCertificate = SecCertificateCreateWithData(nil, Data(base64Encoded: "MIIBKzCB0qADAgECAhQTuU25u6oazORvKfTleabdQaDUGzAKBggqhkjOPQQDAjAWMRQwEgYDVQQDDAthbW9zLmJ1cnRvbjAeFw0yMTAzMTUxMzU5MjVaFw0yODA1MTcwMDAwMDBaMBYxFDASBgNVBAMMC2Ftb3MuYnVydG9uMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEofwN6S+atSZmzeLK7aSI+mJJwxh0oUBiCOngHLeToYeanrTGvCZQ2AK/R9esnqSxMyBUDp91UO4F6U4c6RTooTAKBggqhkjOPQQDAgNIADBFAiAnj/KUSpW7l5wnenQEbwWudK/7q3WtyrqdB0H1xc258wIhALDLImzu3S+0TT2/ggM95LLWE4Llfa2RQM71bnW6zqqn")! as CFData)!
-    
+
+    let testCertificate = X509Cert(der: Data(base64Encoded: "MIIBKzCB0qADAgECAhQTuU25u6oazORvKfTleabdQaDUGzAKBggqhkjOPQQDAjAWMRQwEgYDVQQDDAthbW9zLmJ1cnRvbjAeFw0yMTAzMTUxMzU5MjVaFw0yODA1MTcwMDAwMDBaMBYxFDASBgNVBAMMC2Ftb3MuYnVydG9uMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEofwN6S+atSZmzeLK7aSI+mJJwxh0oUBiCOngHLeToYeanrTGvCZQ2AK/R9esnqSxMyBUDp91UO4F6U4c6RTooTAKBggqhkjOPQQDAgNIADBFAiAnj/KUSpW7l5wnenQEbwWudK/7q3WtyrqdB0H1xc258wIhALDLImzu3S+0TT2/ggM95LLWE4Llfa2RQM71bnW6zqqn")!)
+
     func testPutAndReadCertificate() throws {
         runAuthenticatedPIVTest { session in
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: false)
             let retrievedCertificate = try await session.getCertificateInSlot(.authentication)
-            XCTAssert(self.testCertificate == retrievedCertificate)
+            XCTAssert(self.testCertificate.der == retrievedCertificate.der)
         }
     }
     
@@ -296,7 +298,7 @@ final class PIVFullStackTests: XCTestCase {
             guard session.supports(PIVSessionFeature.moveDelete) else { print("⚠️ Skip testMoveKey()"); return }
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication)
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .signature)
-            let publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .RSA1024, pinPolicy: .always, touchPolicy: .always)
+            let publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .rsa(.bits1024), pinPolicy: .always, touchPolicy: .always)
             let authSlotMetadata = try await session.getSlotMetadata(.authentication)
             XCTAssertEqual(publicKey, authSlotMetadata.publicKey)
             try await session.moveKey(sourceSlot: .authentication, destinationSlot: .signature)
@@ -316,7 +318,7 @@ final class PIVFullStackTests: XCTestCase {
         runAuthenticatedPIVTest { session in
             guard session.supports(PIVSessionFeature.moveDelete) else { print("⚠️ Skip testDeleteKey()"); return }
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: true)
-            let publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .RSA1024, pinPolicy: .always, touchPolicy: .always)
+            let publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .rsa(.bits1024), pinPolicy: .always, touchPolicy: .always)
             let slotMetadata = try await session.getSlotMetadata(.authentication)
             XCTAssertEqual(publicKey, slotMetadata.publicKey)
             try await session.deleteKey(in: .authentication)
@@ -334,7 +336,7 @@ final class PIVFullStackTests: XCTestCase {
         runAuthenticatedPIVTest { session in
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: true)
             let retrievedCertificate = try await session.getCertificateInSlot(.authentication)
-            XCTAssert(self.testCertificate == retrievedCertificate)
+            XCTAssert(self.testCertificate.der == retrievedCertificate.der)
         }
     }
     
@@ -509,25 +511,25 @@ final class PIVFullStackTests: XCTestCase {
     func testSlotMetadata() throws {
         runAuthenticatedPIVTest { session in
             guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testSlotMetadata()"); return }
-            var publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .ECCP256, pinPolicy: .always, touchPolicy: .always)
+            var publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .ecc(.p256), pinPolicy: .always, touchPolicy: .always)
             var metadata = try await session.getSlotMetadata(.authentication)
-            XCTAssertEqual(metadata.keyType, .ECCP256)
+            XCTAssertEqual(metadata.keyType, .ecc(.p256))
             XCTAssertEqual(metadata.pinPolicy, .always)
             XCTAssertEqual(metadata.touchPolicy, .always)
             XCTAssertEqual(metadata.generated, true)
             XCTAssertEqual(metadata.publicKey, publicKey)
 
-            publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .ECCP384, pinPolicy: .never, touchPolicy: .never)
+            publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .ecc(.p384), pinPolicy: .never, touchPolicy: .never)
             metadata = try await session.getSlotMetadata(.authentication)
-            XCTAssertEqual(metadata.keyType, .ECCP384)
+            XCTAssertEqual(metadata.keyType, .ecc(.p384))
             XCTAssertEqual(metadata.pinPolicy, .never)
             XCTAssertEqual(metadata.touchPolicy, .never)
             XCTAssertEqual(metadata.generated, true)
             XCTAssertEqual(metadata.publicKey, publicKey)
 
-            publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .ECCP256, pinPolicy: .once, touchPolicy: .cached)
+            publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .ecc(.p256), pinPolicy: .once, touchPolicy: .cached)
             metadata = try await session.getSlotMetadata(.authentication)
-            XCTAssertEqual(metadata.keyType, .ECCP256)
+            XCTAssertEqual(metadata.keyType, .ecc(.p256))
             XCTAssertEqual(metadata.pinPolicy, .once)
             XCTAssertEqual(metadata.touchPolicy, .cached)
             XCTAssertEqual(metadata.generated, true)
@@ -681,13 +683,13 @@ final class PIVFullStackTests: XCTestCase {
             let session = try await PIVSession.session(withConnection: connection)
             try await self.authenticate(with: session)
             do {
-                _ = try await session.generateKeyInSlot(slot: .signature, type: .ECCP384, pinPolicy: .matchAlways, touchPolicy: .defaultPolicy)
+                _ = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p384), pinPolicy: .matchAlways, touchPolicy: .defaultPolicy)
             } catch {
                 guard let sessionError = error as? SessionError else { throw error }
                 XCTAssertEqual(sessionError, SessionError.notSupported)
             }
             do {
-                _ = try await session.generateKeyInSlot(slot: .signature, type: .ECCP384, pinPolicy: .matchOnce, touchPolicy: .defaultPolicy)
+                _ = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p384), pinPolicy: .matchOnce, touchPolicy: .defaultPolicy)
             } catch {
                 guard let sessionError = error as? SessionError else { throw error }
                 XCTAssertEqual(sessionError, SessionError.notSupported)

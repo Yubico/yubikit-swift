@@ -80,13 +80,8 @@ public final actor PIVSession: Session {
     ///   - data: The encrypted data to decrypt.
     /// - Returns: The decrypted data.
     public func decryptWithKeyInSlot(slot: PIVSlot, algorithm: SecKeyAlgorithm, encrypted data: Data) async throws -> Data {
-        let keyType: PIVKeyType
-        switch data.count {
-        case 1024 / 8:
-            keyType = .RSA1024
-        case 2048 / 8:
-            keyType = .RSA2048
-        default:
+        let validTypes = RSA.KeySize.allCases.compactMap { PIVKeyType(kind: .rsa($0)) }
+        guard let keyType = validTypes.first(where: { $0.sizeInBytes == data.count }) else {
             throw PIVSessionError.invalidCipherTextLength
         }
         let result = try await usePrivateKeyInSlot(slot, keyType: keyType, message: data, exponentiation: false)
@@ -96,16 +91,14 @@ public final actor PIVSession: Session {
     /// Perform an ECDH operation with a given public key to compute a shared secret.
     /// - Parameters:
     ///   - slot: The slot containing the private EC key to use.
-    ///   - peerPublicKey: The peer public key for the operation.
+    ///   - peerKey: The peer public key for the operation.
     /// - Returns: The shared secret.
-    public func calculateSecretKeyInSlot(slot: PIVSlot, peerPublicKey: SecKey) async throws -> Data {
-        guard let keyType = peerPublicKey.type, (keyType == .ECCP256 || keyType == .ECCP384) else { throw PIVSessionError.unsupportedKeyType }
-        var error: Unmanaged<CFError>?
-        guard let externalRepresentation = SecKeyCopyExternalRepresentation(peerPublicKey, &error) as? Data else {
-            throw error!.takeRetainedValue() as Error
-        }
-        let data = externalRepresentation.subdata(in: 0 ..< 1 + 2 * Int(keyType.size))
-        return try await usePrivateKeyInSlot(slot, keyType: keyType, message: data, exponentiation: true)
+    public func calculateSecretKeyInSlot(slot: PIVSlot, peerKey: EC.PublicKey) async throws -> Data {
+
+        return try await usePrivateKeyInSlot(slot,
+                                             keyType: .ecc(peerKey.curve),
+                                             message: peerKey.uncompressedPoint,
+                                             exponentiation: true)
     }
     
     /// Creates an attestation certificate for a private key which was generated on the YubiKey.
@@ -122,13 +115,12 @@ public final actor PIVSession: Session {
     ///
     /// - Parameter slot: The slot containing the private key to use.
     /// - Returns: The attestation certificate.
-    public func attestKeyInSlot(slot: PIVSlot) async throws -> SecCertificate {
+    public func attestKeyInSlot(slot: PIVSlot) async throws -> X509Cert {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard self.supports(PIVSessionFeature.attestation) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insAttest, p1: slot.rawValue, p2: 0)
         let result = try await send(apdu: apdu)
-        guard let certificate = SecCertificateCreateWithData(nil, result as CFData) else { throw PIVSessionError.dataParseError }
-        return certificate
+        return X509Cert(der: result)
     }
     
     /// Generates a new key pair within the YubiKey.
@@ -147,7 +139,7 @@ public final actor PIVSession: Session {
     ///   - pinPolicy: The PIN policy for using the private key.
     ///   - touchPolicy: The touch policy for using the private key.
     /// - Returns: The generated public key.
-    public func generateKeyInSlot(slot: PIVSlot, type: PIVKeyType, pinPolicy: PIVPinPolicy = .`defaultPolicy`, touchPolicy: PIVTouchPolicy = .`defaultPolicy`) async throws -> SecKey {
+    public func generateKeyInSlot(slot: PIVSlot, type: PIVKeyType, pinPolicy: PIVPinPolicy = .defaultPolicy, touchPolicy: PIVTouchPolicy = .`defaultPolicy`) async throws -> PublicKey {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await checkKeyFeatures(keyType: type, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: true)
         let records: [TKBERTLVRecord] = [TKBERTLVRecord(tag: tagGenAlgorithm, value: type.rawValue.data),
@@ -159,7 +151,7 @@ public final actor PIVSession: Session {
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
               let record = records.recordWithTag(0x7F49)
         else { throw PIVSessionError.invalidResponse }
-        return try SecKey.secKey(fromYubiKeyData: record.value, type: type)
+        return try publicKey(from: record.value, type: type)
     }
     
     /// Import a private key into a slot.
@@ -178,37 +170,36 @@ public final actor PIVSession: Session {
     ///   - touchPolicy: The touch policy for using the private key.
     /// - Returns: The type of the stored key.
     @discardableResult
-    public func putKey(key: SecKey, inSlot slot: PIVSlot, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy) async throws -> PIVKeyType {
+    public func putKey(key: PrivateKey, inSlot slot: PIVSlot, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy) async throws -> PIVKeyType {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard let keyType = key.type else { throw PIVSessionError.unknownKeyType }
+        guard let keyType: PIVKeyType = .init(kind: key.kind) else { throw PIVSessionError.unknownKeyType }
         try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
-        var error: Unmanaged<CFError>?
-        guard let cfKeyData = SecKeyCopyExternalRepresentation(key, &error) else { throw error!.takeRetainedValue() as Error }
-        let keyData = cfKeyData as Data
+
         var data = Data()
         switch keyType {
-        case .RSA1024, .RSA2048, .RSA3072, .RSA4096:
-            guard let recordsData = TKBERTLVRecord(from: keyData),
-                  let records = TKBERTLVRecord.sequenceOfRecords(from: recordsData.value)
-            else { throw PIVSessionError.dataParseError }
-            let primeOne = records[4].value
-            let primeTwo = records[5].value
-            let exponentOne = records[6].value
-            let exponentTwo = records[7].value
-            let coefficient = records[8].value
-            let length = Int(keyType.size / 2)
+        case .rsa:
+            guard let key = key.asRSA() else {
+                throw PIVSessionError.unknownKeyType
+            }
+
+            let primeOne = key.p
+            let primeTwo = key.q
+            let exponentOne = key.dP
+            let exponentTwo = key.dQ
+            let coefficient = key.qInv
+            let length = keyType.sizeInBytes / 2
             data.append(TKBERTLVRecord(tag: 0x01, value: primeOne.padOrTrim(to: length)).data)
             data.append(TKBERTLVRecord(tag: 0x02, value: primeTwo.padOrTrim(to: length)).data)
             data.append(TKBERTLVRecord(tag: 0x03, value: exponentOne.padOrTrim(to: length)).data)
             data.append(TKBERTLVRecord(tag: 0x04, value: exponentTwo.padOrTrim(to: length)).data)
             data.append(TKBERTLVRecord(tag: 0x05, value: coefficient.padOrTrim(to: length)).data)
-        case .ECCP256, .ECCP384:
-            let length = Int(keyType.size)
-            let startIndex = 1 + 2 * length
-            let privateKeyData = keyData.subdata(in: startIndex ..< startIndex + length)
+        case .ecc:
+            guard let key = key.asEC() else {
+                throw PIVSessionError.unknownKeyType
+            }
+
+            let privateKeyData = key.k
             data.append(TKBERTLVRecord(tag: 0x06, value: privateKeyData).data)
-        case .unknown:
-            throw PIVSessionError.unknownKeyType
         }
         if pinPolicy != .`defaultPolicy` {
             data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
@@ -259,9 +250,9 @@ public final actor PIVSession: Session {
     ///   - certificate: Certificate to write.
     ///   - slot: The slot to write the certificate to.
     ///   - compress: If true the certificate will be compressed before being stored on the YubiKey.
-    public func putCertificate(certificate: SecCertificate, inSlot slot: PIVSlot, compress: Bool = false) async throws {
+    public func putCertificate(certificate: X509Cert, inSlot slot: PIVSlot, compress: Bool = false) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        var certData = SecCertificateCopyData(certificate) as Data
+        var certData = certificate.der
         if compress {
             certData = try certData.gzipped()
         }
@@ -276,7 +267,7 @@ public final actor PIVSession: Session {
     /// Reads the X.509 certificate stored in the specified slot on the YubiKey.
     /// - Parameter slot: The slot where the certificate is stored.
     /// - Returns: The X.509 certificate.
-    public func getCertificateInSlot(_ slot: PIVSlot) async throws -> SecCertificate {
+    public func getCertificateInSlot(_ slot: PIVSlot) async throws -> X509Cert {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let command = TKBERTLVRecord(tag: tagObjectId, value: slot.objectId).data
         let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command, type: .extended)
@@ -293,8 +284,7 @@ public final actor PIVSession: Session {
            certificateInfo.bytes[0] == 1 {
             certificateData = try certificateData.gunzipped()
         }
-        guard let certificate = SecCertificateCreateWithData(nil, certificateData as CFData) else { throw PIVSessionError.failedCreatingCertificate }
-        return certificate
+        return X509Cert(der: certificateData)
     }
     
     /// Deletes the X.509 certificate stored in the specified slot on the YubiKey.
@@ -336,7 +326,14 @@ public final actor PIVSession: Session {
     public func authenticateWith(managementKey: Data, keyType: PIVManagementKeyType) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard keyType.keyLength == managementKey.count else { throw PIVSessionError.badKeyLength }
-        
+
+        let ccAlgorithm = switch keyType {
+        case .tripleDES:
+            UInt32(kCCAlgorithm3DES)
+        case .AES128, .AES192, .AES256:
+            UInt32(kCCAlgorithmAES)
+        }
+
         let witness = TKBERTLVRecord(tag: tagAuthWitness, value: Data()).data
         let command = TKBERTLVRecord(tag: tagDynAuth, value: witness).data
         let witnessApdu = APDU(cla: 0, ins: insAuthenticate, p1: keyType.rawValue, p2: UInt8(tagSlotCardManagement), command: command, type: .extended)
@@ -347,7 +344,8 @@ public final actor PIVSession: Session {
               let witnessRecord = TKBERTLVRecord(from: dynAuthRecord.value),
               witnessRecord.tag == tagAuthWitness
         else { throw PIVSessionError.responseDataNotTLVFormatted }
-        let decryptedWitness = try witnessRecord.value.decrypt(algorithm: keyType.ccAlgorithm, key: managementKey)
+        let decryptedWitness = try witnessRecord.value.decrypt(algorithm: ccAlgorithm,
+                                                               key: managementKey)
         let decryptedWitnessRecord = TKBERTLVRecord(tag: tagAuthWitness, value: decryptedWitness)
         let challengeSent = Data.random(length: keyType.challengeLength)
         let challengeRecord = TKBERTLVRecord(tag: tagChallenge, value: challengeSent)
@@ -363,7 +361,8 @@ public final actor PIVSession: Session {
               let encryptedChallengeRecord = TKBERTLVRecord(from: dynAuthRecord.value),
               encryptedChallengeRecord.tag == tagAuthResponse
         else { throw PIVSessionError.responseDataNotTLVFormatted }
-        let challengeReturned = try encryptedChallengeRecord.value.decrypt(algorithm: keyType.ccAlgorithm, key: managementKey)
+        let challengeReturned = try encryptedChallengeRecord.value.decrypt(algorithm: ccAlgorithm,
+                                                                           key: managementKey)
         guard challengeSent == challengeReturned else { throw PIVSessionError.authenticationFailed }
     }
     
@@ -382,12 +381,18 @@ public final actor PIVSession: Session {
               let touchPolicy = PIVTouchPolicy(rawValue: policyBytes[indexTouchPolicy]),
               let origin = records.recordWithTag(tagMetadataOrigin)?.value.uint8,
               let publicKeyData = records.recordWithTag(tagMetadataPublicKey)?.value,
-              let publicKey = try? SecKey.secKey(fromYubiKeyData: publicKeyData, type: keyType)
+
+              let publicKey = try? publicKey(from: publicKeyData, type: keyType)
+
         else { throw PIVSessionError.dataParseError }
-        
-        return PIVSlotMetadata(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generated: origin == originGenerated, publicKey: publicKey)
+
+        return PIVSlotMetadata(keyType: keyType,
+                               pinPolicy: pinPolicy,
+                               touchPolicy: touchPolicy,
+                               generated: origin == originGenerated,
+                               publicKey: publicKey)
     }
-    
+
     /// Reads metadata about the card management key
     /// - Returns: The metadata for the management key.
     public func getManagementKeyMetadata() async throws -> PIVManagementKeyMetadata {
@@ -705,7 +710,7 @@ extension PIVSession {
     
     private func checkKeyFeatures(keyType: PIVKeyType, pinPolicy: PIVPinPolicy, touchPolicy: PIVTouchPolicy, generateKey: Bool) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        if keyType == .ECCP384 {
+        if keyType == .ecc(.p384) {
             guard self.supports(PIVSessionFeature.p384) else { throw SessionError.notSupported }
         }
         if pinPolicy != .`defaultPolicy` || touchPolicy != .`defaultPolicy` {
@@ -714,10 +719,10 @@ extension PIVSession {
         if pinPolicy == .matchAlways || pinPolicy == .matchOnce {
             _  = try await self.getBioMetadata() // This will throw SessionError.notSupported if the key is not a Bio key.
         }
-        if generateKey && (keyType == .RSA1024 || keyType == .RSA2048) {
+        if generateKey && (keyType == .rsa(.bits1024) || keyType == .rsa(.bits2048)) {
             guard self.supports(PIVSessionFeature.rsaGeneration) else { throw SessionError.notSupported }
         }
-        if generateKey && (keyType == .RSA3072 || keyType == .RSA4096) {
+        if generateKey && (keyType == .rsa(.bits3072) || keyType == .rsa(.bits4096)) {
             guard self.supports(PIVSessionFeature.rsa3072and4096) else { throw SessionError.notSupported }
         }
     }

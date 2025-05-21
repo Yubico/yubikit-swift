@@ -148,10 +148,8 @@ final class SCP11bFullStackTests: XCTestCase {
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
 
             let chain = try await securityDomainSession.getCertificateBundle(scpKeyRef: scpKeyRef)
-            let leaf: SecCertificate = chain.last!
-            var trust: SecTrust?
-            SecTrustCreateWithCertificates(leaf, SecPolicyCreateBasicX509(), &trust)
-            _ = SecTrustCopyKey(trust!)! // make sure we can read the public key
+            let leaf: X509Cert = chain.last!
+            _ = leaf.publicKey // make sure we can read the public key
 
             do {
                 try await securityDomainSession.verifyScp11bAuth()
@@ -172,12 +170,10 @@ final class SCP11bFullStackTests: XCTestCase {
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
 
             let chain = try await securityDomainSession.getCertificateBundle(scpKeyRef: scpKeyRef)
-            let first: SecCertificate = chain.first!
-            var trust: SecTrust?
-            SecTrustCreateWithCertificates(first, SecPolicyCreateBasicX509(), &trust)
-            let cert = SecTrustCopyKey(trust!)! // make sure we can read the public key
+            let first: X509Cert = chain.first!
+            let publicKey = first.publicKey!.asEC()! // make sure we can read the public key
 
-            let params = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: cert)
+            let params = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
 
             do {
                 let _ = try await ManagementSession.session(withConnection: connection, scpKeyParams: params)
@@ -199,21 +195,14 @@ final class SCP11bFullStackTests: XCTestCase {
 
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x02)
 
-            // Generate a new key pair
-            let attributes: [String: Any] = [
-                kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-                kSecAttrKeySizeInBits as String: 256,
-                kSecPrivateKeyAttrs as String: [
-                    kSecAttrIsPermanent as String: false
-                ]
-            ]
-            var error: Unmanaged<CFError>?
-            let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error)!
-            if let error = error?.takeRetainedValue() {
+            var privateKey: EC.PrivateKey!
+            do {
+                privateKey = try EC.PrivateKey.random(curve: .p256)
+            } catch let error {
                 XCTFail("Failed: Couldn't create key pair: \(error)")
-                return
             }
-            let publicKey = SecKeyCopyPublicKey(privateKey)!
+
+            let publicKey = privateKey.publicKey
 
             try await securityDomainSession.putKey(keyRef: scpKeyRef, privateKey: privateKey, replaceKvn: 0)
 
@@ -255,22 +244,6 @@ final class SCP11cFullStackTests: XCTestCase {
 }
 
 // MARK: - Helpers
-private extension SecCertificate {
-    var getSKI: Data? {
-        guard let pubKey = SecCertificateCopyKey(self) else {
-            return nil
-        }
-
-        var keyErr: Unmanaged<CFError>?
-        guard let rawKey = SecKeyCopyExternalRepresentation(pubKey, &keyErr) as Data? else {
-            return nil
-        }
-
-        let digest = Insecure.SHA1.hash(data: rawKey)
-        return Data(digest)
-    }
-}
-
 private extension SecurityDomainSession {
     func verifyScp11bAuth() async throws {
         let keyRef = SCPKeyRef(kid: .scp11b, kvn: 0x7f)
@@ -287,11 +260,11 @@ private extension SecurityDomainSession {
 
         // Upload the CA public key to the YubiKey so it can verify signatures
         let ca = Scp11TestData.caCert
-        let certificatePublicKey = SecCertificateCopyKey(ca)!
+        let certificatePublicKey = ca.publicKey!.asEC()!
         try await putKey(keyRef: oceRef, publicKey: certificatePublicKey, replaceKvn: 0)
 
         // Extract the CA certificate's Subject Key Identifier for issuer referencing
-        let ski = try XCTUnwrap(ca.getSKI, "CA certificate missing Subject Key Identifier")
+        let ski = Insecure.SHA1.hash(data: certificatePublicKey.uncompressedPoint).data
 
         // Store the CA issuer identifier on the YubiKey
         try await storeCaIssuer(keyRef: oceRef, ski: ski)
