@@ -1,0 +1,60 @@
+name: DocC and Pages Deployment
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  generate-docs:
+    name: Generate Documentation
+    runs-on: macos-latest
+    env:
+      DOCS_PATH: ./docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate Docs
+        uses: fwcd/swift-docc-action@v1
+        with:
+          target: YubiKit 
+          output: ${{ env.DOCS_PATH }}
+          hosting-base-path: yubikit-swift
+          disable-indexing: 'true'
+          transform-for-static-hosting: 'true'
+      
+      - name: Check Documentation Generation
+        run: |
+          if [ -d "${{ env.DOCS_PATH }}" ] && [ "$(ls -A ${{ env.DOCS_PATH }})" ]; then
+            echo "Documentation generated successfully."
+          else
+            echo "Documentation generation failed."
+            exit 1
+          fi
+          
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.DOCS_PATH }}
+
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: macos-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: generate-docs
+    steps:
+      - name: Deploy Docs
+        id: deployment
+        uses: actions/deploy-pages@v4
