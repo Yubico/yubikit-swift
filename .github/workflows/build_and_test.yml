@@ -29,20 +29,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build (macOS)
-        run: swift build -v
-
-      - name: Run tests (macOS)
+      - name: Build and run tests (macOS)
         run: swift test -v
 
-      - name: Build (iOS Simulator)
+      - name: Build and run unit tests (iOS Simulator)
         run: |
-          xcodebuild build -scheme YubiKit \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
-
-      - name: Run unit tests (iOS Simulator)
-        run: |
-          xcodebuild test -scheme Yubikit \
+          xcodebuild test -scheme YubiKitTests \
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             CODE_SIGNING_ALLOWED=NO
