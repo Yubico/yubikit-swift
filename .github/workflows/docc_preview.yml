@@ -1,0 +1,58 @@
+name: DocC Preview per Pull Request
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, closed]
+
+permissions:
+  contents: write       # allow push to gh-pages
+
+concurrency: preview-${{ github.ref }}  # keeps one run per-PR
+
+env:
+  DOCS_PATH: ./docs
+  PREVIEW_BRANCH: gh-pages
+  UMBRELLA_DIR: .
+
+jobs:
+  pr-preview:
+    name: PR DocC Preview
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      # build only when the PR isn’t being closed
+      - name: Build Docs
+        if: ${{ github.event.action != 'closed' }}
+        uses: fwcd/swift-docc-action@v1
+        with:
+          target: YubiKit
+          output: ${{ env.DOCS_PATH }}
+          hosting-base-path: yubikit-swift/pr-${{ github.event.number }}/
+          disable-indexing: 'true'
+          transform-for-static-hosting: 'true'
+
+      - name: Redirect root to documentation
+        if: ${{ github.event.action != 'closed' }}
+        run: |
+          cat > "${{ env.DOCS_PATH }}/index.html" <<'HTML'
+          <!doctype html>
+          <meta http-equiv="refresh" content="0; url=./documentation/yubikit">
+          HTML
+
+      # always run – auto decides deploy vs remove
+      - name: Deploy / Remove PR preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: ${{ env.DOCS_PATH }}
+          preview-branch: ${{ env.PREVIEW_BRANCH }}
+          umbrella-dir: .
+          token: ${{ secrets.GITHUB_TOKEN }}
+          comment: false
+          action: auto
