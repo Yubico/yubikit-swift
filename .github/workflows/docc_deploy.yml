@@ -1,0 +1,50 @@
+name: Deploy DocC
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write      # push to gh-pages
+
+concurrency: docs-main # 1 deploy at a time
+
+env:
+  DOCS_PATH: ./docs
+  PAGES_BRANCH: gh-pages
+
+jobs:
+  deploy-docs:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build Docs
+        uses: fwcd/swift-docc-action@v1
+        with:
+          target: YubiKit
+          output: ${{ env.DOCS_PATH }}
+          hosting-base-path: yubikit-swift
+          disable-indexing: 'true'
+          transform-for-static-hosting: 'true'
+
+      - name: Redirect root to documentation
+        run: |
+          cat > "${{ env.DOCS_PATH }}/index.html" <<'HTML'
+          <!doctype html>
+          <meta http-equiv="refresh" content="0; url=./documentation/yubikit">
+          HTML
+
+      - name: Deploy to GitHub Pages
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: ${{ env.DOCS_PATH }}
+          preview-branch: ${{ env.PAGES_BRANCH }}
+          umbrella-dir: .
+          token: ${{ secrets.GITHUB_TOKEN }}
+          action: deploy
