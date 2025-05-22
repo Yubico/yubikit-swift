@@ -21,18 +21,23 @@ jobs:
     env:
       DOCS_PATH: ./docs
     steps:
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 'latest-stable'
+
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Generate Docs
         uses: fwcd/swift-docc-action@v1
         with:
-          target: YubiKit 
+          target: YubiKit
           output: ${{ env.DOCS_PATH }}
           hosting-base-path: yubikit-swift
           disable-indexing: 'true'
           transform-for-static-hosting: 'true'
-      
+
       - name: Check Documentation Generation
         run: |
           if [ -d "${{ env.DOCS_PATH }}" ] && [ "$(ls -A ${{ env.DOCS_PATH }})" ]; then
@@ -41,7 +46,7 @@ jobs:
             echo "Documentation generation failed."
             exit 1
           fi
-          
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -55,6 +60,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     needs: generate-docs
     steps:
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: 'latest-stable'
+
       - name: Deploy Docs
         id: deployment
         uses: actions/deploy-pages@v4
