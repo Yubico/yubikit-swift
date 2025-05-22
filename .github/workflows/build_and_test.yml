@@ -1,0 +1,43 @@
+name: Build and Test
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    name: Build and Test (macOS & iOS)
+    runs-on: macos-latest
+    steps:
+      - name: Find iOS simulator UDID
+        id: sim
+        shell: bash
+        run: |
+          SIM_NAME="iPhone"
+
+          UDID=$(xcrun simctl list devices available \
+          | grep -m1 -E "${SIM_NAME}.*\\(" \
+          | sed -E 's/.*\(([0-9A-F-]+)\).*/\1/')
+
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build (macOS)
+        run: swift build -v
+
+      - name: Run tests (macOS)
+        run: swift test -v
+
+      - name: Build (iOS Simulator)
+        run: |
+          xcodebuild build -scheme YubiKit \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Run unit tests (iOS Simulator)
+        run: |
+          xcodebuild test -scheme Yubikit \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO
