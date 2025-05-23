@@ -14,6 +14,15 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: 'latest-stable'
+      
+      - name: Check lint rules
+        id: lint
+        shell: bash
+        run: |
+          xcrun swift-format lint . \
+          --parallel \
+          --recursive \
+          --strict
 
       - name: Find iOS simulator UDID
         id: sim
