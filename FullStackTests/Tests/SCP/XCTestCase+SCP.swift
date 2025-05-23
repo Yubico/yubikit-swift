@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import XCTest
 import CryptoKit
+import XCTest
+
 @testable import YubiKit
 
 extension XCTestCase: HasTestLogger {
@@ -25,11 +26,13 @@ extension XCTestCase: HasTestLogger {
         _defaultKeyParams
     }
 
-    func runSCPTest(named testName: String = #function,
-                     in file: StaticString = #file,
-                     at line: UInt = #line,
-                     withTimeout timeout: TimeInterval = 20,
-                     test: @escaping () async throws -> Void) {
+    func runSCPTest(
+        named testName: String = #function,
+        in file: StaticString = #file,
+        at line: UInt = #line,
+        withTimeout timeout: TimeInterval = 20,
+        test: @escaping () async throws -> Void
+    ) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) { [logger] in
 
             let connection = try await AllowedConnections.anyConnection()
@@ -49,6 +52,8 @@ private var _connection: Connection!
 
 private let _defaultKeyParams: SCP03KeyParams = {
     let defaultKeyRef = SCPKeyRef(kid: .scp03, kvn: 0xff)
-    return try! SCP03KeyParams(keyRef: defaultKeyRef,
-                          staticKeys: StaticKeys.defaultKeys())
+    return try! SCP03KeyParams(
+        keyRef: defaultKeyRef,
+        staticKeys: StaticKeys.defaultKeys()
+    )
 }()

@@ -23,7 +23,7 @@ protocol SettingsModelProtocol: ObservableObject {
 }
 
 class SettingsModel: SettingsModelProtocol {
-    
+
     @Published private(set) var keyVersion: String?
     @Published private(set) var connection: String?
     @Published private(set) var error: Error?

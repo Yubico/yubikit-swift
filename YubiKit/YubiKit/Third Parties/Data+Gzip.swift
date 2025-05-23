@@ -22,8 +22,9 @@
  THE SOFTWARE.
  */
 
-import struct Foundation.Data
 import zlib
+
+import struct Foundation.Data
 
 /// Errors on gzipping/gunzipping based on the zlib error codes.
 struct GzipError: Swift.Error, Sendable {
@@ -68,24 +69,21 @@ struct GzipError: Swift.Error, Sendable {
     /// Returned message by zlib.
     let message: String
 
-
     internal init(code: Int32, msg: UnsafePointer<CChar>?) {
 
         self.message = msg.flatMap(String.init(validatingUTF8:)) ?? "Unknown gzip error"
         self.kind = Kind(code: code)
     }
 
-
     var localizedDescription: String {
 
-        return self.message
+        self.message
     }
 }
 
+extension GzipError.Kind {
 
-private extension GzipError.Kind {
-
-    init(code: Int32) {
+    fileprivate init(code: Int32) {
 
         switch code {
         case Z_STREAM_ERROR:
@@ -104,15 +102,13 @@ private extension GzipError.Kind {
     }
 }
 
-
 extension Data {
 
     /// Whether the receiver is compressed in gzip format.
     var isGzipped: Bool {
 
-        return self.starts(with: [0x1f, 0x8b])  // check magic number
+        self.starts(with: [0x1f, 0x8b])  // check magic number// check magic number
     }
-
 
     /// Create a new `Data` instance by compressing the receiver using zlib.
     /// Throws an error if compression failed.
@@ -136,7 +132,16 @@ extension Data {
         var stream = z_stream()
         var status: Int32
 
-        status = deflateInit2_(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, wBits, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY, ZLIB_VERSION, Int32(DataSize.stream))
+        status = deflateInit2_(
+            &stream,
+            Z_DEFAULT_COMPRESSION,
+            Z_DEFLATED,
+            wBits,
+            MAX_MEM_LEVEL,
+            Z_DEFAULT_STRATEGY,
+            ZLIB_VERSION,
+            Int32(DataSize.stream)
+        )
 
         guard status == Z_OK else {
             // deflateInit2 returns:
@@ -157,11 +162,15 @@ extension Data {
             let outputCount = data.count
 
             self.withUnsafeBytes { (inputPointer: UnsafeRawBufferPointer) in
-                stream.next_in = UnsafeMutablePointer<Bytef>(mutating: inputPointer.bindMemory(to: Bytef.self).baseAddress!).advanced(by: Int(stream.total_in))
+                stream.next_in = UnsafeMutablePointer<Bytef>(
+                    mutating: inputPointer.bindMemory(to: Bytef.self).baseAddress!
+                ).advanced(by: Int(stream.total_in))
                 stream.avail_in = uInt(inputCount) - uInt(stream.total_in)
 
                 data.withUnsafeMutableBytes { (outputPointer: UnsafeMutableRawBufferPointer) in
-                    stream.next_out = outputPointer.bindMemory(to: Bytef.self).baseAddress!.advanced(by: Int(stream.total_out))
+                    stream.next_out = outputPointer.bindMemory(to: Bytef.self).baseAddress!.advanced(
+                        by: Int(stream.total_out)
+                    )
                     stream.avail_out = uInt(outputCount) - uInt(stream.total_out)
 
                     status = deflate(&stream, Z_FINISH)
@@ -182,7 +191,6 @@ extension Data {
 
         return data
     }
-
 
     /// Create a new `Data` instance by decompressing the receiver using zlib.
     /// Throws an error if decompression failed.
@@ -233,12 +241,16 @@ extension Data {
 
                 self.withUnsafeBytes { (inputPointer: UnsafeRawBufferPointer) in
                     let inputStartPosition = totalIn + stream.total_in
-                    stream.next_in = UnsafeMutablePointer<Bytef>(mutating: inputPointer.bindMemory(to: Bytef.self).baseAddress!).advanced(by: Int(inputStartPosition))
+                    stream.next_in = UnsafeMutablePointer<Bytef>(
+                        mutating: inputPointer.bindMemory(to: Bytef.self).baseAddress!
+                    ).advanced(by: Int(inputStartPosition))
                     stream.avail_in = uInt(inputCount) - uInt(inputStartPosition)
 
                     data.withUnsafeMutableBytes { (outputPointer: UnsafeMutableRawBufferPointer) in
                         let outputStartPosition = totalOut + stream.total_out
-                        stream.next_out = outputPointer.bindMemory(to: Bytef.self).baseAddress!.advanced(by: Int(outputStartPosition))
+                        stream.next_out = outputPointer.bindMemory(to: Bytef.self).baseAddress!.advanced(
+                            by: Int(outputStartPosition)
+                        )
                         stream.avail_out = uInt(outputCount) - uInt(outputStartPosition)
 
                         status = inflate(&stream, Z_SYNC_FLUSH)
@@ -248,7 +260,7 @@ extension Data {
 
                     stream.next_in = nil
                 }
-            } while (status == Z_OK)
+            } while status == Z_OK
 
             totalIn += stream.total_in
 
@@ -263,14 +275,13 @@ extension Data {
 
             totalOut += stream.total_out
 
-        } while (totalIn < self.count)
+        } while totalIn < self.count
 
         data.count = Int(totalOut)
 
         return data
     }
 }
-
 
 private enum DataSize {
 

@@ -40,7 +40,7 @@ public enum PIVPinPolicy: UInt8 {
     case matchOnce = 0x4
     /// PIN or biometrics must be verified each time the key is to be used, just prior to using it.
     case matchAlways = 0x5
-};
+}
 
 /// The slot to use in the PIV application.
 public enum PIVSlot: UInt8 {
@@ -49,7 +49,7 @@ public enum PIVSlot: UInt8 {
     case keyManagement = 0x9d
     case cardAuth = 0x9e
     case attestation = 0xf9
-    
+
     var objectId: Data {
         switch self {
         case .authentication:
@@ -119,7 +119,7 @@ public enum PIVKeyType: RawRepresentable, Equatable {
     }
 
     public var sizeInBits: Int {
-        return switch (self) {
+        switch self {
         case .rsa(let keySize): keySize.rawValue
         case .ecc(let curve): curve.keySizeInBits
         }
@@ -200,7 +200,7 @@ public enum PIVManagementKeyType: UInt8 {
     case AES192 = 0x0a
     /// AES-256
     case AES256 = 0x0c
-    
+
     /// The length of the key.
     var keyLength: Int {
         switch self {
@@ -212,7 +212,7 @@ public enum PIVManagementKeyType: UInt8 {
             return 32
         }
     }
-    
+
     /// The length of the challenge.
     var challengeLength: Int {
         switch self {
@@ -239,11 +239,11 @@ public struct PIVBioMetadata {
     /// biometric match and the client should invoke PIN based authentication to reset the biometric
     /// match retry counter.
     public let attemptsRemaining: UInt
-    
+
     /// Indicates whether a temporary PIN has been generated in the YubiKey in relation to a
     /// successful biometric match. Is true if a temporary PIN has been generated.
     public let temporaryPin: Bool
-    
+
     internal init(isConfigured: Bool, attemptsRemaining: UInt, temporaryPin: Bool) {
         self.isConfigured = isConfigured
         self.attemptsRemaining = attemptsRemaining

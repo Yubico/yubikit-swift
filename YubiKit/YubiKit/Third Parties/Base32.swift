@@ -27,41 +27,41 @@ import Foundation
 // MARK: - Base32 Data <-> String
 
 public func base32Encode(_ data: Data) -> String {
-    return data.withUnsafeBytes {
+    data.withUnsafeBytes {
         base32encode($0.baseAddress!, $0.count, alphabetEncodeTable)
     }
 }
 
 public func base32HexEncode(_ data: Data) -> String {
-    return data.withUnsafeBytes {
+    data.withUnsafeBytes {
         base32encode($0.baseAddress!, $0.count, extendedHexAlphabetEncodeTable)
     }
 }
 
 public func base32DecodeToData(_ string: String) -> Data? {
-    return base32decode(string, alphabetDecodeTable).flatMap(Data.init(_:))
+    base32decode(string, alphabetDecodeTable).flatMap(Data.init(_:))
 }
 
 public func base32HexDecodeToData(_ string: String) -> Data? {
-    return base32decode(string, extendedHexAlphabetDecodeTable).flatMap(Data.init(_:))
+    base32decode(string, extendedHexAlphabetDecodeTable).flatMap(Data.init(_:))
 }
 
 // MARK: - Base32 [UInt8] <-> String
 
 public func base32Encode(_ array: [UInt8]) -> String {
-    return base32encode(array, array.count, alphabetEncodeTable)
+    base32encode(array, array.count, alphabetEncodeTable)
 }
 
 public func base32HexEncode(_ array: [UInt8]) -> String {
-    return base32encode(array, array.count, extendedHexAlphabetEncodeTable)
+    base32encode(array, array.count, extendedHexAlphabetEncodeTable)
 }
 
 public func base32Decode(_ string: String) -> [UInt8]? {
-    return base32decode(string, alphabetDecodeTable)
+    base32decode(string, alphabetDecodeTable)
 }
 
 public func base32HexDecode(_ string: String) -> [UInt8]? {
-    return base32decode(string, extendedHexAlphabetDecodeTable)
+    base32decode(string, extendedHexAlphabetDecodeTable)
 }
 
 // MARK: extensions
@@ -69,34 +69,34 @@ public func base32HexDecode(_ string: String) -> [UInt8]? {
 extension String {
     // base32
     public var base32DecodedData: Data? {
-        return base32DecodeToData(self)
+        base32DecodeToData(self)
     }
-    
+
     public var base32EncodedString: String {
-        return utf8CString.withUnsafeBufferPointer {
+        utf8CString.withUnsafeBufferPointer {
             base32encode($0.baseAddress!, $0.count - 1, alphabetEncodeTable)
         }
     }
-    
+
     public func base32DecodedString(_ encoding: String.Encoding = .utf8) -> String? {
-        return base32DecodedData.flatMap {
+        base32DecodedData.flatMap {
             String(data: $0, encoding: .utf8)
         }
     }
 
     // base32Hex
     public var base32HexDecodedData: Data? {
-        return base32HexDecodeToData(self)
+        base32HexDecodeToData(self)
     }
-    
+
     public var base32HexEncodedString: String {
-        return utf8CString.withUnsafeBufferPointer {
+        utf8CString.withUnsafeBufferPointer {
             base32encode($0.baseAddress!, $0.count - 1, extendedHexAlphabetEncodeTable)
         }
     }
-    
+
     public func base32HexDecodedString(_ encoding: String.Encoding = .utf8) -> String? {
-        return base32HexDecodedData.flatMap {
+        base32HexDecodedData.flatMap {
             String(data: $0, encoding: .utf8)
         }
     }
@@ -105,28 +105,28 @@ extension String {
 extension Data {
     // base32
     public var base32EncodedString: String {
-        return base32Encode(self)
+        base32Encode(self)
     }
-    
+
     public var base32EncodedData: Data {
-        return base32EncodedString.dataUsingUTF8StringEncoding
+        base32EncodedString.dataUsingUTF8StringEncoding
     }
-    
+
     public var base32DecodedData: Data? {
-        return String(data: self, encoding: .utf8).flatMap(base32DecodeToData)
+        String(data: self, encoding: .utf8).flatMap(base32DecodeToData)
     }
 
     // base32Hex
     public var base32HexEncodedString: String {
-        return base32HexEncode(self)
+        base32HexEncode(self)
     }
-    
+
     public var base32HexEncodedData: Data {
-        return base32HexEncodedString.dataUsingUTF8StringEncoding
+        base32HexEncodedString.dataUsingUTF8StringEncoding
     }
-    
+
     public var base32HexDecodedData: Data? {
-        return String(data: self, encoding: .utf8).flatMap(base32HexDecodeToData)
+        String(data: self, encoding: .utf8).flatMap(base32HexDecodeToData)
     }
 }
 
@@ -134,22 +134,28 @@ extension Data {
 
 // MARK: encode
 
-let alphabetEncodeTable: [Int8] = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","2","3","4","5","6","7"].map { (c: UnicodeScalar) -> Int8 in Int8(c.value) }
+let alphabetEncodeTable: [Int8] = [
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W",
+    "X", "Y", "Z", "2", "3", "4", "5", "6", "7",
+].map { (c: UnicodeScalar) -> Int8 in Int8(c.value) }
 
-let extendedHexAlphabetEncodeTable: [Int8] = ["0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V"].map { (c: UnicodeScalar) -> Int8 in Int8(c.value) }
+let extendedHexAlphabetEncodeTable: [Int8] = [
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+    "N", "O", "P", "Q", "R", "S", "T", "U", "V",
+].map { (c: UnicodeScalar) -> Int8 in Int8(c.value) }
 
 private func base32encode(_ data: UnsafeRawPointer, _ length: Int, _ table: [Int8]) -> String {
     if length == 0 {
         return ""
     }
     var length = length
-    
+
     var bytes = data.assumingMemoryBound(to: UInt8.self)
-    
-    let resultBufferSize = Int(ceil(Double(length) / 5)) * 8 + 1    // need null termination
+
+    let resultBufferSize = Int(ceil(Double(length) / 5)) * 8 + 1  // need null termination
     let resultBuffer = UnsafeMutablePointer<Int8>.allocate(capacity: resultBufferSize)
     var encoded = resultBuffer
-    
+
     // encode regular blocks
     while length >= 5 {
         encoded[0] = table[Int(bytes[0] >> 3)]
@@ -164,10 +170,14 @@ private func base32encode(_ data: UnsafeRawPointer, _ length: Int, _ table: [Int
         encoded = encoded.advanced(by: 8)
         bytes = bytes.advanced(by: 5)
     }
-    
+
     // encode last block
-    var byte0, byte1, byte2, byte3, byte4: UInt8
-    (byte0, byte1, byte2, byte3, byte4) = (0,0,0,0,0)
+    var byte0: UInt8
+    var byte1: UInt8
+    var byte2: UInt8
+    var byte3: UInt8
+    var byte4: UInt8
+    (byte0, byte1, byte2, byte3, byte4) = (0, 0, 0, 0, 0)
     switch length {
     case 4:
         byte3 = bytes[3]
@@ -213,7 +223,7 @@ private func base32encode(_ data: UnsafeRawPointer, _ length: Int, _ table: [Int
         encoded[8] = 0
         break
     }
-    
+
     // return
     if let base32Encoded = String(validatingUTF8: resultBuffer) {
         resultBuffer.deallocate()
@@ -228,50 +238,49 @@ private func base32encode(_ data: UnsafeRawPointer, _ length: Int, _ table: [Int
 
 let __: UInt8 = 255
 let alphabetDecodeTable: [UInt8] = [
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0x00 - 0x0F
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0x10 - 0x1F
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0x20 - 0x2F
-    __,__,26,27, 28,29,30,31, __,__,__,__, __,__,__,__,  // 0x30 - 0x3F
-    __, 0, 1, 2,  3, 4, 5, 6,  7, 8, 9,10, 11,12,13,14,  // 0x40 - 0x4F
-    15,16,17,18, 19,20,21,22, 23,24,25,__, __,__,__,__,  // 0x50 - 0x5F
-    __, 0, 1, 2,  3, 4, 5, 6,  7, 8, 9,10, 11,12,13,14,  // 0x60 - 0x6F
-    15,16,17,18, 19,20,21,22, 23,24,25,__, __,__,__,__,  // 0x70 - 0x7F
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0x80 - 0x8F
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0x90 - 0x9F
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0xA0 - 0xAF
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0xB0 - 0xBF
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0xC0 - 0xCF
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0xD0 - 0xDF
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0xE0 - 0xEF
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0xF0 - 0xFF
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0x00 - 0x0F
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0x10 - 0x1F
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0x20 - 0x2F
+    __, __, 26, 27, 28, 29, 30, 31, __, __, __, __, __, __, __, __,  // 0x30 - 0x3F
+    __, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,  // 0x40 - 0x4F
+    15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, __, __, __, __, __,  // 0x50 - 0x5F
+    __, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,  // 0x60 - 0x6F
+    15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, __, __, __, __, __,  // 0x70 - 0x7F
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0x80 - 0x8F
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0x90 - 0x9F
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0xA0 - 0xAF
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0xB0 - 0xBF
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0xC0 - 0xCF
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0xD0 - 0xDF
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0xE0 - 0xEF
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0xF0 - 0xFF
 ]
 
 let extendedHexAlphabetDecodeTable: [UInt8] = [
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0x00 - 0x0F
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0x10 - 0x1F
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0x20 - 0x2F
-     0, 1, 2, 3,  4, 5, 6, 7,  8, 9,__,__, __,__,__,__,  // 0x30 - 0x3F
-    __,10,11,12, 13,14,15,16, 17,18,19,20, 21,22,23,24,  // 0x40 - 0x4F
-    25,26,27,28, 29,30,31,__, __,__,__,__, __,__,__,__,  // 0x50 - 0x5F
-    __,10,11,12, 13,14,15,16, 17,18,19,20, 21,22,23,24,  // 0x60 - 0x6F
-    25,26,27,28, 29,30,31,__, __,__,__,__, __,__,__,__,  // 0x70 - 0x7F
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0x80 - 0x8F
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0x90 - 0x9F
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0xA0 - 0xAF
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0xB0 - 0xBF
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0xC0 - 0xCF
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0xD0 - 0xDF
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0xE0 - 0xEF
-    __,__,__,__, __,__,__,__, __,__,__,__, __,__,__,__,  // 0xF0 - 0xFF
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0x00 - 0x0F
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0x10 - 0x1F
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0x20 - 0x2F
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, __, __, __, __, __, __,  // 0x30 - 0x3F
+    __, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,  // 0x40 - 0x4F
+    25, 26, 27, 28, 29, 30, 31, __, __, __, __, __, __, __, __, __,  // 0x50 - 0x5F
+    __, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,  // 0x60 - 0x6F
+    25, 26, 27, 28, 29, 30, 31, __, __, __, __, __, __, __, __, __,  // 0x70 - 0x7F
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0x80 - 0x8F
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0x90 - 0x9F
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0xA0 - 0xAF
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0xB0 - 0xBF
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0xC0 - 0xCF
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0xD0 - 0xDF
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0xE0 - 0xEF
+    __, __, __, __, __, __, __, __, __, __, __, __, __, __, __, __,  // 0xF0 - 0xFF
 ]
-
 
 private func base32decode(_ string: String, _ table: [UInt8]) -> [UInt8]? {
     let length = string.unicodeScalars.count
     if length == 0 {
         return []
     }
-    
+
     // calc padding length
     func getLeastPaddingLength(_ string: String) -> Int {
         if string.hasSuffix("======") {
@@ -286,10 +295,10 @@ private func base32decode(_ string: String, _ table: [UInt8]) -> [UInt8]? {
             return 0
         }
     }
-    
+
     // validate string
     let leastPaddingLength = getLeastPaddingLength(string)
-    if let index = string.unicodeScalars.firstIndex(where: {$0.value > 0xff || table[Int($0.value)] > 31}) {
+    if let index = string.unicodeScalars.firstIndex(where: { $0.value > 0xff || table[Int($0.value)] > 31 }) {
         // index points padding "=" or invalid character that table does not contain.
         let pos = string.unicodeScalars.distance(from: string.unicodeScalars.startIndex, to: index)
         // if pos points padding "=", it's valid.
@@ -297,11 +306,11 @@ private func base32decode(_ string: String, _ table: [UInt8]) -> [UInt8]? {
             return nil
         }
     }
-    
+
     var remainEncodedLength = length - leastPaddingLength
     var additionalBytes = 0
     switch remainEncodedLength % 8 {
-        // valid
+    // valid
     case 0: break
     case 2: additionalBytes = 1
     case 4: additionalBytes = 2
@@ -310,21 +319,28 @@ private func base32decode(_ string: String, _ table: [UInt8]) -> [UInt8]? {
     default:
         return nil
     }
-    
+
     // validated
     let dataSize = remainEncodedLength / 8 * 5 + additionalBytes
-    
+
     // Use UnsafePointer<UInt8>
     return string.utf8CString.withUnsafeBufferPointer {
         (data: UnsafeBufferPointer<CChar>) -> [UInt8] in
         var encoded = data.baseAddress!
-        
-        var result = Array<UInt8>(repeating: 0, count: dataSize)
+
+        var result = [UInt8](repeating: 0, count: dataSize)
         var decodedOffset = 0
-        
+
         // decode regular blocks
-        var value0, value1, value2, value3, value4, value5, value6, value7: UInt8
-        (value0, value1, value2, value3, value4, value5, value6, value7) = (0,0,0,0,0,0,0,0)
+        var value0: UInt8
+        var value1: UInt8
+        var value2: UInt8
+        var value3: UInt8
+        var value4: UInt8
+        var value5: UInt8
+        var value6: UInt8
+        var value7: UInt8
+        (value0, value1, value2, value3, value4, value5, value6, value7) = (0, 0, 0, 0, 0, 0, 0, 0)
         while remainEncodedLength >= 8 {
             value0 = table[Int(encoded[0])]
             value1 = table[Int(encoded[1])]
@@ -334,20 +350,20 @@ private func base32decode(_ string: String, _ table: [UInt8]) -> [UInt8]? {
             value5 = table[Int(encoded[5])]
             value6 = table[Int(encoded[6])]
             value7 = table[Int(encoded[7])]
-            
-            result[decodedOffset]     = value0 << 3 | value1 >> 2
+
+            result[decodedOffset] = value0 << 3 | value1 >> 2
             result[decodedOffset + 1] = value1 << 6 | value2 << 1 | value3 >> 4
             result[decodedOffset + 2] = value3 << 4 | value4 >> 1
             result[decodedOffset + 3] = value4 << 7 | value5 << 2 | value6 >> 3
             result[decodedOffset + 4] = value6 << 5 | value7
-            
+
             remainEncodedLength -= 8
             decodedOffset += 5
             encoded = encoded.advanced(by: 8)
         }
-        
+
         // decode last block
-        (value0, value1, value2, value3, value4, value5, value6, value7) = (0,0,0,0,0,0,0,0)
+        (value0, value1, value2, value3, value4, value5, value6, value7) = (0, 0, 0, 0, 0, 0, 0, 0)
         switch remainEncodedLength {
         case 7:
             value6 = table[Int(encoded[6])]
@@ -376,7 +392,7 @@ private func base32decode(_ string: String, _ table: [UInt8]) -> [UInt8]? {
             result[decodedOffset + 1] = value1 << 6 | value2 << 1 | value3 >> 4
             fallthrough
         case 2:
-            result[decodedOffset]     = value0 << 3 | value1 >> 2
+            result[decodedOffset] = value0 << 3 | value1 >> 2
         default: break
         }
 
@@ -384,18 +400,17 @@ private func base32decode(_ string: String, _ table: [UInt8]) -> [UInt8]? {
     }
 }
 
-
 extension String {
     /// Data never nil
     internal var dataUsingUTF8StringEncoding: Data {
-        return utf8CString.withUnsafeBufferPointer {
+        utf8CString.withUnsafeBufferPointer {
             return Data($0.dropLast().map { UInt8.init($0) })
         }
     }
-    
+
     /// Array<UInt8>
     internal var arrayUsingUTF8StringEncoding: [UInt8] {
-        return utf8CString.withUnsafeBufferPointer {
+        utf8CString.withUnsafeBufferPointer {
             return $0.dropLast().map { UInt8.init($0) }
         }
     }

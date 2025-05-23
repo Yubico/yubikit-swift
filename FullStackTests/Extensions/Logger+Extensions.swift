@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import OSLog
+
 @testable import YubiKit
 
 extension Logger {
@@ -20,7 +21,7 @@ extension Logger {
     static let test = Logger(subsystem: subsystem, category: "Test")
 }
 
-protocol HasTestLogger: HasLogger { }
+protocol HasTestLogger: HasLogger {}
 
 extension HasTestLogger {
     public static var logger: Logger { .test }

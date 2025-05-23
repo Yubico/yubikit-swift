@@ -16,11 +16,11 @@ import Foundation
 
 /// The firmware version of the YubiKey.
 public struct Version: Sendable, Comparable, CustomStringConvertible {
-    
+
     public let major: UInt8
     public let minor: UInt8
     public let micro: UInt8
-    
+
     internal init?(withData data: Data) {
         guard data.count == 3 else { return nil }
         let bytes = data.bytes
@@ -28,20 +28,20 @@ public struct Version: Sendable, Comparable, CustomStringConvertible {
         minor = bytes[1]
         micro = bytes[2]
     }
-    
+
     /// Create a new Version from a version string, e.g. "5.7.0".
     public init?(withString string: String) {
         let components = string.components(separatedBy: ".")
         guard components.count == 3,
-              let major = UInt8(components[0]),
-              let minor = UInt8(components[1]),
-              let micro = UInt8(components[2])
+            let major = UInt8(components[0]),
+            let minor = UInt8(components[1]),
+            let micro = UInt8(components[2])
         else { return nil }
         self.major = major
         self.minor = minor
         self.micro = micro
     }
-    
+
     public static func < (lhs: Version, rhs: Version) -> Bool {
         if lhs.major != rhs.major {
             return lhs.major < rhs.major
@@ -51,11 +51,11 @@ public struct Version: Sendable, Comparable, CustomStringConvertible {
             return lhs.micro < rhs.micro
         }
     }
-    
+
     public static func == (lhs: Version, rhs: Version) -> Bool {
-        return lhs.major == rhs.major && lhs.minor == rhs.minor && lhs.micro == rhs.micro
+        lhs.major == rhs.major && lhs.minor == rhs.minor && lhs.micro == rhs.micro
     }
-    
+
     /// String representaion of the firmware version e.g "5.2.3".
     public var description: String {
         "\(major).\(minor).\(micro)"

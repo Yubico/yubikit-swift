@@ -24,17 +24,17 @@ extension HasLogger {
 }
 
 // MARK: - Specific Protocols
-protocol HasSmartCardLogger: HasLogger { }
+protocol HasSmartCardLogger: HasLogger {}
 extension HasSmartCardLogger {
     static var logger: Logger { .smartCard }
 }
 
-protocol HasSecurityDomainLogger: HasLogger { }
+protocol HasSecurityDomainLogger: HasLogger {}
 extension HasSecurityDomainLogger {
     static var logger: Logger { .securityDomain }
 }
 
-protocol HasSCPLogger: HasLogger { }
+protocol HasSCPLogger: HasLogger {}
 extension HasSCPLogger {
     static var logger: Logger { .scp }
 }
@@ -55,14 +55,15 @@ extension Logger {
     fileprivate static let securityDomain = Logger(subsystem: subsystem, category: "SecurityDomain")
 
     fileprivate static let scp = Logger(subsystem: subsystem, category: "SCP")
-    
+
     nonisolated static func export() async throws -> String {
         Logger.system.info("Logger, export(): compiling logs.")
         let store = try OSLogStore(scope: .currentProcessIdentifier)
         let date = Date.now.addingTimeInterval(-48 * 3600)
         let position = store.position(date: date)
         let predicate = NSPredicate(format: "subsystem == \"\(subsystem)\"")
-        let entries = try store
+        let entries =
+            try store
             .getEntries(at: position, matching: predicate)
             .compactMap { $0 as? OSLogEntryLog }
             .filter { $0.subsystem == subsystem }
@@ -71,7 +72,6 @@ extension Logger {
         return entries
     }
 }
-
 
 // MARK: - RAII style scope tracer
 // Will be wrapped in a '@TraceScope' macro when Swift 6 is available
@@ -96,9 +96,11 @@ class _Trace {
 extension HasLogger {
     // static helper
     @inline(__always)
-    static func trace(_ function: String = #function,
-                      logger: Logger = logger,
-                      message: String) {
+    static func trace(
+        _ function: String = #function,
+        logger: Logger = logger,
+        message: String
+    ) {
 
         let typeName = String(describing: type(of: self))
         let label = "\(typeName).\(function)"
@@ -108,17 +110,18 @@ extension HasLogger {
 
     // instance helper
     @inline(__always)
-    func trace(_ function: String = #function,
-               logger: Logger = logger,
-               message: String) {
+    func trace(
+        _ function: String = #function,
+        logger: Logger = logger,
+        message: String
+    ) {
 
         let typeName = String(describing: type(of: self))
         var label = "\(typeName).\(function)"
 
-        
         if let obj = self as AnyObject? {
             let ptr = Unmanaged.passUnretained(obj).toOpaque()
-            let ptrStr = String(format: "0x%08x", UInt(bitPattern: ptr) & 0xFFFFFFFF)
+            let ptrStr = String(format: "0x%08x", UInt(bitPattern: ptr) & 0xFFFF_FFFF)
             label = "\(typeName)[\(ptrStr)].\(function)"
         }
 

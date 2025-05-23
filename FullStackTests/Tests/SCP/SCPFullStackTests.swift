@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import XCTest
-@testable import YubiKit
 import CryptoTokenKit
+import XCTest
+
+@testable import YubiKit
 
 class SCPFullStackTests: XCTestCase {
 
@@ -26,7 +27,6 @@ class SCPFullStackTests: XCTestCase {
         }
     }
 
-    
     func testGetInformation() throws {
         runSCPTest { [self] in
             let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
@@ -34,30 +34,38 @@ class SCPFullStackTests: XCTestCase {
             XCTAssertTrue(info != [:])
         }
     }
-    
+
     func testSCP11b() throws {
         runSCPTest { [self] in
             let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
             let certificates = try await securityDomainSession.getCertificateBundle(scpKeyRef: scpKeyRef)
             guard let last = certificates.last,
-                  let publicKey = last.publicKey?.asEC()
+                let publicKey = last.publicKey?.asEC()
             else {
                 XCTFail()
                 return
             }
             let scp11KeyParams = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
-            let managementSession = try  await ManagementSession.session(withConnection: connection, scpKeyParams: scp11KeyParams)
+            let managementSession = try await ManagementSession.session(
+                withConnection: connection,
+                scpKeyParams: scp11KeyParams
+            )
             let deviceInfo = try await managementSession.getDeviceInfo()
             XCTAssertNotNil(deviceInfo)
         }
     }
-    
+
     func testSCP03() throws {
         runSCPTest { [self] in
-            let scpKeyParams = try SCP03KeyParams(keyRef: SCPKeyRef(kid: .scp03, kvn: 0xff),
-                                                  staticKeys: StaticKeys.defaultKeys())
-            let managementSession = try  await ManagementSession.session(withConnection: connection, scpKeyParams: scpKeyParams)
+            let scpKeyParams = try SCP03KeyParams(
+                keyRef: SCPKeyRef(kid: .scp03, kvn: 0xff),
+                staticKeys: StaticKeys.defaultKeys()
+            )
+            let managementSession = try await ManagementSession.session(
+                withConnection: connection,
+                scpKeyParams: scpKeyParams
+            )
             let deviceInfo = try? await managementSession.getDeviceInfo()
             XCTAssertNotNil(deviceInfo)
         }

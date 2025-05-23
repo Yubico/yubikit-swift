@@ -13,23 +13,24 @@
 // limitations under the License.
 
 import Foundation
-import YubiKit
 import OSLog
 import XCTest
+import YubiKit
 
 extension Connection {
     func isAllowed() async throws -> Bool {
         guard let path = Bundle(for: OATHFullStackTests.self).path(forResource: "allowed-yubikeys", ofType: "csv"),
-              let contents = try? String(contentsOfFile: path)
+            let contents = try? String(contentsOfFile: path)
         else { fatalError("No allowed-yubikeys.csv file") }
-        let allowedList = contents.components(separatedBy: ",\n").map { UInt($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        let allowedList = contents.components(separatedBy: ",\n").map {
+            UInt($0.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
         let session = try await ManagementSession.session(withConnection: self)
         let deviceInfo = try await session.getDeviceInfo()
         Logger.test.info("Checking if YubiKey with serial '\(deviceInfo.serialNumber)' is in allow list.")
         return allowedList.contains(deviceInfo.serialNumber)
     }
 }
-
 
 public enum AllowedConnections {
 
@@ -39,18 +40,18 @@ public enum AllowedConnections {
         XCTAssertTrue(isAllowed, "YubiKey is not in allowed connections list.")
         return connection
     }
-    
+
     public static func anyWiredConnection() async throws -> Connection {
         let connection = try await ConnectionHelper.anyWiredConnection()
         let isAllowed = try await connection.isAllowed()
         XCTAssertTrue(isAllowed, "YubiKey is not in allowed connections list.")
         return connection
     }
-    
+
     public static func wiredConnections() -> AllowedConnections.AnyWiredConnections {
-        return AnyWiredConnections()
+        AnyWiredConnections()
     }
-    
+
     public struct AnyWiredConnections: AsyncSequence {
         public typealias Element = Connection
         var current: Connection? = nil
@@ -61,7 +62,7 @@ public enum AllowedConnections {
                 }
             }
         }
-        
+
         public func makeAsyncIterator() -> AsyncIterator {
             AsyncIterator()
         }

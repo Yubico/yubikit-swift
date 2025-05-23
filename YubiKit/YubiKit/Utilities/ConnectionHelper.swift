@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+
 #if canImport(CoreNFC)
 import CoreNFC
 #endif
@@ -42,7 +43,7 @@ import CoreNFC
 ///}
 /// ```
 public enum ConnectionHelper {
-    
+
     /// Returns a Connection of any type. If a USB-C or Lightning YubiKey is present a connection to that key will be returned, otherwise
     /// the NFCConnection will start scanning for a YubiKey.
     /// >Note: LightningConnection and NFCConnection are only available on iOS.
@@ -51,7 +52,7 @@ public enum ConnectionHelper {
             #if os(iOS)
             if NFCNDEFReaderSession.readingAvailable {
                 group.addTask {
-                    try await Task.sleep(for: .seconds(1)) // wait for wired connected yubikeys to connect before starting NFC
+                    try await Task.sleep(for: .seconds(1))  // wait for wired connected yubikeys to connect before starting NFC
                     try Task.checkCancellation()
                     return try await NFCConnection.connection(alertMessage: nfcAlertMessage)
                 }
@@ -69,7 +70,7 @@ public enum ConnectionHelper {
         }
         return connection
     }
-    
+
     /// Returns either a LightningConnection or a SmartCardConnection. If a YubiKey is present it will return the connection
     /// immediately. If no key is present it will wait and return the connection once a YubiKey has been inserted into the device.
     public static func anyWiredConnection() async throws -> Connection {
@@ -88,12 +89,12 @@ public enum ConnectionHelper {
         }
         return connection
     }
-    
+
     /// Returns an AsyncSequence of wired connections.
     public static func wiredConnections() -> ConnectionHelper.AnyWiredConnections {
-        return AnyWiredConnections()
+        AnyWiredConnections()
     }
-    
+
     public struct AnyWiredConnections: AsyncSequence {
         public typealias Element = Connection
         var current: Connection? = nil
@@ -104,7 +105,7 @@ public enum ConnectionHelper {
                 }
             }
         }
-        
+
         public func makeAsyncIterator() -> AsyncIterator {
             AsyncIterator()
         }

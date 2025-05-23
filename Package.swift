@@ -6,15 +6,16 @@ import PackageDescription
 let package = Package(
     name: "YubiKit",
     platforms: [
-        .macOS(.v13), .iOS(.v16)
+        .macOS(.v13), .iOS(.v16),
     ],
     products: [
         .library(
             name: "YubiKit",
-            targets: ["YubiKit"]),
+            targets: ["YubiKit"]
+        )
     ],
     dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0")
     ],
     targets: [
         .target(

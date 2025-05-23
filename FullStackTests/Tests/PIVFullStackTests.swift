@@ -5,32 +5,40 @@
 //  Created by Jens Utbult on 2024-01-12.
 //
 
-import XCTest
 import OSLog
+import XCTest
 
-@testable import YubiKit
 @testable import FullStackTests
+@testable import YubiKit
 
 final class PIVFullStackTests: XCTestCase {
-    
+
     let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
 
     func testSignECCP256() throws {
         runAuthenticatedPIVTest { session in
-            guard case let .ec(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p256)) else {
+            guard case let .ec(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p256))
+            else {
                 XCTFail("Failed to generate key in slot")
                 return
             }
 
             try await session.verifyPin("123456")
             let message = "Hello world!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(.signature, keyType: .ecc(.p256),
-                                                                algorithm: .ecdsaSignatureMessageX962SHA256,
-                                                                message: message)
+            let signature = try await session.signWithKeyInSlot(
+                .signature,
+                keyType: .ecc(.p256),
+                algorithm: .ecdsaSignatureMessageX962SHA256,
+                message: message
+            )
             var error: Unmanaged<CFError>?
-            let result = SecKeyVerifySignature(publicKey.asSecKey()!,
-                                               SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256,
-                                               message as CFData, signature as CFData, &error);
+            let result = SecKeyVerifySignature(
+                publicKey.asSecKey()!,
+                SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256,
+                message as CFData,
+                signature as CFData,
+                &error
+            )
             XCTAssertTrue(result)
             if let error {
                 XCTFail((error.takeRetainedValue() as Error).localizedDescription)
@@ -41,20 +49,29 @@ final class PIVFullStackTests: XCTestCase {
 
     func testSignRSA1024() throws {
         runAuthenticatedPIVTest { session in
-            guard case let .rsa(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024)) else {
+            guard
+                case let .rsa(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024))
+            else {
                 XCTFail("Failed to generate key in slot")
                 return
             }
 
             try await session.verifyPin("123456")
             let message = "Hello world!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(.signature, keyType: .rsa(.bits1024),
-                                                                algorithm: .rsaSignatureMessagePKCS1v15SHA512,
-                                                                message: message)
+            let signature = try await session.signWithKeyInSlot(
+                .signature,
+                keyType: .rsa(.bits1024),
+                algorithm: .rsaSignatureMessagePKCS1v15SHA512,
+                message: message
+            )
             var error: Unmanaged<CFError>?
-            let result = SecKeyVerifySignature(publicKey.asSecKey()!,
-                                               SecKeyAlgorithm.rsaSignatureMessagePKCS1v15SHA512,
-                                               message as CFData, signature as CFData, &error);
+            let result = SecKeyVerifySignature(
+                publicKey.asSecKey()!,
+                SecKeyAlgorithm.rsaSignatureMessagePKCS1v15SHA512,
+                message as CFData,
+                signature as CFData,
+                &error
+            )
             XCTAssertTrue(result)
             if let error {
                 XCTFail((error.takeRetainedValue() as Error).localizedDescription)
@@ -65,7 +82,9 @@ final class PIVFullStackTests: XCTestCase {
 
     func testDecryptRSA2048() throws {
         runAuthenticatedPIVTest { session in
-            guard case let .rsa(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits2048)) else {
+            guard
+                case let .rsa(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits2048))
+            else {
                 XCTFail("Failed to generate key in slot")
                 return
             }
@@ -73,21 +92,30 @@ final class PIVFullStackTests: XCTestCase {
             let data = "Hello world!".data(using: .utf8)!
 
             let encryptedData = try XCTUnwrap(
-                SecKeyCreateEncryptedData(publicKey.asSecKey()!,
-                                          .rsaEncryptionPKCS1,
-                                          data as CFData,
-                                          nil),
-                "Failed to encrypt data.")
+                SecKeyCreateEncryptedData(
+                    publicKey.asSecKey()!,
+                    .rsaEncryptionPKCS1,
+                    data as CFData,
+                    nil
+                ),
+                "Failed to encrypt data."
+            )
 
             try await session.verifyPin("123456")
-            let decryptedData = try await session.decryptWithKeyInSlot(slot: .signature, algorithm: .rsaEncryptionPKCS1, encrypted: encryptedData as Data)
+            let decryptedData = try await session.decryptWithKeyInSlot(
+                slot: .signature,
+                algorithm: .rsaEncryptionPKCS1,
+                encrypted: encryptedData as Data
+            )
             XCTAssertEqual(data, decryptedData)
         }
     }
 
     func testDecryptRSA1024() throws {
         runAuthenticatedPIVTest { session in
-            guard case let .rsa(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024)) else {
+            guard
+                case let .rsa(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024))
+            else {
                 XCTFail("Failed to generate key in slot")
                 return
             }
@@ -95,21 +123,33 @@ final class PIVFullStackTests: XCTestCase {
             let data = "Hello world!".data(using: .utf8)!
 
             let encryptedData = try XCTUnwrap(
-                SecKeyCreateEncryptedData(publicKey.asSecKey()!,
-                                          .rsaEncryptionPKCS1,
-                                          data as CFData,
-                                          nil),
-                "Failed to encrypt data.")
+                SecKeyCreateEncryptedData(
+                    publicKey.asSecKey()!,
+                    .rsaEncryptionPKCS1,
+                    data as CFData,
+                    nil
+                ),
+                "Failed to encrypt data."
+            )
 
             try await session.verifyPin("123456")
-            let decryptedData = try await session.decryptWithKeyInSlot(slot: .signature, algorithm: .rsaEncryptionPKCS1, encrypted: encryptedData as Data)
+            let decryptedData = try await session.decryptWithKeyInSlot(
+                slot: .signature,
+                algorithm: .rsaEncryptionPKCS1,
+                encrypted: encryptedData as Data
+            )
             XCTAssertEqual(data, decryptedData)
         }
     }
-    
+
     func testSharedSecretEC256() throws {
         runAuthenticatedPIVTest { session in
-            guard case let .ec(yubiKeyPublicKey) = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p256)) else {
+            guard
+                case let .ec(yubiKeyPublicKey) = try await session.generateKeyInSlot(
+                    slot: .signature,
+                    type: .ecc(.p256)
+                )
+            else {
                 XCTFail("Failed to generate key in slot")
                 return
             }
@@ -119,17 +159,26 @@ final class PIVFullStackTests: XCTestCase {
 
             try await session.verifyPin("123456")
             let yubiKeySecret = try await session.calculateSecretKeyInSlot(slot: .signature, peerKey: publicKey)
-            let softwareSecret = SecKeyCopyKeyExchangeResult(privateKey.asSecKey()!,
-                                                             .ecdhKeyExchangeStandard,
-                                                             yubiKeyPublicKey.asSecKey()!,
-                                                             [String: Any]() as CFDictionary, nil)! as Data
+            let softwareSecret =
+                SecKeyCopyKeyExchangeResult(
+                    privateKey.asSecKey()!,
+                    .ecdhKeyExchangeStandard,
+                    yubiKeyPublicKey.asSecKey()!,
+                    [String: Any]() as CFDictionary,
+                    nil
+                )! as Data
             XCTAssert(softwareSecret == yubiKeySecret)
         }
     }
 
     func testSharedSecretEC384() throws {
         runAuthenticatedPIVTest { session in
-            guard case let .ec(yubiKeyPublicKey) = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p384)) else {
+            guard
+                case let .ec(yubiKeyPublicKey) = try await session.generateKeyInSlot(
+                    slot: .signature,
+                    type: .ecc(.p384)
+                )
+            else {
                 XCTFail("Failed to generate key in slot")
                 return
             }
@@ -139,10 +188,14 @@ final class PIVFullStackTests: XCTestCase {
 
             try await session.verifyPin("123456")
             let yubiKeySecret = try await session.calculateSecretKeyInSlot(slot: .signature, peerKey: publicKey)
-            let softwareSecret = SecKeyCopyKeyExchangeResult(privateKey.asSecKey()!,
-                                                             .ecdhKeyExchangeStandard,
-                                                             yubiKeyPublicKey.asSecKey()!,
-                                                             [String: Any]() as CFDictionary, nil)! as Data
+            let softwareSecret =
+                SecKeyCopyKeyExchangeResult(
+                    privateKey.asSecKey()!,
+                    .ecdhKeyExchangeStandard,
+                    yubiKeyPublicKey.asSecKey()!,
+                    [String: Any]() as CFDictionary,
+                    nil
+                )! as Data
             XCTAssert(softwareSecret == yubiKeySecret)
         }
     }
@@ -158,17 +211,31 @@ final class PIVFullStackTests: XCTestCase {
                 }
                 let publicKey = privateKey.publicKey
 
-                let keyType = try await session.putKey(key: .rsa(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
+                let keyType = try await session.putKey(
+                    key: .rsa(privateKey),
+                    inSlot: .signature,
+                    pinPolicy: .always,
+                    touchPolicy: .never
+                )
                 XCTAssert(keyType == .rsa(keySize))
                 let dataToEncrypt = "Hello World!".data(using: .utf8)!
                 guard let publicKey = publicKey.asSecKey(),
-                      let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionPKCS1, dataToEncrypt as CFData, nil) as Data?
+                    let encryptedData = SecKeyCreateEncryptedData(
+                        publicKey,
+                        .rsaEncryptionPKCS1,
+                        dataToEncrypt as CFData,
+                        nil
+                    ) as Data?
                 else {
                     XCTFail("Failed encrypting data with SecKeyCreateEncryptedData().")
                     return
                 }
                 try await session.verifyPin("123456")
-                let decryptedData = try await session.decryptWithKeyInSlot(slot: .signature, algorithm: .rsaEncryptionPKCS1, encrypted: encryptedData)
+                let decryptedData = try await session.decryptWithKeyInSlot(
+                    slot: .signature,
+                    algorithm: .rsaEncryptionPKCS1,
+                    encrypted: encryptedData
+                )
                 XCTAssert(dataToEncrypt == decryptedData)
             }
         }
@@ -182,13 +249,29 @@ final class PIVFullStackTests: XCTestCase {
                 let privateKey = try XCTUnwrap(EC.PrivateKey.random(curve: curve))
                 let publicKey = privateKey.publicKey
 
-                let keyType = try await session.putKey(key: .ec(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
+                let keyType = try await session.putKey(
+                    key: .ec(privateKey),
+                    inSlot: .signature,
+                    pinPolicy: .always,
+                    touchPolicy: .never
+                )
                 XCTAssert(keyType == .ecc(curve))
                 try await session.verifyPin("123456")
                 let message = "Hello World!".data(using: .utf8)!
-                let signature = try await session.signWithKeyInSlot(.signature, keyType: .ecc(curve), algorithm: .ecdsaSignatureMessageX962SHA256, message: message)
+                let signature = try await session.signWithKeyInSlot(
+                    .signature,
+                    keyType: .ecc(curve),
+                    algorithm: .ecdsaSignatureMessageX962SHA256,
+                    message: message
+                )
                 var error: Unmanaged<CFError>?
-                let result = SecKeyVerifySignature(publicKey.asSecKey()!, SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256, message as CFData, signature as CFData, &error);
+                let result = SecKeyVerifySignature(
+                    publicKey.asSecKey()!,
+                    SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256,
+                    message as CFData,
+                    signature as CFData,
+                    &error
+                )
                 if let error = error {
                     XCTFail((error.takeRetainedValue() as Error).localizedDescription)
                     return
@@ -203,13 +286,29 @@ final class PIVFullStackTests: XCTestCase {
             let privateKey = try XCTUnwrap(EC.PrivateKey.random(curve: .p384))
             let publicKey = privateKey.publicKey
 
-            let keyType = try await session.putKey(key: .ec(privateKey), inSlot: .signature, pinPolicy: .always, touchPolicy: .never)
+            let keyType = try await session.putKey(
+                key: .ec(privateKey),
+                inSlot: .signature,
+                pinPolicy: .always,
+                touchPolicy: .never
+            )
             XCTAssert(keyType == .ecc(.p384))
             try await session.verifyPin("123456")
             let message = "Hello World!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(.signature, keyType: .ecc(.p384), algorithm: .ecdsaSignatureMessageX962SHA256, message: message)
+            let signature = try await session.signWithKeyInSlot(
+                .signature,
+                keyType: .ecc(.p384),
+                algorithm: .ecdsaSignatureMessageX962SHA256,
+                message: message
+            )
             var error: Unmanaged<CFError>?
-            let result = SecKeyVerifySignature(publicKey.asSecKey()!, SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256, message as CFData, signature as CFData, &error);
+            let result = SecKeyVerifySignature(
+                publicKey.asSecKey()!,
+                SecKeyAlgorithm.ecdsaSignatureMessageX962SHA256,
+                message as CFData,
+                signature as CFData,
+                &error
+            )
             if let error = error {
                 XCTFail((error.takeRetainedValue() as Error).localizedDescription)
                 return
@@ -220,8 +319,12 @@ final class PIVFullStackTests: XCTestCase {
 
     func testGenerateRSA1024Key() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024),
-                                                                pinPolicy: .always, touchPolicy: .cached).asRSA()
+            let publicKey = try await session.generateKeyInSlot(
+                slot: .signature,
+                type: .rsa(.bits1024),
+                pinPolicy: .always,
+                touchPolicy: .cached
+            ).asRSA()
             XCTAssertNotNil(publicKey)
             XCTAssert(publicKey!.size == .bits1024)
         }
@@ -229,8 +332,12 @@ final class PIVFullStackTests: XCTestCase {
 
     func testGenerateRSA2048Key() throws {
         runAuthenticatedPIVTest(withTimeout: 50) { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits2048),
-                                                                pinPolicy: .always, touchPolicy: .cached).asRSA()
+            let publicKey = try await session.generateKeyInSlot(
+                slot: .signature,
+                type: .rsa(.bits2048),
+                pinPolicy: .always,
+                touchPolicy: .cached
+            ).asRSA()
             XCTAssertNotNil(publicKey)
             XCTAssert(publicKey!.size == .bits2048)
         }
@@ -238,8 +345,12 @@ final class PIVFullStackTests: XCTestCase {
 
     func testGenerateRSA3072Key() throws {
         runAuthenticatedPIVTest(withTimeout: 200) { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits3072),
-                                                                pinPolicy: .always, touchPolicy: .cached).asRSA()
+            let publicKey = try await session.generateKeyInSlot(
+                slot: .signature,
+                type: .rsa(.bits3072),
+                pinPolicy: .always,
+                touchPolicy: .cached
+            ).asRSA()
             XCTAssertNotNil(publicKey)
             XCTAssert(publicKey!.size == .bits3072)
         }
@@ -247,24 +358,38 @@ final class PIVFullStackTests: XCTestCase {
 
     func testGenerateRSA4096Key() throws {
         runAuthenticatedPIVTest(withTimeout: 200) { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits4096), pinPolicy: .always, touchPolicy: .cached).asRSA()
+            let publicKey = try await session.generateKeyInSlot(
+                slot: .signature,
+                type: .rsa(.bits4096),
+                pinPolicy: .always,
+                touchPolicy: .cached
+            ).asRSA()
             XCTAssertNotNil(publicKey)
             XCTAssert(publicKey!.size == .bits4096)
         }
     }
-    
+
     func testGenerateECCP256Key() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p256), pinPolicy: .always, touchPolicy: .cached).asEC()
+            let publicKey = try await session.generateKeyInSlot(
+                slot: .signature,
+                type: .ecc(.p256),
+                pinPolicy: .always,
+                touchPolicy: .cached
+            ).asEC()
             XCTAssertNotNil(publicKey)
             XCTAssert(publicKey!.curve == .p256)
         }
     }
 
-    
     func testGenerateECCP384Key() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p384), pinPolicy: .always, touchPolicy: .cached).asEC()
+            let publicKey = try await session.generateKeyInSlot(
+                slot: .signature,
+                type: .ecc(.p384),
+                pinPolicy: .always,
+                touchPolicy: .cached
+            ).asEC()
             XCTAssertNotNil(publicKey)
             XCTAssert(publicKey!.curve == .p384)
         }
@@ -283,22 +408,39 @@ final class PIVFullStackTests: XCTestCase {
         }
     }
 
-    let testCertificate = X509Cert(der: Data(base64Encoded: "MIIBKzCB0qADAgECAhQTuU25u6oazORvKfTleabdQaDUGzAKBggqhkjOPQQDAjAWMRQwEgYDVQQDDAthbW9zLmJ1cnRvbjAeFw0yMTAzMTUxMzU5MjVaFw0yODA1MTcwMDAwMDBaMBYxFDASBgNVBAMMC2Ftb3MuYnVydG9uMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEofwN6S+atSZmzeLK7aSI+mJJwxh0oUBiCOngHLeToYeanrTGvCZQ2AK/R9esnqSxMyBUDp91UO4F6U4c6RTooTAKBggqhkjOPQQDAgNIADBFAiAnj/KUSpW7l5wnenQEbwWudK/7q3WtyrqdB0H1xc258wIhALDLImzu3S+0TT2/ggM95LLWE4Llfa2RQM71bnW6zqqn")!)
+    let testCertificate = X509Cert(
+        der: Data(
+            base64Encoded:
+                "MIIBKzCB0qADAgECAhQTuU25u6oazORvKfTleabdQaDUGzAKBggqhkjOPQQDAjAWMRQwEgYDVQQDDAthbW9zLmJ1cnRvbjAeFw0yMTAzMTUxMzU5MjVaFw0yODA1MTcwMDAwMDBaMBYxFDASBgNVBAMMC2Ftb3MuYnVydG9uMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEofwN6S+atSZmzeLK7aSI+mJJwxh0oUBiCOngHLeToYeanrTGvCZQ2AK/R9esnqSxMyBUDp91UO4F6U4c6RTooTAKBggqhkjOPQQDAgNIADBFAiAnj/KUSpW7l5wnenQEbwWudK/7q3WtyrqdB0H1xc258wIhALDLImzu3S+0TT2/ggM95LLWE4Llfa2RQM71bnW6zqqn"
+        )!
+    )
 
     func testPutAndReadCertificate() throws {
         runAuthenticatedPIVTest { session in
-            try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: false)
+            try await session.putCertificate(
+                certificate: self.testCertificate,
+                inSlot: .authentication,
+                compress: false
+            )
             let retrievedCertificate = try await session.getCertificateInSlot(.authentication)
             XCTAssert(self.testCertificate.der == retrievedCertificate.der)
         }
     }
-    
+
     func testMoveKey() throws {
         runAuthenticatedPIVTest { session in
-            guard session.supports(PIVSessionFeature.moveDelete) else { print("⚠️ Skip testMoveKey()"); return }
+            guard session.supports(PIVSessionFeature.moveDelete) else {
+                print("⚠️ Skip testMoveKey()")
+                return
+            }
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication)
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .signature)
-            let publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .rsa(.bits1024), pinPolicy: .always, touchPolicy: .always)
+            let publicKey = try await session.generateKeyInSlot(
+                slot: .authentication,
+                type: .rsa(.bits1024),
+                pinPolicy: .always,
+                touchPolicy: .always
+            )
             let authSlotMetadata = try await session.getSlotMetadata(.authentication)
             XCTAssertEqual(publicKey, authSlotMetadata.publicKey)
             try await session.moveKey(sourceSlot: .authentication, destinationSlot: .signature)
@@ -308,17 +450,28 @@ final class PIVFullStackTests: XCTestCase {
                 _ = try await session.getSlotMetadata(.authentication)
                 XCTFail("Got metadata when we should have thrown a referenceDataNotFound exception.")
             } catch {
-                guard let responseError = error as? ResponseError else { XCTFail("Unexpected error: \(error)"); return }
+                guard let responseError = error as? ResponseError else {
+                    XCTFail("Unexpected error: \(error)")
+                    return
+                }
                 XCTAssertTrue(responseError.responseStatus.status == .referencedDataNotFound)
             }
         }
     }
-    
+
     func testDeleteKey() throws {
         runAuthenticatedPIVTest { session in
-            guard session.supports(PIVSessionFeature.moveDelete) else { print("⚠️ Skip testDeleteKey()"); return }
+            guard session.supports(PIVSessionFeature.moveDelete) else {
+                print("⚠️ Skip testDeleteKey()")
+                return
+            }
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: true)
-            let publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .rsa(.bits1024), pinPolicy: .always, touchPolicy: .always)
+            let publicKey = try await session.generateKeyInSlot(
+                slot: .authentication,
+                type: .rsa(.bits1024),
+                pinPolicy: .always,
+                touchPolicy: .always
+            )
             let slotMetadata = try await session.getSlotMetadata(.authentication)
             XCTAssertEqual(publicKey, slotMetadata.publicKey)
             try await session.deleteKey(in: .authentication)
@@ -326,12 +479,15 @@ final class PIVFullStackTests: XCTestCase {
                 _ = try await session.getSlotMetadata(.authentication)
                 XCTFail("Got metadata when we should have thrown a referenceDataNotFound exception.")
             } catch {
-                guard let responseError = error as? ResponseError else { XCTFail("Unexpected error: \(error)"); return }
+                guard let responseError = error as? ResponseError else {
+                    XCTFail("Unexpected error: \(error)")
+                    return
+                }
                 XCTAssertTrue(responseError.responseStatus.status == .referencedDataNotFound)
             }
         }
     }
-    
+
     func testPutCompressedAndReadCertificate() throws {
         runAuthenticatedPIVTest { session in
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: true)
@@ -339,7 +495,7 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssert(self.testCertificate.der == retrievedCertificate.der)
         }
     }
-    
+
     func testPutAndDeleteCertificate() throws {
         runAuthenticatedPIVTest { session in
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication)
@@ -348,12 +504,15 @@ final class PIVFullStackTests: XCTestCase {
                 _ = try await session.getCertificateInSlot(.authentication)
                 XCTFail("Deleted certificate still present on YubiKey.")
             } catch {
-                guard let error = error as? ResponseError else {  XCTFail("Deleted certificate returned unexpected error: \(error)"); return }
+                guard let error = error as? ResponseError else {
+                    XCTFail("Deleted certificate returned unexpected error: \(error)")
+                    return
+                }
                 XCTAssert(error.responseStatus.status == .fileNotFound)
             }
         }
     }
-    
+
     func testAuthenticateWithDefaultManagementKey() throws {
         runPIVTest { session in
             do {
@@ -370,10 +529,13 @@ final class PIVFullStackTests: XCTestCase {
             }
         }
     }
-    
+
     func testSet3DESManagementKey() throws {
         runAuthenticatedPIVTest { session in
-            guard session.supports(PIVSessionFeature.aesKey) else { print("⚠️ Skip testSet3DESManagementKey()"); return }
+            guard session.supports(PIVSessionFeature.aesKey) else {
+                print("⚠️ Skip testSet3DESManagementKey()")
+                return
+            }
             let newManagementKey = Data(hexEncodedString: "3ec950f1c126b314a80edd752694c328656db96f1c65cc4f")!
             do {
                 try await session.setManagementKey(newManagementKey, type: .tripleDES, requiresTouch: false)
@@ -383,10 +545,13 @@ final class PIVFullStackTests: XCTestCase {
             }
         }
     }
-    
+
     func testSetAESManagementKey() throws {
         runAuthenticatedPIVTest { session in
-            guard session.supports(PIVSessionFeature.aesKey) else { print("⚠️ Skip testSetAESManagementKey()"); return }
+            guard session.supports(PIVSessionFeature.aesKey) else {
+                print("⚠️ Skip testSetAESManagementKey()")
+                return
+            }
             let newManagementKey = Data(hexEncodedString: "f7ef787b46aa50de066bdade00aee17fc2b710372b722de5")!
             do {
                 try await session.setManagementKey(newManagementKey, type: .AES192, requiresTouch: false)
@@ -396,7 +561,7 @@ final class PIVFullStackTests: XCTestCase {
             }
         }
     }
-    
+
     func testAuthenticateWithWrongManagementKey() throws {
         runPIVTest { session in
             let wrongManagementKey = Data(hexEncodedString: "010101010101010101010101010101010101010101010101")!
@@ -411,12 +576,15 @@ final class PIVFullStackTests: XCTestCase {
                 try await session.authenticateWith(managementKey: wrongManagementKey, keyType: keyType)
                 XCTFail("Successfully authenticated with the wrong management key.")
             } catch {
-                guard let error = error as? ResponseError else { XCTFail("Failed with unexpected error: \(error)"); return }
+                guard let error = error as? ResponseError else {
+                    XCTFail("Failed with unexpected error: \(error)")
+                    return
+                }
                 XCTAssert(error.responseStatus.status == .securityConditionNotSatisfied)
             }
         }
     }
-    
+
     func testVerifyPIN() throws {
         runAuthenticatedPIVTest { session in
             do {
@@ -431,7 +599,7 @@ final class PIVFullStackTests: XCTestCase {
             }
         }
     }
-    
+
     func testVerifyPINRetryCount() throws {
         runAuthenticatedPIVTest { session in
             let resultOne = try await session.verifyPin("654321")
@@ -452,7 +620,7 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssert(resultFour == .pinLocked)
         }
     }
-    
+
     func testGetPinAttempts() throws {
         runAuthenticatedPIVTest { session in
             var count = try await session.getPinAttempts()
@@ -462,7 +630,7 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssertEqual(count, 2)
         }
     }
-    
+
     func testSetPinPukAttempts() throws {
         runAuthenticatedPIVTest { session in
             try await session.verifyPin("123456")
@@ -478,7 +646,7 @@ final class PIVFullStackTests: XCTestCase {
             }
         }
     }
-    
+
     func testVersion() throws {
         runPIVTest { session in
             let version = session.version
@@ -487,31 +655,45 @@ final class PIVFullStackTests: XCTestCase {
             print("➡️ Version: \(session.version.major).\(session.version.minor).\(session.version.micro)")
         }
     }
-    
+
     func testSerialNumber() throws {
         runPIVTest { session in
-            guard session.supports(PIVSessionFeature.serialNumber) else { print("⚠️ Skip testSerialNumber()"); return }
+            guard session.supports(PIVSessionFeature.serialNumber) else {
+                print("⚠️ Skip testSerialNumber()")
+                return
+            }
             let serialNumber = try await session.getSerialNumber()
             XCTAssert(serialNumber > 0)
             print("➡️ Serial number: \(serialNumber)")
         }
     }
-    
+
     func testManagementKeyMetadata() throws {
         runPIVTest { session in
-            guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testManagementKeyMetadata()"); return }
+            guard session.supports(PIVSessionFeature.metadata) else {
+                print("⚠️ Skip testManagementKeyMetadata()")
+                return
+            }
             let metadata = try await session.getManagementKeyMetadata()
             XCTAssertEqual(metadata.isDefault, true)
             print("➡️ Management key type: \(metadata.keyType)")
             print("➡️ Management touch policy: \(metadata.touchPolicy)")
         }
-        
+
     }
-    
+
     func testSlotMetadata() throws {
         runAuthenticatedPIVTest { session in
-            guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testSlotMetadata()"); return }
-            var publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .ecc(.p256), pinPolicy: .always, touchPolicy: .always)
+            guard session.supports(PIVSessionFeature.metadata) else {
+                print("⚠️ Skip testSlotMetadata()")
+                return
+            }
+            var publicKey = try await session.generateKeyInSlot(
+                slot: .authentication,
+                type: .ecc(.p256),
+                pinPolicy: .always,
+                touchPolicy: .always
+            )
             var metadata = try await session.getSlotMetadata(.authentication)
             XCTAssertEqual(metadata.keyType, .ecc(.p256))
             XCTAssertEqual(metadata.pinPolicy, .always)
@@ -519,7 +701,12 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssertEqual(metadata.generated, true)
             XCTAssertEqual(metadata.publicKey, publicKey)
 
-            publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .ecc(.p384), pinPolicy: .never, touchPolicy: .never)
+            publicKey = try await session.generateKeyInSlot(
+                slot: .authentication,
+                type: .ecc(.p384),
+                pinPolicy: .never,
+                touchPolicy: .never
+            )
             metadata = try await session.getSlotMetadata(.authentication)
             XCTAssertEqual(metadata.keyType, .ecc(.p384))
             XCTAssertEqual(metadata.pinPolicy, .never)
@@ -527,7 +714,12 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssertEqual(metadata.generated, true)
             XCTAssertEqual(metadata.publicKey, publicKey)
 
-            publicKey = try await session.generateKeyInSlot(slot: .authentication, type: .ecc(.p256), pinPolicy: .once, touchPolicy: .cached)
+            publicKey = try await session.generateKeyInSlot(
+                slot: .authentication,
+                type: .ecc(.p256),
+                pinPolicy: .once,
+                touchPolicy: .cached
+            )
             metadata = try await session.getSlotMetadata(.authentication)
             XCTAssertEqual(metadata.keyType, .ecc(.p256))
             XCTAssertEqual(metadata.pinPolicy, .once)
@@ -535,12 +727,15 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssertEqual(metadata.generated, true)
             XCTAssertEqual(metadata.publicKey, publicKey)
         }
-        
+
     }
-    
+
     func testAESManagementKeyMetadata() throws {
         runAuthenticatedPIVTest { session in
-            guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testAESManagementKeyMetadata()"); return }
+            guard session.supports(PIVSessionFeature.metadata) else {
+                print("⚠️ Skip testAESManagementKeyMetadata()")
+                return
+            }
             let aesManagementKey = Data(hexEncodedString: "f7ef787b46aa50de066bdade00aee17fc2b710372b722de5")!
             try await session.setManagementKey(aesManagementKey, type: .AES192, requiresTouch: true)
             let metadata = try await session.getManagementKeyMetadata()
@@ -549,20 +744,26 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssertEqual(metadata.touchPolicy, .always)
         }
     }
-    
+
     func testPinMetadata() throws {
         runAuthenticatedPIVTest { session in
-            guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testPinMetadata()"); return }
+            guard session.supports(PIVSessionFeature.metadata) else {
+                print("⚠️ Skip testPinMetadata()")
+                return
+            }
             let result = try await session.getPinMetadata()
             XCTAssertEqual(result.isDefault, true)
             XCTAssertEqual(result.retriesTotal, 3)
             XCTAssertEqual(result.retriesRemaining, 3)
         }
     }
-    
+
     func testPinMetadataRetries() throws {
         runAuthenticatedPIVTest { session in
-            guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testPinMetadataRetries()"); return }
+            guard session.supports(PIVSessionFeature.metadata) else {
+                print("⚠️ Skip testPinMetadataRetries()")
+                return
+            }
             try await session.verifyPin("111111")
             let result = try await session.getPinMetadata()
             XCTAssertEqual(result.isDefault, true)
@@ -570,18 +771,21 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssertEqual(result.retriesRemaining, 2)
         }
     }
-    
+
     func testPukMetadata() throws {
         runPIVTest { session in
-            guard session.supports(PIVSessionFeature.metadata) else { print("⚠️ Skip testPukMetadata()"); return }
+            guard session.supports(PIVSessionFeature.metadata) else {
+                print("⚠️ Skip testPukMetadata()")
+                return
+            }
             let result = try await session.getPukMetadata()
             XCTAssertEqual(result.isDefault, true)
             XCTAssertEqual(result.retriesTotal, 3)
             XCTAssertEqual(result.retriesRemaining, 3)
         }
-        
+
     }
-    
+
     func testSetPin() throws {
         runPIVTest { session in
             try await session.setPin("654321", oldPin: "123456")
@@ -596,17 +800,20 @@ final class PIVFullStackTests: XCTestCase {
             }
         }
     }
-    
+
     func testUnblockPin() throws {
         runPIVTest { session in
             try await session.blockPin()
             let verifyBlockedPin = try await session.verifyPin("123456")
-            guard verifyBlockedPin == .pinLocked else { XCTFail("Pin failed to block."); return }
+            guard verifyBlockedPin == .pinLocked else {
+                XCTFail("Pin failed to block.")
+                return
+            }
             try await session.unblockPinWithPuk("12345678", newPin: "222222")
             let verifyUnblockedPin = try await session.verifyPin("222222")
             switch verifyUnblockedPin {
             case .success(_):
-                return;
+                return
             case .fail(_):
                 XCTFail("Failed verifiying with unblocked pin.")
             case .pinLocked:
@@ -614,7 +821,7 @@ final class PIVFullStackTests: XCTestCase {
             }
         }
     }
-    
+
     func testSetPukAndUnblock() throws {
         runPIVTest { session in
             try await session.setPuk("87654321", oldPuk: "12345678")
@@ -630,7 +837,7 @@ final class PIVFullStackTests: XCTestCase {
                 XCTFail("Pin still blocked after unblocking with new puk.")
             }
         }
-        
+
     }
 
     // This will test auth on a YubiKey Bio. To run the test at least one fingerprint needs to be registered.
@@ -670,7 +877,7 @@ final class PIVFullStackTests: XCTestCase {
             Logger.test.debug("✅ temporary pin verified.")
         }
     }
-    
+
     func testBioPinPolicyErrorOnNonBioKey() throws {
         runAsyncTest {
             let connection = try await AllowedConnections.anyConnection()
@@ -683,13 +890,23 @@ final class PIVFullStackTests: XCTestCase {
             let session = try await PIVSession.session(withConnection: connection)
             try await self.authenticate(with: session)
             do {
-                _ = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p384), pinPolicy: .matchAlways, touchPolicy: .defaultPolicy)
+                _ = try await session.generateKeyInSlot(
+                    slot: .signature,
+                    type: .ecc(.p384),
+                    pinPolicy: .matchAlways,
+                    touchPolicy: .defaultPolicy
+                )
             } catch {
                 guard let sessionError = error as? SessionError else { throw error }
                 XCTAssertEqual(sessionError, SessionError.notSupported)
             }
             do {
-                _ = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p384), pinPolicy: .matchOnce, touchPolicy: .defaultPolicy)
+                _ = try await session.generateKeyInSlot(
+                    slot: .signature,
+                    type: .ecc(.p384),
+                    pinPolicy: .matchOnce,
+                    touchPolicy: .defaultPolicy
+                )
             } catch {
                 guard let sessionError = error as? SessionError else { throw error }
                 XCTAssertEqual(sessionError, SessionError.notSupported)
@@ -699,7 +916,7 @@ final class PIVFullStackTests: XCTestCase {
 }
 
 extension XCTestCase {
-    
+
     func authenticate(with session: PIVSession) async throws {
         let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
         let keyType: PIVManagementKeyType
@@ -711,12 +928,14 @@ extension XCTestCase {
         }
         try await session.authenticateWith(managementKey: defaultManagementKey, keyType: keyType)
     }
-    
-    func runPIVTest(named testName: String = #function,
-                     in file: StaticString = #file,
-                     at line: UInt = #line,
-                     withTimeout timeout: TimeInterval = 20,
-                     test: @escaping (PIVSession) async throws -> Void) {
+
+    func runPIVTest(
+        named testName: String = #function,
+        in file: StaticString = #file,
+        at line: UInt = #line,
+        withTimeout timeout: TimeInterval = 20,
+        test: @escaping (PIVSession) async throws -> Void
+    ) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
             let connection = try await AllowedConnections.anyConnection()
             let session = try await PIVSession.session(withConnection: connection)
@@ -726,12 +945,14 @@ extension XCTestCase {
             Logger.test.debug("✅ \(testName) passed")
         }
     }
-    
-    func runAuthenticatedPIVTest(named testName: String = #function,
-                     in file: StaticString = #file,
-                     at line: UInt = #line,
-                     withTimeout timeout: TimeInterval = 20,
-                     test: @escaping (PIVSession) async throws -> Void) {
+
+    func runAuthenticatedPIVTest(
+        named testName: String = #function,
+        in file: StaticString = #file,
+        at line: UInt = #line,
+        withTimeout timeout: TimeInterval = 20,
+        test: @escaping (PIVSession) async throws -> Void
+    ) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
             let connection = try await AllowedConnections.anyConnection()
             let session = try await PIVSession.session(withConnection: connection)

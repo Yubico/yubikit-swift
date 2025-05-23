@@ -19,7 +19,7 @@ import Foundation
 /// - call `value()` to suspend until someone calls `fulfill(_:)`
 /// - call `fulfill(_:)` exactly once to resume everyone
 final class Promise<Value: Sendable>: Sendable {
-    private struct DisposedError: Error { }
+    private struct DisposedError: Error {}
 
     private let state = MutableState()
 

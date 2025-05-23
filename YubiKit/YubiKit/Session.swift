@@ -21,10 +21,10 @@ import Foundation
 ///
 /// The protocol is implemented by ``OATHSession`` and ``ManagementSession``.
 public protocol Session: Sendable {
-    
+
     /// Returns a new session using the supplied connection.
     static func session(withConnection connection: Connection, scpKeyParams: SCPKeyParams?) async throws -> Self
-    
+
     /// Determine wether the Session supports the specific feature.
     func supports(_ feature: SessionFeature) -> Bool
 }
@@ -34,7 +34,7 @@ public protocol SessionFeature {
 }
 
 public enum SessionError: Error {
-    case notSupported(_: String?) // consider renaming to illegalState to match Java sdk
+    case notSupported(_: String?)  // consider renaming to illegalState to match Java sdk
     case activeSession
     case missingApplication
     case unexpectedResult
@@ -44,11 +44,11 @@ public enum SessionError: Error {
     case invalidPin(Int)
 
     static var illegalArgument: Self {
-        return .illegalArgument(nil)
+        .illegalArgument(nil)
     }
 
     static var notSupported: Self {
-        return .notSupported(nil)
+        .notSupported(nil)
     }
 }
 

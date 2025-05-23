@@ -12,23 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import XCTest
 import CryptoTokenKit
+import XCTest
 
-@testable import YubiKit
 @testable import FullStackTests
+@testable import YubiKit
 
 class ConnectionFullStackTests: XCTestCase {
 
     // Change Connection to test different types of connections
     typealias Connection = SmartCardConnection
-    
+
     #if os(iOS)
     func testNFCAlertMessage() throws {
         runAsyncTest {
             do {
                 let connection = try await NFCConnection.connection(alertMessage: "Test Alert Message")
-                guard try await connection.isAllowed() else { XCTFail("🚨 YubiKey not in allow-list!"); return }
+                guard try await connection.isAllowed() else {
+                    XCTFail("🚨 YubiKey not in allow-list!")
+                    return
+                }
                 connection.nfcConnection?.setAlertMessage("Updated Alert Message")
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 await connection.nfcConnection?.close(message: "Closing Alert Message")
@@ -37,19 +40,22 @@ class ConnectionFullStackTests: XCTestCase {
             }
         }
     }
-    
+
     func testNFCClosingErrorMessage() throws {
         runAsyncTest {
             do {
                 let connection = try await NFCConnection.connection(alertMessage: "Test Alert Message")
-                guard try await connection.isAllowed() else { XCTFail("🚨 YubiKey not in allow-list!"); return }
+                guard try await connection.isAllowed() else {
+                    XCTFail("🚨 YubiKey not in allow-list!")
+                    return
+                }
                 await connection.close(error: nil)
             } catch {
                 XCTFail("🚨 Failed with: \(error)")
             }
         }
     }
-    
+
     #endif
 
     func testSmartCardConnectionWithSlot() throws {
@@ -59,7 +65,7 @@ class ConnectionFullStackTests: XCTestCase {
                 print("\(index): \(slot.name)")
             }
             let random = allSlots.randomElement()
-            XCTAssertNotNil(random) // we need at least one YubiKey connected
+            XCTAssertNotNil(random)  // we need at least one YubiKey connected
             let connection = try await SmartCardConnection.connection(slot: random!)
             print("✅ Got connection \(connection)")
             XCTAssertNotNil(connection)
@@ -67,7 +73,7 @@ class ConnectionFullStackTests: XCTestCase {
     }
 
     func testSingleConnection() throws {
-        runAsyncTest() {
+        runAsyncTest {
             do {
                 let connection = try await Connection.connection()
                 print("✅ Got connection \(connection)")
@@ -77,12 +83,15 @@ class ConnectionFullStackTests: XCTestCase {
             }
         }
     }
-    
+
     func testSerialConnections() throws {
-        runAsyncTest() {
+        runAsyncTest {
             do {
                 let firstConnection = try await Connection.connection()
-                guard try await firstConnection.isAllowed() else { XCTFail("🚨 YubiKey not in allow-list!"); return }
+                guard try await firstConnection.isAllowed() else {
+                    XCTFail("🚨 YubiKey not in allow-list!")
+                    return
+                }
                 print("✅ Got first connection \(firstConnection)")
                 let task = Task {
                     let result = await firstConnection.connectionDidClose()
@@ -101,7 +110,7 @@ class ConnectionFullStackTests: XCTestCase {
             }
         }
     }
-    
+
     func testConnectionCancellation() {
         runAsyncTest {
             let task1 = Task {
@@ -116,7 +125,7 @@ class ConnectionFullStackTests: XCTestCase {
             let task4 = Task {
                 try await Connection.connection()
             }
-            
+
             let result1 = try? await task1.value
             print("✅ Result 1: \(String(describing: result1))")
             let result2 = try? await task2.value
@@ -125,16 +134,22 @@ class ConnectionFullStackTests: XCTestCase {
             print("✅ Result 3: \(String(describing: result3))")
             let result4 = try? await task4.value
             print("✅ Result 4: \(String(describing: result4))")
-            
+
             XCTAssert([result1, result2, result3, result4].compactMap { $0 }.count == 1)
         }
     }
-    
+
     func testSendManually() {
         runAsyncTest {
             let connection = try await Connection.connection()
             // Select Management application
-            let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17]))
+            let apdu = APDU(
+                cla: 0x00,
+                ins: 0xa4,
+                p1: 0x04,
+                p2: 0x00,
+                command: Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17])
+            )
             let resultData = try await connection.send(data: apdu.data)
             let result = Response(rawData: resultData)
             XCTAssertEqual(result.responseStatus.status, .ok)
@@ -143,9 +158,17 @@ class ConnectionFullStackTests: XCTestCase {
             let deviceInfoResultData = try await connection.send(data: deviceInfoApdu.data)
             let deviceInfoResult = Response(rawData: deviceInfoResultData)
             XCTAssertEqual(deviceInfoResult.responseStatus.status, .ok)
-            let records = TKBERTLVRecord.sequenceOfRecords(from: deviceInfoResult.data.subdata(in: 1..<deviceInfoResult.data.count))
-            guard let versionData = records?.filter({ $0.tag == 0x05 }).first?.value else { XCTFail("No YubiKey version record in result."); return }
-            guard versionData.count == 3 else { XCTFail("Wrong sized return data. Got \(versionData.hexEncodedString)"); return }
+            let records = TKBERTLVRecord.sequenceOfRecords(
+                from: deviceInfoResult.data.subdata(in: 1..<deviceInfoResult.data.count)
+            )
+            guard let versionData = records?.filter({ $0.tag == 0x05 }).first?.value else {
+                XCTFail("No YubiKey version record in result.")
+                return
+            }
+            guard versionData.count == 3 else {
+                XCTFail("Wrong sized return data. Got \(versionData.hexEncodedString)")
+                return
+            }
             let bytes = [UInt8](versionData)
             let major = bytes[0]
             let minor = bytes[1]
@@ -153,10 +176,13 @@ class ConnectionFullStackTests: XCTestCase {
             print("✅ Got version: \(major).\(minor).\(micro)")
             XCTAssertEqual(major, 5)
             // Try to select non existing application
-            let notFoundApdu =  APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: Data([0x01, 0x02, 0x03]))
+            let notFoundApdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: Data([0x01, 0x02, 0x03]))
             let notFoundResultData = try await connection.send(data: notFoundApdu.data)
             let notFoundResult = Response(rawData: notFoundResultData)
-            if !(notFoundResult.responseStatus.status == .fileNotFound || notFoundResult.responseStatus.status == .incorrectParameters || notFoundResult.responseStatus.status == .invalidInstruction) {
+            if !(notFoundResult.responseStatus.status == .fileNotFound
+                || notFoundResult.responseStatus.status == .incorrectParameters
+                || notFoundResult.responseStatus.status == .invalidInstruction)
+            {
                 XCTFail("Unexpected result: \(notFoundResult.responseStatus)")
             }
         }
