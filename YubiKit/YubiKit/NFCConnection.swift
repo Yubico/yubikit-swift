@@ -191,7 +191,8 @@ fileprivate actor NFCConnectionManager {
     }
 
     func didDisconnect() async -> Error? {
-        await withCheckedContinuation { (continuation: CheckedContinuation<Error?, Never>) in  // try to remove variable definition in the future
+        // try to remove variable definition in the future
+        await withCheckedContinuation { (continuation: CheckedContinuation<Error?, Never>) in
             nfcWrapper.connectionDidClose { error in
                 continuation.resume(returning: error)
             }

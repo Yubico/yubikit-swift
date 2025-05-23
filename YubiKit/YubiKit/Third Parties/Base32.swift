@@ -404,14 +404,14 @@ extension String {
     /// Data never nil
     internal var dataUsingUTF8StringEncoding: Data {
         utf8CString.withUnsafeBufferPointer {
-            return Data($0.dropLast().map { UInt8.init($0) })
+            Data($0.dropLast().map { UInt8.init($0) })
         }
     }
 
     /// Array<UInt8>
     internal var arrayUsingUTF8StringEncoding: [UInt8] {
         utf8CString.withUnsafeBufferPointer {
-            return $0.dropLast().map { UInt8.init($0) }
+            $0.dropLast().map { UInt8.init($0) }
         }
     }
 }

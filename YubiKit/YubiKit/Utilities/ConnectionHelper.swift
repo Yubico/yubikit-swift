@@ -52,17 +52,18 @@ public enum ConnectionHelper {
             #if os(iOS)
             if NFCNDEFReaderSession.readingAvailable {
                 group.addTask {
-                    try await Task.sleep(for: .seconds(1))  // wait for wired connected yubikeys to connect before starting NFC
+                    // wait for wired connected yubikeys to connect before starting NFC
+                    try await Task.sleep(for: .seconds(1))
                     try Task.checkCancellation()
                     return try await NFCConnection.connection(alertMessage: nfcAlertMessage)
                 }
             }
             group.addTask {
-                return try await LightningConnection.connection()
+                try await LightningConnection.connection()
             }
             #endif
             group.addTask {
-                return try await SmartCardConnection.connection()
+                try await SmartCardConnection.connection()
             }
             let result = try await group.next()!
             group.cancelAll()
@@ -77,11 +78,11 @@ public enum ConnectionHelper {
         let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
             #if os(iOS)
             group.addTask {
-                return try await LightningConnection.connection()
+                try await LightningConnection.connection()
             }
             #endif
             group.addTask {
-                return try await SmartCardConnection.connection()
+                try await SmartCardConnection.connection()
             }
             let result = try await group.next()!
             group.cancelAll()

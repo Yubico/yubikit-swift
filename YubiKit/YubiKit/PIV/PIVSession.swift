@@ -537,7 +537,7 @@ public final actor PIVSession: Session {
     ///   - oldPin: Old pin code. UTF8 encoded.
     public func setPin(_ newPin: String, oldPin: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        return try await _ = changeReference(ins: insChangeReference, p2: p2Pin, valueOne: oldPin, valueTwo: newPin)
+        try await _ = changeReference(ins: insChangeReference, p2: p2Pin, valueOne: oldPin, valueTwo: newPin)
     }
 
     /// Set a new puk code for the YubiKey.
@@ -546,7 +546,7 @@ public final actor PIVSession: Session {
     ///   - oldPuk: Old puk code. UTF8 encoded.
     public func setPuk(_ newPuk: String, oldPuk: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        return try await _ = changeReference(ins: insChangeReference, p2: p2Puk, valueOne: oldPuk, valueTwo: newPuk)
+        try await _ = changeReference(ins: insChangeReference, p2: p2Puk, valueOne: oldPuk, valueTwo: newPuk)
     }
 
     /// Unblock a blocked pin code with the puk code.
@@ -555,7 +555,7 @@ public final actor PIVSession: Session {
     ///   - newPin: The new UTF8 encoded pin.
     public func unblockPinWithPuk(_ puk: String, newPin: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        return try await _ = changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
+        try await _ = changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
     }
 
     /// Reads metadata about the pin, such as total number of retries, attempts left, and if the pin has
@@ -817,7 +817,8 @@ extension PIVSession {
             guard self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
         }
         if pinPolicy == .matchAlways || pinPolicy == .matchOnce {
-            _ = try await self.getBioMetadata()  // This will throw SessionError.notSupported if the key is not a Bio key.
+            // This will throw SessionError.notSupported if the key is not a Bio key
+            _ = try await self.getBioMetadata()
         }
         if generateKey && (keyType == .rsa(.bits1024) || keyType == .rsa(.bits2048)) {
             guard self.supports(PIVSessionFeature.rsaGeneration) else { throw SessionError.notSupported }

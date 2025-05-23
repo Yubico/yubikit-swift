@@ -36,7 +36,8 @@ struct OATHListView<T>: View where T: OATHListModelProtocol {
                     .sheet(
                         isPresented: $isPresentingSettings,
                         onDismiss: {
-                            model.startWiredConnection()  // Restart wired connection once the SettingsView has been dismissed.
+                            // Restart wired connection once the SettingsView has been dismissed
+                            model.startWiredConnection()
                         },
                         content: {
                             SettingsView(model: SettingsModel())

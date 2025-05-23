@@ -75,23 +75,22 @@ extension Logger {
 
 // MARK: - RAII style scope tracer
 // Will be wrapped in a '@TraceScope' macro when Swift 6 is available
-/*
-class _Trace {
-    let name: String
-    let logger: Logger
+//
+// class _Trace {
+//     let name: String
+//     let logger: Logger
+//
+//     init(_ name: String, logger: Logger) {
+//         self.name = name
+//         self.logger = logger
+//         logger.trace(">>> \(name, privacy: .public)")
+//     }
+//
+//     deinit {
+//         logger.trace("<<< \(self.name, privacy: .public)")
+//     }
+// }
 
-    init(_ name: String, logger: Logger) {
-        self.name = name
-        self.logger = logger
-        logger.trace(">>> \(name, privacy: .public)")
-    }
-
-    deinit {
-        logger.trace("<<< \(self.name, privacy: .public)")
-    }
-}
-
-*/
 // MARK: - These functions trace with a message
 extension HasLogger {
     // static helper
