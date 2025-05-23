@@ -1,6 +1,7 @@
 name: Deploy DocC
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
 
@@ -41,10 +42,10 @@ jobs:
           HTML
 
       - name: Deploy to GitHub Pages
-        uses: rossjrw/pr-preview-action@v1
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          source-dir: ${{ env.DOCS_PATH }}
-          preview-branch: ${{ env.PAGES_BRANCH }}
-          umbrella-dir: .
+          folder: ${{ env.DOCS_PATH }}
+          branch: ${{ env.PAGES_BRANCH }}
+          clean-exclude: pr-*
+          force: false
           token: ${{ secrets.GITHUB_TOKEN }}
-          action: deploy
