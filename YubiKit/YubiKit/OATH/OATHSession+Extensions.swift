@@ -12,23 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
 import CommonCrypto
+import Foundation
 
 private let hotpCode: UInt8 = 0x10
 private let totpCode: UInt8 = 0x20
 
 extension OATHSession {
-    
+
     public enum CredentialTemplateError: Error {
         case missingScheme, missingName, missingSecret, parseType, parseAlgorithm
     }
-    
+
     public enum CredentialType: CustomStringConvertible, Sendable {
-        
+
         case HOTP(counter: UInt32 = 0)
         case TOTP(period: TimeInterval = 30)
-        
+
         public var code: UInt8 {
             switch self {
             case .HOTP:
@@ -37,70 +37,70 @@ extension OATHSession {
                 return totpCode
             }
         }
-        
+
         static public func isHOTP(_ code: UInt8) -> Bool {
-            return code == hotpCode
+            code == hotpCode
         }
-        
+
         static public func isTOTP(_ code: UInt8) -> Bool {
-            return code == totpCode
+            code == totpCode
         }
-        
+
         public var period: TimeInterval? {
             switch self {
             case .HOTP(counter: _):
                 return nil
-            case .TOTP(period: let period):
+            case .TOTP(let period):
                 return period
             }
         }
-        
+
         public var counter: UInt32? {
             switch self {
-            case .HOTP(counter: let counter):
+            case .HOTP(let counter):
                 return counter
             case .TOTP(period: _):
                 return nil
             }
         }
-        
+
         public var description: String {
             switch self {
-            case .HOTP(counter: let counter):
+            case .HOTP(let counter):
                 return "HOTP(\(counter))"
-            case .TOTP(period: let period):
+            case .TOTP(let period):
                 return "TOTP(\(period))"
             }
         }
     }
-    
+
     public enum HashAlgorithm: UInt8, Sendable {
-        case SHA1   = 0x01
+        case SHA1 = 0x01
         case SHA256 = 0x02
         case SHA512 = 0x03
     }
-    
+
     /// A reference to an OATH Credential stored on a YubiKey.
     public struct Credential: Sendable, Identifiable, CustomStringConvertible {
 
         /// Device ID of the YubiKey.
         public let deviceId: String
-        
+
         /// The ID of a Credential which is used to identify it to the YubiKey.
         public let id: Data
-        
+
         /// OATH type of the credential (TOTP or HOTP).
         public let type: OATHSession.CredentialType
-        
+
         /// Hash algorithm used by the credential (SHA1, SHA265 or SHA 512).
         public let hashAlgorithm: OATHSession.HashAlgorithm?
-        
+
         /// The name of the account (typically a username or email address).
         public let name: String
-        
+
         /// The name of the Credential issuer (e.g. Google, Amazon, Facebook, etc.)
         public let issuer: String?
-        
+
         /// Label of the Credential. Will return `issuer:name` if issuer is set, otherwise `name`.
         public var label: String {
             var label = ""
@@ -117,12 +117,20 @@ extension OATHSession {
 
         /// Whether or not the Credential requires touch. This value is alwyas false when using ``listCredentials()``.
         public var requiresTouch: Bool
-        
+
         public var description: String {
-            return "Credential(type: \(type), label:\(label), algorithm: \(hashAlgorithm.debugDescription)"
+            "Credential(type: \(type), label:\(label), algorithm: \(hashAlgorithm.debugDescription)"
         }
 
-        internal init(deviceId: String, id: Data, type: OATHSession.CredentialType, hashAlgorithm: OATHSession.HashAlgorithm? = nil, name: String, issuer: String?, requiresTouch: Bool) {
+        internal init(
+            deviceId: String,
+            id: Data,
+            type: OATHSession.CredentialType,
+            hashAlgorithm: OATHSession.HashAlgorithm? = nil,
+            name: String,
+            issuer: String?,
+            requiresTouch: Bool
+        ) {
             self.deviceId = deviceId
             self.id = id
             self.type = type
@@ -132,13 +140,13 @@ extension OATHSession {
             self.requiresTouch = requiresTouch
         }
     }
-    
+
     internal struct CredentialIdParser {
-        
+
         let account: String
         let issuer: String?
         let period: TimeInterval?
-        
+
         init?(data: Data) {
             // "period/issuer:account"
             let periodIssuerAndAccount = #/^(?<period>\d+)\/(?<issuer>.+):(?<account>.+)$/#
@@ -146,7 +154,7 @@ extension OATHSession {
             let issuerAndAccount = #/^(?<issuer>.+):(?<account>.+)$/#
             // "period/account"
             let periodAndAccount = #/^(?<period>\d+)\/(?<account>.+)$/#
-            
+
             guard let id = String(data: data, encoding: .utf8) else { return nil }
 
             if let match = id.firstMatch(of: periodIssuerAndAccount) {
@@ -175,45 +183,49 @@ extension OATHSession {
         public var description: String {
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "HH:mm:ss"
-            return "Code(\(code), validFrom:\(dateFormatter.string(from: validFrom)), validTo:\(dateFormatter.string(from: validTo))"
+            return
+                "Code(\(code), validFrom:\(dateFormatter.string(from: validFrom)), validTo:\(dateFormatter.string(from: validTo))"
         }
-        
+
         public let id = UUID()
-        
+
         /// String representation of the code, typically a 6-8 digit code.
         public let code: String
-        
+
         /// The date this code will be valid from.
         public var validFrom: Date {
             switch credentialType {
             case .HOTP(_):
                 return Date()
-            case .TOTP(period: let period):
-                return Date(timeIntervalSince1970: timestamp.timeIntervalSince1970 - timestamp.timeIntervalSince1970.truncatingRemainder(dividingBy: period))
+            case .TOTP(let period):
+                return Date(
+                    timeIntervalSince1970: timestamp.timeIntervalSince1970
+                        - timestamp.timeIntervalSince1970.truncatingRemainder(dividingBy: period)
+                )
             }
         }
-        
+
         /// The date this code ends being valid.
         public var validTo: Date {
             switch credentialType {
             case .HOTP(_):
                 return validFrom.addingTimeInterval(.infinity)
-            case .TOTP(period: let period):
+            case .TOTP(let period):
                 return validFrom.addingTimeInterval(period)
             }
         }
-        
+
         internal init(code: String, timestamp: Date, credentialType: CredentialType) {
             self.code = code
             self.timestamp = timestamp
             self.credentialType = credentialType
         }
-        
+
         private let timestamp: Date
         private let credentialType: CredentialType
 
     }
-    
+
     internal struct CredentialIdentifier {
         static func identifier(name: String, issuer: String?, type: OATHSession.CredentialType) -> String {
             let key: String
@@ -233,10 +245,10 @@ extension OATHSession {
             }
         }
     }
-    
+
     /// Template object holding all required information to add a new ``Credential`` to a YubiKey.
     public struct CredentialTemplate {
-        
+
         private static let minSecretLenght = 14
         public let type: CredentialType
         public let algorithm: HashAlgorithm
@@ -245,21 +257,21 @@ extension OATHSession {
         public let name: String
         public let digits: UInt8
         public var requiresTouch: Bool
-        
+
         /// Credential identifier, as used to identify it on a YubiKey.
         ///
         /// The Credential ID is calculated based on the combination of the issuer, the name, and (for TOTP credentials) the validity period.
         public var identifier: String {
-            return CredentialIdentifier.identifier(name: name, issuer: issuer, type: type)
+            CredentialIdentifier.identifier(name: name, issuer: issuer, type: type)
         }
-        
+
         /// Creates a CredentialTemplate by parsing a [otpauth:// URI](https://github.com/google/google-authenticator/wiki/Key-Uri-Format).
         /// - Parameters:
         ///   - url: The otpauth:// URI to parse.
         ///   - skipValidation: Set to true to skip input validation when parsing the uri.
         public init(withURL url: URL, skipValidation: Bool = false) throws {
             guard url.scheme == "otpauth" else { throw CredentialTemplateError.missingScheme }
-            
+
             var issuer: String?
             var name: String = ""
             if !skipValidation {
@@ -273,25 +285,25 @@ extension OATHSession {
                     issuer = url.queryValueFor(key: "issuer")
                 }
             }
-            
+
             let type = try OATHSession.CredentialType(fromURL: url)
-            
+
             let algorithm = try OATHSession.HashAlgorithm(fromUrl: url) ?? .SHA1
-            
+
             let digits: UInt8
             if let digitsString = url.queryValueFor(key: "digits"), let parsedDigits = UInt8(digitsString) {
                 digits = parsedDigits
             } else {
                 digits = 6
             }
-            
+
             guard let secret = url.queryValueFor(key: "secret")?.base32DecodedData else {
                 throw CredentialTemplateError.missingSecret
             }
-            
+
             self.init(type: type, algorithm: algorithm, secret: secret, issuer: issuer, name: name, digits: digits)
         }
-        
+
         /// Creates a CredentialTemplate.
         /// - Parameters:
         ///   - type: OATH type of the credential (TOTP or HOTP).
@@ -301,10 +313,18 @@ extension OATHSession {
         ///   - name: The name/label of the account, typically a username or email address
         ///   - digits: Number of digits to display for generated ``Code``s
         ///   - requiresTouch: Set to true if the credential should require touch to be used.
-        public init(type: CredentialType, algorithm: HashAlgorithm, secret: Data, issuer: String?, name: String, digits: UInt8 = 6, requiresTouch: Bool = false) {
+        public init(
+            type: CredentialType,
+            algorithm: HashAlgorithm,
+            secret: Data,
+            issuer: String?,
+            name: String,
+            digits: UInt8 = 6,
+            requiresTouch: Bool = false
+        ) {
             self.type = type
             self.algorithm = algorithm
-            
+
             if secret.count < Self.minSecretLenght {
                 var mutableSecret = secret
                 mutableSecret.append(Data(count: Self.minSecretLenght - secret.count))
@@ -318,15 +338,14 @@ extension OATHSession {
             } else {
                 self.secret = secret
             }
-            
+
             self.issuer = issuer
             self.name = name
             self.digits = digits
             self.requiresTouch = requiresTouch
         }
     }
- }
-
+}
 
 extension OATHSession.HashAlgorithm {
     internal init?(fromUrl url: URL) throws {
@@ -350,7 +369,7 @@ extension OATHSession.HashAlgorithm {
 extension OATHSession.CredentialType {
     internal init(fromURL url: URL) throws {
         let type = url.host?.lowercased()
-        
+
         switch type {
         case "totp":
             if let stringPeriod = url.queryValueFor(key: "period"), let period = Double(stringPeriod) {

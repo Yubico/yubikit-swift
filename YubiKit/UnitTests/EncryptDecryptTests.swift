@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import XCTest
-@testable import YubiKit
 import CommonCrypto
+import XCTest
+
+@testable import YubiKit
 
 final class EncryptDecryptTests: XCTestCase {
-    
+
     func testEncryptAESECB() throws {
         let data = "Hello World!0000".data(using: .utf8)!
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f8420495e472259a729439158766cfee5497c2b")!
@@ -29,9 +30,12 @@ final class EncryptDecryptTests: XCTestCase {
             XCTFail("Failed encrypting data with error: \(error)")
         }
     }
-    
+
     func testDecryptAESECB() throws {
-        let data = Data(hexEncodedString: "0cb774fc5a0a3d4fbb9a6b582cb56b84fa4e95678dbb6cc763bb4ce68df9155ffa4e95678dbb6cc763bb4ce68df9155ffa4e95678dbb6cc763bb4ce68df9155f")!
+        let data = Data(
+            hexEncodedString:
+                "0cb774fc5a0a3d4fbb9a6b582cb56b84fa4e95678dbb6cc763bb4ce68df9155ffa4e95678dbb6cc763bb4ce68df9155ffa4e95678dbb6cc763bb4ce68df9155f"
+        )!
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f8420495e472259a729439158766cfee5497c2b")!
         do {
             let result = try data.decrypt(algorithm: UInt32(kCCAlgorithmAES), key: key)
@@ -42,7 +46,7 @@ final class EncryptDecryptTests: XCTestCase {
             XCTFail("Failed decrypting data with error: \(error)")
         }
     }
-    
+
     func testEncryptAESCBC() throws {
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f842049")!
         let iv = Data(hexEncodedString: "000102030405060708090a0b0c0d0e0f")!
@@ -54,7 +58,7 @@ final class EncryptDecryptTests: XCTestCase {
             XCTFail("Failed encrypting data with error: \(error)")
         }
     }
-    
+
     func testDecryptAESCBC() throws {
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f842049")!
         let iv = Data(hexEncodedString: "000102030405060708090a0b0c0d0e0f")!
@@ -62,12 +66,16 @@ final class EncryptDecryptTests: XCTestCase {
         do {
             let decrypted = try encrypted.decrypt(algorithm: UInt32(kCCAlgorithmAES), key: key, iv: iv)
             let plainText = String(data: decrypted, encoding: .utf8)
-            XCTAssertEqual(plainText, "Hello World!0000", "Got \(String(describing: plainText)), expected: \"Hello World!0000\"")
+            XCTAssertEqual(
+                plainText,
+                "Hello World!0000",
+                "Got \(String(describing: plainText)), expected: \"Hello World!0000\""
+            )
         } catch {
             XCTFail("Failed decrypting data with error: \(error)")
         }
     }
-    
+
     func testEncrypt3DES() throws {
         let data = "Hello World!0000".data(using: .utf8)!
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f8420495e472259a7294391")!
@@ -79,7 +87,7 @@ final class EncryptDecryptTests: XCTestCase {
             XCTFail("Failed encrypting data with error: \(error)")
         }
     }
-    
+
     func testDecrypt3DES() throws {
         let data = Data(hexEncodedString: "b2b1619cecc9e1b2fba580d764af2c43")!
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f8420495e472259a7294391")!
@@ -92,7 +100,7 @@ final class EncryptDecryptTests: XCTestCase {
             XCTFail("Failed decrypting data with error: \(error)")
         }
     }
-    
+
     func testAESCMAC_0() throws {
         let key = Data(hexEncodedString: "2b7e1516 28aed2a6 abf71588 09cf4f3c")!
         let msg = Data()
@@ -102,7 +110,7 @@ final class EncryptDecryptTests: XCTestCase {
             XCTAssertEqual(result, expectedMac)
         }
     }
-    
+
     func testAESCMAC_16() throws {
         let key = Data(hexEncodedString: "2b7e1516 28aed2a6 abf71588 09cf4f3c")!
         let msg = Data(hexEncodedString: "6bc1bee2 2e409f96 e93d7e11 7393172a")!
@@ -112,20 +120,26 @@ final class EncryptDecryptTests: XCTestCase {
             XCTAssertEqual(result, expectedMac)
         }
     }
-    
+
     func testAESCMAC_40() throws {
         let key = Data(hexEncodedString: "2b7e1516 28aed2a6 abf71588 09cf4f3c")!
-        let msg = Data(hexEncodedString: "6bc1bee2 2e409f96 e93d7e11 7393172a ae2d8a57 1e03ac9c 9eb76fac 45af8e51 30c81c46 a35ce411")!
+        let msg = Data(
+            hexEncodedString:
+                "6bc1bee2 2e409f96 e93d7e11 7393172a ae2d8a57 1e03ac9c 9eb76fac 45af8e51 30c81c46 a35ce411"
+        )!
         let expectedMac = Data(hexEncodedString: "dfa66747 de9ae630 30ca3261 1497c827")!
         do {
             let result = try msg.aescmac(key: key)
             XCTAssertEqual(result, expectedMac)
         }
     }
-    
+
     func testAESCMAC_64() throws {
         let key = Data(hexEncodedString: "2b7e1516 28aed2a6 abf71588 09cf4f3c")!
-        let msg = Data(hexEncodedString: "6bc1bee2 2e409f96 e93d7e11 7393172a ae2d8a57 1e03ac9c 9eb76fac 45af8e51 30c81c46 a35ce411 e5fbc119 1a0a52ef f69f2445 df4f9b17 ad2b417b e66c3710")!
+        let msg = Data(
+            hexEncodedString:
+                "6bc1bee2 2e409f96 e93d7e11 7393172a ae2d8a57 1e03ac9c 9eb76fac 45af8e51 30c81c46 a35ce411 e5fbc119 1a0a52ef f69f2445 df4f9b17 ad2b417b e66c3710"
+        )!
         let expectedMac = Data(hexEncodedString: "51f0bebf 7e3b9d92 fc497417 79363cfe")!
         do {
             let result = try msg.aescmac(key: key)

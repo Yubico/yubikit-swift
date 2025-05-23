@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
 import CryptoTokenKit
+import Foundation
 
 /// Identifies the type of data transport a YubiKey is using.
 public enum DeviceTransport {
@@ -42,25 +42,25 @@ public enum FormFactor: UInt8 {
 
 /// Contains metadata, including Device Configuration, of a YubiKey.
 public struct DeviceInfo: CustomStringConvertible {
-    
+
     public var description: String {
-"""
-YubiKey \(formFactor) \(version) (#\(serialNumber))
-Supported capabilities: \(supportedCapabilities)
-Enabled capabilities: \(config.enabledCapabilities)
-isConfigLocked: \(isConfigLocked)
-isFips: \(isFips)
-isSky: \(isSky)
-partNumber: \(String(describing: partNumber))
-isFipsCapable: \(isFIPSCapable)
-isFipsApproved: \(isFIPSApproved)
-pinComplexity: \(pinComplexity)
-resetBlocked: \(isResetBlocked)
-fpsVersion: \(String(describing: fpsVersion))
-stmVersion: \(String(describing: stmVersion))
-"""
+        """
+        YubiKey \(formFactor) \(version) (#\(serialNumber))
+        Supported capabilities: \(supportedCapabilities)
+        Enabled capabilities: \(config.enabledCapabilities)
+        isConfigLocked: \(isConfigLocked)
+        isFips: \(isFips)
+        isSky: \(isSky)
+        partNumber: \(String(describing: partNumber))
+        isFipsCapable: \(isFIPSCapable)
+        isFipsApproved: \(isFIPSApproved)
+        pinComplexity: \(pinComplexity)
+        resetBlocked: \(isResetBlocked)
+        fpsVersion: \(String(describing: fpsVersion))
+        stmVersion: \(String(describing: stmVersion))
+        """
     }
-    
+
     /// The serial number of the YubiKey, if available.
     ///
     /// The serial number can be read if the YubiKey has a serial number, and one of the YubiOTP slots
@@ -94,7 +94,7 @@ stmVersion: \(String(describing: stmVersion))
     public let pinComplexity: Bool
     /// The reset blocked flag.
     public let isResetBlocked: UInt
-    
+
     internal let tagUSBSupported: TKTLVTag = 0x01
     internal let tagSerialNumber: TKTLVTag = 0x02
     internal let tagUSBEnabled: TKTLVTag = 0x03
@@ -114,12 +114,12 @@ stmVersion: \(String(describing: stmVersion))
     internal let tagResetBlocked: TKTLVTag = 0x18
     internal let tagFPSVersion: TKTLVTag = 0x20
     internal let tagSTMVersion: TKTLVTag = 0x21
-    
-    internal init(withTlvs tlvs: [TKTLVTag : Data], fallbackVersion: Version) throws {
-        
+
+    internal init(withTlvs tlvs: [TKTLVTag: Data], fallbackVersion: Version) throws {
+
         self.isConfigLocked = tlvs[tagConfigLocked]?.integer == 1
         self.serialNumber = tlvs[tagSerialNumber]?.integer ?? 0
-        
+
         if let rawFormFactor = tlvs[tagFormFactor]?.uint8 {
             self.isFips = (rawFormFactor & 0x80) != 0
             self.isSky = (rawFormFactor & 0x40) != 0
@@ -133,10 +133,10 @@ stmVersion: \(String(describing: stmVersion))
             self.isFips = false
             self.isSky = false
         }
-        
+
         self.isFIPSCapable = Capability.translateMaskFrom(fipsMask: tlvs[tagFIPSCapable]?.integer ?? 0)
         self.isFIPSApproved = Capability.translateMaskFrom(fipsMask: tlvs[tagFIPSApproved]?.integer ?? 0)
-        
+
         self.pinComplexity = tlvs[tagPINComplexity]?.integer == 1
 
         self.isResetBlocked = tlvs[tagResetBlocked]?.integer ?? 0
@@ -160,33 +160,32 @@ stmVersion: \(String(describing: stmVersion))
         self.partNumber = tlvs[tagPartNumber]?.stringUTF8.flatMap { $0.isEmpty ? nil : $0 }
 
         var supportedCapabilities = [DeviceTransport: UInt]()
-        if (version.major == 4 && version.minor == 2 && version.micro == 4) {
+        if version.major == 4 && version.minor == 2 && version.micro == 4 {
             // 4.2.4 doesn't report supported capabilities correctly, but they are always 0x3f.
             supportedCapabilities[DeviceTransport.usb] = 0x3f
         } else {
             supportedCapabilities[DeviceTransport.usb] = tlvs[tagUSBSupported]?.integer ?? 0
         }
-        
+
         if let nfcSupported = tlvs[tagNFCSupported]?.integer {
             supportedCapabilities[DeviceTransport.nfc] = nfcSupported
         }
         self.supportedCapabilities = supportedCapabilities
-        
+
         self.config = try DeviceConfig(withTlvs: tlvs, version: self.version)
     }
-    
+
     /// Returns whether or not a specific transport is available on this YubiKey.
     public func hasTransport(_ transport: DeviceTransport) -> Bool {
-        return supportedCapabilities.keys.contains(transport)
+        supportedCapabilities.keys.contains(transport)
     }
-    
+
     /// Returns whether the application is supported over the specific transport.
     public func isApplicationSupported(_ application: Capability, overTransport transport: DeviceTransport) -> Bool {
         guard let mask = supportedCapabilities[transport] else { return false }
         return (mask & application.rawValue) == application.rawValue
     }
 }
-
 
 extension Data {
     internal var integer: UInt? {
@@ -200,5 +199,5 @@ extension Data {
         }
         return value
     }
-    
+
 }

@@ -28,15 +28,15 @@ class OATHListModel: OATHListModelProtocol {
     @Published private(set) var accounts = [Account]()
     @Published private(set) var source = "no connection"
     @Published var error: Error?
-    
+
     private var wiredConnectionTask: Task<Void, Never>?
-    
+
     @MainActor func stopWiredConnection() {
         source = "no connection"
         accounts.removeAll()
         wiredConnectionTask?.cancel()
     }
-    
+
     @MainActor func startWiredConnection() {
         wiredConnectionTask?.cancel()
         wiredConnectionTask = Task {
@@ -61,7 +61,7 @@ class OATHListModel: OATHListModelProtocol {
             }
         }
     }
-    
+
     #if os(iOS)
     @MainActor func calculateNFCCodes() {
         Task {
@@ -76,14 +76,14 @@ class OATHListModel: OATHListModelProtocol {
         }
     }
     #else
-    @MainActor func calculateNFCCodes() {} // do nothing on macOS
+    @MainActor func calculateNFCCodes() {}  // do nothing on macOS
     #endif
-    
+
     @MainActor private func calculateCodes(connection: Connection) async throws {
         self.error = nil
         let session = try await OATHSession.session(withConnection: connection)
         let result = try await session.calculateCodes()
-        self.accounts = result.map { return Account(label: $0.0.label, code: $0.1?.code ?? "****") }
+        self.accounts = result.map { Account(label: $0.0.label, code: $0.1?.code ?? "****") }
         self.source = connection.connectionType
     }
 }

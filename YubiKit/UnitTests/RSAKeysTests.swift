@@ -16,8 +16,8 @@
 /// Unit tests for the RSAKeys implementation.
 /// Validates key generation, encoding, decoding, SecKey conversions, and equality for RSA keys.
 
-import XCTest
 import CommonCrypto
+import XCTest
 
 @testable import YubiKit
 

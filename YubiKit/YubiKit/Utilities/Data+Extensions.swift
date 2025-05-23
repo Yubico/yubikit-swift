@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
 import CommonCrypto
+import Foundation
 
 public enum PIVEncryptionError: Error {
     case cryptorError(CCCryptorStatus)
@@ -22,15 +22,19 @@ public enum PIVEncryptionError: Error {
 }
 
 extension Data {
-    
+
     internal func aescmac(key: Data) throws -> Data {
-        
-        let constZero = Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
-        let constRb = Data([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87])
+
+        let constZero = Data([
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ])
+        let constRb = Data([
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87,
+        ])
         let blockSize = 16
         let algorithm = CCAlgorithm(kCCAlgorithmAES128)
         let iv = Data(constZero)
-        
+
         let l = try constZero.encrypt(algorithm: algorithm, key: key, iv: iv)
         var subKey1 = l.shiftedLeftByOne()
         if (l.bytes[0] & 0x80) != 0 {
@@ -40,9 +44,9 @@ extension Data {
         if (subKey1.bytes[0] & 0x80) != 0 {
             subKey2 = constRb.xor(with: subKey2)
         }
-        
+
         let lastBlockIsComplete = self.count % blockSize == 0 && self.count > 0
-        
+
         let paddedData: Data
         var lastIv: Data
         if lastBlockIsComplete {
@@ -54,16 +58,18 @@ extension Data {
         }
         let messageSkippingLastBlock = paddedData.subdata(in: 0..<(paddedData.count - blockSize))
         let lastBlock = paddedData.subdata(in: messageSkippingLastBlock.count..<paddedData.count)
-        
+
         if messageSkippingLastBlock.count != 0 {
             // CBC encrypt the message (minus the last block) with a zero IV, and keep only the last block:
-            let encryptedBlock = try messageSkippingLastBlock.encrypt(algorithm: algorithm, key: key, iv: iv).subdata(in: (messageSkippingLastBlock.count - blockSize)..<messageSkippingLastBlock.count)
+            let encryptedBlock = try messageSkippingLastBlock.encrypt(algorithm: algorithm, key: key, iv: iv).subdata(
+                in: (messageSkippingLastBlock.count - blockSize)..<messageSkippingLastBlock.count
+            )
             lastIv = lastIv.xor(with: encryptedBlock)
         }
-        
+
         return try lastBlock.encrypt(algorithm: algorithm, key: key, iv: lastIv)
     }
-    
+
     internal func bitPadded() -> Data {
         let blockSize = 16
         var paddedData = self
@@ -72,20 +78,26 @@ extension Data {
         let zeroPadding = remainder == 0 ? blockSize - 1 : blockSize - 1 - remainder
         return paddedData + Data(count: zeroPadding)
     }
-    
+
     internal func encrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws -> Data {
         let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
         return try cryptOperation(UInt32(kCCEncrypt), algorithm: algorithm, mode: mode, key: key, iv: iv)
     }
-    
+
     internal func decrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws -> Data {
         let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
         return try cryptOperation(UInt32(kCCDecrypt), algorithm: algorithm, mode: mode, key: key, iv: iv)
     }
-    
-    internal func cryptOperation(_ operation: CCOperation, algorithm: CCAlgorithm, mode: CCMode, key: Data, iv: Data?) throws -> Data {
+
+    internal func cryptOperation(
+        _ operation: CCOperation,
+        algorithm: CCAlgorithm,
+        mode: CCMode,
+        key: Data,
+        iv: Data?
+    ) throws -> Data {
         guard !key.isEmpty else { throw PIVEncryptionError.missingData }
-        
+
         let blockSize: Int
         switch Int(algorithm) {
         case kCCAlgorithm3DES:
@@ -95,7 +107,7 @@ extension Data {
         default:
             throw PIVEncryptionError.unsupportedAlgorithm
         }
-        
+
         var outLength: Int = 0
         let bufferLength = self.count + blockSize
         var buffer = Data(count: bufferLength)
@@ -120,92 +132,97 @@ extension Data {
                             0,
                             &cryptorRef
                         )
-                        return CCCryptorUpdate(cryptorRef,
-                                               dataBytes.baseAddress,
-                                               self.count,
-                                               bufferBytes.baseAddress,
-                                               bufferLength,
-                                               &outLength)
+                        return CCCryptorUpdate(
+                            cryptorRef,
+                            dataBytes.baseAddress,
+                            self.count,
+                            bufferBytes.baseAddress,
+                            bufferLength,
+                            &outLength
+                        )
                     }
                 }
             }
         }
-        
+
         guard cryptorStatus == kCCSuccess else { throw PIVEncryptionError.cryptorError(cryptorStatus) }
         return buffer.subdata(in: 0..<outLength)
     }
-    
+
     internal func constantTimeCompare(_ other: Data) -> Bool {
         guard self.count == other.count else { return false }
         return zip(self, other).reduce(0) { $0 | ($1.0 ^ $1.1) } == 0
     }
-    
+
     internal func sha1() -> Data {
         var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
         CC_SHA1(self.bytes, UInt32(self.count), &digest)
         return Data(digest)
     }
-    
+
     internal func sha256() -> Data {
         var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
         CC_SHA256(self.bytes, UInt32(self.count), &digest)
         return Data(digest)
     }
-    
+
     internal func sha512() -> Data {
         var digest = [UInt8](repeating: 0, count: Int(CC_SHA512_DIGEST_LENGTH))
         CC_SHA512(self.bytes, UInt32(self.count), &digest)
         return Data(digest)
     }
-    
+
     internal var bytes: [UInt8] {
         [UInt8](self)
     }
-    
+
     internal var uint8: UInt8 {
         get {
             var number: UInt8 = 0
-            self.copyBytes(to:&number, count: MemoryLayout<UInt8>.size)
+            self.copyBytes(to: &number, count: MemoryLayout<UInt8>.size)
             return number
         }
     }
-    
+
     internal var uint16: UInt16 {
         get {
             let i16array = self.withUnsafeBytes { $0.load(as: UInt16.self) }
             return i16array
         }
     }
-    
+
     internal var uint32: UInt32 {
         get {
             let i32array = self.withUnsafeBytes { $0.load(as: UInt32.self) }
             return i32array
         }
     }
-    
+
     internal var uuid: NSUUID? {
         get {
             var bytes = [UInt8](repeating: 0, count: self.count)
-            self.copyBytes(to:&bytes, count: self.count * MemoryLayout<UInt32>.size)
+            self.copyBytes(to: &bytes, count: self.count * MemoryLayout<UInt32>.size)
             return NSUUID(uuidBytes: bytes)
         }
     }
-    
+
     internal var stringASCII: String? {
         get {
-            return NSString(data: self, encoding: String.Encoding.ascii.rawValue) as String?
+            NSString(data: self, encoding: String.Encoding.ascii.rawValue) as String?
         }
     }
-    
+
     internal var stringUTF8: String? {
         get {
-            return NSString(data: self, encoding: String.Encoding.utf8.rawValue) as String?
+            NSString(data: self, encoding: String.Encoding.utf8.rawValue) as String?
         }
     }
-    
+
     internal init?(hexEncodedString: String) {
-        let string = hexEncodedString.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: " ", with: "")
+        let string = hexEncodedString.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(
+            of: " ",
+            with: ""
+        )
         guard string.count.isMultiple(of: 2) else { return nil }
         let chars = string.map { $0 }
         let bytes = stride(from: 0, to: chars.count, by: 2)
@@ -214,25 +231,25 @@ extension Data {
         guard string.count / bytes.count == 2 else { return nil }
         self.init(bytes)
     }
-    
+
     internal var hexEncodedString: String {
-        return reduce("") {$0 + String(format: "%02x", $1)}
+        reduce("") { $0 + String(format: "%02x", $1) }
     }
-    
+
     internal static func random(length: Int) -> Data {
-        return Data((0..<length).map { _ in UInt8.random(in: 0...UInt8.max) })
+        Data((0..<length).map { _ in UInt8.random(in: 0...UInt8.max) })
     }
-    
+
     internal func padOrTrim(to length: Int) -> Data {
         if self.count == length {
             return self
         } else if self.count > length {
-            return self.subdata(in: self.count - length ..< self.count)
+            return self.subdata(in: self.count - length..<self.count)
         } else {
             return Data(count: length - self.count) + self
         }
     }
-    
+
     internal func xor(with key: Data) -> Data {
         guard self.count == key.count else { fatalError("XOR Data with different lengths is not supported") }
         var result = Data(count: self.count)
@@ -242,7 +259,7 @@ extension Data {
         }
         return result
     }
-    
+
     internal func shiftedLeftByOne() -> Data {
         var shifted = Data(count: bytes.count).bytes
         let last = self.count - 1
@@ -255,20 +272,19 @@ extension Data {
         shifted[last] = self.bytes[last] << 1
         return Data(shifted)
     }
-    
+
     internal mutating func extract(_ count: Int) -> Data? {
         guard count > 0, count <= self.count else { return nil }
         let extractedData = self.prefix(count)
         self.removeFirst(count)
         return extractedData
     }
-    
+
     internal mutating func secureClear() {
         self.resetBytes(in: 0..<self.count)
         self.removeAll()
     }
 }
-
 
 extension Int {
     internal var data: Data {
@@ -282,9 +298,9 @@ extension UInt8 {
         var int = self
         return Data(bytes: &int, count: MemoryLayout<UInt8>.size)
     }
-    
+
     internal var hexValue: String {
-        return String(format: "%02x", self)
+        String(format: "%02x", self)
     }
 }
 
@@ -314,13 +330,13 @@ extension UInt32 {
         var int = self
         return Data(bytes: &int, count: MemoryLayout<UInt32>.size)
     }
-    
+
     internal var byteArrayLittleEndian: [UInt8] {
-        return [
-            UInt8((self & 0xFF000000) >> 24),
-            UInt8((self & 0x00FF0000) >> 16),
-            UInt8((self & 0x0000FF00) >> 8),
-            UInt8(self &  0x000000FF)
+        [
+            UInt8((self & 0xFF00_0000) >> 24),
+            UInt8((self & 0x00FF_0000) >> 16),
+            UInt8((self & 0x0000_FF00) >> 8),
+            UInt8(self & 0x0000_00FF),
         ]
     }
 }
@@ -330,17 +346,17 @@ extension UInt64 {
         var int = self
         return Data(bytes: &int, count: MemoryLayout<UInt64>.size)
     }
-    
+
     internal var byteArrayLittleEndian: [UInt8] {
-        return [
-            UInt8((self & 0xFF00000000000000) >> 56),
-            UInt8((self & 0x00FF000000000000) >> 48),
-            UInt8((self & 0x0000FF0000000000) >> 40),
-            UInt8((self & 0x000000FF00000000) >> 32),
-            UInt8((self & 0x00000000FF000000) >> 24),
-            UInt8((self & 0x0000000000FF0000) >> 16),
-            UInt8((self & 0x000000000000FF00) >> 8),
-            UInt8(self &  0x00000000000000FF)
+        [
+            UInt8((self & 0xFF00_0000_0000_0000) >> 56),
+            UInt8((self & 0x00FF_0000_0000_0000) >> 48),
+            UInt8((self & 0x0000_FF00_0000_0000) >> 40),
+            UInt8((self & 0x0000_00FF_0000_0000) >> 32),
+            UInt8((self & 0x0000_0000_FF00_0000) >> 24),
+            UInt8((self & 0x0000_0000_00FF_0000) >> 16),
+            UInt8((self & 0x0000_0000_0000_FF00) >> 8),
+            UInt8(self & 0x0000_0000_0000_00FF),
         ]
     }
 }

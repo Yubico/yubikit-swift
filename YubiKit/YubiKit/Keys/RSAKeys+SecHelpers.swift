@@ -19,20 +19,21 @@
 import Foundation
 import Security
 
-public extension RSA.PrivateKey {
+extension RSA.PrivateKey {
     /// Generate a random RSA private key of the specified size using Apple's Security framework.
     /// - Parameter keySize: Desired RSA key size.
     /// - Returns: A valid RSA.PrivateKey or nil if generation / parsing fails.
-    static func random(keySize: RSA.KeySize) -> RSA.PrivateKey? {
-        let attributes: [CFString : Any] = [
+    public static func random(keySize: RSA.KeySize) -> RSA.PrivateKey? {
+        let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPrivate,
             kSecAttrKeyType: kSecAttrKeyTypeRSA,
-            kSecAttrKeySizeInBits: keySize.rawValue
+            kSecAttrKeySizeInBits: keySize.rawValue,
         ]
 
         var error: Unmanaged<CFError>?
         guard let secKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-              let _ = SecKeyCopyPublicKey(secKey) else {
+            let _ = SecKeyCopyPublicKey(secKey)
+        else {
             return nil
         }
 
@@ -44,14 +45,14 @@ public extension RSA.PrivateKey {
     }
 }
 
-public extension RSA.PublicKey {
+extension RSA.PublicKey {
     /// Convert this RSA public key to a native SecKey.
     /// - Returns: A SecKey suitable for cryptographic operations, or nil if conversion fails.
-    func asSecKey() -> SecKey? {
-        let attributes: [CFString : Any] = [
+    public func asSecKey() -> SecKey? {
+        let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPublic,
             kSecAttrKeyType: kSecAttrKeyTypeRSA,
-            kSecAttrKeySizeInBits: size.rawValue
+            kSecAttrKeySizeInBits: size.rawValue,
         ]
 
         var err: Unmanaged<CFError>?
@@ -59,14 +60,14 @@ public extension RSA.PublicKey {
     }
 }
 
-public extension RSA.PrivateKey {
+extension RSA.PrivateKey {
     /// Convert this RSA private key to a native SecKey.
     /// - Returns: A SecKey suitable for cryptographic operations, or nil if conversion fails.
-    func asSecKey() -> SecKey? {
-        let attributes: [CFString : Any] = [
+    public func asSecKey() -> SecKey? {
+        let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPrivate,
             kSecAttrKeyType: kSecAttrKeyTypeRSA,
-            kSecAttrKeySizeInBits: size.rawValue
+            kSecAttrKeySizeInBits: size.rawValue,
         ]
 
         var err: Unmanaged<CFError>?

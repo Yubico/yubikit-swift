@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 import CommonCrypto
 
 public struct SCP11KeyParams: SCPKeyParams {
@@ -22,20 +21,20 @@ public struct SCP11KeyParams: SCPKeyParams {
     public let skOceEcka: EC.PrivateKey?
     public let certificates: [X509Cert]
 
-    public init(keyRef: SCPKeyRef,
-                pkSdEcka: EC.PublicKey,
-                oceKeyRef: SCPKeyRef? = nil,
-                skOceEcka: EC.PrivateKey? = nil,
-                certificates: [X509Cert] = []) throws(SCPError) {
-        switch (keyRef.kid) {
+    public init(
+        keyRef: SCPKeyRef,
+        pkSdEcka: EC.PublicKey,
+        oceKeyRef: SCPKeyRef? = nil,
+        skOceEcka: EC.PrivateKey? = nil,
+        certificates: [X509Cert] = []
+    ) throws(SCPError) {
+        switch keyRef.kid {
         case .scp11b:
-            if (oceKeyRef != nil || skOceEcka != nil || !certificates.isEmpty) {
+            if oceKeyRef != nil || skOceEcka != nil || !certificates.isEmpty {
                 throw .illegalArgument("Cannot provide oceKeyRef, skOceEcka or certificates for SCP11b")
             }
-        case .scp11a:
-            fallthrough
-        case .scp11c:
-            if (oceKeyRef == nil || skOceEcka == nil || certificates.isEmpty) {
+        case .scp11a, .scp11c:
+            if oceKeyRef == nil || skOceEcka == nil || certificates.isEmpty {
                 throw .illegalArgument("Must provide oceKeyRef, skOceEcka or certificates for SCP11a/c")
             }
         default:

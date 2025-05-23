@@ -15,10 +15,10 @@
 import SwiftUI
 
 struct SettingsView<T>: View where T: SettingsModelProtocol {
-    
+
     @Environment(\.dismiss) var dismiss
     @StateObject var model: T
-    
+
     var body: some View {
         Text("\(model.connection ?? "Unknown") YubiKey, \(model.keyVersion ?? "Unknown version")")
             .frame(width: 300)
@@ -29,20 +29,24 @@ struct SettingsView<T>: View where T: SettingsModelProtocol {
             Text("Dismiss")
         }
         .padding()
-        .alert("Something went wrong", isPresented: .constant(model.error != nil), actions: {
-            Button("Ok", role: .cancel) { dismiss() }
-        }, message: {
-            if let error = model.error {
-                Text("\(String(describing: error))")
+        .alert(
+            "Something went wrong",
+            isPresented: .constant(model.error != nil),
+            actions: {
+                Button("Ok", role: .cancel) { dismiss() }
+            },
+            message: {
+                if let error = model.error {
+                    Text("\(String(describing: error))")
+                }
             }
-        })
+        )
         .onAppear {
             model.getKeyVersion()
         }
     }
-    
-}
 
+}
 
 #Preview {
     SettingsView(model: SettingsModelPreview())

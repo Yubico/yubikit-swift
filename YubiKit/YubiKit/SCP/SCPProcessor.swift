@@ -14,9 +14,9 @@
 
 import CryptoTokenKit
 
-fileprivate let insInitializeUpdate: UInt8 = 0x50
+private let insInitializeUpdate: UInt8 = 0x50
 
-typealias SCPKid  = SCPKeyRef.Kid
+typealias SCPKid = SCPKeyRef.Kid
 
 internal actor SCPProcessor: HasSCPLogger {
 
@@ -26,12 +26,23 @@ internal actor SCPProcessor: HasSCPLogger {
         if let scp03Params = keyParams as? SCP03KeyParams {
             let hostChallenge = Data.random(length: 8)
             Self.trace(message: "send challenge: \(hostChallenge.hexEncodedString)")
-            var result = try await connection.send(apdu: APDU(cla: 0x80, ins: insInitializeUpdate, p1: keyParams.keyRef.kvn, p2: 0x00, command: hostChallenge, type: .extended), insSendRemaining: insSendRemaining)
+            var result = try await connection.send(
+                apdu: APDU(
+                    cla: 0x80,
+                    ins: insInitializeUpdate,
+                    p1: keyParams.keyRef.kvn,
+                    p2: 0x00,
+                    command: hostChallenge,
+                    type: .extended
+                ),
+                insSendRemaining: insSendRemaining
+            )
 
-            guard let _ = result.extract(10), // diversificationData
-                  let _ = result.extract(3), // keyInfo
-                  let cardChallenge = result.extract(8),
-                  let cardCryptogram = result.extract(8) else {
+            guard let _ = result.extract(10),  // diversificationData
+                let _ = result.extract(3),  // keyInfo
+                let cardChallenge = result.extract(8),
+                let cardCryptogram = result.extract(8)
+            else {
                 throw SCPError.unexpectedResponse("Malformed SCP03 response")
             }
 
@@ -49,7 +60,12 @@ internal actor SCPProcessor: HasSCPLogger {
             self.state = SCPState(sessionKeys: sessionKeys, macChain: Data(count: 16))
 
             let finalizeApdu = APDU(cla: 0x84, ins: 0x82, p1: 0x33, p2: 0, command: hostCryptogram, type: .extended)
-            _ = try await self.send(apdu: finalizeApdu, using: connection, encrypt: false, insSendRemaining: insSendRemaining)
+            _ = try await self.send(
+                apdu: finalizeApdu,
+                using: connection,
+                encrypt: false,
+                insSendRemaining: insSendRemaining
+            )
 
             trace(message: "done configuring SCP03")
             return
@@ -88,18 +104,19 @@ internal actor SCPProcessor: HasSCPLogger {
                     _ = try await connection.send(
                         apdu: APDU(
                             cla: 0x80,
-                            ins: 0x2A,      // PERFORM SECURITY OPERATION
-                            p1: oceRef.kvn, // 3
-                            p2: p2, // -112
+                            ins: 0x2A,  // PERFORM SECURITY OPERATION
+                            p1: oceRef.kvn,  // 3
+                            p2: p2,  // -112
                             command: cert.der,
-                            type: .extended)
+                            type: .extended
+                        )
                     )
                 }
             }
 
-            let keyUsage = Data([0x3c]) // AUTHENTICATED | C_MAC | C_DECRYPTION | R_MAC | R_ENCRYPTION
-            let keyType = Data([0x88]) // AES
-            let keyLen = Data([16]) // 128-bit
+            let keyUsage = Data([0x3c])  // AUTHENTICATED | C_MAC | C_DECRYPTION | R_MAC | R_ENCRYPTION
+            let keyType = Data([0x88])  // AES
+            let keyLen = Data([16])  // 128-bit
 
             let pkSdEcka = scp11Params.pkSdEcka
             Self.trace(message: "pkSdEcka: \(pkSdEcka.uncompressedPoint.hexEncodedString)")
@@ -115,16 +132,30 @@ internal actor SCPProcessor: HasSCPLogger {
             Self.trace(message: "params: \(Data([0x11, params]).hexEncodedString)")
 
             // GPC v2.3 Amendment F (SCP11) v1.4 §7.6.2.3
-            let data = TKBERTLVRecord(tag: 0xa6, value: TKBERTLVRecord(tag: 0x90, value: Data([0x11, params])).data +
-                                                        TKBERTLVRecord(tag: 0x95, value: keyUsage).data +
-                                                        TKBERTLVRecord(tag: 0x80, value: keyType).data +
-                                                        TKBERTLVRecord(tag: 0x81, value: keyLen).data
-                                      ).data + TKBERTLVRecord(tag: 0x5f49, value: epkOceEckaData).data
+            let data =
+                TKBERTLVRecord(
+                    tag: 0xa6,
+                    value: TKBERTLVRecord(tag: 0x90, value: Data([0x11, params])).data
+                        + TKBERTLVRecord(tag: 0x95, value: keyUsage).data
+                        + TKBERTLVRecord(tag: 0x80, value: keyType).data + TKBERTLVRecord(tag: 0x81, value: keyLen).data
+                ).data + TKBERTLVRecord(tag: 0x5f49, value: epkOceEckaData).data
             Self.trace(message: "data: \(data.hexEncodedString)")
             let skOceEcka = scp11Params.skOceEcka ?? eskOceEcka
             let ins: UInt8 = kid == .scp11b ? 0x88 : 0x82
-            Self.trace(message: "sending: \(APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data, type: .extended))")
-            let response = try await connection.send(apdu: APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data, type: .extended))
+            Self.trace(
+                message:
+                    "sending: \(APDU(cla: 0x80, ins: ins, p1: keyParams.keyRef.kvn, p2: keyParams.keyRef.kid, command: data, type: .extended))"
+            )
+            let response = try await connection.send(
+                apdu: APDU(
+                    cla: 0x80,
+                    ins: ins,
+                    p1: keyParams.keyRef.kvn,
+                    p2: keyParams.keyRef.kid,
+                    command: data,
+                    type: .extended
+                )
+            )
 
             guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: response), tlvs.count == 2 else {
                 throw SCPError.unexpectedResponse
@@ -142,7 +173,8 @@ internal actor SCPProcessor: HasSCPLogger {
             }
 
             guard let keyAgreement1 = eskOceEcka.sharedSecret(with: epkSdEcka),
-                  let keyAgreement2 = skOceEcka.sharedSecret(with: pkSdEcka) else {
+                let keyAgreement2 = skOceEcka.sharedSecret(with: pkSdEcka)
+            else {
                 throw SCPError.encryptionFailed("Unable to generate shared secret")
             }
             let keyMaterial = keyAgreement1 + keyAgreement2
@@ -160,7 +192,7 @@ internal actor SCPProcessor: HasSCPLogger {
 
             Self.trace(message: "keys[0]: \(keys[0].hexEncodedString)")
             let genReceipt = try keyAgreementData.aescmac(key: keys[0])
-            
+
             Self.trace(message: "receipt: \(receipt.hexEncodedString)")
             Self.trace(message: "genReceipt: \(genReceipt.hexEncodedString)")
 
@@ -183,11 +215,20 @@ internal actor SCPProcessor: HasSCPLogger {
         self.state = state
     }
 
-    internal func send(apdu: APDU, using connection: any Connection, insSendRemaining: UInt8 = 0xc0) async throws -> Data {
-        return try await self.send(apdu: apdu, using: connection, encrypt: true, insSendRemaining: insSendRemaining)
+    internal func send(
+        apdu: APDU,
+        using connection: any Connection,
+        insSendRemaining: UInt8 = 0xc0
+    ) async throws -> Data {
+        try await self.send(apdu: apdu, using: connection, encrypt: true, insSendRemaining: insSendRemaining)
     }
 
-    private func send(apdu: APDU, using connection: any Connection, encrypt: Bool, insSendRemaining: UInt8) async throws -> Data {
+    private func send(
+        apdu: APDU,
+        using connection: any Connection,
+        encrypt: Bool,
+        insSendRemaining: UInt8
+    ) async throws -> Data {
         trace(message: "send(... encrypt: \(encrypt)) \(apdu), \(state)")
         let data: Data
         if encrypt {
@@ -197,14 +238,23 @@ internal actor SCPProcessor: HasSCPLogger {
         }
         let cla = apdu.cla | 0x04
 
-        let mac = try state.mac(data: APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + Data(count: 8), type: .extended).data.dropLast(8))
+        let mac = try state.mac(
+            data: APDU(
+                cla: cla,
+                ins: apdu.ins,
+                p1: apdu.p1,
+                p2: apdu.p2,
+                command: data + Data(count: 8),
+                type: .extended
+            ).data.dropLast(8)
+        )
 
         let apdu = APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac, type: .extended)
         trace(message: "processed apdu: \(apdu)")
         var result = try await connection.send(apdu: apdu, insSendRemaining: insSendRemaining)
 
         if !result.isEmpty {
-           result = try state.unmac(data: result, sw: 0x9000)
+            result = try state.unmac(data: result, sw: 0x9000)
         }
         if !result.isEmpty {
             result = try state.decrypt(result)
@@ -214,22 +264,24 @@ internal actor SCPProcessor: HasSCPLogger {
     }
 }
 
-private extension EC.PrivateKey {
+extension EC.PrivateKey {
     /// Perform an ECDH key-agreement with the passed public key
     /// and return the raw shared secret bytes.
-    func sharedSecret(with publicKey: EC.PublicKey) -> Data? {
+    fileprivate func sharedSecret(with publicKey: EC.PublicKey) -> Data? {
         guard let privateSecKey = asSecKey(), let associatedPublicSecKey = publicKey.asSecKey() else {
             return nil
         }
 
         var cfError: Unmanaged<CFError>?
-        guard let secretData = SecKeyCopyKeyExchangeResult(
-            privateSecKey,
-            .ecdhKeyExchangeStandard,
-            associatedPublicSecKey,
-            [:] as CFDictionary,
-            &cfError
-        ) as Data? else {
+        guard
+            let secretData = SecKeyCopyKeyExchangeResult(
+                privateSecKey,
+                .ecdhKeyExchangeStandard,
+                associatedPublicSecKey,
+                [:] as CFDictionary,
+                &cfError
+            ) as Data?
+        else {
             return nil
         }
 

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
 import CryptoTokenKit
+import Foundation
 
 extension PIVSession {
     func publicKey(from yubiKeyData: Data, type: PIVKeyType) throws -> PublicKey {
@@ -28,7 +28,8 @@ extension PIVSession {
             }
 
             guard let key = EC.PublicKey(uncompressedPoint: keyData),
-                  key.curve == curve else {
+                key.curve == curve
+            else {
                 throw PIVSessionError.dataParseError
             }
 
@@ -36,7 +37,8 @@ extension PIVSession {
 
         case let .rsa(keySize):
             guard let modulus = records.recordWithTag(0x81)?.value,
-                  let exponent = records.recordWithTag(0x82)?.value else {
+                let exponent = records.recordWithTag(0x82)?.value
+            else {
                 throw PIVSessionError.invalidResponse
             }
 

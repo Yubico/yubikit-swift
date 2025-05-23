@@ -16,14 +16,14 @@ import Foundation
 
 /// Management session features.
 public enum ManagementFeature: SessionFeature {
-    
+
     /// Support for reading the DeviceInfo data from the YubiKey.
     case deviceInfo
     /// Support for writing DeviceConfig data to the YubiKey.
     case deviceConfig
     /// Support for device-wide reset
     case deviceReset
-    
+
     public func isSupported(by version: Version) -> Bool {
         switch self {
         case .deviceInfo:

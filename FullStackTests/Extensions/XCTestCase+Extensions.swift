@@ -15,17 +15,19 @@
 import XCTest
 
 extension XCTestCase {
-    
+
     // https://www.swiftbysundell.com/articles/unit-testing-code-that-uses-async-await/
-    func runAsyncTest(named testName: String = #function,
-                      in file: StaticString = #file,
-                      at line: UInt = #line,
-                      withTimeout timeout: TimeInterval = 20,
-                      test: @escaping () async throws -> Void) {
+    func runAsyncTest(
+        named testName: String = #function,
+        in file: StaticString = #file,
+        at line: UInt = #line,
+        withTimeout timeout: TimeInterval = 20,
+        test: @escaping () async throws -> Void
+    ) {
         var thrownError: Error?
         let errorHandler = { thrownError = $0 }
         let expectation = expectation(description: testName)
-        
+
         Task {
             do {
                 try await test()
@@ -34,9 +36,9 @@ extension XCTestCase {
             }
             expectation.fulfill()
         }
-        
+
         waitForExpectations(timeout: timeout)
-        
+
         if let error = thrownError {
             XCTFail("Async error thrown: \(error)", file: file, line: line)
         }

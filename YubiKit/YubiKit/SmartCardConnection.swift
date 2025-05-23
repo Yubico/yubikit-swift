@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+@preconcurrency import CryptoTokenKit.TKSmartCard
 import Foundation
 import OSLog
-
-@preconcurrency import CryptoTokenKit.TKSmartCard
 
 /// A connection to the YubiKey utilizing the USB-C port and the TKSmartCard implementation from
 /// the CryptoTokenKit framework.
@@ -58,7 +57,7 @@ extension SmartCardConnection: Connection {
     // @TraceScope
     public static func connection(slot: SmartCardSlot) async throws -> Connection {
 
-        return try await SmartCardConnectionsManager.shared.connect(slot: slot)
+        try await SmartCardConnectionsManager.shared.connect(slot: slot)
     }
 
     // @TraceScope
@@ -70,7 +69,7 @@ extension SmartCardConnection: Connection {
 
     // @TraceScope
     public func connectionDidClose() async -> Error? {
-        return try? await didClose.value()
+        try? await didClose.value()
     }
 
     // @TraceScope
@@ -112,8 +111,8 @@ public struct SmartCardSlot: Sendable, Hashable, CustomStringConvertible {
 }
 
 // MARK: - Internal helpers / extensions
-extension SmartCardConnection: HasSmartCardLogger { }
-extension SmartCardConnectionsManager: HasSmartCardLogger { }
+extension SmartCardConnection: HasSmartCardLogger {}
+extension SmartCardConnectionsManager: HasSmartCardLogger {}
 
 // MARK: - Private helpers
 
@@ -129,7 +128,7 @@ private final actor SmartCardConnectionsManager {
 
     private let slotManager = TKSmartCardSlotManager.default!
 
-    private var connections = [SmartCardSlot : ConnectionState]()
+    private var connections = [SmartCardSlot: ConnectionState]()
 
     var slots: [SmartCardSlot] {
         get throws {

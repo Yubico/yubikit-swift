@@ -60,9 +60,9 @@ public enum PrivateKey: CryptoKey {
 }
 
 // MARK: - Downcast helpers
-public extension PublicKey {
+extension PublicKey {
     /// Returns the EC public key if this key is EC, otherwise nil.
-    func asEC() -> EC.PublicKey? {
+    public func asEC() -> EC.PublicKey? {
         switch self {
         case let .ec(key):
             return key
@@ -72,7 +72,7 @@ public extension PublicKey {
     }
 
     /// Returns the RSA public key if this key is RSA, otherwise nil.
-    func asRSA() -> RSA.PublicKey? {
+    public func asRSA() -> RSA.PublicKey? {
         switch self {
         case let .rsa(key):
             return key
@@ -82,9 +82,9 @@ public extension PublicKey {
     }
 }
 
-public extension PrivateKey {
+extension PrivateKey {
     /// Returns the EC private key if this key is EC, otherwise nil.
-    func asEC() -> EC.PrivateKey? {
+    public func asEC() -> EC.PrivateKey? {
         switch self {
         case let .ec(key):
             return key
@@ -94,7 +94,7 @@ public extension PrivateKey {
     }
 
     /// Returns the RSA private key if this key is RSA, otherwise nil.
-    func asRSA() -> RSA.PrivateKey? {
+    public func asRSA() -> RSA.PrivateKey? {
         switch self {
         case let .rsa(key):
             return key
