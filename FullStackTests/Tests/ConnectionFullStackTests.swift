@@ -32,7 +32,7 @@ class ConnectionFullStackTests: XCTestCase {
                     XCTFail("🚨 YubiKey not in allow-list!")
                     return
                 }
-                connection.nfcConnection?.setAlertMessage("Updated Alert Message")
+                await connection.nfcConnection?.setAlertMessage("Updated Alert Message")
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 await connection.nfcConnection?.close(message: "Closing Alert Message")
             } catch {
