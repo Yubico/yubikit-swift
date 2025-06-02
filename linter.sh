@@ -1,30 +1,27 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-ACTION="check"
-EXIT_CODE=0
+usage() {
+  echo "Usage: $(basename "$0") [check|format]" >&2
+  exit 1
+}
 
-if [ "$#" -eq 1 ]; then
-  if [ "$1" == "format" ]; then
-    ACTION="format"
-  elif [ "$1" != "check" ]; then
-    echo "Invalid argument: $1" >&2
-    echo "Usage: $0 [check|format]" >&2
-    exit 1
-  fi
-fi
+ACTION="${1:-check}"
 
-if [ "$ACTION" == "check" ]; then
-  xcrun swift-format lint . \
-    --parallel \
-    --recursive \
-    --strict
-  EXIT_CODE=$?
-else
-  xcrun swift-format format . \
-    --parallel \
-    --recursive \
-    -i
-  EXIT_CODE=$?
-fi
+case "$ACTION" in
+  check)
+    CMD=(lint . --parallel --recursive --strict)
+    ;;
+  format)
+    CMD=(format . --parallel --recursive -i)
+    ;;
+  -h|--help)
+    usage
+    ;;
+  *)
+    echo "Invalid argument: $ACTION" >&2
+    usage
+    ;;
+esac
 
-exit $EXIT_CODE
+exec xcrun swift-format "${CMD[@]}"
