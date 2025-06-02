@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
-import CryptoTokenKit
 import CommonCrypto
 import CryptoKit
+import CryptoTokenKit
+import Foundation
 import OSLog
 
 /// Errors that can be emitted by ``SecurityDomainSession`` and helpers.
@@ -36,7 +36,6 @@ public enum SCPError: Error {
     static var illegalArgument: SCPError { .illegalArgument(nil) }
     static var notSupported: SCPError { .notSupported(nil) }
 }
-
 
 /// Session for the YubiKey **Security Domain** application.
 ///
@@ -74,9 +73,11 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     /// - Throws: ``SCPError`` if the application selection fails or if the SCP11 processor cannot be created.
     /// - Returns: A fully initialised ``SecurityDomainSession`` ready for commands.
     // @TraceScope
-    public static func session(withConnection connection: Connection,
-                               scpKeyParams: SCPKeyParams? = nil) async throws(SCPError) -> SecurityDomainSession {
-        return try await SecurityDomainSession(connection: connection, scpKeyParams: scpKeyParams)
+    public static func session(
+        withConnection connection: Connection,
+        scpKeyParams: SCPKeyParams? = nil
+    ) async throws(SCPError) -> SecurityDomainSession {
+        try await SecurityDomainSession(connection: connection, scpKeyParams: scpKeyParams)
     }
 
     /// Indicates whether the session supports the specified feature.
@@ -84,7 +85,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     /// - Parameter feature: The feature whose availability should be queried.
     /// - Returns: `true` for all input values.
     nonisolated public func supports(_ feature: SessionFeature) -> Bool {
-        return true
+        true
     }
 
     /// Sends a **GET DATA** command to the card and returns the raw response bytes.
@@ -97,9 +98,16 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     /// - Returns: The data payload extracted from the successful APDU response.
     // @TraceScope
     public func getData(tag: UInt16, data: Data?) async throws(SCPError) -> Data {
-        return try await send(apdu: APDU(cla: 0x00, ins: 0xCA, p1: UInt8(tag >> 8),
-                                         p2: UInt8(tag & 0xff),
-                                         command: data, type: .extended))
+        try await send(
+            apdu: APDU(
+                cla: 0x00,
+                ins: 0xCA,
+                p1: UInt8(tag >> 8),
+                p2: UInt8(tag & 0xff),
+                command: data,
+                type: .extended
+            )
+        )
     }
 
     /// Sends a **STORE DATA** command containing the supplied payload.
@@ -178,14 +186,18 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     public func getCertificateBundle(scpKeyRef: SCPKeyRef) async throws(SCPError) -> [X509Cert] {
 
         do {
-            let result = try await getData(tag: 0xBF21, data: TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: scpKeyRef.data).data).data)
+            let result = try await getData(
+                tag: 0xBF21,
+                data: TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: scpKeyRef.data).data).data
+            )
             guard let rawCerts = TKBERTLVRecord.sequenceOfRecords(from: result) else {
                 throw SCPError.unexpectedResponse
             }
             let certs = rawCerts.map { X509Cert(der: $0.data) }
             return certs
         } catch {
-            if let reponseError = error as? ResponseError, reponseError.responseStatus.status == .referencedDataNotFound {
+            if let reponseError = error as? ResponseError, reponseError.responseStatus.status == .referencedDataNotFound
+            {
                 return []
             } else if let error = error as? SCPError {
                 throw error
@@ -216,8 +228,11 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
                 data.append(try await getData(tag: 0xFF33, data: nil))
             } catch {
                 if case let .wrapped(inner) = error,
-                   let responseError = inner as? ResponseError,
-                   responseError.responseStatus.status != .referencedDataNotFound { throw error }
+                    let responseError = inner as? ResponseError,
+                    responseError.responseStatus.status != .referencedDataNotFound
+                {
+                    throw error
+                }
             }
         }
         if klcc {
@@ -225,11 +240,14 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
                 data.append(try await getData(tag: 0xFF34, data: nil))
             } catch {
                 if case let .wrapped(inner) = error,
-                   let responseError = inner as? ResponseError,
-                   responseError.responseStatus.status != .referencedDataNotFound { throw error }
+                    let responseError = inner as? ResponseError,
+                    responseError.responseStatus.status != .referencedDataNotFound
+                {
+                    throw error
+                }
             }
         }
-        guard let tlvs =  TKBERTLVRecord.sequenceOfRecords(from: data) else { throw .unexpectedResponse }
+        guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: data) else { throw .unexpectedResponse }
         var identifiers = [SCPKeyRef: Data]()
         for i in stride(from: 0, to: tlvs.count, by: 2) {
             var ref = tlvs[i + 1].value
@@ -257,11 +275,11 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         certificiates.forEach { certificate in
             certsData.append(certificate.der)
         }
-        let data = TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data +
-        TKBERTLVRecord(tag: 0xBF21, value: certsData).data
+        let data =
+            TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data
+            + TKBERTLVRecord(tag: 0xBF21, value: certsData).data
         try await storeData(data)
     }
-
 
     /// Store which certificate serial numbers that can be used for a given key.
     ///
@@ -278,7 +296,9 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         serials.forEach { serial in
             serialsData.append(TKBERTLVRecord(tag: 0x93, value: serial).data)
         }
-        let data = TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data + TKBERTLVRecord(tag: 0x70, value: serialsData).data
+        let data =
+            TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data
+            + TKBERTLVRecord(tag: 0x70, value: serialsData).data
         try await storeData(data)
     }
 
@@ -295,9 +315,11 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         case SCPKid.scp11a, SCPKid.scp11b, SCPKid.scp11c: klcc = 1
         default: klcc = 0
         }
-        let data = TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x80, value: klcc.data).data +
-                                  TKBERTLVRecord(tag: 0x42, value: ski).data +
-                                  TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data
+        let data = TKBERTLVRecord(
+            tag: 0xA6,
+            value: TKBERTLVRecord(tag: 0x80, value: klcc.data).data + TKBERTLVRecord(tag: 0x42, value: ski).data
+                + TKBERTLVRecord(tag: 0x83, value: keyRef.data).data
+        ).data
         try await storeData(data)
     }
 
@@ -434,11 +456,11 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
 
         // -- TLV build
         var data = Data()
-        data.append(keyRef.kvn) // KVN
+        data.append(keyRef.kvn)  // KVN
 
-        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKey.uncompressedPoint).data) // EC point
-        data.append(TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data) // params = P-256
-        data.append(0x00) // END TLV list
+        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKey.uncompressedPoint).data)  // EC point
+        data.append(TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data)  // params = P-256
+        data.append(0x00)  // END TLV list
 
         // -- send APDU
         let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: keyRef.kid, command: data, type: .extended)
@@ -452,7 +474,6 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         trace(message: "SCP11 public key imported")
     }
 
-
     /// Imports a secret key for SCP11.
     /// Requires off-card entity verification.
     /// - Parameter keyRef: the KID-KVN pair to assign the new secret key, KID must be 0x11, 0x13, or 0x15
@@ -463,7 +484,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     // @TraceScope
     public func putKey(keyRef: SCPKeyRef, privateKey: EC.PrivateKey, replaceKvn: UInt8) async throws(SCPError) {
         guard privateKey.curve == .p256 else {
-            throw .illegalArgument // Expected SECP256R1 private key size
+            throw .illegalArgument  // Expected SECP256R1 private key size
         }
 
         guard let processor else {
@@ -521,7 +542,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
                 ins = 0x82
             case SCPKid.scp11b:
                 ins = 0x88
-            default: // 0x10, 0x20-0x2F
+            default:  // 0x10, 0x20-0x2F
                 ins = 0x2A
             }
 
@@ -535,16 +556,17 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
                         throw error
                     }
 
-                    let shouldExit = switch error.responseStatus.status {
-                    case .authMethodBlocked, .securityConditionNotSatisfied:
-                        true
-                    case .incorrectParameters:
-                        false // Continue loop
-                    default:
-                        throw .wrapped(error) // Re-throw other APDU errors
-                    }
+                    let shouldExit =
+                        switch error.responseStatus.status {
+                        case .authMethodBlocked, .securityConditionNotSatisfied:
+                            true
+                        case .incorrectParameters:
+                            false  // Continue loop
+                        default:
+                            throw .wrapped(error)  // Re-throw other APDU errors
+                        }
                     if shouldExit {
-                        break // This breaks out of the for loop
+                        break  // This breaks out of the for loop
                     } else {
                         continue
                     }
@@ -568,8 +590,8 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     }
 }
 
-private extension Data {
-    func cbcEncrypt(key: Data) throws(SCPError) -> Data {
+extension Data {
+    fileprivate func cbcEncrypt(key: Data) throws(SCPError) -> Data {
         // zero IV for CBC
         let iv = Data(repeating: 0, count: kCCBlockSizeAES128)
 

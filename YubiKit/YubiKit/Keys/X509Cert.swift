@@ -35,10 +35,10 @@ public struct X509Cert: Sendable {
     }
 }
 
-public extension X509Cert {
+extension X509Cert {
     /// Converts a SecKey to a PublicKey (.rsa or .ec).
     /// Returns nil if unsupported or extraction fails.
-    var publicKey: PublicKey? {
+    public var publicKey: PublicKey? {
         guard let cert = asSecCertificate() else {
             // invalid der
             return nil
@@ -59,10 +59,9 @@ public extension X509Cert {
     }
 }
 
-
 // MARK: - Private helper
-private extension SecKey {
-    func asPublicKey() -> PublicKey? {
+extension SecKey {
+    fileprivate func asPublicKey() -> PublicKey? {
         let attributes = SecKeyCopyAttributes(self) as! [CFString: Any]
 
         let keyClass = attributes[kSecAttrKeyClass] as! CFString
@@ -77,7 +76,7 @@ private extension SecKey {
         // and ANSI X9.63 - 0x04 || X || Y for EC key
         var error: Unmanaged<CFError>?
         guard let blob = SecKeyCopyExternalRepresentation(self, &error) as Data? else {
-            return nil // some error we can read and throw here
+            return nil  // some error we can read and throw here
         }
 
         switch keyType {
@@ -85,8 +84,9 @@ private extension SecKey {
             let key = RSA.PublicKey(pkcs1: blob)
 
             guard let keySize = RSA.KeySize(rawValue: attributes[kSecAttrKeySizeInBits] as! Int),
-                  keySize == key?.size else {
-                return nil // unsupported RSA keySize
+                keySize == key?.size
+            else {
+                return nil  // unsupported RSA keySize
             }
 
             return key.map { .rsa($0) }
@@ -95,7 +95,7 @@ private extension SecKey {
             let key = EC.PublicKey(uncompressedPoint: blob)
             return key.map { .ec($0) }
         default:
-            return nil // unsupported
+            return nil  // unsupported
         }
     }
 }

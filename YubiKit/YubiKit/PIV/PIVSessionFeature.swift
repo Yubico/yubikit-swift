@@ -15,9 +15,10 @@
 import Foundation
 
 public enum PIVSessionFeature: SessionFeature {
-    
-    case usagePolicy, aesKey, serialNumber, metadata, attestation, p384, touchCached, rsaGeneration, rsa3072and4096, moveDelete
-     
+
+    case usagePolicy, aesKey, serialNumber, metadata, attestation, p384, touchCached, rsaGeneration, rsa3072and4096,
+        moveDelete
+
     public func isSupported(by version: Version) -> Bool {
         switch self {
         case .usagePolicy:

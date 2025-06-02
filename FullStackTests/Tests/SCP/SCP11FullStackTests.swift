@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import XCTest
-@testable import YubiKit
 import CryptoKit
+import XCTest
+
+@testable import YubiKit
 
 // MARK: - SCP 11a
 final class SCP11aFullStackTests: XCTestCase {
@@ -25,11 +26,17 @@ final class SCP11aFullStackTests: XCTestCase {
             let scpKeyRef = SCPKeyRef(kid: .scp11a, kvn: 0x03)
 
             // first we load keys using SCP03
-            var securityDomainSession = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: self.defaultKeyParams)
+            var securityDomainSession = try await SecurityDomainSession.session(
+                withConnection: connection,
+                scpKeyParams: self.defaultKeyParams
+            )
             let scpKeyParams = try await securityDomainSession.loadKeys(scpKeyRef)
 
             // then we reauthenticate using 11a
-            securityDomainSession = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: scpKeyParams)
+            securityDomainSession = try await SecurityDomainSession.session(
+                withConnection: connection,
+                scpKeyParams: scpKeyParams
+            )
 
             // delete the previously loaded keys
             try await securityDomainSession.deleteKey(keyRef: scpKeyRef)
@@ -51,18 +58,26 @@ final class SCP11aFullStackTests: XCTestCase {
             let oceRef = SCPKeyRef(kid: 0x10, kvn: kvn)
 
             // Load SCP‑11a keys using SCP03, then switch to SCP‑11a
-            var sdSession = try await SecurityDomainSession.session(withConnection: connection,
-                                                                    scpKeyParams: self.defaultKeyParams)
+            var sdSession = try await SecurityDomainSession.session(
+                withConnection: connection,
+                scpKeyParams: self.defaultKeyParams
+            )
             let scpKeyParams = try await sdSession.loadKeys(scpKeyRef)
-            sdSession = try await SecurityDomainSession.session(withConnection: connection,
-                                                                scpKeyParams: scpKeyParams)
+            sdSession = try await SecurityDomainSession.session(
+                withConnection: connection,
+                scpKeyParams: scpKeyParams
+            )
 
             // Store an allow‑list with two valid OCE serial numbers
             let serials: [Data] = [
-                Data([0x7f, 0x49, 0x71, 0xb0, 0xad, 0x51, 0xf8, 0x4c, 0x9d, 0xa9,
-                      0x92, 0x8b, 0x2d, 0x5f, 0xef, 0x5e, 0x16, 0xb2, 0x92, 0x0a]),
-                Data([0x6b, 0x90, 0x02, 0x88, 0x00, 0x90, 0x9f, 0x9f, 0xfc, 0xd6,
-                      0x41, 0x34, 0x69, 0x33, 0x24, 0x27, 0x48, 0xfb, 0xe9, 0xad]),
+                Data([
+                    0x7f, 0x49, 0x71, 0xb0, 0xad, 0x51, 0xf8, 0x4c, 0x9d, 0xa9,
+                    0x92, 0x8b, 0x2d, 0x5f, 0xef, 0x5e, 0x16, 0xb2, 0x92, 0x0a,
+                ]),
+                Data([
+                    0x6b, 0x90, 0x02, 0x88, 0x00, 0x90, 0x9f, 0x9f, 0xfc, 0xd6,
+                    0x41, 0x34, 0x69, 0x33, 0x24, 0x27, 0x48, 0xfb, 0xe9, 0xad,
+                ]),
             ]
             try await sdSession.storeAllowlist(keyRef: oceRef, serials: serials)
 
@@ -80,11 +95,13 @@ final class SCP11aFullStackTests: XCTestCase {
             let scpKeyRef = SCPKeyRef(kid: .scp11a, kvn: kvn)
             let oceRef = SCPKeyRef(kid: 0x10, kvn: kvn)
 
-            let scp03KeyParams = try await importScp03Key(connection: connection);
+            let scp03KeyParams = try await importScp03Key(connection: connection)
 
             // Establish an SCP03 session
-            var sdSession = try await SecurityDomainSession.session(withConnection: connection,
-                                                                    scpKeyParams: scp03KeyParams)
+            var sdSession = try await SecurityDomainSession.session(
+                withConnection: connection,
+                scpKeyParams: scp03KeyParams
+            )
 
             // Free space if an SCP11b key is present
             try? await sdSession.deleteKey(keyRef: SCPKeyRef(kid: .scp11b, kvn: 0x01))
@@ -98,12 +115,15 @@ final class SCP11aFullStackTests: XCTestCase {
 
             // Attempt SCP‑11a authentication – should fail due to allow‑list
             do {
-                _ = try await SecurityDomainSession.session(withConnection: connection,
-                                                            scpKeyParams: scpKeyParams)
+                _ = try await SecurityDomainSession.session(
+                    withConnection: connection,
+                    scpKeyParams: scpKeyParams
+                )
                 XCTFail("Authentication should have been blocked by allow‑list")
             } catch {
                 if case let SCPError.wrapped(inner) = error,
-                   let rsp = inner as? ResponseError {
+                    let rsp = inner as? ResponseError
+                {
                     XCTAssert(rsp.responseStatus.rawStatus == 0x6640)
                 } else {
                     XCTFail("Unexpected error: \(error)")
@@ -111,13 +131,17 @@ final class SCP11aFullStackTests: XCTestCase {
             }
 
             // reset allow‑list
-            sdSession = try await SecurityDomainSession.session(withConnection: connection,
-                                                                scpKeyParams: scp03KeyParams)
+            sdSession = try await SecurityDomainSession.session(
+                withConnection: connection,
+                scpKeyParams: scp03KeyParams
+            )
             try await sdSession.storeAllowlist(keyRef: oceRef, serials: [])
 
             // Authentication should now succeed
-            _ = try await SecurityDomainSession.session(withConnection: connection,
-                                                        scpKeyParams: scpKeyParams)
+            _ = try await SecurityDomainSession.session(
+                withConnection: connection,
+                scpKeyParams: scpKeyParams
+            )
 
             XCTAssertTrue(true, "Allow‑list correctly blocked and then allowed SCP11a authentication")
         }
@@ -126,12 +150,16 @@ final class SCP11aFullStackTests: XCTestCase {
     private func importScp03Key(connection: Connection) async throws -> SCPKeyParams {
         let scp03Ref = SCPKeyRef(kid: 0x01, kvn: 0x01)
 
-        let staticKeys = StaticKeys(enc: .random(length: 16),
-                                    mac: .random(length: 16),
-                                    dek: .random(length: 16))
+        let staticKeys = StaticKeys(
+            enc: .random(length: 16),
+            mac: .random(length: 16),
+            dek: .random(length: 16)
+        )
 
-        let session = try await SecurityDomainSession.session(withConnection: connection,
-                                                            scpKeyParams: self.defaultKeyParams)
+        let session = try await SecurityDomainSession.session(
+            withConnection: connection,
+            scpKeyParams: self.defaultKeyParams
+        )
         try await session.putKey(keyRef: scp03Ref, keys: staticKeys, replaceKvn: 0)
 
         return try SCP03KeyParams(keyRef: scp03Ref, staticKeys: staticKeys)
@@ -149,7 +177,7 @@ final class SCP11bFullStackTests: XCTestCase {
 
             let chain = try await securityDomainSession.getCertificateBundle(scpKeyRef: scpKeyRef)
             let leaf: X509Cert = chain.last!
-            _ = leaf.publicKey // make sure we can read the public key
+            _ = leaf.publicKey  // make sure we can read the public key
 
             do {
                 try await securityDomainSession.verifyScp11bAuth()
@@ -171,7 +199,7 @@ final class SCP11bFullStackTests: XCTestCase {
 
             let chain = try await securityDomainSession.getCertificateBundle(scpKeyRef: scpKeyRef)
             let first: X509Cert = chain.first!
-            let publicKey = first.publicKey!.asEC()! // make sure we can read the public key
+            let publicKey = first.publicKey!.asEC()!  // make sure we can read the public key
 
             let params = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
 
@@ -180,7 +208,7 @@ final class SCP11bFullStackTests: XCTestCase {
             } catch let SCPError.unexpectedResponse(message) {
                 XCTAssert(true, "Expected: \(String(describing: message))")
                 return
-            } catch(let error) {
+            } catch (let error) {
                 XCTFail("Failed with: \(error)")
                 return
             }
@@ -191,7 +219,10 @@ final class SCP11bFullStackTests: XCTestCase {
     func testImport() throws {
         runSCPTest { [self] in
 
-            let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: self.defaultKeyParams)
+            let securityDomainSession = try await SecurityDomainSession.session(
+                withConnection: connection,
+                scpKeyParams: self.defaultKeyParams
+            )
 
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x02)
 
@@ -223,11 +254,17 @@ final class SCP11cFullStackTests: XCTestCase {
             let scpKeyRef = SCPKeyRef(kid: .scp11c, kvn: 0x03)
 
             // first we load keys using SCP03
-            var securityDomainSession = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: self.defaultKeyParams)
+            var securityDomainSession = try await SecurityDomainSession.session(
+                withConnection: connection,
+                scpKeyParams: self.defaultKeyParams
+            )
             let scpKeyParams = try await securityDomainSession.loadKeys(scpKeyRef)
 
             // then we reauthenticate using 11c
-            securityDomainSession = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: scpKeyParams)
+            securityDomainSession = try await SecurityDomainSession.session(
+                withConnection: connection,
+                scpKeyParams: scpKeyParams
+            )
 
             // delete the previously loaded keys
             do {
@@ -244,14 +281,14 @@ final class SCP11cFullStackTests: XCTestCase {
 }
 
 // MARK: - Helpers
-private extension SecurityDomainSession {
-    func verifyScp11bAuth() async throws {
+extension SecurityDomainSession {
+    fileprivate func verifyScp11bAuth() async throws {
         let keyRef = SCPKeyRef(kid: .scp11b, kvn: 0x7f)
         _ = try await generateEcKey(keyRef: keyRef, replaceKvn: 0)
         try await deleteKey(keyRef: keyRef)
     }
 
-    func loadKeys(_ sessionRef: SCPKeyRef) async throws -> SCP11KeyParams! {
+    fileprivate func loadKeys(_ sessionRef: SCPKeyRef) async throws -> SCP11KeyParams! {
         // Generate an ephemeral EC key on the YubiKey and retrieve its public half for ECDH
         let publicKey = try await generateEcKey(keyRef: sessionRef, replaceKvn: 0)
 
@@ -276,10 +313,12 @@ private extension SecurityDomainSession {
         let sk = Scp11TestData.secretKey
 
         // Return all parameters needed for establishing an SCP11 session
-        return try SCP11KeyParams(keyRef: sessionRef,
-                                  pkSdEcka: publicKey,
-                                  oceKeyRef: oceRef,
-                                  skOceEcka: sk,
-                                  certificates: [ka, ecka])
+        return try SCP11KeyParams(
+            keyRef: sessionRef,
+            pkSdEcka: publicKey,
+            oceKeyRef: oceRef,
+            skOceEcka: sk,
+            certificates: [ka, ecka]
+        )
     }
 }

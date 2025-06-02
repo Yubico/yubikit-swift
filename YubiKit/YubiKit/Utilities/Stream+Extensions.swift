@@ -20,14 +20,14 @@ enum StreamError: Error {
     case timeout
 }
 
-fileprivate struct YubiKeyConstants {
+private struct YubiKeyConstants {
     static let bufferSize = 512
     static let probeTime = 0.05
     static let timeout = 10.0
 }
 
 extension OutputStream {
-    
+
     internal func writeToYubiKey(data: Data) throws {
         var timer = 0.0
         while !self.hasSpaceAvailable {
@@ -35,7 +35,7 @@ extension OutputStream {
             timer += YubiKeyConstants.probeTime
             if timer > YubiKeyConstants.timeout { throw StreamError.timeout }
         }
-        
+
         var remaining = data[...]
         while !remaining.isEmpty {
             let bytesWritten = remaining.withUnsafeBytes { buffer in
@@ -51,16 +51,15 @@ extension OutputStream {
     }
 }
 
-
 extension InputStream {
-    
+
     internal func readFromYubiKey() throws -> Data {
         var data = Data()
         let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: YubiKeyConstants.bufferSize)
         defer {
             buffer.deallocate()
         }
-        
+
         var timer = 0.0
         while !self.hasBytesAvailable {
             Thread.sleep(forTimeInterval: YubiKeyConstants.probeTime)

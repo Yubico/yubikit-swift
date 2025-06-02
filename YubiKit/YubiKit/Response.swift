@@ -24,20 +24,20 @@ public struct Response: CustomStringConvertible {
         }
         responseStatus = ResponseStatus(data: rawData.subdata(in: rawData.count - 2..<rawData.count))
     }
-    
+
     internal init(data: Data, sw1: UInt8, sw2: UInt8) {
         self.data = data
         responseStatus = ResponseStatus(sw1: sw1, sw2: sw2)
     }
-    
+
     /// The data returned in the response.
     /// >Note: The data does not contain the response code. It is stored in the `ResponseStatus`.
     public let data: Data
-    
+
     /// Status code of the response
     public let responseStatus: ResponseStatus
     public var description: String {
-        return "<Response: \(responseStatus.status) \(responseStatus.rawStatus.data.hexEncodedString), length: \(data.count)>"
+        "<Response: \(responseStatus.status) \(responseStatus.rawStatus.data.hexEncodedString), length: \(data.count)>"
     }
 }
 
@@ -62,20 +62,20 @@ public struct ResponseStatus: Equatable, Sendable {
         case claNotSupported = 0x6E00
         case commandAborted = 0x6F00
         case unknown = 0x0000
-        
+
         public var description: String { "0x\(self.rawValue.bigEndian.data.hexEncodedString)" }
     }
-    
+
     public let status: StatusCode
     public let rawStatus: UInt16
     public var sw1: UInt8 { UInt8((rawStatus & 0xff00) >> 8) }
     public var sw2: UInt8 { UInt8(rawStatus & 0xff00) }
-    
+
     internal init(sw1: UInt8, sw2: UInt8) {
         rawStatus = UInt16(sw1) << 8 + UInt16(sw2)
         status = StatusCode(rawValue: rawStatus) ?? .unknown
     }
-    
+
     internal init(data: Data) {
         let value = data.uint16.bigEndian
         let sw1 = UInt8((value & 0xff00) >> 8)

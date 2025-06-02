@@ -14,14 +14,14 @@
 
 import XCTest
 
-@testable import YubiKit
 @testable import FullStackTests
+@testable import YubiKit
 
-fileprivate let lockCode =      Data(hexEncodedString: "01020304050607080102030405060708")!
-fileprivate let clearLockCode = Data(hexEncodedString: "00000000000000000000000000000000")!
+private let lockCode = Data(hexEncodedString: "01020304050607080102030405060708")!
+private let clearLockCode = Data(hexEncodedString: "00000000000000000000000000000000")!
 
 class ManagementFullStackTests: XCTestCase {
-    
+
     func testReadKeyVersion() throws {
         runManagementTest { connection, session, _ in
             print("✅ Got version: \(session.version)")
@@ -31,7 +31,7 @@ class ManagementFullStackTests: XCTestCase {
             XCTAssertNotNil(session.version)
         }
     }
-    
+
     func testGetDeviceInfo() throws {
         runManagementTest { connection, session, _ in
             let info = try await session.getDeviceInfo()
@@ -41,7 +41,7 @@ class ManagementFullStackTests: XCTestCase {
             #endif
         }
     }
-    
+
     func testTimeouts() throws {
         runManagementTest { connection, session, _ in
             let deviceInfo = try await session.getDeviceInfo()
@@ -55,11 +55,20 @@ class ManagementFullStackTests: XCTestCase {
             #endif
         }
     }
-    
+
     func testDisableAndEnableConfigOATHandPIVoverUSB() throws {
         runManagementTest { connection, session, transport in
             let deviceInfo = try await session.getDeviceInfo()
-            guard let disableConfig = deviceInfo.config.deviceConfig(enabling: false, application: .OATH, overTransport: .usb)?.deviceConfig(enabling: false, application: .PIV, overTransport: .usb) else { XCTFail(); return }
+            guard
+                let disableConfig = deviceInfo.config.deviceConfig(
+                    enabling: false,
+                    application: .OATH,
+                    overTransport: .usb
+                )?.deviceConfig(enabling: false, application: .PIV, overTransport: .usb)
+            else {
+                XCTFail()
+                return
+            }
             try await session.updateDeviceConfig(disableConfig, reboot: false)
             let disabledInfo = try await session.getDeviceInfo()
             XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.OATH, overTransport: .usb))
@@ -69,7 +78,16 @@ class ManagementFullStackTests: XCTestCase {
                 XCTAssert(oathSession == nil)
             }
             let managementSession = try await ManagementSession.session(withConnection: connection)
-            guard let enableConfig = deviceInfo.config.deviceConfig(enabling: true, application: .OATH, overTransport: .usb)?.deviceConfig(enabling: true, application: .PIV, overTransport: .usb) else { XCTFail(); return }
+            guard
+                let enableConfig = deviceInfo.config.deviceConfig(
+                    enabling: true,
+                    application: .OATH,
+                    overTransport: .usb
+                )?.deviceConfig(enabling: true, application: .PIV, overTransport: .usb)
+            else {
+                XCTFail()
+                return
+            }
             try await managementSession.updateDeviceConfig(enableConfig, reboot: false)
             let enabledInfo = try await managementSession.getDeviceInfo()
             XCTAssert(enabledInfo.config.isApplicationEnabled(.OATH, overTransport: .usb))
@@ -79,12 +97,24 @@ class ManagementFullStackTests: XCTestCase {
             #endif
         }
     }
-    
+
     func testDisableAndEnableConfigOATHandPIVoverNFC() throws {
         runManagementTest { connection, session, transport in
             let deviceInfo = try await session.getDeviceInfo()
-            guard deviceInfo.hasTransport(.nfc) else { print("⚠️ No NFC YubiKey. Skip test."); return }
-            guard let disableConfig = deviceInfo.config.deviceConfig(enabling: false, application: .OATH, overTransport: .nfc)?.deviceConfig(enabling: false, application: .PIV, overTransport: .nfc) else { XCTFail(); return }
+            guard deviceInfo.hasTransport(.nfc) else {
+                print("⚠️ No NFC YubiKey. Skip test.")
+                return
+            }
+            guard
+                let disableConfig = deviceInfo.config.deviceConfig(
+                    enabling: false,
+                    application: .OATH,
+                    overTransport: .nfc
+                )?.deviceConfig(enabling: false, application: .PIV, overTransport: .nfc)
+            else {
+                XCTFail()
+                return
+            }
             try await session.updateDeviceConfig(disableConfig, reboot: false)
             let disabledInfo = try await session.getDeviceInfo()
             XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.OATH, overTransport: .nfc))
@@ -94,7 +124,16 @@ class ManagementFullStackTests: XCTestCase {
                 XCTAssert(oathSession == nil)
             }
             let managementSession = try await ManagementSession.session(withConnection: connection)
-            guard let enableConfig = deviceInfo.config.deviceConfig(enabling: true, application: .OATH, overTransport: .nfc)?.deviceConfig(enabling: true, application: .PIV, overTransport: .nfc) else { XCTFail(); return }
+            guard
+                let enableConfig = deviceInfo.config.deviceConfig(
+                    enabling: true,
+                    application: .OATH,
+                    overTransport: .nfc
+                )?.deviceConfig(enabling: true, application: .PIV, overTransport: .nfc)
+            else {
+                XCTFail()
+                return
+            }
             try await managementSession.updateDeviceConfig(enableConfig, reboot: false)
             let enabledInfo = try await managementSession.getDeviceInfo()
             XCTAssert(enabledInfo.config.isApplicationEnabled(.OATH, overTransport: .nfc))
@@ -104,7 +143,7 @@ class ManagementFullStackTests: XCTestCase {
             #endif
         }
     }
-    
+
     func testDisableAndEnableWithHelperOATH() throws {
         runManagementTest { connection, session, transport in
             try await session.setEnabled(false, application: .OATH, overTransport: transport)
@@ -120,11 +159,11 @@ class ManagementFullStackTests: XCTestCase {
             await connection.nfcConnection?.close(message: "Test successful!")
             #endif
         }
-    }    
-    
+    }
+
     func testLockCode() throws {
         runManagementTest { connection, session, transport in
-            let config = try await  session.getDeviceInfo().config
+            let config = try await session.getDeviceInfo().config
             do {
                 try await session.updateDeviceConfig(config, reboot: false, newLockCode: lockCode)
                 print("✅ Lock code set to: \(lockCode.hexEncodedString)")
@@ -132,20 +171,29 @@ class ManagementFullStackTests: XCTestCase {
                 XCTFail("Failed setting new lock code")
             }
             do {
-                try await session.updateDeviceConfig(config.deviceConfig(enabling: false, application: .OATH, overTransport: .usb)!, reboot: false)
-                XCTFail("Successfully updated config although no lock code was supplied and it should have been enabled.")
+                try await session.updateDeviceConfig(
+                    config.deviceConfig(enabling: false, application: .OATH, overTransport: .usb)!,
+                    reboot: false
+                )
+                XCTFail(
+                    "Successfully updated config although no lock code was supplied and it should have been enabled."
+                )
             } catch {
                 print("✅ Failed updating device config (as expected) without using lock code.")
             }
             do {
-                try await session.updateDeviceConfig(config.deviceConfig(enabling: false, application: .OATH, overTransport: .usb)!, reboot: false, lockCode: lockCode)
+                try await session.updateDeviceConfig(
+                    config.deviceConfig(enabling: false, application: .OATH, overTransport: .usb)!,
+                    reboot: false,
+                    lockCode: lockCode
+                )
                 print("✅ Succesfully updated device config using lock code.")
             } catch {
                 XCTFail("Failed to update device config even though lock code was supplied.")
             }
         }
     }
-    
+
     // Tests are run in alphabetical order. If running the tests via NFC this will disable NFC for all the following tests making them fail, hence the Z in the name.
     func testZNFCRestricted() throws {
         runManagementTest { connection, session, transport in
@@ -159,8 +207,10 @@ class ManagementFullStackTests: XCTestCase {
             let updatedInfo = try await session.getDeviceInfo()
             XCTAssertEqual(updatedInfo.config.isNFCRestricted, true)
             if transport == .nfc {
-            #if os(iOS)
-                await connection.nfcConnection?.close(message: "NFC is now restriced until this YubiKey has been inserted into a USB port.")
+                #if os(iOS)
+                await connection.nfcConnection?.close(
+                    message: "NFC is now restriced until this YubiKey has been inserted into a USB port."
+                )
                 do {
                     let newConnection = try await ConnectionHelper.anyConnection()
                     _ = try await ManagementSession.session(withConnection: newConnection)
@@ -168,13 +218,15 @@ class ManagementFullStackTests: XCTestCase {
                 } catch {
                     print("✅ Failed creating ManagementSession as expected.")
                 }
-            #endif
+                #endif
             }
             print("✅ NFC is now restriced until this YubiKey has been inserted into a USB port.")
-            print("⚠️ Note that no more NFC testing will be possible until NFC restriction has been disabled for this key!")
+            print(
+                "⚠️ Note that no more NFC testing will be possible until NFC restriction has been disabled for this key!"
+            )
         }
     }
-    
+
     func testBioDeviceReset() throws {
         runManagementTest { connection, session, transport in
             let deviceInfo = try await session.getDeviceInfo()
@@ -199,11 +251,13 @@ class ManagementFullStackTests: XCTestCase {
 }
 
 extension XCTestCase {
-    func runManagementTest(named testName: String = #function,
-                           in file: StaticString = #file,
-                           at line: UInt = #line,
-                           withTimeout timeout: TimeInterval = 20,
-                           test: @escaping (Connection, ManagementSession, DeviceTransport) async throws -> Void) {
+    func runManagementTest(
+        named testName: String = #function,
+        in file: StaticString = #file,
+        at line: UInt = #line,
+        withTimeout timeout: TimeInterval = 20,
+        test: @escaping (Connection, ManagementSession, DeviceTransport) async throws -> Void
+    ) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
             let connection = try await AllowedConnections.anyConnection(nfcAlertMessage: "Running Management Tests...")
             let transport: DeviceTransport
@@ -216,7 +270,7 @@ extension XCTestCase {
             #else
             transport = .usb
             #endif
-            
+
             let session = try await ManagementSession.session(withConnection: connection)
             let config = try await session.getDeviceInfo().config
             // Try removing the lock code.

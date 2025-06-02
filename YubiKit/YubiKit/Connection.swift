@@ -21,12 +21,12 @@ import Foundation
 /// Protocol implemented in ``LightningConnection``, ``NFCConnection`` and ``SmartCardConnection``.
 
 public protocol Connection: Sendable {
-    
+
     /// Create a new Connection to the YubiKey.
     ///
     /// Call this method to get a connection to a YubiKey. The method will wait
     /// until a connection to a YubiKey has been established and then return it.
-    /// 
+    ///
     /// If the method is called a second time while already waiting for a connection
     /// the first call to connection() will be cancelled.
     ///
@@ -34,18 +34,18 @@ public protocol Connection: Sendable {
     /// first connection will be closed and ``connectionDidClose()`` will return for
     /// the previous connection.
     static func connection() async throws -> Connection
-    
+
     /// Close the current Connection.
     ///
     /// This closes the connection sending the optional error to the ``connectionDidClose()`` method.
     func close(error: Error?) async
-    
+
     /// Wait for the connection to close.
-    /// 
+    ///
     /// This method will wait until the connection closes. If the connection was closed due to an error said
     /// error will be returned.
     func connectionDidClose() async -> Error?
-    
+
     /// Send an APDU to the Connection.
     ///
     /// This will send the APDU to the YubiKey using the Connection. Commands returning data to big
@@ -56,7 +56,7 @@ public protocol Connection: Sendable {
     /// wrapping the status code will be thrown.
     @discardableResult
     func send(apdu: APDU) async throws -> Data
-    
+
     /// Send a command as Data to the Connection and handle the result manually.
     ///
     /// This will send the Data to the YubiKey using the Connection. The full result will be
@@ -85,6 +85,3 @@ public struct ResponseError: Error {
     /// Status code of the response.
     public let responseStatus: ResponseStatus
 }
-
-
-

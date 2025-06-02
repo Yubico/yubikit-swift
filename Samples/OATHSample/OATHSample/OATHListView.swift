@@ -14,9 +14,8 @@
 
 import SwiftUI
 
-
 struct OATHListView<T>: View where T: OATHListModelProtocol {
-    
+
     @StateObject var model: T
     @State private var isPresentingSettings = false
 
@@ -27,15 +26,23 @@ struct OATHListView<T>: View where T: OATHListModelProtocol {
             }
             .navigationTitle("Codes (\(model.source))")
             .toolbar(content: {
-                ToolbarItem() {
-                    Button(action: { model.stopWiredConnection(); isPresentingSettings.toggle() }) {
+                ToolbarItem {
+                    Button(action: {
+                        model.stopWiredConnection()
+                        isPresentingSettings.toggle()
+                    }) {
                         Image(systemName: "ellipsis.circle")
                     }
-                    .sheet(isPresented: $isPresentingSettings, onDismiss: {
-                        model.startWiredConnection() // Restart wired connection once the SettingsView has been dismissed.
-                    }, content: {
-                        SettingsView(model: SettingsModel())
-                    })
+                    .sheet(
+                        isPresented: $isPresentingSettings,
+                        onDismiss: {
+                            // Restart wired connection once the SettingsView has been dismissed
+                            model.startWiredConnection()
+                        },
+                        content: {
+                            SettingsView(model: SettingsModel())
+                        }
+                    )
                 }
             })
             #if os(iOS)
@@ -47,16 +54,20 @@ struct OATHListView<T>: View where T: OATHListModelProtocol {
         .onAppear {
             model.startWiredConnection()
         }
-        .alert("Something went wrong", isPresented: .constant(model.error != nil), actions: {
-            Button("Ok", role: .cancel) { model.startWiredConnection() }
-        }, message: {
-            if let error = model.error {
-                Text("\(String(describing: error))")
+        .alert(
+            "Something went wrong",
+            isPresented: .constant(model.error != nil),
+            actions: {
+                Button("Ok", role: .cancel) { model.startWiredConnection() }
+            },
+            message: {
+                if let error = model.error {
+                    Text("\(String(describing: error))")
+                }
             }
-        })
+        )
     }
 }
-
 
 struct AccountRowView: View {
     let account: Account
@@ -69,18 +80,19 @@ struct AccountRowView: View {
     }
 }
 
-
 #Preview {
-  OATHListView(model: OATHListModelPreview())
+    OATHListView(model: OATHListModelPreview())
 }
 
 class OATHListModelPreview: OATHListModelProtocol {
-    @Published private(set) var accounts = [Account(label: "Label 1", code: "123456"),
-                                            Account(label: "Label 2", code: "123456"),
-                                            Account(label: "Label 3", code: "123456")]
+    @Published private(set) var accounts = [
+        Account(label: "Label 1", code: "123456"),
+        Account(label: "Label 2", code: "123456"),
+        Account(label: "Label 3", code: "123456"),
+    ]
     @Published private(set) var source = "no connection"
     @Published var error: Error?
-    
+
     func stopWiredConnection() {}
     func startWiredConnection() {}
     func calculateNFCCodes() {}

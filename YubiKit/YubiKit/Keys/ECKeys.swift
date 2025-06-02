@@ -42,8 +42,8 @@ public enum EC {
         let curve: Curve
 
         /// Public point
-        public let x: Data // x coordinate
-        public let y: Data // y coordinate
+        public let x: Data  // x coordinate
+        public let y: Data  // y coordinate
 
         /// Initialize a public key from its curve and coordinates.
         /// - Parameters:
@@ -92,11 +92,11 @@ public enum EC {
 
         public var curve: Curve { publicKey.curve }
 
-        public let k: Data // secret scalar
+        public let k: Data  // secret scalar
 
         /// Uncompressed representation of private key as 0x04 || X || Y || K.
         public var uncompressedRepresentation: Data {
-            return publicKey.uncompressedPoint + k
+            publicKey.uncompressedPoint + k
         }
 
         /// Initialize a private key from 0x04 || X || Y || K
@@ -111,9 +111,9 @@ public enum EC {
 
             let coordinateSizeInBytes = data.count / 3
             guard let curve = Curve(coordinateSize: coordinateSizeInBytes),
-                  let x = data.extract(coordinateSizeInBytes),  // x
-                  let y = data.extract(coordinateSizeInBytes),  // y
-                  let k = data.extract(coordinateSizeInBytes)   // k
+                let x = data.extract(coordinateSizeInBytes),  // x
+                let y = data.extract(coordinateSizeInBytes),  // y
+                let k = data.extract(coordinateSizeInBytes)  // k
             else {
                 return nil
             }
@@ -125,11 +125,11 @@ public enum EC {
 }
 
 // MARK: - Private helpers
-private extension EC.Curve {
+extension EC.Curve {
     /// Initialize a curve type based on the byte length of a coordinate.
     /// - Parameter bytesCount: Length in bytes of a single coordinate (x or y).
     /// - Returns: Matching curve if found, or nil if not supported.
-    init?(coordinateSize bytesCount: Int) {
+    fileprivate init?(coordinateSize bytesCount: Int) {
         switch bytesCount {
         case EC.Curve.p256.keySizeInBytes:
             self = .p256

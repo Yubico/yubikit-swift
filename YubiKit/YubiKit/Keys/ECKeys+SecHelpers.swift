@@ -19,20 +19,21 @@
 import Foundation
 import Security
 
-public extension EC.PrivateKey {
+extension EC.PrivateKey {
     /// Generate a random EC private key of the specified curve using Apple's Security framework.
     /// - Parameter curve: Desired EC curve.
     /// - Returns: A valid EC.PrivateKey or nil if generation / parsing fails.
-    static func random(curve: EC.Curve) -> EC.PrivateKey? {
-        let attributes: [CFString : Any] = [
+    public static func random(curve: EC.Curve) -> EC.PrivateKey? {
+        let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPrivate,
             kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
-            kSecAttrKeySizeInBits: curve.keySizeInBits
+            kSecAttrKeySizeInBits: curve.keySizeInBits,
         ]
 
         var error: Unmanaged<CFError>?
         guard let secKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-              let _ = SecKeyCopyPublicKey(secKey) else {
+            let _ = SecKeyCopyPublicKey(secKey)
+        else {
             return nil
         }
 
@@ -45,31 +46,37 @@ public extension EC.PrivateKey {
 
     /// Convert this EC private key to a native SecKey.
     /// - Returns: A SecKey suitable for cryptographic operations, or nil if conversion fails.
-    func asSecKey() -> SecKey? {
+    public func asSecKey() -> SecKey? {
         let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPrivate,
             kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
-            kSecAttrKeySizeInBits: curve.keySizeInBits
+            kSecAttrKeySizeInBits: curve.keySizeInBits,
         ]
 
         var err: Unmanaged<CFError>?
-        return SecKeyCreateWithData(uncompressedRepresentation as CFData,
-                                    attributes as CFDictionary, &err)
+        return SecKeyCreateWithData(
+            uncompressedRepresentation as CFData,
+            attributes as CFDictionary,
+            &err
+        )
     }
 }
 
-public extension EC.PublicKey {
+extension EC.PublicKey {
     /// Convert this EC public key to a native SecKey.
     /// - Returns: A SecKey suitable for cryptographic operations, or nil if conversion fails.
-    func asSecKey() -> SecKey? {
+    public func asSecKey() -> SecKey? {
         let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPublic,
             kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
-            kSecAttrKeySizeInBits: curve.keySizeInBits
+            kSecAttrKeySizeInBits: curve.keySizeInBits,
         ]
 
         var err: Unmanaged<CFError>?
-        return SecKeyCreateWithData(uncompressedPoint as CFData,
-                                    attributes as CFDictionary, &err)
+        return SecKeyCreateWithData(
+            uncompressedPoint as CFData,
+            attributes as CFDictionary,
+            &err
+        )
     }
 }

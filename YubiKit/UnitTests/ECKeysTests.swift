@@ -16,8 +16,8 @@
 /// Unit tests for the ECKeys implementation.
 /// Validates key generation, encoding, decoding, SecKey conversions, and equality for EC keys.
 
-import XCTest
 import CommonCrypto
+import XCTest
 
 @testable import YubiKit
 

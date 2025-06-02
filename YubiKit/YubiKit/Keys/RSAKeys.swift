@@ -15,8 +15,8 @@
 /// # RSAKeys
 /// Defines RSA public and private key types and DER encoding/decoding utilities for PKCS #1.
 
-import Foundation
 import CryptoTokenKit
+import Foundation
 
 public enum RSA {
 
@@ -29,12 +29,12 @@ public enum RSA {
 
         /// Returns the key size in bits.
         public var keySizeInBits: Int {
-            return rawValue
+            rawValue
         }
 
         /// Returns the key size in bytes.
         public var keySizeInBytes: Int {
-            return rawValue / 8
+            rawValue / 8
         }
     }
 
@@ -78,11 +78,11 @@ public enum RSA {
         public let d: Data
 
         // CRT-optimized
-        public let p: Data    // primeOne
-        public let q: Data    // primeTwo
-        public let dP: Data   // exponentOne
-        public let dQ: Data   // exponentTwo
-        public let qInv: Data // coefficient
+        public let p: Data  // primeOne
+        public let q: Data  // primeTwo
+        public let dP: Data  // exponentOne
+        public let dQ: Data  // exponentTwo
+        public let qInv: Data  // coefficient
 
         /// Initializes an RSA private key.
         /// - Parameters:
@@ -162,10 +162,10 @@ extension RSA.PublicKey {
     }
 }
 
-public extension RSA.PrivateKey {
+extension RSA.PrivateKey {
 
     /// DER-encoded PKCS #1 private key: `SEQUENCE { version, n, e, d, p, q, dP, dQ, qInv }`.
-    var pkcs1: Data {
+    public var pkcs1: Data {
         var body = Data()
 
         // version = 0
@@ -188,7 +188,7 @@ public extension RSA.PrivateKey {
     ///   - size: Key size (bits).
     ///   - pkcs1: DER bytes for the full private key.
     ///   - Returns: PrivateKey if valid; otherwise nil.
-    init?(pkcs1: Data) {
+    public init?(pkcs1: Data) {
         var data = pkcs1
 
         do {
@@ -197,17 +197,17 @@ public extension RSA.PrivateKey {
             let version = try PKCS1.Decoder.integer(&data)
             // We only support two‑prime RSA (version = 0)
             guard version.count == 1,
-                  version.first == 0
+                version.first == 0
             else { throw PKCS1.Error(message: "Unsupported version") }
 
             let n = try PKCS1.Decoder.integer(&data)
-            let e       = try PKCS1.Decoder.integer(&data)
-            let d       = try PKCS1.Decoder.integer(&data)
-            let p       = try PKCS1.Decoder.integer(&data)
-            let q       = try PKCS1.Decoder.integer(&data)
-            let dP      = try PKCS1.Decoder.integer(&data)
-            let dQ      = try PKCS1.Decoder.integer(&data)
-            let qInv    = try PKCS1.Decoder.integer(&data)
+            let e = try PKCS1.Decoder.integer(&data)
+            let d = try PKCS1.Decoder.integer(&data)
+            let p = try PKCS1.Decoder.integer(&data)
+            let q = try PKCS1.Decoder.integer(&data)
+            let dP = try PKCS1.Decoder.integer(&data)
+            let dQ = try PKCS1.Decoder.integer(&data)
+            let qInv = try PKCS1.Decoder.integer(&data)
 
             guard let publicKey: RSA.PublicKey = .init(n: n, e: e) else {
                 throw PKCS1.Error(message: "Failed to create public key")
@@ -279,7 +279,8 @@ private enum PKCS1 {
         /// - Throws: `PKCS1.Error` if the tag, length, or remaining bytes are invalid.
         static func sequenceHeader(_ data: inout Data) throws {
             guard let record = TKBERTLVRecord.sequenceOfRecords(from: data)?.first,
-                  record.tag == 0x30 else {
+                record.tag == 0x30
+            else {
                 throw PKCS1.Error(message: "Expected SEQUENCE")
             }
 
@@ -297,7 +298,8 @@ private enum PKCS1 {
         /// - Throws: `PKCS1.Error` if the tag/length/contents are malformed.
         static func integer(_ data: inout Data) throws -> Data {
             guard let record = TKBERTLVRecord.sequenceOfRecords(from: data)?.first,
-                  record.tag == 0x02 else {
+                record.tag == 0x02
+            else {
                 throw PKCS1.Error(message: "Expected INTEGER")
             }
 

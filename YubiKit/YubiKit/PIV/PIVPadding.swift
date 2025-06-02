@@ -12,26 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
 import CommonCrypto
 import CryptoKit
+import Foundation
 
 public enum PIVPaddingError: Error {
     case unsupportedAlgorithm, unknownKeyType, unknownPaddingError, wrongInputBufferSize
 }
 
 internal enum PIVPadding {
-    
+
     internal static func padData(_ data: Data, keyType: PIVKeyType, algorithm: SecKeyAlgorithm) throws -> Data {
         switch keyType {
 
         case let .rsa(keySize):
-            let attributes = [
-                kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keySize.keySizeInBits] as [CFString : Any]
+            let attributes =
+                [
+                    kSecAttrKeyType: kSecAttrKeyTypeRSA,
+                    kSecAttrKeySizeInBits: keySize.keySizeInBits,
+                ] as [CFString: Any]
             var error: Unmanaged<CFError>?
             guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-                  let publicKey = SecKeyCopyPublicKey(privateKey)
+                let publicKey = SecKeyCopyPublicKey(privateKey)
             else {
                 throw error!.takeRetainedValue() as Error
             }
@@ -56,7 +58,7 @@ internal enum PIVPadding {
                             }
                         }
                     }
-                }           
+                }
             case SecKeyAlgorithm.ecdsaSignatureMessageX962SHA224:
                 hash = Data(count: Int(CC_SHA224_DIGEST_LENGTH))
                 hash.withUnsafeMutableBytes { (hashPtr) in
@@ -94,7 +96,7 @@ internal enum PIVPadding {
         }
         throw PIVPaddingError.unknownPaddingError
     }
-    
+
     internal static func unpadRSAData(_ data: Data, algorithm: SecKeyAlgorithm) throws -> Data {
 
         let validTypes = RSA.KeySize.allCases.compactMap { PIVKeyType(kind: .rsa($0)) }
@@ -102,13 +104,15 @@ internal enum PIVPadding {
             throw PIVPaddingError.wrongInputBufferSize
         }
 
-        let attributes = [
-            kSecAttrKeyType: kSecAttrKeyTypeRSA,
-            kSecAttrKeySizeInBits: keyType.sizeInBits] as [CFString : Any]
+        let attributes =
+            [
+                kSecAttrKeyType: kSecAttrKeyTypeRSA,
+                kSecAttrKeySizeInBits: keyType.sizeInBits,
+            ] as [CFString: Any]
 
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-              let publicKey = SecKeyCopyPublicKey(privateKey)
+            let publicKey = SecKeyCopyPublicKey(privateKey)
         else {
             throw error!.takeRetainedValue() as Error
         }
