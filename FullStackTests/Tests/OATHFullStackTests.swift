@@ -56,19 +56,21 @@ class OATHFullStackTests: XCTestCase {
     func testCalculateAllCodes() throws {
         runOATHTest { session in
             let result = try await session.calculateCodes(timestamp: Date(timeIntervalSince1970: 0))
-            let codes = try await result.asyncMap { result in
-                if let code = result.1 {
-                    return code
+            var codes: [OATHSession.Code] = []
+            for pair in result {
+                if let code = pair.1 {
+                    codes.append(code)
+                } else {
+                    let credential = pair.0
+                    if credential.requiresTouch {
+                        print("👆 Touch the YubiKey!")
+                    }
+                    let code = try await session.calculateCode(
+                        credential: credential,
+                        timestamp: Date(timeIntervalSince1970: 0)
+                    )
+                    codes.append(code)
                 }
-                let credential = result.0
-                if credential.requiresTouch {
-                    print("👆 Touch the YubiKey!")
-                }
-                let code = try await session.calculateCode(
-                    credential: credential,
-                    timestamp: Date(timeIntervalSince1970: 0)
-                )
-                return code
             }
             XCTAssert(codes.count == 5)
             XCTAssert(codes[0].code == "659165")
