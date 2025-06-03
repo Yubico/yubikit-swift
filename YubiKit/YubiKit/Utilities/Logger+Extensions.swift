@@ -29,6 +29,11 @@ extension HasSmartCardLogger {
     static var logger: Logger { .smartCard }
 }
 
+protocol HasNFCLogger: HasLogger {}
+extension HasNFCLogger {
+    static var logger: Logger { .nfc }
+}
+
 protocol HasSecurityDomainLogger: HasLogger {}
 extension HasSecurityDomainLogger {
     static var logger: Logger { .securityDomain }
