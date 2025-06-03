@@ -114,6 +114,7 @@ public struct NFCConnection: Connection, Sendable {
 
 // NFCConnection specific errors
 public enum NFCConnectionError: Error {
+    case failedToPoll
     case unsupported
     case malformedAPDU
 }
@@ -234,10 +235,14 @@ private final actor NFCConnectionManager: NSObject {
         }
 
         // Start polling
+        guard let session = NFCTagReaderSession(pollingOption: [.iso14443], delegate: self, queue: nil) else {
+            throw NFCConnectionError.failedToPoll
+        }
+        if let alertMessage { session.alertMessage = alertMessage }
+        currentState = .scanning(session)
         connection = .init()
-        let session = NFCTagReaderSession(pollingOption: [.iso14443], delegate: self, queue: nil)
-        if let alertMessage { session?.alertMessage = alertMessage }
-        session?.begin()
+        session.begin()
+
         return try await connection!.value()
     }
 
