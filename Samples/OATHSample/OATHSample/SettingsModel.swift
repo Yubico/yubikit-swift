@@ -28,11 +28,11 @@ class SettingsModel: SettingsModelProtocol {
     @Published private(set) var connection: String?
     @Published private(set) var error: Error?
 
-    @MainActor func getKeyVersion() {
-        Task {
+    func getKeyVersion() {
+        Task { @MainActor in
             self.error = nil
             do {
-                let connection = try await ConnectionHelper.anyConnection()
+                let connection = try await Connections.new()
                 let session = try await ManagementSession.session(withConnection: connection)
                 self.keyVersion = session.version.description
                 #if os(iOS)

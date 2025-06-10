@@ -31,33 +31,33 @@ class OATHListModel: OATHListModelProtocol {
 
     private var wiredConnectionTask: Task<Void, Never>?
 
-    @MainActor func stopWiredConnection() {
-        source = "no connection"
-        accounts.removeAll()
+    func stopWiredConnection() {
         wiredConnectionTask?.cancel()
+        wiredConnectionTask = nil
     }
 
-    @MainActor func startWiredConnection() {
-        wiredConnectionTask?.cancel()
-        wiredConnectionTask = Task {
-            do {
-                error = nil
-                // Wait for a suitable wired connection for the current device.
-                let connection = try await ConnectionHelper.anyWiredConnection()
-                guard !Task.isCancelled else { return }
-                try await self.calculateCodes(connection: connection)
-                // Wait for the connection to close, i.e the YubiKey to be unplugged from the device.
-                // If the YubiKey was simply unplugged it will return nil, otherwise the error
-                // causing the disconnect will be returned.
-                self.error = await connection.connectionDidClose()
-                self.accounts.removeAll()
-                self.source = "no connection"
-                guard !Task.isCancelled else { return }
-                // Restart the wired connection and go back to waiting for a YubiKey to be
-                // inserted again.
-                self.startWiredConnection()
-            } catch {
-                self.error = error
+    func startWiredConnection() {
+        wiredConnectionTask = Task { @MainActor in
+            while true {
+                do {
+                    error = nil
+                    guard !Task.isCancelled else { return }
+                    // Wait for a suitable wired connection for the current device.
+                    let connection = try await Connections.new(kind: .wired)
+                    guard !Task.isCancelled else { return }
+                    try await calculateCodes(connection: connection)
+                    // Wait for the connection to close, i.e the YubiKey to be unplugged from the device.
+                    // If the YubiKey was simply unplugged it will return nil, otherwise the error
+                    // causing the disconnect will be returned.
+                    guard !Task.isCancelled else { return }
+                    error = await connection.connectionDidClose()
+                    accounts.removeAll()
+                    source = "no connection"
+                    continue
+                } catch (let e) {
+                    error = e
+                    continue
+                }
             }
         }
     }
@@ -76,7 +76,7 @@ class OATHListModel: OATHListModelProtocol {
         }
     }
     #else
-    @MainActor func calculateNFCCodes() {}  // do nothing on macOS
+    func calculateNFCCodes() {}  // do nothing on macOS
     #endif
 
     @MainActor private func calculateCodes(connection: Connection) async throws {
