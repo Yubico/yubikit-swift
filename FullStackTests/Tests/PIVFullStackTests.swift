@@ -843,7 +843,7 @@ final class PIVFullStackTests: XCTestCase {
     // This will test auth on a YubiKey Bio. To run the test at least one fingerprint needs to be registered.
     func testBioAuthentication() throws {
         runAsyncTest {
-            let connection = try await AllowedConnections.anyConnection()
+            let connection = try await TestableConnections.create()
             let managementSession = try await ManagementSession.session(withConnection: connection)
             let deviceInfo = try await managementSession.getDeviceInfo()
             guard deviceInfo.formFactor == .usbCBio || deviceInfo.formFactor == .usbABio else {
@@ -880,7 +880,7 @@ final class PIVFullStackTests: XCTestCase {
 
     func testBioPinPolicyErrorOnNonBioKey() throws {
         runAsyncTest {
-            let connection = try await AllowedConnections.anyConnection()
+            let connection = try await TestableConnections.create()
             let managementSession = try await ManagementSession.session(withConnection: connection)
             let deviceInfo = try await managementSession.getDeviceInfo()
             guard deviceInfo.formFactor != .usbCBio && deviceInfo.formFactor != .usbABio else {
@@ -937,7 +937,7 @@ extension XCTestCase {
         test: @escaping (PIVSession) async throws -> Void
     ) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
-            let connection = try await AllowedConnections.anyConnection()
+            let connection = try await TestableConnections.create()
             let session = try await PIVSession.session(withConnection: connection)
             try await session.reset()
             Logger.test.debug("⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ PIV Session test ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️")
@@ -954,7 +954,7 @@ extension XCTestCase {
         test: @escaping (PIVSession) async throws -> Void
     ) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
-            let connection = try await AllowedConnections.anyConnection()
+            let connection = try await TestableConnections.create()
             let session = try await PIVSession.session(withConnection: connection)
             try await session.reset()
             try await self.authenticate(with: session)
