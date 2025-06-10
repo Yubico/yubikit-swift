@@ -62,6 +62,11 @@ public final actor OATHSession: Session {
         selectResponse.version
     }
 
+    // true means that the OATH session is locked
+    public nonisolated var isAccessKeySet: Bool {
+        selectResponse.challenge != nil && !selectResponse.challenge!.isEmpty
+    }
+
     private init(connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws {
         self.selectResponse = try await Self.selectApplication(withConnection: connection)
         if let scpKeyParams {

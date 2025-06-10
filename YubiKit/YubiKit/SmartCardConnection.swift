@@ -39,6 +39,18 @@ public struct SmartCardConnection: Sendable {
             return allSlots.filter { slot in slot.name.lowercased().contains("yubikey") }
         }
     }
+
+    // returns true if this device supports SmartCard over USB
+    // probably can be done in better Swift way
+    // only support USB connections if the manager is supported and there are available slots
+    static var isSupported: Bool {
+        get async throws {
+            if (!SmartCardConnectionsManager.isSupported) {
+                return false
+            }
+            return try await SmartCardConnectionsManager.shared.slots.count > 0
+        }
+    }
 }
 
 extension SmartCardConnection: Connection {
@@ -129,6 +141,10 @@ private final actor SmartCardConnectionsManager {
     private let slotManager = TKSmartCardSlotManager.default!
 
     private var connections = [SmartCardSlot: ConnectionState]()
+
+    static var isSupported: Bool {
+        return TKSmartCardSlotManager.default != nil
+    }
 
     var slots: [SmartCardSlot] {
         get throws {

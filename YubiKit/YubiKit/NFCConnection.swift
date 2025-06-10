@@ -257,7 +257,7 @@ private final actor NFCConnectionManager: NSObject {
             currentState.session?.invalidate(errorMessage: errorMessage!)
         }
 
-        currentState.session?.invalidate()
+        //currentState.session?.invalidate() // extra invalidate here?
         // Workaround for the NFC session being active for an additional 4 seconds after
         // invalidate() has been called on the session.
         try? await Task.sleep(nanoseconds: 5_000_000_000)
@@ -314,7 +314,11 @@ extension NFCConnectionManager: NFCTagReaderSessionDelegate {
             return
         }
 
-        Task { await connected(session: session, tag: firstTag) }
+        Task {
+            // change the message in the bottom sheet UI
+            session.alertMessage = "Hold the key..."
+            await connected(session: session, tag: firstTag)
+        }
     }
 }
 

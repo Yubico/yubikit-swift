@@ -62,8 +62,10 @@ public enum ConnectionHelper {
                 try await LightningConnection.connection()
             }
             #endif
-            group.addTask {
-                try await SmartCardConnection.connection()
+            if try await SmartCardConnection.isSupported {
+                group.addTask {
+                    try await SmartCardConnection.connection()
+                }
             }
             let result = try await group.next()!
             group.cancelAll()
@@ -81,8 +83,10 @@ public enum ConnectionHelper {
                 try await LightningConnection.connection()
             }
             #endif
-            group.addTask {
-                try await SmartCardConnection.connection()
+            if try await SmartCardConnection.isSupported {
+                group.addTask {
+                    try await SmartCardConnection.connection()
+                }
             }
             let result = try await group.next()!
             group.cancelAll()

@@ -65,12 +65,22 @@ class OATHListModel: OATHListModelProtocol {
     #if os(iOS)
     @MainActor func calculateNFCCodes() {
         Task {
+            // the idea of this change it to make sure, that if an error occured,
+            // we call close(error)
+            // there must exists better way how to write this in swift
+            var connection: Connection? = nil
             do {
                 self.error = nil
-                let connection = try await NFCConnection.connection()
-                try await calculateCodes(connection: connection)
-                await connection.nfcConnection?.close(message: "Code calculated")
+                connection = try await NFCConnection.connection()
+                if (connection != nil) {
+                    try await calculateCodes(connection: connection!)
+                    await connection!.nfcConnection?.close(message: "Code calculated")
+                }
             } catch {
+                if (connection != nil) {
+                    await connection!.nfcConnection?.close(error: error)
+                }
+                self.accounts = []
                 self.error = error
             }
         }
@@ -81,10 +91,26 @@ class OATHListModel: OATHListModelProtocol {
 
     @MainActor private func calculateCodes(connection: Connection) async throws {
         self.error = nil
-        let session = try await OATHSession.session(withConnection: connection)
-        let result = try await session.calculateCodes()
-        self.accounts = result.map { Account(label: $0.0.label, code: $0.1?.code ?? "****") }
-        self.source = connection.connectionType
+        do {
+            let session = try await OATHSession.session(withConnection: connection)
+            if (session.isAccessKeySet) {
+                // FIPS keys always have a password
+                // to simplify we hardcoded here
+                try await session.unlockWithPassword("11234567")
+            }
+            // will ios kill the connection when it takes long time?
+            // There are 2 timeouts:
+            //   - Session timeout (counted since begin()) which is ~1 minute
+            //   - tag timeout (counted since tagReader:didDetect) which is ~20 seconsd :')
+            // calculate all code several times using the same connection/session
+            try await session.calculateCodes() // sometimes can this line cause a timeout already
+            // try await session.calculateCodes() // including this line takes too long on FIPS with 64 SHA512 account
+            let result = try await session.calculateCodes()
+            self.accounts = result.map { Account(label: $0.0.label, code: $0.1?.code ?? "****") }
+            self.source = connection.connectionType
+        } catch {
+            self.error = error
+        }
     }
 }
 
