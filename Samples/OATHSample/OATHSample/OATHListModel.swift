@@ -37,6 +37,7 @@ class OATHListModel: OATHListModelProtocol {
     }
 
     func startWiredConnection() {
+        wiredConnectionTask?.cancel()
         wiredConnectionTask = Task { @MainActor in
             while true {
                 do {
@@ -63,8 +64,8 @@ class OATHListModel: OATHListModelProtocol {
     }
 
     #if os(iOS)
-    @MainActor func calculateNFCCodes() {
-        Task {
+    func calculateNFCCodes() {
+        Task { @MainActor in
             do {
                 self.error = nil
                 let connection = try await NFCConnection.connection()

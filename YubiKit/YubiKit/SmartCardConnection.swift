@@ -22,15 +22,12 @@ import OSLog
 public struct SmartCardConnection: Sendable {
     let slot: SmartCardSlot
 
-    private static let manager = SmartCardConnectionsManager.shared
-    private let manager = SmartCardConnectionsManager.shared
-
     private var didClose: Promise<Error?> {
-        get async { await manager.didClose(for: self) }
+        get async { await SmartCardConnectionsManager.shared.didClose(for: self) }
     }
 
     private var isConnected: Bool {
-        get async { await manager.isConnected(for: self) }
+        get async { await SmartCardConnectionsManager.shared.isConnected(for: self) }
     }
 
     static var availableSlots: [SmartCardSlot] {
@@ -46,7 +43,7 @@ extension SmartCardConnection: Connection {
     // @TraceScope
     public static func connection() async throws -> Connection {
 
-        guard let slot = try await manager.slots.first else {
+        guard let slot = try await SmartCardConnectionsManager.shared.slots.first else {
             throw SmartCardConnectionError.noAvailableSlots
         }
         // trace(message: "got slot: \(slot)")
@@ -79,7 +76,7 @@ extension SmartCardConnection: Connection {
             // trace(message: "no connection – throwing .noConnection")
             throw ConnectionError.noConnection
         }
-        let response = try await manager.transmit(request: data, for: self)
+        let response = try await SmartCardConnectionsManager.shared.transmit(request: data, for: self)
         // trace(message: "transmit returned \(response.count) bytes")
         return response
     }
