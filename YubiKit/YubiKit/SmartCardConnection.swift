@@ -23,17 +23,16 @@ public struct SmartCardConnection: Sendable {
     let slot: SmartCardSlot
 
     private var didClose: Promise<Error?> {
-        get async { await SmartCardConnectionsManager.shared.didClose(for: self) }
+        get async throws { try await SmartCardConnectionsManager.shared.didClose(for: self) }
     }
 
     private var isConnected: Bool {
-        get async { await SmartCardConnectionsManager.shared.isConnected(for: self) }
+        get async throws { await SmartCardConnectionsManager.shared.isConnected(for: self) }
     }
 
     static var availableSlots: [SmartCardSlot] {
         get async throws {
-            let allSlots = try await SmartCardConnectionsManager.shared.slots
-            return allSlots.filter { slot in slot.name.lowercased().contains("yubikey") }
+            try await SmartCardConnectionsManager.shared.availableSlots()
         }
     }
 }
@@ -42,25 +41,24 @@ extension SmartCardConnection: Connection {
 
     // @TraceScope
     public static func connection() async throws -> Connection {
-
-        guard let slot = try await SmartCardConnectionsManager.shared.slots.first else {
-            throw SmartCardConnectionError.noAvailableSlots
+        while true {
+            guard let slot = try await availableSlots.first else {
+                try await Task.sleep(for: .seconds(1))
+                continue
+            }
+            return try await connection(slot: slot)
         }
-        // trace(message: "got slot: \(slot)")
-
-        return try await SmartCardConnectionsManager.shared.connect(slot: slot)
     }
 
     // @TraceScope
     public static func connection(slot: SmartCardSlot) async throws -> Connection {
-
         try await SmartCardConnectionsManager.shared.connect(slot: slot)
     }
 
     // @TraceScope
     public func close(error: Error?) async {
 
-        await didClose.fulfill(error)
+        try? await didClose.fulfill(error)
         // trace(message: "disconnect called on sessionManager")
     }
 
@@ -72,7 +70,7 @@ extension SmartCardConnection: Connection {
     // @TraceScope
     public func send(data: Data) async throws -> Data {
 
-        guard await isConnected else {
+        guard try await isConnected else {
             // trace(message: "no connection – throwing .noConnection")
             throw ConnectionError.noConnection
         }
@@ -102,7 +100,8 @@ public struct SmartCardSlot: Sendable, Hashable, CustomStringConvertible {
 
     public var description: String { name }
 
-    fileprivate init(name: String) {
+    fileprivate init?(name: String) {
+        guard name.lowercased().contains("yubikey") else { return nil }
         self.name = name
     }
 }
@@ -118,16 +117,13 @@ private final actor SmartCardConnectionsManager {
 
     // Singleton
     static let shared = SmartCardConnectionsManager()
+    private init() {}
 
     // We must lock around slot.makeSmartCard() and card.beginSession()
     // we can only establish a connection at once
     private var isEstablishing: Bool = false
 
-    private let slotManager = TKSmartCardSlotManager.default!
-
-    private var connections = [SmartCardSlot: ConnectionState]()
-
-    var slots: [SmartCardSlot] {
+    private var slotManager: TKSmartCardSlotManager {
         get throws {
             guard let manager = TKSmartCardSlotManager.default else {
                 assertionFailure("🪪 No default TKSmartCardSlotManager, check entitlements for com.apple.smartcard.")
@@ -135,24 +131,36 @@ private final actor SmartCardConnectionsManager {
                 throw SmartCardConnectionError.unsupported
             }
 
-            return manager.slotNames.map(SmartCardSlot.init(name:))
+            return manager
         }
     }
 
+    private var connections = [SmartCardSlot: ConnectionState]()
+
     // @TraceScope
-    func didClose(for connection: SmartCardConnection) -> Promise<Error?> {
-        connections[connection.slot]!.didClose
+    func didClose(for connection: SmartCardConnection) throws -> Promise<Error?> {
+        guard let state = connections[connection.slot] else {
+            throw ConnectionError.noConnection
+        }
+
+        return state.didClose
     }
 
     // @TraceScope
     func isConnected(for connection: SmartCardConnection) -> Bool {
-        let card = connections[connection.slot]!.card
+        guard let card = connections[connection.slot]?.card else {
+            return false
+        }
+
         return card.isValid && card.currentProtocol != []
     }
 
     // @TraceScope
     func transmit(request: Data, for connection: SmartCardConnection) async throws -> Data {
-        let card = connections[connection.slot]!.card
+        guard let card = connections[connection.slot]?.card else {
+            throw ConnectionError.noConnection
+        }
+
         return try await card.transmit(request)
     }
 
@@ -164,10 +172,6 @@ private final actor SmartCardConnectionsManager {
             // finish it
             await state.didClose.fulfill(nil)
             connections[slot] = nil
-
-            // clean state and return a new one
-            connections[slot] = ConnectionState(card: state.card)
-            return SmartCardConnection(slot: SmartCardSlot(name: state.card.slot.name))
         }
 
         // To proceed with a new connection we need to acquire a lock
@@ -178,7 +182,7 @@ private final actor SmartCardConnectionsManager {
 
         // get a TKSmartCard from a slot
         // can fail if no cards are connected
-        let tkSlot = await slotManager.getSlot(withName: slot.name)
+        let tkSlot = try await slotManager.getSlot(withName: slot.name)
 
         guard let tkSlot else {
             // trace(message: "slot came back as nil")
@@ -200,6 +204,10 @@ private final actor SmartCardConnectionsManager {
         // create a new state and return a new connection
         connections[slot] = ConnectionState(card: card)
         return SmartCardConnection(slot: slot)
+    }
+
+    func availableSlots() async throws -> [SmartCardSlot] {
+        try slotManager.slotNames.compactMap(SmartCardSlot.init)
     }
 }
 
