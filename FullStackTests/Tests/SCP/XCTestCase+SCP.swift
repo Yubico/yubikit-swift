@@ -35,7 +35,7 @@ extension XCTestCase: HasTestLogger {
     ) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) { [logger] in
 
-            let connection = try await AllowedConnections.anyConnection()
+            let connection = try await TestableConnections.create()
 
             // reset YubiKey's SCP state to the factory default
             try await SecurityDomainSession.session(withConnection: connection).reset()

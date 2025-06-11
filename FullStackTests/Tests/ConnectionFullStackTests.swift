@@ -20,57 +20,7 @@ import XCTest
 
 class ConnectionFullStackTests: XCTestCase {
 
-    // Change Connection to test different types of connections
     typealias Connection = SmartCardConnection
-
-    #if os(iOS)
-    func testNFCAlertMessage() throws {
-        runAsyncTest {
-            do {
-                let connection = try await NFCConnection.connection(alertMessage: "Test Alert Message")
-                guard try await connection.isAllowed() else {
-                    XCTFail("🚨 YubiKey not in allow-list!")
-                    return
-                }
-                connection.nfcConnection?.setAlertMessage("Updated Alert Message")
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                await connection.nfcConnection?.close(message: "Closing Alert Message")
-            } catch {
-                XCTFail("🚨 Failed with: \(error)")
-            }
-        }
-    }
-
-    func testNFCClosingErrorMessage() throws {
-        runAsyncTest {
-            do {
-                let connection = try await NFCConnection.connection(alertMessage: "Test Alert Message")
-                guard try await connection.isAllowed() else {
-                    XCTFail("🚨 YubiKey not in allow-list!")
-                    return
-                }
-                await connection.close(error: nil)
-            } catch {
-                XCTFail("🚨 Failed with: \(error)")
-            }
-        }
-    }
-
-    #endif
-
-    func testSmartCardConnectionWithSlot() throws {
-        runAsyncTest {
-            let allSlots = try await SmartCardConnection.availableSlots
-            allSlots.enumerated().forEach { index, slot in
-                print("\(index): \(slot.name)")
-            }
-            let random = allSlots.randomElement()
-            XCTAssertNotNil(random)  // we need at least one YubiKey connected
-            let connection = try await SmartCardConnection.connection(slot: random!)
-            print("✅ Got connection \(connection)")
-            XCTAssertNotNil(connection)
-        }
-    }
 
     func testSingleConnection() throws {
         runAsyncTest {
@@ -88,17 +38,13 @@ class ConnectionFullStackTests: XCTestCase {
         runAsyncTest {
             do {
                 let firstConnection = try await Connection.connection()
-                guard try await firstConnection.isAllowed() else {
-                    XCTFail("🚨 YubiKey not in allow-list!")
-                    return
-                }
                 print("✅ Got first connection \(firstConnection)")
                 let task = Task {
                     let result = await firstConnection.connectionDidClose()
                     print("✅ First connection did close")
                     return result
                 }
-                try? await Task.sleep(nanoseconds: 1_000_000)
+                try? await Task.sleep(for: .seconds(1))
                 let secondConnection = try await Connection.connection()
                 print("✅ Got second connection \(secondConnection)")
                 XCTAssertNotNil(secondConnection)
@@ -187,4 +133,54 @@ class ConnectionFullStackTests: XCTestCase {
             }
         }
     }
+}
+
+#if os(iOS)
+class NFCFullStackTests: XCTestCase {
+
+    func testNFCAlertMessage() throws {
+        runAsyncTest {
+            do {
+                let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
+                await connection.nfcConnection?.setAlertMessage("Updated Alert Message")
+                try? await Task.sleep(for: .seconds(1))
+                await connection.nfcConnection?.close(message: "Closing Alert Message")
+            } catch {
+                XCTFail("🚨 Failed with: \(error)")
+            }
+        }
+    }
+
+    func testNFCClosingErrorMessage() throws {
+        runAsyncTest {
+            do {
+                let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
+                await connection.close(error: nil)
+            } catch {
+                XCTFail("🚨 Failed with: \(error)")
+            }
+        }
+    }
+
+}
+#endif
+
+class SmartCardConnectionFullStackTests: XCTestCase {
+
+    func testSmartCardConnectionWithSlot() throws {
+        runAsyncTest {
+            let allSlots = try await SmartCardConnection.availableSlots
+            allSlots.enumerated().forEach { index, slot in
+                print("\(index): \(slot.name)")
+            }
+            let random = allSlots.randomElement()
+            // we need at least one YubiKey connected
+            XCTAssertNotNil(random)
+            guard let random else { return }
+            let connection = try await SmartCardConnection.connection(slot: random)
+            print("✅ Got connection \(connection)")
+            XCTAssertNotNil(connection)
+        }
+    }
+
 }

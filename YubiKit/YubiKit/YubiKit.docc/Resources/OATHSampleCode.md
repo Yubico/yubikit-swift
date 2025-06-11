@@ -20,7 +20,7 @@ The other view simply displays the version number of the YubiKey. This view also
 ## OATH view
 
 The main function of the OATH part of the app is the `startWiredConnection()` function. This will cancel any previous
-`wiredConnectionTask` and create a new one. In the Task it will use the ``ConnectionHelper`` to start waiting for
+`wiredConnectionTask` and create a new one. In the Task it will use the ``Connections`` helper to start waiting for
 a wired connection. Depending on the device this will either be a ``LightningConnection`` or a ``SmartCardConnection``.
 Once a connection has been established we check that the task hasn't been cancelled before proceeding.
 The `calculateCodes(connection:)` function creates a new ``OATHSession`` and
@@ -28,29 +28,31 @@ calls `.calculateCodes()` on the session. The result is then used to populate th
 
 At this point the app will wait for the connection to close. This can be caused by the user unplugging the YubiKey or
 a connection error of some sort forcing the connection to close. If the connection is closed the app will clean up
-the user interface and recursively call `startWiredConnection()` again.
+the user interface and loop around `startWiredConnection()` again.
 ```swift
-@MainActor func startWiredConnection() {
+func startWiredConnection() {
     wiredConnectionTask?.cancel()
-    wiredConnectionTask = Task {
-        do {
-            error = nil
-            // Wait for a suitable wired connection for the current device.
-            let connection = try await ConnectionHelper.anyWiredConnection()
-            guard !Task.isCancelled else { return }
-            try await self.calculateCodes(connection: connection)
-            // Wait for the connection to close, i.e the YubiKey to be unplugged from the device.
-            // If the YubiKey was simply unplugged it will return nil, otherwise the error
-            // causing the disconnect will be returned.
-            self.error = await connection.connectionDidClose()
-            self.accounts.removeAll()
-            self.source = "no connection"
-            guard !Task.isCancelled else { return }
-            // Restart the wired connection and go back to waiting for a YubiKey to be
-            // inserted again.
-            self.startWiredConnection()
-        } catch {
-            self.error = error
+    wiredConnectionTask = Task { @MainActor in
+        while true {
+            do {
+                error = nil
+                guard !Task.isCancelled else { return }
+                // Wait for a suitable wired connection for the current device.
+                let connection = try await WiredConnection.connection()
+                guard !Task.isCancelled else { return }
+                try await calculateCodes(connection: connection)
+                // Wait for the connection to close, i.e the YubiKey to be unplugged from the device.
+                // If the YubiKey was simply unplugged it will return nil, otherwise the error
+                // causing the disconnect will be returned.
+                guard !Task.isCancelled else { return }
+                error = await connection.connectionDidClose()
+                accounts.removeAll()
+                source = "no connection"
+                continue
+            } catch (let e) {
+                error = e
+                continue
+            }
         }
     }
 }
@@ -59,7 +61,7 @@ the user interface and recursively call `startWiredConnection()` again.
     self.error = nil
     let session = try await OATHSession.session(withConnection: connection)
     let result = try await session.calculateCodes()
-    self.accounts = result.map { return Account(label: $0.0.label, code: $0.1?.code ?? "****") }
+    self.accounts = result.map { Account(label: $0.0.label, code: $0.1?.code ?? "****") }
     self.source = connection.connectionType
 }
 ```
@@ -69,28 +71,18 @@ the user interface and recursively call `startWiredConnection()` again.
 To bring up the settings view we've added a `Button` to the `OATHListView`. The button will stop
 any wired connections and cancel the wait for new connections. It will then present the `SettingsView`
 as a SwiftUI sheet.
-```swift
-Button(action: { model.stopWiredConnection(); isPresentingSettings.toggle() }) {
-    Image(systemName: "ellipsis.circle")
-}
-.sheet(isPresented: $isPresentingSettings, onDismiss: {
-    model.startWiredConnection() // Restart wired connection once the SettingsView has been dismissed.
-}, content: {
-    SettingsView(model: SettingsModel())
-})
-```
 
 The `SettingsModel` is simpler since it will only retrieve the version number once when it appears
 and it does not handle YubiKeys being unplugged and plugged back again. In this case we can use the
-`ConnectionHelper.anyConnection()` function that will return any wired YubiKey that might be connected
+`Connection.anyConnection()` function that will return any wired YubiKey that might be connected
 or, if no wired key is present it will start scanning for a NFC key. Once connected we create 
 the ``ManagementSession`` and get the key version.
 ```swift
-@MainActor func getKeyVersion() {
-    Task {
+func getKeyVersion() {
+    Task { @MainActor in
         self.error = nil
         do {
-            let connection = try await ConnectionHelper.anyConnection()
+            let connection = try await AnyConnection.connection()
             let session = try await ManagementSession.session(withConnection: connection)
             self.keyVersion = session.version.description
             #if os(iOS)
