@@ -38,7 +38,7 @@ func startWiredConnection() {
                 error = nil
                 guard !Task.isCancelled else { return }
                 // Wait for a suitable wired connection for the current device.
-                let connection = try await Connection.new(kind: .wired)
+                let connection = try await WiredConnection.connection()
                 guard !Task.isCancelled else { return }
                 try await calculateCodes(connection: connection)
                 // Wait for the connection to close, i.e the YubiKey to be unplugged from the device.
@@ -74,7 +74,7 @@ as a SwiftUI sheet.
 
 The `SettingsModel` is simpler since it will only retrieve the version number once when it appears
 and it does not handle YubiKeys being unplugged and plugged back again. In this case we can use the
-`Connection.new()` function that will return any wired YubiKey that might be connected
+`Connection.anyConnection()` function that will return any wired YubiKey that might be connected
 or, if no wired key is present it will start scanning for a NFC key. Once connected we create 
 the ``ManagementSession`` and get the key version.
 ```swift
@@ -82,7 +82,7 @@ func getKeyVersion() {
     Task { @MainActor in
         self.error = nil
         do {
-            let connection = try await Connection.new()
+            let connection = try await AnyConnection.connection()
             let session = try await ManagementSession.session(withConnection: connection)
             self.keyVersion = session.version.description
             #if os(iOS)

@@ -44,7 +44,7 @@ class OATHListModel: OATHListModelProtocol {
                     error = nil
                     guard !Task.isCancelled else { return }
                     // Wait for a suitable wired connection for the current device.
-                    let connection = try await Connections.new(kind: .wired)
+                    let connection = try await WiredConnection.connection()
                     guard !Task.isCancelled else { return }
                     try await calculateCodes(connection: connection)
                     // Wait for the connection to close, i.e the YubiKey to be unplugged from the device.

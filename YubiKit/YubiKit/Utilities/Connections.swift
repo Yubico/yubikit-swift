@@ -18,24 +18,47 @@ import Foundation
 import CoreNFC
 #endif
 
-/// ConnectionHelper simplifies the creation of different connections to the YubiKey. It can either return
-/// a connection of any type from a single function or provide a AsyncSequence implementation allowing
-/// you to use a for loop awaiting YubiKeys to be inserted and removed from a device.
-///
-/// The ConnectionHelper provides functions to simplify implementation supporting different types of
-/// connections.
-///
-/// ```swift
-///// Get a Lightning or a SmartCard connection to the YubiKey
-///let wiredConnection = try await Connections.new(kind: .wired)
-///
-///// Get a wired or an NFC connection to the YubiKey. If no wired YubiKey
-///// is present and the device supports NFC the SDK will start a NFC scan.
-///let someConnection = try await Connections.new()
-/// ```
-public enum Connections {
+public enum WiredConnection {
+    /// Establishes a Lightning or SmartCard connection to a YubiKey.
+    ///
+    /// Call this method to connect to a YubiKey using a wired interface such as Lightning or SmartCard.
+    /// The method will suspend until a compatible YubiKey is detected and a connection is established.
+    ///
+    /// - Returns: A ``Connection`` instance representing the established wired connection.
+    /// - Throws: An error if a connection could not be established.
+    ///
+    /// ```swift
+    /// let wiredConnection = try await WiredConnection.connection()
+    /// ```
+    public static func connection() async throws -> Connection {
+        try await Connections.new(kind: .wired)
+    }
+}
 
-    public enum Kind {
+public enum AnyConnection {
+    /// Establishes a connection to a YubiKey over either wired or NFC.
+    ///
+    /// Use this method to connect to a YubiKey using any available interface. If no wired YubiKey
+    /// is present and the device supports NFC, the SDK will initiate an NFC scan.
+    ///
+    /// You can optionally provide a custom NFC alert message to be displayed to the user when
+    /// prompting for NFC scanning.
+    ///
+    /// - Parameter nfcAlertMessage: An optional message shown to the user during NFC scanning.
+    /// - Returns: A ``Connection`` instance representing the established connection, either wired or NFC.
+    /// - Throws: An error if a connection could not be established.
+    ///
+    /// ```swift
+    /// let someConnection = try await AnyConnection.connection()
+    /// ```
+    public static func connection(nfcAlertMessage: String? = nil) async throws -> Connection {
+        try await Connections.new(kind: .any(nfcAlertMessage: nfcAlertMessage))
+    }
+}
+
+private enum Connections {
+
+    fileprivate enum Kind {
         case smartCard
         case wired
         case any(nfcAlertMessage: String? = nil)
@@ -50,7 +73,7 @@ public enum Connections {
         #endif
     }
 
-    public static func new(kind: Connections.Kind = .any()) async throws -> Connection {
+    fileprivate static func new(kind: Connections.Kind) async throws -> Connection {
         switch kind {
         case .smartCard:
             return try await SmartCardConnection.connection()

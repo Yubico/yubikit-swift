@@ -56,5 +56,5 @@ class SettingsModelPreview: SettingsModelProtocol {
     @Published private(set) var keyVersion: String? = "5.4.2"
     @Published private(set) var connection: String? = "SmartCard"
     @Published private(set) var error: Error?
-    @MainActor func getKeyVersion() {}
+    func getKeyVersion() {}
 }

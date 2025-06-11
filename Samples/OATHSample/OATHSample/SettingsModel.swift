@@ -32,7 +32,7 @@ class SettingsModel: SettingsModelProtocol {
         Task { @MainActor in
             self.error = nil
             do {
-                let connection = try await Connections.new()
+                let connection = try await AnyConnection.connection()
                 let session = try await ManagementSession.session(withConnection: connection)
                 self.keyVersion = session.version.description
                 #if os(iOS)
