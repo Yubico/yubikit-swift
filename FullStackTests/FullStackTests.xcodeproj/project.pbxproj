@@ -23,7 +23,6 @@
 		B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */; };
 		B481051F2AAB6029006664AE /* ConnectionFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */; };
 		B4F9375A2B518A8B0007D394 /* AllowedConnections.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937592B518A8B0007D394 /* AllowedConnections.swift */; };
-		B4F9375C2B519C270007D394 /* allowed-yubikeys.csv in Resources */ = {isa = PBXBuildFile; fileRef = B4F9375B2B5199AE0007D394 /* allowed-yubikeys.csv */; };
 		B4F9375F2B519D940007D394 /* Logger+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */; };
 		B4F937642B51A7DD0007D394 /* PIVFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */; };
 /* End PBXBuildFile section */
@@ -57,7 +56,6 @@
 		B45C0B6A28FEE4910077EE2A /* FullStackTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "FullStackTests-Info.plist"; sourceTree = "<group>"; };
 		B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionFullStackTests.swift; sourceTree = "<group>"; };
 		B4F937592B518A8B0007D394 /* AllowedConnections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllowedConnections.swift; sourceTree = SOURCE_ROOT; };
-		B4F9375B2B5199AE0007D394 /* allowed-yubikeys.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "allowed-yubikeys.csv"; sourceTree = "<group>"; };
 		B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Extensions.swift"; sourceTree = "<group>"; };
 		B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVFullStackTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -92,7 +90,6 @@
 		51BBE400273D1AA100DA47CC = {
 			isa = PBXGroup;
 			children = (
-				B4F9375B2B5199AE0007D394 /* allowed-yubikeys.csv */,
 				B4F937592B518A8B0007D394 /* AllowedConnections.swift */,
 				B45C0B6A28FEE4910077EE2A /* FullStackTests-Info.plist */,
 				B45C0B6928FEE1250077EE2A /* FullStackTests.entitlements */,
@@ -258,7 +255,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B4F9375C2B519C270007D394 /* allowed-yubikeys.csv in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
