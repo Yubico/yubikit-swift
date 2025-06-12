@@ -17,41 +17,42 @@
 /// Validates key generation, encoding, decoding, SecKey conversions, and equality for EC keys.
 
 import CommonCrypto
-import XCTest
+import Foundation
+import Testing
 
 @testable import YubiKit
 
 /// Tests for EC key size, generation, encoding/decoding, and SecKey interoperability.
-final class ECKeysTests: XCTestCase {
+struct ECKeysTests {
 
     // MARK: - Curve Properties
 
     /// Test curve coordinate and key size properties.
-    func testCurveSizeProperties() {
-        XCTAssertEqual(EC.Curve.p256.keySizeInBits, 256)
-        XCTAssertEqual(EC.Curve.p384.keySizeInBits, 384)
-        XCTAssertEqual(EC.Curve.p256.keySizeInBytes, 32)
-        XCTAssertEqual(EC.Curve.p384.keySizeInBytes, 48)
+    @Test func curveSizeProperties() {
+        #expect(EC.Curve.p256.keySizeInBits == 256)
+        #expect(EC.Curve.p384.keySizeInBits == 384)
+        #expect(EC.Curve.p256.keySizeInBytes == 32)
+        #expect(EC.Curve.p384.keySizeInBytes == 48)
     }
 
     // MARK: - Key Generation
 
     /// Test random EC private key generation and its properties.
-    func testGenerateRandomPrivateKey() throws {
+    @Test func generateRandomPrivateKey() throws {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {
             let privKey = EC.PrivateKey.random(curve: curve)!
-            XCTAssertEqual(privKey.publicKey.curve, curve)
-            XCTAssertEqual(privKey.publicKey.x.count, curve.keySizeInBytes)
-            XCTAssertEqual(privKey.publicKey.y.count, curve.keySizeInBytes)
-            XCTAssertEqual(privKey.k.count, curve.keySizeInBytes)
+            #expect(privKey.publicKey.curve == curve)
+            #expect(privKey.publicKey.x.count == curve.keySizeInBytes)
+            #expect(privKey.publicKey.y.count == curve.keySizeInBytes)
+            #expect(privKey.k.count == curve.keySizeInBytes)
         }
     }
 
     // MARK: - SecKey Conversion
 
     /// Test conversion from EC keys to SecKey.
-    func testAsSecKeyConversion() throws {
+    @Test func asSecKeyConversion() throws {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {
             let privKey = EC.PrivateKey.random(curve: curve)!
@@ -59,15 +60,15 @@ final class ECKeysTests: XCTestCase {
 
             let secPrivKey = privKey.asSecKey()
             let secPubKey = pubKey.asSecKey()
-            XCTAssertNotNil(secPrivKey)
-            XCTAssertNotNil(secPubKey)
+            #expect(secPrivKey != nil)
+            #expect(secPubKey != nil)
         }
     }
 
     // MARK: - Encoding and Decoding
 
     /// End-to-end test of key generation, encoding, decoding, and comparison for all key components.
-    func testRandomKeyGenerateEncodeDecodeCompare() throws {
+    @Test func randomKeyGenerateEncodeDecodeCompare() throws {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {
             // Generate a random key
@@ -82,50 +83,50 @@ final class ECKeysTests: XCTestCase {
             let decodedPub = EC.PublicKey(uncompressedPoint: pubRaw)
 
             // Compare all components of private key
-            XCTAssertNotNil(decodedPriv)
-            XCTAssertEqual(decodedPriv?.publicKey.x, privKey.publicKey.x)
-            XCTAssertEqual(decodedPriv?.publicKey.y, privKey.publicKey.y)
-            XCTAssertEqual(decodedPriv?.k, privKey.k)
+            #expect(decodedPriv != nil)
+            #expect(decodedPriv?.publicKey.x == privKey.publicKey.x)
+            #expect(decodedPriv?.publicKey.y == privKey.publicKey.y)
+            #expect(decodedPriv?.k == privKey.k)
 
             // Compare all components of public key
-            XCTAssertNotNil(decodedPub)
-            XCTAssertEqual(decodedPub?.x, privKey.publicKey.x)
-            XCTAssertEqual(decodedPub?.y, privKey.publicKey.y)
+            #expect(decodedPub != nil)
+            #expect(decodedPub?.x == privKey.publicKey.x)
+            #expect(decodedPub?.y == privKey.publicKey.y)
         }
     }
 
     /// Test decoding of invalid representation returns nil.
-    func testDecodeInvalidRawReturnsNil() {
+    @Test func decodeInvalidRawReturnsNil() {
         let invalid = Data([0x00, 0x01, 0x02])
         let curves: [EC.Curve] = [.p256, .p384]
         for _ in curves {
             let decodedPriv = EC.PrivateKey(uncompressedRepresentation: invalid)
-            XCTAssertNil(decodedPriv)
+            #expect(decodedPriv == nil)
             let decodedPub = EC.PublicKey(uncompressedPoint: invalid)
-            XCTAssertNil(decodedPub)
+            #expect(decodedPub == nil)
         }
     }
 
     // MARK: - Public Key SecKey Round Trip
 
     /// Test round-trip conversion from EC.PublicKey to SecKey and back, validating integrity.
-    func testPublicKeyToSecKeyAndBack() throws {
+    @Test func publicKeyToSecKeyAndBack() throws {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {
             let originalPrivKey = EC.PrivateKey.random(curve: curve)!
             let originalPubKey = originalPrivKey.publicKey
 
-            let publicSecKey = try XCTUnwrap(originalPubKey.asSecKey())
+            let publicSecKey = try #require(originalPubKey.asSecKey())
             var error: Unmanaged<CFError>?
             let publicDERFromSecKey = SecKeyCopyExternalRepresentation(publicSecKey, &error) as Data?
-            XCTAssertNotNil(publicDERFromSecKey)
+            #expect(publicDERFromSecKey != nil)
 
             // Re-initialize EC.PublicKey from this uncompressed data
             if let pubRaw = publicDERFromSecKey {
                 let roundTrippedPubKey = EC.PublicKey(uncompressedPoint: pubRaw)
-                XCTAssertNotNil(roundTrippedPubKey)
-                XCTAssertEqual(roundTrippedPubKey?.x, originalPubKey.x)
-                XCTAssertEqual(roundTrippedPubKey?.y, originalPubKey.y)
+                #expect(roundTrippedPubKey != nil)
+                #expect(roundTrippedPubKey?.x == originalPubKey.x)
+                #expect(roundTrippedPubKey?.y == originalPubKey.y)
             }
         }
     }
@@ -133,23 +134,23 @@ final class ECKeysTests: XCTestCase {
     // MARK: - Private Key SecKey Round Trip
 
     /// Test round-trip conversion from EC.PrivateKey to SecKey and back, validating integrity.
-    func testPrivateKeyToSecKeyAndBack() throws {
+    @Test func privateKeyToSecKeyAndBack() throws {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {
             let originalPrivKey = EC.PrivateKey.random(curve: curve)!
 
-            let privateSecKey = try XCTUnwrap(originalPrivKey.asSecKey())
+            let privateSecKey = try #require(originalPrivKey.asSecKey())
             var error: Unmanaged<CFError>?
             let privateDERFromSecKey = SecKeyCopyExternalRepresentation(privateSecKey, &error) as Data?
-            XCTAssertNotNil(privateDERFromSecKey)
+            #expect(privateDERFromSecKey != nil)
 
             // Re-initialize EC.PrivateKey from this uncompressed data
             if let privRaw = privateDERFromSecKey {
                 let roundTrippedPrivKey = EC.PrivateKey(uncompressedRepresentation: privRaw)
-                XCTAssertNotNil(roundTrippedPrivKey)
-                XCTAssertEqual(roundTrippedPrivKey?.publicKey.x, originalPrivKey.publicKey.x)
-                XCTAssertEqual(roundTrippedPrivKey?.publicKey.y, originalPrivKey.publicKey.y)
-                XCTAssertEqual(roundTrippedPrivKey?.k, originalPrivKey.k)
+                #expect(roundTrippedPrivKey != nil)
+                #expect(roundTrippedPrivKey?.publicKey.x == originalPrivKey.publicKey.x)
+                #expect(roundTrippedPrivKey?.publicKey.y == originalPrivKey.publicKey.y)
+                #expect(roundTrippedPrivKey?.k == originalPrivKey.k)
             }
         }
     }

@@ -13,12 +13,13 @@
 // limitations under the License.
 
 import CommonCrypto
-import XCTest
+import Foundation
+import Testing
 import YubiKit
 
-final class OATHCredentialTemplateUnitTests: XCTestCase {
+struct OATHCredentialTemplateUnitTests {
 
-    func testTOTPWithURL() throws {
+    @Test func tOTPWithURL() throws {
         let url = URL(
             string:
                 "otpauth://totp/Issuer-in-path:john@example.com?secret=HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ&issuer=Issuer-in-parameter&algorithm=SHA256&digits=8&period=30"
@@ -26,38 +27,38 @@ final class OATHCredentialTemplateUnitTests: XCTestCase {
         do {
             let template = try OATHSession.CredentialTemplate(withURL: url)
             if case let OATHSession.CredentialType.TOTP(period) = template.type {
-                XCTAssert(period == 30)
+                #expect(period == 30)
             } else {
-                XCTFail("Wrong account type")
+                Issue.record("Wrong account type")
             }
-            XCTAssert(template.algorithm == .SHA256)
-            XCTAssert(template.digits == 8)
-            XCTAssert(template.name == "john@example.com")
-            XCTAssert(template.issuer == "Issuer-in-path")
+            #expect(template.algorithm == .SHA256)
+            #expect(template.digits == 8)
+            #expect(template.name == "john@example.com")
+            #expect(template.issuer == "Issuer-in-path")
         } catch {
-            XCTFail("Failed with error: \(error)")
+            Issue.record("Failed with error: \(error)")
         }
     }
 
-    func testTOTPWithIssuerInParameterWithURL() throws {
+    @Test func totpWithIssuerInParameterWithURL() throws {
         let url = URL(string: "otpauth://totp/john@example.com?secret=HXDM&issuer=Issuer-in-parameter")!
         do {
             let template = try OATHSession.CredentialTemplate(withURL: url)
             if case let OATHSession.CredentialType.TOTP(period) = template.type {
-                XCTAssert(period == 30)
+                #expect(period == 30)
             } else {
-                XCTFail("Wrong account type")
+                Issue.record("Wrong account type")
             }
-            XCTAssert(template.algorithm == .SHA1)
-            XCTAssert(template.digits == 6)
-            XCTAssert(template.name == "john@example.com")
-            XCTAssert(template.issuer == "Issuer-in-parameter")
+            #expect(template.algorithm == .SHA1)
+            #expect(template.digits == 6)
+            #expect(template.name == "john@example.com")
+            #expect(template.issuer == "Issuer-in-parameter")
         } catch {
-            XCTFail("Failed with error: \(error)")
+            Issue.record("Failed with error: \(error)")
         }
     }
 
-    func testTOTPWithDefaultsWithURL() throws {
+    @Test func tOTPWithDefaultsWithURL() throws {
         let url = URL(
             string:
                 "otpauth://totp/Issuer-in-path:john@example.com?secret=HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ&issuer=Issuer-in-parameter"
@@ -65,38 +66,38 @@ final class OATHCredentialTemplateUnitTests: XCTestCase {
         do {
             let template = try OATHSession.CredentialTemplate(withURL: url)
             if case let OATHSession.CredentialType.TOTP(period) = template.type {
-                XCTAssert(period == 30)
+                #expect(period == 30)
             } else {
-                XCTFail("Wrong account type")
+                Issue.record("Wrong account type")
             }
-            XCTAssert(template.algorithm == .SHA1)
-            XCTAssert(template.digits == 6)
-            XCTAssert(template.name == "john@example.com")
-            XCTAssert(template.issuer == "Issuer-in-path")
+            #expect(template.algorithm == .SHA1)
+            #expect(template.digits == 6)
+            #expect(template.name == "john@example.com")
+            #expect(template.issuer == "Issuer-in-path")
         } catch {
-            XCTFail("Failed with error: \(error)")
+            Issue.record("Failed with error: \(error)")
         }
     }
 
-    func testTOTPSkipValidationWithURL() throws {
+    @Test func totpSkipValidationWithURL() throws {
         let url = URL(string: "otpauth://totp/?secret=HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZ&issuer=Issuer-in-parameter")!
         do {
             let template = try OATHSession.CredentialTemplate(withURL: url, skipValidation: true)
             if case let OATHSession.CredentialType.TOTP(period) = template.type {
-                XCTAssert(period == 30)
+                #expect(period == 30)
             } else {
-                XCTFail("Wrong account type")
+                Issue.record("Wrong account type")
             }
-            XCTAssert(template.algorithm == .SHA1)
-            XCTAssert(template.digits == 6)
-            XCTAssert(template.name == "")
-            XCTAssert(template.issuer == nil)
+            #expect(template.algorithm == .SHA1)
+            #expect(template.digits == 6)
+            #expect(template.name == "")
+            #expect(template.issuer == nil)
         } catch {
-            XCTFail("Failed with error: \(error)")
+            Issue.record("Failed with error: \(error)")
         }
     }
 
-    func testHOTPWithURL() throws {
+    @Test func hotpWithURL() throws {
         let url = URL(
             string:
                 "otpauth://hotp/Issuer-in-path:john@example.com?secret=HXDM&issuer=Issuer-in-parameter&algorithm=SHA256&digits=8&counter=4711"
@@ -104,51 +105,51 @@ final class OATHCredentialTemplateUnitTests: XCTestCase {
         do {
             let template = try OATHSession.CredentialTemplate(withURL: url)
             if case let OATHSession.CredentialType.HOTP(counter) = template.type {
-                XCTAssert(counter == 4711)
+                #expect(counter == 4711)
             } else {
-                XCTFail("Wrong account type")
+                Issue.record("Wrong account type")
             }
-            XCTAssert(template.algorithm == .SHA256)
-            XCTAssert(template.digits == 8)
-            XCTAssert(template.name == "john@example.com")
-            XCTAssert(template.issuer == "Issuer-in-path")
+            #expect(template.algorithm == .SHA256)
+            #expect(template.digits == 8)
+            #expect(template.name == "john@example.com")
+            #expect(template.issuer == "Issuer-in-path")
         } catch {
-            XCTFail("Failed with error: \(error)")
+            Issue.record("Failed with error: \(error)")
         }
     }
 
-    func testHOTPWithDefaultsWithURL() throws {
+    @Test func hotpWithDefaultsWithURL() throws {
         let url = URL(string: "otpauth://hotp/Issuer-in-path:john@example.com?secret=HXDM&issuer=Issuer-in-parameter")!
         do {
             let template = try OATHSession.CredentialTemplate(withURL: url)
             if case let OATHSession.CredentialType.HOTP(counter) = template.type {
-                XCTAssert(counter == 0)
+                #expect(counter == 0)
             } else {
-                XCTFail("Wrong account type")
+                Issue.record("Wrong account type")
             }
-            XCTAssert(template.algorithm == .SHA1)
-            XCTAssert(template.digits == 6)
-            XCTAssert(template.name == "john@example.com")
-            XCTAssert(template.issuer == "Issuer-in-path")
+            #expect(template.algorithm == .SHA1)
+            #expect(template.digits == 6)
+            #expect(template.name == "john@example.com")
+            #expect(template.issuer == "Issuer-in-path")
         } catch {
-            XCTFail("Failed with error: \(error)")
+            Issue.record("Failed with error: \(error)")
         }
     }
 
-    func testShortSecretWithURL() throws {
+    @Test func shortSecretWithURL() throws {
         let url = URL(string: "otpauth://totp/yubico?secret=HXDM")!
         do {
             let template = try OATHSession.CredentialTemplate(withURL: url)
             let expectedSecret = Data([
                 0x3d, 0xc6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             ])
-            XCTAssertEqual(template.secret, expectedSecret)
+            #expect(template.secret == expectedSecret)
         } catch {
-            XCTFail("Failed with error: \(error)")
+            Issue.record("Failed with error: \(error)")
         }
     }
 
-    func testLongSHA1SecretWithURL() throws {
+    @Test func longSHA1SecretWithURL() throws {
         let url = URL(
             string:
                 "otpauth://totp/yubico?secret=HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZHXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZHXDMVJECJJWSRB3HWIZR4IFUGFTMXHXDMVJECJJWSHXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZHXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZHXDMVJECJJWSRB3HWIZR4IFUGFTMXHXDMVJECJJWS&algorithm=SHA1"
@@ -159,13 +160,13 @@ final class OATHCredentialTemplateUnitTests: XCTestCase {
                 0x6b, 0x2c, 0x5d, 0xa4, 0x82, 0x65, 0x43, 0x0c, 0xa8, 0x7c, 0xab, 0x40, 0x4b, 0x54, 0x12, 0x9e, 0xcf,
                 0xf8, 0xed, 0x76,
             ])
-            XCTAssertEqual(template.secret, expectedSecret)
+            #expect(template.secret == expectedSecret)
         } catch {
-            XCTFail("Failed with error: \(error)")
+            Issue.record("Failed with error: \(error)")
         }
     }
 
-    func testLongSHA256SecretWithURL() throws {
+    @Test func longSHA256SecretWithURL() throws {
         let url = URL(
             string:
                 "otpauth://totp/yubico?secret=HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZHXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZHXDMVJECJJWSRB3HWIZR4IFUGFTMXHXDMVJECJJWSHXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZHXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZHXDMVJECJJWSRB3HWIZR4IFUGFTMXHXDMVJECJJWS&algorithm=SHA256"
@@ -176,13 +177,13 @@ final class OATHCredentialTemplateUnitTests: XCTestCase {
                 0x0f, 0x19, 0xec, 0xcd, 0xd4, 0xc0, 0xff, 0xa2, 0x27, 0x2c, 0x96, 0x09, 0xc7, 0x3b, 0xc2, 0x24, 0x83,
                 0xbd, 0xb7, 0x38, 0x88, 0xff, 0xe1, 0x35, 0x63, 0x5a, 0xd0, 0xe3, 0x16, 0x93, 0xc6, 0x51,
             ])
-            XCTAssertEqual(template.secret, expectedSecret)
+            #expect(template.secret == expectedSecret)
         } catch {
-            XCTFail("Failed with error: \(error)")
+            Issue.record("Failed with error: \(error)")
         }
     }
 
-    func testLongSHA512SecretWithURL() throws {
+    @Test func longSHA512SecretWithURL() throws {
         let url = URL(
             string:
                 "otpauth://totp/yubico?secret=HXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZHXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZHXDMVJECJJWSRB3HWIZR4IFUGFTMXHXDMVJECJJWSHXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZHXDMVJECJJWSRB3HWIZR4IFUGFTMXBOZHXDMVJECJJWSRB3HWIZR4IFUGFTMXHXDMVJECJJWS&algorithm=SHA512"
@@ -195,78 +196,78 @@ final class OATHCredentialTemplateUnitTests: XCTestCase {
                 0x94, 0x00, 0x5f, 0x95, 0x2d, 0xac, 0xd1, 0xd0, 0x15, 0x8f, 0x81, 0xee, 0x6e, 0x71, 0x71, 0x33, 0xa4,
                 0xea, 0xfa, 0x36, 0x08, 0xda, 0xf4, 0x80, 0x33, 0xb1, 0xfa, 0x9d, 0x76, 0x90,
             ])
-            XCTAssertEqual(template.secret, expectedSecret)
+            #expect(template.secret == expectedSecret)
         } catch {
-            XCTFail("Failed with error: \(error)")
+            Issue.record("Failed with error: \(error)")
         }
     }
 
-    func testMissingSchemeWithURL() throws {
+    @Test func missingSchemeWithURL() throws {
         let url = URL(string: "http://totp/Issuer-in-path:john@example.com?secret=HXDM")!
         do {
             _ = try OATHSession.CredentialTemplate(withURL: url)
-            XCTFail("Parsed url with wrong scheme.")
+            Issue.record("Parsed url with wrong scheme.")
         } catch {
             if case OATHSession.CredentialTemplateError.missingScheme = error {
-                print("Function throwed expected error: \(error)")
+                #expect(true, "Function throwed expected error: \(error)")
             } else {
-                XCTFail("Funktion throwed unexpeced error: \(error)")
+                Issue.record("Funktion throwed unexpeced error: \(error)")
             }
         }
     }
 
-    func testMalformedTypeWithURL() throws {
+    @Test func malformedTypeWithURL() throws {
         let url = URL(string: "otpauth://footp/Issuer-in-path:john@example.com?secret=HXDM")!
         do {
             _ = try OATHSession.CredentialTemplate(withURL: url)
-            XCTFail("Parsed url with malformed type.")
+            Issue.record("Parsed url with malformed type.")
         } catch {
             if case OATHSession.CredentialTemplateError.parseType = error {
-                print("Function throwed expected error: \(error)")
+                #expect(true, "Function throwed expected error: \(error)")
             } else {
-                XCTFail("Funktion throwed unexpeced error: \(error)")
+                Issue.record("Function throwed unexpeced error: \(error)")
             }
         }
     }
 
-    func testMissingNameWithURL() throws {
+    @Test func missingNameWithURL() throws {
         let url = URL(string: "otpauth://totp/?secret=HXDM")!
         do {
             _ = try OATHSession.CredentialTemplate(withURL: url)
-            XCTFail("Parsed url with missing name.")
+            Issue.record("Parsed url with missing name.")
         } catch {
             if case OATHSession.CredentialTemplateError.missingName = error {
-                print("Function throwed expected error: \(error)")
+                #expect(true, "Function throwed expected error: \(error)")
             } else {
-                XCTFail("Funktion throwed unexpeced error: \(error)")
+                Issue.record("Function throwed unexpeced error: \(error)")
             }
         }
     }
 
-    func testMissingSecretWithURL() throws {
+    @Test func missingSecretWithURL() throws {
         let url = URL(string: "otpauth://totp/Issuer-in-path:john@example.com")!
         do {
             _ = try OATHSession.CredentialTemplate(withURL: url)
-            XCTFail("Parsed url with missing secret.")
+            Issue.record("Parsed url with missing secret.")
         } catch {
             if case OATHSession.CredentialTemplateError.missingSecret = error {
-                print("Function throwed expected error: \(error)")
+                #expect(true, "Function throwed expected error: \(error)")
             } else {
-                XCTFail("Funktion throwed unexpeced error: \(error)")
+                Issue.record("Function throwed unexpeced error: \(error)")
             }
         }
     }
 
-    func testMalformedAlgorithmWithURL() throws {
+    @Test func malformedAlgorithmWithURL() throws {
         let url = URL(string: "otpauth://totp/Issuer-in-path:john@example.com?secret=HXDM&algorithm=SHA42")!
         do {
             _ = try OATHSession.CredentialTemplate(withURL: url)
-            XCTFail("Parsed url with malformed algorithm.")
+            Issue.record("Parsed url with malformed algorithm.")
         } catch {
             if case OATHSession.CredentialTemplateError.parseAlgorithm = error {
-                print("Function throwed expected error: \(error)")
+                #expect(true, "Function throwed expected error: \(error)")
             } else {
-                XCTFail("Funktion throwed unexpeced error: \(error)")
+                Issue.record("Function throwed unexpeced error: \(error)")
             }
         }
     }
