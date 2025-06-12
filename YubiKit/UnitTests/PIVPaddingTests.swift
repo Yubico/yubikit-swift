@@ -180,7 +180,7 @@ struct PIVPaddingTests {
             let _ = try PIVPadding.unpadRSAData(data, algorithm: .rsaEncryptionPKCS1)
             Issue.record("unpadRSAData returned although the data had the wrong size.")
         } catch {
-            #expect(Bool(true), "Failed as expeced with: \(error)")
+            #expect(true, "Failed as expeced with: \(error)")
         }
     }
 }

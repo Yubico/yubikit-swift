@@ -209,7 +209,7 @@ struct OATHCredentialTemplateUnitTests {
             Issue.record("Parsed url with wrong scheme.")
         } catch {
             if case OATHSession.CredentialTemplateError.missingScheme = error {
-                print("Function throwed expected error: \(error)")
+                #expect(true, "Function throwed expected error: \(error)")
             } else {
                 Issue.record("Funktion throwed unexpeced error: \(error)")
             }
@@ -223,9 +223,9 @@ struct OATHCredentialTemplateUnitTests {
             Issue.record("Parsed url with malformed type.")
         } catch {
             if case OATHSession.CredentialTemplateError.parseType = error {
-                print("Function throwed expected error: \(error)")
+                #expect(true, "Function throwed expected error: \(error)")
             } else {
-                Issue.record("Funktion throwed unexpeced error: \(error)")
+                Issue.record("Function throwed unexpeced error: \(error)")
             }
         }
     }
@@ -237,9 +237,9 @@ struct OATHCredentialTemplateUnitTests {
             Issue.record("Parsed url with missing name.")
         } catch {
             if case OATHSession.CredentialTemplateError.missingName = error {
-                print("Function throwed expected error: \(error)")
+                #expect(true, "Function throwed expected error: \(error)")
             } else {
-                Issue.record("Funktion throwed unexpeced error: \(error)")
+                Issue.record("Function throwed unexpeced error: \(error)")
             }
         }
     }
@@ -251,9 +251,9 @@ struct OATHCredentialTemplateUnitTests {
             Issue.record("Parsed url with missing secret.")
         } catch {
             if case OATHSession.CredentialTemplateError.missingSecret = error {
-                print("Function throwed expected error: \(error)")
+                #expect(true, "Function throwed expected error: \(error)")
             } else {
-                Issue.record("Funktion throwed unexpeced error: \(error)")
+                Issue.record("Function throwed unexpeced error: \(error)")
             }
         }
     }
@@ -265,9 +265,9 @@ struct OATHCredentialTemplateUnitTests {
             Issue.record("Parsed url with malformed algorithm.")
         } catch {
             if case OATHSession.CredentialTemplateError.parseAlgorithm = error {
-                print("Function throwed expected error: \(error)")
+                #expect(true, "Function throwed expected error: \(error)")
             } else {
-                Issue.record("Funktion throwed unexpeced error: \(error)")
+                Issue.record("Function throwed unexpeced error: \(error)")
             }
         }
     }

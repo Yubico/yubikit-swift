@@ -45,7 +45,7 @@ struct EncryptDecryptTests {
         let iv = Data(hexEncodedString: "000102030405060708090a0b0c0d0e0f")!
         let data = "Hello World!0000".data(using: .utf8)!
         let encrypted = try data.encrypt(algorithm: UInt32(kCCAlgorithmAES), key: key, iv: iv)
-        #expect(encrypted == Data(Data(hexEncodedString: "9dcb09c51227ea753fad4c6bda8efa46")!))
+        #expect(encrypted == Data(hexEncodedString: "9dcb09c51227ea753fad4c6bda8efa46")!)
     }
 
     @Test func decryptAESCBC() throws {
