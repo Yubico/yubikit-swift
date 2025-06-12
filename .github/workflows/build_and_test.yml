@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build and run tests (macOS)
-        run: swift test -v
+        run: swift test -v --parallel
 
       - name: Build and run unit tests (iOS Simulator)
         run: |
