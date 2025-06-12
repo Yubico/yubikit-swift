@@ -25,27 +25,33 @@ final class Promise<Value: Sendable>: Sendable {
 
     private actor MutableState {
         var continuations: [CheckedContinuation<Value, Error>] = []
+
         var backingValue: Value?
+        var error: Error?
 
         func value() async throws -> Value {
             if let value = backingValue {
                 return value
+            } else if let error = error {
+                throw error
             }
+
             return try await withCheckedThrowingContinuation { continuation in
                 continuations.append(continuation)
             }
         }
 
         func fulfill(_ value: Value) {
-            guard backingValue == nil else { return }
+            guard backingValue == nil && error == nil else { return }
             backingValue = value
             continuations.forEach { $0.resume(returning: value) }
             continuations.removeAll()
         }
 
-        func cancel() {
-            guard backingValue == nil else { return }
-            continuations.forEach { $0.resume(throwing: DisposedError()) }
+        func cancel(with cancellationError: Error) {
+            guard backingValue == nil && error == nil else { return }
+            error = cancellationError
+            continuations.forEach { $0.resume(throwing: cancellationError) }
             continuations.removeAll()
         }
     }
@@ -62,10 +68,17 @@ final class Promise<Value: Sendable>: Sendable {
         await state.fulfill(value)
     }
 
+    /// Cancels any pending waiters on call.
+    ///
+    /// - Note: Upon deinitialization, any tasks awaiting `value()` will resume with an `Error.disposed`.
+    func cancel(with error: Error) async {
+        await state.cancel(with: error)
+    }
+
     /// Cancels any pending waiters when the promise is deinitialized.
     ///
     /// - Note: Upon deinitialization, any tasks awaiting `value()` will resume with a `DisposedError`.
     deinit {
-        Task { [state] in await state.cancel() }
+        Task { [state] in await state.cancel(with: DisposedError()) }
     }
 }
