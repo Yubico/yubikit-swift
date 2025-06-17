@@ -13,45 +13,46 @@
 // limitations under the License.
 
 import CommonCrypto
-import XCTest
+import Foundation
+import Testing
 
 @testable import YubiKit
 
-final class DataExtensionsTests: XCTestCase {
+struct DataExtensionsTests {
 
-    func testShiftLeftWithCarryOver() throws {
+    @Test func shiftLeftWithCarryOver() throws {
         let data = Data([0x01, 0xff, 0x03, 0x04])
         let shiftedData = data.shiftedLeftByOne()
-        XCTAssertEqual(shiftedData, Data([0x03, 0xfe, 0x06, 0x08]))
-        print(shiftedData.hexEncodedString)
+        //print(shiftedData.hexEncodedString)
+        #expect(shiftedData == Data([0x03, 0xfe, 0x06, 0x08]))
     }
 
-    func testShiftLeftWithCarryOverFirst() throws {
+    @Test func shiftLeftWithCarryOverFirst() throws {
         let data = Data([0xff, 0x02, 0x03, 0x04])
         let shiftedData = data.shiftedLeftByOne()
-        XCTAssertEqual(shiftedData, Data([0xfe, 0x04, 0x06, 0x08]))
-        print(shiftedData.hexEncodedString)
+        //print(shiftedData.hexEncodedString)
+        #expect(shiftedData == Data([0xfe, 0x04, 0x06, 0x08]))
     }
 
-    func testShiftLeftWithCarryOverLast() throws {
+    @Test func shiftLeftWithCarryOverLast() throws {
         let data = Data([0x01, 0x02, 0x03, 0xff])
         let shiftedData = data.shiftedLeftByOne()
-        XCTAssertEqual(shiftedData, Data([0x02, 0x04, 0x07, 0xfe]))
-        print(shiftedData.hexEncodedString)
+        //print(shiftedData.hexEncodedString)
+        #expect(shiftedData == Data([0x02, 0x04, 0x07, 0xfe]))
     }
 
-    func testShiftLeftNoCarryOver() throws {
+    @Test func shiftLeftNoCarryOver() throws {
         let data = Data([0x01, 0x02, 0x03, 0x04])
         let shiftedData = data.shiftedLeftByOne()
-        XCTAssertEqual(shiftedData, Data([0x02, 0x04, 0x06, 0x08]))
-        print(shiftedData.hexEncodedString)
+        //print(shiftedData.hexEncodedString)
+        #expect(shiftedData == Data([0x02, 0x04, 0x06, 0x08]))
     }
 
-    func testXor() throws {
+    @Test func xor() throws {
         let data = Data([0x1F, 0x2B])
         let key = Data([0xAA, 0xBB])
         let result = data.xor(with: key)
-        print(result.hexEncodedString)
-        XCTAssertEqual(result, Data([0xb5, 0x90]))
+        //print(result.hexEncodedString)
+        #expect(result == Data([0xb5, 0x90]))
     }
 }
