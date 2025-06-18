@@ -225,7 +225,7 @@ private func base32encode(_ data: UnsafeRawPointer, _ length: Int, _ table: [Int
     }
 
     // return
-    if let base32Encoded = String(validatingUTF8: resultBuffer) {
+    if let base32Encoded = String(validatingCString: resultBuffer) {
         resultBuffer.deallocate()
         return base32Encoded
     } else {
