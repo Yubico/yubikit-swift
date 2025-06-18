@@ -93,13 +93,21 @@ private enum Connections {
     private static func wired() async throws -> Connection {
         let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
             #if os(iOS)
-            group.addTask {
-                try await LightningConnection.connection()
+            if Device.hasLightningPort {
+                group.addTask {
+                    try await LightningConnection.connection()
+                }
+            } else {
+                group.addTask {
+                    try await SmartCardConnection.connection()
+                }
             }
-            #endif
+            #else
             group.addTask {
                 try await SmartCardConnection.connection()
             }
+            #endif
+
             let result = try await group.next()!
             group.cancelAll()
             return result
@@ -110,21 +118,19 @@ private enum Connections {
     private static func any(nfcAlertMessage: String? = nil) async throws -> Connection {
         let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
             #if os(iOS)
-            if NFCNDEFReaderSession.readingAvailable {
+            if Device.supportsNFC {
                 group.addTask {
                     // wait for wired connected yubikeys to connect before starting NFC
-                    try await Task.sleep(for: .seconds(1))
+                    try await Task.sleep(for: .seconds(0.75))
                     try Task.checkCancellation()
                     return try await NFCConnection.connection(alertMessage: nfcAlertMessage)
                 }
             }
-            group.addTask {
-                try await LightningConnection.connection()
-            }
             #endif
             group.addTask {
-                try await SmartCardConnection.connection()
+                try await wired()
             }
+
             let result = try await group.next()!
             group.cancelAll()
             return result
