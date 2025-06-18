@@ -34,6 +34,11 @@ extension HasNFCLogger {
     static var logger: Logger { .nfc }
 }
 
+protocol HasLightningLogger: HasLogger {}
+extension HasLightningLogger {
+    static var logger: Logger { .lightning }
+}
+
 protocol HasSecurityDomainLogger: HasLogger {}
 extension HasSecurityDomainLogger {
     static var logger: Logger { .securityDomain }
