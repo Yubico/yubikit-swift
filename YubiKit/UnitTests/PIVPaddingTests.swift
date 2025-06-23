@@ -174,7 +174,7 @@ struct PIVPaddingTests {
     @Test func unpadMalformedData() throws {
         let data = Data(
             hexEncodedString:
-                "00bcbb35b6ef5c94a85fb3439a6dabda617a08963cf81023bac19c619b024cb71b8aee25cc30991279c908198ba623fba88547741dbf17a6f2a737ec95542b56b2b429bea8bd3145af7c8f144dcf804b89d3f9de21d6d6dc852fc91c666b8582bf348e1388ac2f54651ae6a1f5355c8d96daf96c922a9f1a499d890412d09454"
+                "79ce573cfc2bdfe835175ffd4bd01ab35eccfd31e2b009a1943123e9cb2db4878608c821fb96a6c63382aaf1c12ce0f03b83"
         )!
         do {
             let _ = try PIVPadding.unpadRSAData(data, algorithm: .rsaEncryptionPKCS1)
