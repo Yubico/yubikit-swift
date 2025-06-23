@@ -31,36 +31,44 @@ enum Device {
         }
 
         switch model {
-        // 8/8 Plus/X
-        case "iPhone10,1", "iPhone10,2", "iPhone10,3", "iPhone10,4", "iPhone10,5", "iPhone10,6",
-            // XS/XS Max/XR
-            "iPhone11,2", "iPhone11,4", "iPhone11,6", "iPhone11,8",
-            // 11 line + SE 2
-            "iPhone12,1", "iPhone12,3", "iPhone12,5", "iPhone12,8",
-            // 12 line
-            "iPhone13,1", "iPhone13,2", "iPhone13,3", "iPhone13,4",
-            // 13 line, SE 3, 14/14 Plus
-            "iPhone14,2", "iPhone14,3", "iPhone14,4", "iPhone14,5", "iPhone14,6", "iPhone14,7", "iPhone14,8":
-            return true
+        case "iPhone10,1", "iPhone10,4",  // iPhone 8
+            "iPhone10,2", "iPhone10,5",  // iPhone 8 Plus
+            "iPhone10,3", "iPhone10,6",  // iPhone X
+            "iPhone11,2",  // iPhone XS
+            "iPhone11,4", "iPhone11,6",  // iPhone XS Max
+            "iPhone11,8",  // iPhone XR
+            "iPhone12,1",  // iPhone 11
+            "iPhone12,3",  // iPhone 11 Pro
+            "iPhone12,5",  // iPhone 11 Pro Max
+            "iPhone12,8",  // iPhone SE (2nd generation)
+            "iPhone13,1",  // iPhone 12 mini
+            "iPhone13,2",  // iPhone 12
+            "iPhone13,3",  // iPhone 12 Pro
+            "iPhone13,4",  // iPhone 12 Pro Max
+            "iPhone14,4",  // iPhone 13 mini
+            "iPhone14,5",  // iPhone 13
+            "iPhone14,2",  // iPhone 13 Pro
+            "iPhone14,3",  // iPhone 13 Pro Max
+            "iPhone14,6",  // iPhone SE (3rd generation)
+            "iPhone14,7",  // iPhone 14
+            "iPhone14,8",  // iPhone 14 Plus
+            "iPhone15,2",  // iPhone 14 Pro
+            "iPhone15,3",  // iPhone 14 Pro Max
 
-        // iPad 5
-        case "iPad6,11", "iPad6,12",
-            // iPad 6
-            "iPad7,5", "iPad7,6",
-            // iPad 7
-            "iPad7,11", "iPad7,12",
-            // iPad 8
-            "iPad11,6", "iPad11,7",
-            // iPad 9
-            "iPad12,1", "iPad12,2",
-            // iPad mini 5
-            "iPad11,1", "iPad11,2",
-            // iPad Air 3
-            "iPad11,3", "iPad11,4":
+            "iPad6,11", "iPad6,12",  // iPad (5th generation)
+            "iPad7,5", "iPad7,6",  // iPad (6th generation)
+            "iPad7,11", "iPad7,12",  // iPad (7th generation)
+            "iPad11,6", "iPad11,7",  // iPad (8th generation)
+            "iPad12,1", "iPad12,2",  // iPad (9th generation)
+            "iPad11,1", "iPad11,2",  // iPad mini (5th generation)
+            "iPad11,3", "iPad11,4",  // iPad Air (3rd generation)
+            "iPad6,3", "iPad6,4",  // iPad Pro (9.7-inch)
+            "iPad6,7", "iPad6,8",  // iPad Pro (12.9-inch, 1st generation)
+            "iPad7,1", "iPad7,2",  // iPad Pro (12.9-inch, 2nd generation)
+            "iPad7,3", "iPad7,4":  // iPad Pro (10.5-inch)
             return true
 
         default:
-            // everything else is USB-C
             return false
         }
     }
