@@ -71,12 +71,8 @@ public enum PIVKeyType: RawRepresentable, Equatable {
 
     case rsa(RSA.KeySize)
     case ecc(EC.Curve)
-
-    // TODO:
-    // 0xE0: Edwards Digital Signature Algorithm (EdDSA) key, using Curve25519
-    // 0xE1: Elliptic-Curve Diffie-Hellman (ECDH) protocol key, using Curve25519
-    //
-    // Ed25519: ONLY be used for signing & X25519 ONLY be used for keyAgreement
+    case ed25519
+    case x25519
 
     public var rawValue: UInt8 {
         switch self {
@@ -92,6 +88,10 @@ public enum PIVKeyType: RawRepresentable, Equatable {
             case .p256: 0x11
             case .p384: 0x14
             }
+        case .ed25519:
+            return 0xE0
+        case .x25519:
+            return 0xE1
         }
     }
 
@@ -105,6 +105,9 @@ public enum PIVKeyType: RawRepresentable, Equatable {
         case 0x11: self = .ecc(.p256)
         case 0x14: self = .ecc(.p384)
 
+        case 0xE0: self = .ed25519
+        case 0xE1: self = .x25519
+
         default: return nil
         }
     }
@@ -115,6 +118,10 @@ public enum PIVKeyType: RawRepresentable, Equatable {
             self = .rsa(size)
         case .ec(let curve):
             self = .ecc(curve)
+        case .ed25519:
+            self = .ed25519
+        case .x25519:
+            self = .x25519
         }
     }
 
@@ -122,6 +129,8 @@ public enum PIVKeyType: RawRepresentable, Equatable {
         switch self {
         case .rsa(let keySize): keySize.rawValue
         case .ecc(let curve): curve.keySizeInBits
+        case .ed25519: 256
+        case .x25519: 256
         }
     }
 
@@ -140,6 +149,27 @@ public enum PIVVerifyPinResult: Equatable {
     case pinLocked
 }
 
+/// Signing algorithm specification for PIV operations.
+/// This enum encapsulates both the key type and hash algorithm requirements.
+public enum PIVSigningAlgorithm {
+    /// RSA signing with the specified hash algorithm
+    case rsa(SecKeyAlgorithm)
+    /// ECDSA signing with the specified hash algorithm
+    case ecdsa(SecKeyAlgorithm)
+    /// Ed25519 signing (no hash algorithm needed - signs message directly)
+    case ed25519
+
+    /// The hash algorithm for RSA/ECDSA operations, or nil for Ed25519
+    internal var hashAlgorithm: SecKeyAlgorithm? {
+        switch self {
+        case .rsa(let algorithm), .ecdsa(let algorithm):
+            return algorithm
+        case .ed25519:
+            return nil
+        }
+    }
+}
+
 /// PIV session specific errors.
 public enum PIVSessionError: Error {
     case invalidCipherTextLength
@@ -154,6 +184,7 @@ public enum PIVSessionError: Error {
     case failedCreatingCertificate
     case badKeyLength
     case invalidInput
+    case needsHashAlgorithm
 }
 
 /// Metadata about the card management key.

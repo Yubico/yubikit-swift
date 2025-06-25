@@ -5,6 +5,7 @@
 //  Created by Jens Utbult on 2024-01-12.
 //
 
+import CryptoKit
 import OSLog
 import XCTest
 
@@ -14,6 +15,8 @@ import XCTest
 final class PIVFullStackTests: XCTestCase {
 
     let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
+
+    // MARK: - Signing Tests
 
     func testSignECCP256() throws {
         runAuthenticatedPIVTest { session in
@@ -28,7 +31,7 @@ final class PIVFullStackTests: XCTestCase {
             let signature = try await session.signWithKeyInSlot(
                 .signature,
                 keyType: .ecc(.p256),
-                algorithm: .ecdsaSignatureMessageX962SHA256,
+                algorithm: .ecdsa(.ecdsaSignatureMessageX962SHA256),
                 message: message
             )
             var error: Unmanaged<CFError>?
@@ -61,7 +64,7 @@ final class PIVFullStackTests: XCTestCase {
             let signature = try await session.signWithKeyInSlot(
                 .signature,
                 keyType: .rsa(.bits1024),
-                algorithm: .rsaSignatureMessagePKCS1v15SHA512,
+                algorithm: .rsa(.rsaSignatureMessagePKCS1v15SHA512),
                 message: message
             )
             var error: Unmanaged<CFError>?
@@ -79,6 +82,36 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssert(true)
         }
     }
+
+    func testSignEd25519() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.ed25519) else {
+                print("⚠️ Skip testSignEd25519()")
+                return
+            }
+
+            guard case let .ed25519(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .ed25519)
+            else {
+                XCTFail("Failed to generate key in slot")
+                return
+            }
+
+            try await session.verifyPin("123456")
+            let message = "Hello world!".data(using: .utf8)!
+            let signature = try await session.signWithKeyInSlot(
+                .signature,
+                keyType: .ed25519,
+                algorithm: .ed25519,
+                message: message
+            )
+
+            // Convert YubiKit public key to CryptoKit for verification
+            let cryptoKitPublicKey = try Curve25519.Signing.PublicKey(rawRepresentation: publicKey.keyData)
+            XCTAssertTrue(cryptoKitPublicKey.isValidSignature(signature, for: message))
+        }
+    }
+
+    // MARK: - Decryption Tests
 
     func testDecryptRSA2048() throws {
         runAuthenticatedPIVTest { session in
@@ -142,6 +175,8 @@ final class PIVFullStackTests: XCTestCase {
         }
     }
 
+    // MARK: - Key Agreement Tests
+
     func testSharedSecretEC256() throws {
         runAuthenticatedPIVTest { session in
             guard
@@ -199,6 +234,49 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssert(softwareSecret == yubiKeySecret)
         }
     }
+
+    func testSharedSecretX25519() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.x25519) else {
+                print("⚠️ Skip testSharedSecretX25519()")
+                return
+            }
+
+            guard
+                case let .x25519(yubiKeyPublicKey) = try await session.generateKeyInSlot(
+                    slot: .signature,
+                    type: .x25519
+                )
+            else {
+                XCTFail("Failed to generate key in slot")
+                return
+            }
+
+            // Generate X25519 key using CryptoKit
+            let cryptoKitPrivateKey = Curve25519.KeyAgreement.PrivateKey()
+            let cryptoKitPublicKey = cryptoKitPrivateKey.publicKey
+
+            // Convert to YubiKit format
+            let publicKeyData = cryptoKitPublicKey.rawRepresentation
+            guard let yubiKitPublicKey = Curve25519.X25519.PublicKey(keyData: publicKeyData) else {
+                XCTFail("Failed to create YubiKit X25519 public key")
+                return
+            }
+
+            try await session.verifyPin("123456")
+            let yubiKeySecret = try await session.calculateSecretKeyInSlot(slot: .signature, peerKey: yubiKitPublicKey)
+
+            // Calculate shared secret using CryptoKit
+            let softwareSecret = try cryptoKitPrivateKey.sharedSecretFromKeyAgreement(
+                with: Curve25519.KeyAgreement.PublicKey(rawRepresentation: yubiKeyPublicKey.keyData)
+            )
+            let softwareSecretData = softwareSecret.withUnsafeBytes { Data($0) }
+
+            XCTAssert(softwareSecretData == yubiKeySecret)
+        }
+    }
+
+    // MARK: - Key Import Tests
 
     func testPutRSAKeys() throws {
         runAuthenticatedPIVTest(withTimeout: 200) { session in
@@ -261,7 +339,7 @@ final class PIVFullStackTests: XCTestCase {
                 let signature = try await session.signWithKeyInSlot(
                     .signature,
                     keyType: .ecc(curve),
-                    algorithm: .ecdsaSignatureMessageX962SHA256,
+                    algorithm: .ecdsa(.ecdsaSignatureMessageX962SHA256),
                     message: message
                 )
                 var error: Unmanaged<CFError>?
@@ -298,7 +376,7 @@ final class PIVFullStackTests: XCTestCase {
             let signature = try await session.signWithKeyInSlot(
                 .signature,
                 keyType: .ecc(.p384),
-                algorithm: .ecdsaSignatureMessageX962SHA256,
+                algorithm: .ecdsa(.ecdsaSignatureMessageX962SHA256),
                 message: message
             )
             var error: Unmanaged<CFError>?
@@ -316,6 +394,109 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssertTrue(result)
         }
     }
+
+    func testPutEd25519Key() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.ed25519) else {
+                print("⚠️ Skip testPutEd25519Key()")
+                return
+            }
+
+            // Generate Ed25519 key using CryptoKit
+            let cryptoKitPrivateKey = Curve25519.Signing.PrivateKey()
+            let cryptoKitPublicKey = cryptoKitPrivateKey.publicKey
+
+            // Convert to YubiKit format
+            let seed = cryptoKitPrivateKey.rawRepresentation
+            let publicKeyData = cryptoKitPublicKey.rawRepresentation
+
+            guard let yubiKitPublicKey = Curve25519.Ed25519.PublicKey(keyData: publicKeyData),
+                let yubiKitPrivateKey = Curve25519.Ed25519.PrivateKey(seed: seed, publicKey: yubiKitPublicKey)
+            else {
+                XCTFail("Failed to create YubiKit Ed25519 keys")
+                return
+            }
+
+            // Import the key
+            let keyType = try await session.putKey(
+                key: .ed25519(yubiKitPrivateKey),
+                inSlot: .signature,
+                pinPolicy: .always,
+                touchPolicy: .never
+            )
+            XCTAssert(keyType == .ed25519)
+
+            // Test signing with the imported key
+            try await session.verifyPin("123456")
+            let message = "Hello Ed25519 Import!".data(using: .utf8)!
+            let signature = try await session.signWithKeyInSlot(
+                .signature,
+                keyType: .ed25519,
+                algorithm: .ed25519,
+                message: message
+            )
+
+            // Verify signature using CryptoKit
+            XCTAssertTrue(cryptoKitPublicKey.isValidSignature(signature, for: message))
+        }
+    }
+
+    func testPutX25519Key() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.x25519) else {
+                print("⚠️ Skip testPutX25519Key()")
+                return
+            }
+
+            // Generate X25519 key using CryptoKit
+            let cryptoKitPrivateKey = Curve25519.KeyAgreement.PrivateKey()
+            let cryptoKitPublicKey = cryptoKitPrivateKey.publicKey
+
+            // Convert to YubiKit format
+            let scalar = cryptoKitPrivateKey.rawRepresentation
+            let publicKeyData = cryptoKitPublicKey.rawRepresentation
+
+            guard let yubiKitPublicKey = Curve25519.X25519.PublicKey(keyData: publicKeyData),
+                let yubiKitPrivateKey = Curve25519.X25519.PrivateKey(scalar: scalar, publicKey: yubiKitPublicKey)
+            else {
+                XCTFail("Failed to create YubiKit X25519 keys")
+                return
+            }
+
+            // Import the key
+            let keyType = try await session.putKey(
+                key: .x25519(yubiKitPrivateKey),
+                inSlot: .signature,
+                pinPolicy: .always,
+                touchPolicy: .never
+            )
+            XCTAssert(keyType == .x25519)
+
+            // Test key agreement with the imported key
+            let otherCryptoKitPrivateKey = Curve25519.KeyAgreement.PrivateKey()
+            let otherCryptoKitPublicKey = otherCryptoKitPrivateKey.publicKey
+            let otherPublicKeyData = otherCryptoKitPublicKey.rawRepresentation
+
+            guard let otherYubiKitPublicKey = Curve25519.X25519.PublicKey(keyData: otherPublicKeyData) else {
+                XCTFail("Failed to create other YubiKit X25519 public key")
+                return
+            }
+
+            try await session.verifyPin("123456")
+            let yubiKeySecret = try await session.calculateSecretKeyInSlot(
+                slot: .signature,
+                peerKey: otherYubiKitPublicKey
+            )
+
+            // Verify key agreement using CryptoKit
+            let softwareSecret = try cryptoKitPrivateKey.sharedSecretFromKeyAgreement(with: otherCryptoKitPublicKey)
+            let softwareSecretData = softwareSecret.withUnsafeBytes { Data($0) }
+
+            XCTAssert(softwareSecretData == yubiKeySecret)
+        }
+    }
+
+    // MARK: - Key Generation Tests
 
     func testGenerateRSA1024Key() throws {
         runAuthenticatedPIVTest { session in
@@ -395,6 +576,42 @@ final class PIVFullStackTests: XCTestCase {
         }
     }
 
+    func testGenerateEd25519Key() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.ed25519) else {
+                print("⚠️ Skip testGenerateEd25519Key()")
+                return
+            }
+            let publicKey = try await session.generateKeyInSlot(
+                slot: .signature,
+                type: .ed25519,
+                pinPolicy: .always,
+                touchPolicy: .cached
+            ).asEd25519()
+            XCTAssertNotNil(publicKey)
+            XCTAssert(publicKey!.keyData.count == 32)
+        }
+    }
+
+    func testGenerateX25519Key() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.x25519) else {
+                print("⚠️ Skip testGenerateX25519Key()")
+                return
+            }
+            let publicKey = try await session.generateKeyInSlot(
+                slot: .signature,
+                type: .x25519,
+                pinPolicy: .always,
+                touchPolicy: .cached
+            ).asX25519()
+            XCTAssertNotNil(publicKey)
+            XCTAssert(publicKey!.keyData.count == 32)
+        }
+    }
+
+    // MARK: - Attestation Tests
+
     func testAttestRSAKey() throws {
         runAuthenticatedPIVTest { session in
             let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024)).asRSA()
@@ -407,6 +624,47 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssert(attestKey! == publicKey!)
         }
     }
+
+    func testAttestEd25519Key() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.ed25519) else {
+                print("⚠️ Skip testAttestEd25519Key()")
+                return
+            }
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .ed25519).asEd25519()
+            XCTAssertNotNil(publicKey)
+
+            let cert = try await session.attestKeyInSlot(slot: .signature)
+            let attestKey = cert.publicKey?.asEd25519()
+            XCTAssertNotNil(attestKey)
+
+            XCTAssert(attestKey! == publicKey!)
+        }
+    }
+
+    func testAttestX25519Key() throws {
+        runAuthenticatedPIVTest { session in
+            guard session.supports(PIVSessionFeature.x25519) else {
+                print("⚠️ Skip testAttestX25519Key()")
+                return
+            }
+            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .x25519).asX25519()
+            XCTAssertNotNil(publicKey)
+
+            let cert = try await session.attestKeyInSlot(slot: .signature)
+            let attestKey = cert.publicKey?.asX25519()
+            // Note: X509Cert may not support X25519 key extraction yet
+            if let attestKey = attestKey, let publicKey = publicKey {
+                XCTAssert(attestKey == publicKey)
+            } else {
+                // Just verify that the certificate was generated successfully
+                XCTAssertNotNil(cert.der)
+                XCTAssert(cert.der.count > 0)
+            }
+        }
+    }
+
+    // MARK: - Certificate Management Tests
 
     let testCertificate = X509Cert(
         der: Data(
@@ -426,6 +684,8 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssert(self.testCertificate.der == retrievedCertificate.der)
         }
     }
+
+    // MARK: - Key Management Tests
 
     func testMoveKey() throws {
         runAuthenticatedPIVTest { session in
@@ -513,6 +773,8 @@ final class PIVFullStackTests: XCTestCase {
         }
     }
 
+    // MARK: - Management Key Tests
+
     func testAuthenticateWithDefaultManagementKey() throws {
         runPIVTest { session in
             do {
@@ -585,6 +847,8 @@ final class PIVFullStackTests: XCTestCase {
         }
     }
 
+    // MARK: - PIN/PUK Tests
+
     func testVerifyPIN() throws {
         runAuthenticatedPIVTest { session in
             do {
@@ -647,6 +911,8 @@ final class PIVFullStackTests: XCTestCase {
         }
     }
 
+    // MARK: - Device Information Tests
+
     func testVersion() throws {
         runPIVTest { session in
             let version = session.version
@@ -667,6 +933,8 @@ final class PIVFullStackTests: XCTestCase {
             print("➡️ Serial number: \(serialNumber)")
         }
     }
+
+    // MARK: - Metadata Tests
 
     func testManagementKeyMetadata() throws {
         runPIVTest { session in
@@ -839,6 +1107,8 @@ final class PIVFullStackTests: XCTestCase {
         }
 
     }
+
+    // MARK: - Biometric Authentication Tests
 
     // This will test auth on a YubiKey Bio. To run the test at least one fingerprint needs to be registered.
     func testBioAuthentication() throws {

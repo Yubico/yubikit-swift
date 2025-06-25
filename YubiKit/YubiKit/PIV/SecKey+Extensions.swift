@@ -47,6 +47,28 @@ extension PIVSession {
             }
 
             return .rsa(key)
+
+        case .ed25519:
+            guard let keyData = records.recordWithTag(0x86)?.value else {
+                throw PIVSessionError.invalidResponse
+            }
+
+            guard let key = Curve25519.Ed25519.PublicKey(keyData: keyData) else {
+                throw PIVSessionError.dataParseError
+            }
+
+            return .ed25519(key)
+
+        case .x25519:
+            guard let keyData = records.recordWithTag(0x86)?.value else {
+                throw PIVSessionError.invalidResponse
+            }
+
+            guard let key = Curve25519.X25519.PublicKey(keyData: keyData) else {
+                throw PIVSessionError.dataParseError
+            }
+
+            return .x25519(key)
         }
     }
 }

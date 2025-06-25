@@ -93,7 +93,15 @@ internal enum PIVPadding {
             } else if hash.count < keySize {
                 return Data(count: keySize - hash.count) + hash
             }
+
+        case .ed25519:
+            // Ed25519 signs the message directly without traditional padding
+            return data
+        case .x25519:
+            // X25519 is for key agreement, not signing
+            throw PIVPaddingError.unsupportedAlgorithm
         }
+
         throw PIVPaddingError.unknownPaddingError
     }
 

@@ -66,17 +66,39 @@ public final actor PIVSession: Session {
     /// - Parameters:
     ///   - slot: The slot containing the private key to use.
     ///   - keyType: The type of the key stored in the slot.
-    ///   - algorithm: The signing algorithm to use.
-    ///   - message: The message to hash.
+    ///   - algorithm: The signing algorithm, which specifies both the key type and hash algorithm.
+    ///   - message: The message to sign.
     /// - Returns: The generated signature for the message.
     public func signWithKeyInSlot(
         _ slot: PIVSlot,
         keyType: PIVKeyType,
-        algorithm: SecKeyAlgorithm,
+        algorithm: PIVSigningAlgorithm,
         message: Data
     ) async throws -> Data {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        let data = try PIVPadding.padData(message, keyType: keyType, algorithm: algorithm)
+
+        // Validate algorithm matches key type
+        switch (keyType, algorithm) {
+        case (.rsa, .rsa):
+            break
+        case (.ecc, .ecdsa):
+            break
+        case (.ed25519, .ed25519):
+            break
+        case (.x25519, _):
+            throw PIVSessionError.unsupportedOperation
+        default:
+            throw PIVSessionError.invalidInput
+        }
+
+        let data: Data
+        if let algorithm = algorithm.hashAlgorithm {
+            data = try PIVPadding.padData(message, keyType: keyType, algorithm: algorithm)
+        } else {
+            // Ed25519: sign message directly
+            data = message
+        }
+
         return try await usePrivateKeyInSlot(slot, keyType: keyType, message: data, exponentiation: false)
     }
 
@@ -114,6 +136,21 @@ public final actor PIVSession: Session {
         )
     }
 
+    /// Perform an X25519 key agreement operation with a given public key to compute a shared secret.
+    /// - Parameters:
+    ///   - slot: The slot containing the private X25519 key to use.
+    ///   - peerKey: The peer public key for the operation.
+    /// - Returns: The shared secret.
+    public func calculateSecretKeyInSlot(slot: PIVSlot, peerKey: Curve25519.X25519.PublicKey) async throws -> Data {
+
+        try await usePrivateKeyInSlot(
+            slot,
+            keyType: .x25519,
+            message: peerKey.keyData,
+            exponentiation: true
+        )
+    }
+
     /// Creates an attestation certificate for a private key which was generated on the YubiKey.
     ///
     /// A high level description of the thinking and how this can be used can be found at
@@ -143,6 +180,7 @@ public final actor PIVSession: Session {
     /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIVPinPolicy.never`.
     ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
     ///        `PIVKeyType.ECCP348` requires P384 support, available on YubiKey 4 or later.
+    ///        Ed25519 and X25519 require YubiKey 5.7 or later.
     ///        ``PIVPinPolicy`` or ``PIVTouchPolicy`` other than `defaultPolicy` require support for usage policy, available on YubiKey 4 or later.
     ///        `PIVTouchPolicy.cached` requires support for touch cached, available on YubiKey 4.3 or later.
     ///
@@ -181,6 +219,7 @@ public final actor PIVSession: Session {
     ///
     /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIVPinPolicy.never`.
     ///        `PIVKeyType.ECCP348` requires P384 support, available on YubiKey 4 or later.
+    ///        Ed25519 and X25519 require YubiKey 5.7 or later.
     ///        ``PIVPinPolicy`` or ``PIVTouchPolicy`` other than `defaultPolicy` require support for usage policy,
     ///        available on YubiKey 4 or later.
     ///
@@ -226,6 +265,20 @@ public final actor PIVSession: Session {
 
             let privateKeyData = key.k
             data.append(TKBERTLVRecord(tag: 0x06, value: privateKeyData).data)
+        case .ed25519:
+            guard let key = key.asEd25519() else {
+                throw PIVSessionError.unknownKeyType
+            }
+
+            let privateKeyData = key.seed
+            data.append(TKBERTLVRecord(tag: 0x07, value: privateKeyData).data)
+        case .x25519:
+            guard let key = key.asX25519() else {
+                throw PIVSessionError.unknownKeyType
+            }
+
+            let privateKeyData = key.scalar
+            data.append(TKBERTLVRecord(tag: 0x08, value: privateKeyData).data)
         }
         if pinPolicy != .`defaultPolicy` {
             data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
@@ -825,6 +878,12 @@ extension PIVSession {
         }
         if generateKey && (keyType == .rsa(.bits3072) || keyType == .rsa(.bits4096)) {
             guard self.supports(PIVSessionFeature.rsa3072and4096) else { throw SessionError.notSupported }
+        }
+        if keyType == .ed25519 {
+            guard self.supports(PIVSessionFeature.ed25519) else { throw SessionError.notSupported }
+        }
+        if keyType == .x25519 {
+            guard self.supports(PIVSessionFeature.x25519) else { throw SessionError.notSupported }
         }
     }
 
