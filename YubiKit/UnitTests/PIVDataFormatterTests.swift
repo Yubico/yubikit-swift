@@ -19,30 +19,30 @@ import Testing
 
 @testable import YubiKit
 
-struct PIVPaddingTests {
+struct PIVDataFormatterTests {
 
-    @Test func padSHA256ECCP256() throws {
+    @Test func prepareECDSASigningSHA256P256() throws {
         let data = "Hello world!".data(using: .utf8)!
         do {
-            let result = try PIVPadding.padData(
+            let result = try PIVDataFormatter.prepareDataForECDSASigning(
                 data,
-                keyType: .ecc(.p256),
-                algorithm: .ecdsaSignatureMessageX962SHA256
+                curve: .p256,
+                algorithm: .message(.sha256)
             )
             let expected = Data(hexEncodedString: "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
         } catch {
-            Issue.record("Failed padding data with error: \(error)")
+            Issue.record("Failed preparing ECDSA signing data with error: \(error)")
         }
     }
 
-    @Test func padSHA256ECCP384() throws {
+    @Test func prepareECDSASigningSHA256P384() throws {
         let data = "Hello world!".data(using: .utf8)!
         do {
-            let result = try PIVPadding.padData(
+            let result = try PIVDataFormatter.prepareDataForECDSASigning(
                 data,
-                keyType: .ecc(.p384),
-                algorithm: .ecdsaSignatureMessageX962SHA256
+                curve: .p384,
+                algorithm: .message(.sha256)
             )
             let expected = Data(
                 hexEncodedString:
@@ -50,47 +50,47 @@ struct PIVPaddingTests {
             )!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
         } catch {
-            Issue.record("Failed padding data with error: \(error)")
+            Issue.record("Failed preparing ECDSA signing data with error: \(error)")
         }
     }
 
-    @Test func padSHA1ECCP256() throws {
+    @Test func prepareECDSASigningSHA1P256() throws {
         let data = "Hello world!".data(using: .utf8)!
         do {
-            let result = try PIVPadding.padData(
+            let result = try PIVDataFormatter.prepareDataForECDSASigning(
                 data,
-                keyType: .ecc(.p256),
-                algorithm: .ecdsaSignatureMessageX962SHA1
+                curve: .p256,
+                algorithm: .message(.sha1)
             )
             let expected = Data(hexEncodedString: "000000000000000000000000d3486ae9136e7856bc42212385ea797094475802")!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
         } catch {
-            Issue.record("Failed padding data with error: \(error)")
+            Issue.record("Failed preparing ECDSA signing data with error: \(error)")
         }
     }
 
-    @Test func padSHA512ECCP256() throws {
+    @Test func prepareECDSASigningSHA512P256() throws {
         let data = "Hello world!".data(using: .utf8)!
         do {
-            let result = try PIVPadding.padData(
+            let result = try PIVDataFormatter.prepareDataForECDSASigning(
                 data,
-                keyType: .ecc(.p256),
-                algorithm: .ecdsaSignatureMessageX962SHA512
+                curve: .p256,
+                algorithm: .message(.sha512)
             )
             let expected = Data(hexEncodedString: "f6cde2a0f819314cdde55fc227d8d7dae3d28cc556222a0a8ad66d91ccad4aad")!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
         } catch {
-            Issue.record("Failed padding data with error: \(error)")
+            Issue.record("Failed preparing ECDSA signing data with error: \(error)")
         }
     }
 
-    @Test func padSHA512ECCP384() throws {
+    @Test func prepareECDSASigningSHA512P384() throws {
         let data = "Hello world!".data(using: .utf8)!
         do {
-            let result = try PIVPadding.padData(
+            let result = try PIVDataFormatter.prepareDataForECDSASigning(
                 data,
-                keyType: .ecc(.p384),
-                algorithm: .ecdsaSignatureMessageX962SHA512
+                curve: .p384,
+                algorithm: .message(.sha512)
             )
             let expected = Data(
                 hexEncodedString:
@@ -98,32 +98,32 @@ struct PIVPaddingTests {
             )!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
         } catch {
-            Issue.record("Failed padding data with error: \(error)")
+            Issue.record("Failed preparing ECDSA signing data with error: \(error)")
         }
     }
 
-    @Test func preHashedECCP256() throws {
+    @Test func prepareECDSADigestSigning() throws {
         let data = Data(hexEncodedString: "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")!
         do {
-            let result = try PIVPadding.padData(
+            let result = try PIVDataFormatter.prepareDataForECDSASigning(
                 data,
-                keyType: .ecc(.p256),
-                algorithm: .ecdsaSignatureDigestX962SHA256
+                curve: .p256,
+                algorithm: .digest(.sha256)
             )
             let expected = Data(hexEncodedString: "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
         } catch {
-            Issue.record("Failed padding data with error: \(error)")
+            Issue.record("Failed preparing ECDSA digest signing data with error: \(error)")
         }
     }
 
-    @Test func padSHA256WithRSA() throws {
+    @Test func prepareRSASigningSHA256() throws {
         let data = "Hello world!".data(using: .utf8)!
         do {
-            let result = try PIVPadding.padData(
+            let result = try PIVDataFormatter.prepareDataForRSASigning(
                 data,
-                keyType: .rsa(.bits1024),
-                algorithm: .rsaSignatureMessagePKCS1v15SHA256
+                keySize: .bits1024,
+                algorithm: .pkcs1v15(.sha256)
             )
             let expected = Data(
                 hexEncodedString:
@@ -131,17 +131,17 @@ struct PIVPaddingTests {
             )!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
         } catch {
-            Issue.record("Failed padding data with error: \(error)")
+            Issue.record("Failed preparing RSA signing data with error: \(error)")
         }
     }
 
-    @Test func padSHA1WithRSA() throws {
+    @Test func prepareRSASigningSHA1() throws {
         let data = "Hello world!".data(using: .utf8)!
         do {
-            let result = try PIVPadding.padData(
+            let result = try PIVDataFormatter.prepareDataForRSASigning(
                 data,
-                keyType: .rsa(.bits1024),
-                algorithm: .rsaSignatureMessagePKCS1v15SHA1
+                keySize: .bits1024,
+                algorithm: .pkcs1v15(.sha1)
             )
             let expected = Data(
                 hexEncodedString:
@@ -149,17 +149,17 @@ struct PIVPaddingTests {
             )!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
         } catch {
-            Issue.record("Failed padding data with error: \(error)")
+            Issue.record("Failed preparing RSA signing data with error: \(error)")
         }
     }
 
-    @Test func padSHA256ECCP384Digest() throws {
+    @Test func prepareECDSADigestSigningP384WithPadding() throws {
         let data = "Hello world!".data(using: .utf8)!
         do {
-            let result = try PIVPadding.padData(
+            let result = try PIVDataFormatter.prepareDataForECDSASigning(
                 data,
-                keyType: .ecc(.p384),
-                algorithm: .ecdsaSignatureDigestX962SHA256
+                curve: .p384,
+                algorithm: .digest(.sha256)
             )
             let expected = Data(
                 hexEncodedString:
@@ -167,92 +167,50 @@ struct PIVPaddingTests {
             )!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
         } catch {
-            Issue.record("Failed padding data with error: \(error)")
+            Issue.record("Failed preparing ECDSA digest signing data with error: \(error)")
         }
     }
 
-    @Test func unpadRSAEncryptionPKCS1Padded() throws {
+    @Test func extractRSAEncryptionPKCS1() throws {
         let data = Data(
             hexEncodedString:
                 "00022b781255b78f9570844701748107f506effbea5f0822b41dded192938906cefe16eef190d4cf7f7b0866badf94ca0e4e08fda43e4619edec2703987a56a78aa4c2d36a8f89c43f1f9c0ab681e45a759744ef946d65d95e74536b28b83cdc1c62e36c014c8b4a50c178a54306ce7395240e0048656c6c6f20576f726c6421"
         )!
         do {
-            let result = try PIVPadding.unpadRSAData(data, algorithm: .rsaEncryptionPKCS1)
+            let result = try PIVDataFormatter.extractDataFromRSAEncryption(data, algorithm: .pkcs1v15)
             let expected = "Hello World!".data(using: .utf8)!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
         } catch {
-            Issue.record("Failed padding data with error: \(error)")
+            Issue.record("Failed extracting RSA encryption data with error: \(error)")
         }
     }
 
-    @Test func unpadRSAEncryptionOAEPSHA224() throws {
+    @Test func extractRSAEncryptionOAEPSHA224() throws {
         let data = Data(
             hexEncodedString:
                 "00bcbb35b6ef5c94a85fb3439a6dabda617a08963cf81023bac19c619b024cb71b8aee25cc30991279c908198ba623fba88547741dbf17a6f2a737ec95542b56b2b429bea8bd3145af7c8f144dcf804b89d3f9de21d6d6dc852fc91c666b8582bf348e1388ac2f54651ae6a1f5355c8d96daf96c922a9f1a499d890412d09454"
         )!
         do {
-            let result = try PIVPadding.unpadRSAData(data, algorithm: .rsaEncryptionOAEPSHA224)
+            let result = try PIVDataFormatter.extractDataFromRSAEncryption(data, algorithm: .oaep(.sha224))
             let expected = "Hello World!".data(using: .utf8)!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
         } catch {
-            Issue.record("Failed padding data with error: \(error)")
+            Issue.record("Failed extracting RSA encryption data with error: \(error)")
         }
     }
 
-    @Test func unpadMalformedData() throws {
+    @Test func extractMalformedRSAData() throws {
         let data = Data(
             hexEncodedString:
                 "79ce573cfc2bdfe835175ffd4bd01ab35eccfd31e2b009a1943123e9cb2db4878608c821fb96a6c63382aaf1c12ce0f03b83"
         )!
         do {
-            let _ = try PIVPadding.unpadRSAData(data, algorithm: .rsaEncryptionPKCS1)
-            Issue.record("unpadRSAData returned although the data had the wrong size.")
+            let _ = try PIVDataFormatter.extractDataFromRSAEncryption(data, algorithm: .pkcs1v15)
+            Issue.record("extractDataFromRSAEncryption returned although the data had the wrong size.")
+        } catch PIVSignatureError.invalidDataSize {
+            #expect(true, "Failed as expected with invalid data size error")
         } catch {
-            #expect(true, "Failed as expeced with: \(error)")
-        }
-    }
-
-    // MARK: - Ed25519 Tests
-
-    @Test func padEd25519Message() throws {
-        let data = "Hello world!".data(using: .utf8)!
-        do {
-            let result = try PIVPadding.padData(
-                data,
-                keyType: .ed25519,
-                algorithm: .ecdsaSignatureMessageX962SHA256
-            )
-            #expect(result == data, "Ed25519 should return original message without padding")
-        } catch {
-            Issue.record("Failed padding Ed25519 data with error: \(error)")
-        }
-    }
-
-    @Test func padEd25519EmptyMessage() throws {
-        let data = Data()
-        do {
-            let result = try PIVPadding.padData(
-                data,
-                keyType: .ed25519,
-                algorithm: .ecdsaSignatureMessageX962SHA256
-            )
-            #expect(result == data, "Ed25519 should return original empty message")
-        } catch {
-            Issue.record("Failed padding Ed25519 empty data with error: \(error)")
-        }
-    }
-
-    // MARK: - X25519 Tests
-
-    @Test func padX25519ThrowsError() throws {
-        let data = "Hello world!".data(using: .utf8)!
-        do {
-            let _ = try PIVPadding.padData(data, keyType: .x25519, algorithm: .ecdsaSignatureMessageX962SHA256)
-            Issue.record("X25519 should not support signing operations")
-        } catch PIVPaddingError.unsupportedAlgorithm {
-            #expect(true, "X25519 correctly throws unsupportedAlgorithm error")
-        } catch {
-            Issue.record("X25519 threw unexpected error: \(error)")
+            Issue.record("Unexpected error: \(error)")
         }
     }
 }

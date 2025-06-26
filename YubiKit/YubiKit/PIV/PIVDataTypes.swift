@@ -66,7 +66,41 @@ public enum PIVSlot: UInt8 {
     }
 }
 
-// PIV key type.
+// PIV RSA type
+public struct PIVRSAKey {
+    public let keysize: RSA.KeySize
+
+    public static func rsa(_ keysize: RSA.KeySize) -> PIVRSAKey {
+        PIVRSAKey(keysize: keysize)
+    }
+
+    private init(keysize: RSA.KeySize) {
+        self.keysize = keysize
+    }
+}
+
+// PIV ECC type
+public struct PIVECCKey {
+    public let curve: EC.Curve
+
+    public static func ecc(_ curve: EC.Curve) -> PIVECCKey {
+        PIVECCKey(curve: curve)
+    }
+
+    private init(curve: EC.Curve) {
+        self.curve = curve
+    }
+}
+
+public struct PIVEd25519Key {
+    public static var ed25519: PIVEd25519Key {
+        PIVEd25519Key()
+    }
+
+    private init() {}
+}
+
+// PIV key type
 public enum PIVKeyType: RawRepresentable, Equatable {
 
     case rsa(RSA.KeySize)
@@ -147,27 +181,6 @@ public enum PIVVerifyPinResult: Equatable {
     case fail(Int)
     /// PIN has been locked.
     case pinLocked
-}
-
-/// Signing algorithm specification for PIV operations.
-/// This enum encapsulates both the key type and hash algorithm requirements.
-public enum PIVSigningAlgorithm {
-    /// RSA signing with the specified hash algorithm
-    case rsa(SecKeyAlgorithm)
-    /// ECDSA signing with the specified hash algorithm
-    case ecdsa(SecKeyAlgorithm)
-    /// Ed25519 signing (no hash algorithm needed - signs message directly)
-    case ed25519
-
-    /// The hash algorithm for RSA/ECDSA operations, or nil for Ed25519
-    internal var hashAlgorithm: SecKeyAlgorithm? {
-        switch self {
-        case .rsa(let algorithm), .ecdsa(let algorithm):
-            return algorithm
-        case .ed25519:
-            return nil
-        }
-    }
 }
 
 /// PIV session specific errors.

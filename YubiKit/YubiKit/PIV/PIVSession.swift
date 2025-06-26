@@ -65,60 +65,94 @@ public final actor PIVSession: Session {
     /// Create a signature for a given message.
     /// - Parameters:
     ///   - slot: The slot containing the private key to use.
-    ///   - keyType: The type of the key stored in the slot.
+    ///   - keyType: The type of RSA key stored in the slot.
     ///   - algorithm: The signing algorithm, which specifies both the key type and hash algorithm.
     ///   - message: The message to sign.
     /// - Returns: The generated signature for the message.
-    public func signWithKeyInSlot(
-        _ slot: PIVSlot,
-        keyType: PIVKeyType,
-        algorithm: PIVSigningAlgorithm,
+    public func sign(
+        slot: PIVSlot,
+        keyType: PIVRSAKey,
+        algorithm: PIVRSASignatureAlgorithm,
         message: Data
     ) async throws -> Data {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
 
-        // Validate algorithm matches key type
-        switch (keyType, algorithm) {
-        case (.rsa, .rsa):
-            break
-        case (.ecc, .ecdsa):
-            break
-        case (.ed25519, .ed25519):
-            break
-        case (.x25519, _):
-            throw PIVSessionError.unsupportedOperation
-        default:
-            throw PIVSessionError.invalidInput
-        }
+        let signature = try PIVDataFormatter.prepareDataForRSASigning(
+            message,
+            keySize: keyType.keysize,
+            algorithm: algorithm
+        )
 
-        let data: Data
-        if let algorithm = algorithm.hashAlgorithm {
-            data = try PIVPadding.padData(message, keyType: keyType, algorithm: algorithm)
-        } else {
-            // Ed25519: sign message directly
-            data = message
-        }
-
-        return try await usePrivateKeyInSlot(slot, keyType: keyType, message: data, exponentiation: false)
+        return try await usePrivateKeyInSlot(
+            slot: slot,
+            keyType: .rsa(keyType.keysize),
+            message: signature,
+            exponentiation: false
+        )
     }
 
-    /// Decrypt a RSA-encrypted message.
+    /// Create a signature for a given message.
     /// - Parameters:
     ///   - slot: The slot containing the private key to use.
-    ///   - algorithm: The algorithm used for encryption.
+    ///   - keyType: The type of ECC key stored in the slot.
+    ///   - algorithm: The ECDSA signature algorithm to use.
+    ///   - message: The message to sign.
+    /// - Returns: The generated signature for the message.
+    public func sign(
+        slot: PIVSlot,
+        keyType: PIVECCKey,
+        algorithm: PIVECDSASignatureAlgorithm,
+        message: Data
+    ) async throws -> Data {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
+
+        let signature = try PIVDataFormatter.prepareDataForECDSASigning(
+            message,
+            curve: keyType.curve,
+            algorithm: algorithm
+        )
+
+        return try await usePrivateKeyInSlot(
+            slot: slot,
+            keyType: .ecc(keyType.curve),
+            message: signature,
+            exponentiation: false
+        )
+    }
+
+    /// Create a signature for a given message.
+    /// - Parameters:
+    ///   - slot: The slot containing the private key to use.
+    ///   - keyType: The type of Ed25519 key stored in the slot.
+    ///   - message: The message to sign.
+    /// - Returns: The generated signature for the message.
+    public func sign(
+        slot: PIVSlot,
+        keyType: PIVEd25519Key,
+        message: Data
+    ) async throws -> Data {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
+
+        return try await usePrivateKeyInSlot(slot: slot, keyType: .ed25519, message: message, exponentiation: false)
+    }
+
+    /// Decrypts a RSA-encrypted message.
+    /// - Parameters:
+    ///   - slot: The slot containing the private key to use.
+    ///   - algorithm: The same algorithm used when signing.
     ///   - data: The encrypted data to decrypt.
     /// - Returns: The decrypted data.
     public func decryptWithKeyInSlot(
         slot: PIVSlot,
-        algorithm: SecKeyAlgorithm,
+        algorithm: PIVRSAEncryptionAlgorithm,
         encrypted data: Data
     ) async throws -> Data {
         let validTypes = RSA.KeySize.allCases.compactMap { PIVKeyType(kind: .rsa($0)) }
         guard let keyType = validTypes.first(where: { $0.sizeInBytes == data.count }) else {
             throw PIVSessionError.invalidCipherTextLength
         }
-        let result = try await usePrivateKeyInSlot(slot, keyType: keyType, message: data, exponentiation: false)
-        return try PIVPadding.unpadRSAData(result, algorithm: algorithm)
+        let result = try await usePrivateKeyInSlot(slot: slot, keyType: keyType, message: data, exponentiation: false)
+        return try PIVDataFormatter.extractDataFromRSAEncryption(result, algorithm: algorithm)
     }
 
     /// Perform an ECDH operation with a given public key to compute a shared secret.
@@ -129,7 +163,7 @@ public final actor PIVSession: Session {
     public func calculateSecretKeyInSlot(slot: PIVSlot, peerKey: EC.PublicKey) async throws -> Data {
 
         try await usePrivateKeyInSlot(
-            slot,
+            slot: slot,
             keyType: .ecc(peerKey.curve),
             message: peerKey.uncompressedPoint,
             exponentiation: true
@@ -144,7 +178,7 @@ public final actor PIVSession: Session {
     public func calculateSecretKeyInSlot(slot: PIVSlot, peerKey: Curve25519.X25519.PublicKey) async throws -> Data {
 
         try await usePrivateKeyInSlot(
-            slot,
+            slot: slot,
             keyType: .x25519,
             message: peerKey.keyData,
             exponentiation: true
@@ -186,7 +220,7 @@ public final actor PIVSession: Session {
     ///
     /// - Parameters:
     ///   - slot: The slot to generate the new key in.
-    ///   - type: Which algorithm is used for key generation.
+    ///   - type: The key type that should be generated.
     ///   - pinPolicy: The PIN policy for using the private key.
     ///   - touchPolicy: The touch policy for using the private key.
     /// - Returns: The generated public key.
@@ -797,7 +831,7 @@ public final actor PIVSession: Session {
 extension PIVSession {
 
     private func usePrivateKeyInSlot(
-        _ slot: PIVSlot,
+        slot: PIVSlot,
         keyType: PIVKeyType,
         message: Data,
         exponentiation: Bool

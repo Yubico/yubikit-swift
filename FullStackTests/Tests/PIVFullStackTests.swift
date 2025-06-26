@@ -28,10 +28,10 @@ final class PIVFullStackTests: XCTestCase {
 
             try await session.verifyPin("123456")
             let message = "Hello world!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(
-                .signature,
+            let signature = try await session.sign(
+                slot: .signature,
                 keyType: .ecc(.p256),
-                algorithm: .ecdsa(.ecdsaSignatureMessageX962SHA256),
+                algorithm: .digest(.sha256),
                 message: message
             )
             var error: Unmanaged<CFError>?
@@ -61,10 +61,10 @@ final class PIVFullStackTests: XCTestCase {
 
             try await session.verifyPin("123456")
             let message = "Hello world!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(
-                .signature,
+            let signature = try await session.sign(
+                slot: .signature,
                 keyType: .rsa(.bits1024),
-                algorithm: .rsa(.rsaSignatureMessagePKCS1v15SHA512),
+                algorithm: .pkcs1v15(.sha512),
                 message: message
             )
             var error: Unmanaged<CFError>?
@@ -98,10 +98,9 @@ final class PIVFullStackTests: XCTestCase {
 
             try await session.verifyPin("123456")
             let message = "Hello world!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(
-                .signature,
+            let signature = try await session.sign(
+                slot: .signature,
                 keyType: .ed25519,
-                algorithm: .ed25519,
                 message: message
             )
 
@@ -137,7 +136,7 @@ final class PIVFullStackTests: XCTestCase {
             try await session.verifyPin("123456")
             let decryptedData = try await session.decryptWithKeyInSlot(
                 slot: .signature,
-                algorithm: .rsaEncryptionPKCS1,
+                algorithm: .pkcs1v15,
                 encrypted: encryptedData as Data
             )
             XCTAssertEqual(data, decryptedData)
@@ -168,7 +167,7 @@ final class PIVFullStackTests: XCTestCase {
             try await session.verifyPin("123456")
             let decryptedData = try await session.decryptWithKeyInSlot(
                 slot: .signature,
-                algorithm: .rsaEncryptionPKCS1,
+                algorithm: .pkcs1v15,
                 encrypted: encryptedData as Data
             )
             XCTAssertEqual(data, decryptedData)
@@ -311,7 +310,7 @@ final class PIVFullStackTests: XCTestCase {
                 try await session.verifyPin("123456")
                 let decryptedData = try await session.decryptWithKeyInSlot(
                     slot: .signature,
-                    algorithm: .rsaEncryptionPKCS1,
+                    algorithm: .pkcs1v15,
                     encrypted: encryptedData
                 )
                 XCTAssert(dataToEncrypt == decryptedData)
@@ -336,10 +335,10 @@ final class PIVFullStackTests: XCTestCase {
                 XCTAssert(keyType == .ecc(curve))
                 try await session.verifyPin("123456")
                 let message = "Hello World!".data(using: .utf8)!
-                let signature = try await session.signWithKeyInSlot(
-                    .signature,
+                let signature = try await session.sign(
+                    slot: .signature,
                     keyType: .ecc(curve),
-                    algorithm: .ecdsa(.ecdsaSignatureMessageX962SHA256),
+                    algorithm: .message(.sha256),
                     message: message
                 )
                 var error: Unmanaged<CFError>?
@@ -373,10 +372,10 @@ final class PIVFullStackTests: XCTestCase {
             XCTAssert(keyType == .ecc(.p384))
             try await session.verifyPin("123456")
             let message = "Hello World!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(
-                .signature,
+            let signature = try await session.sign(
+                slot: .signature,
                 keyType: .ecc(.p384),
-                algorithm: .ecdsa(.ecdsaSignatureMessageX962SHA256),
+                algorithm: .message(.sha256),
                 message: message
             )
             var error: Unmanaged<CFError>?
@@ -429,10 +428,9 @@ final class PIVFullStackTests: XCTestCase {
             // Test signing with the imported key
             try await session.verifyPin("123456")
             let message = "Hello Ed25519 Import!".data(using: .utf8)!
-            let signature = try await session.signWithKeyInSlot(
-                .signature,
+            let signature = try await session.sign(
+                slot: .signature,
                 keyType: .ed25519,
-                algorithm: .ed25519,
                 message: message
             )
 
