@@ -20,7 +20,11 @@ final class PIVFullStackTests: XCTestCase {
 
     func testSignECCP256() throws {
         runAuthenticatedPIVTest { session in
-            guard case let .ec(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .ecc(.p256))
+            guard
+                case let .ec(publicKey) = try await session.generateKeyInSlot(
+                    slot: .signature,
+                    type: .ecc(.p256)
+                )
             else {
                 XCTFail("Failed to generate key in slot")
                 return
@@ -53,7 +57,10 @@ final class PIVFullStackTests: XCTestCase {
     func testSignRSA1024() throws {
         runAuthenticatedPIVTest { session in
             guard
-                case let .rsa(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024))
+                case let .rsa(publicKey) = try await session.generateKeyInSlot(
+                    slot: .signature,
+                    type: .rsa(.bits1024)
+                )
             else {
                 XCTFail("Failed to generate key in slot")
                 return
@@ -90,7 +97,11 @@ final class PIVFullStackTests: XCTestCase {
                 return
             }
 
-            guard case let .ed25519(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .ed25519)
+            guard
+                case let .ed25519(publicKey) = try await session.generateKeyInSlot(
+                    slot: .signature,
+                    type: .ed25519
+                )
             else {
                 XCTFail("Failed to generate key in slot")
                 return
@@ -115,7 +126,10 @@ final class PIVFullStackTests: XCTestCase {
     func testDecryptRSA2048() throws {
         runAuthenticatedPIVTest { session in
             guard
-                case let .rsa(publicKey) = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits2048))
+                case let .rsa(publicKey) = try await session.generateKeyInSlot(
+                    slot: .signature,
+                    type: .rsa(.bits2048)
+                )
             else {
                 XCTFail("Failed to generate key in slot")
                 return
@@ -776,7 +790,7 @@ final class PIVFullStackTests: XCTestCase {
     func testAuthenticateWithDefaultManagementKey() throws {
         runPIVTest { session in
             do {
-                let keyType: PIVManagementKeyType
+                let keyType: PIV.ManagementKeyType
                 if session.supports(PIVSessionFeature.metadata) {
                     let metadata = try await session.getManagementKeyMetadata()
                     keyType = metadata.keyType
@@ -826,7 +840,7 @@ final class PIVFullStackTests: XCTestCase {
         runPIVTest { session in
             let wrongManagementKey = Data(hexEncodedString: "010101010101010101010101010101010101010101010101")!
             do {
-                let keyType: PIVManagementKeyType
+                let keyType: PIV.ManagementKeyType
                 if session.supports(PIVSessionFeature.metadata) {
                     let metadata = try await session.getManagementKeyMetadata()
                     keyType = metadata.keyType
@@ -1187,7 +1201,7 @@ extension XCTestCase {
 
     func authenticate(with session: PIVSession) async throws {
         let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
-        let keyType: PIVManagementKeyType
+        let keyType: PIV.ManagementKeyType
         if session.supports(PIVSessionFeature.metadata) {
             let metadata = try await session.getManagementKeyMetadata()
             keyType = metadata.keyType

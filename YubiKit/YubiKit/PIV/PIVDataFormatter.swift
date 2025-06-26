@@ -16,124 +16,6 @@ import CommonCrypto
 import CryptoKit
 import Foundation
 
-/// Errors that can occur during PIV signature data preparation
-public enum PIVSignatureError: Error {
-    /// The algorithm is not supported for the given key type
-    case unsupportedAlgorithm
-    /// The key type is not recognized
-    case unknownKeyType
-    /// An unexpected error occurred during signature preparation
-    case signaturePreparationFailed
-    /// The input data size doesn't match the expected size for the operation
-    case invalidDataSize
-}
-
-/// Hash algorithms supported for PIV cryptographic operations
-public enum PIVHashAlgorithm {
-    /// SHA-1 (160-bit) - Note: Deprecated for most use cases
-    case sha1
-    /// SHA-224 (224-bit)
-    case sha224
-    /// SHA-256 (256-bit)
-    case sha256
-    /// SHA-384 (384-bit)
-    case sha384
-    /// SHA-512 (512-bit)
-    case sha512
-}
-
-/// RSA signature algorithms supported by PIV
-public enum PIVRSASignatureAlgorithm {
-    /// PKCS#1 v1.5 signature with specified hash algorithm
-    case pkcs1v15(PIVHashAlgorithm)
-    /// PSS (Probabilistic Signature Scheme) with specified hash algorithm
-    case pss(PIVHashAlgorithm)
-    /// Raw RSA signature operation (no padding)
-    case raw
-
-    /// Maps to the corresponding SecKeyAlgorithm
-    internal var secKeyAlgorithm: SecKeyAlgorithm {
-        switch self {
-        case .pkcs1v15(let hash):
-            switch hash {
-            case .sha1: return .rsaSignatureMessagePKCS1v15SHA1
-            case .sha224: return .rsaSignatureMessagePKCS1v15SHA224
-            case .sha256: return .rsaSignatureMessagePKCS1v15SHA256
-            case .sha384: return .rsaSignatureMessagePKCS1v15SHA384
-            case .sha512: return .rsaSignatureMessagePKCS1v15SHA512
-            }
-        case .pss(let hash):
-            switch hash {
-            case .sha1: return .rsaSignatureMessagePSSSHA1
-            case .sha224: return .rsaSignatureMessagePSSSHA224
-            case .sha256: return .rsaSignatureMessagePSSSHA256
-            case .sha384: return .rsaSignatureMessagePSSSHA384
-            case .sha512: return .rsaSignatureMessagePSSSHA512
-            }
-        case .raw:
-            return .rsaSignatureRaw
-        }
-    }
-}
-
-/// RSA encryption algorithms supported by PIV
-public enum PIVRSAEncryptionAlgorithm {
-    /// PKCS#1 v1.5 encryption/decryption
-    case pkcs1v15
-    /// OAEP encryption/decryption with specified hash algorithm
-    case oaep(PIVHashAlgorithm)
-    /// Raw RSA operation (no padding)
-    case raw
-
-    /// Maps to the corresponding SecKeyAlgorithm
-    internal var secKeyAlgorithm: SecKeyAlgorithm {
-        switch self {
-        case .pkcs1v15:
-            return .rsaEncryptionPKCS1
-        case .oaep(let hash):
-            switch hash {
-            case .sha1: return .rsaEncryptionOAEPSHA1
-            case .sha224: return .rsaEncryptionOAEPSHA224
-            case .sha256: return .rsaEncryptionOAEPSHA256
-            case .sha384: return .rsaEncryptionOAEPSHA384
-            case .sha512: return .rsaEncryptionOAEPSHA512
-            }
-        case .raw:
-            return .rsaEncryptionRaw
-        }
-    }
-}
-
-/// ECDSA signature algorithms supported by PIV
-public enum PIVECDSASignatureAlgorithm {
-    /// Signs a pre-hashed digest
-    case digest(PIVHashAlgorithm)
-    /// Signs a raw message (hashing is performed internally)
-    case message(PIVHashAlgorithm)
-
-    /// Maps to the corresponding SecKeyAlgorithm
-    internal var secKeyAlgorithm: SecKeyAlgorithm {
-        switch self {
-        case .digest(let hash):
-            switch hash {
-            case .sha1: return .ecdsaSignatureDigestX962SHA1
-            case .sha224: return .ecdsaSignatureDigestX962SHA224
-            case .sha256: return .ecdsaSignatureDigestX962SHA256
-            case .sha384: return .ecdsaSignatureDigestX962SHA384
-            case .sha512: return .ecdsaSignatureDigestX962SHA512
-            }
-        case .message(let hash):
-            switch hash {
-            case .sha1: return .ecdsaSignatureMessageX962SHA1
-            case .sha224: return .ecdsaSignatureMessageX962SHA224
-            case .sha256: return .ecdsaSignatureMessageX962SHA256
-            case .sha384: return .ecdsaSignatureMessageX962SHA384
-            case .sha512: return .ecdsaSignatureMessageX962SHA512
-            }
-        }
-    }
-}
-
 /// Utilities for formatting data for PIV cryptographic operations
 internal enum PIVDataFormatter {
 
@@ -148,11 +30,11 @@ internal enum PIVDataFormatter {
     ///   - keySize: The RSA key size
     ///   - algorithm: The RSA signature algorithm to use
     /// - Returns: The prepared signature data
-    /// - Throws: `PIVSignatureError` if the operation fails
+    /// - Throws: `PIV.SignatureError` if the operation fails
     internal static func prepareDataForRSASigning(
         _ data: Data,
         keySize: RSA.KeySize,
-        algorithm: PIVRSASignatureAlgorithm
+        algorithm: PIV.RSASignatureAlgorithm
     ) throws -> Data {
         let attributes =
             [
@@ -187,11 +69,11 @@ internal enum PIVDataFormatter {
     ///   - curve: The elliptic curve (P-256 or P-384)
     ///   - algorithm: The ECDSA signature algorithm to use
     /// - Returns: The prepared signature data (hash truncated/padded to key size)
-    /// - Throws: `PIVSignatureError` if the algorithm is unsupported
+    /// - Throws: `PIV.SignatureError` if the algorithm is unsupported
     internal static func prepareDataForECDSASigning(
         _ data: Data,
         curve: EC.Curve,
-        algorithm: PIVECDSASignatureAlgorithm
+        algorithm: PIV.ECDSASignatureAlgorithm
     ) throws -> Data {
         var hash: Data
         switch algorithm {
@@ -252,11 +134,11 @@ internal enum PIVDataFormatter {
     ///   - keySize: The RSA key size
     ///   - algorithm: The RSA encryption algorithm to use
     /// - Returns: The prepared encryption data
-    /// - Throws: `PIVSignatureError` if the operation fails
+    /// - Throws: `PIV.SignatureError` if the operation fails
     internal static func prepareDataForRSAEncryption(
         _ data: Data,
         keySize: RSA.KeySize,
-        algorithm: PIVRSAEncryptionAlgorithm
+        algorithm: PIV.RSAEncryptionAlgorithm
     ) throws -> Data {
         let attributes =
             [
@@ -286,12 +168,14 @@ internal enum PIVDataFormatter {
     ///   - data: The RSA encryption-formatted data
     ///   - algorithm: The RSA encryption algorithm that was used
     /// - Returns: The extracted original data
-    /// - Throws: `PIVSignatureError` if the data size is invalid or decryption fails
-    internal static func extractDataFromRSAEncryption(_ data: Data, algorithm: PIVRSAEncryptionAlgorithm) throws -> Data
-    {
-        let validTypes = RSA.KeySize.allCases.compactMap { PIVKeyType(kind: .rsa($0)) }
+    /// - Throws: `PIV.SignatureError` if the data size is invalid or decryption fails
+    internal static func extractDataFromRSAEncryption(
+        _ data: Data,
+        algorithm: PIV.RSAEncryptionAlgorithm
+    ) throws -> Data {
+        let validTypes = RSA.KeySize.allCases.compactMap { PIV.KeyType(kind: .rsa($0)) }
         guard let keyType = validTypes.first(where: { $0.sizeInBytes == data.count }) else {
-            throw PIVSignatureError.invalidDataSize
+            throw PIV.SignatureError.invalidDataSize
         }
 
         let attributes =
@@ -326,12 +210,12 @@ internal enum PIVDataFormatter {
     ///   - data: The RSA signature-formatted data
     ///   - algorithm: The RSA signature algorithm that was used
     /// - Returns: The extracted original data
-    /// - Throws: `PIVSignatureError` if the data size is invalid or decryption fails
-    internal static func extractDataFromRSASigning(_ data: Data, algorithm: PIVRSASignatureAlgorithm) throws -> Data {
+    /// - Throws: `PIV.SignatureError` if the data size is invalid or decryption fails
+    internal static func extractDataFromRSASigning(_ data: Data, algorithm: PIV.RSASignatureAlgorithm) throws -> Data {
 
-        let validTypes = RSA.KeySize.allCases.compactMap { PIVKeyType(kind: .rsa($0)) }
+        let validTypes = RSA.KeySize.allCases.compactMap { PIV.KeyType(kind: .rsa($0)) }
         guard let keyType = validTypes.first(where: { $0.sizeInBytes == data.count }) else {
-            throw PIVSignatureError.invalidDataSize
+            throw PIV.SignatureError.invalidDataSize
         }
 
         let attributes =

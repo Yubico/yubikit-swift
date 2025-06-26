@@ -207,7 +207,7 @@ struct PIVDataFormatterTests {
         do {
             let _ = try PIVDataFormatter.extractDataFromRSAEncryption(data, algorithm: .pkcs1v15)
             Issue.record("extractDataFromRSAEncryption returned although the data had the wrong size.")
-        } catch PIVSignatureError.invalidDataSize {
+        } catch PIV.SignatureError.invalidDataSize {
             #expect(true, "Failed as expected with invalid data size error")
         } catch {
             Issue.record("Unexpected error: \(error)")
