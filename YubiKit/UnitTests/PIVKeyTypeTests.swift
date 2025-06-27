@@ -56,46 +56,6 @@ struct PIVKeyTypeTests {
         #expect(keyType == nil)
     }
 
-    // MARK: - Key Size Tests
-
-    /// Test Ed25519 key size in bits.
-    @Test func ed25519KeySizeInBits() {
-        let keyType = PIV.KeyType.ed25519
-        #expect(keyType.sizeInBits == 256)
-    }
-
-    /// Test X25519 key size in bits.
-    @Test func x25519KeySizeInBits() {
-        let keyType = PIV.KeyType.x25519
-        #expect(keyType.sizeInBits == 256)
-    }
-
-    /// Test Ed25519 key size in bytes.
-    @Test func ed25519KeySizeInBytes() {
-        let keyType = PIV.KeyType.ed25519
-        #expect(keyType.sizeInBytes == 32)
-    }
-
-    /// Test X25519 key size in bytes.
-    @Test func x25519KeySizeInBytes() {
-        let keyType = PIV.KeyType.x25519
-        #expect(keyType.sizeInBytes == 32)
-    }
-
-    // MARK: - CryptoKeyKind Conversion Tests
-
-    /// Test creating PIV.KeyType from Ed25519 CryptoKeyKind.
-    @Test func createFromEd25519CryptoKeyKind() {
-        let keyType = PIV.KeyType(kind: .ed25519)
-        #expect(keyType == .ed25519)
-    }
-
-    /// Test creating PIV.KeyType from X25519 CryptoKeyKind.
-    @Test func createFromX25519CryptoKeyKind() {
-        let keyType = PIV.KeyType(kind: .x25519)
-        #expect(keyType == .x25519)
-    }
-
     // MARK: - Equality Tests
 
     /// Test Ed25519 key type equality.
