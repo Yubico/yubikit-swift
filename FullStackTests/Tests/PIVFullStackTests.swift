@@ -303,12 +303,12 @@ final class PIVFullStackTests: XCTestCase {
                 let publicKey = privateKey.publicKey
 
                 let keyType = try await session.putKey(
-                    key: .rsa(privateKey),
+                    key: privateKey,
                     inSlot: .signature,
                     pinPolicy: .always,
                     touchPolicy: .never
                 )
-                XCTAssert(keyType == .rsa(keySize))
+                XCTAssert(keyType == PIV.RSAKey.rsa(keySize))
                 let dataToEncrypt = "Hello World!".data(using: .utf8)!
                 guard let publicKey = publicKey.asSecKey(),
                     let encryptedData = SecKeyCreateEncryptedData(
@@ -341,12 +341,12 @@ final class PIVFullStackTests: XCTestCase {
                 let publicKey = privateKey.publicKey
 
                 let keyType = try await session.putKey(
-                    key: .ec(privateKey),
+                    key: privateKey,
                     inSlot: .signature,
                     pinPolicy: .always,
                     touchPolicy: .never
                 )
-                XCTAssert(keyType == .ecc(curve))
+                XCTAssert(keyType == PIV.ECCKey.ecc(curve))
                 try await session.verifyPin("123456")
                 let message = "Hello World!".data(using: .utf8)!
                 let signature = try await session.sign(
@@ -378,12 +378,12 @@ final class PIVFullStackTests: XCTestCase {
             let publicKey = privateKey.publicKey
 
             let keyType = try await session.putKey(
-                key: .ec(privateKey),
+                key: privateKey,
                 inSlot: .signature,
                 pinPolicy: .always,
                 touchPolicy: .never
             )
-            XCTAssert(keyType == .ecc(.p384))
+            XCTAssert(keyType == PIV.ECCKey.ecc(.p384))
             try await session.verifyPin("123456")
             let message = "Hello World!".data(using: .utf8)!
             let signature = try await session.sign(
@@ -432,12 +432,12 @@ final class PIVFullStackTests: XCTestCase {
 
             // Import the key
             let keyType = try await session.putKey(
-                key: .ed25519(yubiKitPrivateKey),
+                key: yubiKitPrivateKey,
                 inSlot: .signature,
                 pinPolicy: .always,
                 touchPolicy: .never
             )
-            XCTAssert(keyType == .ed25519)
+            XCTAssert(keyType == PIV.Ed25519Key.ed25519)
 
             // Test signing with the imported key
             try await session.verifyPin("123456")
@@ -477,12 +477,12 @@ final class PIVFullStackTests: XCTestCase {
 
             // Import the key
             let keyType = try await session.putKey(
-                key: .x25519(yubiKitPrivateKey),
+                key: yubiKitPrivateKey,
                 inSlot: .signature,
                 pinPolicy: .always,
                 touchPolicy: .never
             )
-            XCTAssert(keyType == .x25519)
+            XCTAssert(keyType == PIV.X25519Key.x25519)
 
             // Test key agreement with the imported key
             let otherCryptoKitPrivateKey = Curve25519.KeyAgreement.PrivateKey()
@@ -512,79 +512,97 @@ final class PIVFullStackTests: XCTestCase {
 
     func testGenerateRSA1024Key() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(
+            let result = try await session.generateKeyInSlot(
                 slot: .signature,
                 type: .rsa(.bits1024),
                 pinPolicy: .always,
                 touchPolicy: .cached
-            ).asRSA()
-            XCTAssertNotNil(publicKey)
-            XCTAssert(publicKey!.size == .bits1024)
+            )
+            guard case let .rsa(publicKey) = result else {
+                XCTFail("Expected RSA public key")
+                return
+            }
+            XCTAssert(publicKey.size == .bits1024)
         }
     }
 
     func testGenerateRSA2048Key() throws {
         runAuthenticatedPIVTest(withTimeout: 50) { session in
-            let publicKey = try await session.generateKeyInSlot(
+            let result = try await session.generateKeyInSlot(
                 slot: .signature,
                 type: .rsa(.bits2048),
                 pinPolicy: .always,
                 touchPolicy: .cached
-            ).asRSA()
-            XCTAssertNotNil(publicKey)
-            XCTAssert(publicKey!.size == .bits2048)
+            )
+            guard case let .rsa(publicKey) = result else {
+                XCTFail("Expected RSA public key")
+                return
+            }
+            XCTAssert(publicKey.size == .bits2048)
         }
     }
 
     func testGenerateRSA3072Key() throws {
         runAuthenticatedPIVTest(withTimeout: 200) { session in
-            let publicKey = try await session.generateKeyInSlot(
+            let result = try await session.generateKeyInSlot(
                 slot: .signature,
                 type: .rsa(.bits3072),
                 pinPolicy: .always,
                 touchPolicy: .cached
-            ).asRSA()
-            XCTAssertNotNil(publicKey)
-            XCTAssert(publicKey!.size == .bits3072)
+            )
+            guard case let .rsa(publicKey) = result else {
+                XCTFail("Expected RSA public key")
+                return
+            }
+            XCTAssert(publicKey.size == .bits3072)
         }
     }
 
     func testGenerateRSA4096Key() throws {
         runAuthenticatedPIVTest(withTimeout: 200) { session in
-            let publicKey = try await session.generateKeyInSlot(
+            let result = try await session.generateKeyInSlot(
                 slot: .signature,
                 type: .rsa(.bits4096),
                 pinPolicy: .always,
                 touchPolicy: .cached
-            ).asRSA()
-            XCTAssertNotNil(publicKey)
-            XCTAssert(publicKey!.size == .bits4096)
+            )
+            guard case let .rsa(publicKey) = result else {
+                XCTFail("Expected RSA public key")
+                return
+            }
+            XCTAssert(publicKey.size == .bits4096)
         }
     }
 
     func testGenerateECCP256Key() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(
+            let result = try await session.generateKeyInSlot(
                 slot: .signature,
                 type: .ecc(.p256),
                 pinPolicy: .always,
                 touchPolicy: .cached
-            ).asEC()
-            XCTAssertNotNil(publicKey)
-            XCTAssert(publicKey!.curve == .p256)
+            )
+            guard case let .ec(publicKey) = result else {
+                XCTFail("Expected EC public key")
+                return
+            }
+            XCTAssert(publicKey.curve == .p256)
         }
     }
 
     func testGenerateECCP384Key() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(
+            let result = try await session.generateKeyInSlot(
                 slot: .signature,
                 type: .ecc(.p384),
                 pinPolicy: .always,
                 touchPolicy: .cached
-            ).asEC()
-            XCTAssertNotNil(publicKey)
-            XCTAssert(publicKey!.curve == .p384)
+            )
+            guard case let .ec(publicKey) = result else {
+                XCTFail("Expected EC public key")
+                return
+            }
+            XCTAssert(publicKey.curve == .p384)
         }
     }
 
@@ -594,14 +612,17 @@ final class PIVFullStackTests: XCTestCase {
                 print("⚠️ Skip testGenerateEd25519Key()")
                 return
             }
-            let publicKey = try await session.generateKeyInSlot(
+            let result = try await session.generateKeyInSlot(
                 slot: .signature,
                 type: .ed25519,
                 pinPolicy: .always,
                 touchPolicy: .cached
-            ).asEd25519()
-            XCTAssertNotNil(publicKey)
-            XCTAssert(publicKey!.keyData.count == 32)
+            )
+            guard case let .ed25519(publicKey) = result else {
+                XCTFail("Expected Ed25519 public key")
+                return
+            }
+            XCTAssert(publicKey.keyData.count == 32)
         }
     }
 
@@ -611,14 +632,17 @@ final class PIVFullStackTests: XCTestCase {
                 print("⚠️ Skip testGenerateX25519Key()")
                 return
             }
-            let publicKey = try await session.generateKeyInSlot(
+            let result = try await session.generateKeyInSlot(
                 slot: .signature,
                 type: .x25519,
                 pinPolicy: .always,
                 touchPolicy: .cached
-            ).asX25519()
-            XCTAssertNotNil(publicKey)
-            XCTAssert(publicKey!.keyData.count == 32)
+            )
+            guard case let .x25519(publicKey) = result else {
+                XCTFail("Expected X25519 public key")
+                return
+            }
+            XCTAssert(publicKey.keyData.count == 32)
         }
     }
 
@@ -626,14 +650,19 @@ final class PIVFullStackTests: XCTestCase {
 
     func testAttestRSAKey() throws {
         runAuthenticatedPIVTest { session in
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024)).asRSA()
-            XCTAssertNotNil(publicKey)
+            let result = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024))
+            guard case let .rsa(publicKey) = result else {
+                XCTFail("Expected RSA public key")
+                return
+            }
 
             let cert = try await session.attestKeyInSlot(slot: .signature)
-            let attestKey = cert.publicKey?.asRSA()
-            XCTAssertNotNil(attestKey)
+            guard case let .rsa(attestKey) = cert.publicKey else {
+                XCTFail("Expected RSA public key in certificate")
+                return
+            }
 
-            XCTAssert(attestKey! == publicKey!)
+            XCTAssert(attestKey == publicKey)
         }
     }
 
@@ -643,14 +672,19 @@ final class PIVFullStackTests: XCTestCase {
                 print("⚠️ Skip testAttestEd25519Key()")
                 return
             }
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .ed25519).asEd25519()
-            XCTAssertNotNil(publicKey)
+            let result = try await session.generateKeyInSlot(slot: .signature, type: .ed25519)
+            guard case let .ed25519(publicKey) = result else {
+                XCTFail("Expected Ed25519 public key")
+                return
+            }
 
             let cert = try await session.attestKeyInSlot(slot: .signature)
-            let attestKey = cert.publicKey?.asEd25519()
-            XCTAssertNotNil(attestKey)
+            guard case let .ed25519(attestKey) = cert.publicKey else {
+                XCTFail("Expected Ed25519 public key in certificate")
+                return
+            }
 
-            XCTAssert(attestKey! == publicKey!)
+            XCTAssert(attestKey == publicKey)
         }
     }
 
@@ -660,13 +694,15 @@ final class PIVFullStackTests: XCTestCase {
                 print("⚠️ Skip testAttestX25519Key()")
                 return
             }
-            let publicKey = try await session.generateKeyInSlot(slot: .signature, type: .x25519).asX25519()
-            XCTAssertNotNil(publicKey)
+            let result = try await session.generateKeyInSlot(slot: .signature, type: .x25519)
+            guard case let .x25519(publicKey) = result else {
+                XCTFail("Expected X25519 public key")
+                return
+            }
 
             let cert = try await session.attestKeyInSlot(slot: .signature)
-            let attestKey = cert.publicKey?.asX25519()
             // Note: X509Cert may not support X25519 key extraction yet
-            if let attestKey = attestKey, let publicKey = publicKey {
+            if case let .x25519(attestKey) = cert.publicKey {
                 XCTAssert(attestKey == publicKey)
             } else {
                 // Just verify that the certificate was generated successfully

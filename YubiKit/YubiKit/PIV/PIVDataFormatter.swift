@@ -39,7 +39,7 @@ internal enum PIVDataFormatter {
         let attributes =
             [
                 kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keySize.keySizeInBits,
+                kSecAttrKeySizeInBits: keySize.inBits,
             ] as [CFString: Any]
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
@@ -143,7 +143,7 @@ internal enum PIVDataFormatter {
         let attributes =
             [
                 kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keySize.keySizeInBits,
+                kSecAttrKeySizeInBits: keySize.inBits,
             ] as [CFString: Any]
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
@@ -173,15 +173,15 @@ internal enum PIVDataFormatter {
         _ data: Data,
         algorithm: PIV.RSAEncryptionAlgorithm
     ) throws -> Data {
-        let validTypes = RSA.KeySize.allCases.compactMap { PIV.KeyType(kind: .rsa($0)) }
-        guard let keyType = validTypes.first(where: { $0.sizeInBytes == data.count }) else {
+        let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
+        guard let keyType = validTypes.first(where: { $0.keysize.inBytes == data.count }) else {
             throw PIV.SignatureError.invalidDataSize
         }
 
         let attributes =
             [
                 kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keyType.sizeInBits,
+                kSecAttrKeySizeInBits: keyType.keysize.inBits,
             ] as [CFString: Any]
 
         var error: Unmanaged<CFError>?
@@ -213,15 +213,15 @@ internal enum PIVDataFormatter {
     /// - Throws: `PIV.SignatureError` if the data size is invalid or decryption fails
     internal static func extractDataFromRSASigning(_ data: Data, algorithm: PIV.RSASignatureAlgorithm) throws -> Data {
 
-        let validTypes = RSA.KeySize.allCases.compactMap { PIV.KeyType(kind: .rsa($0)) }
-        guard let keyType = validTypes.first(where: { $0.sizeInBytes == data.count }) else {
+        let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
+        guard let keyType = validTypes.first(where: { $0.keysize.inBytes == data.count }) else {
             throw PIV.SignatureError.invalidDataSize
         }
 
         let attributes =
             [
                 kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keyType.sizeInBits,
+                kSecAttrKeySizeInBits: keyType.keysize.inBits,
             ] as [CFString: Any]
 
         var error: Unmanaged<CFError>?

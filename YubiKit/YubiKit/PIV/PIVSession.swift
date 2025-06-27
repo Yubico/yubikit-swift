@@ -147,11 +147,16 @@ public final actor PIVSession: Session {
         algorithm: PIV.RSAEncryptionAlgorithm,
         encrypted data: Data
     ) async throws -> Data {
-        let validTypes = RSA.KeySize.allCases.compactMap { PIV.KeyType(kind: .rsa($0)) }
-        guard let keyType = validTypes.first(where: { $0.sizeInBytes == data.count }) else {
-            throw PIV.SessionError.invalidCipherTextLength
+        let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
+        guard let rsaKey = validTypes.first(where: { $0.keysize.inBytes == data.count }) else {
+            throw PIV.SignatureError.invalidDataSize
         }
-        let result = try await usePrivateKeyInSlot(slot: slot, keyType: keyType, message: data, exponentiation: false)
+        let result = try await usePrivateKeyInSlot(
+            slot: slot,
+            keyType: .rsa(rsaKey.keysize),
+            message: data,
+            exponentiation: false
+        )
         return try PIVDataFormatter.extractDataFromRSAEncryption(result, algorithm: algorithm)
     }
 
@@ -247,73 +252,45 @@ public final actor PIVSession: Session {
         return try publicKey(from: record.value, type: type)
     }
 
-    /// Import a private key into a slot.
+    /// Import an RSA private key into a slot.
     ///
     /// This method requires authentication.
     ///
     /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIV.PinPolicy.never`.
-    ///        `PIV.KeyType.ECCP348` requires P384 support, available on YubiKey 4 or later.
-    ///        Ed25519 and X25519 require YubiKey 5.7 or later.
     ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy,
     ///        available on YubiKey 4 or later.
     ///
     /// - Parameters:
-    ///   - key: The private key to import.
+    ///   - key: The RSA private key to import.
     ///   - slot: The slot to write the key to.
     ///   - pinPolicy: The PIN policy for using the private key.
     ///   - touchPolicy: The touch policy for using the private key.
-    /// - Returns: The type of the stored key.
+    /// - Returns: The RSA key type that was stored.
     @discardableResult
     public func putKey(
-        key: PrivateKey,
+        key: RSA.PrivateKey,
         inSlot slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
-    ) async throws -> PIV.KeyType {
+    ) async throws -> PIV.RSAKey {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard let keyType: PIV.KeyType = .init(kind: key.kind) else { throw PIV.SessionError.unknownKeyType }
+        let rsaKeyType = PIV.RSAKey.rsa(key.size)
+        let keyType = PIV.KeyType.rsa(key.size)
         try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
 
         var data = Data()
-        switch keyType {
-        case .rsa:
-            guard let key = key.asRSA() else {
-                throw PIV.SessionError.unknownKeyType
-            }
+        let primeOne = key.p
+        let primeTwo = key.q
+        let exponentOne = key.dP
+        let exponentTwo = key.dQ
+        let coefficient = key.qInv
+        let length = key.size.inBytes / 2
+        data.append(TKBERTLVRecord(tag: 0x01, value: primeOne.padOrTrim(to: length)).data)
+        data.append(TKBERTLVRecord(tag: 0x02, value: primeTwo.padOrTrim(to: length)).data)
+        data.append(TKBERTLVRecord(tag: 0x03, value: exponentOne.padOrTrim(to: length)).data)
+        data.append(TKBERTLVRecord(tag: 0x04, value: exponentTwo.padOrTrim(to: length)).data)
+        data.append(TKBERTLVRecord(tag: 0x05, value: coefficient.padOrTrim(to: length)).data)
 
-            let primeOne = key.p
-            let primeTwo = key.q
-            let exponentOne = key.dP
-            let exponentTwo = key.dQ
-            let coefficient = key.qInv
-            let length = keyType.sizeInBytes / 2
-            data.append(TKBERTLVRecord(tag: 0x01, value: primeOne.padOrTrim(to: length)).data)
-            data.append(TKBERTLVRecord(tag: 0x02, value: primeTwo.padOrTrim(to: length)).data)
-            data.append(TKBERTLVRecord(tag: 0x03, value: exponentOne.padOrTrim(to: length)).data)
-            data.append(TKBERTLVRecord(tag: 0x04, value: exponentTwo.padOrTrim(to: length)).data)
-            data.append(TKBERTLVRecord(tag: 0x05, value: coefficient.padOrTrim(to: length)).data)
-        case .ecc:
-            guard let key = key.asEC() else {
-                throw PIV.SessionError.unknownKeyType
-            }
-
-            let privateKeyData = key.k
-            data.append(TKBERTLVRecord(tag: 0x06, value: privateKeyData).data)
-        case .ed25519:
-            guard let key = key.asEd25519() else {
-                throw PIV.SessionError.unknownKeyType
-            }
-
-            let privateKeyData = key.seed
-            data.append(TKBERTLVRecord(tag: 0x07, value: privateKeyData).data)
-        case .x25519:
-            guard let key = key.asX25519() else {
-                throw PIV.SessionError.unknownKeyType
-            }
-
-            let privateKeyData = key.scalar
-            data.append(TKBERTLVRecord(tag: 0x08, value: privateKeyData).data)
-        }
         if pinPolicy != .`defaultPolicy` {
             data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
         }
@@ -329,7 +306,151 @@ public final actor PIVSession: Session {
             type: .extended
         )
         try await send(apdu: apdu)
-        return keyType
+        return rsaKeyType
+    }
+
+    /// Import an ECC private key into a slot.
+    ///
+    /// This method requires authentication.
+    ///
+    /// >Note: `PIV.KeyType.ECCP348` requires P384 support, available on YubiKey 4 or later.
+    ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy,
+    ///        available on YubiKey 4 or later.
+    ///
+    /// - Parameters:
+    ///   - key: The ECC private key to import.
+    ///   - slot: The slot to write the key to.
+    ///   - pinPolicy: The PIN policy for using the private key.
+    ///   - touchPolicy: The touch policy for using the private key.
+    /// - Returns: The ECC key type that was stored.
+    @discardableResult
+    public func putKey(
+        key: EC.PrivateKey,
+        inSlot slot: PIV.Slot,
+        pinPolicy: PIV.PinPolicy,
+        touchPolicy: PIV.TouchPolicy
+    ) async throws -> PIV.ECCKey {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
+        let eccKeyType = PIV.ECCKey.ecc(key.curve)
+        let keyType = PIV.KeyType.ecc(key.curve)
+        try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
+
+        var data = Data()
+        let privateKeyData = key.k
+        data.append(TKBERTLVRecord(tag: 0x06, value: privateKeyData).data)
+
+        if pinPolicy != .`defaultPolicy` {
+            data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
+        }
+        if touchPolicy != .`defaultPolicy` {
+            data.append(TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data).data)
+        }
+        let apdu = APDU(
+            cla: 0,
+            ins: insImportKey,
+            p1: keyType.rawValue,
+            p2: slot.rawValue,
+            command: data,
+            type: .extended
+        )
+        try await send(apdu: apdu)
+        return eccKeyType
+    }
+
+    /// Import an Ed25519 private key into a slot.
+    ///
+    /// This method requires authentication.
+    ///
+    /// >Note: Ed25519 requires YubiKey 5.7 or later.
+    ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy,
+    ///        available on YubiKey 4 or later.
+    ///
+    /// - Parameters:
+    ///   - key: The Ed25519 private key to import.
+    ///   - slot: The slot to write the key to.
+    ///   - pinPolicy: The PIN policy for using the private key.
+    ///   - touchPolicy: The touch policy for using the private key.
+    /// - Returns: The Ed25519 key type that was stored.
+    @discardableResult
+    public func putKey(
+        key: Curve25519.Ed25519.PrivateKey,
+        inSlot slot: PIV.Slot,
+        pinPolicy: PIV.PinPolicy,
+        touchPolicy: PIV.TouchPolicy
+    ) async throws -> PIV.Ed25519Key {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
+        let ed25519KeyType = PIV.Ed25519Key.ed25519
+        let keyType = PIV.KeyType.ed25519
+        try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
+
+        var data = Data()
+        let privateKeyData = key.seed
+        data.append(TKBERTLVRecord(tag: 0x07, value: privateKeyData).data)
+
+        if pinPolicy != .`defaultPolicy` {
+            data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
+        }
+        if touchPolicy != .`defaultPolicy` {
+            data.append(TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data).data)
+        }
+        let apdu = APDU(
+            cla: 0,
+            ins: insImportKey,
+            p1: keyType.rawValue,
+            p2: slot.rawValue,
+            command: data,
+            type: .extended
+        )
+        try await send(apdu: apdu)
+        return ed25519KeyType
+    }
+
+    /// Import an X25519 private key into a slot.
+    ///
+    /// This method requires authentication.
+    ///
+    /// >Note: X25519 requires YubiKey 5.7 or later.
+    ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy,
+    ///        available on YubiKey 4 or later.
+    ///
+    /// - Parameters:
+    ///   - key: The X25519 private key to import.
+    ///   - slot: The slot to write the key to.
+    ///   - pinPolicy: The PIN policy for using the private key.
+    ///   - touchPolicy: The touch policy for using the private key.
+    /// - Returns: The X25519 key type that was stored.
+    @discardableResult
+    public func putKey(
+        key: Curve25519.X25519.PrivateKey,
+        inSlot slot: PIV.Slot,
+        pinPolicy: PIV.PinPolicy,
+        touchPolicy: PIV.TouchPolicy
+    ) async throws -> PIV.X25519Key {
+        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
+        let x25519KeyType = PIV.X25519Key.x25519
+        let keyType = PIV.KeyType.x25519
+        try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
+
+        var data = Data()
+        let privateKeyData = key.scalar
+        data.append(TKBERTLVRecord(tag: 0x08, value: privateKeyData).data)
+
+        if pinPolicy != .`defaultPolicy` {
+            data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
+        }
+        if touchPolicy != .`defaultPolicy` {
+            data.append(TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data).data)
+        }
+        let apdu = APDU(
+            cla: 0,
+            ins: insImportKey,
+            p1: keyType.rawValue,
+            p2: slot.rawValue,
+            command: data,
+            type: .extended
+        )
+        try await send(apdu: apdu)
+        return x25519KeyType
     }
 
     /// Move key from one slot to another. The source slot must not be the attestation slot and the

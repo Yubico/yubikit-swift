@@ -70,7 +70,7 @@ public enum PIV {
     }
 
     // PIV RSA key type
-    public struct RSAKey {
+    public struct RSAKey: Equatable {
         public let keysize: RSA.KeySize
 
         public static func rsa(_ keysize: RSA.KeySize) -> RSAKey {
@@ -80,10 +80,19 @@ public enum PIV {
         private init(keysize: RSA.KeySize) {
             self.keysize = keysize
         }
+
+        internal var p1: UInt8 {
+            switch keysize {
+            case .bits1024: 0x06
+            case .bits2048: 0x07
+            case .bits3072: 0x05
+            case .bits4096: 0x16
+            }
+        }
     }
 
     // PIV ECC key type
-    public struct ECCKey {
+    public struct ECCKey: Equatable {
         public let curve: EC.Curve
 
         public static func ecc(_ curve: EC.Curve) -> ECCKey {
@@ -93,87 +102,40 @@ public enum PIV {
         private init(curve: EC.Curve) {
             self.curve = curve
         }
+
+        internal var p1: UInt8 {
+            switch curve {
+            case .p256: 0x11
+            case .p384: 0x14
+            }
+        }
     }
 
-    public struct Ed25519Key {
+    public struct Ed25519Key: Equatable {
         public static var ed25519: Ed25519Key {
             Ed25519Key()
         }
 
         private init() {}
+
+        internal let p1 = 0xE0
     }
 
-    // PIV key type
-    public enum KeyType: RawRepresentable, Equatable {
+    public struct X25519Key: Equatable {
+        public static var x25519: X25519Key {
+            X25519Key()
+        }
 
+        private init() {}
+
+        internal let p1 = 0xE1
+    }
+
+    public enum KeyType: Equatable {
         case rsa(RSA.KeySize)
         case ecc(EC.Curve)
         case ed25519
         case x25519
-
-        public var rawValue: UInt8 {
-            switch self {
-            case .rsa(let size):
-                return switch size {
-                case .bits1024: 0x06
-                case .bits2048: 0x07
-                case .bits3072: 0x05
-                case .bits4096: 0x16
-                }
-            case .ecc(let curve):
-                return switch curve {
-                case .p256: 0x11
-                case .p384: 0x14
-                }
-            case .ed25519:
-                return 0xE0
-            case .x25519:
-                return 0xE1
-            }
-        }
-
-        public init?(rawValue: UInt8) {
-            switch rawValue {
-            case 0x06: self = .rsa(.bits1024)
-            case 0x07: self = .rsa(.bits2048)
-            case 0x05: self = .rsa(.bits3072)
-            case 0x16: self = .rsa(.bits4096)
-
-            case 0x11: self = .ecc(.p256)
-            case 0x14: self = .ecc(.p384)
-
-            case 0xE0: self = .ed25519
-            case 0xE1: self = .x25519
-
-            default: return nil
-            }
-        }
-
-        public init?(kind: CryptoKeyKind) {
-            switch kind {
-            case .rsa(let size):
-                self = .rsa(size)
-            case .ec(let curve):
-                self = .ecc(curve)
-            case .ed25519:
-                self = .ed25519
-            case .x25519:
-                self = .x25519
-            }
-        }
-
-        public var sizeInBits: Int {
-            switch self {
-            case .rsa(let keySize): keySize.rawValue
-            case .ecc(let curve): curve.keySizeInBits
-            case .ed25519: 256
-            case .x25519: 256
-            }
-        }
-
-        public var sizeInBytes: Int {
-            sizeInBits / 8
-        }
     }
 
     /// Result of a pin verification.
@@ -414,5 +376,45 @@ public enum PIV {
         case signaturePreparationFailed
         /// The input data size doesn't match the expected size for the operation
         case invalidDataSize
+    }
+}
+
+extension PIV.KeyType: RawRepresentable {
+    public var rawValue: UInt8 {
+        switch self {
+        case .rsa(let size):
+            return switch size {
+            case .bits1024: 0x06
+            case .bits2048: 0x07
+            case .bits3072: 0x05
+            case .bits4096: 0x16
+            }
+        case .ecc(let curve):
+            return switch curve {
+            case .p256: 0x11
+            case .p384: 0x14
+            }
+        case .ed25519:
+            return 0xE0
+        case .x25519:
+            return 0xE1
+        }
+    }
+
+    public init?(rawValue: UInt8) {
+        switch rawValue {
+        case 0x06: self = .rsa(.bits1024)
+        case 0x07: self = .rsa(.bits2048)
+        case 0x05: self = .rsa(.bits3072)
+        case 0x16: self = .rsa(.bits4096)
+
+        case 0x11: self = .ecc(.p256)
+        case 0x14: self = .ecc(.p384)
+
+        case 0xE0: self = .ed25519
+        case 0xE1: self = .x25519
+
+        default: return nil
+        }
     }
 }

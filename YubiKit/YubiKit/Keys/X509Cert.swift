@@ -19,6 +19,7 @@
 import Foundation
 
 public struct X509Cert: Sendable {
+
     /// X.509 DER-encoded certificate data.
     public let der: Data
 

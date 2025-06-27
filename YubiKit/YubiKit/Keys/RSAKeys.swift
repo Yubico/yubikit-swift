@@ -28,12 +28,12 @@ public enum RSA {
         case bits4096 = 4096
 
         /// Returns the key size in bits.
-        public var keySizeInBits: Int {
+        public var inBits: Int {
             rawValue
         }
 
         /// Returns the key size in bytes.
-        public var keySizeInBytes: Int {
+        public var inBytes: Int {
             rawValue / 8
         }
     }
