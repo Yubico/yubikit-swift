@@ -241,3 +241,49 @@ internal enum PIVDataFormatter {
         return decryptedData as Data
     }
 }
+
+extension PIV.RSASignatureAlgorithm {
+    /// Maps to the corresponding SecKeyAlgorithm
+    fileprivate var secKeyAlgorithm: SecKeyAlgorithm {
+        switch self {
+        case .pkcs1v15(let hash):
+            switch hash {
+            case .sha1: return .rsaSignatureMessagePKCS1v15SHA1
+            case .sha224: return .rsaSignatureMessagePKCS1v15SHA224
+            case .sha256: return .rsaSignatureMessagePKCS1v15SHA256
+            case .sha384: return .rsaSignatureMessagePKCS1v15SHA384
+            case .sha512: return .rsaSignatureMessagePKCS1v15SHA512
+            }
+        case .pss(let hash):
+            switch hash {
+            case .sha1: return .rsaSignatureMessagePSSSHA1
+            case .sha224: return .rsaSignatureMessagePSSSHA224
+            case .sha256: return .rsaSignatureMessagePSSSHA256
+            case .sha384: return .rsaSignatureMessagePSSSHA384
+            case .sha512: return .rsaSignatureMessagePSSSHA512
+            }
+        case .raw:
+            return .rsaSignatureRaw
+        }
+    }
+}
+
+extension PIV.RSAEncryptionAlgorithm {
+    /// Maps to the corresponding SecKeyAlgorithm
+    fileprivate var secKeyAlgorithm: SecKeyAlgorithm {
+        switch self {
+        case .pkcs1v15:
+            return .rsaEncryptionPKCS1
+        case .oaep(let hash):
+            switch hash {
+            case .sha1: return .rsaEncryptionOAEPSHA1
+            case .sha224: return .rsaEncryptionOAEPSHA224
+            case .sha256: return .rsaEncryptionOAEPSHA256
+            case .sha384: return .rsaEncryptionOAEPSHA384
+            case .sha512: return .rsaEncryptionOAEPSHA512
+            }
+        case .raw:
+            return .rsaEncryptionRaw
+        }
+    }
+}

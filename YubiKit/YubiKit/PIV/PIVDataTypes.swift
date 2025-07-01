@@ -80,15 +80,6 @@ public enum PIV {
         private init(keysize: RSA.KeySize) {
             self.keysize = keysize
         }
-
-        internal var p1: UInt8 {
-            switch keysize {
-            case .bits1024: 0x06
-            case .bits2048: 0x07
-            case .bits3072: 0x05
-            case .bits4096: 0x16
-            }
-        }
     }
 
     // PIV ECC key type
@@ -102,13 +93,6 @@ public enum PIV {
         private init(curve: EC.Curve) {
             self.curve = curve
         }
-
-        internal var p1: UInt8 {
-            switch curve {
-            case .p256: 0x11
-            case .p384: 0x14
-            }
-        }
     }
 
     public struct Ed25519Key: Equatable {
@@ -117,8 +101,6 @@ public enum PIV {
         }
 
         private init() {}
-
-        internal let p1 = 0xE0
     }
 
     public struct X25519Key: Equatable {
@@ -127,8 +109,6 @@ public enum PIV {
         }
 
         private init() {}
-
-        internal let p1 = 0xE1
     }
 
     public enum KeyType: Equatable {
@@ -282,30 +262,6 @@ public enum PIV {
         case pss(HashAlgorithm)
         /// Raw RSA signature operation (no padding)
         case raw
-
-        /// Maps to the corresponding SecKeyAlgorithm
-        internal var secKeyAlgorithm: SecKeyAlgorithm {
-            switch self {
-            case .pkcs1v15(let hash):
-                switch hash {
-                case .sha1: return .rsaSignatureMessagePKCS1v15SHA1
-                case .sha224: return .rsaSignatureMessagePKCS1v15SHA224
-                case .sha256: return .rsaSignatureMessagePKCS1v15SHA256
-                case .sha384: return .rsaSignatureMessagePKCS1v15SHA384
-                case .sha512: return .rsaSignatureMessagePKCS1v15SHA512
-                }
-            case .pss(let hash):
-                switch hash {
-                case .sha1: return .rsaSignatureMessagePSSSHA1
-                case .sha224: return .rsaSignatureMessagePSSSHA224
-                case .sha256: return .rsaSignatureMessagePSSSHA256
-                case .sha384: return .rsaSignatureMessagePSSSHA384
-                case .sha512: return .rsaSignatureMessagePSSSHA512
-                }
-            case .raw:
-                return .rsaSignatureRaw
-            }
-        }
     }
 
     /// RSA encryption algorithms supported by PIV
@@ -316,24 +272,6 @@ public enum PIV {
         case oaep(HashAlgorithm)
         /// Raw RSA operation (no padding)
         case raw
-
-        /// Maps to the corresponding SecKeyAlgorithm
-        internal var secKeyAlgorithm: SecKeyAlgorithm {
-            switch self {
-            case .pkcs1v15:
-                return .rsaEncryptionPKCS1
-            case .oaep(let hash):
-                switch hash {
-                case .sha1: return .rsaEncryptionOAEPSHA1
-                case .sha224: return .rsaEncryptionOAEPSHA224
-                case .sha256: return .rsaEncryptionOAEPSHA256
-                case .sha384: return .rsaEncryptionOAEPSHA384
-                case .sha512: return .rsaEncryptionOAEPSHA512
-                }
-            case .raw:
-                return .rsaEncryptionRaw
-            }
-        }
     }
 
     /// ECDSA signature algorithms supported by PIV
