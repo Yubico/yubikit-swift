@@ -21,85 +21,54 @@ import Testing
 
 struct PIVDataFormatterTests {
 
-    @Test func prepareECDSASigningSHA256P256() throws {
-        let data = "Hello world!".data(using: .utf8)!
-        do {
-            let result = try PIVDataFormatter.prepareDataForECDSASigning(
-                data,
-                curve: .p256,
-                algorithm: .message(.sha256)
-            )
-            let expected = Data(hexEncodedString: "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")!
-            #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
-        } catch {
-            Issue.record("Failed preparing ECDSA signing data with error: \(error)")
-        }
+    // Test data for ECDSA signing with messages
+    struct ECDSATestCase: Sendable {
+        let curve: EC.Curve
+        let algorithm: PIV.ECDSASignatureAlgorithm
+        let expectedHex: String
     }
 
-    @Test func prepareECDSASigningSHA256P384() throws {
-        let data = "Hello world!".data(using: .utf8)!
-        do {
-            let result = try PIVDataFormatter.prepareDataForECDSASigning(
-                data,
+    @Test(
+        "Prepare ECDSA Signing",
+        arguments: [
+            ECDSATestCase(
+                curve: .p256,
+                algorithm: .message(.sha256),
+                expectedHex: "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a"
+            ),
+            ECDSATestCase(
                 curve: .p384,
-                algorithm: .message(.sha256)
-            )
-            let expected = Data(
-                hexEncodedString:
+                algorithm: .message(.sha256),
+                expectedHex:
                     "00000000000000000000000000000000c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a"
-            )!
-            #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
-        } catch {
-            Issue.record("Failed preparing ECDSA signing data with error: \(error)")
-        }
-    }
-
-    @Test func prepareECDSASigningSHA1P256() throws {
-        let data = "Hello world!".data(using: .utf8)!
-        do {
-            let result = try PIVDataFormatter.prepareDataForECDSASigning(
-                data,
+            ),
+            ECDSATestCase(
                 curve: .p256,
-                algorithm: .message(.sha1)
-            )
-            let expected = Data(hexEncodedString: "000000000000000000000000d3486ae9136e7856bc42212385ea797094475802")!
-            #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
-        } catch {
-            Issue.record("Failed preparing ECDSA signing data with error: \(error)")
-        }
-    }
-
-    @Test func prepareECDSASigningSHA512P256() throws {
-        let data = "Hello world!".data(using: .utf8)!
-        do {
-            let result = try PIVDataFormatter.prepareDataForECDSASigning(
-                data,
+                algorithm: .message(.sha1),
+                expectedHex: "000000000000000000000000d3486ae9136e7856bc42212385ea797094475802"
+            ),
+            ECDSATestCase(
                 curve: .p256,
-                algorithm: .message(.sha512)
-            )
-            let expected = Data(hexEncodedString: "f6cde2a0f819314cdde55fc227d8d7dae3d28cc556222a0a8ad66d91ccad4aad")!
-            #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
-        } catch {
-            Issue.record("Failed preparing ECDSA signing data with error: \(error)")
-        }
-    }
-
-    @Test func prepareECDSASigningSHA512P384() throws {
-        let data = "Hello world!".data(using: .utf8)!
-        do {
-            let result = try PIVDataFormatter.prepareDataForECDSASigning(
-                data,
+                algorithm: .message(.sha512),
+                expectedHex: "f6cde2a0f819314cdde55fc227d8d7dae3d28cc556222a0a8ad66d91ccad4aad"
+            ),
+            ECDSATestCase(
                 curve: .p384,
-                algorithm: .message(.sha512)
-            )
-            let expected = Data(
-                hexEncodedString:
+                algorithm: .message(.sha512),
+                expectedHex:
                     "f6cde2a0f819314cdde55fc227d8d7dae3d28cc556222a0a8ad66d91ccad4aad6094f517a2182360c9aacf6a3dc32316"
-            )!
-            #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
-        } catch {
-            Issue.record("Failed preparing ECDSA signing data with error: \(error)")
-        }
+            ),
+        ]
+    )
+    func prepareECDSASigning(testCase: ECDSATestCase) throws {
+        let data = "Hello world!".data(using: .utf8)!
+        let result = try PIVDataFormatter.prepareDataForECDSASigning(
+            data,
+            curve: testCase.curve,
+            algorithm: testCase.algorithm
+        )
+        let expected = Data(hexEncodedString: testCase.expectedHex)!
+        #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
     }
 
     @Test func prepareECDSADigestSigning() throws {
@@ -117,40 +86,36 @@ struct PIVDataFormatterTests {
         }
     }
 
-    @Test func prepareRSASigningSHA256() throws {
-        let data = "Hello world!".data(using: .utf8)!
-        do {
-            let result = try PIVDataFormatter.prepareDataForRSASigning(
-                data,
-                keySize: .bits1024,
-                algorithm: .pkcs1v15(.sha256)
-            )
-            let expected = Data(
-                hexEncodedString:
-                    "0001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff003031300d060960864801650304020105000420c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a"
-            )!
-            #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
-        } catch {
-            Issue.record("Failed preparing RSA signing data with error: \(error)")
-        }
+    // Test data for RSA signing
+    struct RSATestCase {
+        let algorithm: PIV.RSASignatureAlgorithm
+        let expectedHex: String
     }
 
-    @Test func prepareRSASigningSHA1() throws {
-        let data = "Hello world!".data(using: .utf8)!
-        do {
-            let result = try PIVDataFormatter.prepareDataForRSASigning(
-                data,
-                keySize: .bits1024,
-                algorithm: .pkcs1v15(.sha1)
-            )
-            let expected = Data(
-                hexEncodedString:
+    @Test(
+        "Prepare RSA Signing",
+        arguments: [
+            RSATestCase(
+                algorithm: .pkcs1v15(.sha256),
+                expectedHex:
+                    "0001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff003031300d060960864801650304020105000420c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a"
+            ),
+            RSATestCase(
+                algorithm: .pkcs1v15(.sha1),
+                expectedHex:
                     "0001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff003021300906052b0e03021a05000414d3486ae9136e7856bc42212385ea797094475802"
-            )!
-            #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
-        } catch {
-            Issue.record("Failed preparing RSA signing data with error: \(error)")
-        }
+            ),
+        ]
+    )
+    func prepareRSASigning(testCase: RSATestCase) throws {
+        let data = "Hello world!".data(using: .utf8)!
+        let result = try PIVDataFormatter.prepareDataForRSASigning(
+            data,
+            keySize: .bits1024,
+            algorithm: testCase.algorithm
+        )
+        let expected = Data(hexEncodedString: testCase.expectedHex)!
+        #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
     }
 
     @Test func prepareECDSADigestSigningP384WithPadding() throws {
@@ -171,32 +136,32 @@ struct PIVDataFormatterTests {
         }
     }
 
-    @Test func extractRSAEncryptionPKCS1() throws {
-        let data = Data(
-            hexEncodedString:
-                "00022b781255b78f9570844701748107f506effbea5f0822b41dded192938906cefe16eef190d4cf7f7b0866badf94ca0e4e08fda43e4619edec2703987a56a78aa4c2d36a8f89c43f1f9c0ab681e45a759744ef946d65d95e74536b28b83cdc1c62e36c014c8b4a50c178a54306ce7395240e0048656c6c6f20576f726c6421"
-        )!
-        do {
-            let result = try PIVDataFormatter.extractDataFromRSAEncryption(data, algorithm: .pkcs1v15)
-            let expected = "Hello World!".data(using: .utf8)!
-            #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
-        } catch {
-            Issue.record("Failed extracting RSA encryption data with error: \(error)")
-        }
+    // Test data for RSA decryption
+    struct RSADecryptionTestCase {
+        let algorithm: PIV.RSAEncryptionAlgorithm
+        let encryptedHex: String
     }
 
-    @Test func extractRSAEncryptionOAEPSHA224() throws {
-        let data = Data(
-            hexEncodedString:
-                "00bcbb35b6ef5c94a85fb3439a6dabda617a08963cf81023bac19c619b024cb71b8aee25cc30991279c908198ba623fba88547741dbf17a6f2a737ec95542b56b2b429bea8bd3145af7c8f144dcf804b89d3f9de21d6d6dc852fc91c666b8582bf348e1388ac2f54651ae6a1f5355c8d96daf96c922a9f1a499d890412d09454"
-        )!
-        do {
-            let result = try PIVDataFormatter.extractDataFromRSAEncryption(data, algorithm: .oaep(.sha224))
-            let expected = "Hello World!".data(using: .utf8)!
-            #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
-        } catch {
-            Issue.record("Failed extracting RSA encryption data with error: \(error)")
-        }
+    @Test(
+        "Extract RSA Encryption",
+        arguments: [
+            RSADecryptionTestCase(
+                algorithm: .pkcs1v15,
+                encryptedHex:
+                    "00022b781255b78f9570844701748107f506effbea5f0822b41dded192938906cefe16eef190d4cf7f7b0866badf94ca0e4e08fda43e4619edec2703987a56a78aa4c2d36a8f89c43f1f9c0ab681e45a759744ef946d65d95e74536b28b83cdc1c62e36c014c8b4a50c178a54306ce7395240e0048656c6c6f20576f726c6421"
+            ),
+            RSADecryptionTestCase(
+                algorithm: .oaep(.sha224),
+                encryptedHex:
+                    "00bcbb35b6ef5c94a85fb3439a6dabda617a08963cf81023bac19c619b024cb71b8aee25cc30991279c908198ba623fba88547741dbf17a6f2a737ec95542b56b2b429bea8bd3145af7c8f144dcf804b89d3f9de21d6d6dc852fc91c666b8582bf348e1388ac2f54651ae6a1f5355c8d96daf96c922a9f1a499d890412d09454"
+            ),
+        ]
+    )
+    func extractRSAEncryption(testCase: RSADecryptionTestCase) throws {
+        let data = Data(hexEncodedString: testCase.encryptedHex)!
+        let result = try PIVDataFormatter.extractDataFromRSAEncryption(data, algorithm: testCase.algorithm)
+        let expected = "Hello World!".data(using: .utf8)!
+        #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
     }
 
     @Test func extractMalformedRSAData() throws {

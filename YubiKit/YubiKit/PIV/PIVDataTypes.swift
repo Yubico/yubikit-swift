@@ -261,7 +261,7 @@ public enum PIV {
     }
 
     /// Hash algorithms supported for PIV cryptographic operations
-    public enum HashAlgorithm {
+    public enum HashAlgorithm: Sendable {
         /// SHA-1 (160-bit) - Note: Deprecated for most use cases
         case sha1
         /// SHA-224 (224-bit)
@@ -275,7 +275,7 @@ public enum PIV {
     }
 
     /// RSA signature algorithms supported by PIV
-    public enum RSASignatureAlgorithm {
+    public enum RSASignatureAlgorithm: Sendable {
         /// PKCS#1 v1.5 signature with specified hash algorithm
         case pkcs1v15(HashAlgorithm)
         /// PSS (Probabilistic Signature Scheme) with specified hash algorithm
@@ -309,7 +309,7 @@ public enum PIV {
     }
 
     /// RSA encryption algorithms supported by PIV
-    public enum RSAEncryptionAlgorithm {
+    public enum RSAEncryptionAlgorithm: Sendable {
         /// PKCS#1 v1.5 encryption/decryption
         case pkcs1v15
         /// OAEP encryption/decryption with specified hash algorithm
@@ -337,7 +337,7 @@ public enum PIV {
     }
 
     /// ECDSA signature algorithms supported by PIV
-    public enum ECDSASignatureAlgorithm {
+    public enum ECDSASignatureAlgorithm: Sendable {
         /// Signs a pre-hashed digest
         case digest(HashAlgorithm)
         /// Signs a raw message (hashing is performed internally)
