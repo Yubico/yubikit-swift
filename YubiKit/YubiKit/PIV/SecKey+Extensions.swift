@@ -43,7 +43,7 @@ extension PIVSession {
             }
 
             guard let key = RSA.PublicKey(n: modulus, e: exponent), key.size == keySize else {
-                throw PIV.SessionError.badKeyLength
+                throw PIV.SessionError.invalidKeyLength
             }
 
             return .rsa(key)

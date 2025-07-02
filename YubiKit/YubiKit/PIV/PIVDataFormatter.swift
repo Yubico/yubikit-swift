@@ -30,7 +30,7 @@ internal enum PIVDataFormatter {
     ///   - keySize: The RSA key size
     ///   - algorithm: The RSA signature algorithm to use
     /// - Returns: The prepared signature data
-    /// - Throws: `PIV.SignatureError` if the operation fails
+    /// - Throws: `PIV.SessionError` if the operation fails
     internal static func prepareDataForRSASigning(
         _ data: Data,
         keySize: RSA.KeySize,
@@ -69,12 +69,11 @@ internal enum PIVDataFormatter {
     ///   - curve: The elliptic curve (P-256 or P-384)
     ///   - algorithm: The ECDSA signature algorithm to use
     /// - Returns: The prepared signature data (hash truncated/padded to key size)
-    /// - Throws: `PIV.SignatureError` if the algorithm is unsupported
     internal static func prepareDataForECDSASigning(
         _ data: Data,
         curve: EC.Curve,
         algorithm: PIV.ECDSASignatureAlgorithm
-    ) throws -> Data {
+    ) -> Data {
         var hash: Data
         switch algorithm {
         case .message(let hashAlg):
@@ -134,7 +133,7 @@ internal enum PIVDataFormatter {
     ///   - keySize: The RSA key size
     ///   - algorithm: The RSA encryption algorithm to use
     /// - Returns: The prepared encryption data
-    /// - Throws: `PIV.SignatureError` if the operation fails
+    /// - Throws: `PIV.SessionError` if the operation fails
     internal static func prepareDataForRSAEncryption(
         _ data: Data,
         keySize: RSA.KeySize,
@@ -168,14 +167,14 @@ internal enum PIVDataFormatter {
     ///   - data: The RSA encryption-formatted data
     ///   - algorithm: The RSA encryption algorithm that was used
     /// - Returns: The extracted original data
-    /// - Throws: `PIV.SignatureError` if the data size is invalid or decryption fails
+    /// - Throws: `PIV.SessionError.invalidDataSize` if the data size is invalid
     internal static func extractDataFromRSAEncryption(
         _ data: Data,
         algorithm: PIV.RSAEncryptionAlgorithm
     ) throws -> Data {
         let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
         guard let keyType = validTypes.first(where: { $0.keysize.inBytes == data.count }) else {
-            throw PIV.SignatureError.invalidDataSize
+            throw PIV.SessionError.invalidDataSize
         }
 
         let attributes =
@@ -210,12 +209,12 @@ internal enum PIVDataFormatter {
     ///   - data: The RSA signature-formatted data
     ///   - algorithm: The RSA signature algorithm that was used
     /// - Returns: The extracted original data
-    /// - Throws: `PIV.SignatureError` if the data size is invalid or decryption fails
+    /// - Throws: `PIV.SessionError.invalidDataSize` if the data size is invalid
     internal static func extractDataFromRSASigning(_ data: Data, algorithm: PIV.RSASignatureAlgorithm) throws -> Data {
 
         let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
         guard let keyType = validTypes.first(where: { $0.keysize.inBytes == data.count }) else {
-            throw PIV.SignatureError.invalidDataSize
+            throw PIV.SessionError.invalidDataSize
         }
 
         let attributes =

@@ -130,8 +130,6 @@ public enum PIV {
 
     /// PIV session specific errors.
     public enum SessionError: Error {
-        case invalidCipherTextLength
-        case unsupportedOperation
         case dataParseError
         case unknownKeyType
         case invalidPin
@@ -139,10 +137,8 @@ public enum PIV {
         case invalidResponse
         case authenticationFailed
         case responseDataNotTLVFormatted
-        case failedCreatingCertificate
-        case badKeyLength
-        case invalidInput
-        case needsHashAlgorithm
+        case invalidKeyLength
+        case invalidDataSize
     }
 
     /// Metadata about the card management key.
@@ -304,17 +300,6 @@ public enum PIV {
         }
     }
 
-    /// Errors that can occur during PIV signature data preparation
-    public enum SignatureError: Error {
-        /// The algorithm is not supported for the given key type
-        case unsupportedAlgorithm
-        /// The key type is not recognized
-        case unknownKeyType
-        /// An unexpected error occurred during signature preparation
-        case signaturePreparationFailed
-        /// The input data size doesn't match the expected size for the operation
-        case invalidDataSize
-    }
 }
 
 extension PIV.KeyType: RawRepresentable {

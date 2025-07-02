@@ -149,7 +149,7 @@ public final actor PIVSession: Session {
     ) async throws -> Data {
         let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
         guard let rsaKey = validTypes.first(where: { $0.keysize.inBytes == data.count }) else {
-            throw PIV.SignatureError.invalidDataSize
+            throw PIV.SessionError.invalidDataSize
         }
         let result = try await usePrivateKeyInSlot(
             slot: slot,
@@ -573,7 +573,7 @@ public final actor PIVSession: Session {
     ///   - keyType: The management key type.
     public func authenticateWith(managementKey: Data, keyType: PIV.ManagementKeyType) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard keyType.keyLength == managementKey.count else { throw PIV.SessionError.badKeyLength }
+        guard keyType.keyLength == managementKey.count else { throw PIV.SessionError.invalidKeyLength }
 
         let ccAlgorithm =
             switch keyType {
@@ -821,11 +821,8 @@ public final actor PIVSession: Session {
     /// - Parameters:
     ///   - pinAttempts: The number of attempts to allow for pin entry before blocking the pin.
     ///   - pukAttempts: The number of attempts to allow for puk entry before blocking the puk.
-    public func set(pinAttempts: Int, pukAttempts: Int) async throws {
+    public func set(pinAttempts: UInt8, pukAttempts: UInt8) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard let pinAttempts = UInt8(exactly: pinAttempts),
-            let pukAttempts = UInt8(exactly: pukAttempts)
-        else { throw PIV.SessionError.invalidInput }
         let apdu = APDU(cla: 0, ins: insSetPinPukAttempts, p1: pinAttempts, p2: pukAttempts)
         try await send(apdu: apdu)
         maxPinAttempts = Int(pinAttempts)
