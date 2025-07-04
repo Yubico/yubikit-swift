@@ -241,7 +241,7 @@ public final actor PIVSession: Session {
             TKBERTLVRecord(tag: tagGenAlgorithm, value: type.rawValue.data),
             pinPolicy != .`defaultPolicy` ? TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data) : nil,
             touchPolicy != .`defaultPolicy`
-                ? TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data) : nil,
+                ? TKBERTLVRecord(tag: tagTouchPolicy, value: touchPolicy.rawValue.data) : nil,
         ].compactMap { $0 }
         let tlvContainer = TKBERTLVRecord(tag: 0xac, records: records)
         let apdu = APDU(cla: 0, ins: insGenerateAsymetric, p1: 0, p2: slot.rawValue, command: tlvContainer.data)
@@ -295,7 +295,7 @@ public final actor PIVSession: Session {
             data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
         }
         if touchPolicy != .`defaultPolicy` {
-            data.append(TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data).data)
+            data.append(TKBERTLVRecord(tag: tagTouchPolicy, value: touchPolicy.rawValue.data).data)
         }
         let apdu = APDU(
             cla: 0,
@@ -343,7 +343,7 @@ public final actor PIVSession: Session {
             data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
         }
         if touchPolicy != .`defaultPolicy` {
-            data.append(TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data).data)
+            data.append(TKBERTLVRecord(tag: tagTouchPolicy, value: touchPolicy.rawValue.data).data)
         }
         let apdu = APDU(
             cla: 0,
@@ -391,7 +391,7 @@ public final actor PIVSession: Session {
             data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
         }
         if touchPolicy != .`defaultPolicy` {
-            data.append(TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data).data)
+            data.append(TKBERTLVRecord(tag: tagTouchPolicy, value: touchPolicy.rawValue.data).data)
         }
         let apdu = APDU(
             cla: 0,
@@ -439,7 +439,7 @@ public final actor PIVSession: Session {
             data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
         }
         if touchPolicy != .`defaultPolicy` {
-            data.append(TKBERTLVRecord(tag: tagTouchpolicy, value: touchPolicy.rawValue.data).data)
+            data.append(TKBERTLVRecord(tag: tagTouchPolicy, value: touchPolicy.rawValue.data).data)
         }
         let apdu = APDU(
             cla: 0,
@@ -1148,7 +1148,7 @@ private let tagCertificate: TKTLVTag = 0x70
 private let tagCertificateInfo: TKTLVTag = 0x71
 private let tagLRC: TKTLVTag = 0xfe
 private let tagPinPolicy: TKTLVTag = 0xaa
-private let tagTouchpolicy: TKTLVTag = 0xab
+private let tagTouchPolicy: TKTLVTag = 0xab
 
 // Metadata tags
 private let tagMetadataAlgorithm: TKTLVTag = 0x01
