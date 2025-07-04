@@ -106,7 +106,7 @@ public final actor PIVSession: Session {
     ) async throws -> Data {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
 
-        let signature = try PIVDataFormatter.prepareDataForECDSASigning(
+        let signature = PIVDataFormatter.prepareDataForECDSASigning(
             message,
             curve: keyType.curve,
             algorithm: algorithm
@@ -180,7 +180,7 @@ public final actor PIVSession: Session {
     ///   - slot: The slot containing the private X25519 key to use.
     ///   - peerKey: The peer public key for the operation.
     /// - Returns: The shared secret.
-    public func calculateSecretKeyInSlot(slot: PIV.Slot, peerKey: Curve25519.X25519.PublicKey) async throws -> Data {
+    public func calculateSecretKeyInSlot(slot: PIV.Slot, peerKey: X25519.PublicKey) async throws -> Data {
 
         try await usePrivateKeyInSlot(
             slot: slot,
@@ -373,7 +373,7 @@ public final actor PIVSession: Session {
     /// - Returns: The Ed25519 key type that was stored.
     @discardableResult
     public func putKey(
-        key: Curve25519.Ed25519.PrivateKey,
+        key: Ed25519.PrivateKey,
         inSlot slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
@@ -421,7 +421,7 @@ public final actor PIVSession: Session {
     /// - Returns: The X25519 key type that was stored.
     @discardableResult
     public func putKey(
-        key: Curve25519.X25519.PrivateKey,
+        key: X25519.PrivateKey,
         inSlot slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy

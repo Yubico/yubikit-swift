@@ -98,9 +98,9 @@ extension SecKey {
         default:
 
             // other keyTypes not supported by the Security framework
-            if let key = Curve25519.Ed25519.PublicKey(keyData: blob) {
+            if let key = Ed25519.PublicKey(keyData: blob) {
                 return .ed25519(key)
-            } else if let key = Curve25519.X25519.PublicKey(keyData: blob) {
+            } else if let key = X25519.PublicKey(keyData: blob) {
                 return .x25519(key)
             }
 

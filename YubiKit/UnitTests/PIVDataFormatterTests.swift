@@ -62,7 +62,7 @@ struct PIVDataFormatterTests {
     )
     func prepareECDSASigning(testCase: ECDSATestCase) throws {
         let data = "Hello world!".data(using: .utf8)!
-        let result = try PIVDataFormatter.prepareDataForECDSASigning(
+        let result = PIVDataFormatter.prepareDataForECDSASigning(
             data,
             curve: testCase.curve,
             algorithm: testCase.algorithm
@@ -74,15 +74,13 @@ struct PIVDataFormatterTests {
     @Test func prepareECDSADigestSigning() throws {
         let data = Data(hexEncodedString: "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")!
         do {
-            let result = try PIVDataFormatter.prepareDataForECDSASigning(
+            let result = PIVDataFormatter.prepareDataForECDSASigning(
                 data,
                 curve: .p256,
                 algorithm: .digest(.sha256)
             )
             let expected = Data(hexEncodedString: "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
-        } catch {
-            Issue.record("Failed preparing ECDSA digest signing data with error: \(error)")
         }
     }
 
@@ -121,7 +119,7 @@ struct PIVDataFormatterTests {
     @Test func prepareECDSADigestSigningP384WithPadding() throws {
         let data = "Hello world!".data(using: .utf8)!
         do {
-            let result = try PIVDataFormatter.prepareDataForECDSASigning(
+            let result = PIVDataFormatter.prepareDataForECDSASigning(
                 data,
                 curve: .p384,
                 algorithm: .digest(.sha256)
@@ -131,8 +129,6 @@ struct PIVDataFormatterTests {
                     "00000000000000000000000000000000000000000000000000000000000000000000000048656c6c6f20776f726c6421"
             )!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
-        } catch {
-            Issue.record("Failed preparing ECDSA digest signing data with error: \(error)")
         }
     }
 

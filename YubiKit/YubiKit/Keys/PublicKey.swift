@@ -21,6 +21,6 @@ import Foundation
 public enum PublicKey: Sendable, Equatable {
     case ec(EC.PublicKey)
     case rsa(RSA.PublicKey)
-    case ed25519(Curve25519.Ed25519.PublicKey)
-    case x25519(Curve25519.X25519.PublicKey)
+    case ed25519(Ed25519.PublicKey)
+    case x25519(X25519.PublicKey)
 }

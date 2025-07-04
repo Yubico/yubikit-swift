@@ -18,7 +18,7 @@ import Foundation
 public enum PIV {
 
     /// The touch policy of a private key defines whether or not a user presence check (physical touch) is required to use the key.
-    public enum TouchPolicy: UInt8 {
+    public enum TouchPolicy: UInt8, Sendable {
         /// The default behavior for the particular key slot is used, which is always `.never`.
         case defaultPolicy = 0x0
         /// Touch is never required for using the key.
@@ -30,7 +30,7 @@ public enum PIV {
     }
 
     /// The PIN policy of a private key defines whether or not a PIN is required to use the key.
-    public enum PinPolicy: UInt8 {
+    public enum PinPolicy: UInt8, Sendable {
         /// The default behavior for the particular key slot is used.
         case defaultPolicy = 0x0
         /// The PIN is never required for using the key.
@@ -46,7 +46,7 @@ public enum PIV {
     }
 
     /// The slot to use in the PIV application.
-    public enum Slot: UInt8 {
+    public enum Slot: UInt8, Sendable {
         case authentication = 0x9a
         case signature = 0x9c
         case keyManagement = 0x9d
@@ -70,7 +70,7 @@ public enum PIV {
     }
 
     // PIV RSA key type
-    public struct RSAKey: Equatable {
+    public struct RSAKey: Equatable, Sendable {
         public let keysize: RSA.KeySize
 
         public static func rsa(_ keysize: RSA.KeySize) -> RSAKey {
@@ -83,7 +83,7 @@ public enum PIV {
     }
 
     // PIV ECC key type
-    public struct ECCKey: Equatable {
+    public struct ECCKey: Equatable, Sendable {
         public let curve: EC.Curve
 
         public static func ecc(_ curve: EC.Curve) -> ECCKey {
@@ -95,7 +95,7 @@ public enum PIV {
         }
     }
 
-    public struct Ed25519Key: Equatable {
+    public struct Ed25519Key: Equatable, Sendable {
         public static var ed25519: Ed25519Key {
             Ed25519Key()
         }
@@ -103,7 +103,7 @@ public enum PIV {
         private init() {}
     }
 
-    public struct X25519Key: Equatable {
+    public struct X25519Key: Equatable, Sendable {
         public static var x25519: X25519Key {
             X25519Key()
         }
@@ -111,7 +111,7 @@ public enum PIV {
         private init() {}
     }
 
-    public enum KeyType: Equatable {
+    public enum KeyType: Equatable, Sendable {
         case rsa(RSA.KeySize)
         case ecc(EC.Curve)
         case ed25519
@@ -119,7 +119,7 @@ public enum PIV {
     }
 
     /// Result of a pin verification.
-    public enum VerifyPinResult: Equatable {
+    public enum VerifyPinResult: Equatable, Sendable {
         /// Verification was successful. The associated value holds the number of pin retries left.
         case success(Int)
         /// Verification failed. The associated value holds the number of pin retries left.
@@ -129,7 +129,7 @@ public enum PIV {
     }
 
     /// PIV session specific errors.
-    public enum SessionError: Error {
+    public enum SessionError: Error, Sendable {
         case dataParseError
         case unknownKeyType
         case invalidPin
@@ -142,7 +142,7 @@ public enum PIV {
     }
 
     /// Metadata about the card management key.
-    public struct ManagementKeyMetadata {
+    public struct ManagementKeyMetadata: Sendable {
         /// Whether or not the default card management key is set.
         public let isDefault: Bool
         /// The algorithm of key used for the Management Key.
@@ -152,7 +152,7 @@ public enum PIV {
     }
 
     /// Metadata about a key in a slot.
-    public struct SlotMetadata {
+    public struct SlotMetadata: Sendable {
         /// The algorithm and size of the key.
         public let keyType: KeyType
         /// The PIN policy of a private key defines whether or not a PIN is required to use the key.
@@ -166,7 +166,7 @@ public enum PIV {
     }
 
     /// Metadata about the PIN or PUK.
-    public struct PinPukMetadata {
+    public struct PinPukMetadata: Sendable {
         /// Whether or not the default PIN/PUK is set.
         public let isDefault: Bool
         /// The number of PIN/PUK attempts available after successful verification.
@@ -176,7 +176,7 @@ public enum PIV {
     }
 
     /// PIV management key type.
-    public enum ManagementKeyType: UInt8 {
+    public enum ManagementKeyType: UInt8, Sendable {
         /// 3-des (default)
         case tripleDES = 0x03
         /// AES-128
@@ -210,7 +210,7 @@ public enum PIV {
     }
 
     /// Metadata about a Bio multi-protocol YubiKey.
-    public struct BioMetadata {
+    public struct BioMetadata: Sendable {
         /// Indicates whether biometrics are configured or not (fingerprints enrolled or not).
         ///
         /// A false return value indicates a YubiKey Bio without biometrics configured and hence the

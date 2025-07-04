@@ -216,7 +216,7 @@ struct PIVFullStackTests {
 
             // Convert to YubiKit format
             let publicKeyData = cryptoKitPublicKey.rawRepresentation
-            guard let yubiKitPublicKey = Curve25519.X25519.PublicKey(keyData: publicKeyData) else {
+            guard let yubiKitPublicKey = X25519.PublicKey(keyData: publicKeyData) else {
                 Issue.record("Failed to create YubiKit X25519 public key")
                 return
             }
@@ -320,8 +320,8 @@ struct PIVFullStackTests {
             let seed = cryptoKitPrivateKey.rawRepresentation
             let publicKeyData = cryptoKitPublicKey.rawRepresentation
 
-            guard let yubiKitPublicKey = Curve25519.Ed25519.PublicKey(keyData: publicKeyData),
-                let yubiKitPrivateKey = Curve25519.Ed25519.PrivateKey(seed: seed, publicKey: yubiKitPublicKey)
+            guard let yubiKitPublicKey = Ed25519.PublicKey(keyData: publicKeyData),
+                let yubiKitPrivateKey = Ed25519.PrivateKey(seed: seed, publicKey: yubiKitPublicKey)
             else {
                 Issue.record("Failed to create YubiKit Ed25519 keys")
                 return
@@ -362,8 +362,8 @@ struct PIVFullStackTests {
             let scalar = cryptoKitPrivateKey.rawRepresentation
             let publicKeyData = cryptoKitPublicKey.rawRepresentation
 
-            guard let yubiKitPublicKey = Curve25519.X25519.PublicKey(keyData: publicKeyData),
-                let yubiKitPrivateKey = Curve25519.X25519.PrivateKey(scalar: scalar, publicKey: yubiKitPublicKey)
+            guard let yubiKitPublicKey = X25519.PublicKey(keyData: publicKeyData),
+                let yubiKitPrivateKey = X25519.PrivateKey(scalar: scalar, publicKey: yubiKitPublicKey)
             else {
                 Issue.record("Failed to create YubiKit X25519 keys")
                 return
@@ -383,7 +383,7 @@ struct PIVFullStackTests {
             let otherCryptoKitPublicKey = otherCryptoKitPrivateKey.publicKey
             let otherPublicKeyData = otherCryptoKitPublicKey.rawRepresentation
 
-            guard let otherYubiKitPublicKey = Curve25519.X25519.PublicKey(keyData: otherPublicKeyData) else {
+            guard let otherYubiKitPublicKey = X25519.PublicKey(keyData: otherPublicKeyData) else {
                 Issue.record("Failed to create other YubiKit X25519 public key")
                 return
             }
@@ -535,7 +535,6 @@ struct PIVFullStackTests {
                 #expect(attestKey == publicKey)
             } else {
                 // Just verify that the certificate was generated successfully
-                #expect(cert.der != nil)
                 #expect(cert.der.count > 0)
             }
         }

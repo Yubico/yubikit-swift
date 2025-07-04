@@ -53,7 +53,7 @@ extension PIVSession {
                 throw PIV.SessionError.invalidResponse
             }
 
-            guard let key = Curve25519.Ed25519.PublicKey(keyData: keyData) else {
+            guard let key = Ed25519.PublicKey(keyData: keyData) else {
                 throw PIV.SessionError.dataParseError
             }
 
@@ -64,7 +64,7 @@ extension PIVSession {
                 throw PIV.SessionError.invalidResponse
             }
 
-            guard let key = Curve25519.X25519.PublicKey(keyData: keyData) else {
+            guard let key = X25519.PublicKey(keyData: keyData) else {
                 throw PIV.SessionError.dataParseError
             }
 
