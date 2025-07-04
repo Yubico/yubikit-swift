@@ -199,7 +199,10 @@ final class SCP11bFullStackTests: XCTestCase {
 
             let chain = try await securityDomainSession.getCertificateBundle(scpKeyRef: scpKeyRef)
             let first: X509Cert = chain.first!
-            let publicKey = first.publicKey!.asEC()!  // make sure we can read the public key
+            guard case let .ec(publicKey) = first.publicKey! else {
+                XCTFail("Expected EC public key")
+                return
+            }
 
             let params = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
 
@@ -297,7 +300,10 @@ extension SecurityDomainSession {
 
         // Upload the CA public key to the YubiKey so it can verify signatures
         let ca = Scp11TestData.caCert
-        let certificatePublicKey = ca.publicKey!.asEC()!
+        guard case let .ec(certificatePublicKey) = ca.publicKey! else {
+            XCTFail("Expected EC public key")
+            return nil
+        }
         try await putKey(keyRef: oceRef, publicKey: certificatePublicKey, replaceKvn: 0)
 
         // Extract the CA certificate's Subject Key Identifier for issuer referencing

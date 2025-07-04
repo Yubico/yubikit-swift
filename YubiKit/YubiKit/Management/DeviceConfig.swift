@@ -16,7 +16,7 @@ import CryptoTokenKit
 import Foundation
 
 /// Describes the configuration of a YubiKey which can be altered via the Management application.
-public struct DeviceConfig {
+public struct DeviceConfig: Sendable {
 
     /// The timeout used when in CCID-only mode with flag eject enabled.
     public let autoEjectTimeout: TimeInterval?

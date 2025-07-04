@@ -16,12 +16,12 @@ import CryptoTokenKit
 import Foundation
 
 /// Identifies the type of data transport a YubiKey is using.
-public enum DeviceTransport {
+public enum DeviceTransport: Sendable {
     case usb, nfc
 }
 
 /// The physical form factor of a YubiKey.
-public enum FormFactor: UInt8 {
+public enum FormFactor: UInt8, Sendable {
     /// Used when information about the YubiKey's form factor isn't available.
     case unknown = 0x00
     /// A keychain-sized YubiKey with a USB-A connector.
@@ -41,7 +41,7 @@ public enum FormFactor: UInt8 {
 }
 
 /// Contains metadata, including Device Configuration, of a YubiKey.
-public struct DeviceInfo: CustomStringConvertible {
+public struct DeviceInfo: Sendable, CustomStringConvertible {
 
     public var description: String {
         """
