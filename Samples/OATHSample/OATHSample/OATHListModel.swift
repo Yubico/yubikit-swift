@@ -44,7 +44,7 @@ class OATHListModel: OATHListModelProtocol {
                     error = nil
                     guard !Task.isCancelled else { return }
                     // Wait for a suitable wired connection for the current device.
-                    let connection = try await WiredConnection.connection()
+                    let connection = try await WiredSmartCardConnection.connection()
                     guard !Task.isCancelled else { return }
                     try await calculateCodes(connection: connection)
                     // Wait for the connection to close, i.e the YubiKey to be unplugged from the device.
@@ -68,7 +68,7 @@ class OATHListModel: OATHListModelProtocol {
         Task { @MainActor in
             do {
                 self.error = nil
-                let connection = try await NFCConnection.connection()
+                let connection = try await NFCSmartCardConnection.connection()
                 try await calculateCodes(connection: connection)
                 await connection.nfcConnection?.close(message: "Code calculated")
             } catch {
@@ -80,7 +80,7 @@ class OATHListModel: OATHListModelProtocol {
     func calculateNFCCodes() {}  // do nothing on macOS
     #endif
 
-    @MainActor private func calculateCodes(connection: Connection) async throws {
+    @MainActor private func calculateCodes(connection: SmartCardConnection) async throws {
         self.error = nil
         let session = try await OATHSession.session(withConnection: connection)
         let result = try await session.calculateCodes()
@@ -95,20 +95,20 @@ struct Account: Identifiable {
     let code: String
 }
 
-extension Connection {
+extension SmartCardConnection {
     var connectionType: String {
         #if os(iOS)
-        if self as? NFCConnection != nil {
+        if self as? NFCSmartCardConnection != nil {
             return "NFC"
-        } else if self as? LightningConnection != nil {
+        } else if self as? LightningSmartCardConnection != nil {
             return "Lightning"
-        } else if self as? SmartCardConnection != nil {
+        } else if self as? USBSmartCardConnection != nil {
             return "SmartCard"
         } else {
             return "Unknown"
         }
         #else
-        if self as? SmartCardConnection != nil {
+        if self as? USBSmartCardConnection != nil {
             return "SmartCard"
         } else {
             return "Unknown"

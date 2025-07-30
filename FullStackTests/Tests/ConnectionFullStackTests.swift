@@ -20,7 +20,7 @@ import XCTest
 
 class ConnectionFullStackTests: XCTestCase {
 
-    typealias Connection = SmartCardConnection
+    typealias Connection = USBSmartCardConnection
 
     func testSingleConnection() throws {
         runAsyncTest {
@@ -169,7 +169,7 @@ class SmartCardConnectionFullStackTests: XCTestCase {
 
     func testSmartCardConnectionWithSlot() throws {
         runAsyncTest {
-            let allSlots = try await SmartCardConnection.availableSlots
+            let allSlots = try await USBSmartCardConnection.availableSlots
             allSlots.enumerated().forEach { index, slot in
                 print("\(index): \(slot.name)")
             }
@@ -177,7 +177,7 @@ class SmartCardConnectionFullStackTests: XCTestCase {
             // we need at least one YubiKey connected
             XCTAssertNotNil(random)
             guard let random else { return }
-            let connection = try await SmartCardConnection.connection(slot: random)
+            let connection = try await USBSmartCardConnection.connection(slot: random)
             print("✅ Got connection \(connection)")
             XCTAssertNotNil(connection)
         }

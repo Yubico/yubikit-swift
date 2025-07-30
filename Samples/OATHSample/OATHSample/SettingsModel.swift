@@ -32,7 +32,7 @@ class SettingsModel: SettingsModelProtocol {
         Task { @MainActor in
             self.error = nil
             do {
-                let connection = try await AnyConnection.connection()
+                let connection = try await AnySmartCardConnection.connection()
                 let session = try await ManagementSession.session(withConnection: connection)
                 self.keyVersion = session.version.description
                 #if os(iOS)
@@ -40,7 +40,7 @@ class SettingsModel: SettingsModelProtocol {
                     self.connection = "NFC"
                     await nfcConnection.close(message: "YubiKey version read")
                 } else {
-                    self.connection = connection as? SmartCardConnection != nil ? "SmartCard" : "Lightning"
+                    self.connection = connection as? USBSmartCardConnection != nil ? "SmartCard" : "Lightning"
                 }
                 #else
                 self.connection = "SmartCard"

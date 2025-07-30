@@ -1,4 +1,4 @@
-# ``YubiKit/LightningConnection``
+# ``YubiKit/LightningSmartCardConnection``
 
 @Metadata {
     @DocumentationExtension(mergeBehavior: append)
@@ -6,15 +6,15 @@
 
 ## Topics
 
-### Creating a LightningConnection
+### Creating a LightningSmartCardConnection
 
 - ``connection()``
 
-### Managing the LightningConnection
+### Managing the LightningSmartCardConnection
 
 - ``close(error:)``
 - ``connectionDidClose()``
 
 ### Sending data to the YubiKey
 
-- ``Connection/send(apdu:)``
+- ``SmartCardConnection/send(apdu:)``

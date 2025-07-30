@@ -1,4 +1,4 @@
-# ``YubiKit/NFCConnection``
+# ``YubiKit/NFCSmartCardConnection``
 
 @Metadata {
     @DocumentationExtension(mergeBehavior: append)
@@ -6,13 +6,13 @@
 
 ## Topics
 
-### Creating a NFCConnection
+### Creating a NFCSmartCardConnection
 
 - ``connection()``
 - ``connection(alertMessage:)``
 - ``setAlertMessage(_:)``
 
-### Managing the NFCConnection
+### Managing the NFCSmartCardConnection
 
 - ``close(error:)``
 - ``close(message:)``
@@ -21,7 +21,7 @@
 
 ### Sending data to the YubiKey
 
-- ``Connection/send(apdu:)``
+- ``SmartCardConnection/send(apdu:)``
 
 ### Errors
 

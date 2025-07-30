@@ -53,7 +53,7 @@ extension Logger {
     private static let subsystem = "com.yubico.YubiKit"
 
     static let system = Logger(subsystem: subsystem, category: "System")
-    static let connection = Logger(subsystem: subsystem, category: "Connection")
+    static let connection = Logger(subsystem: subsystem, category: "SmartCardConnection")
 
     static let nfc = Logger(subsystem: subsystem, category: "NFC")
     static let lightning = Logger(subsystem: subsystem, category: "Lightning")

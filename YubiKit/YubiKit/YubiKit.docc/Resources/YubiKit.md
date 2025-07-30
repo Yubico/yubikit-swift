@@ -18,7 +18,7 @@ in Swift and SwiftUI based applications. The async/await syntax provides an easy
 creating connections and sending commands to the different applications on the YubiKey.
 
 ```swift
-let connection = try await NFCConnection.connection()
+let connection = try await NFCSmartCardConnection.connection()
 let session = try await OATHSession.session(withConnection: connection)
 let codes = try await session.calculateCodes()
 ```
@@ -38,22 +38,22 @@ transitioning from the old Objective-C SDK.
     - <doc:OATHSampleCode>
 }
 
-### Creating a Connection to a YubiKey
+### Creating a SmartCardConnection to a YubiKey
 
-The implementations of the Connection protocol handles the connection to the YubiKey and can be used to send
+The implementations of the SmartCardConnection protocol handles the connection to the YubiKey and can be used to send
 data in the form of a ``APDU`` to the YubiKey. In most cases it is adviced to use one of the supplied Sessions
 (``OATHSession``, ``ManagementSession``) instead of sending raw APDUs to the YubiKey.
 
 
-- ``Connection``
-- ``NFCConnection``
 - ``SmartCardConnection``
-- ``LightningConnection``
+- ``NFCSmartCardConnection``
+- ``USBSmartCardConnection``
+- ``LightningSmartCardConnection``
 - ``ConnectionHelper``
 
 ### Sending and receiving data
 
-Use the default implementation of ``Connection/send(apdu:)-7bmw4`` to send data to the YubiKey using the Connection.
+Use the default implementation of ``SmartCardConnection/send(apdu:)-7bmw4`` to send data to the YubiKey using the SmartCardConnection.
 This will either return the full response data or throw a ``ResponseError``.
 
 - ``APDU``
@@ -61,7 +61,7 @@ This will either return the full response data or throw a ``ResponseError``.
 ### Creating a Session
 
 The implementations of the ``Session`` protocol provides an interface to the different applications on a YubiKey.
-A Session is created by calling ``Session/session(withConnection:)`` providing the ``Connection`` you want to use for
+A Session is created by calling ``Session/session(withConnection:)`` providing the ``SmartCardConnection`` you want to use for
 communication with the YubiKey.
 
 - ``Session``

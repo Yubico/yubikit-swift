@@ -36,12 +36,12 @@ public enum ManagementSessionError: Error {
 /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
 public final actor ManagementSession: Session {
 
-    private let connection: Connection
+    private let connection: SmartCardConnection
     private let processor: SCPProcessor?
 
     public nonisolated let version: Version
 
-    private init(connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws {
+    private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws {
         let result = try await connection.selectApplication(.management)
         guard let version = Version(withManagementResult: result) else { throw ManagementSessionError.unexpectedData }
         self.version = version
@@ -54,7 +54,7 @@ public final actor ManagementSession: Session {
     }
 
     public static func session(
-        withConnection connection: Connection,
+        withConnection connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
     ) async throws -> ManagementSession {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")

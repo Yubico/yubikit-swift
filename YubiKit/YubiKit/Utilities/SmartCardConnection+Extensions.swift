@@ -38,14 +38,14 @@ enum Application {
     }
 }
 
-extension Connection {
+extension SmartCardConnection {
     public func send(apdu: APDU) async throws -> Data {
         try await send(apdu: apdu, insSendRemaining: nil)
     }
 
     @discardableResult
     public func send(apdu: APDU, insSendRemaining: UInt8?) async throws -> Data {
-        Logger.connection.debug("Connection+Extension, \(#function): \(apdu)")
+        Logger.connection.debug("SmartCardConnection+Extension, \(#function): \(apdu)")
 
         if let insSendRemaining {
             return try await sendRecursive(apdu: apdu, readMoreData: false, insSendRemaining: insSendRemaining)
@@ -56,7 +56,7 @@ extension Connection {
 
     @discardableResult
     func selectApplication(_ application: Application) async throws -> Data {
-        Logger.connection.debug("Connection+Extension, \(#function): \(String(describing: application))")
+        Logger.connection.debug("SmartCardConnection+Extension, \(#function): \(String(describing: application))")
         do {
             if application == .oath {
                 return try await send(apdu: application.selectApplicationAPDU, insSendRemaining: 0xa5)
@@ -80,7 +80,7 @@ extension Connection {
         readMoreData: Bool,
         insSendRemaining: UInt8 = 0xc0
     ) async throws -> Data {
-        Logger.connection.debug("Connection+Extension, \(#function): accumulated data: \(data)")
+        Logger.connection.debug("SmartCardConnection+Extension, \(#function): accumulated data: \(data)")
 
         let responseData: Data
         let response: Response
@@ -95,7 +95,7 @@ extension Connection {
 
         guard response.responseStatus.status == .ok || response.responseStatus.sw1 == 0x61 else {
             Logger.connection.error(
-                "Connection+Extension, \(#function): failed with statusCode: \(response.responseStatus.status)"
+                "SmartCardConnection+Extension, \(#function): failed with statusCode: \(response.responseStatus.status)"
             )
             throw ResponseError(responseStatus: response.responseStatus)
         }
@@ -109,7 +109,9 @@ extension Connection {
                 insSendRemaining: insSendRemaining
             )
         } else {
-            Logger.connection.debug("Connection+Extension, \(#function): response: \(newData.hexEncodedString)")
+            Logger.connection.debug(
+                "SmartCardConnection+Extension, \(#function): response: \(newData.hexEncodedString)"
+            )
             return newData
         }
     }

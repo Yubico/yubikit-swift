@@ -46,10 +46,10 @@ public enum SCPError: Error {
 /// methods as needed.
 public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
 
-    private let connection: Connection
+    private let connection: SmartCardConnection
     private let processor: SCPProcessor?
 
-    private init(connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws(SCPError) {
+    private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws(SCPError) {
         do {
             try await connection.selectApplication(.securityDomain)
             self.connection = connection
@@ -74,7 +74,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     /// - Returns: A fully initialised ``SecurityDomainSession`` ready for commands.
     // @TraceScope
     public static func session(
-        withConnection connection: Connection,
+        withConnection connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
     ) async throws(SCPError) -> SecurityDomainSession {
         try await SecurityDomainSession(connection: connection, scpKeyParams: scpKeyParams)

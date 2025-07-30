@@ -18,24 +18,24 @@ import Foundation
 import CoreNFC
 #endif
 
-public enum WiredConnection {
+public enum WiredSmartCardConnection {
     /// Establishes a Lightning or SmartCard connection to a YubiKey.
     ///
     /// Call this method to connect to a YubiKey using a wired interface such as Lightning or SmartCard.
     /// The method will suspend until a compatible YubiKey is detected and a connection is established.
     ///
-    /// - Returns: A ``Connection`` instance representing the established wired connection.
+    /// - Returns: A ``SmartCardConnection`` instance representing the established wired connection.
     /// - Throws: An error if a connection could not be established.
     ///
     /// ```swift
-    /// let wiredConnection = try await WiredConnection.connection()
+    /// let wiredConnection = try await WiredSmartCardConnection.connection()
     /// ```
-    public static func connection() async throws -> Connection {
-        try await Connections.new(kind: .wired)
+    public static func connection() async throws -> SmartCardConnection {
+        try await SmartCardConnections.new(kind: .wired)
     }
 }
 
-public enum AnyConnection {
+public enum AnySmartCardConnection {
     /// Establishes a connection to a YubiKey over either wired or NFC.
     ///
     /// Use this method to connect to a YubiKey using any available interface. If no wired YubiKey
@@ -45,21 +45,21 @@ public enum AnyConnection {
     /// prompting for NFC scanning.
     ///
     /// - Parameter nfcAlertMessage: An optional message shown to the user during NFC scanning.
-    /// - Returns: A ``Connection`` instance representing the established connection, either wired or NFC.
+    /// - Returns: A ``SmartCardConnection`` instance representing the established connection, either wired or NFC.
     /// - Throws: An error if a connection could not be established.
     ///
     /// ```swift
-    /// let someConnection = try await AnyConnection.connection()
+    /// let someConnection = try await AnySmartCardConnection.connection()
     /// ```
-    public static func connection(nfcAlertMessage: String? = nil) async throws -> Connection {
-        try await Connections.new(kind: .any(nfcAlertMessage: nfcAlertMessage))
+    public static func connection(nfcAlertMessage: String? = nil) async throws -> SmartCardConnection {
+        try await SmartCardConnections.new(kind: .any(nfcAlertMessage: nfcAlertMessage))
     }
 }
 
-private enum Connections {
+private enum SmartCardConnections {
 
     fileprivate enum Kind {
-        case smartCard
+        case usb
         case wired
         case any(nfcAlertMessage: String? = nil)
 
@@ -73,15 +73,15 @@ private enum Connections {
         #endif
     }
 
-    fileprivate static func new(kind: Connections.Kind) async throws -> Connection {
+    fileprivate static func new(kind: SmartCardConnections.Kind) async throws -> SmartCardConnection {
         switch kind {
-        case .smartCard:
-            return try await SmartCardConnection.connection()
+        case .usb:
+            return try await USBSmartCardConnection.connection()
         #if os(iOS)
         case .lightning:
-            return try await LightningConnection.connection()
+            return try await LightningSmartCardConnection.connection()
         case let .nfc(alertMessage):
-            return try await NFCConnection.connection(alertMessage: alertMessage)
+            return try await NFCSmartCardConnection.connection(alertMessage: alertMessage)
         #endif
         case .wired:
             return try await wired()
@@ -90,21 +90,21 @@ private enum Connections {
         }
     }
 
-    private static func wired() async throws -> Connection {
-        let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
+    private static func wired() async throws -> SmartCardConnection {
+        let connection = try await withThrowingTaskGroup(of: SmartCardConnection.self) { group -> SmartCardConnection in
             #if os(iOS)
             if Device.hasLightningPort {
                 group.addTask {
-                    try await LightningConnection.connection()
+                    try await LightningSmartCardConnection.connection()
                 }
             } else {
                 group.addTask {
-                    try await SmartCardConnection.connection()
+                    try await USBSmartCardConnection.connection()
                 }
             }
             #else
             group.addTask {
-                try await SmartCardConnection.connection()
+                try await USBSmartCardConnection.connection()
             }
             #endif
 
@@ -115,15 +115,15 @@ private enum Connections {
         return connection
     }
 
-    private static func any(nfcAlertMessage: String? = nil) async throws -> Connection {
-        let connection = try await withThrowingTaskGroup(of: Connection.self) { group -> Connection in
+    private static func any(nfcAlertMessage: String? = nil) async throws -> SmartCardConnection {
+        let connection = try await withThrowingTaskGroup(of: SmartCardConnection.self) { group -> SmartCardConnection in
             #if os(iOS)
             if Device.supportsNFC {
                 group.addTask {
                     // wait for wired connected yubikeys to connect before starting NFC
                     try await Task.sleep(for: .seconds(0.75))
                     try Task.checkCancellation()
-                    return try await NFCConnection.connection(alertMessage: nfcAlertMessage)
+                    return try await NFCSmartCardConnection.connection(alertMessage: nfcAlertMessage)
                 }
             }
             #endif

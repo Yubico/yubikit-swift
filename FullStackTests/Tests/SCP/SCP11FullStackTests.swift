@@ -147,7 +147,7 @@ final class SCP11aFullStackTests: XCTestCase {
         }
     }
 
-    private func importScp03Key(connection: Connection) async throws -> SCPKeyParams {
+    private func importScp03Key(connection: SmartCardConnection) async throws -> SCPKeyParams {
         let scp03Ref = SCPKeyRef(kid: 0x01, kvn: 0x01)
 
         let staticKeys = StaticKeys(

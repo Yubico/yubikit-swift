@@ -47,7 +47,7 @@ public enum OATHSessionError: Error {
 /// more about OATH on the [Yubico developer website](https://developers.yubico.com/OATH/).
 public final actor OATHSession: Session {
 
-    private let connection: Connection
+    private let connection: SmartCardConnection
     private let processor: SCPProcessor?
 
     private struct SelectResponse {
@@ -62,7 +62,7 @@ public final actor OATHSession: Session {
         selectResponse.version
     }
 
-    private init(connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws {
+    private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws {
         self.selectResponse = try await Self.selectApplication(withConnection: connection)
         if let scpKeyParams {
             processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams, insSendRemaining: 0xa5)
@@ -72,7 +72,8 @@ public final actor OATHSession: Session {
         self.connection = connection
     }
 
-    private static func selectApplication(withConnection connection: Connection) async throws -> SelectResponse {
+    private static func selectApplication(withConnection connection: SmartCardConnection) async throws -> SelectResponse
+    {
         let data: Data = try await connection.selectApplication(.oath)
         guard let result = TKBERTLVRecord.dictionaryOfData(from: data) else {
             throw OATHSessionError.responseDataNotTLVFormatted
@@ -93,7 +94,7 @@ public final actor OATHSession: Session {
     }
 
     public static func session(
-        withConnection connection: Connection,
+        withConnection connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
     ) async throws -> OATHSession {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: connection))")

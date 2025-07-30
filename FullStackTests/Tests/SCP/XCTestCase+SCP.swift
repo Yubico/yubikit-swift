@@ -18,7 +18,7 @@ import XCTest
 @testable import YubiKit
 
 extension XCTestCase: HasTestLogger {
-    var connection: Connection {
+    var connection: SmartCardConnection {
         _connection!
     }
 
@@ -48,7 +48,7 @@ extension XCTestCase: HasTestLogger {
     }
 }
 
-private var _connection: Connection!
+private var _connection: SmartCardConnection!
 
 private let _defaultKeyParams: SCP03KeyParams = {
     let defaultKeyRef = SCPKeyRef(kid: .scp03, kvn: 0xff)
