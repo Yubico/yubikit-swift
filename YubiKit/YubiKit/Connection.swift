@@ -68,6 +68,8 @@ public protocol SmartCardConnection: Sendable {
 
 /// SmartCardConnection Errors.
 public enum ConnectionError: Error, Sendable {
+    /// There is an active connection.
+    case busy
     /// No current connection.
     case noConnection
     /// Unexpected result returned from YubiKey.
