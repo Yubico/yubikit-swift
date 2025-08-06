@@ -23,14 +23,14 @@ struct ConnectionFullStackTests {
 
     typealias Connection = USBSmartCardConnection
 
-    @Test("Single Connection")
+    @Test("Single Connection", .timeLimit(.minutes(1)))
     func singleConnection() async throws {
         let connection = try await Connection.connection()
         #expect(true, "✅ Got connection \(connection)")
         await connection.close(error: nil)
     }
 
-    @Test("Serial Connections")
+    @Test("Serial Connections", .timeLimit(.minutes(1)))
     func serialConnections() async throws {
         let firstConnection = try await Connection.connection()
         #expect(true, "✅ Got first connection \(firstConnection)")
@@ -59,7 +59,7 @@ struct ConnectionFullStackTests {
         await secondConnection.close(error: nil)
     }
 
-    @Test("Connection Cancellation")
+    @Test("Connection Cancellation", .timeLimit(.minutes(1)))
     func connectionCancellation() async {
         let task1 = Task {
             try await Connection.connection()
@@ -90,7 +90,7 @@ struct ConnectionFullStackTests {
         await connections.first?.close(error: nil)
     }
 
-    @Test("Send Manually")
+    @Test("Send Manually", .timeLimit(.minutes(1)))
     func sendManually() async throws {
         let connection = try await Connection.connection()
         // Select Management application
@@ -142,7 +142,7 @@ struct ConnectionFullStackTests {
 @Suite("NFC Full Stack Tests", .serialized)
 struct NFCFullStackTests {
 
-    @Test("NFC Alert Message")
+    @Test("NFC Alert Message", .timeLimit(.minutes(1)))
     func nfcAlertMessage() async throws {
         let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
         await connection.nfcConnection?.setAlertMessage("Updated Alert Message")
@@ -150,7 +150,7 @@ struct NFCFullStackTests {
         await connection.nfcConnection?.close(message: "Closing Alert Message")
     }
 
-    @Test("NFC Closing Error Message")
+    @Test("NFC Closing Error Message", .timeLimit(.minutes(1)))
     func nfcClosingErrorMessage() async throws {
         let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
         await connection.close(error: nil)
@@ -162,7 +162,7 @@ struct NFCFullStackTests {
 @Suite("SmartCard Connection Full Stack Tests", .serialized)
 struct SmartCardConnectionFullStackTests {
 
-    @Test("SmartCard Connection With Slot")
+    @Test("SmartCard Connection With Slot", .timeLimit(.minutes(1)))
     func smartCardConnectionWithSlot() async throws {
         let allSlots = try await USBSmartCardConnection.availableSlots
         allSlots.enumerated().forEach { index, slot in
