@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// # Curve25519Keys
-/// Defines Ed25519 (signing) and X25519 (key agreement) key types
-
 import CryptoKit
 import Foundation
 

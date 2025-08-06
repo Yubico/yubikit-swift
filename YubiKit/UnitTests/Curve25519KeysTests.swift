@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// # Curve25519KeysTests
-/// Unit tests for the Curve25519 keys implementation (Ed25519 and X25519).
-/// Validates key creation, validation, and basic properties.
-
 import CryptoKit
 import Foundation
 import Testing
