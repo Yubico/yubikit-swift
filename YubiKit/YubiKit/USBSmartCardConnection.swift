@@ -57,7 +57,6 @@ extension USBSmartCardConnection: SmartCardConnection {
 
     // @TraceScope
     public func close(error: Error?) async {
-
         try? await didClose.fulfill(error)
         trace(message: "disconnect called on sessionManager")
     }
@@ -166,12 +165,10 @@ private final actor SmartCardConnectionsManager {
 
     // @TraceScope
     func connect(slot: SmartCardSlot) async throws -> USBSmartCardConnection {
-        // if there is already a connection for this slot...
-        // we close it and create a new one reusing it's TKSmartCard
-        if let state = connections[slot] {
-            // finish it
-            await state.didClose.fulfill(nil)
-            connections[slot] = nil
+        // if there is already a connection for this slot we throw `ConnectionError.busy`.
+        // The caller must close the connection first.
+        guard connections[slot] == nil else {
+            throw ConnectionError.busy
         }
 
         // To proceed with a new connection we need to acquire a lock
@@ -201,8 +198,20 @@ private final actor SmartCardConnectionsManager {
         }
         trace(message: "card.beginSession() succeded")
 
-        // create a new state and return a new connection
-        connections[slot] = ConnectionState(card: card)
+        // create and save a new connection state
+        let state = ConnectionState(card: card)
+        connections[slot] = state
+
+        // register for the eventual clean up when the connection is closed
+        Task {
+            _ = try await state.didClose.value()
+            state.card.endSession()
+            if connections[slot] === state {
+                connections[slot] = nil
+            }
+        }
+
+        // return the newly established connection
         return USBSmartCardConnection(slot: slot)
     }
 

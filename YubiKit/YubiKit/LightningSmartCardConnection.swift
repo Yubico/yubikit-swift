@@ -72,27 +72,19 @@ private actor LightningConnectionManager {
 
     static let shared = LightningConnectionManager()
 
-    private var connectionTask: Task<LightningSmartCardConnection, Error>?
     private var pendingConnectionPromise: Promise<LightningSmartCardConnection>?
     private var connectionState: (connectionID: ConnectionID, didCloseConnection: (Promise<Error?>))?
 
     private init() {}
 
     func connect() async throws -> LightningSmartCardConnection {
-        // If a connection task is already running, await its result
-        if let connectionTask {
-            trace(message: "awaiting existing connection task")
-            _ = try await connectionTask.value
-            // we cancel this task because only one of multiple
-            // concurrent connections can succed
-            throw ConnectionError.cancelled
+        // If there is already a connection the caller must close the connection first.
+        if connectionState != nil || pendingConnectionPromise != nil {
+            throw ConnectionError.busy
         }
 
         // Otherwise, create and store a new connection task.
         let task = Task { () -> LightningSmartCardConnection in
-            // When the task finishes (on any path), clear it to allow a new connection.
-            defer { self.connectionTask = nil }
-
             trace(message: "begin new connection task")
 
             do {
@@ -121,12 +113,12 @@ private actor LightningConnectionManager {
                 trace(message: "connection failed: \(error.localizedDescription)")
                 // Cleanup on failure
                 self.pendingConnectionPromise = nil
+                self.connectionState = nil
                 await EAAccessoryWrapper.shared.stopMonitoring()
                 throw error
             }
         }
 
-        self.connectionTask = task
         return try await task.value
     }
 

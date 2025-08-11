@@ -226,20 +226,21 @@ private final actor NFCConnectionManager: NSObject {
             throw NFCConnectionError.unsupported
         }
 
-        // To proceed with a new connection we need to acquire a lock
-        guard !isEstablishing else { throw ConnectionError.cancelled }
-        defer { isEstablishing = false }
-        isEstablishing = true
-
-        // Close the previous connection before establishing a new one
+        // if there is already a connection for this slot we throw `ConnectionError.busy`.
+        // The caller must close the connection first.
         switch currentState {
         case .inactive:
             // lets continue
             break
         case .scanning, .connected:
-            // invalidate and continue
-            await invalidate()
+            // throw
+            throw ConnectionError.busy
         }
+
+        // To proceed with a new connection we need to acquire a lock
+        guard !isEstablishing else { throw ConnectionError.cancelled }
+        defer { isEstablishing = false }
+        isEstablishing = true
 
         // Start polling
         guard let session = NFCTagReaderSession(pollingOption: [.iso14443], delegate: self, queue: nil) else {
