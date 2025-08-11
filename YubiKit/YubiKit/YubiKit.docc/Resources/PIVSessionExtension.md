@@ -25,7 +25,7 @@
 - ``getCertificateInSlot(_:)``
 - ``deleteCertificateInSlot(slot:)``
 - ``setManagementKey(_:type:requiresTouch:)``
-- ``authenticateWith(managementKey:keyType:)``
+- ``authenticateWith(managementKey:)``
 - ``getSlotMetadata(_:)``
 - ``getManagementKeyMetadata()``
 - ``reset()``

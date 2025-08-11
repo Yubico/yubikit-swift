@@ -19,6 +19,7 @@
 import Foundation
 
 public struct X509Cert: Sendable {
+
     /// X.509 DER-encoded certificate data.
     public let der: Data
 
@@ -95,6 +96,14 @@ extension SecKey {
             let key = EC.PublicKey(uncompressedPoint: blob)
             return key.map { .ec($0) }
         default:
+
+            // other keyTypes not supported by the Security framework
+            if let key = Ed25519.PublicKey(keyData: blob) {
+                return .ed25519(key)
+            } else if let key = X25519.PublicKey(keyData: blob) {
+                return .x25519(key)
+            }
+
             return nil  // unsupported
         }
     }
