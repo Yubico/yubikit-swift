@@ -522,9 +522,17 @@ public final actor PIVSession: Session {
     /// Authenticate with the Management Key.
     /// - Parameters:
     ///   - managementKey: The management key as Data.
-    ///   - keyType: The management key type.
-    public func authenticateWith(managementKey: Data, keyType: PIV.ManagementKeyType) async throws {
+    public func authenticateWith(managementKey: Data) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
+
+        let keyType: PIV.ManagementKeyType
+        if supports(PIVSessionFeature.metadata) {
+            let metadata = try await getManagementKeyMetadata()
+            keyType = metadata.keyType
+        } else {
+            keyType = .tripleDES
+        }
+
         guard keyType.keyLength == managementKey.count else { throw PIV.SessionError.invalidKeyLength }
 
         let ccAlgorithm =

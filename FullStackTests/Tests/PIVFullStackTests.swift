@@ -655,39 +655,7 @@ struct PIVFullStackTests {
     @Test("Authenticate with Default Management Key", .tags(.pivAuthentication))
     func authenticateWithDefaultManagementKey() async throws {
         try await withPIVSession { session in
-            let keyType: PIV.ManagementKeyType
-            if session.supports(PIVSessionFeature.metadata) {
-                let metadata = try await session.getManagementKeyMetadata()
-                keyType = metadata.keyType
-            } else {
-                keyType = .tripleDES
-            }
-            try await session.authenticateWith(managementKey: defaultManagementKey, keyType: keyType)
-        }
-    }
-
-    @Test("Set 3DES Management Key", .tags(.pivAuthentication))
-    func set3DESManagementKey() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.aesKey, in: session)
-
-            let newManagementKey = Data(hexEncodedString: "3ec950f1c126b314a80edd752694c328656db96f1c65cc4f")!
-            try await session.setManagementKey(newManagementKey, type: .tripleDES, requiresTouch: false)
-            try await session.authenticateWith(
-                managementKey: newManagementKey,
-                keyType: PIV.ManagementKeyType.tripleDES
-            )
-        }
-    }
-
-    @Test("Set AES Management Key", .tags(.pivAuthentication))
-    func setAESManagementKey() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.aesKey, in: session)
-
-            let newManagementKey = Data(hexEncodedString: "f7ef787b46aa50de066bdade00aee17fc2b710372b722de5")!
-            try await session.setManagementKey(newManagementKey, type: .AES192, requiresTouch: false)
-            try await session.authenticateWith(managementKey: newManagementKey, keyType: .AES192)
+            try await session.authenticateWith(managementKey: defaultManagementKey)
         }
     }
 
@@ -696,14 +664,7 @@ struct PIVFullStackTests {
         try await withPIVSession { session in
             let wrongManagementKey = Data(hexEncodedString: "010101010101010101010101010101010101010101010101")!
             do {
-                let keyType: PIV.ManagementKeyType
-                if session.supports(PIVSessionFeature.metadata) {
-                    let metadata = try await session.getManagementKeyMetadata()
-                    keyType = metadata.keyType
-                } else {
-                    keyType = .tripleDES
-                }
-                try await session.authenticateWith(managementKey: wrongManagementKey, keyType: keyType)
+                try await session.authenticateWith(managementKey: wrongManagementKey)
                 Issue.record("Successfully authenticated with the wrong management key.")
             } catch {
                 guard let error = error as? ResponseError else {
@@ -1142,15 +1103,7 @@ struct PIVFullStackTests {
         try await session.reset()
 
         if authenticated {
-            // Authenticate with proper key type detection
-            let keyType: PIV.ManagementKeyType
-            if session.supports(PIVSessionFeature.metadata) {
-                let metadata = try await session.getManagementKeyMetadata()
-                keyType = metadata.keyType
-            } else {
-                keyType = .tripleDES
-            }
-            try await session.authenticateWith(managementKey: defaultManagementKey, keyType: keyType)
+            try await session.authenticateWith(managementKey: defaultManagementKey)
         }
 
         return try await body(session)
