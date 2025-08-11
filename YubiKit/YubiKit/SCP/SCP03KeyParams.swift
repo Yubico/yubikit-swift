@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-public struct SCP03KeyParams: SCPKeyParams {
+public struct SCP03KeyParams: SCPKeyParams, Sendable {
     public let keyRef: SCPKeyRef
     public let staticKeys: StaticKeys
 

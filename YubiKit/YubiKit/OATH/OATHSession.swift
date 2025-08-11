@@ -28,7 +28,7 @@ private let tagResponse: TKTLVTag = 0x75
 
 let oathDefaultPeriod = 30.0
 
-public enum OATHSessionError: Error {
+public enum OATHSessionError: Error, Sendable {
     case wrongPassword
     case responseDataNotTLVFormatted
     case missingVersionInfo
@@ -454,7 +454,7 @@ public final actor OATHSession: Session {
     }
 }
 
-public struct DeriveAccessKeyError: Error {
+public struct DeriveAccessKeyError: Error, Sendable {
     let cryptorStatus: CCCryptorStatus
 }
 

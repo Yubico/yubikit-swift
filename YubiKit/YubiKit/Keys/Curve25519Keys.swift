@@ -16,7 +16,7 @@ import CryptoKit
 import Foundation
 
 /// Ed25519
-public enum Ed25519 {
+public enum Ed25519: Sendable {
     /// An Ed25519 public key for signature verification
     public struct PublicKey: Sendable, Equatable {
         /// The 32-byte public key data
@@ -80,7 +80,7 @@ public enum Ed25519 {
 }
 
 /// X25519 key agreement algorithm keys
-public enum X25519 {
+public enum X25519: Sendable {
     /// An X25519 public key for key agreement
     public struct PublicKey: Sendable, Equatable {
         /// The 32-byte public key data

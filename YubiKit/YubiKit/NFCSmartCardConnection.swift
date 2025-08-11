@@ -119,7 +119,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
 }
 
 // NFCSmartCardConnection specific errors
-public enum NFCConnectionError: Error {
+public enum NFCConnectionError: Error, Sendable {
     case failedToPoll
     case unsupported
     case malformedAPDU

@@ -15,7 +15,7 @@
 import Foundation
 
 /// Namespace for all PIV related types
-public enum PIV {
+public enum PIV: Sendable {
 
     /// The touch policy of a private key defines whether or not a user presence check (physical touch) is required to use the key.
     public enum TouchPolicy: UInt8, Sendable {

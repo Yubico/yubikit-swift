@@ -81,7 +81,7 @@ extension USBSmartCardConnection: SmartCardConnection {
 }
 
 // USBSmartCardConnection specific errors
-public enum SmartCardConnectionError: Error {
+public enum SmartCardConnectionError: Error, Sendable {
     /// CryptoTokenKit failed to return TKSmartCardSlotManager.default
     case unsupported
     /// CryptoTokenKit returned no slots

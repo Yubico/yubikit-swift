@@ -15,7 +15,7 @@
 import CommonCrypto
 import Foundation
 
-public enum PIVEncryptionError: Error {
+public enum PIVEncryptionError: Error, Sendable {
     case cryptorError(CCCryptorStatus)
     case missingData
     case unsupportedAlgorithm

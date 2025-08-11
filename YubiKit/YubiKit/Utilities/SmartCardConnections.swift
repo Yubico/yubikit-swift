@@ -18,7 +18,7 @@ import Foundation
 import CoreNFC
 #endif
 
-public enum WiredSmartCardConnection {
+public enum WiredSmartCardConnection: Sendable {
     /// Establishes a Lightning or SmartCard connection to a YubiKey.
     ///
     /// Call this method to connect to a YubiKey using a wired interface such as Lightning or SmartCard.
@@ -35,7 +35,7 @@ public enum WiredSmartCardConnection {
     }
 }
 
-public enum AnySmartCardConnection {
+public enum AnySmartCardConnection: Sendable {
     /// Establishes a connection to a YubiKey over either wired or NFC.
     ///
     /// Use this method to connect to a YubiKey using any available interface. If no wired YubiKey

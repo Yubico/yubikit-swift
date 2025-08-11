@@ -17,7 +17,7 @@
 
 import Foundation
 
-public enum EC {
+public enum EC: Sendable {
     /// Supported elliptic curve types (currently P-256 and P-384) using uncompressed point representation.
     public enum Curve: Sendable, Equatable {
         case p384
