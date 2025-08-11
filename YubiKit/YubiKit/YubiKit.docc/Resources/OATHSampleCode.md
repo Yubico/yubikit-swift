@@ -21,7 +21,7 @@ The other view simply displays the version number of the YubiKey. This view also
 
 The main function of the OATH part of the app is the `startWiredConnection()` function. This will cancel any previous
 `wiredConnectionTask` and create a new one. In the Task it will use the ``Connections`` helper to start waiting for
-a wired connection. Depending on the device this will either be a ``LightningConnection`` or a ``SmartCardConnection``.
+a wired connection. Depending on the device this will either be a ``LightningSmartCardConnection`` or a ``USBSmartCardConnection``.
 Once a connection has been established we check that the task hasn't been cancelled before proceeding.
 The `calculateCodes(connection:)` function creates a new ``OATHSession`` and
 calls `.calculateCodes()` on the session. The result is then used to populate the list of codes in the UI.
@@ -38,7 +38,7 @@ func startWiredConnection() {
                 error = nil
                 guard !Task.isCancelled else { return }
                 // Wait for a suitable wired connection for the current device.
-                let connection = try await WiredConnection.connection()
+                let connection = try await WiredSmartCardConnection.connection()
                 guard !Task.isCancelled else { return }
                 try await calculateCodes(connection: connection)
                 // Wait for the connection to close, i.e the YubiKey to be unplugged from the device.
@@ -57,7 +57,7 @@ func startWiredConnection() {
     }
 }
 
-@MainActor private func calculateCodes(connection: Connection) async throws {
+@MainActor private func calculateCodes(connection: SmartCardConnection) async throws {
     self.error = nil
     let session = try await OATHSession.session(withConnection: connection)
     let result = try await session.calculateCodes()
@@ -74,7 +74,7 @@ as a SwiftUI sheet.
 
 The `SettingsModel` is simpler since it will only retrieve the version number once when it appears
 and it does not handle YubiKeys being unplugged and plugged back again. In this case we can use the
-`Connection.anyConnection()` function that will return any wired YubiKey that might be connected
+`AnySmartCardConnection.connection()` function that will return any wired YubiKey that might be connected
 or, if no wired key is present it will start scanning for a NFC key. Once connected we create 
 the ``ManagementSession`` and get the key version.
 ```swift
@@ -82,7 +82,7 @@ func getKeyVersion() {
     Task { @MainActor in
         self.error = nil
         do {
-            let connection = try await AnyConnection.connection()
+            let connection = try await AnySmartCardConnection.connection()
             let session = try await ManagementSession.session(withConnection: connection)
             self.keyVersion = session.version.description
             #if os(iOS)
@@ -90,7 +90,7 @@ func getKeyVersion() {
                 self.connection = "NFC"
                 await nfcConnection.close(message: "YubiKey version read")
             } else {
-                self.connection = connection as? SmartCardConnection != nil ? "SmartCard" : "Lightning"
+                self.connection = connection as? USBSmartCardConnection != nil ? "SmartCard" : "Lightning"
             }
             #else
             self.connection = "SmartCard"

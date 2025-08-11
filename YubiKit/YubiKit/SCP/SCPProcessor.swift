@@ -22,7 +22,8 @@ internal actor SCPProcessor: HasSCPLogger {
 
     internal var state: SCPState
 
-    internal init(connection: Connection, keyParams: SCPKeyParams, insSendRemaining: UInt8 = 0xc0) async throws {
+    internal init(connection: SmartCardConnection, keyParams: SCPKeyParams, insSendRemaining: UInt8 = 0xc0) async throws
+    {
         if let scp03Params = keyParams as? SCP03KeyParams {
             let hostChallenge = Data.random(length: 8)
             Self.trace(message: "send challenge: \(hostChallenge.hexEncodedString)")
@@ -217,7 +218,7 @@ internal actor SCPProcessor: HasSCPLogger {
 
     internal func send(
         apdu: APDU,
-        using connection: any Connection,
+        using connection: any SmartCardConnection,
         insSendRemaining: UInt8 = 0xc0
     ) async throws -> Data {
         try await self.send(apdu: apdu, using: connection, encrypt: true, insSendRemaining: insSendRemaining)
@@ -225,7 +226,7 @@ internal actor SCPProcessor: HasSCPLogger {
 
     private func send(
         apdu: APDU,
-        using connection: any Connection,
+        using connection: any SmartCardConnection,
         encrypt: Bool,
         insSendRemaining: UInt8
     ) async throws -> Data {

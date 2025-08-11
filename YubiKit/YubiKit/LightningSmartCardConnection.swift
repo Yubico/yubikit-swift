@@ -20,11 +20,11 @@ import OSLog
 
 /// A connection to the YubiKey utilizing the Lightning port and External Accessory framework.
 @available(iOS 16.0, *)
-public struct LightningConnection: Connection, Sendable {
+public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
     let accessoryConnectionID: Int
 
     // Starts lightning and wait for a connection
-    public static func connection() async throws -> Connection {
+    public static func connection() async throws -> SmartCardConnection {
         trace(message: "requesting new connection")
         return try await LightningConnectionManager.shared.connect()
     }
@@ -56,13 +56,13 @@ public struct LightningConnection: Connection, Sendable {
 // MARK: - Internal helpers / extensions
 
 // Downcast helper
-extension Connection {
-    public var lightningConnection: LightningConnection? {
-        self as? LightningConnection
+extension SmartCardConnection {
+    public var lightningConnection: LightningSmartCardConnection? {
+        self as? LightningSmartCardConnection
     }
 }
 
-extension LightningConnection: HasLightningLogger {}
+extension LightningSmartCardConnection: HasLightningLogger {}
 extension LightningConnectionManager: HasLightningLogger {}
 extension EAAccessoryWrapper: HasLightningLogger {}
 
@@ -72,13 +72,13 @@ private actor LightningConnectionManager {
 
     static let shared = LightningConnectionManager()
 
-    private var connectionTask: Task<LightningConnection, Error>?
-    private var pendingConnectionPromise: Promise<LightningConnection>?
+    private var connectionTask: Task<LightningSmartCardConnection, Error>?
+    private var pendingConnectionPromise: Promise<LightningSmartCardConnection>?
     private var connectionState: (connectionID: ConnectionID, didCloseConnection: (Promise<Error?>))?
 
     private init() {}
 
-    func connect() async throws -> LightningConnection {
+    func connect() async throws -> LightningSmartCardConnection {
         // If a connection task is already running, await its result
         if let connectionTask {
             trace(message: "awaiting existing connection task")
@@ -89,7 +89,7 @@ private actor LightningConnectionManager {
         }
 
         // Otherwise, create and store a new connection task.
-        let task = Task { () -> LightningConnection in
+        let task = Task { () -> LightningSmartCardConnection in
             // When the task finishes (on any path), clear it to allow a new connection.
             defer { self.connectionTask = nil }
 
@@ -103,7 +103,7 @@ private actor LightningConnectionManager {
                 }
 
                 // Create a promise to bridge the callback from EAAccessoryWrapper
-                let connectionPromise: Promise<LightningConnection> = .init()
+                let connectionPromise: Promise<LightningSmartCardConnection> = .init()
                 self.pendingConnectionPromise = connectionPromise
 
                 // Connect to YubiKeys that are already plugged in
@@ -130,7 +130,7 @@ private actor LightningConnectionManager {
         return try await task.value
     }
 
-    func transmit(request: Data, for connection: LightningConnection) async throws -> Data {
+    func transmit(request: Data, for connection: LightningSmartCardConnection) async throws -> Data {
         let connectionID = connection.accessoryConnectionID
         trace(message: "\(request.count) bytes to connection \(connectionID)")
 
@@ -144,7 +144,7 @@ private actor LightningConnectionManager {
         return try await EAAccessoryWrapper.shared.transmit(id: connectionID, data: request)
     }
 
-    func close(for connection: LightningConnection, error: Error?) async {
+    func close(for connection: LightningSmartCardConnection, error: Error?) async {
         guard let state = connectionState,
             state.connectionID == connection.accessoryConnectionID
         else { return }
@@ -155,7 +155,7 @@ private actor LightningConnectionManager {
         connectionState = nil
     }
 
-    func didClose(for connection: LightningConnection) async -> Error? {
+    func didClose(for connection: LightningSmartCardConnection) async -> Error? {
         guard let state = connectionState,
             state.connectionID == connection.accessoryConnectionID
         else { return nil }
@@ -169,7 +169,7 @@ private actor LightningConnectionManager {
         guard let promise = pendingConnectionPromise else { return }
 
         connectionState = (connectionID: connectionID, didCloseConnection: Promise<Error?>())
-        let connection = LightningConnection(accessoryConnectionID: connectionID)
+        let connection = LightningSmartCardConnection(accessoryConnectionID: connectionID)
         await promise.fulfill(connection)
     }
 

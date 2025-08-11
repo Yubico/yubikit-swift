@@ -46,9 +46,9 @@ enum TestableConnections {
         #endif
     }
 
-    static func create(with kind: Kind = .default) async throws -> Connection {
+    static func create(with kind: Kind = .default) async throws -> SmartCardConnection {
 
-        let connection: Connection?
+        let connection: SmartCardConnection?
         switch kind {
         case .smartCard:
             connection = try await smartCard()
@@ -77,8 +77,8 @@ enum TestableConnections {
         return connection
     }
 
-    private static func smartCard() async throws -> Connection? {
-        let smartCardConnections = try await SmartCardConnection.all
+    private static func smartCard() async throws -> SmartCardConnection? {
+        let smartCardConnections = try await USBSmartCardConnection.all
         for connection in smartCardConnections {
             if try await connection.isAllowed {
                 return connection
@@ -90,35 +90,35 @@ enum TestableConnections {
     }
 
     #if os(iOS)
-    private static func lightning() async throws -> Connection? {
-        let connection = try await LightningConnection.connection()
+    private static func lightning() async throws -> SmartCardConnection? {
+        let connection = try await LightningSmartCardConnection.connection()
         guard try await connection.isAllowed else { return nil }
         return connection
     }
 
-    private static func nfc(alertMessage: String? = nil) async throws -> Connection? {
-        let connection = try await NFCConnection.connection(alertMessage: alertMessage)
+    private static func nfc(alertMessage: String? = nil) async throws -> SmartCardConnection? {
+        let connection = try await NFCSmartCardConnection.connection(alertMessage: alertMessage)
         guard try await connection.isAllowed else { return nil }
         return connection
     }
     #endif
 }
 
-extension SmartCardConnection {
-    fileprivate static var all: [Connection] {
+extension USBSmartCardConnection {
+    fileprivate static var all: [SmartCardConnection] {
         get async throws {
-            let slots = try await SmartCardConnection.availableSlots
+            let slots = try await USBSmartCardConnection.availableSlots
 
-            var connections: [Connection?] = []
+            var connections: [SmartCardConnection?] = []
             for slot in slots {
-                connections.append(try? await SmartCardConnection.connection(slot: slot))
+                connections.append(try? await USBSmartCardConnection.connection(slot: slot))
             }
             return connections.compactMap { $0 }
         }
     }
 }
 
-extension Connection {
+extension SmartCardConnection {
     fileprivate var isAllowed: Bool {
         get async throws {
             let session = try await ManagementSession.session(withConnection: self)

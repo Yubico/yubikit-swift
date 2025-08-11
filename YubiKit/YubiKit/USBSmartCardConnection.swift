@@ -19,7 +19,7 @@ import OSLog
 /// A connection to the YubiKey utilizing the USB-C port and the TKSmartCard implementation from
 /// the CryptoTokenKit framework.
 @available(iOS 16.0, macOS 13.0, *)
-public struct SmartCardConnection: Sendable {
+public struct USBSmartCardConnection: Sendable {
     let slot: SmartCardSlot
 
     private var didClose: Promise<Error?> {
@@ -37,10 +37,10 @@ public struct SmartCardConnection: Sendable {
     }
 }
 
-extension SmartCardConnection: Connection {
+extension USBSmartCardConnection: SmartCardConnection {
 
     // @TraceScope
-    public static func connection() async throws -> Connection {
+    public static func connection() async throws -> SmartCardConnection {
         while true {
             guard let slot = try await availableSlots.first else {
                 try await Task.sleep(for: .seconds(1))
@@ -51,7 +51,7 @@ extension SmartCardConnection: Connection {
     }
 
     // @TraceScope
-    public static func connection(slot: SmartCardSlot) async throws -> Connection {
+    public static func connection(slot: SmartCardSlot) async throws -> SmartCardConnection {
         try await SmartCardConnectionsManager.shared.connect(slot: slot)
     }
 
@@ -80,7 +80,7 @@ extension SmartCardConnection: Connection {
     }
 }
 
-// SmartCardConnection specific errors
+// USBSmartCardConnection specific errors
 public enum SmartCardConnectionError: Error {
     /// CryptoTokenKit failed to return TKSmartCardSlotManager.default
     case unsupported
@@ -93,8 +93,8 @@ public enum SmartCardConnectionError: Error {
 }
 
 // Used to indentify a card / connection.
-// Exposed when calling `SmartCardConnection.availableSlots`
-// and when creating a connection with SmartCardConnection.connection(slot:)
+// Exposed when calling `USBSmartCardConnection.availableSlots`
+// and when creating a connection with USBSmartCardConnection.connection(slot:)
 public struct SmartCardSlot: Sendable, Hashable, CustomStringConvertible {
     public let name: String
 
@@ -107,7 +107,7 @@ public struct SmartCardSlot: Sendable, Hashable, CustomStringConvertible {
 }
 
 // MARK: - Internal helpers / extensions
-extension SmartCardConnection: HasSmartCardLogger {}
+extension USBSmartCardConnection: HasSmartCardLogger {}
 extension SmartCardConnectionsManager: HasSmartCardLogger {}
 
 // MARK: - Private helpers
@@ -138,7 +138,7 @@ private final actor SmartCardConnectionsManager {
     private var connections = [SmartCardSlot: ConnectionState]()
 
     // @TraceScope
-    func didClose(for connection: SmartCardConnection) throws -> Promise<Error?> {
+    func didClose(for connection: USBSmartCardConnection) throws -> Promise<Error?> {
         guard let state = connections[connection.slot] else {
             throw ConnectionError.noConnection
         }
@@ -147,7 +147,7 @@ private final actor SmartCardConnectionsManager {
     }
 
     // @TraceScope
-    func isConnected(for connection: SmartCardConnection) -> Bool {
+    func isConnected(for connection: USBSmartCardConnection) -> Bool {
         guard let card = connections[connection.slot]?.card else {
             return false
         }
@@ -156,7 +156,7 @@ private final actor SmartCardConnectionsManager {
     }
 
     // @TraceScope
-    func transmit(request: Data, for connection: SmartCardConnection) async throws -> Data {
+    func transmit(request: Data, for connection: USBSmartCardConnection) async throws -> Data {
         guard let card = connections[connection.slot]?.card else {
             throw ConnectionError.noConnection
         }
@@ -165,7 +165,7 @@ private final actor SmartCardConnectionsManager {
     }
 
     // @TraceScope
-    func connect(slot: SmartCardSlot) async throws -> SmartCardConnection {
+    func connect(slot: SmartCardSlot) async throws -> USBSmartCardConnection {
         // if there is already a connection for this slot...
         // we close it and create a new one reusing it's TKSmartCard
         if let state = connections[slot] {
@@ -203,7 +203,7 @@ private final actor SmartCardConnectionsManager {
 
         // create a new state and return a new connection
         connections[slot] = ConnectionState(card: card)
-        return SmartCardConnection(slot: slot)
+        return USBSmartCardConnection(slot: slot)
     }
 
     func availableSlots() async throws -> [SmartCardSlot] {

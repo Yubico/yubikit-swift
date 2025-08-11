@@ -103,4 +103,4 @@ To add support for the 5Ci YubiKey that connect to the iPhone via the Lightning 
 As a final step build the documentation for the SDK by selecting "Product" -> "Build Documention" in Xcode. This will give you
 access to the YubiKit Framework documentation from the Developer Documentation window in Xcode.
 
-> Note: Make sure to select an iOS target when building the documentation. If you build it with macOS as the target destination LightningConnection and NFCConnection will not be included in the documentation.
+> Note: Make sure to select an iOS target when building the documentation. If you build it with macOS as the target destination LightningSmartCardConnection and NFCSmartCardConnection will not be included in the documentation.

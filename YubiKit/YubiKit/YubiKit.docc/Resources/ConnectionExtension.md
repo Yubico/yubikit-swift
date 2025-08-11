@@ -1,4 +1,4 @@
-# ``YubiKit/Connection``
+# ``YubiKit/SmartCardConnection``
 
 @Metadata {
     @DocumentationExtension(mergeBehavior: append)
@@ -6,11 +6,11 @@
 
 ## Topics
 
-### Creating a Connection
+### Creating a SmartCardConnection
 
 - ``connection()``
 
-### Managing the Connection
+### Managing the SmartCardConnection
 
 - ``close(error:)``
 - ``connectionDidClose()``

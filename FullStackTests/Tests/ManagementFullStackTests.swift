@@ -256,13 +256,13 @@ extension XCTestCase {
         in file: StaticString = #file,
         at line: UInt = #line,
         withTimeout timeout: TimeInterval = 20,
-        test: @escaping (Connection, ManagementSession, DeviceTransport) async throws -> Void
+        test: @escaping (SmartCardConnection, ManagementSession, DeviceTransport) async throws -> Void
     ) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
             let connection = try await TestableConnections.create()
             let transport: DeviceTransport
             #if os(iOS)
-            if connection as? NFCConnection != nil {
+            if connection as? NFCSmartCardConnection != nil {
                 transport = .nfc
             } else {
                 transport = .usb

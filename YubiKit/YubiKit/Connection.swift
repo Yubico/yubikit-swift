@@ -18,11 +18,11 @@ import Foundation
 ///
 /// Use a connection to create a ``Session``. The connection can also be used for sending raw ``APDU``'s to the YubiKey.
 ///
-/// Protocol implemented in ``LightningConnection``, ``NFCConnection`` and ``SmartCardConnection``.
+/// Protocol implemented in ``LightningSmartCardConnection``, ``NFCSmartCardConnection`` and ``USBSmartCardConnection``.
 
-public protocol Connection: Sendable {
+public protocol SmartCardConnection: Sendable {
 
-    /// Create a new Connection to the YubiKey.
+    /// Create a new SmartCardConnection to the YubiKey.
     ///
     /// Call this method to get a connection to a YubiKey. The method will wait
     /// until a connection to a YubiKey has been established and then return it.
@@ -33,9 +33,9 @@ public protocol Connection: Sendable {
     /// If a connection has been established and this method is called again the
     /// first connection will be closed and ``connectionDidClose()`` will return for
     /// the previous connection.
-    static func connection() async throws -> Connection
+    static func connection() async throws -> SmartCardConnection
 
-    /// Close the current Connection.
+    /// Close the current SmartCardConnection.
     ///
     /// This closes the connection sending the optional error to the ``connectionDidClose()`` method.
     func close(error: Error?) async
@@ -46,9 +46,9 @@ public protocol Connection: Sendable {
     /// error will be returned.
     func connectionDidClose() async -> Error?
 
-    /// Send an APDU to the Connection.
+    /// Send an APDU to the SmartCardConnection.
     ///
-    /// This will send the APDU to the YubiKey using the Connection. Commands returning data to big
+    /// This will send the APDU to the YubiKey using the SmartCardConnection. Commands returning data to big
     /// to be handled by a single read operation will be handled automatically by the SDK and the
     /// complete result will be returned by the function. Only operations returning a 0x9000 status
     /// code will return data. Operations returning a 0x61XX (more data) status code will be handled
@@ -57,16 +57,16 @@ public protocol Connection: Sendable {
     @discardableResult
     func send(apdu: APDU) async throws -> Data
 
-    /// Send a command as Data to the Connection and handle the result manually.
+    /// Send a command as Data to the SmartCardConnection and handle the result manually.
     ///
-    /// This will send the Data to the YubiKey using the Connection. The full result will be
+    /// This will send the Data to the YubiKey using the SmartCardConnection. The full result will be
     /// returned as Data. If the returned data is to big for a single read operation this has
     /// to be handled manually.
     @discardableResult
     func send(data: Data) async throws -> Data
 }
 
-/// Connection Errors.
+/// SmartCardConnection Errors.
 public enum ConnectionError: Error {
     /// No current connection.
     case noConnection
@@ -76,7 +76,7 @@ public enum ConnectionError: Error {
     case missingResult
     /// Awaiting call to connect() was cancelled.
     case cancelled
-    /// Connection was closed.
+    /// SmartCardConnection was closed.
     case closed
 }
 

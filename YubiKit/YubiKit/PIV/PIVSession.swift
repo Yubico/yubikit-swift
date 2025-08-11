@@ -31,10 +31,10 @@ public final actor PIVSession: Session {
     private var currentPinAttempts = 0
     private var maxPinAttempts = 3
 
-    private let connection: Connection
+    private let connection: SmartCardConnection
     private let processor: SCPProcessor?
 
-    private init(connection: Connection, scpKeyParams: SCPKeyParams? = nil) async throws {
+    private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws {
         try await connection.selectApplication(.piv)
         let versionApdu = APDU(cla: 0, ins: 0xfd, p1: 0, p2: 0)
         guard let version = try await Version(withData: connection.send(apdu: versionApdu)) else {
@@ -51,7 +51,7 @@ public final actor PIVSession: Session {
     }
 
     public static func session(
-        withConnection connection: Connection,
+        withConnection connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
     ) async throws -> PIVSession {
         // Return new PIVSession

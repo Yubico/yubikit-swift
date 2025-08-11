@@ -9,7 +9,7 @@ in Swift and SwiftUI based applications. The async/await syntax provides an easy
 creating connections and sending commands to the different applications on the YubiKey.
 
 ```swift
-let connection = try await NFCConnection.connection()
+let connection = try await NFCSmartCardConnection.connection()
 let session = try await OATHSession.session(withConnection: connection)
 let codes = try await session.calculateCodes()
 ```
