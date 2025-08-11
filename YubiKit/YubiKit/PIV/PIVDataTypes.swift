@@ -177,7 +177,7 @@ public enum PIV {
 
     /// PIV management key type.
     public enum ManagementKeyType: UInt8, Sendable {
-        /// 3-des (default)
+        /// 3-des
         case tripleDES = 0x03
         /// AES-128
         case AES128 = 0x08

@@ -276,7 +276,6 @@ public final actor PIVSession: Session {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let rsaKeyType = PIV.RSAKey.rsa(key.size)
         let keyType = PIV.KeyType.rsa(key.size)
-        try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
 
         var data = Data()
         let primeOne = key.p
@@ -291,21 +290,13 @@ public final actor PIVSession: Session {
         data.append(TKBERTLVRecord(tag: 0x04, value: exponentTwo.padOrTrim(to: length)).data)
         data.append(TKBERTLVRecord(tag: 0x05, value: coefficient.padOrTrim(to: length)).data)
 
-        if pinPolicy != .`defaultPolicy` {
-            data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
-        }
-        if touchPolicy != .`defaultPolicy` {
-            data.append(TKBERTLVRecord(tag: tagTouchPolicy, value: touchPolicy.rawValue.data).data)
-        }
-        let apdu = APDU(
-            cla: 0,
-            ins: insImportKey,
-            p1: keyType.rawValue,
-            p2: slot.rawValue,
-            command: data,
-            type: .extended
+        try await importKey(
+            keyType: keyType,
+            keyData: data,
+            slot: slot,
+            pinPolicy: pinPolicy,
+            touchPolicy: touchPolicy
         )
-        try await send(apdu: apdu)
         return rsaKeyType
     }
 
@@ -333,27 +324,14 @@ public final actor PIVSession: Session {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let eccKeyType = PIV.ECCKey.ecc(key.curve)
         let keyType = PIV.KeyType.ecc(key.curve)
-        try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
 
-        var data = Data()
-        let privateKeyData = key.k
-        data.append(TKBERTLVRecord(tag: 0x06, value: privateKeyData).data)
-
-        if pinPolicy != .`defaultPolicy` {
-            data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
-        }
-        if touchPolicy != .`defaultPolicy` {
-            data.append(TKBERTLVRecord(tag: tagTouchPolicy, value: touchPolicy.rawValue.data).data)
-        }
-        let apdu = APDU(
-            cla: 0,
-            ins: insImportKey,
-            p1: keyType.rawValue,
-            p2: slot.rawValue,
-            command: data,
-            type: .extended
+        try await importKey(
+            keyType: keyType,
+            keyData: TKBERTLVRecord(tag: 0x06, value: key.k).data,
+            slot: slot,
+            pinPolicy: pinPolicy,
+            touchPolicy: touchPolicy
         )
-        try await send(apdu: apdu)
         return eccKeyType
     }
 
@@ -381,27 +359,14 @@ public final actor PIVSession: Session {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let ed25519KeyType = PIV.Ed25519Key.ed25519
         let keyType = PIV.KeyType.ed25519
-        try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
 
-        var data = Data()
-        let privateKeyData = key.seed
-        data.append(TKBERTLVRecord(tag: 0x07, value: privateKeyData).data)
-
-        if pinPolicy != .`defaultPolicy` {
-            data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
-        }
-        if touchPolicy != .`defaultPolicy` {
-            data.append(TKBERTLVRecord(tag: tagTouchPolicy, value: touchPolicy.rawValue.data).data)
-        }
-        let apdu = APDU(
-            cla: 0,
-            ins: insImportKey,
-            p1: keyType.rawValue,
-            p2: slot.rawValue,
-            command: data,
-            type: .extended
+        try await importKey(
+            keyType: keyType,
+            keyData: TKBERTLVRecord(tag: 0x07, value: key.seed).data,
+            slot: slot,
+            pinPolicy: pinPolicy,
+            touchPolicy: touchPolicy
         )
-        try await send(apdu: apdu)
         return ed25519KeyType
     }
 
@@ -429,27 +394,14 @@ public final actor PIVSession: Session {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let x25519KeyType = PIV.X25519Key.x25519
         let keyType = PIV.KeyType.x25519
-        try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
 
-        var data = Data()
-        let privateKeyData = key.scalar
-        data.append(TKBERTLVRecord(tag: 0x08, value: privateKeyData).data)
-
-        if pinPolicy != .`defaultPolicy` {
-            data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
-        }
-        if touchPolicy != .`defaultPolicy` {
-            data.append(TKBERTLVRecord(tag: tagTouchPolicy, value: touchPolicy.rawValue.data).data)
-        }
-        let apdu = APDU(
-            cla: 0,
-            ins: insImportKey,
-            p1: keyType.rawValue,
-            p2: slot.rawValue,
-            command: data,
-            type: .extended
+        try await importKey(
+            keyType: keyType,
+            keyData: TKBERTLVRecord(tag: 0x08, value: key.scalar).data,
+            slot: slot,
+            pinPolicy: pinPolicy,
+            touchPolicy: touchPolicy
         )
-        try await send(apdu: apdu)
         return x25519KeyType
     }
 
@@ -949,6 +901,34 @@ public final actor PIVSession: Session {
 }
 
 extension PIVSession {
+
+    private func importKey(
+        keyType: PIV.KeyType,
+        keyData: Data,
+        slot: PIV.Slot,
+        pinPolicy: PIV.PinPolicy,
+        touchPolicy: PIV.TouchPolicy
+    ) async throws {
+        try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
+
+        var data = keyData
+        if pinPolicy != .`defaultPolicy` {
+            data.append(TKBERTLVRecord(tag: tagPinPolicy, value: pinPolicy.rawValue.data).data)
+        }
+        if touchPolicy != .`defaultPolicy` {
+            data.append(TKBERTLVRecord(tag: tagTouchPolicy, value: touchPolicy.rawValue.data).data)
+        }
+
+        let apdu = APDU(
+            cla: 0,
+            ins: insImportKey,
+            p1: keyType.rawValue,
+            p2: slot.rawValue,
+            command: data,
+            type: .extended
+        )
+        try await send(apdu: apdu)
+    }
 
     private func usePrivateKeyInSlot(
         slot: PIV.Slot,
