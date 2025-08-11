@@ -14,7 +14,7 @@
 
 import CommonCrypto
 
-public struct SCP11KeyParams: SCPKeyParams {
+public struct SCP11KeyParams: SCPKeyParams, Sendable {
     public let keyRef: SCPKeyRef
     public let pkSdEcka: EC.PublicKey
     public let oceKeyRef: SCPKeyRef?

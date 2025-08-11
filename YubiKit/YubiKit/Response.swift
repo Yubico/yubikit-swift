@@ -14,7 +14,7 @@
 
 import Foundation
 
-public struct Response: CustomStringConvertible {
+public struct Response: CustomStringConvertible, Sendable {
 
     public init(rawData: Data) {
         if rawData.count > 2 {

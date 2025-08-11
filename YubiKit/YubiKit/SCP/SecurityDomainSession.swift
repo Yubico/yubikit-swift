@@ -25,7 +25,7 @@ import OSLog
 /// - notSupported: Requested operation isn’t available in the current context.
 /// - encryptionFailed: AES‑CBC encryption failed (CommonCrypto).
 /// - wrapped: Wraps a lower‑level ``Error`` (e.g. CryptoTokenKit).
-public enum SCPError: Error {
+public enum SCPError: Error, Sendable {
     case unexpectedResponse(String?)
     case illegalArgument(String?)
     case notSupported(String?)

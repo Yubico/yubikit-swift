@@ -8,7 +8,7 @@
 import Foundation
 
 /// Identifies a feature (typically an application) on a YubiKey which may or may not be supported, and which can be enabled or disabled.
-public enum Capability: UInt {
+public enum Capability: UInt, Sendable {
     /// Identifies the YubiOTP application.
     case OTP = 0x0001
     /// Identifies the U2F (CTAP1) portion of the FIDO application.

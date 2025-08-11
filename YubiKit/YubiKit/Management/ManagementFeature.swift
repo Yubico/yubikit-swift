@@ -15,7 +15,7 @@
 import Foundation
 
 /// Management session features.
-public enum ManagementFeature: SessionFeature {
+public enum ManagementFeature: SessionFeature, Sendable {
 
     /// Support for reading the DeviceInfo data from the YubiKey.
     case deviceInfo

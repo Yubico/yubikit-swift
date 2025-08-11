@@ -14,7 +14,7 @@
 
 import Foundation
 
-public enum OATHSessionFeature: SessionFeature {
+public enum OATHSessionFeature: SessionFeature, Sendable {
 
     case rename, touch, sha512
 

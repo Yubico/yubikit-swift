@@ -14,7 +14,7 @@
 
 import Foundation
 
-public enum PIVSessionFeature: SessionFeature {
+public enum PIVSessionFeature: SessionFeature, Sendable {
 
     case usagePolicy, aesKey, serialNumber, metadata, attestation, p384, touchCached, rsaGeneration, rsa3072and4096,
         moveDelete, ed25519, x25519

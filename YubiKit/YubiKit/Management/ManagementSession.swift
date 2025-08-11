@@ -16,7 +16,7 @@ import CryptoTokenKit
 import Foundation
 import OSLog
 
-public enum ManagementSessionError: Error {
+public enum ManagementSessionError: Error, Sendable {
     /// Application is not supported on this YubiKey.
     case applicationNotSupported
     /// Unexpected configuration state.

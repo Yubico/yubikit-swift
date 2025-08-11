@@ -67,7 +67,7 @@ public protocol SmartCardConnection: Sendable {
 }
 
 /// SmartCardConnection Errors.
-public enum ConnectionError: Error {
+public enum ConnectionError: Error, Sendable {
     /// No current connection.
     case noConnection
     /// Unexpected result returned from YubiKey.
@@ -81,7 +81,7 @@ public enum ConnectionError: Error {
 }
 
 /// A ResponseError containing the status code.
-public struct ResponseError: Error {
+public struct ResponseError: Error, Sendable {
     /// Status code of the response.
     public let responseStatus: ResponseStatus
 }

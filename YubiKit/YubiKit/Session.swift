@@ -36,7 +36,7 @@ public protocol SessionFeature {
     func isSupported(by version: Version) -> Bool
 }
 
-public enum SessionError: Error {
+public enum SessionError: Error, Sendable {
     case notSupported(_: String?)  // consider renaming to illegalState to match Java sdk
     case activeSession
     case missingApplication

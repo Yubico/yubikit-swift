@@ -18,7 +18,7 @@
 import CryptoTokenKit
 import Foundation
 
-public enum RSA {
+public enum RSA: Sendable {
 
     /// Supported RSA key sizes (in bits).
     public enum KeySize: Int, Sendable, CaseIterable {
