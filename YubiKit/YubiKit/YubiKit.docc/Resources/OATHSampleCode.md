@@ -72,7 +72,7 @@ To bring up the settings view we've added a `Button` to the `OATHListView`. The 
 any wired connections and cancel the wait for new connections. It will then present the `SettingsView`
 as a SwiftUI sheet.
 
-The `SettingsModel` is simpler since it will only retrieve the version number once when it appears
+The `Model` is simpler since it will only retrieve the version number once when it appears
 and it does not handle YubiKeys being unplugged and plugged back again. In this case we can use the
 `AnySmartCardConnection.connection()` function that will return any wired YubiKey that might be connected
 or, if no wired key is present it will start scanning for a NFC key. Once connected we create 
