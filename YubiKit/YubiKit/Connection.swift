@@ -78,8 +78,8 @@ public enum ConnectionError: Error, Sendable {
     case missingResult
     /// Awaiting call to connect() was cancelled.
     case cancelled
-    /// SmartCardConnection was closed.
-    case closed
+    /// Awaiting call to connect() was dismissed by the user.
+    case cancelledByUser
 }
 
 /// A ResponseError containing the status code.

@@ -83,10 +83,12 @@ final class ConnectionManager: ObservableObject {
 extension SmartCardConnection {
     var connectionType: String {
         switch self {
+        #if os(iOS)
         case _ as NFCSmartCardConnection:
             return "NFC"
         case _ as LightningSmartCardConnection:
             return "Lightning"
+        #endif
         case _ as SmartCardConnection:
             return "USB"
         default:

@@ -267,13 +267,7 @@ private final actor NFCConnectionManager: NSObject {
             if let message = message {
                 currentState.session?.alertMessage = message
             }
-        }
-
-        switch result {
-        case .success:
-            await invalidate()
-        case let .failure(error):
-            await invalidate(error: error)
+            currentState.session?.invalidate()
         }
     }
 
@@ -282,7 +276,7 @@ private final actor NFCConnectionManager: NSObject {
         trace(message: "Manager.connected(session:tag:) - tag: \(String(describing: tag.identifier))")
 
         guard let promise = currentState.connectionPromise else {
-            await invalidate()
+            await cleanup(session: session)
             return
         }
 
@@ -299,15 +293,21 @@ private final actor NFCConnectionManager: NSObject {
         await promise.fulfill(connection)
     }
 
-    private func invalidate(error: Error? = nil) async {
-        currentState.session?.invalidate()
+    private func cleanup(session: NFCTagReaderSession, error: Error? = nil) async {
+        guard currentState.session === session else {
+            return
+        }
 
-        // Workaround for the NFC session being active for an additional 4 seconds after
-        // invalidate() has been called on the session.
-        try? await Task.sleep(for: .seconds(5))
-        await currentState.didCloseConnection?.fulfill(error)
-        await currentState.connectionPromise?.cancel(with: error ?? ConnectionError.cancelled)
-        currentState = .inactive
+        switch error {
+        case .none:
+            await currentState.didCloseConnection?.fulfill(nil)
+            await currentState.connectionPromise?.cancel(with: ConnectionError.cancelledByUser)
+        case let .some(error):
+            await currentState.didCloseConnection?.fulfill(nil)
+            await currentState.connectionPromise?.cancel(with: error)
+        }
+
+        self.currentState = .inactive
     }
 }
 
@@ -325,16 +325,16 @@ extension NFCConnectionManager: NFCTagReaderSessionDelegate {
         trace(message: "NFCTagReaderSessionDelegate: Session invalidated – \(error.localizedDescription)")
 
         let nfcError = error as? NFCReaderError
+
+        let mappedError: Error?
         switch nfcError?.code {
         case .some(.readerSessionInvalidationErrorUserCanceled):
-            return
+            mappedError = nil  // user cancelled, no error
         default:
-            Task {
-                if await currentState.session === session {
-                    await stop(with: .failure(error))
-                }
-            }
+            mappedError = error
         }
+
+        Task { await cleanup(session: session, error: mappedError) }
     }
 
     // @TraceScope
@@ -354,7 +354,7 @@ extension NFCConnectionManager: NFCTagReaderSessionDelegate {
             if await session === currentState.session {
                 await connected(session: session, tag: firstTag)
             } else {
-                await invalidate(error: ConnectionError.cancelled)
+                await cleanup(session: session, error: ConnectionError.cancelled)
             }
         }
     }
