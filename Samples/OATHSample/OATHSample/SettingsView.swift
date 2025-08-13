@@ -13,27 +13,72 @@
 // limitations under the License.
 
 import SwiftUI
+import YubiKit
 
-struct SettingsView<T>: View where T: SettingsModelProtocol {
+struct SettingsView: View {
 
     @Environment(\.dismiss) var dismiss
-    @StateObject var model: T
+    @StateObject var model: Model
+    @StateObject private var connectionManager = ConnectionManager.shared
 
     var body: some View {
-        Text("\(model.connection ?? "Unknown") YubiKey, \(model.keyVersion ?? "Unknown version")")
-            .frame(width: 300)
-            .padding()
-        Button {
-            dismiss()
-        } label: {
-            Text("Dismiss")
+        VStack(spacing: 20) {
+            Capsule()
+                .fill(Color.secondary.opacity(0.4))
+                .frame(width: 40, height: 5)
+                .padding(.top, 10)
+
+            Text("YubiKey Information")
+                .font(.headline)
+                .padding(.top, 10)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Connection:")
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(model.connectionType ?? "Unknown")
+                        .fontWeight(.medium)
+                }
+
+                HStack {
+                    Text("Version:")
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text(model.keyVersion ?? "Unknown")
+                        .fontWeight(.medium)
+                }
+            }
+            .padding(.horizontal, 20)
+            .frame(maxWidth: .infinity)
+
+            Spacer()
+
+            Button(action: { dismiss() }) {
+                Text("Done").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
         }
-        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.background)
+        .presentationDetents([.fraction(0.5)])
+        .presentationDragIndicator(.hidden)
+        #if os(iOS)
+        .refreshable {
+            await connectionManager.requestNFCConnection()
+        }
+        #endif
         .alert(
             "Something went wrong",
-            isPresented: .constant(model.error != nil),
+            isPresented: Binding(
+                get: { model.error != nil },
+                set: { _ in model.error = nil }
+            ),
             actions: {
-                Button("Ok", role: .cancel) { dismiss() }
+                Button("Ok", role: .cancel) {}
             },
             message: {
                 if let error = model.error {
@@ -41,20 +86,5 @@ struct SettingsView<T>: View where T: SettingsModelProtocol {
                 }
             }
         )
-        .onAppear {
-            model.getKeyVersion()
-        }
     }
-
-}
-
-#Preview {
-    SettingsView(model: SettingsModelPreview())
-}
-
-class SettingsModelPreview: SettingsModelProtocol {
-    @Published private(set) var keyVersion: String? = "5.4.2"
-    @Published private(set) var connection: String? = "SmartCard"
-    @Published private(set) var error: Error?
-    func getKeyVersion() {}
 }
