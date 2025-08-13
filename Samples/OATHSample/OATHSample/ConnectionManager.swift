@@ -54,7 +54,8 @@ final class ConnectionManager: ObservableObject {
                         error = closeError
                     }
                 } catch {
-                    if error is CancellationError { return }
+                    // Ignore cancellation errors
+                    if let cancellationError = error as? CancellationError { return }
                     self.error = error
                 }
             }
@@ -89,7 +90,7 @@ extension SmartCardConnection {
         case _ as LightningSmartCardConnection:
             return "Lightning"
         #endif
-        case _ as SmartCardConnection:
+        case _ as USBSmartCardConnection:
             return "USB"
         default:
             return "Unknown"
