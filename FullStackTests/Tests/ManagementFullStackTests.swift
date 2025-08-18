@@ -212,7 +212,7 @@ class ManagementFullStackTests: XCTestCase {
                     message: "NFC is now restriced until this YubiKey has been inserted into a USB port."
                 )
                 do {
-                    let newConnection = try await TestableConnections.create()
+                    let newConnection = try await TestableConnection.shared()
                     _ = try await ManagementSession.session(withConnection: newConnection)
                     XCTFail("Got connection even if NFC restriced was turned on!")
                 } catch {
@@ -259,7 +259,7 @@ extension XCTestCase {
         test: @escaping (SmartCardConnection, ManagementSession, DeviceTransport) async throws -> Void
     ) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
-            let connection = try await TestableConnections.create()
+            let connection = try await TestableConnection.shared()
             let transport: DeviceTransport
             #if os(iOS)
             if connection as? NFCSmartCardConnection != nil {

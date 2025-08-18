@@ -120,8 +120,8 @@ public enum PIV: Sendable {
 
     /// Result of a pin verification.
     public enum VerifyPinResult: Equatable, Sendable {
-        /// Verification was successful. The associated value holds the number of pin retries left.
-        case success(Int)
+        /// Verification was successful.
+        case success
         /// Verification failed. The associated value holds the number of pin retries left.
         case fail(Int)
         /// PIN has been locked.
@@ -132,7 +132,7 @@ public enum PIV: Sendable {
     public enum SessionError: Error, Sendable {
         case dataParseError
         case unknownKeyType
-        case invalidPin
+        case invalidPin(_ retries: Int)
         case pinLocked
         case invalidResponse
         case authenticationFailed

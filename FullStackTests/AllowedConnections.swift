@@ -27,15 +27,13 @@ let allowedSerialNumbers: [UInt] = [
     31_683_782,  // YubiKey 5C FIPS (5.7.4)
 ]
 
-// This is the default connection for the tests.
-// Change to test different types of connection.
-extension TestableConnections.Kind {
-    static let `default`: TestableConnections.Kind = .smartCard
-}
-
-enum TestableConnections {
+enum TestableConnection {
 
     public enum Kind {
+        // This is the default connection for the tests.
+        // Change to test different types of connection.
+        static let `default`: TestableConnection.Kind = .smartCard
+
         case smartCard
 
         #if os(iOS)
@@ -44,6 +42,10 @@ enum TestableConnections {
 
         static let nfc = Kind.nfc(alertMessage: nil)
         #endif
+    }
+
+    static func shared(with kind: Kind = .default) async throws -> SmartCardConnection {
+        try await ConnectionManager.shared.connection(with: kind)
     }
 
     static func create(with kind: Kind = .default) async throws -> SmartCardConnection {
@@ -126,4 +128,22 @@ extension SmartCardConnection {
             return allowedSerialNumbers.contains(deviceInfo.serialNumber)
         }
     }
+}
+
+private final class ConnectionManager {
+    static let shared = ConnectionManager()
+
+    func connection(with kind: TestableConnection.Kind = .default) async throws -> SmartCardConnection {
+        if let previous = previous, previous.kind == kind {
+            return previous.connection
+        }
+
+        let new = try await TestableConnection.create(with: kind)
+        previous = (kind, new)
+
+        return new
+    }
+
+    private init() {}
+    private var previous: (kind: TestableConnection.Kind, connection: SmartCardConnection)? = nil
 }

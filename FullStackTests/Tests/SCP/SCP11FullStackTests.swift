@@ -48,7 +48,7 @@ final class SCP11aFullStackTests: XCTestCase {
     func testAllowList() throws {
         runSCPTest { [self] in
 
-            let connection = try await TestableConnections.create()
+            let connection = try await TestableConnection.shared()
 
             // Reset YubiKey SCP state to factory defaults
             try await SecurityDomainSession.session(withConnection: connection).reset()
