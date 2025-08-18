@@ -28,8 +28,6 @@ import OSLog
 public final actor PIVSession: Session {
 
     nonisolated public let version: Version
-    private var currentPinAttempts = 0
-    private var maxPinAttempts = 3
 
     private let connection: SmartCardConnection
     private let processor: SCPProcessor?
@@ -590,7 +588,9 @@ public final actor PIVSession: Session {
             algorithm: ccAlgorithm,
             key: managementKey
         )
-        guard challengeSent == challengeReturned else { throw PIV.SessionError.authenticationFailed }
+        guard challengeSent == challengeReturned else {
+            throw PIV.SessionError.authenticationFailed
+        }
     }
 
     /// Reads metadata about the private key stored in a slot.
@@ -681,23 +681,21 @@ public final actor PIVSession: Session {
     @discardableResult
     public func verifyPin(_ pin: String) async throws -> PIV.VerifyPinResult {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard let pinData = pin.paddedPinData() else { throw PIV.SessionError.invalidPin }
+        guard let pinData = pin.paddedPinData() else { throw SessionError.illegalArgument }
         let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: 0x80, command: pinData)
         do {
             try await send(apdu: apdu)
-            currentPinAttempts = maxPinAttempts
-            return .success(currentPinAttempts)
+            return .success
         } catch {
-            guard let responseError = error as? ResponseError  //,
-            else { throw error }
-            if let retriesLeft = responseError.responseStatus.pinRetriesLeft(version: self.version) {
-                if retriesLeft > 0 {
-                    return .fail(retriesLeft)
-                } else {
-                    return .pinLocked
-                }
+            guard let responseError = error as? ResponseError else { throw error }
+            let retriesLeft = retriesFrom(responseError: responseError)
+            if retriesLeft > 0 {
+                return .fail(retriesLeft)
+            } else if retriesLeft == 0 {
+                return .pinLocked
+            } else {
+                throw error
             }
-            throw PIV.SessionError.authenticationFailed
         }
     }
 
@@ -707,7 +705,7 @@ public final actor PIVSession: Session {
     ///   - oldPin: Old pin code. UTF8 encoded.
     public func setPin(_ newPin: String, oldPin: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        try await _ = changeReference(ins: insChangeReference, p2: p2Pin, valueOne: oldPin, valueTwo: newPin)
+        try await changeReference(ins: insChangeReference, p2: p2Pin, valueOne: oldPin, valueTwo: newPin)
     }
 
     /// Set a new puk code for the YubiKey.
@@ -716,7 +714,7 @@ public final actor PIVSession: Session {
     ///   - oldPuk: Old puk code. UTF8 encoded.
     public func setPuk(_ newPuk: String, oldPuk: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        try await _ = changeReference(ins: insChangeReference, p2: p2Puk, valueOne: oldPuk, valueTwo: newPuk)
+        try await changeReference(ins: insChangeReference, p2: p2Puk, valueOne: oldPuk, valueTwo: newPuk)
     }
 
     /// Unblock a blocked pin code with the puk code.
@@ -725,7 +723,7 @@ public final actor PIVSession: Session {
     ///   - newPin: The new UTF8 encoded pin.
     public func unblockPinWithPuk(_ puk: String, newPin: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        try await _ = changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
+        try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
     }
 
     /// Reads metadata about the pin, such as total number of retries, attempts left, and if the pin has
@@ -744,36 +742,6 @@ public final actor PIVSession: Session {
         return try await getPinPukMetadata(p2: p2Puk)
     }
 
-    ///  Retrieve the number of pin attempts left for the YubiKey.
-    ///
-    /// >Note: If this command is run in a session where the correct pin has already been verified,
-    ///        the correct value will not be retrievable, and the value returned may be incorrect if the
-    ///        number of total attempts has been changed from the default.
-    ///
-    /// - Returns: Number of pin attempts left.
-    public func getPinAttempts() async throws -> Int {
-        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        if self.supports(PIVSessionFeature.metadata) {
-            let metadata = try await getPinMetadata()
-            return metadata.retriesRemaining
-        } else {
-            let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: p2Pin)
-            do {
-                try await send(apdu: apdu)
-                // Already verified, no way to know true count
-                return currentPinAttempts
-            } catch {
-                guard let responseError = error as? ResponseError else { throw error }
-                let retries = retriesFrom(responseError: responseError)
-                if retries < 0 {
-                    throw error
-                } else {
-                    return retries
-                }
-            }
-        }
-    }
-
     /// Set the number of retries available for pin and puk entry.
     ///
     /// This method requires authentication and pin verification.
@@ -785,15 +753,13 @@ public final actor PIVSession: Session {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let apdu = APDU(cla: 0, ins: insSetPinPukAttempts, p1: pinAttempts, p2: pukAttempts)
         try await send(apdu: apdu)
-        maxPinAttempts = Int(pinAttempts)
-        currentPinAttempts = Int(pinAttempts)
     }
 
     public func blockPin(counter: Int = 0) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let result = try await verifyPin("")
         switch result {
-        case .success(_), .fail(_):
+        case .success, .fail(_):
             if counter < 15 {
                 try await blockPin(counter: counter + 1)
             }
@@ -804,11 +770,16 @@ public final actor PIVSession: Session {
 
     public func blockPuk(counter: Int = 0) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        let retries = try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: "", valueTwo: "")
-        if retries <= 0 || counter > 15 {
-            return
-        } else {
-            try await blockPuk(counter: counter + 1)
+        do {
+            try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: "", valueTwo: "")
+        } catch let PIV.SessionError.invalidPin(retries) {
+            if retries <= 0 || counter > 15 {
+                return
+            } else {
+                try await blockPuk(counter: counter + 1)
+            }
+        } catch {
+            throw error
         }
     }
 
@@ -873,7 +844,7 @@ public final actor PIVSession: Session {
             }
             let retries = retriesFrom(responseError: responseError)
             if retries >= 0 {
-                throw SessionError.invalidPin(retries)
+                throw PIV.SessionError.invalidPin(retries)
             } else {
                 // Status code returned error, not number of retries
                 throw error
@@ -977,24 +948,22 @@ extension PIVSession {
         try await send(apdu: apdu)
     }
 
-    private func changeReference(ins: UInt8, p2: UInt8, valueOne: String, valueTwo: String) async throws -> Int {
+    private func changeReference(ins: UInt8, p2: UInt8, valueOne: String, valueTwo: String) async throws {
         guard let paddedValueOne = valueOne.paddedPinData(), let paddedValueTwo = valueTwo.paddedPinData() else {
-            throw PIV.SessionError.invalidPin
+            throw SessionError.illegalArgument
         }
         let data = paddedValueOne + paddedValueTwo
         let apdu = APDU(cla: 0, ins: ins, p1: 0, p2: p2, command: data)
         do {
             try await send(apdu: apdu)
-            return currentPinAttempts
         } catch {
             guard let responseError = error as? ResponseError else { throw PIV.SessionError.invalidResponse }
             let retries = retriesFrom(responseError: responseError)
             if retries >= 0 {
-                if p2 == 0x80 {
-                    currentPinAttempts = retries
-                }
+                throw PIV.SessionError.invalidPin(retries)
+            } else {
+                throw error
             }
-            return retries
         }
     }
 
@@ -1047,19 +1016,21 @@ extension PIVSession {
     }
 
     private func retriesFrom(responseError: ResponseError) -> Int {
-        let statusCode = responseError.responseStatus.rawStatus
-        if statusCode == 0x6983 {
+        let statusCode = responseError.responseStatus
+
+        if statusCode.rawStatus == 0x6983 {
             return 0
-        } else if self.version < Version(withString: "1.0.4")! {
-            if statusCode >= 0x6300 && statusCode <= 0x63ff {
-                return Int(statusCode & 0xff)
+        }
+        if version < Version(withString: "1.0.4")! {
+            if statusCode.rawStatus >= 0x6300 && statusCode.rawStatus <= 0x63ff {
+                return Int(statusCode.rawStatus & 0xff)
             }
         } else {
-            if statusCode >= 0x63c0 && statusCode <= 0x63cf {
-                return Int(statusCode & 0xf)
+            if statusCode.rawStatus >= 0x63c0 && statusCode.rawStatus <= 0x63cf {
+                return Int(statusCode.rawStatus & 0xf)
             }
         }
-        return -1
+        return -1  // error
     }
 
     @discardableResult
@@ -1069,24 +1040,6 @@ extension PIVSession {
         } else {
             return try await connection.send(apdu: apdu)
         }
-    }
-}
-
-extension ResponseStatus {
-    fileprivate func pinRetriesLeft(version: Version) -> Int? {
-        if self.rawStatus == 0x6983 {
-            return 0
-        }
-        if version < Version(withString: "1.0.4")! {
-            if self.rawStatus >= 0x6300 && self.rawStatus <= 0x63ff {
-                return Int(self.rawStatus & 0xff)
-            }
-        } else {
-            if self.rawStatus >= 0x63c0 && self.rawStatus <= 0x63cf {
-                return Int(self.rawStatus & 0xf)
-            }
-        }
-        return nil
     }
 }
 

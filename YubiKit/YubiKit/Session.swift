@@ -44,7 +44,6 @@ public enum SessionError: Error, Sendable {
     case unexpectedStatusCode
     case unexpectedResponse
     case illegalArgument(_: String?)
-    case invalidPin(Int)
 
     static var illegalArgument: Self {
         .illegalArgument(nil)
@@ -71,8 +70,6 @@ extension SessionError: Equatable {
         case (.unexpectedResponse, .unexpectedResponse):
             return true
         case (.illegalArgument, .illegalArgument):
-            return true
-        case (.invalidPin(_), .invalidPin(_)):
             return true
         default:
             return false

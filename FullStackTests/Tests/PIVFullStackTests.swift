@@ -682,8 +682,11 @@ struct PIVFullStackTests {
     func verifyPIN() async throws {
         try await withPIVSession(authenticated: true) { session in
             let result = try await session.verifyPin(defaultPIN)
-            if case .success(let counter) = result {
-                #expect(counter == 3)
+            if case .success = result {
+                let metadata = try await session.getPinMetadata()
+                let remaining = metadata.retriesRemaining
+                let total = metadata.retriesTotal
+                #expect(remaining == total)
             } else {
                 Issue.record("Got unexpected result from verifyPin: \(result)")
             }
@@ -712,31 +715,17 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Get PIN Attempts", .tags(.pivAuthentication))
-    func getPinAttempts() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            var count = try await session.getPinAttempts()
-            #expect(count == 3)
-            _ = try await session.verifyPin("740601")
-            count = try await session.getPinAttempts()
-            #expect(count == 2)
-        }
-    }
-
     @Test("Set PIN/PUK Attempts", .tags(.pivAuthentication))
     func setPinPukAttempts() async throws {
         try await withPIVSession(authenticated: true) { session in
             try await session.verifyPin(defaultPIN)
             try await session.set(pinAttempts: 5, pukAttempts: 6)
-            if session.supports(PIVSessionFeature.metadata) {
-                let pinResult = try await session.getPinMetadata()
-                #expect(pinResult.retriesRemaining == 5)
-                let pukResult = try await session.getPukMetadata()
-                #expect(pukResult.retriesRemaining == 6)
-            } else {
-                let result = try await session.getPinAttempts()
-                #expect(result == 5)
-            }
+
+            try requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+            let pinResult = try await session.getPinMetadata()
+            #expect(pinResult.retriesRemaining == 5)
+            let pukResult = try await session.getPukMetadata()
+            #expect(pukResult.retriesRemaining == 6)
         }
     }
 
@@ -874,14 +863,29 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Set PIN", .tags(.pivAuthentication))
-    func setPin() async throws {
+    @Test("Set PIN Failure", .tags(.pivAuthentication))
+    func setPinFailure() async throws {
+        try await withPIVSession { session in
+            do {
+                try await session.setPin("654321", oldPin: "000000")
+            } catch let SessionError.invalidPin(retries) {
+                let total = try await session.getPinMetadata().retriesTotal
+                #expect(retries == total - 1)
+            }
+        }
+    }
+
+    @Test("Set PIN Success", .tags(.pivAuthentication))
+    func setPinSuccess() async throws {
         try await withPIVSession { session in
             try await session.setPin("654321", oldPin: defaultPIN)
             let result = try await session.verifyPin("654321")
             switch result {
-            case .success(let retries):
-                #expect(retries == 3)
+            case .success:
+                let metadata = try await session.getPinMetadata()
+                let remaining = metadata.retriesRemaining
+                let total = metadata.retriesTotal
+                #expect(remaining == total)
             case .fail(_):
                 Issue.record("PIN verification failed")
             case .pinLocked:
@@ -902,7 +906,7 @@ struct PIVFullStackTests {
             try await session.unblockPinWithPuk("12345678", newPin: "222222")
             let verifyUnblockedPin = try await session.verifyPin("222222")
             switch verifyUnblockedPin {
-            case .success(_):
+            case .success:
                 return
             case .fail(_):
                 Issue.record("Failed verifiying with unblocked pin.")
@@ -920,7 +924,7 @@ struct PIVFullStackTests {
             try await session.unblockPinWithPuk("87654321", newPin: "654321")
             let result = try await session.verifyPin("654321")
             switch result {
-            case .success(_):
+            case .success:
                 return
             case .fail(_):
                 Issue.record("Failed verifying new pin.")
@@ -936,7 +940,7 @@ struct PIVFullStackTests {
     @Test("Bio Authentication", .tags(.pivAuthentication))
     func bioAuthentication() async throws {
         // First check if it's a bio device
-        let connection = try await TestableConnections.create()
+        let connection = try await TestableConnection.shared()
         let managementSession = try await ManagementSession.session(withConnection: connection)
         let deviceInfo = try await managementSession.getDeviceInfo()
         guard deviceInfo.formFactor == .usbCBio || deviceInfo.formFactor == .usbABio else {
@@ -974,7 +978,7 @@ struct PIVFullStackTests {
     @Test("Bio PIN Policy Error on Non-Bio Key", .tags(.pivAuthentication))
     func bioPinPolicyErrorOnNonBioKey() async throws {
         // First check if it's NOT a bio device
-        let connection = try await TestableConnections.create()
+        let connection = try await TestableConnection.shared()
         let managementSession = try await ManagementSession.session(withConnection: connection)
         let deviceInfo = try await managementSession.getDeviceInfo()
         guard deviceInfo.formFactor != .usbCBio && deviceInfo.formFactor != .usbABio else {
@@ -1098,7 +1102,7 @@ struct PIVFullStackTests {
         authenticated: Bool = false,
         _ body: (PIVSession) async throws -> T
     ) async throws -> T {
-        let connection = try await TestableConnections.create()
+        let connection = try await TestableConnection.shared()
         let session = try await PIVSession.session(withConnection: connection)
         try await session.reset()
 
