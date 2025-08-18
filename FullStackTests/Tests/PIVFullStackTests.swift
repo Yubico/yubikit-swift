@@ -715,31 +715,17 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Get PIN Attempts", .tags(.pivAuthentication))
-    func getPinAttempts() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            var count = try await session.getPinAttempts()
-            #expect(count == 3)
-            _ = try await session.verifyPin("740601")
-            count = try await session.getPinAttempts()
-            #expect(count == 2)
-        }
-    }
-
     @Test("Set PIN/PUK Attempts", .tags(.pivAuthentication))
     func setPinPukAttempts() async throws {
         try await withPIVSession(authenticated: true) { session in
             try await session.verifyPin(defaultPIN)
             try await session.set(pinAttempts: 5, pukAttempts: 6)
-            if session.supports(PIVSessionFeature.metadata) {
-                let pinResult = try await session.getPinMetadata()
-                #expect(pinResult.retriesRemaining == 5)
-                let pukResult = try await session.getPukMetadata()
-                #expect(pukResult.retriesRemaining == 6)
-            } else {
-                let result = try await session.getPinAttempts()
-                #expect(result == 5)
-            }
+
+            try requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+            let pinResult = try await session.getPinMetadata()
+            #expect(pinResult.retriesRemaining == 5)
+            let pukResult = try await session.getPukMetadata()
+            #expect(pukResult.retriesRemaining == 6)
         }
     }
 

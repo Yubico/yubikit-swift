@@ -742,36 +742,6 @@ public final actor PIVSession: Session {
         return try await getPinPukMetadata(p2: p2Puk)
     }
 
-    ///  Retrieve the number of pin attempts left for the YubiKey.
-    ///
-    /// >Note: If this command is run in a session where the correct pin has already been verified,
-    ///        the correct value will not be retrievable, and the value returned may be incorrect if the
-    ///        number of total attempts has been changed from the default.
-    ///
-    /// - Returns: Number of pin attempts left.
-    public func getPinAttempts() async throws -> Int? {
-        Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        if self.supports(PIVSessionFeature.metadata) {
-            let metadata = try await getPinMetadata()
-            return metadata.retriesRemaining
-        } else {
-            let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: p2Pin)
-            do {
-                try await send(apdu: apdu)
-                // Already verified, no way to know true count
-                return nil
-            } catch {
-                guard let responseError = error as? ResponseError else { throw error }
-                let retries = retriesFrom(responseError: responseError)
-                if retries < 0 {
-                    throw error
-                } else {
-                    return retries
-                }
-            }
-        }
-    }
-
     /// Set the number of retries available for pin and puk entry.
     ///
     /// This method requires authentication and pin verification.

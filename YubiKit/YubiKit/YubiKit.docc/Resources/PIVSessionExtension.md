@@ -36,7 +36,6 @@
 - ``unblockPinWithPuk(_:newPin:)``
 - ``getPinMetadata()``
 - ``getPukMetadata()``
-- ``getPinAttempts()``
 - ``set(pinAttempts:pukAttempts:)``
 - ``blockPin(counter:)``
 - ``blockPuk(counter:)``
