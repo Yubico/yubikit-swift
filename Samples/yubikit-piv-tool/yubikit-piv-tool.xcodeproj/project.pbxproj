@@ -1,0 +1,387 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 70;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		3834BC7A09C82D85B3F0EEA4 /* Shield in Frameworks */ = {isa = PBXBuildFile; productRef = 5768459525565437BDA85153 /* Shield */; };
+		5973EEC74AA364FC2F4DF5BB /* SwiftASN1 in Frameworks */ = {isa = PBXBuildFile; productRef = 26474C881A948C25233533C7 /* SwiftASN1 */; };
+		5FD7F60755B07623FC4A3CA7 /* X509 in Frameworks */ = {isa = PBXBuildFile; productRef = B079665C2C72F49C9FC46883 /* X509 */; };
+		D836AA2BF4765E44DA175A31 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = 72C0619890936D79183140BD /* ArgumentParser */; };
+		DB11A2A35EA59AD77A651308 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6F23EB30D42CCC74D79A9B41 /* YubiKit */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		29D5FF81FAF4B67FF7C95339 /* yubikit-piv-tool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "yubikit-piv-tool"; sourceTree = BUILT_PRODUCTS_DIR; };
+		ED71672058653B0B63330D9C /* swift-sdk */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "swift-sdk"; path = ../..; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		6C003CA82E585A6100A9713E /* yubikit-piv-tool */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); name = "yubikit-piv-tool"; path = "Sources/yubikit-piv-tool"; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C4F6D1493557C8059B3FE376 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D836AA2BF4765E44DA175A31 /* ArgumentParser in Frameworks */,
+				5973EEC74AA364FC2F4DF5BB /* SwiftASN1 in Frameworks */,
+				5FD7F60755B07623FC4A3CA7 /* X509 in Frameworks */,
+				3834BC7A09C82D85B3F0EEA4 /* Shield in Frameworks */,
+				DB11A2A35EA59AD77A651308 /* YubiKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		929ED2A45ED7ABB919AA09F1 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				29D5FF81FAF4B67FF7C95339 /* yubikit-piv-tool */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		958E1DC631E72455C6A1A088 = {
+			isa = PBXGroup;
+			children = (
+				DFA03A21DB6A7F413568D2D3 /* Packages */,
+				6C003CA82E585A6100A9713E /* yubikit-piv-tool */,
+				929ED2A45ED7ABB919AA09F1 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DFA03A21DB6A7F413568D2D3 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				ED71672058653B0B63330D9C /* swift-sdk */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3EA426B6AD11EF1D65A9ACD3 /* yubikit-piv-tool */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2FB1F18AFD63015F103C870 /* Build configuration list for PBXNativeTarget "yubikit-piv-tool" */;
+			buildPhases = (
+				9CC0C0867494BFF4CCE63765 /* Sources */,
+				C4F6D1493557C8059B3FE376 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				6C003CA82E585A6100A9713E /* yubikit-piv-tool */,
+			);
+			name = "yubikit-piv-tool";
+			packageProductDependencies = (
+				72C0619890936D79183140BD /* ArgumentParser */,
+				26474C881A948C25233533C7 /* SwiftASN1 */,
+				B079665C2C72F49C9FC46883 /* X509 */,
+				5768459525565437BDA85153 /* Shield */,
+				6F23EB30D42CCC74D79A9B41 /* YubiKit */,
+			);
+			productName = "yubikit-piv-tool";
+			productReference = 29D5FF81FAF4B67FF7C95339 /* yubikit-piv-tool */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		DA685275C9AF41ADF7C5B5FB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1640;
+			};
+			buildConfigurationList = 60C26C712251499438A2ECBC /* Build configuration list for PBXProject "yubikit-piv-tool" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 958E1DC631E72455C6A1A088;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				EA8B895E49EB6FC6F0300D03 /* XCRemoteSwiftPackageReference "Shield" */,
+				A92BEA4C5376622BA9816926 /* XCRemoteSwiftPackageReference "swift-argument-parser" */,
+				01696DE87292EDC8D59FC705 /* XCRemoteSwiftPackageReference "swift-asn1" */,
+				9BA72EDBE174FFB73A0D0E2D /* XCRemoteSwiftPackageReference "swift-certificates" */,
+				EA79D3F89A38DE50C0245F60 /* XCLocalSwiftPackageReference "../.." */,
+			);
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3EA426B6AD11EF1D65A9ACD3 /* yubikit-piv-tool */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9CC0C0867494BFF4CCE63765 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		72D9B0EB29E7C848C6FAFC85 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		964C19B9105FDAF73A9C89A8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		C0A40CC13E39B96FFACE8FE1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "yubikit-piv-tool.entitlements";
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		E301AFBD78F06AB9D68A6F47 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = "yubikit-piv-tool.entitlements";
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		60C26C712251499438A2ECBC /* Build configuration list for PBXProject "yubikit-piv-tool" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E301AFBD78F06AB9D68A6F47 /* Debug */,
+				C0A40CC13E39B96FFACE8FE1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D2FB1F18AFD63015F103C870 /* Build configuration list for PBXNativeTarget "yubikit-piv-tool" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				964C19B9105FDAF73A9C89A8 /* Debug */,
+				72D9B0EB29E7C848C6FAFC85 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		EA79D3F89A38DE50C0245F60 /* XCLocalSwiftPackageReference "../.." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		01696DE87292EDC8D59FC705 /* XCRemoteSwiftPackageReference "swift-asn1" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-asn1";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		9BA72EDBE174FFB73A0D0E2D /* XCRemoteSwiftPackageReference "swift-certificates" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-certificates";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+		A92BEA4C5376622BA9816926 /* XCRemoteSwiftPackageReference "swift-argument-parser" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-argument-parser";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.5.0;
+			};
+		};
+		EA8B895E49EB6FC6F0300D03 /* XCRemoteSwiftPackageReference "Shield" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/outfoxx/Shield";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		26474C881A948C25233533C7 /* SwiftASN1 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 01696DE87292EDC8D59FC705 /* XCRemoteSwiftPackageReference "swift-asn1" */;
+			productName = SwiftASN1;
+		};
+		5768459525565437BDA85153 /* Shield */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EA8B895E49EB6FC6F0300D03 /* XCRemoteSwiftPackageReference "Shield" */;
+			productName = Shield;
+		};
+		6F23EB30D42CCC74D79A9B41 /* YubiKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = YubiKit;
+		};
+		72C0619890936D79183140BD /* ArgumentParser */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A92BEA4C5376622BA9816926 /* XCRemoteSwiftPackageReference "swift-argument-parser" */;
+			productName = ArgumentParser;
+		};
+		B079665C2C72F49C9FC46883 /* X509 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9BA72EDBE174FFB73A0D0E2D /* XCRemoteSwiftPackageReference "swift-certificates" */;
+			productName = X509;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = DA685275C9AF41ADF7C5B5FB /* Project object */;
+}

@@ -39,7 +39,7 @@ public enum EC: Sendable {
 
     /// An elliptic curve public key (x, y coordinates) on a supported curve.
     public struct PublicKey: Sendable, Equatable {
-        let curve: Curve
+        public let curve: Curve
 
         /// Public point
         public let x: Data  // x coordinate
