@@ -1,0 +1,50 @@
+name: Detect public API changes
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'YubiKit/**/*.swift'
+      - 'Package.swift'
+      - '.github/workflows/public-api-diff.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  public-api-diff:
+    runs-on: macos-15
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Environment
+      uses: ./.github/actions/setup-env
+    
+    - name: Define Diff Versions
+      run: |
+        NEW="${{ github.head_ref }}~${{github.server_url}}/${{ github.event.pull_request.head.repo.full_name || github.repository}}.git"
+        OLD="${{ github.event.pull_request.base.ref }}~${{github.server_url}}/${{github.repository}}.git"
+        
+        echo "OLD_VERSION=$OLD" >> $GITHUB_ENV
+        echo "NEW_VERSION=$NEW" >> $GITHUB_ENV
+    
+    - name: Detect YubiKit Public API Changes (macOS)
+      uses: Adyen/adyen-swift-public-api-diff@0.10.1
+      with:
+        platform: macOS
+        new: ${{ env.NEW_VERSION }}
+        old: ${{ env.OLD_VERSION }}
+
+    - name: Detect YubiKit Public API Changes (iOS)
+      uses: Adyen/adyen-swift-public-api-diff@0.10.1
+      with:
+        platform: iOS
+        new: ${{ env.NEW_VERSION }}
+        old: ${{ env.OLD_VERSION }}
+ 
