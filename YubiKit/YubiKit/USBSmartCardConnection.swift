@@ -20,7 +20,13 @@ import OSLog
 /// the CryptoTokenKit framework.
 @available(iOS 16.0, macOS 13.0, *)
 public struct USBSmartCardConnection: Sendable {
-    let slot: SmartCardSlot
+    public let slot: SmartCardSlot
+
+    public static var availableSlots: [SmartCardSlot] {
+        get async throws {
+            try await SmartCardConnectionsManager.shared.availableSlots()
+        }
+    }
 
     private var didClose: Promise<Error?> {
         get async throws { try await SmartCardConnectionsManager.shared.didClose(for: self) }
@@ -28,12 +34,6 @@ public struct USBSmartCardConnection: Sendable {
 
     private var isConnected: Bool {
         get async throws { await SmartCardConnectionsManager.shared.isConnected(for: self) }
-    }
-
-    static var availableSlots: [SmartCardSlot] {
-        get async throws {
-            try await SmartCardConnectionsManager.shared.availableSlots()
-        }
     }
 }
 

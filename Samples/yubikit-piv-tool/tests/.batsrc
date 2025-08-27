@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+export BATS_NO_PARALLELIZE_WITHIN_FILE=true
+export BATS_NO_PARALLELIZE_ACROSS_FILES=true
+
+export BATS_TEST_TIMEOUT=120
