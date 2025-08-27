@@ -868,7 +868,7 @@ struct PIVFullStackTests {
         try await withPIVSession { session in
             do {
                 try await session.setPin("654321", oldPin: "000000")
-            } catch let SessionError.invalidPin(retries) {
+            } catch let PIV.SessionError.invalidPin(retries) {
                 let total = try await session.getPinMetadata().retriesTotal
                 #expect(retries == total - 1)
             }

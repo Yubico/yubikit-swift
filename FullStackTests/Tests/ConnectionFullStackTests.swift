@@ -164,7 +164,7 @@ struct SmartCardConnectionFullStackTests {
 
     @Test("SmartCard Connection With Slot")
     func smartCardConnectionWithSlot() async throws {
-        let allSlots = try await USBSmartCardConnection.availableSlots
+        let allSlots = try await USBSmartCardConnection.availableDevices
         allSlots.enumerated().forEach { index, slot in
             print("\(index): \(slot.name)")
         }
