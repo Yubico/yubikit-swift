@@ -4,8 +4,8 @@ description: 'Common Xcode setup used across all workflows'
 runs:
   using: 'composite'
   steps:
-    - name: Select Xcode 16.4
+    - name: Select Xcode 26.0
       shell: bash
       run: |
-        sudo xcode-select -s /Applications/Xcode_16.4.app
+        sudo xcode-select -s /Applications/Xcode_26.0.app
         xcodebuild -version
