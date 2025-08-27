@@ -109,7 +109,7 @@ enum TestableConnection {
 extension USBSmartCardConnection {
     fileprivate static var all: [SmartCardConnection] {
         get async throws {
-            let slots = try await USBSmartCardConnection.availableSlots
+            let slots = try await USBSmartCardConnection.availableDevices
 
             var connections: [SmartCardConnection?] = []
             for slot in slots {
