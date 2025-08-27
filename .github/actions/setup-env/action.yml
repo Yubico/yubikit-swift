@@ -1,0 +1,11 @@
+name: 'Setup Environment'
+description: 'Common Xcode setup used across all workflows'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Select Xcode 16.4
+      shell: bash
+      run: |
+        sudo xcode-select -s /Applications/Xcode_16.4.app
+        xcodebuild -version
