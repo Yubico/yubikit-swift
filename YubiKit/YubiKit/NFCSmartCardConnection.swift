@@ -17,6 +17,14 @@
 import Foundation
 import OSLog
 
+// MARK: - Public API
+
+public enum NFCConnectionError: Error, Sendable {
+    case failedToPoll
+    case unsupported
+    case malformedAPDU
+}
+
 /// A NFC connection to the YubiKey.
 ///
 /// The  NFCSmartCardConnection is short lived and should be closed as soon as the commands sent to the YubiKey have finished processing. It is up to the user of
@@ -42,7 +50,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
         return conn
     }
 
-    /// Same as ``connection()`` but allows customizing the system sheet’s
+    /// Same as ``connection()`` but allows customizing the system sheet's
     /// instructional `alertMessage`.
     ///
     /// - Parameter message: Optional text shown while scanning.
@@ -54,15 +62,11 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
         return conn
     }
 
-    // MARK: - UI helpers
-
     // @TraceScope
     public func setAlertMessage(_ message: String) async {
         trace(message: "NFCSmartCardConnection.setAlertMessage(\"\(message)\") – not yet implemented")
         await NFCConnectionManagerWrapper.shared.set(alertMessage: message)
     }
-
-    // MARK: - Lifecycle
 
     // @TraceScope
     public func close(error: Error?) async {
@@ -100,13 +104,11 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
         return nil
     }
 
-    // MARK: - APDU
-
     // @TraceScope
     /// Sends an APDU over the active NFC link.
     ///
     /// - Parameter data: Raw APDU bytes.
-    /// - Returns: The response payload concatenated with status words SW1 SW2.
+    /// - Returns: The response payload concatenated with status words SW1 SW2.
     /// - Throws: ``ConnectionError.noConnection`` if the tag is no longer
     ///           attached or ``NFCConnectionError.malformedAPDU`` when `data`
     ///           is not a valid APDU.
@@ -118,30 +120,20 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     }
 }
 
-// NFCSmartCardConnection specific errors
-public enum NFCConnectionError: Error, Sendable {
-    case failedToPoll
-    case unsupported
-    case malformedAPDU
-}
+// MARK: - Extensions
 
-// Downcast helper
 extension SmartCardConnection {
     public var nfcConnection: NFCSmartCardConnection? {
         self as? NFCSmartCardConnection
     }
 }
 
-// MARK: - Internal helpers / extensions
 extension NFCSmartCardConnection: HasNFCLogger {}
-extension NFCConnectionManager: HasNFCLogger {}
 
 // MARK: - Private helpers
 
-/// Stable identifier for an ISO‑7816 tag.
-///
-/// Wraps the tag UID in a `Hashable` value so it can be used as a
-/// dictionary key (e.g. in `Set`s or `Promise` maps).
+// Stable identifier for an ISO‑7816 tag.
+// Wraps the tag UID in a `Hashable` value so it can be used as a dictionary key.
 private struct ISO7816Identifier: Hashable {
     let data: Data
 
@@ -154,14 +146,15 @@ private struct ISO7816Identifier: Hashable {
 }
 
 extension NFCISO7816Tag {
-    fileprivate typealias Identifier = ISO7816Identifier
+    private typealias Identifier = ISO7816Identifier
 }
 
+// MARK: - NFCConnectionManagerWrapper
+
+// Actor wrapper that bridges async/await to the serial queue-based NFCConnectionManager
 private actor NFCConnectionManagerWrapper {
     static let shared = NFCConnectionManagerWrapper()
     private let nfcStateManager: NFCConnectionManager
-
-    // Private serial queue for protecting access to NFCConnectionManager
     private let queue = DispatchQueue(label: "com.yubico.NFCConnectionManager", attributes: [])
 
     private init() {
@@ -215,13 +208,11 @@ private actor NFCConnectionManagerWrapper {
     }
 }
 
-///
-/// Handles Core NFC session orchestration, guarantees balanced lifetime
-/// calls, and multiplexes ``NFCSmartCardConnection`` instances to the single
-/// `NFCTagReaderSession` permitted by the system.
-///
-/// > Important: Thread safety is managed by nfcQueue.
-/// @unchecked Sendable: Safe because all access is serialized through nfcQueue
+// Handles Core NFC session orchestration, guarantees balanced lifetime
+// calls, and multiplexes NFCSmartCardConnection instances to the single
+// NFCTagReaderSession permitted by the system.
+// Thread safety is managed by nfcQueue.
+// @unchecked Sendable: Safe because all access is serialized through nfcQueue
 private final class NFCConnectionManager: NSObject, @unchecked Sendable {
 
     private var isEstablishing: Bool = false
@@ -398,9 +389,9 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
     }
 }
 
-extension NFCConnectionManager: NFCTagReaderSessionDelegate {
+// MARK: - NFCTagReaderSessionDelegate
 
-    // MARK: - NFCTagReaderSessionDelegate
+extension NFCConnectionManager: NFCTagReaderSessionDelegate, HasNFCLogger {
 
     // @TraceScope
     nonisolated public func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession) {
@@ -445,7 +436,9 @@ extension NFCConnectionManager: NFCTagReaderSessionDelegate {
     }
 }
 
-// MARK: - Mutable State
+// MARK: - NFCState
+
+// Mutable state for NFC connection lifecycle
 private class NFCState: @unchecked Sendable {
     enum Phase {
         case inactive
