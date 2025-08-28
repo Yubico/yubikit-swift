@@ -246,7 +246,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             }
 
             // Add callback for when the connection closes
-            currentState.didCloseCallbacks.append { error in
+            currentState.didCloseCallback = { error in
                 if let error = error {
                     completion(.failure(error))
                 } else {
@@ -378,12 +378,14 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
 
         switch error {
         case .none:
-            currentState.didCloseCallbacks.forEach { $0(nil as Error?) }
+            currentState.didCloseCallback?(nil as Error?)
             currentState.connectionCompletion?(Result.failure(ConnectionError.cancelledByUser))
         case let .some(error):
-            currentState.didCloseCallbacks.forEach { $0(nil as Error?) }
+            currentState.didCloseCallback?(error)
             currentState.connectionCompletion?(Result.failure(error))
         }
+
+        currentState.didCloseCallback = nil
 
         currentState.reset()
     }
@@ -455,7 +457,7 @@ private class NFCState: @unchecked Sendable {
     // Connected state
     var tag: NFCISO7816Tag?
     var connection: NFCSmartCardConnection?
-    var didCloseCallbacks: [@Sendable (Error?) -> Void] = []
+    var didCloseCallback: (@Sendable (Error?) -> Void)?
 
     func reset() {
         phase = .inactive
@@ -463,7 +465,7 @@ private class NFCState: @unchecked Sendable {
         connectionCompletion = nil
         tag = nil
         connection = nil
-        didCloseCallbacks.removeAll()
+        didCloseCallback = nil
     }
 
     func setScanning(
@@ -476,7 +478,7 @@ private class NFCState: @unchecked Sendable {
         // Clear connected state
         tag = nil
         connection = nil
-        didCloseCallbacks.removeAll()
+        didCloseCallback = nil
     }
 
     func setConnected(tag: NFCISO7816Tag, connection: NFCSmartCardConnection) {
