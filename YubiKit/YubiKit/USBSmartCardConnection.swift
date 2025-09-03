@@ -20,11 +20,11 @@ import OSLog
 /// the CryptoTokenKit framework.
 @available(iOS 16.0, macOS 13.0, *)
 public struct USBSmartCardConnection: Sendable {
-    public let slot: SmartCardSlot
+    public let slot: YubiKeyDevice
 
-    public static var availableSlots: [SmartCardSlot] {
+    public static var availableDevices: [YubiKeyDevice] {
         get async throws {
-            try await SmartCardConnectionsManager.shared.availableSlots()
+            try await SmartCardConnectionsManager.shared.availableDevices()
         }
     }
 
@@ -42,7 +42,7 @@ extension USBSmartCardConnection: SmartCardConnection {
     // @TraceScope
     public static func connection() async throws -> SmartCardConnection {
         while true {
-            guard let slot = try await availableSlots.first else {
+            guard let slot = try await availableDevices.first else {
                 try await Task.sleep(for: .seconds(1))
                 continue
             }
@@ -51,7 +51,7 @@ extension USBSmartCardConnection: SmartCardConnection {
     }
 
     // @TraceScope
-    public static func connection(slot: SmartCardSlot) async throws -> SmartCardConnection {
+    public static func connection(slot: YubiKeyDevice) async throws -> SmartCardConnection {
         try await SmartCardConnectionsManager.shared.connect(slot: slot)
     }
 
@@ -92,9 +92,9 @@ public enum SmartCardConnectionError: Error, Sendable {
 }
 
 // Used to indentify a card / connection.
-// Exposed when calling `USBSmartCardConnection.availableSlots`
+// Exposed when calling `USBSmartCardConnection.availableDevices`
 // and when creating a connection with USBSmartCardConnection.connection(slot:)
-public struct SmartCardSlot: Sendable, Hashable, CustomStringConvertible {
+public struct YubiKeyDevice: Sendable, Hashable, CustomStringConvertible {
     public let name: String
 
     public var description: String { name }
@@ -134,7 +134,7 @@ private final actor SmartCardConnectionsManager {
         }
     }
 
-    private var connections = [SmartCardSlot: ConnectionState]()
+    private var connections = [YubiKeyDevice: ConnectionState]()
 
     // @TraceScope
     func didClose(for connection: USBSmartCardConnection) throws -> Promise<Error?> {
@@ -164,7 +164,7 @@ private final actor SmartCardConnectionsManager {
     }
 
     // @TraceScope
-    func connect(slot: SmartCardSlot) async throws -> USBSmartCardConnection {
+    func connect(slot: YubiKeyDevice) async throws -> USBSmartCardConnection {
         // if there is already a connection for this slot we throw `ConnectionError.busy`.
         // The caller must close the connection first.
         guard connections[slot] == nil else {
@@ -215,8 +215,8 @@ private final actor SmartCardConnectionsManager {
         return USBSmartCardConnection(slot: slot)
     }
 
-    func availableSlots() async throws -> [SmartCardSlot] {
-        try slotManager.slotNames.compactMap(SmartCardSlot.init)
+    func availableDevices() async throws -> [YubiKeyDevice] {
+        try slotManager.slotNames.compactMap(YubiKeyDevice.init)
     }
 }
 
