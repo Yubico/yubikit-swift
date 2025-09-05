@@ -14,13 +14,12 @@
 
 import Foundation
 
-/// An interface defining a physical connection to a YubiKey.
+/// An interface defining a SmartCard-based connection to a YubiKey.
 ///
 /// Use a connection to create a ``Session``. The connection can also be used for sending raw ``APDU``'s to the YubiKey.
 ///
 /// Protocol implemented in ``LightningSmartCardConnection``, ``NFCSmartCardConnection`` and ``USBSmartCardConnection``.
-
-public protocol SmartCardConnection: Sendable {
+public protocol SmartCardConnection: Connection {
 
     /// Create a new SmartCardConnection to the YubiKey.
     ///
@@ -34,17 +33,6 @@ public protocol SmartCardConnection: Sendable {
     /// first connection will be closed and ``connectionDidClose()`` will return for
     /// the previous connection.
     static func connection() async throws -> SmartCardConnection
-
-    /// Close the current SmartCardConnection.
-    ///
-    /// This closes the connection sending the optional error to the ``connectionDidClose()`` method.
-    func close(error: Error?) async
-
-    /// Wait for the connection to close.
-    ///
-    /// This method will wait until the connection closes. If the connection was closed due to an error said
-    /// error will be returned.
-    func connectionDidClose() async -> Error?
 
     /// Send an APDU to the SmartCardConnection.
     ///
@@ -64,22 +52,6 @@ public protocol SmartCardConnection: Sendable {
     /// to be handled manually.
     @discardableResult
     func send(data: Data) async throws -> Data
-}
-
-/// SmartCardConnection Errors.
-public enum ConnectionError: Error, Sendable {
-    /// There is an active connection.
-    case busy
-    /// No current connection.
-    case noConnection
-    /// Unexpected result returned from YubiKey.
-    case unexpectedResult
-    /// YubiKey did not return any data.
-    case missingResult
-    /// Awaiting call to connect() was cancelled.
-    case cancelled
-    /// Awaiting call to connect() was dismissed by the user.
-    case cancelledByUser
 }
 
 /// A ResponseError containing the status code.
