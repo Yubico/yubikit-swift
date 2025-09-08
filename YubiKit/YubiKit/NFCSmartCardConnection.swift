@@ -17,6 +17,14 @@
 import Foundation
 import OSLog
 
+// MARK: - Public API
+
+public enum NFCConnectionError: Error, Sendable {
+    case failedToPoll
+    case unsupported
+    case malformedAPDU
+}
+
 /// A NFC connection to the YubiKey.
 ///
 /// The  NFCSmartCardConnection is short lived and should be closed as soon as the commands sent to the YubiKey have finished processing. It is up to the user of
@@ -37,32 +45,28 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     // @TraceScope
     public static func connection() async throws -> SmartCardConnection {
         trace(message: "NFCSmartCardConnection.connection() – requesting new connection")
-        let conn = try await NFCConnectionManager.shared.connect(message: nil)
+        let conn = try await NFCConnectionManagerWrapper.shared.connect(message: nil)
         trace(message: "NFCSmartCardConnection.connection() – connection established")
         return conn
     }
 
-    /// Same as ``connection()`` but allows customizing the system sheet’s
+    /// Same as ``connection()`` but allows customizing the system sheet's
     /// instructional `alertMessage`.
     ///
     /// - Parameter message: Optional text shown while scanning.
     // @TraceScope
     public static func connection(alertMessage message: String?) async throws -> SmartCardConnection {
         trace(message: "NFCSmartCardConnection.connection(alertMessage:) – requesting new connection")
-        let conn = try await NFCConnectionManager.shared.connect(message: message)
+        let conn = try await NFCConnectionManagerWrapper.shared.connect(message: message)
         trace(message: "NFCSmartCardConnection.connection(alertMessage:) – connection established")
         return conn
     }
 
-    // MARK: - UI helpers
-
     // @TraceScope
     public func setAlertMessage(_ message: String) async {
         trace(message: "NFCSmartCardConnection.setAlertMessage(\"\(message)\") – not yet implemented")
-        return await NFCConnectionManager.shared.set(alertMessage: message)
+        await NFCConnectionManagerWrapper.shared.set(alertMessage: message)
     }
-
-    // MARK: - Lifecycle
 
     // @TraceScope
     public func close(error: Error?) async {
@@ -70,10 +74,10 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
             trace(
                 message: "NFCSmartCardConnection.close(error:) – closing with error msg: \(String(describing: error))"
             )
-            await NFCConnectionManager.shared.stop(with: .failure(error))
+            await NFCConnectionManagerWrapper.shared.stop(with: .failure(error))
         } else {
             trace(message: "NFCSmartCardConnection.close(error: nil) – closing with success")
-            await NFCConnectionManager.shared.stop(with: .success(nil))
+            await NFCConnectionManagerWrapper.shared.stop(with: .success(nil))
         }
     }
 
@@ -82,14 +86,14 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
         trace(
             message: "NFCSmartCardConnection.close(message:) – closing with success msg: \(String(describing: message))"
         )
-        await NFCConnectionManager.shared.stop(with: .success(message))
+        await NFCConnectionManagerWrapper.shared.stop(with: .success(message))
     }
 
     // @TraceScope
     public func connectionDidClose() async -> Error? {
         trace(message: "NFCSmartCardConnection.connectionDidClose() – awaiting dismissal")
         do {
-            try await NFCConnectionManager.shared.didClose(for: self)
+            try await NFCConnectionManagerWrapper.shared.didClose(for: self)
         } catch {
             trace(
                 message: "NFCSmartCardConnection.connectionDidClose() – dismissed, error: \(String(describing: error))"
@@ -100,48 +104,36 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
         return nil
     }
 
-    // MARK: - APDU
-
     // @TraceScope
     /// Sends an APDU over the active NFC link.
     ///
     /// - Parameter data: Raw APDU bytes.
-    /// - Returns: The response payload concatenated with status words SW1 SW2.
+    /// - Returns: The response payload concatenated with status words SW1 SW2.
     /// - Throws: ``ConnectionError.noConnection`` if the tag is no longer
     ///           attached or ``NFCConnectionError.malformedAPDU`` when `data`
     ///           is not a valid APDU.
     public func send(data: Data) async throws -> Data {
         trace(message: "NFCSmartCardConnection.send(data:) – \(data.count) bytes")
-        let response = try await NFCConnectionManager.shared.transmit(request: data, for: self)
+        let response = try await NFCConnectionManagerWrapper.shared.transmit(request: data, for: self)
         trace(message: "NFCSmartCardConnection.send(data:) – received \(response.count) bytes")
         return response
     }
 }
 
-// NFCSmartCardConnection specific errors
-public enum NFCConnectionError: Error, Sendable {
-    case failedToPoll
-    case unsupported
-    case malformedAPDU
-}
+// MARK: - Extensions
 
-// Downcast helper
 extension SmartCardConnection {
     public var nfcConnection: NFCSmartCardConnection? {
         self as? NFCSmartCardConnection
     }
 }
 
-// MARK: - Internal helpers / extensions
 extension NFCSmartCardConnection: HasNFCLogger {}
-extension NFCConnectionManager: HasNFCLogger {}
 
 // MARK: - Private helpers
 
-/// Stable identifier for an ISO‑7816 tag.
-///
-/// Wraps the tag UID in a `Hashable` value so it can be used as a
-/// dictionary key (e.g. in `Set`s or `Promise` maps).
+// Stable identifier for an ISO‑7816 tag.
+// Wraps the tag UID in a `Hashable` value so it can be used as a dictionary key.
 private struct ISO7816Identifier: Hashable {
     let data: Data
 
@@ -154,110 +146,151 @@ private struct ISO7816Identifier: Hashable {
 }
 
 extension NFCISO7816Tag {
-    fileprivate typealias Identifier = ISO7816Identifier
+    private typealias Identifier = ISO7816Identifier
 }
 
-///
-/// Handles Core NFC session orchestration, guarantees balanced lifetime
-/// calls, and multiplexes ``NFCSmartCardConnection`` instances to the single
-/// `NFCTagReaderSession` permitted by the system.
-///
-/// > Important: All methods are `actor`‑isolated; use `await` when
-/// interacting from outside the actor context.
-private final actor NFCConnectionManager: NSObject {
+// MARK: - NFCConnectionManagerWrapper
 
-    static let shared = NFCConnectionManager()
-    private override init() { super.init() }
+// Actor wrapper that bridges async/await to the serial queue-based NFCConnectionManager
+private actor NFCConnectionManagerWrapper {
+    static let shared = NFCConnectionManagerWrapper()
+    private let nfcStateManager: NFCConnectionManager
+    private let queue = DispatchQueue(label: "com.yubico.NFCConnectionManager", attributes: [])
+
+    private init() {
+        nfcStateManager = NFCConnectionManager(nfcQueue: queue)
+    }
+
+    func didClose(for connection: NFCSmartCardConnection) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                self.nfcStateManager.didClose(for: connection) { result in
+                    continuation.resume(with: result)
+                }
+            }
+        }
+    }
+
+    func transmit(request: Data, for connection: NFCSmartCardConnection) async throws -> Data {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                self.nfcStateManager.transmit(request: request, for: connection) { result in
+                    continuation.resume(with: result)
+                }
+            }
+        }
+    }
+
+    func stop(with result: Result<String?, Error>) async {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                self.nfcStateManager.stop(with: result) {
+                    continuation.resume()
+                }
+            }
+        }
+    }
+
+    func connect(message alertMessage: String?) async throws -> NFCSmartCardConnection {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                self.nfcStateManager.connect(message: alertMessage) { result in
+                    continuation.resume(with: result)
+                }
+            }
+        }
+    }
+
+    func set(alertMessage: String) {
+        queue.async {
+            self.nfcStateManager.set(alertMessage: alertMessage)
+        }
+    }
+}
+
+// Handles Core NFC session orchestration, guarantees balanced lifetime
+// calls, and multiplexes NFCSmartCardConnection instances to the single
+// NFCTagReaderSession permitted by the system.
+// Thread safety is managed by nfcQueue.
+// @unchecked Sendable: Safe because all access is serialized through nfcQueue
+private final class NFCConnectionManager: NSObject, @unchecked Sendable {
 
     private var isEstablishing: Bool = false
+    private let currentState = NFCState()
+    private let nfcQueue: DispatchQueue
 
-    private var currentState = State.inactive
-    private func set(state: State) {
-        currentState = state
+    init(nfcQueue: DispatchQueue) {
+        self.nfcQueue = nfcQueue
     }
 
     // @TraceScope
     func set(alertMessage: String) {
+        // alertMessage affects the system NFC UI and must be updated on main thread
         Task { @MainActor in
-            await currentState.session?.alertMessage = alertMessage
+            currentState.session?.alertMessage = alertMessage
         }
     }
 
     // @TraceScope
-    func didClose(for connection: NFCSmartCardConnection) async throws {
+    func didClose(for connection: NFCSmartCardConnection, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
+    {
         trace(message: "Manager.didClose(for:) – tracking closure for tag \(connection.tag)")
 
-        switch currentState {
+        switch currentState.phase {
         case .inactive, .scanning:
-            return
-        case let .connected(state):
-            guard let tag = currentState.tag, connection.tag == .init(tag.identifier) else { return }
-            if let error = try await state.didCloseConnection.value() {
-                throw error
+            completion(.success(()))
+        case .connected:
+            guard let tag = currentState.tag, connection.tag == .init(tag.identifier) else {
+                completion(.success(()))
+                return
+            }
+
+            // Add callback for when the connection closes
+            currentState.didCloseCallback = { error in
+                if let error = error {
+                    completion(.failure(error))
+                } else {
+                    completion(.success(()))
+                }
             }
         }
     }
 
     // @TraceScope
-    func transmit(request: Data, for connection: NFCSmartCardConnection) async throws -> Data {
+    func transmit(
+        request: Data,
+        for connection: NFCSmartCardConnection,
+        completion: @escaping @Sendable (Result<Data, Error>) -> Void
+    ) {
         trace(message: "Manager.transmit – \(request.count) bytes to tag \(connection.tag)")
         guard let tag = currentState.tag,
             connection.tag == .init(tag.identifier)
         else {
             trace(message: "Manager.transmit – noConnection")
-            throw ConnectionError.noConnection
+            completion(.failure(ConnectionError.noConnection))
+            return
         }
 
         guard let apdu = NFCISO7816APDU(data: request) else {
             trace(message: "Manager.transmit – malformed APDU")
-            throw NFCConnectionError.malformedAPDU
+            completion(.failure(NFCConnectionError.malformedAPDU))
+            return
         }
 
-        let (data, sw1, sw2) = try await tag.sendCommand(apdu: apdu)
-        trace(message: "Manager.transmit – got \(data.count) bytes, SW: \(String(format:"%02X%02X", sw1, sw2))")
-        return data + sw1.data + sw2.data
+        tag.sendCommand(apdu: apdu) { (data, sw1, sw2, error) in
+            if let error = error {
+                completion(.failure(error))
+            } else {
+                self.trace(
+                    message: "Manager.transmit – got \(data.count) bytes, SW: \(String(format:"%02X%02X", sw1, sw2))"
+                )
+                completion(.success(data + sw1.data + sw2.data))
+            }
+        }
     }
 
     // @TraceScope
-    func connect(message alertMessage: String?) async throws -> NFCSmartCardConnection {
-        trace(message: "Manager.connect – begin")
-        guard NFCReaderSession.readingAvailable else {
-            trace(message: "Manager.connect – unsupported")
-            throw NFCConnectionError.unsupported
-        }
-
-        // if there is already a connection for this slot we throw `ConnectionError.busy`.
-        // The caller must close the connection first.
-        switch currentState {
-        case .inactive:
-            // lets continue
-            break
-        case .scanning, .connected:
-            // throw
-            throw ConnectionError.busy
-        }
-
-        // To proceed with a new connection we need to acquire a lock
-        guard !isEstablishing else { throw ConnectionError.cancelled }
-        defer { isEstablishing = false }
-        isEstablishing = true
-
-        // Start polling
-        guard let session = NFCTagReaderSession(pollingOption: [.iso14443], delegate: self, queue: nil) else {
-            throw NFCConnectionError.failedToPoll
-        }
-
-        let connection: Promise<NFCSmartCardConnection> = .init()
-        currentState = .scanning(.init(session: session, connection: connection))
-
-        if let alertMessage { session.alertMessage = alertMessage }
-        session.begin()
-
-        return try await connection.value()
-    }
-
-    // @TraceScope
-    func stop(with result: Result<String?, Error>) async {
+    func stop(with result: Result<String?, Error>, completion: @escaping @Sendable () -> Void) {
         trace(message: "Manager.stop(with:) - result: \(String(describing: result))")
 
         switch result {
@@ -267,53 +300,100 @@ private final actor NFCConnectionManager: NSObject {
             if let message = message {
                 currentState.session?.alertMessage = message
             }
+            currentState.session?.invalidate()
         }
 
-        switch result {
-        case .success:
-            await invalidate()
-        case let .failure(error):
-            await invalidate(error: error)
-        }
+        completion()
     }
 
     // @TraceScope
-    func connected(session: NFCTagReaderSession, tag: NFCISO7816Tag) async {
+    func connect(
+        message alertMessage: String?,
+        completion: @escaping @Sendable (Result<NFCSmartCardConnection, Error>) -> Void
+    ) {
+        trace(message: "Manager.connect – begin")
+        guard NFCReaderSession.readingAvailable else {
+            trace(message: "Manager.connect – unsupported")
+            completion(.failure(NFCConnectionError.unsupported))
+            return
+        }
+
+        // if there is already a connection for this slot we throw `ConnectionError.busy`.
+        // The caller must close the connection first.
+        switch currentState.phase {
+        case .inactive:
+            // lets continue
+            break
+        case .scanning, .connected:
+            // throw
+            completion(.failure(ConnectionError.busy))
+            return
+        }
+
+        // To proceed with a new connection we need to acquire a lock
+        guard !isEstablishing else {
+            completion(.failure(ConnectionError.cancelled))
+            return
+        }
+        isEstablishing = true
+
+        // Start polling - use the same queue for all NFC operations
+        guard let session = NFCTagReaderSession(pollingOption: [.iso14443], delegate: self, queue: nfcQueue) else {
+            isEstablishing = false
+            completion(.failure(NFCConnectionError.failedToPoll))
+            return
+        }
+
+        currentState.setScanning(
+            session: session,
+            completion: { [weak self] (result: Result<NFCSmartCardConnection, Error>) in
+                self?.isEstablishing = false
+                completion(result)
+            }
+        )
+
+        if let alertMessage { session.alertMessage = alertMessage }
+        session.begin()
+    }
+
+    // @TraceScope
+    func connected(session: NFCTagReaderSession, tag: NFCISO7816Tag) {
         trace(message: "Manager.connected(session:tag:) - tag: \(String(describing: tag.identifier))")
 
-        guard let promise = currentState.connectionPromise else {
-            await invalidate()
+        guard let connectionCompletion = currentState.connectionCompletion else {
+            cleanup(session: session)
             return
         }
 
         let connection: NFCSmartCardConnection = .init(tag: .init(tag.identifier))
-        currentState = .connected(
-            .init(
-                session: session,
-                tag: tag,
-                connection: connection,
-                didCloseConnection: .init()
-            )
-        )
+        currentState.setConnected(tag: tag, connection: connection)
 
-        await promise.fulfill(connection)
+        connectionCompletion(Result.success(connection))
     }
 
-    private func invalidate(error: Error? = nil) async {
-        currentState.session?.invalidate()
+    private func cleanup(session: NFCTagReaderSession, error: Error? = nil) {
+        guard currentState.session === session else {
+            return
+        }
 
-        // Workaround for the NFC session being active for an additional 4 seconds after
-        // invalidate() has been called on the session.
-        try? await Task.sleep(for: .seconds(5))
-        await currentState.didCloseConnection?.fulfill(error)
-        await currentState.connectionPromise?.cancel(with: error ?? ConnectionError.cancelled)
-        currentState = .inactive
+        switch error {
+        case .none:
+            currentState.didCloseCallback?(nil as Error?)
+            currentState.connectionCompletion?(Result.failure(ConnectionError.cancelledByUser))
+        case let .some(error):
+            currentState.didCloseCallback?(error)
+            currentState.connectionCompletion?(Result.failure(error))
+        }
+
+        currentState.didCloseCallback = nil
+
+        currentState.reset()
     }
 }
 
-extension NFCConnectionManager: NFCTagReaderSessionDelegate {
+// MARK: - NFCTagReaderSessionDelegate
 
-    // MARK: - NFCTagReaderSessionDelegate
+extension NFCConnectionManager: NFCTagReaderSessionDelegate, HasNFCLogger {
 
     // @TraceScope
     nonisolated public func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession) {
@@ -325,16 +405,16 @@ extension NFCConnectionManager: NFCTagReaderSessionDelegate {
         trace(message: "NFCTagReaderSessionDelegate: Session invalidated – \(error.localizedDescription)")
 
         let nfcError = error as? NFCReaderError
+
+        let mappedError: Error?
         switch nfcError?.code {
         case .some(.readerSessionInvalidationErrorUserCanceled):
-            return
+            mappedError = nil  // user cancelled, no error
         default:
-            Task {
-                if await currentState.session === session {
-                    await stop(with: .failure(error))
-                }
-            }
+            mappedError = error
         }
+
+        cleanup(session: session, error: mappedError)
     }
 
     // @TraceScope
@@ -350,80 +430,63 @@ extension NFCConnectionManager: NFCTagReaderSessionDelegate {
             return
         }
 
-        Task {
-            if await session === currentState.session {
-                await connected(session: session, tag: firstTag)
-            } else {
-                await invalidate(error: ConnectionError.cancelled)
-            }
+        if session === currentState.session {
+            connected(session: session, tag: firstTag)
+        } else {
+            cleanup(session: session, error: ConnectionError.cancelled)
         }
     }
 }
 
-// MARK: - State enum
-private enum State: Sendable {
-    struct ScanningState {
-        let session: NFCTagReaderSession
-        let connection: Promise<NFCSmartCardConnection>
+// MARK: - NFCState
+
+// Mutable state for NFC connection lifecycle
+private class NFCState: @unchecked Sendable {
+    enum Phase {
+        case inactive
+        case scanning
+        case connected
     }
 
-    struct ConnectedState {
-        let session: NFCTagReaderSession
-        let tag: NFCISO7816Tag
-        let connection: NFCSmartCardConnection
-        let didCloseConnection: Promise<Error?>
+    var phase: Phase = .inactive
+
+    // Scanning state
+    var session: NFCTagReaderSession?
+    var connectionCompletion: (@Sendable (Result<NFCSmartCardConnection, Error>) -> Void)?
+
+    // Connected state
+    var tag: NFCISO7816Tag?
+    var connection: NFCSmartCardConnection?
+    var didCloseCallback: (@Sendable (Error?) -> Void)?
+
+    func reset() {
+        phase = .inactive
+        session = nil
+        connectionCompletion = nil
+        tag = nil
+        connection = nil
+        didCloseCallback = nil
     }
 
-    case inactive
-    case scanning(ScanningState)
-    case connected(ConnectedState)
-
-    var session: NFCTagReaderSession? {
-        switch self {
-        case .inactive: return nil
-        case let .scanning(state):
-            return state.session
-        case let .connected(state):
-            return state.session
-        }
+    func setScanning(
+        session: NFCTagReaderSession,
+        completion: @escaping @Sendable (Result<NFCSmartCardConnection, Error>) -> Void
+    ) {
+        phase = .scanning
+        self.session = session
+        self.connectionCompletion = completion
+        // Clear connected state
+        tag = nil
+        connection = nil
+        didCloseCallback = nil
     }
 
-    var tag: NFCISO7816Tag? {
-        switch self {
-        case .inactive, .scanning:
-            return nil
-        case let .connected(state):
-            return state.tag
-        }
-    }
-
-    var didCloseConnection: Promise<Error?>? {
-        switch self {
-        case .inactive, .scanning:
-            return nil
-        case let .connected(state):
-            return state.didCloseConnection
-        }
-    }
-
-    var connectionPromise: Promise<NFCSmartCardConnection>? {
-        switch self {
-        case .inactive:
-            return nil
-        case let .scanning(state):
-            return state.connection
-        case .connected:
-            return nil
-        }
-    }
-
-    var connection: NFCSmartCardConnection? {
-        switch self {
-        case .inactive, .scanning:
-            return nil
-        case let .connected(state):
-            return state.connection
-        }
+    func setConnected(tag: NFCISO7816Tag, connection: NFCSmartCardConnection) {
+        phase = .connected
+        self.tag = tag
+        self.connection = connection
+        // Clear scanning state
+        connectionCompletion = nil
     }
 }
 
