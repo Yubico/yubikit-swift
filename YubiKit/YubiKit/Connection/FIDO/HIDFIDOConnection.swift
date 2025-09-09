@@ -19,7 +19,7 @@ import IOKit.hid
 #if os(macOS)
 
 /// HIDFidoConnection specific errors
-public enum HIDFidoConnectionError: Error, Sendable {
+/* public */ enum HIDFidoConnectionError: Error, Sendable {
     /// IOKit HID manager is not supported or failed to initialize
     case unsupported
     /// No FIDO HID devices available
@@ -33,10 +33,10 @@ public enum HIDFidoConnectionError: Error, Sendable {
 // Used to identify a device / connection.
 // Exposed when calling `HIDFidoConnection.availableDevices`
 // and when creating a connection with HIDFidoConnection.connection(device:)
-public enum HIDFido {
-    public struct YubiKeyDevice: Sendable, Hashable, CustomStringConvertible {
-        public let name: String
-        public var description: String { name }
+/* public */ enum HIDFido {
+    /* public */ struct YubiKeyDevice: Sendable, Hashable, CustomStringConvertible {
+        /* public */ let name: String
+        /* public */ var description: String { name }
 
         // Private / Fileprivate
         fileprivate let locationID: Int
@@ -54,42 +54,42 @@ public enum HIDFido {
 private let hidPayloadSize = 64
 
 /// A connection to the YubiKey utilizing USB HID for FIDO communication.
-public struct HIDFidoConnection: Sendable, FIDOConnection {
+/* public */ struct HIDFidoConnection: Sendable, FIDOConnection {
 
     /// Maximum packet size for HID reports
-    public let mtu = hidPayloadSize
+    /* public */ let mtu = hidPayloadSize
 
-    public static var availableDevices: [HIDFido.YubiKeyDevice] {
+    /* public */ static var availableDevices: [HIDFido.YubiKeyDevice] {
         get async throws {
             try await HIDFIDOConnectionManager.shared.enumerateDevices()
         }
     }
 
-    public static func connection(device: HIDFido.YubiKeyDevice) async throws -> FIDOConnection {
+    /* public */ static func connection(device: HIDFido.YubiKeyDevice) async throws -> FIDOConnection {
         try await HIDFIDOConnectionManager.shared.open(device: device)
         return HIDFidoConnection(locationID: device.locationID)
     }
 
-    public func close(error: Error?) async {
+    /* public */ func close(error: Error?) async {
         await HIDFIDOConnectionManager.shared.close(locationID: locationID, error: error)
     }
 
-    public func connectionDidClose() async -> Error? {
+    /* public */ func connectionDidClose() async -> Error? {
         try? await didClose.value()
     }
 
-    public static func connection() async throws -> FIDOConnection {
+    /* public */ static func connection() async throws -> FIDOConnection {
         guard let first = try await HIDFidoConnection.availableDevices.first else {
             throw HIDFidoConnectionError.noAvailableDevices
         }
         return try await HIDFidoConnection.connection(device: first)
     }
 
-    public func send(_ packet: Data) async throws {
+    /* public */ func send(_ packet: Data) async throws {
         try await HIDFIDOConnectionManager.shared.sendPacket(packet, to: locationID)
     }
 
-    public func receive() async throws -> Data {
+    /* public */ func receive() async throws -> Data {
         try await HIDFIDOConnectionManager.shared.receivePacket(from: locationID)
     }
 

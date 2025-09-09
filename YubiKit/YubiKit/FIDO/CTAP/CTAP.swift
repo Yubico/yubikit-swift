@@ -15,7 +15,7 @@
 import Foundation
 
 /// CTAP (Client to Authenticator Protocol) constants and structures
-public enum CTAP {
+/* public */ enum CTAP {
 
     // CTAP Commands
     static let CMD_PING: UInt8 = 0x01
@@ -114,7 +114,7 @@ public enum CTAP {
     // MARK: - Error Types
 
     /// CTAP-level errors returned from the Authenticator.
-    public enum Error: UInt8, Swift.Error, Sendable {
+    /* public */ enum Error: UInt8, Swift.Error, Sendable {
         case success = 0x00
         case invalidCommand = 0x01
         case invalidParameter = 0x02
@@ -203,26 +203,26 @@ public enum CTAP {
         case vendorE = 0xFE
         case vendorF = 0xFF
 
-        public var localizedDescription: String {
+        /* public */ var localizedDescription: String {
             String(format: "CTAP error: 0x%02x", rawValue)
         }
     }
 
     /// Unknown CTAP error codes
-    public struct UnknownError: Swift.Error, Sendable {
-        public let errorCode: UInt8
+    /* public */ struct UnknownError: Swift.Error, Sendable {
+        /* public */ let errorCode: UInt8
 
-        public init(errorCode: UInt8) {
+        /* public */ init(errorCode: UInt8) {
             self.errorCode = errorCode
         }
 
-        public var localizedDescription: String {
+        /* public */ var localizedDescription: String {
             "Unknown CTAP error code: 0x\(String(format: "%02x", errorCode))"
         }
     }
 
     /// HID transport errors
-    public enum HIDError: Swift.Error, Sendable {
+    /* public */ enum HIDError: Swift.Error, Sendable {
         // HID errors with codes
         case invalidCmd(UInt8)
         case invalidPar
@@ -266,14 +266,14 @@ public enum CTAP {
     }
 
     /// CTAP initialization response
-    public struct InitResponse {
-        public let nonce: Data
-        public let channelID: UInt32
-        public let protocolVersion: UInt8
-        public let majorVersion: UInt8
-        public let minorVersion: UInt8
-        public let buildVersion: UInt8
-        public let capabilities: UInt8
+    /* public */ struct InitResponse {
+        /* public */ let nonce: Data
+        /* public */ let channelID: UInt32
+        /* public */ let protocolVersion: UInt8
+        /* public */ let majorVersion: UInt8
+        /* public */ let minorVersion: UInt8
+        /* public */ let buildVersion: UInt8
+        /* public */ let capabilities: UInt8
 
         private static let expectedLength = 17
 
@@ -292,12 +292,12 @@ public enum CTAP {
         }
 
         /// WINK capability
-        public var supportsWink: Bool {
+        /* public */ var supportsWink: Bool {
             (capabilities & FIDO_CAP_WINK) != 0
         }
 
         /// CBOR capability
-        public var supportsCBOR: Bool {
+        /* public */ var supportsCBOR: Bool {
             (capabilities & FIDO_CAP_CBOR) != 0
         }
     }

@@ -17,13 +17,13 @@ import OSLog
 
 /// FIDO interface for CTAP HID communication
 /// Handles authenticator communication over USB HID transport
-public final class FIDOInterface: HasFIDOLogger {
+/* public */ final class FIDOInterface: HasFIDOLogger {
 
     // MARK: - Public Properties
 
-    public let connection: FIDOConnection
-    public private(set) var version: Version = Version(withData: Data([0, 0, 0]))!
-    public private(set) var capabilities: UInt8 = 0
+    /* public */ let connection: FIDOConnection
+    /* public */ private(set) var version: Version = Version(withData: Data([0, 0, 0]))!
+    /* public */ private(set) var capabilities: UInt8 = 0
 
     // MARK: - Private Properties
 
@@ -33,13 +33,13 @@ public final class FIDOInterface: HasFIDOLogger {
     // MARK: - Constants
 
     /// Authenticator capability flags
-    public struct Capability {
+    /* public */ struct Capability {
         /// Supports wink command
-        public static let WINK: UInt8 = 0x01
+        /* public */ static let WINK: UInt8 = 0x01
         /// TODO: CTAP2 support
-        public static let CBOR: UInt8 = 0x04
+        /* public */ static let CBOR: UInt8 = 0x04
         /// TODO: Messages without user presence
-        public static let NMSG: UInt8 = 0x08
+        /* public */ static let NMSG: UInt8 = 0x08
     }
 
     /// CTAP HID command codes
@@ -69,7 +69,7 @@ public final class FIDOInterface: HasFIDOLogger {
 
     /// Initialize FIDO interface with the given connection
     /// Automatically performs CTAP INIT handshake
-    public init(connection: FIDOConnection) async throws {
+    /* public */ init(connection: FIDOConnection) async throws {
         self.connection = connection
         try await initialize()
     }
@@ -78,7 +78,7 @@ public final class FIDOInterface: HasFIDOLogger {
 
     /// Send CTAP command and wait for response
     /// TODO: multi-frame support, keepalive handling, continuation frames
-    public func sendAndReceive(cmd: UInt8, payload: Data?) async throws -> Data {
+    /* public */ func sendAndReceive(cmd: UInt8, payload: Data?) async throws -> Data {
 
         trace(message: "sendAndReceive for cmd 0x\(String(format: "%02x", cmd))")
 
@@ -156,7 +156,7 @@ public final class FIDOInterface: HasFIDOLogger {
     }
 
     /// Send wink command to the authenticator
-    public func wink() async throws {
+    /* public */ func wink() async throws {
         guard supports(Capability.WINK) else {
             throw CTAP.HIDError.invalidCmd(Self.CTAPHID_WINK)
         }
@@ -166,7 +166,7 @@ public final class FIDOInterface: HasFIDOLogger {
     }
 
     /// Check if the authenticator supports a capability
-    public func supports(_ capability: UInt8) -> Bool {
+    /* public */ func supports(_ capability: UInt8) -> Bool {
         (capabilities & capability) == capability
     }
 

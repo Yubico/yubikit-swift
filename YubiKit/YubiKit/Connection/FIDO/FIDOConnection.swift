@@ -17,7 +17,7 @@ import Foundation
 /// A low-level transport connection to a FIDO authenticator.
 ///
 /// Works in terms of fixed-size packets (≤ `mtu`).
-public protocol FIDOConnection: Connection {
+/* public */ protocol FIDOConnection: Connection {
 
     /// Maximum payload size (in bytes) for a single packet.
     var mtu: Int { get }
