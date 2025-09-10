@@ -17,8 +17,7 @@ import Foundation
 /// Base protocol defining a physical connection to a YubiKey.
 ///
 /// This is the base protocol for all YubiKey connections. Specific connection types
-/// like ``SmartCardConnection`` and ``FidoConnection`` extend this protocol with their
-/// specialized communication methods.
+/// like ``SmartCardConnection`` and ``FIDOConnection`` extend this protocol
 public protocol Connection: Sendable {
 
     /// Close the current connection.
@@ -41,10 +40,8 @@ public enum ConnectionError: Error, Sendable {
     case noConnection
     /// Unexpected result returned from YubiKey.
     case unexpectedResult
-    /// YubiKey did not return any data.
-    case missingResult
     /// Awaiting call to connect() was cancelled.
     case cancelled
-    /// Connection was closed.
-    case closed
+    /// Awaiting call to connect() was dismissed by the user.
+    case cancelledByUser
 }

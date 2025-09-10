@@ -17,7 +17,7 @@ import OSLog
 
 /// FIDO interface for CTAP HID communication
 /// Handles authenticator communication over USB HID transport
-/* public */ final class FIDOInterface: HasFIDOLogger {
+/* public */ final actor FIDOInterface: HasFIDOLogger {
 
     // MARK: - Public Properties
 
@@ -173,11 +173,11 @@ import OSLog
     // MARK: - Private Methods
 
     private func initialize() async throws {
-        Logger.fido.debug("Starting FIDO interface initialization...")
+        trace(message: "Starting FIDO interface initialization...")
 
         // Generate random nonce for INIT
         let nonce = try generateRandomBytes(count: 8)
-        Logger.fido.debug("Generated nonce: \(nonce.hexEncodedString)")
+        trace(message: "Generated nonce: \(nonce.hexEncodedString)")
 
         // Send INIT command and get response
         let response = try await sendAndReceive(cmd: Self.CTAPHID_INIT, payload: nonce)

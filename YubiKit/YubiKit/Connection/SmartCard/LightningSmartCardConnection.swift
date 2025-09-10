@@ -310,7 +310,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
                 message:
                     "got \(result.count) bytes, SW: \(String(format:"%02X%02X", result.bytes[result.count-2], result.bytes[result.count-1]))"
             )
-            guard result.count >= 2 else { throw ConnectionError.missingResult }
+            guard result.count >= 2 else { throw ConnectionError.unexpectedResult }
             let status = ResponseStatus(data: result.subdata(in: result.count - 2..<result.count))
 
             // BUG #62 - Workaround for WTX == 0x01 while status is 0x9000 (success).

@@ -14,7 +14,7 @@
 
 import Foundation
 
-/// A low-level transport connection to a FIDO authenticator.
+/// A low-level transport connection to a FIDO device (YubiKey).
 ///
 /// Works in terms of fixed-size packets (≤ `mtu`).
 /* public */ protocol FIDOConnection: Connection {

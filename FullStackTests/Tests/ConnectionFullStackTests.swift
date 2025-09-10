@@ -114,27 +114,6 @@ struct ConnectionFullStackTests {
     }
 }
 
-#if os(iOS)
-@Suite("NFC Full Stack Tests", .serialized)
-struct NFCFullStackTests {
-
-    @Test("NFC Alert Message")
-    func nfcAlertMessage() async throws {
-        let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
-        await connection.nfcConnection?.setAlertMessage("Updated Alert Message")
-        try? await Task.sleep(for: .seconds(1))
-        await connection.nfcConnection?.close(message: "Closing Alert Message")
-    }
-
-    @Test("NFC Closing Error Message")
-    func nfcClosingErrorMessage() async throws {
-        let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
-        await connection.close(error: nil)
-    }
-
-}
-#endif
-
 @Suite("SmartCard Connection Full Stack Tests", .serialized)
 struct SmartCardConnectionFullStackTests {
 
@@ -201,32 +180,6 @@ struct SmartCardConnectionFullStackTests {
         await connection.close(error: nil)
     }
 
-}
-
-@Suite("HIDFIDOConnection Full Stack Tests", .serialized)
-struct HIDFIDOConnectionFullStackTests {
-
-<<<<<<< HEAD
-    @Test("NFC Alert Message", .timeLimit(.minutes(1)))
-    func nfcAlertMessage() async throws {
-        let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
-        await connection.nfcConnection?.setAlertMessage("Updated Alert Message")
-        try? await Task.sleep(for: .seconds(1))
-        await connection.nfcConnection?.close(message: "Closing Alert Message")
-    }
-
-    @Test("NFC Closing Error Message", .timeLimit(.minutes(1)))
-    func nfcClosingErrorMessage() async throws {
-        let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
-        await connection.close(error: nil)
-    }
-
-}
-#endif
-
-@Suite("SmartCard Connection Full Stack Tests", .serialized)
-struct SmartCardConnectionFullStackTests {
-
     @Test("SmartCard Connection With Slot", .timeLimit(.minutes(1)))
     func smartCardConnectionWithSlot() async throws {
         let allSlots = try await USBSmartCardConnection.availableDevices
@@ -239,11 +192,36 @@ struct SmartCardConnectionFullStackTests {
         let connection = try await USBSmartCardConnection.connection(slot: slot)
         #expect(true, "✅ Got connection \(connection)")
     }
+}
 
-=======
+#if os(iOS)
+@Suite("NFC Full Stack Tests", .serialized)
+struct NFCFullStackTests {
+
+    @Test("NFC Alert Message")
+    func nfcAlertMessage() async throws {
+        let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
+        await connection.nfcConnection?.setAlertMessage("Updated Alert Message")
+        try? await Task.sleep(for: .seconds(1))
+        await connection.nfcConnection?.close(message: "Closing Alert Message")
+    }
+
+    @Test("NFC Closing Error Message")
+    func nfcClosingErrorMessage() async throws {
+        let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
+        await connection.close(error: nil)
+    }
+
+}
+#endif
+
+#if os(macOS)
+@Suite("HIDFIDOConnection Full Stack Tests", .serialized)
+struct HIDFIDOConnectionFullStackTests {
+
     @Test("HID Connection With Device")
     func hidConnectionWithDevice() async throws {
-        let allDevices = try await HIDFidoConnection.availableDevices
+        let allDevices = try await HIDFIDOConnection.availableDevices
         print("Found \(allDevices.count) FIDO HID devices:")
         allDevices.enumerated().forEach { index, device in
             print("\(index): \(device.name)")
@@ -251,10 +229,11 @@ struct SmartCardConnectionFullStackTests {
         let random = allDevices.randomElement()
         // we need at least one YubiKey connected
         let device = try #require(random, "No FIDO HID devices available")
-        let connection = try await HIDFidoConnection.connection(device: device)
+        let connection = try await HIDFIDOConnection.connection(device: device)
         #expect(true, "✅ Got connection \(connection)")
 
         await connection.close(error: nil)
     }
->>>>>>> 1c3142bb3 (Reorganize connection architecture and add HID FIDO support)
 }
+
+#endif

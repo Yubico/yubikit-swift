@@ -14,7 +14,7 @@
 
 import Foundation
 
-/// An interface defining a SmartCard-based connection to a YubiKey.
+/// An interface defining a SmartCard based connection to a YubiKey.
 ///
 /// Use a connection to create a ``Session``. The connection can also be used for sending raw ``APDU``'s to the YubiKey.
 ///
