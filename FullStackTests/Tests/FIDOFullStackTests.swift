@@ -64,8 +64,7 @@ struct FIDOInterfaceFullStackTests {
         print("CBOR capability: \(supportsCBOR)")
         print("NMSG capability: \(supportsNMSG)")
 
-        // Most YubiKeys should support at least CBOR
-        #expect(supportsCBOR, "YubiKey should support CBOR capability")
+        #expect(supportsWink, "YubiKey should support WINK")
 
         await connection.close(error: nil)
     }
