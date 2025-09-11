@@ -17,6 +17,8 @@ import XCTest
 
 @testable import YubiKit
 
+extension XCTestCase: @retroactive HasLogger {}
+
 extension XCTestCase: HasTestLogger {
     var connection: SmartCardConnection {
         _connection!

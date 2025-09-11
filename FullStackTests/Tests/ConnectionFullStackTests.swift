@@ -30,6 +30,29 @@ struct ConnectionFullStackTests {
         await connection.close(error: nil)
     }
 
+    @Test("Connection Did Close", .timeLimit(.minutes(1)))
+    func connectionDidClose() async throws {
+        let connection = try await Connection.connection()
+
+        // Start a task to wait for connection closure
+        let closureTask = Task {
+            let error = await connection.connectionDidClose()
+            return error
+        }
+
+        // Give the task a moment to start waiting
+        try await Task.sleep(for: .seconds(1))
+
+        // Close the connection with a custom error
+        let testError = ConnectionError.cancelled
+        await connection.close(error: testError)
+
+        // Wait for the closure notification
+        let _ = await closureTask.value
+
+        #expect(true, "✅ Got notified when connection closed")
+    }
+
     @Test("Serial Connections", .timeLimit(.minutes(1)))
     func serialConnections() async throws {
         let firstConnection = try await Connection.connection()
@@ -89,10 +112,30 @@ struct ConnectionFullStackTests {
         // close the only established connection
         await connections.first?.close(error: nil)
     }
+}
+
+@Suite("SmartCard Connection Full Stack Tests", .serialized)
+struct SmartCardConnectionFullStackTests {
+
+    @Test("SmartCard Connection With Slot")
+    func smartCardConnectionWithDevice() async throws {
+        let allDevices = try await USBSmartCardConnection.availableDevices
+        allDevices.enumerated().forEach { index, slot in
+            print("\(index): \(slot.name)")
+        }
+        let random = allDevices.randomElement()
+        // we need at least one YubiKey connected
+        let slot = try #require(random, "No YubiKey slots available")
+        let connection = try await USBSmartCardConnection.connection(slot: slot)
+        #expect(true, "✅ Got connection \(connection)")
+
+        // close the second connection
+        await connection.close(error: nil)
+    }
 
     @Test("Send Manually", .timeLimit(.minutes(1)))
     func sendManually() async throws {
-        let connection = try await Connection.connection()
+        let connection = try await USBSmartCardConnection.connection()
         // Select Management application
         let apdu = APDU(
             cla: 0x00,
@@ -136,31 +179,6 @@ struct ConnectionFullStackTests {
 
         await connection.close(error: nil)
     }
-}
-
-#if os(iOS)
-@Suite("NFC Full Stack Tests", .serialized)
-struct NFCFullStackTests {
-
-    @Test("NFC Alert Message", .timeLimit(.minutes(1)))
-    func nfcAlertMessage() async throws {
-        let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
-        await connection.nfcConnection?.setAlertMessage("Updated Alert Message")
-        try? await Task.sleep(for: .seconds(1))
-        await connection.nfcConnection?.close(message: "Closing Alert Message")
-    }
-
-    @Test("NFC Closing Error Message", .timeLimit(.minutes(1)))
-    func nfcClosingErrorMessage() async throws {
-        let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
-        await connection.close(error: nil)
-    }
-
-}
-#endif
-
-@Suite("SmartCard Connection Full Stack Tests", .serialized)
-struct SmartCardConnectionFullStackTests {
 
     @Test("SmartCard Connection With Slot", .timeLimit(.minutes(1)))
     func smartCardConnectionWithSlot() async throws {
@@ -174,5 +192,48 @@ struct SmartCardConnectionFullStackTests {
         let connection = try await USBSmartCardConnection.connection(slot: slot)
         #expect(true, "✅ Got connection \(connection)")
     }
+}
+
+#if os(iOS)
+@Suite("NFC Full Stack Tests", .serialized)
+struct NFCFullStackTests {
+
+    @Test("NFC Alert Message")
+    func nfcAlertMessage() async throws {
+        let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
+        await connection.nfcConnection?.setAlertMessage("Updated Alert Message")
+        try? await Task.sleep(for: .seconds(1))
+        await connection.nfcConnection?.close(message: "Closing Alert Message")
+    }
+
+    @Test("NFC Closing Error Message")
+    func nfcClosingErrorMessage() async throws {
+        let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
+        await connection.close(error: nil)
+    }
 
 }
+#endif
+
+#if os(macOS)
+@Suite("HIDFIDOConnection Full Stack Tests", .serialized)
+struct HIDFIDOConnectionFullStackTests {
+
+    @Test("HID Connection With Device")
+    func hidConnectionWithDevice() async throws {
+        let allDevices = try await HIDFIDOConnection.availableDevices
+        print("Found \(allDevices.count) FIDO HID devices:")
+        allDevices.enumerated().forEach { index, device in
+            print("\(index): \(device.name)")
+        }
+        let random = allDevices.randomElement()
+        // we need at least one YubiKey connected
+        let device = try #require(random, "No FIDO HID devices available")
+        let connection = try await HIDFIDOConnection.connection(device: device)
+        #expect(true, "✅ Got connection \(connection)")
+
+        await connection.close(error: nil)
+    }
+}
+
+#endif

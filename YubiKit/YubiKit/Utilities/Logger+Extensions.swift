@@ -49,6 +49,11 @@ extension HasSCPLogger {
     static var logger: Logger { .scp }
 }
 
+protocol HasFIDOLogger: HasLogger {}
+extension HasFIDOLogger {
+    static var logger: Logger { .fido }
+}
+
 extension Logger {
     private static let subsystem = "com.yubico.YubiKit"
 
@@ -62,6 +67,7 @@ extension Logger {
     static let oath = Logger(subsystem: subsystem, category: "OATH")
     static let management = Logger(subsystem: subsystem, category: "Management")
     static let piv = Logger(subsystem: subsystem, category: "PIV")
+    static let fido = Logger(subsystem: subsystem, category: "FIDO")
     fileprivate static let securityDomain = Logger(subsystem: subsystem, category: "SecurityDomain")
 
     fileprivate static let scp = Logger(subsystem: subsystem, category: "SCP")

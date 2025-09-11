@@ -229,12 +229,7 @@ final class SCP11bFullStackTests: XCTestCase {
 
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x02)
 
-            var privateKey: EC.PrivateKey!
-            do {
-                privateKey = try EC.PrivateKey.random(curve: .p256)
-            } catch let error {
-                XCTFail("Failed: Couldn't create key pair: \(error)")
-            }
+            let privateKey = EC.PrivateKey.random(curve: .p256)!
 
             let publicKey = privateKey.publicKey
 
