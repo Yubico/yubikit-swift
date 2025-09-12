@@ -36,35 +36,67 @@ public enum NFCConnectionError: Error, Sendable {
 public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     fileprivate let tag: ISO7816Identifier
 
-    /// Presents the NFC sheet and returns a live ``NFCSmartCardConnection`` once the user
-    /// taps a YubiKey.
+    /// Creates a new NFC connection to a YubiKey.
+    ///
+    /// Presents the NFC sheet and waits for the user to tap a YubiKey to establish a connection.
+    ///
+    /// - Throws: ``NFCConnectionError.unsupported`` when NFC is unavailable or
+    ///           ``ConnectionError.busy`` if there is already an active connection.
+    public convenience init() async throws {
+        let tag = try await NFCConnectionManagerWrapper.shared.connect(message: nil)
+        self.init(tag: tag)
+    }
+
+    /// Creates a new NFC connection to a YubiKey.
+    ///
+    /// Presents the NFC sheet and waits for the user to tap a YubiKey to establish a connection.
+    ///
+    /// - Parameter alertMessage: Optional text shown while scanning.
+    /// - Throws: ``NFCConnectionError.unsupported`` when NFC is unavailable or
+    ///           ``ConnectionError.busy`` if there is already an active connection.
+    public convenience init(alertMessage: String?) async throws {
+        let tag = try await NFCConnectionManagerWrapper.shared.connect(message: alertMessage)
+        self.init(tag: tag)
+    }
+
+    fileprivate init(tag: ISO7816Identifier) {
+        self.tag = tag
+    }
+
+    /// Creates a new NFC connection to a YubiKey.
+    ///
+    /// Presents the NFC sheet and waits for the user to tap a YubiKey to establish a connection.
     ///
     /// - Returns: A fully–established connection ready for APDU exchange.
     /// - Throws: ``NFCConnectionError.unsupported`` when NFC is unavailable or
-    ///           ``ConnectionError.cancelled`` if another connection is in flight.
+    ///           ``ConnectionError.busy`` if there is already an active connection.
     // @TraceScope
-    public static func connection() async throws -> SmartCardConnection {
+    public static func connection() async throws -> NFCSmartCardConnection {
         trace(message: "NFCSmartCardConnection.connection() – requesting new connection")
-        let conn = try await NFCConnectionManagerWrapper.shared.connect(message: nil)
+        let tag = try await NFCConnectionManagerWrapper.shared.connect(message: nil)
         trace(message: "NFCSmartCardConnection.connection() – connection established")
-        return conn
+        return NFCSmartCardConnection(tag: tag)
     }
 
-    /// Same as ``connection()`` but allows customizing the system sheet's
-    /// instructional `alertMessage`.
+    /// Creates a new NFC connection to a YubiKey.
+    ///
+    /// Presents the NFC sheet and waits for the user to tap a YubiKey to establish a connection.
     ///
     /// - Parameter message: Optional text shown while scanning.
+    /// - Returns: A fully–established connection ready for APDU exchange.
+    /// - Throws: ``NFCConnectionError.unsupported`` when NFC is unavailable or
+    ///           ``ConnectionError.busy`` if there is already an active connection.
     // @TraceScope
-    public static func connection(alertMessage message: String?) async throws -> SmartCardConnection {
+    public static func connection(alertMessage message: String?) async throws -> NFCSmartCardConnection {
         trace(message: "NFCSmartCardConnection.connection(alertMessage:) – requesting new connection")
-        let conn = try await NFCConnectionManagerWrapper.shared.connect(message: message)
+        let tag = try await NFCConnectionManagerWrapper.shared.connect(message: message)
         trace(message: "NFCSmartCardConnection.connection(alertMessage:) – connection established")
-        return conn
+        return NFCSmartCardConnection(tag: tag)
     }
 
     // @TraceScope
     public func setAlertMessage(_ message: String) async {
-        trace(message: "NFCSmartCardConnection.setAlertMessage(\"\(message)\") – not yet implemented")
+        trace(message: "NFCSmartCardConnection.setAlertMessage(:)")
         await NFCConnectionManagerWrapper.shared.set(alertMessage: message)
     }
 
@@ -118,6 +150,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
         trace(message: "NFCSmartCardConnection.send(data:) – received \(response.count) bytes")
         return response
     }
+
 }
 
 // MARK: - Extensions
@@ -191,7 +224,7 @@ private actor NFCConnectionManagerWrapper {
         }
     }
 
-    func connect(message alertMessage: String?) async throws -> NFCSmartCardConnection {
+    func connect(message alertMessage: String?) async throws -> ISO7816Identifier {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 self.nfcStateManager.connect(message: alertMessage) { result in
@@ -309,7 +342,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
     // @TraceScope
     func connect(
         message alertMessage: String?,
-        completion: @escaping @Sendable (Result<NFCSmartCardConnection, Error>) -> Void
+        completion: @escaping @Sendable (Result<ISO7816Identifier, Error>) -> Void
     ) {
         trace(message: "Manager.connect – begin")
         guard NFCReaderSession.readingAvailable else {
@@ -346,7 +379,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
 
         currentState.setScanning(
             session: session,
-            completion: { [weak self] (result: Result<NFCSmartCardConnection, Error>) in
+            completion: { [weak self] (result: Result<ISO7816Identifier, Error>) in
                 self?.isEstablishing = false
                 completion(result)
             }
@@ -365,10 +398,9 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             return
         }
 
-        let connection: NFCSmartCardConnection = .init(tag: .init(tag.identifier))
-        currentState.setConnected(tag: tag, connection: connection)
+        currentState.setConnected(tag: tag)
 
-        connectionCompletion(Result.success(connection))
+        connectionCompletion(Result.success(.init(tag.identifier)))
     }
 
     private func cleanup(session: NFCTagReaderSession, error: Error? = nil) {
@@ -452,11 +484,10 @@ private class NFCState: @unchecked Sendable {
 
     // Scanning state
     var session: NFCTagReaderSession?
-    var connectionCompletion: (@Sendable (Result<NFCSmartCardConnection, Error>) -> Void)?
+    var connectionCompletion: (@Sendable (Result<ISO7816Identifier, Error>) -> Void)?
 
     // Connected state
     var tag: NFCISO7816Tag?
-    var connection: NFCSmartCardConnection?
     var didCloseCallback: (@Sendable (Error?) -> Void)?
 
     func reset() {
@@ -464,27 +495,24 @@ private class NFCState: @unchecked Sendable {
         session = nil
         connectionCompletion = nil
         tag = nil
-        connection = nil
         didCloseCallback = nil
     }
 
     func setScanning(
         session: NFCTagReaderSession,
-        completion: @escaping @Sendable (Result<NFCSmartCardConnection, Error>) -> Void
+        completion: @escaping @Sendable (Result<ISO7816Identifier, Error>) -> Void
     ) {
         phase = .scanning
         self.session = session
         self.connectionCompletion = completion
         // Clear connected state
         tag = nil
-        connection = nil
         didCloseCallback = nil
     }
 
-    func setConnected(tag: NFCISO7816Tag, connection: NFCSmartCardConnection) {
+    func setConnected(tag: NFCISO7816Tag) {
         phase = .connected
         self.tag = tag
-        self.connection = connection
         // Clear scanning state
         connectionCompletion = nil
     }

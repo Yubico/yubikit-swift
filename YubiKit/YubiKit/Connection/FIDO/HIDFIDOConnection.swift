@@ -54,15 +54,41 @@ import IOKit.hid
     /// Maximum packet size for HID reports
     /* public */ let mtu = hidPayloadSize
 
+    // Private / Fileprivate
+    private let locationID: Int
+
     /* public */ static var availableDevices: [HIDFIDO.YubiKeyDevice] {
         get async throws {
             try await HIDFIDOConnectionManager.shared.availableDevices()
         }
     }
 
-    /* public */ static func connection(device: HIDFIDO.YubiKeyDevice) async throws -> FIDOConnection {
+    /// Creates a new FIDO connection to the first available YubiKey.
+    ///
+    /// Waits for a YubiKey to be connected via USB and establishes a FIDO connection to it.
+    /// This method waits until a YubiKey becomes available.
+    ///
+    /// - Throws: ``HIDFIDOConnectionError.noAvailableDevices`` if no YubiKey is available.
+    /* public */ init() async throws {
+        guard let first = try await HIDFIDOConnection.availableDevices.first else {
+            throw HIDFIDOConnectionError.noAvailableDevices
+        }
+        try await self.init(device: first)
+    }
+
+    /// Creates a new FIDO connection to a specific YubiKey device.
+    ///
+    /// Establishes a connection to the specified YubiKey device.
+    ///
+    /// - Parameter device: The ``HIDFIDO.YubiKeyDevice`` to connect to.
+    /// - Throws: Connection errors if the device cannot be accessed.
+    /* public */ init(device: HIDFIDO.YubiKeyDevice) async throws {
         try await HIDFIDOConnectionManager.shared.open(device: device)
-        return HIDFIDOConnection(locationID: device.locationID)
+        self.locationID = device.locationID
+    }
+
+    /* public */ static func connection(device: HIDFIDO.YubiKeyDevice) async throws -> HIDFIDOConnection {
+        try await HIDFIDOConnection(device: device)
     }
 
     /* public */ func close(error: Error?) async {
@@ -73,11 +99,15 @@ import IOKit.hid
         try? await didClose.value()
     }
 
-    /* public */ static func connection() async throws -> FIDOConnection {
-        guard let first = try await HIDFIDOConnection.availableDevices.first else {
-            throw HIDFIDOConnectionError.noAvailableDevices
-        }
-        return try await HIDFIDOConnection.connection(device: first)
+    /// Creates a new FIDO connection to the first available YubiKey.
+    ///
+    /// Waits for a YubiKey to be connected via USB and establishes a FIDO connection to it.
+    /// This method waits until a YubiKey becomes available.
+    ///
+    /// - Returns: A fully–established connection ready for FIDO communication.
+    /// - Throws: ``HIDFIDOConnectionError.noAvailableDevices`` if no YubiKey is available.
+    /* public */ static func connection() async throws -> HIDFIDOConnection {
+        try await HIDFIDOConnection()
     }
 
     /* public */ func send(_ packet: Data) async throws {
@@ -88,18 +118,12 @@ import IOKit.hid
         try await HIDFIDOConnectionManager.shared.receivePacket(from: locationID)
     }
 
-    // Private / Fileprivate
-    private let locationID: Int
-
     private var didClose: Promise<Error?> {
         get async throws {
             try await HIDFIDOConnectionManager.shared.didClose(for: locationID)
         }
     }
 
-    fileprivate init(locationID: Int) {
-        self.locationID = locationID
-    }
 }
 
 // MARK: - Private helpers

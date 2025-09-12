@@ -44,4 +44,6 @@ public enum ConnectionError: Error, Sendable {
     case cancelled
     /// Awaiting call to connect() was dismissed by the user.
     case cancelledByUser
+    /// Connection was deallocated without being properly closed.
+    case deallocated
 }
