@@ -19,7 +19,7 @@ import OSLog
 /// A connection to the YubiKey utilizing the USB-C port and the TKSmartCard implementation from
 /// the CryptoTokenKit framework.
 @available(iOS 16.0, macOS 13.0, *)
-public struct USBSmartCardConnection: Sendable {
+public final class USBSmartCardConnection: SmartCardConnection, Sendable {
     public let slot: USBSmartCard.YubiKeyDevice
 
     /// Creates a new USB connection to the first available YubiKey.
@@ -28,7 +28,7 @@ public struct USBSmartCardConnection: Sendable {
     /// This method waits until a YubiKey becomes available.
     ///
     /// - Throws: ``ConnectionError.busy`` if there is already an active connection.
-    public init() async throws {
+    public convenience init() async throws {
         while true {
             guard let slot = try await Self.availableDevices.first else {
                 try await Task.sleep(for: .seconds(1))
@@ -51,6 +51,12 @@ public struct USBSmartCardConnection: Sendable {
         self.slot = slot
     }
 
+    deinit {
+        Task { [slot] in
+            try? await SmartCardConnectionsManager.shared.didClose(for: slot).fulfill(ConnectionError.deallocated)
+        }
+    }
+
     public static var availableDevices: [USBSmartCard.YubiKeyDevice] {
         get async throws {
             try await SmartCardConnectionsManager.shared.availableDevices()
@@ -61,9 +67,7 @@ public struct USBSmartCardConnection: Sendable {
         get async throws { await SmartCardConnectionsManager.shared.isConnected(for: slot) }
     }
 
-}
-
-extension USBSmartCardConnection: SmartCardConnection {
+    // MARK: - SmartCardConnection conformance
 
     /// Creates a new USB connection to the first available YubiKey.
     ///
@@ -109,6 +113,7 @@ extension USBSmartCardConnection: SmartCardConnection {
         trace(message: "transmit returned \(response.count) bytes")
         return response
     }
+
 }
 
 // USBSmartCardConnection specific errors

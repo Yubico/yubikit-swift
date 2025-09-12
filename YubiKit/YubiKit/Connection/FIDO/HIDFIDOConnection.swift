@@ -49,7 +49,7 @@ import IOKit.hid
 }
 
 /// A connection to the YubiKey utilizing USB HID for FIDO communication.
-/* public */ struct HIDFIDOConnection: Sendable, FIDOConnection {
+/* public */ final class HIDFIDOConnection: Sendable, FIDOConnection {
 
     /// Maximum packet size for HID reports
     /* public */ let mtu = hidPayloadSize
@@ -69,7 +69,7 @@ import IOKit.hid
     /// This method waits until a YubiKey becomes available.
     ///
     /// - Throws: ``HIDFIDOConnectionError.noAvailableDevices`` if no YubiKey is available.
-    /* public */ init() async throws {
+    /* public */ convenience init() async throws {
         guard let first = try await HIDFIDOConnection.availableDevices.first else {
             throw HIDFIDOConnectionError.noAvailableDevices
         }
@@ -85,6 +85,12 @@ import IOKit.hid
     /* public */ init(device: HIDFIDO.YubiKeyDevice) async throws {
         try await HIDFIDOConnectionManager.shared.open(device: device)
         self.locationID = device.locationID
+    }
+
+    deinit {
+        Task { [locationID] in
+            await HIDFIDOConnectionManager.shared.close(locationID: locationID, error: ConnectionError.deallocated)
+        }
     }
 
     /* public */ static func connection(device: HIDFIDO.YubiKeyDevice) async throws -> HIDFIDOConnection {

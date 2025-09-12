@@ -33,7 +33,7 @@ public enum NFCConnectionError: Error, Sendable {
 /// method that will close the connection and set the alertMessage of the NFC alert to the provided message.
 ///
 /// > Note: NFC is only supported on iPhones from iPhone 6 and forward. It will not work on iPads since there's no NFC chip in these devices.
-public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
+public final class NFCSmartCardConnection: SmartCardConnection, Sendable {
     fileprivate let tag: ISO7816Identifier
 
     /// Creates a new NFC connection to a YubiKey.
@@ -42,9 +42,9 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     ///
     /// - Throws: ``NFCConnectionError.unsupported`` when NFC is unavailable or
     ///           ``ConnectionError.busy`` if there is already an active connection.
-    public convenience init() async throws {
+    public init() async throws {
         let tag = try await NFCConnectionManagerWrapper.shared.connect(message: nil)
-        self.init(tag: tag)
+        self.tag = tag
     }
 
     /// Creates a new NFC connection to a YubiKey.
@@ -54,13 +54,19 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Parameter alertMessage: Optional text shown while scanning.
     /// - Throws: ``NFCConnectionError.unsupported`` when NFC is unavailable or
     ///           ``ConnectionError.busy`` if there is already an active connection.
-    public convenience init(alertMessage: String?) async throws {
+    public init(alertMessage: String?) async throws {
         let tag = try await NFCConnectionManagerWrapper.shared.connect(message: alertMessage)
-        self.init(tag: tag)
+        self.tag = tag
     }
 
     fileprivate init(tag: ISO7816Identifier) {
         self.tag = tag
+    }
+
+    deinit {
+        Task { [tag] in
+            await NFCConnectionManagerWrapper.shared.close(for: tag, error: ConnectionError.deallocated)
+        }
     }
 
     /// Creates a new NFC connection to a YubiKey.

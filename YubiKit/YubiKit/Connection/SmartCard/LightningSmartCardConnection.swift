@@ -20,7 +20,7 @@ import OSLog
 
 /// A connection to the YubiKey utilizing the Lightning port and External Accessory framework.
 @available(iOS 16.0, *)
-public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
+public final class LightningSmartCardConnection: SmartCardConnection, Sendable {
     fileprivate let accessoryConnectionID: LightningConnectionID
 
     /// Creates a new Lightning connection to a YubiKey.
@@ -30,6 +30,15 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
     /// - Throws: ``ConnectionError.busy`` if there is already an active connection.
     public init() async throws {
         accessoryConnectionID = try await LightningConnectionManager.shared.connect()
+    }
+
+    deinit {
+        Task { [accessoryConnectionID] in
+            await LightningConnectionManager.shared.close(
+                for: accessoryConnectionID,
+                error: ConnectionError.deallocated
+            )
+        }
     }
 
     /// Creates a new Lightning connection to a YubiKey.
@@ -152,8 +161,12 @@ private actor LightningConnectionManager {
     }
 
     func close(for connection: LightningSmartCardConnection, error: Error?) async {
+        await close(for: connection.accessoryConnectionID, error: error)
+    }
+
+    func close(for connectionID: LightningConnectionID, error: Error?) async {
         guard let state = connectionState,
-            state.connectionID == connection.accessoryConnectionID
+            state.connectionID == connectionID
         else { return }
 
         await EAAccessoryWrapper.shared.stopMonitoring()

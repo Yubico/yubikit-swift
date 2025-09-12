@@ -18,7 +18,7 @@ import Foundation
 ///
 /// This is the base protocol for all YubiKey connections. Specific connection types
 /// like ``SmartCardConnection`` and ``FIDOConnection`` extend this protocol
-public protocol Connection: Sendable {
+public protocol Connection: AnyObject, Sendable {
 
     /// Close the current connection.
     ///
