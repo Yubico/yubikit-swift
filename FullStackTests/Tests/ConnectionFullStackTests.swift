@@ -27,7 +27,6 @@ struct ConnectionFullStackTests {
     func singleConnection() async throws {
         let connection = try await Connection()
         #expect(true, "✅ Got connection \(connection)")
-        await connection.close(error: nil)
     }
 
     @Test("Connection Did Close", .timeLimit(.minutes(1)))
@@ -78,7 +77,6 @@ struct ConnectionFullStackTests {
         let secondConnection = try await Connection()
         #expect(true, "✅ Got second connection \(secondConnection)")
 
-        // close the second connection
         await secondConnection.close(error: nil)
     }
 
@@ -128,9 +126,6 @@ struct SmartCardConnectionFullStackTests {
         let slot = try #require(random, "No YubiKey slots available")
         let connection = try await USBSmartCardConnection.connection(slot: slot)
         #expect(true, "✅ Got connection \(connection)")
-
-        // close the second connection
-        await connection.close(error: nil)
     }
 
     @Test("Send Manually", .timeLimit(.minutes(1)))
@@ -176,8 +171,6 @@ struct SmartCardConnectionFullStackTests {
                 || notFoundResult.responseStatus.status == .invalidInstruction,
             "Unexpected result: \(notFoundResult.responseStatus)"
         )
-
-        await connection.close(error: nil)
     }
 
     @Test("SmartCard Connection With Slot", .timeLimit(.minutes(1)))
@@ -209,7 +202,6 @@ struct NFCFullStackTests {
     @Test("NFC Closing Error Message")
     func nfcClosingErrorMessage() async throws {
         let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
-        await connection.close(error: nil)
     }
 
 }
@@ -231,8 +223,6 @@ struct HIDFIDOConnectionFullStackTests {
         let device = try #require(random, "No FIDO HID devices available")
         let connection = try await HIDFIDOConnection.connection(device: device)
         #expect(true, "✅ Got connection \(connection)")
-
-        await connection.close(error: nil)
     }
 }
 

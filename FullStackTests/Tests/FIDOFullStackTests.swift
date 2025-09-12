@@ -47,8 +47,6 @@ struct FIDOInterfaceFullStackTests {
 
         #expect(await fidoInterface.version.description.isEmpty == false)
         #expect(await fidoInterface.capabilities > 0)
-
-        await connection.close(error: nil)
     }
 
     @Test("FIDO Capability Detection")
@@ -65,8 +63,6 @@ struct FIDOInterfaceFullStackTests {
         print("NMSG capability: \(supportsNMSG)")
 
         #expect(supportsWink, "YubiKey should support WINK")
-
-        await connection.close(error: nil)
     }
 
     @Test("FIDO WINK Functionality")
@@ -76,7 +72,6 @@ struct FIDOInterfaceFullStackTests {
 
         guard await fidoInterface.supports(FIDOInterface.Capability.WINK) else {
             print("YubiKey does not support WINK, skipping test")
-            await connection.close(error: nil)
             return
         }
 
@@ -85,8 +80,6 @@ struct FIDOInterfaceFullStackTests {
         print("WINK command completed successfully!")
 
         #expect(true)
-
-        await connection.close(error: nil)
     }
 
     @Test("FIDO PING Command")
@@ -101,8 +94,6 @@ struct FIDOInterfaceFullStackTests {
 
         print("PING response received: \(response.hexEncodedString)")
         #expect(response == pingData, "PING should echo back the same data")
-
-        await connection.close(error: nil)
     }
 
     @Test("FIDO Error Handling")
@@ -122,8 +113,6 @@ struct FIDOInterfaceFullStackTests {
         } catch {
             Issue.record("Unexpected error type: \(error)")
         }
-
-        await connection.close(error: nil)
     }
 }
 
