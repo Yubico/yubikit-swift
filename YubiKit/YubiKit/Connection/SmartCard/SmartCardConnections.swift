@@ -55,12 +55,12 @@ private enum SmartCardConnections {
     fileprivate static func new(kind: SmartCardConnections.Kind) async throws -> SmartCardConnection {
         switch kind {
         case .usb:
-            return try await USBSmartCardConnection.connection()
+            return try await USBSmartCardConnection()
         #if os(iOS)
         case .lightning:
-            return try await LightningSmartCardConnection.connection()
+            return try await LightningSmartCardConnection()
         case let .nfc(alertMessage):
-            return try await NFCSmartCardConnection.connection(alertMessage: alertMessage)
+            return try await NFCSmartCardConnection(alertMessage: alertMessage)
         #endif
         case .wired:
             return try await wired()
@@ -74,16 +74,16 @@ private enum SmartCardConnections {
             #if os(iOS)
             if Device.hasLightningPort {
                 group.addTask {
-                    try await LightningSmartCardConnection.connection()
+                    try await LightningSmartCardConnection()
                 }
             } else {
                 group.addTask {
-                    try await USBSmartCardConnection.connection()
+                    try await USBSmartCardConnection()
                 }
             }
             #else
             group.addTask {
-                try await USBSmartCardConnection.connection()
+                try await USBSmartCardConnection()
             }
             #endif
 
@@ -102,7 +102,7 @@ private enum SmartCardConnections {
                     // wait for wired connected yubikeys to connect before starting NFC
                     try await Task.sleep(for: .seconds(0.75))
                     try Task.checkCancellation()
-                    return try await NFCSmartCardConnection.connection(alertMessage: nfcAlertMessage)
+                    return try await NFCSmartCardConnection(alertMessage: nfcAlertMessage)
                 }
             }
             #endif

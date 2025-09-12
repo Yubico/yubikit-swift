@@ -19,7 +19,17 @@ import Foundation
 /// Use a connection to create a ``Session``. The connection can also be used for sending raw ``APDU``'s to the YubiKey.
 ///
 /// Protocol implemented in ``LightningSmartCardConnection``, ``NFCSmartCardConnection`` and ``USBSmartCardConnection``.
+
 public protocol SmartCardConnection: Connection {
+
+    /// Create a new SmartCardConnection to the YubiKey.
+    ///
+    /// Initialize a SmartCardConnection to get a connection to a YubiKey.
+    /// The init method will wait until a connection to a YubiKey has been established.
+    ///
+    /// The init will throw with ``.busy`` if there is an already established connection for the same
+    /// resource.
+    init() async throws
 
     /// Create a new SmartCardConnection to the YubiKey.
     ///
@@ -29,7 +39,7 @@ public protocol SmartCardConnection: Connection {
     /// > Warning: Only one connection can exist at a time. If this method is called while
     /// another connection is active or pending, it will throw ``ConnectionError/busy``.
     /// The existing connection must be closed first using ``close(error:)``.
-    static func connection() async throws -> SmartCardConnection
+    static func connection() async throws -> Self
 
     /// Send an APDU to the SmartCardConnection.
     ///
