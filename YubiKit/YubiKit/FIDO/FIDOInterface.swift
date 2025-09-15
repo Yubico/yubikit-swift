@@ -27,7 +27,7 @@ import OSLog
 
     // MARK: - Private Properties
 
-    /// Channel ID for HID communication (starts as broadcast, gets assigned during init)
+    // Channel ID for HID communication (starts as broadcast, gets assigned during init)
     private var channelId: UInt32 = 0xffff_ffff
 
     // MARK: - Constants
@@ -42,27 +42,27 @@ import OSLog
         /* public */ static let NMSG: UInt8 = 0x08
     }
 
-    /// CTAP HID command codes
+    // CTAP HID command codes
     private static let TYPE_INIT: UInt8 = 0x80
 
-    /// TODO: ping support
+    // TODO: ping support
     private static let CTAPHID_PING = TYPE_INIT | 0x01
-    /// TODO: U2F messages
+    // TODO: U2F messages
     private static let CTAPHID_MSG = TYPE_INIT | 0x03
-    /// TODO: channel lock
+    // TODO: channel lock
     private static let CTAPHID_LOCK = TYPE_INIT | 0x04
-    /// Channel initialization command
+    // Channel initialization command
     private static let CTAPHID_INIT = TYPE_INIT | 0x06
-    /// Wink command (visual indicator)
+    // Wink command (visual indicator)
     private static let CTAPHID_WINK = TYPE_INIT | 0x08
-    /// TODO: CTAP2 CBOR support
+    // TODO: CTAP2 CBOR support
     private static let CTAPHID_CBOR = TYPE_INIT | 0x10
-    /// TODO: cancel operation
+    // TODO: cancel operation
     private static let CTAPHID_CANCEL = TYPE_INIT | 0x11
 
-    /// Error response command
+    // Error response command
     private static let CTAPHID_ERROR = TYPE_INIT | 0x3f
-    /// Keep-alive message
+    // Keep-alive message
     private static let CTAPHID_KEEPALIVE = TYPE_INIT | 0x3b
 
     // MARK: - Initialization

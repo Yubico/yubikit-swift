@@ -18,12 +18,12 @@ import Testing
 
 @testable import YubiKit
 
-/// Tests for Ed25519 and X25519 key handling and validation.
+// Tests for Ed25519 and X25519 key handling and validation.
 struct Curve25519KeysTests {
 
     // MARK: - Ed25519 Tests
 
-    /// Test Ed25519 public key creation with valid data.
+    // Test Ed25519 public key creation with valid data.
     @Test func ed25519PublicKeyValidData() {
         // Generate a valid Ed25519 key pair using CryptoKit
         let cryptoKitPrivateKey = Curve25519.Signing.PrivateKey()
@@ -35,7 +35,7 @@ struct Curve25519KeysTests {
         #expect(publicKey?.keyData.count == 32)
     }
 
-    /// Test Ed25519 public key creation with invalid data.
+    // Test Ed25519 public key creation with invalid data.
     @Test func ed25519PublicKeyInvalidData() {
         let invalidKeyData31 = Data(repeating: 0x01, count: 31)
         let invalidKeyData33 = Data(repeating: 0x01, count: 33)
@@ -46,7 +46,7 @@ struct Curve25519KeysTests {
         #expect(Ed25519.PublicKey(keyData: emptyData) == nil)
     }
 
-    /// Test Ed25519 private key creation with valid data.
+    // Test Ed25519 private key creation with valid data.
     @Test func ed25519PrivateKeyValidData() {
         // Generate a valid Ed25519 key pair using CryptoKit
         let cryptoKitPrivateKey = Curve25519.Signing.PrivateKey()
@@ -62,7 +62,7 @@ struct Curve25519KeysTests {
         #expect(privateKey?.seed.count == 32)
     }
 
-    /// Test Ed25519 private key creation with invalid data.
+    // Test Ed25519 private key creation with invalid data.
     @Test func ed25519PrivateKeyInvalidData() {
         let invalidSeed31 = Data(repeating: 0x02, count: 31)
         let invalidSeed33 = Data(repeating: 0x02, count: 33)
@@ -77,7 +77,7 @@ struct Curve25519KeysTests {
 
     // MARK: - X25519 Tests
 
-    /// Test X25519 public key creation with valid data.
+    // Test X25519 public key creation with valid data.
     @Test func x25519PublicKeyValidData() {
         // Generate a valid X25519 key pair using CryptoKit
         let cryptoKitPrivateKey = Curve25519.KeyAgreement.PrivateKey()
@@ -89,7 +89,7 @@ struct Curve25519KeysTests {
         #expect(publicKey?.keyData.count == 32)
     }
 
-    /// Test X25519 public key creation with invalid data.
+    // Test X25519 public key creation with invalid data.
     @Test func x25519PublicKeyInvalidData() {
         let invalidKeyData31 = Data(repeating: 0x04, count: 31)
         let invalidKeyData33 = Data(repeating: 0x04, count: 33)
@@ -100,7 +100,7 @@ struct Curve25519KeysTests {
         #expect(X25519.PublicKey(keyData: emptyData) == nil)
     }
 
-    /// Test X25519 private key creation with valid data.
+    // Test X25519 private key creation with valid data.
     @Test func x25519PrivateKeyValidData() {
         // Generate a valid X25519 key pair using CryptoKit
         let cryptoKitPrivateKey = Curve25519.KeyAgreement.PrivateKey()
@@ -116,7 +116,7 @@ struct Curve25519KeysTests {
         #expect(privateKey?.scalar.count == 32)
     }
 
-    /// Test X25519 private key creation with invalid data.
+    // Test X25519 private key creation with invalid data.
     @Test func x25519PrivateKeyInvalidData() {
         let invalidScalar31 = Data(repeating: 0x05, count: 31)
         let invalidScalar33 = Data(repeating: 0x05, count: 33)
@@ -131,7 +131,7 @@ struct Curve25519KeysTests {
 
     // MARK: - Equality Tests
 
-    /// Test Ed25519 key equality.
+    // Test Ed25519 key equality.
     @Test func ed25519KeyEquality() {
         let keyData1 = Data(repeating: 0x07, count: 32)
         let keyData2 = Data(repeating: 0x08, count: 32)
@@ -144,7 +144,7 @@ struct Curve25519KeysTests {
         #expect(publicKey1a != publicKey2)
     }
 
-    /// Test X25519 key equality.
+    // Test X25519 key equality.
     @Test func x25519KeyEquality() {
         let keyData1 = Data(repeating: 0x09, count: 32)
         let keyData2 = Data(repeating: 0x0A, count: 32)

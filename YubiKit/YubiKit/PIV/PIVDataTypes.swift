@@ -282,7 +282,7 @@ public enum PIV: Sendable {
         /// Signs a raw message (hashing is performed internally)
         case message(HashAlgorithm)
 
-        /// Maps to the corresponding SecKeyAlgorithm
+        // Maps to the corresponding SecKeyAlgorithm
         internal var secKeyAlgorithm: SecKeyAlgorithm {
             switch self {
             case .digest(let hash):

@@ -22,8 +22,7 @@ import OSLog
 ///
 /// The PIVSession is an interface to the Personal Identity Verification (PIV) application on the YubiKey.
 /// It supports importing, generating and using private keys. Reading and writing data objects such as
-/// X.509 certificates and managing access (PIN, PUK, etc). Learn more about the PIV standard in the NIST SP 800-78
-/// [Cryptographic Algorithms and Key Sizes for PIV](https://csrc.nist.gov/publications/detail/sp/800-78/4/final) document.
+/// X.509 certificates and managing access (PIN, PUK, etc).
 
 public final actor PIVSession: Session {
 
