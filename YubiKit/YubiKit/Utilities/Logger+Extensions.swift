@@ -72,7 +72,7 @@ extension Logger {
 
     fileprivate static let scp = Logger(subsystem: subsystem, category: "SCP")
 
-    nonisolated static func export() async throws -> String {
+    static func export() async throws -> String {
         Logger.system.info("Logger, export(): compiling logs.")
         let store = try OSLogStore(scope: .currentProcessIdentifier)
         let date = Date.now.addingTimeInterval(-48 * 3600)

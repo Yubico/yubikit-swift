@@ -15,7 +15,7 @@
 import CommonCrypto
 import Foundation
 
-public enum PIVEncryptionError: Error, Sendable {
+public enum EncryptionError: Error, Sendable {
     case cryptorError(CCCryptorStatus)
     case missingData
     case unsupportedAlgorithm
@@ -96,7 +96,7 @@ extension Data {
         key: Data,
         iv: Data?
     ) throws -> Data {
-        guard !key.isEmpty else { throw PIVEncryptionError.missingData }
+        guard !key.isEmpty else { throw EncryptionError.missingData }
 
         let blockSize: Int
         switch Int(algorithm) {
@@ -105,7 +105,7 @@ extension Data {
         case kCCAlgorithmAES:
             blockSize = kCCBlockSizeAES128
         default:
-            throw PIVEncryptionError.unsupportedAlgorithm
+            throw EncryptionError.unsupportedAlgorithm
         }
 
         var outLength: Int = 0
@@ -145,7 +145,7 @@ extension Data {
             }
         }
 
-        guard cryptorStatus == kCCSuccess else { throw PIVEncryptionError.cryptorError(cryptorStatus) }
+        guard cryptorStatus == kCCSuccess else { throw EncryptionError.cryptorError(cryptorStatus) }
         return buffer.subdata(in: 0..<outLength)
     }
 

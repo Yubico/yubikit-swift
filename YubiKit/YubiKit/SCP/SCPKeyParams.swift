@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// Protocol for Secure Channel Protocol key parameters.
+/// Provides a common interface for different SCP version key parameters (SCP03, SCP11).
 public protocol SCPKeyParams: Sendable {
+
+    /// The key reference containing key ID and version.
     var keyRef: SCPKeyRef { get }
 }

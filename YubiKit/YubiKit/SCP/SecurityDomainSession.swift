@@ -22,7 +22,7 @@ import OSLog
 ///
 /// - unexpectedResponse: The card replied with unexpected data or status words.
 /// - illegalArgument: Caller supplied an invalid parameter.
-/// - notSupported: Requested operation isn’t available in the current context.
+/// - notSupported: Requested operation isn't available in the current context.
 /// - encryptionFailed: AES‑CBC encryption failed (CommonCrypto).
 /// - wrapped: Wraps a lower‑level ``Error`` (e.g. CryptoTokenKit).
 public enum SCPError: Error, Sendable {
@@ -84,7 +84,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     ///
     /// - Parameter feature: The feature whose availability should be queried.
     /// - Returns: `true` for all input values.
-    nonisolated public func supports(_ feature: SessionFeature) -> Bool {
+    public func supports(_ feature: SessionFeature) async -> Bool {
         true
     }
 
@@ -181,7 +181,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     /// - Parameter scpKeyRef: The key reference whose certificate chain is requested.
     ///
     /// - Throws: ``SCPError`` if the command fails or the response format is invalid.
-    /// - Returns: An array of ``SecCertificate`` objects representing the certificate chain.
+    /// - Returns: An array of ``X509Cert`` objects representing the certificate chain.
     // @TraceScope
     public func getCertificateBundle(scpKeyRef: SCPKeyRef) async throws(SCPError) -> [X509Cert] {
 
@@ -265,7 +265,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     /// Requires off-card entity verification.
     /// Certificates should be in order, with the leaf certificate last.
     /// - Parameter keyRef: a reference to the key for which to store the certificates
-    /// - Parameter certificiates: the certificates to store
+    /// - Parameter certificates: the certificates to store
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
@@ -445,7 +445,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     ///   - keyRef: The KID/KVN pair where the new public key will be stored.
     ///   - publicKey: EC public key (must be prime256v1) used as CA to authenticate the off-card entity.
     ///   - replaceKvn: Set to a non-zero KVN to delete/replace an existing key before import.
-    /// - Throws: `KeyImportError` on validation failures or any error from the APDU exchange.
+    /// - Throws: ``SCPError`` on validation failures or any error from the APDU exchange.
     // @TraceScope
     public func putKey(keyRef: SCPKeyRef, publicKey: EC.PublicKey, replaceKvn: UInt8) async throws(SCPError) {
 
@@ -477,7 +477,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     /// Imports a secret key for SCP11.
     /// Requires off-card entity verification.
     /// - Parameter keyRef: the KID-KVN pair to assign the new secret key, KID must be 0x11, 0x13, or 0x15
-    /// - Parameter secretKey: a private EC key used to authenticate the SD
+    /// - Parameter privateKey: a private EC key used to authenticate the SD
     /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.

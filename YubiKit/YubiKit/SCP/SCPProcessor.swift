@@ -266,8 +266,8 @@ internal actor SCPProcessor: HasSCPLogger {
 }
 
 extension EC.PrivateKey {
-    /// Perform an ECDH key-agreement with the passed public key
-    /// and return the raw shared secret bytes.
+    // Perform an ECDH key-agreement with the passed public key
+    // and return the raw shared secret bytes.
     fileprivate func sharedSecret(with publicKey: EC.PublicKey) -> Data? {
         guard let privateSecKey = asSecKey(), let associatedPublicSecKey = publicKey.asSecKey() else {
             return nil

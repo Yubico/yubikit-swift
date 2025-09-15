@@ -16,6 +16,7 @@ import CryptoTokenKit
 import Foundation
 import OSLog
 
+/// Errors that can occur during ManagementSession operations.
 public enum ManagementSessionError: Error, Sendable {
     /// Application is not supported on this YubiKey.
     case applicationNotSupported
@@ -39,7 +40,8 @@ public final actor ManagementSession: Session {
     private let connection: SmartCardConnection
     private let processor: SCPProcessor?
 
-    public nonisolated let version: Version
+    /// The firmware version of the YubiKey.
+    public let version: Version
 
     private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws {
         let result = try await connection.selectApplication(.management)
@@ -53,6 +55,12 @@ public final actor ManagementSession: Session {
         self.connection = connection
     }
 
+    /// Creates a new ManagementSession with the provided connection.
+    /// - Parameters:
+    ///   - connection: The smart card connection to use for this session.
+    ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
+    /// - Returns: A new ManagementSession instance.
+    /// - Throws: ManagementSessionError if session creation fails.
     public static func session(
         withConnection connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
@@ -63,7 +71,10 @@ public final actor ManagementSession: Session {
         return session
     }
 
-    nonisolated public func supports(_ feature: SessionFeature) -> Bool {
+    /// Determines whether the session supports the specified feature.
+    /// - Parameter feature: The feature to check for support.
+    /// - Returns: true if the feature is supported, false otherwise.
+    public func supports(_ feature: SessionFeature) async -> Bool {
         feature.isSupported(by: version)
     }
 
@@ -72,7 +83,7 @@ public final actor ManagementSession: Session {
     /// >Note: This functionality requires support for ``ManagementFeature/deviceInfo``, available on YubiKey 4.1 or later.
     public func getDeviceInfo() async throws -> DeviceInfo {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard self.supports(ManagementFeature.deviceInfo) else { throw SessionError.notSupported }
+        guard await self.supports(ManagementFeature.deviceInfo) else { throw SessionError.notSupported }
 
         var page: UInt8 = 0
         var hasMoreData = true
@@ -112,7 +123,7 @@ public final actor ManagementSession: Session {
         newLockCode: Data? = nil
     ) async throws {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard self.supports(ManagementFeature.deviceConfig) else { throw SessionError.notSupported }
+        guard await self.supports(ManagementFeature.deviceConfig) else { throw SessionError.notSupported }
         let data = try config.data(reboot: reboot, lockCode: lockCode, newLockCode: newLockCode)
         let apdu = APDU(cla: 0, ins: 0x1c, p1: 0, p2: 0, command: data)
         try await send(apdu: apdu)
@@ -196,7 +207,7 @@ public final actor ManagementSession: Session {
     ///
     /// >Note: This functionality requires support for ``ManagementFeature/deviceReset``, available on YubiKey 5.6 or later.
     public func deviceReset() async throws {
-        guard self.supports(ManagementFeature.deviceReset) else { throw SessionError.notSupported }
+        guard await self.supports(ManagementFeature.deviceReset) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: 0x1f, p1: 0, p2: 0)
         try await send(apdu: apdu)
     }

@@ -15,6 +15,8 @@
 import CryptoKit
 import Foundation
 
+/// Static keys for Secure Channel Protocol (SCP) operations.
+/// Contains encryption, MAC, and optionally data encryption keys used in SCP03/SCP11 sessions.
 public struct StaticKeys: Sendable {
 
     private static let defaultKey: Data = Data([
@@ -22,16 +24,28 @@ public struct StaticKeys: Sendable {
         0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f,
     ])
 
+    /// The static encryption key.
     let enc: Data
+
+    /// The static MAC key.
     let mac: Data
+
+    /// The optional data encryption key.
     let dek: Data?
 
+    /// Creates static keys for SCP operations.
+    /// - Parameters:
+    ///   - enc: The encryption key.
+    ///   - mac: The MAC key.
+    ///   - dek: The optional data encryption key.
     public init(enc: Data, mac: Data, dek: Data?) {
         self.enc = enc
         self.mac = mac
         self.dek = dek
     }
 
+    /// Returns the default static keys used for SCP operations.
+    /// - Returns: A `StaticKeys` instance with default key values.
     public static func defaultKeys() -> StaticKeys {
         StaticKeys(enc: defaultKey, mac: defaultKey, dek: defaultKey)
     }

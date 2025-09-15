@@ -17,8 +17,11 @@ import Foundation
 /// The firmware version of the YubiKey.
 public struct Version: Sendable, Comparable, CustomStringConvertible {
 
+    /// The major version number.
     public let major: UInt8
+    /// The minor version number.
     public let minor: UInt8
+    /// The micro (patch) version number.
     public let micro: UInt8
 
     internal init?(withData data: Data) {
@@ -42,6 +45,7 @@ public struct Version: Sendable, Comparable, CustomStringConvertible {
         self.micro = micro
     }
 
+    /// Compares two versions to determine if the left-hand side predates the right-hand side.
     public static func < (lhs: Version, rhs: Version) -> Bool {
         if lhs.major != rhs.major {
             return lhs.major < rhs.major
@@ -52,11 +56,12 @@ public struct Version: Sendable, Comparable, CustomStringConvertible {
         }
     }
 
+    /// Compares two versions for equality.
     public static func == (lhs: Version, rhs: Version) -> Bool {
         lhs.major == rhs.major && lhs.minor == rhs.minor && lhs.micro == rhs.micro
     }
 
-    /// String representaion of the firmware version e.g "5.2.3".
+    /// String representation of the firmware version e.g "5.2.3".
     public var description: String {
         "\(major).\(minor).\(micro)"
     }

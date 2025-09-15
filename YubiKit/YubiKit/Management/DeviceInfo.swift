@@ -17,7 +17,10 @@ import Foundation
 
 /// Identifies the type of data transport a YubiKey is using.
 public enum DeviceTransport: Sendable {
-    case usb, nfc
+    /// USB transport.
+    case usb
+    /// NFC (Near Field Communication) transport.
+    case nfc
 }
 
 /// The physical form factor of a YubiKey.
@@ -43,6 +46,7 @@ public enum FormFactor: UInt8, Sendable {
 /// Contains metadata, including Device Configuration, of a YubiKey.
 public struct DeviceInfo: Sendable, CustomStringConvertible {
 
+    /// String representation of the device information.
     public var description: String {
         """
         YubiKey \(formFactor) \(version) (#\(serialNumber))

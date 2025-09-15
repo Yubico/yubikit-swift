@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// # ECKeys
-/// Defines elliptic curve key types and utility methods for handling public and private keys for P-256 and P-384 curves.
-
 import Foundation
 
+/// Elliptic Curve cryptographic key types and utilities.
+/// Defines elliptic curve key types and utility methods for handling public and private keys for P-256 and P-384 curves.
 public enum EC: Sendable {
     /// Supported elliptic curve types (currently P-256 and P-384) using uncompressed point representation.
     public enum Curve: Sendable, Equatable {
@@ -39,10 +38,13 @@ public enum EC: Sendable {
 
     /// An elliptic curve public key (x, y coordinates) on a supported curve.
     public struct PublicKey: Sendable, Equatable {
+        /// The elliptic curve type (P-256 or P-384).
         public let curve: Curve
 
-        /// Public point
+        /// The x coordinate of the public key point.
         public let x: Data  // x coordinate
+
+        /// The y coordinate of the public key point.
         public let y: Data  // y coordinate
 
         /// Initialize a public key from its curve and coordinates.
@@ -88,10 +90,13 @@ public enum EC: Sendable {
 
     /// An elliptic curve private key with associated public key and secret scalar k.
     public struct PrivateKey: Sendable, Equatable {
+        /// The corresponding public key.
         public let publicKey: PublicKey
 
+        /// The elliptic curve type, same as publicKey.curve.
         public var curve: Curve { publicKey.curve }
 
+        /// The private scalar (k) for this key.
         public let k: Data  // secret scalar
 
         /// Uncompressed representation of private key as 0x04 || X || Y || K.
@@ -126,9 +131,9 @@ public enum EC: Sendable {
 
 // MARK: - Private helpers
 extension EC.Curve {
-    /// Initialize a curve type based on the byte length of a coordinate.
-    /// - Parameter bytesCount: Length in bytes of a single coordinate (x or y).
-    /// - Returns: Matching curve if found, or nil if not supported.
+    // Initialize a curve type based on the byte length of a coordinate.
+    // - Parameter bytesCount: Length in bytes of a single coordinate (x or y).
+    // - Returns: Matching curve if found, or nil if not supported.
     fileprivate init?(coordinateSize bytesCount: Int) {
         switch bytesCount {
         case EC.Curve.p256.keySizeInBytes:

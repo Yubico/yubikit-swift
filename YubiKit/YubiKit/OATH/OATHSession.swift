@@ -42,7 +42,7 @@ public enum OATHSessionError: Error, Sendable {
 
 /// An interface to the OATH application on the YubiKey.
 ///
-/// The OATHSession is an interface to the OATH appcliation on the YubiKey that will
+/// The OATHSession is an interface to the OATH application on the YubiKey that will
 /// let you store, calculate and edit TOTP and HOTP credentials on the YubiKey. Learn
 /// more about OATH on the [Yubico developer website](https://developers.yubico.com/OATH/).
 public final actor OATHSession: Session {
@@ -58,7 +58,8 @@ public final actor OATHSession: Session {
     }
 
     private let selectResponse: SelectResponse
-    public nonisolated var version: Version {
+    /// The firmware version of the connected YubiKey.
+    public var version: Version {
         selectResponse.version
     }
 
@@ -93,6 +94,13 @@ public final actor OATHSession: Session {
         return SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
     }
 
+    /// Creates a new OATH session with the provided connection.
+    ///
+    /// - Parameters:
+    ///   - connection: The smart card connection to use for this session.
+    ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
+    /// - Returns: A new OATH session instance.
+    /// - Throws: An error if the OATH application cannot be selected or session creation fails.
     public static func session(
         withConnection connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
@@ -103,13 +111,22 @@ public final actor OATHSession: Session {
         return session
     }
 
+    /// Performs a factory reset of the OATH application, deleting all stored credentials.
+    ///
+    /// > Warning: This operation is irreversible and will delete all OATH credentials stored on the YubiKey.
+    ///
+    /// - Throws: An error if the reset operation fails.
     public func reset() async throws {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad)
         try await send(apdu: apdu)
     }
 
-    nonisolated public func supports(_ feature: SessionFeature) -> Bool {
+    /// Checks if the OATH application supports the specified feature.
+    ///
+    /// - Parameter feature: The feature to check for support.
+    /// - Returns: `true` if the feature is supported, `false` otherwise.
+    public func supports(_ feature: SessionFeature) async -> Bool {
         feature.isSupported(by: version)
     }
 
@@ -126,10 +143,10 @@ public final actor OATHSession: Session {
     public func addCredential(template: CredentialTemplate) async throws -> Credential {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         if template.algorithm == .SHA512 {
-            guard self.supports(OATHSessionFeature.sha512) else { throw SessionError.notSupported }
+            guard await self.supports(OATHSessionFeature.sha512) else { throw SessionError.notSupported }
         }
         if template.requiresTouch {
-            guard self.supports(OATHSessionFeature.touch) else { throw SessionError.notSupported }
+            guard await self.supports(OATHSessionFeature.touch) else { throw SessionError.notSupported }
         }
         guard let nameData = template.identifier.data(using: .utf8) else { throw OATHSessionError.unexpectedData }
         let nameTlv = TKBERTLVRecord(tag: 0x71, value: nameData)
@@ -171,7 +188,7 @@ public final actor OATHSession: Session {
     ///   - newName: The new account name.
     ///   - newIssuer: The new issuer.
     public func renameCredential(_ credential: Credential, newName: String, newIssuer: String?) async throws {
-        guard self.supports(OATHSessionFeature.rename) else { throw SessionError.notSupported }
+        guard await self.supports(OATHSessionFeature.rename) else { throw SessionError.notSupported }
         guard
             let currentId = CredentialIdentifier.identifier(
                 name: credential.name,

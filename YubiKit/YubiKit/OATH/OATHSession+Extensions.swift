@@ -20,10 +20,21 @@ private let totpCode: UInt8 = 0x20
 
 extension OATHSession {
 
+    /// Errors that can occur when creating credential templates from URLs.
     public enum CredentialTemplateError: Error {
-        case missingScheme, missingName, missingSecret, parseType, parseAlgorithm
+        /// The URL is missing the required scheme (e.g., otpauth).
+        case missingScheme
+        /// The credential name is missing from the URL.
+        case missingName
+        /// The secret key is missing from the URL parameters.
+        case missingSecret
+        /// Failed to parse the credential type (HOTP/TOTP) from the URL.
+        case parseType
+        /// Failed to parse the hash algorithm from the URL parameters.
+        case parseAlgorithm
     }
 
+    /// The type of OATH credential (HOTP or TOTP).
     public enum CredentialType: CustomStringConvertible, Sendable {
 
         case HOTP(counter: UInt32 = 0)
@@ -74,9 +85,13 @@ extension OATHSession {
         }
     }
 
+    /// Hash algorithms supported for OATH credentials.
     public enum HashAlgorithm: UInt8, Sendable {
+        /// SHA-1 hash algorithm.
         case SHA1 = 0x01
+        /// SHA-256 hash algorithm.
         case SHA256 = 0x02
+        /// SHA-512 hash algorithm.
         case SHA512 = 0x03
     }
 
@@ -92,7 +107,7 @@ extension OATHSession {
         /// OATH type of the credential (TOTP or HOTP).
         public let type: OATHSession.CredentialType
 
-        /// Hash algorithm used by the credential (SHA1, SHA265 or SHA 512).
+        /// Hash algorithm used by the credential (SHA1, SHA256 or SHA512).
         public let hashAlgorithm: OATHSession.HashAlgorithm?
 
         /// The name of the account (typically a username or email address).
@@ -115,7 +130,7 @@ extension OATHSession {
             return label
         }
 
-        /// Whether or not the Credential requires touch. This value is alwyas false when using ``listCredentials()``.
+        /// Whether or not the Credential requires touch. This value is always false when using ``listCredentials()``.
         public var requiresTouch: Bool
 
         public var description: String {
@@ -307,7 +322,7 @@ extension OATHSession {
         /// Creates a CredentialTemplate.
         /// - Parameters:
         ///   - type: OATH type of the credential (TOTP or HOTP).
-        ///   - algorithm: Hash algorithm used by the credential (SHA1, SHA265 or SHA 512).
+        ///   - algorithm: Hash algorithm used by the credential (SHA1, SHA256 or SHA512).
         ///   - secret: Secret key of the credential, in raw bytes (__not__ Base32 encoded)
         ///   - issuer: Name of the credential issuer (e.g. Google, Amazon, Facebook, etc.).
         ///   - name: The name/label of the account, typically a username or email address

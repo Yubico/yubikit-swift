@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// # PublicKey
-/// Top-level public key enum supporting RSA, EC, and Curve25519 keys.
-
 import Foundation
 
-/// Generic public key (RSA, EC, Ed25519, or X25519).
+/// Top-level public key enum (RSA, EC, Ed25519, or X25519).
 public enum PublicKey: Sendable, Equatable {
+    /// Elliptic curve public key (P-256 or P-384).
     case ec(EC.PublicKey)
+    /// RSA public key (1024, 2048, 3072, or 4096 bits).
     case rsa(RSA.PublicKey)
+    /// Ed25519 public key for digital signatures.
     case ed25519(Ed25519.PublicKey)
+    /// X25519 public key for key agreement (ECDH).
     case x25519(X25519.PublicKey)
 }

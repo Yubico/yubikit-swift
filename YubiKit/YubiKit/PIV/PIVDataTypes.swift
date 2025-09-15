@@ -17,6 +17,8 @@ import Foundation
 /// Namespace for all PIV related types
 public enum PIV: Sendable {
 
+    public typealias EncryptionError = YubiKit.EncryptionError
+
     /// The touch policy of a private key defines whether or not a user presence check (physical touch) is required to use the key.
     public enum TouchPolicy: UInt8, Sendable {
         /// The default behavior for the particular key slot is used, which is always `.never`.
@@ -69,7 +71,7 @@ public enum PIV: Sendable {
         }
     }
 
-    // PIV RSA key type
+    /// RSA key type for PIV operations.
     public struct RSAKey: Equatable, Sendable {
         public let keysize: RSA.KeySize
 
@@ -82,7 +84,7 @@ public enum PIV: Sendable {
         }
     }
 
-    // PIV ECC key type
+    /// ECC key type for PIV operations.
     public struct ECCKey: Equatable, Sendable {
         public let curve: EC.Curve
 
@@ -95,6 +97,7 @@ public enum PIV: Sendable {
         }
     }
 
+    /// Ed25519 signature key type.
     public struct Ed25519Key: Equatable, Sendable {
         public static var ed25519: Ed25519Key {
             Ed25519Key()
@@ -103,6 +106,7 @@ public enum PIV: Sendable {
         private init() {}
     }
 
+    /// X25519 key agreement key type.
     public struct X25519Key: Equatable, Sendable {
         public static var x25519: X25519Key {
             X25519Key()
@@ -111,6 +115,7 @@ public enum PIV: Sendable {
         private init() {}
     }
 
+    /// Supported cryptographic key types for PIV operations.
     public enum KeyType: Equatable, Sendable {
         case rsa(RSA.KeySize)
         case ecc(EC.Curve)
@@ -177,7 +182,7 @@ public enum PIV: Sendable {
 
     /// PIV management key type.
     public enum ManagementKeyType: UInt8, Sendable {
-        /// 3-des
+        /// Triple DES
         case tripleDES = 0x03
         /// AES-128
         case AES128 = 0x08

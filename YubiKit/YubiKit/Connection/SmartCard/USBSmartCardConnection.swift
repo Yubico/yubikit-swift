@@ -20,8 +20,10 @@ import OSLog
 /// the CryptoTokenKit framework.
 @available(iOS 16.0, macOS 13.0, *)
 public struct USBSmartCardConnection: Sendable {
+    /// The smart card slot this connection is associated with.
     public let slot: USBSmartCard.YubiKeyDevice
 
+    /// Returns all available smart card slots that contain YubiKeys.
     public static var availableDevices: [USBSmartCard.YubiKeyDevice] {
         get async throws {
             try await SmartCardConnectionsManager.shared.availableDevices()
@@ -39,6 +41,9 @@ public struct USBSmartCardConnection: Sendable {
 
 extension USBSmartCardConnection: SmartCardConnection {
 
+    /// Creates a connection to the first available YubiKey smart card slot.
+    /// - Returns: A SmartCardConnection to the YubiKey.
+    /// - Throws: ConnectionError if no YubiKey is found or connection fails.
     // @TraceScope
     public static func connection() async throws -> SmartCardConnection {
         while true {
@@ -50,21 +55,36 @@ extension USBSmartCardConnection: SmartCardConnection {
         }
     }
 
+    /// Creates a connection to a specific smart card slot.
+    /// - Parameter slot: The smart card slot to connect to.
+    /// - Returns: A SmartCardConnection to the specified slot.
+    /// - Throws: ConnectionError if connection fails.
     // @TraceScope
     public static func connection(slot: USBSmartCard.YubiKeyDevice) async throws -> SmartCardConnection {
         try await SmartCardConnectionsManager.shared.connect(slot: slot)
     }
 
+    /// Closes the smart card connection with an optional error.
+    ///
+    /// - Parameter error: Optional error to indicate why the connection was closed.
     // @TraceScope
     public func close(error: Error?) async {
         try? await didClose.fulfill(error)
         trace(message: "disconnect called on sessionManager")
     }
 
+    /// Waits for the connection to close and returns any error that caused the closure.
+    ///
+    /// - Returns: An error if the connection was closed due to an error, nil otherwise.
     // @TraceScope
     public func connectionDidClose() async -> Error? {
         try? await didClose.value()
     }
+
+    /// Sends raw data to the smart card and returns the response.
+    ///
+    /// - Parameter data: Raw APDU bytes to send.
+    /// - Returns: The response data from the card.
 
     // @TraceScope
     public func send(data: Data) async throws -> Data {
@@ -79,7 +99,7 @@ extension USBSmartCardConnection: SmartCardConnection {
     }
 }
 
-// USBSmartCardConnection specific errors
+/// USBSmartCardConnection specific errors
 public enum SmartCardConnectionError: Error, Sendable {
     /// CryptoTokenKit failed to return TKSmartCardSlotManager.default
     case unsupported
@@ -91,13 +111,14 @@ public enum SmartCardConnectionError: Error, Sendable {
     case beginSessionFailed
 }
 
-// Used to indentify a card / connection.
-// Exposed when calling `USBSmartCardConnection.availableDevices`
-// and when creating a connection with USBSmartCardConnection.connection(slot:)
+/// Namespace for USB SmartCard related types.
 public enum USBSmartCard {
+    /// Represents a YubiKey device available as a smart card slot.
     public struct YubiKeyDevice: Sendable, Hashable, CustomStringConvertible {
+        /// The name of the smart card slot.
         public let name: String
 
+        /// String representation of the device, same as name.
         public var description: String { name }
 
         fileprivate init?(name: String) {
@@ -113,7 +134,7 @@ extension SmartCardConnectionsManager: HasSmartCardLogger {}
 
 // MARK: - Private helpers
 
-// MARK: Handles TKSmartCard creation and connections, plus KVOs for changes
+// Handles TKSmartCard creation and connections, plus KVOs for changes
 private final actor SmartCardConnectionsManager {
 
     // Singleton

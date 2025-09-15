@@ -14,10 +14,21 @@
 
 import Foundation
 
+/// Features that may be supported by an OATH session depending on the YubiKey firmware version.
 public enum OATHSessionFeature: SessionFeature, Sendable {
 
-    case rename, touch, sha512
+    /// Ability to rename OATH credentials.
+    case rename
 
+    /// Touch requirement support for OATH operations.
+    case touch
+
+    /// SHA-512 algorithm support for OATH credentials.
+    case sha512
+
+    /// Checks if this feature is supported by the given firmware version.
+    /// - Parameter version: The YubiKey firmware version.
+    /// - Returns: `true` if the feature is supported, `false` otherwise.
     public func isSupported(by version: Version) -> Bool {
         switch self {
         case .rename:
