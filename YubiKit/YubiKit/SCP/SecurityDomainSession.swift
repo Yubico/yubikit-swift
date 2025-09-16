@@ -46,6 +46,8 @@ public enum SCPError: Error, Sendable {
 /// methods as needed.
 public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
 
+    public typealias Feature = SecurityDomainFeature
+
     private let connection: SmartCardConnection
     private let processor: SCPProcessor?
 
@@ -80,12 +82,16 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         try await SecurityDomainSession(connection: connection, scpKeyParams: scpKeyParams)
     }
 
-    /// Indicates whether the session supports the specified feature.
+    /// Checks if the session supports the specified feature.
     ///
-    /// - Parameter feature: The feature whose availability should be queried.
-    /// - Returns: `true` for all input values.
-    public func supports(_ feature: SessionFeature) async -> Bool {
-        true
+    /// This method is required by the Session protocol but is unreachable for
+    /// SecurityDomainSession since SecurityDomainFeature is an empty enum with no cases.
+    /// No instances of SecurityDomainFeature can exist, making this method impossible to call.
+    ///
+    /// - Parameter feature: The feature to check (no valid values exist).
+    /// - Returns: Never returns as this method is unreachable.
+    public func supports(_ feature: SecurityDomainSession.Feature) async -> Bool {
+        // Unreachable - SecurityDomainFeature has no cases
     }
 
     /// Sends a **GET DATA** command to the card and returns the raw response bytes.

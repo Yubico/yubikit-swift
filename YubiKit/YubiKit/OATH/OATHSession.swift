@@ -47,6 +47,8 @@ public enum OATHSessionError: Error, Sendable {
 /// more about OATH on the [Yubico developer website](https://developers.yubico.com/OATH/).
 public final actor OATHSession: Session {
 
+    public typealias Feature = OATHSessionFeature
+
     private let connection: SmartCardConnection
     private let processor: SCPProcessor?
 
@@ -129,7 +131,7 @@ public final actor OATHSession: Session {
     ///
     /// - Parameter feature: The feature to check for support.
     /// - Returns: `true` if the feature is supported, `false` otherwise.
-    public func supports(_ feature: SessionFeature) async -> Bool {
+    public func supports(_ feature: OATHSession.Feature) async -> Bool {
         feature.isSupported(by: version)
     }
 

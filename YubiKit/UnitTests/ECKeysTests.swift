@@ -79,8 +79,8 @@ struct ECKeysTests {
             let pubRaw = privKey.publicKey.uncompressedPoint
 
             // Decode back from uncompressed representation
-            let decodedPriv = EC.PrivateKey.secp(uncompressedRepresentation: privRaw)
-            let decodedPub = EC.PublicKey.secp(uncompressedPoint: pubRaw)
+            let decodedPriv = EC.PrivateKey(uncompressedRepresentation: privRaw, curve: curve)
+            let decodedPub = EC.PublicKey(uncompressedPoint: pubRaw, curve: curve)
 
             // Compare all components of private key
             #expect(decodedPriv != nil)
@@ -99,10 +99,10 @@ struct ECKeysTests {
     @Test func decodeInvalidRawReturnsNil() {
         let invalid = Data([0x00, 0x01, 0x02])
         let curves: [EC.Curve] = [.secp256r1, .secp384r1]
-        for _ in curves {
-            let decodedPriv = EC.PrivateKey.secp(uncompressedRepresentation: invalid)
+        for curve in curves {
+            let decodedPriv = EC.PrivateKey(uncompressedRepresentation: invalid, curve: curve)
             #expect(decodedPriv == nil)
-            let decodedPub = EC.PublicKey.secp(uncompressedPoint: invalid)
+            let decodedPub = EC.PublicKey(uncompressedPoint: invalid, curve: curve)
             #expect(decodedPub == nil)
         }
     }
@@ -123,7 +123,7 @@ struct ECKeysTests {
 
             // Re-initialize EC.PublicKey from this uncompressed data
             if let pubRaw = publicDERFromSecKey {
-                let roundTrippedPubKey = EC.PublicKey.secp(uncompressedPoint: pubRaw)
+                let roundTrippedPubKey = EC.PublicKey(uncompressedPoint: pubRaw, curve: curve)
                 #expect(roundTrippedPubKey != nil)
                 #expect(roundTrippedPubKey?.x == originalPubKey.x)
                 #expect(roundTrippedPubKey?.y == originalPubKey.y)
@@ -146,7 +146,7 @@ struct ECKeysTests {
 
             // Re-initialize EC.PrivateKey from this uncompressed data
             if let privRaw = privateDERFromSecKey {
-                let roundTrippedPrivKey = EC.PrivateKey.secp(uncompressedRepresentation: privRaw)
+                let roundTrippedPrivKey = EC.PrivateKey(uncompressedRepresentation: privRaw, curve: curve)
                 #expect(roundTrippedPrivKey != nil)
                 #expect(roundTrippedPrivKey?.publicKey.x == originalPrivKey.publicKey.x)
                 #expect(roundTrippedPrivKey?.publicKey.y == originalPrivKey.publicKey.y)
