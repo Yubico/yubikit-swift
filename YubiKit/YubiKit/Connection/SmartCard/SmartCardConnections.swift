@@ -35,27 +35,6 @@ public enum WiredSmartCardConnection: Sendable {
     }
 }
 
-public enum AnySmartCardConnection: Sendable {
-    /// Establishes a connection to a YubiKey over either wired or NFC.
-    ///
-    /// Use this method to connect to a YubiKey using any available interface. If no wired YubiKey
-    /// is present and the device supports NFC, the SDK will initiate an NFC scan.
-    ///
-    /// You can optionally provide a custom NFC alert message to be displayed to the user when
-    /// prompting for NFC scanning.
-    ///
-    /// - Parameter nfcAlertMessage: An optional message shown to the user during NFC scanning.
-    /// - Returns: A ``SmartCardConnection`` instance representing the established connection, either wired or NFC.
-    /// - Throws: An error if a connection could not be established.
-    ///
-    /// ```swift
-    /// let someConnection = try await AnySmartCardConnection.connection()
-    /// ```
-    public static func connection(nfcAlertMessage: String? = nil) async throws -> SmartCardConnection {
-        try await SmartCardConnections.new(kind: .any(nfcAlertMessage: nfcAlertMessage))
-    }
-}
-
 private enum SmartCardConnections {
 
     fileprivate enum Kind {
