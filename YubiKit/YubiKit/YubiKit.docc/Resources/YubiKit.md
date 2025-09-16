@@ -23,9 +23,6 @@ let session = try await OATHSession.session(withConnection: connection)
 let codes = try await session.calculateCodes()
 ```
 
-There's also a set of wrappers providing delegate and callback based versions of the SDK, simplifiying
-transitioning from the old Objective-C SDK.
-
 ## Topics
 
 ### Preparing your project
@@ -36,6 +33,7 @@ transitioning from the old Objective-C SDK.
 
 @Links(visualStyle: detailedGrid) {
     - <doc:OATHSampleCode>
+    - <doc:PIVToolSampleCode>
 }
 
 ### Creating a SmartCardConnection to a YubiKey
@@ -49,7 +47,7 @@ data in the form of a ``APDU`` to the YubiKey. In most cases it is adviced to us
 - ``NFCSmartCardConnection``
 - ``USBSmartCardConnection``
 - ``LightningSmartCardConnection``
-- ``ConnectionHelper``
+- ``WiredSmartCardConnection``
 
 ### Sending and receiving data
 
@@ -68,3 +66,4 @@ communication with the YubiKey.
 - ``OATHSession``
 - ``ManagementSession``
 - ``PIVSession``
+- ``SecurityDomainSession``
