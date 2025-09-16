@@ -26,12 +26,9 @@ public protocol SmartCardConnection: Connection {
     /// Call this method to get a connection to a YubiKey. The method will wait
     /// until a connection to a YubiKey has been established and then return it.
     ///
-    /// If the method is called a second time while already waiting for a connection
-    /// the first call to connection() will be cancelled.
-    ///
-    /// If a connection has been established and this method is called again the
-    /// first connection will be closed and ``connectionDidClose()`` will return for
-    /// the previous connection.
+    /// > Warning: Only one connection can exist at a time. If this method is called while
+    /// another connection is active or pending, it will throw ``ConnectionError/busy``.
+    /// The existing connection must be closed first using ``close(error:)``.
     static func connection() async throws -> SmartCardConnection
 
     /// Send an APDU to the SmartCardConnection.

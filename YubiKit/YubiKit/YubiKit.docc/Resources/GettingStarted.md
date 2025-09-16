@@ -149,11 +149,11 @@ import YubiKit
 do {
     let connection = try await WiredSmartCardConnection.connection()
 
-    // Connection stays active until YubiKey is unplugged
+    // Perform operations - connection stays active
     let session = try await OATHSession.session(withConnection: connection)
     let codes = try await session.calculateCodes()
 
-    // Monitor for disconnection
+    // Monitor for disconnection or close when done
     let error = await connection.connectionDidClose()
     if let error = error {
         print("Connection closed with error: \(error)")
@@ -182,6 +182,18 @@ let nfcConnection = try await NFCSmartCardConnection.connection(
     alertMessage: "Hold your YubiKey near the phone"
 )
 ```
+
+## Understanding Connection Lifecycle
+
+**Critical:** Connections must be explicitly closed. You can only have one active connection to a YubiKey at any time.
+
+### Connection Behavior
+
+- **Exclusive access**: Only one connection can exist per YubiKey at any time
+- **Manual closure required**: Dropping a connection reference does NOT automatically close it - you must call `close()`
+- **Resource blocking**: An unclosed connection prevents new connections (throws `ConnectionError.busy`)
+
+Connections are value types that act as exclusive access tokens to the underlying hardware resource.
 
 ## Working with Sessions
 

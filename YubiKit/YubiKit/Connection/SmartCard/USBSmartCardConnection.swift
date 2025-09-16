@@ -42,8 +42,12 @@ public struct USBSmartCardConnection: Sendable {
 extension USBSmartCardConnection: SmartCardConnection {
 
     /// Creates a connection to the first available YubiKey smart card slot.
+    ///
+    /// > Warning: Connections must be explicitly closed using ``close(error:)``.
+    /// Only one connection can exist at a time - attempting to create another will throw ``ConnectionError/busy``.
+    ///
     /// - Returns: A SmartCardConnection to the YubiKey.
-    /// - Throws: ConnectionError if no YubiKey is found or connection fails.
+    /// - Throws: ``ConnectionError/busy`` if another connection is active, or other ConnectionError if no YubiKey is found or connection fails.
     // @TraceScope
     public static func connection() async throws -> SmartCardConnection {
         while true {
@@ -56,9 +60,13 @@ extension USBSmartCardConnection: SmartCardConnection {
     }
 
     /// Creates a connection to a specific smart card slot.
+    ///
+    /// > Warning: Connections must be explicitly closed using ``close(error:)``.
+    /// Only one connection can exist at a time - attempting to create another will throw ``ConnectionError/busy``.
+    ///
     /// - Parameter slot: The smart card slot to connect to.
     /// - Returns: A SmartCardConnection to the specified slot.
-    /// - Throws: ConnectionError if connection fails.
+    /// - Throws: ``ConnectionError/busy`` if another connection is active, or other ConnectionError if connection fails.
     // @TraceScope
     public static func connection(slot: USBSmartCard.YubiKeyDevice) async throws -> SmartCardConnection {
         try await SmartCardConnectionsManager.shared.connect(slot: slot)

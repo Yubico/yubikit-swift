@@ -40,8 +40,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// taps a YubiKey.
     ///
     /// - Returns: A fully–established connection ready for APDU exchange.
-    /// - Throws: ``NFCConnectionError.unsupported`` when NFC is unavailable or
-    ///           ``ConnectionError.cancelled`` if another connection is in flight.
+    /// - Throws: ``NFCConnectionError.unsupported`` when NFC is unavailable.
     // @TraceScope
     public static func connection() async throws -> SmartCardConnection {
         trace(message: "NFCSmartCardConnection.connection() – requesting new connection")
