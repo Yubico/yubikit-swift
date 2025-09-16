@@ -232,47 +232,11 @@ print("Device info: \(deviceInfo)")
 
 ### For UI Applications
 
-In SwiftUI or UIKit apps, you typically want to maintain persistent connections and react to connection changes. The **OATHSample** app demonstrates this pattern:
-
-```swift
-@MainActor
-class ConnectionManager: ObservableObject {
-    @Published var connection: SmartCardConnection?
-
-    func startListening() {
-        Task {
-            // Continuously wait for YubiKey connections
-            while true {
-                do {
-                    let newConnection = try await WiredSmartCardConnection.connection()
-                    self.connection = newConnection
-
-                    // Wait for disconnection
-                    await newConnection.connectionDidClose()
-                    self.connection = nil
-                } catch {
-                    // Handle connection errors
-                }
-            }
-        }
-    }
-}
-```
-
-This approach lets your UI automatically update when YubiKeys are plugged in or removed, creating a smooth user experience.
+In SwiftUI or UIKit apps, you typically want to maintain persistent connections and react to connection changes. See <doc:OATHSampleCode> for complete examples of reactive connection management patterns that automatically update your UI when YubiKeys are plugged in or removed.
 
 ### For Command-Line Tools
 
-CLI applications often use a simpler approach with a single connection per operation. The **PIVTool** sample demonstrates this pattern:
-
-```swift
-// Connect once, perform operations, exit
-let connection = try await WiredSmartCardConnection.connection()
-let session = try await PIVSession.session(withConnection: connection)
-// ... perform operations
-```
-
-Command-line tools don't need to handle connection changes reactively since they typically run one command and exit.
+CLI applications often use a simpler approach with a single connection per operation. See <doc:PIVToolSampleCode> for examples of how command-line tools handle connections for one-time operations.
 
 ## Next Steps
 

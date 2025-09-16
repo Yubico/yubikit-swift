@@ -61,7 +61,7 @@ public struct Version: Sendable, Comparable, CustomStringConvertible {
         lhs.major == rhs.major && lhs.minor == rhs.minor && lhs.micro == rhs.micro
     }
 
-    /// String representation of the firmware version e.g "5.2.3".
+    /// String representation of the firmware version e.g. "5.2.3".
     public var description: String {
         "\(major).\(minor).\(micro)"
     }

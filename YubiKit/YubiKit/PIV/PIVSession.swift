@@ -686,7 +686,7 @@ public final actor PIVSession: Session {
 
     /// Authenticate with PIN.
     /// - Parameter pin: The UTF8 encoded PIN. Default PIN code is 123456.
-    /// - Returns: Returns the number of retries left. If 0 PIN authentication has been
+    /// - Returns: Returns the number of retries left. If 0, PIN authentication has been
     ///            blocked. Note that 15 is the highest number of retries left that will be returned even if
     ///            remaining tries is higher.
     @discardableResult

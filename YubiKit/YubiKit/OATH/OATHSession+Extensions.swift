@@ -322,7 +322,7 @@ extension OATHSession {
         /// Creates a CredentialTemplate.
         /// - Parameters:
         ///   - type: OATH type of the credential (TOTP or HOTP).
-        ///   - algorithm: Hash algorithm used by the credential (SHA1, SHA256 or SHA512).
+        ///   - algorithm: Hash algorithm used by the credential (SHA1, SHA256, or SHA512).
         ///   - secret: Secret key of the credential, in raw bytes (__not__ Base32 encoded)
         ///   - issuer: Name of the credential issuer (e.g. Google, Amazon, Facebook, etc.).
         ///   - name: The name/label of the account, typically a username or email address
