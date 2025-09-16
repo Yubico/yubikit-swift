@@ -22,6 +22,9 @@ import Foundation
 /// The protocol is implemented by ``OATHSession`` and ``ManagementSession``.
 public protocol Session: Sendable {
 
+    /// The type of features supported by this session.
+    associatedtype Feature: SessionFeature
+
     /// Returns a new session using the supplied connection.
     static func session(
         withConnection connection: SmartCardConnection,
@@ -29,7 +32,7 @@ public protocol Session: Sendable {
     ) async throws -> Self
 
     /// Determine whether the Session supports the specific feature.
-    func supports(_ feature: SessionFeature) async -> Bool
+    func supports(_ feature: Feature) async -> Bool
 }
 
 /// A protocol defining a feature that can be supported by a session.

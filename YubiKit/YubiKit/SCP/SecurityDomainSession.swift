@@ -46,6 +46,8 @@ public enum SCPError: Error, Sendable {
 /// methods as needed.
 public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
 
+    public typealias Feature = SecurityDomainFeature
+
     private let connection: SmartCardConnection
     private let processor: SCPProcessor?
 
@@ -81,12 +83,10 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     }
 
     /// Indicates whether the session supports the specified feature.
+    /// Can't be called for `SecurityDomainSession` because `Feature` can't be instantiated
     ///
     /// - Parameter feature: The feature whose availability should be queried.
-    /// - Returns: `true` for all input values.
-    public func supports(_ feature: SessionFeature) async -> Bool {
-        true
-    }
+    public func supports(_ feature: SecurityDomainSession.Feature) async -> Bool {}
 
     /// Sends a **GET DATA** command to the card and returns the raw response bytes.
     ///

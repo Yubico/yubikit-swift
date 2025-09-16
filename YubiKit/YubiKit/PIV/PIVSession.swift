@@ -26,6 +26,8 @@ import OSLog
 
 public final actor PIVSession: Session {
 
+    public typealias Feature = PIVSessionFeature
+
     /// The firmware version of the connected YubiKey.
     public let version: Version
 
@@ -67,7 +69,7 @@ public final actor PIVSession: Session {
     ///
     /// - Parameter feature: The feature to check for support.
     /// - Returns: `true` if the feature is supported, `false` otherwise.
-    public func supports(_ feature: SessionFeature) async -> Bool {
+    public func supports(_ feature: PIVSession.Feature) async -> Bool {
         feature.isSupported(by: version)
     }
 
