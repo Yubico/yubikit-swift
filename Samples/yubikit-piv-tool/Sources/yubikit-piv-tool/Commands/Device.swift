@@ -62,10 +62,11 @@ struct Info: AsyncParsableCommand {
         // Connect to PIV application on the YubiKey
         let session = try await PIVSession.shared()
 
-        print("PIV version: \(session.version.major).\(session.version.minor).\(session.version.micro)")
+        let version = await session.version
+        print("PIV version: \(version.major).\(version.minor).\(version.micro)")
 
         // Verify YubiKey supports metadata operations
-        guard session.supports(PIVSessionFeature.metadata) else {
+        guard await session.supports(PIVSessionFeature.metadata) else {
             throw PIVToolError.unsupportedOperation(
                 operation: "metadata",
                 reason: "This YubiKey does not support metadata operations"
