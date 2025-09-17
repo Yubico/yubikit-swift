@@ -115,6 +115,9 @@ public final actor OATHSession: Session {
     ///
     /// > Warning: This operation is irreversible and will delete all OATH credentials stored on the YubiKey.
     ///
+    /// > Important: Calling `reset()` will cause this session to enter an unusable state.
+    /// > After reset, the `OATHSession` should be discarded and a new session should be established.
+    ///
     /// - Throws: An error if the reset operation fails.
     public func reset() async throws {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
