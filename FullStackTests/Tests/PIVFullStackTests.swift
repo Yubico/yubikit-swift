@@ -135,7 +135,7 @@ struct PIVFullStackTests {
     @Test("Sign with Ed25519", .tags(.pivSigning))
     func signEd25519() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
 
             let publicKey = try await session.generateKeyInSlot(
                 slot: .signature,
@@ -205,7 +205,7 @@ struct PIVFullStackTests {
     @Test("ECDH with X25519", .tags(.pivKeyAgreement))
     func sharedSecretX25519() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.x25519, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.x25519, in: session)
 
             let publicKey = try await session.generateKeyInSlot(
                 slot: .signature,
@@ -317,7 +317,7 @@ struct PIVFullStackTests {
     @Test("Import Ed25519 Key", .tags(.pivKeyManagement))
     func putEd25519Key() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
 
             // Generate Ed25519 key using CryptoKit
             let cryptoKitPrivateKey = Curve25519.Signing.PrivateKey()
@@ -359,7 +359,7 @@ struct PIVFullStackTests {
     @Test("Import X25519 Key", .tags(.pivKeyManagement))
     func putX25519Key() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.x25519, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.x25519, in: session)
 
             // Generate X25519 key using CryptoKit
             let cryptoKitPrivateKey = Curve25519.KeyAgreement.PrivateKey()
@@ -448,7 +448,7 @@ struct PIVFullStackTests {
     @Test("Generate Ed25519 Key", .tags(.pivKeyManagement))
     func generateEd25519Key() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
 
             let result = try await session.generateKeyInSlot(
                 slot: .signature,
@@ -467,7 +467,7 @@ struct PIVFullStackTests {
     @Test("Generate X25519 Key", .tags(.pivKeyManagement))
     func generateX25519Key() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.x25519, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.x25519, in: session)
 
             let result = try await session.generateKeyInSlot(
                 slot: .signature,
@@ -507,7 +507,7 @@ struct PIVFullStackTests {
     @Test("Attest Ed25519 Key", .tags(.pivAuthentication))
     func attestEd25519Key() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
 
             let result = try await session.generateKeyInSlot(slot: .signature, type: .ed25519)
             guard case let .ed25519(publicKey) = result else {
@@ -528,7 +528,7 @@ struct PIVFullStackTests {
     @Test("Attest X25519 Key", .tags(.pivAuthentication))
     func attestX25519Key() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.x25519, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.x25519, in: session)
 
             let result = try await session.generateKeyInSlot(slot: .signature, type: .x25519)
             guard case let .x25519(publicKey) = result else {
@@ -574,7 +574,7 @@ struct PIVFullStackTests {
     @Test("Move Key", .tags(.pivKeyManagement))
     func moveKey() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.moveDelete, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.moveDelete, in: session)
 
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication)
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .signature)
@@ -605,7 +605,7 @@ struct PIVFullStackTests {
     @Test("Delete Key", .tags(.pivKeyManagement))
     func deleteKey() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.moveDelete, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.moveDelete, in: session)
 
             try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: true)
             let publicKey = try await session.generateKeyInSlot(
@@ -728,7 +728,7 @@ struct PIVFullStackTests {
             try await session.verifyPin(defaultPIN)
             try await session.set(pinAttempts: 5, pukAttempts: 6)
 
-            try requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
             let pinResult = try await session.getPinMetadata()
             #expect(pinResult.retriesRemaining == 5)
             let pukResult = try await session.getPukMetadata()
@@ -741,17 +741,17 @@ struct PIVFullStackTests {
     @Test("Version", .tags(.piv))
     func version() async throws {
         try await withPIVSession { session in
-            let version = session.version
+            let version = await session.version
             #expect(version.major == 5)
             #expect([2, 3, 4, 7].contains(version.minor))
-            print("➡️ Version: \(session.version.major).\(session.version.minor).\(session.version.micro)")
+            print("➡️ Version: \(version.major).\(version.minor).\(version.micro)")
         }
     }
 
     @Test("Serial Number", .tags(.piv))
     func serialNumber() async throws {
         try await withPIVSession { session in
-            try requireFeatureSupport(PIVSessionFeature.serialNumber, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.serialNumber, in: session)
 
             let serialNumber = try await session.getSerialNumber()
             #expect(serialNumber > 0)
@@ -764,7 +764,7 @@ struct PIVFullStackTests {
     @Test("Management Key Metadata", .tags(.piv))
     func managementKeyMetadata() async throws {
         try await withPIVSession { session in
-            try requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
 
             let metadata = try await session.getManagementKeyMetadata()
             #expect(metadata.isDefault == true)
@@ -776,7 +776,7 @@ struct PIVFullStackTests {
     @Test("Slot Metadata", .tags(.piv))
     func slotMetadata() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
 
             var publicKey = try await session.generateKeyInSlot(
                 slot: .authentication,
@@ -822,7 +822,7 @@ struct PIVFullStackTests {
     @Test("AES Management Key Metadata", .tags(.pivAuthentication))
     func aesManagementKeyMetadata() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
 
             let aesManagementKey = Data(hexEncodedString: "f7ef787b46aa50de066bdade00aee17fc2b710372b722de5")!
             try await session.setManagementKey(aesManagementKey, type: .AES192, requiresTouch: true)
@@ -836,7 +836,7 @@ struct PIVFullStackTests {
     @Test("PIN Metadata", .tags(.pivAuthentication))
     func pinMetadata() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
 
             let result = try await session.getPinMetadata()
             #expect(result.isDefault == true)
@@ -848,7 +848,7 @@ struct PIVFullStackTests {
     @Test("PIN Metadata Retries", .tags(.pivAuthentication))
     func pinMetadataRetries() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
 
             _ = try await session.verifyPin("111111")
             let result = try await session.getPinMetadata()
@@ -861,7 +861,7 @@ struct PIVFullStackTests {
     @Test("PUK Metadata", .tags(.pivAuthentication))
     func pukMetadata() async throws {
         try await withPIVSession { session in
-            try requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
 
             let result = try await session.getPukMetadata()
             #expect(result.isDefault == true)
@@ -1096,11 +1096,11 @@ struct PIVFullStackTests {
         #expect(data == decryptedData)
     }
 
-    private func requireFeatureSupport<T: SessionFeature>(
-        _ feature: T,
+    private func requireFeatureSupport(
+        _ feature: PIVSession.Feature,
         in session: PIVSession
-    ) throws {
-        guard session.supports(feature) else {
+    ) async throws {
+        guard await session.supports(feature) else {
             return
         }
     }

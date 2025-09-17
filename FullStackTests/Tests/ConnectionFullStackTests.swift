@@ -200,7 +200,7 @@ struct NFCFullStackTests {
 
     @Test("NFC Alert Message")
     func nfcAlertMessage() async throws {
-        let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
+        let connection = try await TestableConnection.create(with: .nfc(alertMessage: "Test Alert Message"))
         await connection.nfcConnection?.setAlertMessage("Updated Alert Message")
         try? await Task.sleep(for: .seconds(1))
         await connection.nfcConnection?.close(message: "Closing Alert Message")
@@ -208,7 +208,7 @@ struct NFCFullStackTests {
 
     @Test("NFC Closing Error Message")
     func nfcClosingErrorMessage() async throws {
-        let connection = try await TestableConnections.create(with: .nfc(alertMessage: "Test Alert Message"))
+        let connection = try await TestableConnection.create(with: .nfc(alertMessage: "Test Alert Message"))
         await connection.close(error: nil)
     }
 
