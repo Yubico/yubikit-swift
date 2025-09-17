@@ -23,7 +23,10 @@ import OSLog
 public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
     let accessoryConnectionID: Int
 
-    // Starts lightning and wait for a connection
+    /// Creates a connection to a YubiKey via Lightning port.
+    ///
+    /// > Warning: Connections must be explicitly closed using ``close(error:)``.
+    /// Only one connection can exist at a time - attempting to create another will throw ``ConnectionError/busy``.
     public static func connection() async throws -> SmartCardConnection {
         trace(message: "requesting new connection")
         return try await LightningConnectionManager.shared.connect()

@@ -22,12 +22,12 @@ import OSLog
 ///
 /// The PIVSession is an interface to the Personal Identity Verification (PIV) application on the YubiKey.
 /// It supports importing, generating and using private keys. Reading and writing data objects such as
-/// X.509 certificates and managing access (PIN, PUK, etc). Learn more about the PIV standard in the NIST SP 800-78
-/// [Cryptographic Algorithms and Key Sizes for PIV](https://csrc.nist.gov/publications/detail/sp/800-78/4/final) document.
+/// X.509 certificates and managing access (PIN, PUK, etc).
 
 public final actor PIVSession: Session {
 
-    nonisolated public let version: Version
+    /// The firmware version of the connected YubiKey.
+    public let version: Version
 
     private let connection: SmartCardConnection
     private let processor: SCPProcessor?
@@ -48,6 +48,13 @@ public final actor PIVSession: Session {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: version))")
     }
 
+    /// Creates a new PIV session with the provided connection.
+    ///
+    /// - Parameters:
+    ///   - connection: The smart card connection to use for this session.
+    ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
+    /// - Returns: A new PIV session instance.
+    /// - Throws: An error if the PIV application cannot be selected or session creation fails.
     public static func session(
         withConnection connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
@@ -56,7 +63,11 @@ public final actor PIVSession: Session {
         try await PIVSession(connection: connection, scpKeyParams: scpKeyParams)
     }
 
-    nonisolated public func supports(_ feature: SessionFeature) -> Bool {
+    /// Checks if the PIV application supports the specified feature.
+    ///
+    /// - Parameter feature: The feature to check for support.
+    /// - Returns: `true` if the feature is supported, `false` otherwise.
+    public func supports(_ feature: SessionFeature) async -> Bool {
         feature.isSupported(by: version)
     }
 
@@ -137,7 +148,7 @@ public final actor PIVSession: Session {
     /// Decrypts a RSA-encrypted message.
     /// - Parameters:
     ///   - slot: The slot containing the private key to use.
-    ///   - algorithm: The same algorithm used when signing.
+    ///   - algorithm: The padding algorithm to use when decrypting.
     ///   - data: The encrypted data to decrypt.
     /// - Returns: The decrypted data.
     public func decryptWithKeyInSlot(
@@ -191,7 +202,7 @@ public final actor PIVSession: Session {
     /// Creates an attestation certificate for a private key which was generated on the YubiKey.
     ///
     /// A high level description of the thinking and how this can be used can be found at
-    /// [](https://developers.yubico.com/PIV/Introduction/PIV_attestation.html).
+    /// [PIV attestation documentation](https://developers.yubico.com/PIV/Introduction/PIV_attestation.html).
     /// Attestation works through a special key slot called "f9" this comes pre-loaded from factory
     /// with a key and cert signed by Yubico, but can be overwritten. After a key has been generated
     /// in a normal slot it can be attested by this special key
@@ -204,7 +215,7 @@ public final actor PIVSession: Session {
     /// - Returns: The attestation certificate.
     public func attestKeyInSlot(slot: PIV.Slot) async throws -> X509Cert {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard self.supports(PIVSessionFeature.attestation) else { throw SessionError.notSupported }
+        guard await self.supports(PIVSessionFeature.attestation) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insAttest, p1: slot.rawValue, p2: 0)
         let result = try await send(apdu: apdu)
         return X509Cert(der: result)
@@ -410,7 +421,7 @@ public final actor PIVSession: Session {
     ///   - sourceSlot: Slot to move the key from.
     ///   - destinationSlot: Slot to move the key to.
     public func moveKey(sourceSlot: PIV.Slot, destinationSlot: PIV.Slot) async throws {
-        guard self.supports(PIVSessionFeature.moveDelete) else { throw SessionError.notSupported }
+        guard await self.supports(PIVSessionFeature.moveDelete) else { throw SessionError.notSupported }
         guard sourceSlot != PIV.Slot.attestation else { throw SessionError.illegalArgument }
         Logger.piv.debug(
             "Move key from \(String(describing: sourceSlot)) to \(String(describing: destinationSlot)), \(#function)"
@@ -423,7 +434,7 @@ public final actor PIVSession: Session {
     ///
     /// - Parameter slot: Slot to delete the key from.
     public func deleteKey(in slot: PIV.Slot) async throws {
-        guard self.supports(PIVSessionFeature.moveDelete) else { throw SessionError.notSupported }
+        guard await self.supports(PIVSessionFeature.moveDelete) else { throw SessionError.notSupported }
         Logger.piv.debug("Delete key in \(String(describing: slot)), \(#function)")
         let apdu = APDU(cla: 0, ins: insMoveKey, p1: 0xff, p2: slot.rawValue)
         try await send(apdu: apdu)
@@ -433,7 +444,7 @@ public final actor PIVSession: Session {
     ///
     /// This method requires authentication.
     ///
-    /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIVPinProtocol.never`.
+    /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIV.PinPolicy.never`.
     ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
     ///        `PIV.KeyType.ECCP348` requires P384 support, available on YubiKey 4 or later.
     ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy, available on YubiKey 4 or later.
@@ -505,10 +516,10 @@ public final actor PIVSession: Session {
     ) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         if requiresTouch {
-            guard self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
         }
         if type == .tripleDES {
-            guard self.supports(PIVSessionFeature.aesKey) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.aesKey) else { throw SessionError.notSupported }
         }
         let tlv = TKBERTLVRecord(tag: tagSlotCardManagement, value: managementKeyData)
         var data = Data([type.rawValue])
@@ -524,7 +535,7 @@ public final actor PIVSession: Session {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
 
         let keyType: PIV.ManagementKeyType
-        if supports(PIVSessionFeature.metadata) {
+        if await supports(PIVSessionFeature.metadata) {
             let metadata = try await getManagementKeyMetadata()
             keyType = metadata.keyType
         } else {
@@ -598,7 +609,7 @@ public final actor PIVSession: Session {
     /// - Returns: The metadata for the slot.
     public func getSlotMetadata(_ slot: PIV.Slot) async throws -> PIV.SlotMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
+        guard await self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
         let result = try await send(apdu: APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: slot.rawValue))
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result) else {
             throw PIV.SessionError.dataParseError
@@ -625,11 +636,11 @@ public final actor PIVSession: Session {
         )
     }
 
-    /// Reads metadata about the card management key
+    /// Reads metadata about the card management key.
     /// - Returns: The metadata for the management key.
     public func getManagementKeyMetadata() async throws -> PIV.ManagementKeyMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
+        guard await self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2SlotCardmanagement)
         let result = try await send(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
@@ -661,22 +672,22 @@ public final actor PIVSession: Session {
 
     /// Get the serial number of the YubiKey.
     ///
-    /// >Note: This requires the SERIAL_API_VISIBILE flag to be set on one of the YubiOTP slots (it is set by default).
+    /// >Note: This requires the SERIAL_API_VISIBLE flag to be set on one of the YubiOTP slots (it is set by default).
     ///        This functionality requires support for feature serial, available on YubiKey 5 or later.
     ///
     /// - Returns: The serial number.
     public func getSerialNumber() async throws -> UInt32 {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard self.supports(PIVSessionFeature.serialNumber) else { throw SessionError.notSupported }
+        guard await self.supports(PIVSessionFeature.serialNumber) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insGetSerial, p1: 0, p2: 0)
         let result = try await send(apdu: apdu)
         return CFSwapInt32BigToHost(result.uint32)
     }
 
-    /// Authenticate with pin.
-    /// - Parameter pin: The UTF8 encoded pin. Default pin code is 123456.
-    /// - Returns: Returns the number of retries left. If 0 pin authentication has been
-    ///            blocked. Note that 15 is the higheset number of retries left that will be returned even if
+    /// Authenticate with PIN.
+    /// - Parameter pin: The UTF8 encoded PIN. Default PIN code is 123456.
+    /// - Returns: Returns the number of retries left. If 0, PIN authentication has been
+    ///            blocked. Note that 15 is the highest number of retries left that will be returned even if
     ///            remaining tries is higher.
     @discardableResult
     public func verifyPin(_ pin: String) async throws -> PIV.VerifyPinResult {
@@ -699,63 +710,71 @@ public final actor PIVSession: Session {
         }
     }
 
-    /// Set a new pin code for the YubiKey.
+    /// Set a new PIN code for the YubiKey.
     /// - Parameters:
-    ///   - newPin: The new UTF8 encoded pin.
-    ///   - oldPin: Old pin code. UTF8 encoded.
+    ///   - newPin: The new UTF8 encoded PIN.
+    ///   - oldPin: Old PIN code. UTF8 encoded.
     public func setPin(_ newPin: String, oldPin: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await changeReference(ins: insChangeReference, p2: p2Pin, valueOne: oldPin, valueTwo: newPin)
     }
 
-    /// Set a new puk code for the YubiKey.
+    /// Set a new PUK code for the YubiKey.
     /// - Parameters:
-    ///   - newPuk: The new UTF8 encoded puk.
-    ///   - oldPuk: Old puk code. UTF8 encoded.
+    ///   - newPuk: The new UTF8 encoded PUK.
+    ///   - oldPuk: Old PUK code. UTF8 encoded.
     public func setPuk(_ newPuk: String, oldPuk: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await changeReference(ins: insChangeReference, p2: p2Puk, valueOne: oldPuk, valueTwo: newPuk)
     }
 
-    /// Unblock a blocked pin code with the puk code.
+    /// Unblock a blocked PIN code with the PUK code.
     /// - Parameters:
-    ///   - puk: The UTF8 encoded puk.
-    ///   - newPin: The new UTF8 encoded pin.
+    ///   - puk: The UTF8 encoded PUK.
+    ///   - newPin: The new UTF8 encoded PIN.
     public func unblockPinWithPuk(_ puk: String, newPin: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
     }
 
-    /// Reads metadata about the pin, such as total number of retries, attempts left, and if the pin has
+    /// Reads metadata about the PIN, such as total number of retries, attempts left, and if the PIN has
     /// been changed from the default value.
-    /// - Returns: The pin metadata.
+    /// - Returns: The PIN metadata.
     public func getPinMetadata() async throws -> PIV.PinPukMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await getPinPukMetadata(p2: p2Pin)
     }
 
-    /// Reads metadata about the puk, such as total number of retries, attempts left, and if the puk has
+    /// Reads metadata about the PUK, such as total number of retries, attempts left, and if the PUK has
     /// been changed from the default value.
-    /// - Returns: The puk metadata.
+    /// - Returns: The PUK metadata.
     public func getPukMetadata() async throws -> PIV.PinPukMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await getPinPukMetadata(p2: p2Puk)
     }
 
-    /// Set the number of retries available for pin and puk entry.
+    /// Set the number of retries available for PIN and PUK entry.
     ///
-    /// This method requires authentication and pin verification.
+    /// This method requires authentication and PIN verification.
     ///
     /// - Parameters:
-    ///   - pinAttempts: The number of attempts to allow for pin entry before blocking the pin.
-    ///   - pukAttempts: The number of attempts to allow for puk entry before blocking the puk.
+    ///   - pinAttempts: The number of attempts to allow for PIN entry before blocking the PIN.
+    ///   - pukAttempts: The number of attempts to allow for PUK entry before blocking the PUK.
     public func set(pinAttempts: UInt8, pukAttempts: UInt8) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let apdu = APDU(cla: 0, ins: insSetPinPukAttempts, p1: pinAttempts, p2: pukAttempts)
         try await send(apdu: apdu)
     }
 
-    public func blockPin(counter: Int = 0) async throws {
+    /// Block the PIN by exhausting all retry attempts.
+    ///
+    /// This method repeatedly attempts PIN verification with invalid values until the PIN becomes locked.
+    /// Primarily used for testing and resetting purposes.
+    public func blockPin() async throws {
+        try await blockPin(counter: 0)
+    }
+
+    private func blockPin(counter: Int) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let result = try await verifyPin("")
         switch result {
@@ -768,7 +787,15 @@ public final actor PIVSession: Session {
         }
     }
 
-    public func blockPuk(counter: Int = 0) async throws {
+    /// Block the PUK by exhausting all retry attempts.
+    ///
+    /// This method repeatedly attempts PUK verification with invalid values until the PUK becomes locked.
+    /// Primarily used for testing and resetting purposes.
+    public func blockPuk() async throws {
+        try await blockPuk(counter: 0)
+    }
+
+    private func blockPuk(counter: Int) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         do {
             try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: "", valueTwo: "")
@@ -819,7 +846,7 @@ public final actor PIVSession: Session {
     /// - Parameters:
     ///   - requestTemporaryPin: After successful match generate a temporary PIN.
     ///   - checkOnly: Check verification state of biometrics, don't perform UV.
-    /// - Returns: Temporary pin if requestTemporaryPin is true, otherwise null.
+    /// - Returns: Temporary PIN if requestTemporaryPin is true, otherwise null.
     public func verifyUv(requestTemporaryPin: Bool, checkOnly: Bool) async throws -> Data? {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         if requestTemporaryPin && checkOnly {
@@ -855,12 +882,12 @@ public final actor PIVSession: Session {
     /// Authenticate YubiKey Bio multi-protocol with temporary PIN.
     ///
     /// The PIN has to be generated by calling ``verifyUv(requestTemporaryPin:checkOnly:)`` and is
-    /// valid only for operations during this session and depending on slot {@link PinPolicy}.
+    /// valid only for operations during this session and depending on slot PIN policy.
     ///
     /// >Note: Before calling this method, clients must verify that the authenticator is bio-capable and
     ///        not blocked for bio matching.
     ///
-    /// - Parameter pin: Temporary pin.
+    /// - Parameter pin: Temporary PIN.
     public func verifyTemporaryPin(_ pin: Data) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard pin.count == temporaryPinLength else { throw SessionError.illegalArgument }
@@ -975,31 +1002,31 @@ extension PIVSession {
     ) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         if keyType == .ecc(.p384) {
-            guard self.supports(PIVSessionFeature.p384) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.p384) else { throw SessionError.notSupported }
         }
         if pinPolicy != .`defaultPolicy` || touchPolicy != .`defaultPolicy` {
-            guard self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
         }
         if pinPolicy == .matchAlways || pinPolicy == .matchOnce {
             // This will throw SessionError.notSupported if the key is not a Bio key
             _ = try await self.getBioMetadata()
         }
         if generateKey && (keyType == .rsa(.bits1024) || keyType == .rsa(.bits2048)) {
-            guard self.supports(PIVSessionFeature.rsaGeneration) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.rsaGeneration) else { throw SessionError.notSupported }
         }
         if generateKey && (keyType == .rsa(.bits3072) || keyType == .rsa(.bits4096)) {
-            guard self.supports(PIVSessionFeature.rsa3072and4096) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.rsa3072and4096) else { throw SessionError.notSupported }
         }
         if keyType == .ed25519 {
-            guard self.supports(PIVSessionFeature.ed25519) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.ed25519) else { throw SessionError.notSupported }
         }
         if keyType == .x25519 {
-            guard self.supports(PIVSessionFeature.x25519) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.x25519) else { throw SessionError.notSupported }
         }
     }
 
     private func getPinPukMetadata(p2: UInt8) async throws -> PIV.PinPukMetadata {
-        guard self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
+        guard await self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2)
         let result = try await send(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),

@@ -104,11 +104,11 @@ import IOKit.hid
 
 // MARK: - Private helpers
 
-/// FIDO HID payload size
+// FIDO HID payload size
 private let hidPayloadSize = 64
 
-/// HIDFIDOConnectionManager manages USB HID connections to FIDO devices.
-/// All operations run on a dedicated thread for IOKit compatibility.
+// HIDFIDOConnectionManager manages USB HID connections to FIDO devices.
+// All operations run on a dedicated thread for IOKit compatibility.
 private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger {
 
     // MARK: - Singleton
@@ -206,7 +206,7 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
         kIOHIDDeviceUsageKey as String: 0x01,
     ]
 
-    /// Dictionary tracking open connections by location ID.
+    // Dictionary tracking open connections by location ID.
     private var openConnections = [Int: HIDConnectionState]()
 
     // MARK: - Thread Management
@@ -417,7 +417,7 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
 
     // MARK: - Connection State
 
-    /// Connection state for a single HID device
+    // Connection state for a single HID device
     private class HIDConnectionState {
         let device: IOHIDDevice
         let didClose: Promise<Error?>
@@ -434,7 +434,7 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
         }
     }
 
-    /// Input report callback for HID devices
+    // Input report callback for HID devices
     private let inputReportCallback:
         @convention(c) (
             UnsafeMutableRawPointer?, IOReturn, UnsafeMutableRawPointer?, IOHIDReportType, UInt32,
@@ -452,7 +452,7 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
 
     // MARK: - Callback Handlers
 
-    /// Handle input report from callback
+    // Handle input report from callback
     private func handleInputReport(_ data: Data, from sender: UnsafeMutableRawPointer?) {
 
         trace(message: "received input report of size \(data.count)")

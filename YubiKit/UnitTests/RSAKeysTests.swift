@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// # RSAKeysTests
-/// Unit tests for the RSAKeys implementation.
-/// Validates key generation, encoding, decoding, SecKey conversions, and equality for RSA keys.
+// # RSAKeysTests
+// Unit tests for the RSAKeys implementation.
+// Validates key generation, encoding, decoding, SecKey conversions, and equality for RSA keys.
 
 import CommonCrypto
 import Foundation
@@ -22,12 +22,12 @@ import Testing
 
 @testable import YubiKit
 
-/// Tests for RSA key size, generation, encoding/decoding, and SecKey interoperability.
+// Tests for RSA key size, generation, encoding/decoding, and SecKey interoperability.
 struct RSAKeysTests {
 
     // MARK: - Key Size Properties
 
-    /// Test basic key size properties for RSA.KeySize.
+    // Test basic key size properties for RSA.KeySize.
     @Test func keySizeProperties() {
         #expect(RSA.KeySize.bits1024.inBits == 1024)
         #expect(RSA.KeySize.bits2048.inBits == 2048)
@@ -36,7 +36,7 @@ struct RSAKeysTests {
 
     // MARK: - Key Generation
 
-    /// Test random RSA private key generation and its properties.
+    // Test random RSA private key generation and its properties.
     @Test func generateRandomPrivateKey() throws {
         let keySizes: [RSA.KeySize] = [.bits1024, .bits2048, .bits4096]
         for keySize in keySizes {
@@ -49,7 +49,7 @@ struct RSAKeysTests {
 
     // MARK: - SecKey Conversion
 
-    /// Test conversion from RSA keys to SecKey.
+    // Test conversion from RSA keys to SecKey.
     @Test func asSecKeyConversion() throws {
         let keySizes: [RSA.KeySize] = [.bits1024, .bits2048, .bits4096]
         for keySize in keySizes {
@@ -65,7 +65,7 @@ struct RSAKeysTests {
 
     // MARK: - Encoding and Decoding
 
-    /// End-to-end test of key generation, encoding, decoding, and comparison for all key components.
+    // End-to-end test of key generation, encoding, decoding, and comparison for all key components.
     @Test func randomKeyGenerateEncodeDecodeCompare() throws {
         let keySizes: [RSA.KeySize] = [.bits1024, .bits2048, .bits4096]
         for keySize in keySizes {
@@ -100,7 +100,7 @@ struct RSAKeysTests {
         }
     }
 
-    /// Test decoding of invalid DER data returns nil.
+    // Test decoding of invalid DER data returns nil.
     @Test func decodeInvalidDERReturnsNil() {
         let invalidDER = Data([0x00, 0x01, 0x02, 0x03, 0x04])
         let keySizes: [RSA.KeySize] = [.bits1024, .bits2048, .bits4096]
@@ -114,7 +114,7 @@ struct RSAKeysTests {
 
     // MARK: - Public Key SecKey Round Trip
 
-    /// Test round-trip conversion from RSA.PublicKey to SecKey and back, validating integrity.
+    // Test round-trip conversion from RSA.PublicKey to SecKey and back, validating integrity.
     @Test func publicKeyToSecKeyAndBack() throws {
         let keySizes: [RSA.KeySize] = [.bits1024, .bits2048, .bits4096]
 
@@ -142,7 +142,7 @@ struct RSAKeysTests {
 
     // MARK: - Private Key SecKey Round Trip
 
-    /// Test round-trip conversion from RSA.PrivateKey to SecKey and back, validating integrity.
+    // Test round-trip conversion from RSA.PrivateKey to SecKey and back, validating integrity.
     @Test func privateKeyToSecKeyAndBack() throws {
         let keySizes: [RSA.KeySize] = [.bits1024, .bits2048, .bits4096]
 

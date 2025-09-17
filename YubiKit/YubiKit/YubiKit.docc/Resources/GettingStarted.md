@@ -30,7 +30,7 @@ application identifiers and a NFC Privacy statement to the application.
 
 1. Select your project.
 
-2. Selet your application target.
+2. Select your application target.
 
 3. Choose the "Signing & Capabilities" tab.
 
@@ -48,7 +48,7 @@ application identifiers and a NFC Privacy statement to the application.
 
 ![An image showing how to add the nfc application identifiers.](nfc-identifiers.png)
 
-8. Add the Yubico NFC application identifiers to enable comunication with the different
+8. Add the Yubico NFC application identifiers to enable communication with the different
 applications on the YubiKey.
 
 ```
@@ -78,13 +78,13 @@ To support YubiKeys connected via the USB-C port on a device running iOS 16 or h
 
 2. Add the `com.apple.security.smartcard` entitlement to the entitlement list.
 
-![An image showing how to add NFC privacy string tro project.](smart-card.png)
+![An image showing how to add NFC privacy string to project.](smart-card.png)
 
 > Note: The SmartCard/USB-C connection only support the CCID based applications on the YubiKey and does not support U2F, FIDO2 or OTP.
 
 ### Lightning/AccessoryConnection i.e 5Ci YubiKey
 
-To add support for the 5Ci YubiKey that connect to the iPhone via the Lightning port you need to add the `com.yubico.ylp` string to the list of External Accssories.
+To add support for the 5Ci YubiKey that connect to the iPhone via the Lightning port you need to add the `com.yubico.ylp` string to the list of External Accessories.
 
 1. Select your project.
 
@@ -98,9 +98,155 @@ To add support for the 5Ci YubiKey that connect to the iPhone via the Lightning 
 
 > Note: The YubiKey 5Ci is an Apple MFi certified external accessory and communicates over iAP2. Setting the value for `Supported external accessory protocols` to `com.yubico.ylp` will tell the app that all communication with the 5Ci YubiKey via the Lightning port is done using the External Accessory framework.
 
+## Making Your First Connection
+
+Now that your project is configured, you can start connecting to YubiKeys. YubiKit provides different connection types depending on how the YubiKey is connected to the device.
+
+### Understanding Connection Types
+
+YubiKit handles three different connection methods:
+
+- **NFC**: Short-range wireless communication (iOS only)
+- **USB-C**: Direct USB connection via SmartCard interface
+- **Lightning**: YubiKey 5Ci connected to Lightning port (iOS only)
+
+Each connection type works differently, so let's explore how to use them.
+
+### NFC Connections
+
+NFC connections are user-initiated and short-lived. The user must bring their YubiKey close to their device:
+
+```swift
+import YubiKit
+
+// Start an NFC scan
+do {
+    let connection = try await NFCSmartCardConnection.connection()
+
+    // Use the connection quickly - NFC sessions have a timeout
+    let session = try await OATHSession.session(withConnection: connection)
+    let codes = try await session.calculateCodes()
+
+    // Always close NFC connections with a user message
+    await connection.close(message: "OATH codes retrieved")
+
+} catch {
+    // Handle connection errors (user cancelled, no YubiKey found, etc.)
+    print("NFC connection failed: \(error)")
+}
+```
+
+NFC connections automatically show the iOS NFC interface and require user interaction to complete.
+
+### USB and Lightning Connections
+
+Wired connections are persistent - they stay connected until the YubiKey is unplugged:
+
+```swift
+import YubiKit
+
+// Connect to any wired YubiKey (USB-C or Lightning)
+do {
+    let connection = try await WiredSmartCardConnection.connection()
+
+    // Perform operations - connection stays active
+    let session = try await OATHSession.session(withConnection: connection)
+    let codes = try await session.calculateCodes()
+
+    // Monitor for disconnection or close when done
+    let error = await connection.connectionDidClose()
+    if let error = error {
+        print("Connection closed with error: \(error)")
+    }
+
+} catch {
+    print("Wired connection failed: \(error)")
+}
+```
+
+The `WiredSmartCardConnection.connection()` method automatically detects whether you're using USB-C or Lightning.
+
+### Specific Connection Types
+
+For more control, you can connect to specific interfaces:
+
+```swift
+// USB-C only
+let usbConnection = try await USBSmartCardConnection.connection()
+
+// Lightning only (iOS)
+let lightningConnection = try await LightningSmartCardConnection.connection()
+
+// NFC with custom message (iOS)
+let nfcConnection = try await NFCSmartCardConnection.connection(
+    alertMessage: "Hold your YubiKey near the phone"
+)
+```
+
+## Understanding Connection Lifecycle
+
+**Critical:** Connections must be explicitly closed. You can only have one active connection to a YubiKey at any time.
+
+### Connection Behavior
+
+- **Exclusive access**: Only one connection can exist per YubiKey at any time
+- **Manual closure required**: Dropping a connection reference does NOT automatically close it - you must call `close()`
+- **Resource blocking**: An unclosed connection prevents new connections (throws `ConnectionError.busy`)
+
+Connections are value types that act as exclusive access tokens to the underlying hardware resource.
+
+## Working with Sessions
+
+Once you have a connection, create sessions to access different YubiKey applications:
+
+### OATH Session (TOTP/HOTP codes)
+
+```swift
+let session = try await OATHSession.session(withConnection: connection)
+let codes = try await session.calculateCodes()
+
+for (credential, code) in codes {
+    print("\(credential.label): \(code?.code ?? "Touch required")")
+}
+```
+
+### PIV Session (Certificates and keys)
+
+```swift
+let session = try await PIVSession.session(withConnection: connection)
+let certificate = try await session.getCertificateInSlot(.authentication)
+print("Found certificate: \(certificate.subject)")
+```
+
+### Management Session (Device information)
+
+```swift
+let session = try await ManagementSession.session(withConnection: connection)
+print("YubiKey version: \(session.version)")
+
+let deviceInfo = try await session.getDeviceInfo()
+print("Device info: \(deviceInfo)")
+```
+
+## Connection Management Patterns
+
+### For UI Applications
+
+In SwiftUI or UIKit apps, you typically want to maintain persistent connections and react to connection changes. See <doc:OATHSampleCode> for complete examples of reactive connection management patterns that automatically update your UI when YubiKeys are plugged in or removed.
+
+### For Command-Line Tools
+
+CLI applications often use a simpler approach with a single connection per operation. See <doc:PIVToolSampleCode> for examples of how command-line tools handle connections for one-time operations.
+
+## Next Steps
+
+Now you're ready to build YubiKey applications! Check out the sample projects to see complete implementations:
+
+- **OATHSample**: Shows how to build a TOTP authenticator app with SwiftUI
+- **PIVTool**: Demonstrates PIV operations for certificates and digital signatures
+
 ### Build SDK documentation
 
-As a final step build the documentation for the SDK by selecting "Product" -> "Build Documention" in Xcode. This will give you
-access to the YubiKit Framework documentation from the Developer Documentation window in Xcode.
+You can also build the complete SDK documentation by selecting "Product" -> "Build Documentation" in Xcode. This gives you access to the full YubiKit API reference.
 
-> Note: Make sure to select an iOS target when building the documentation. If you build it with macOS as the target destination LightningSmartCardConnection and NFCSmartCardConnection will not be included in the documentation.
+> Note: Select an iOS target when building documentation to include all connection types.

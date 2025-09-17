@@ -16,21 +16,12 @@ import CommonCrypto
 import CryptoKit
 import Foundation
 
-/// Utilities for formatting data for PIV cryptographic operations
+// Utilities for formatting data for PIV cryptographic operations
 internal enum PIVDataFormatter {
 
-    /// Prepares data for RSA signing by applying the specified signature algorithm.
-    ///
-    /// This function creates a temporary RSA key pair to format the data according to the
-    /// specified signature algorithm, then encrypts it with raw RSA encryption. This produces
-    /// data in the format expected by the YubiKey's RSA signing operation.
-    ///
-    /// - Parameters:
-    ///   - data: The data to be signed
-    ///   - keySize: The RSA key size
-    ///   - algorithm: The RSA signature algorithm to use
-    /// - Returns: The prepared signature data
-    /// - Throws: `PIV.SessionError` if the operation fails
+    // Prepares data for RSA signing by applying the specified signature algorithm.
+    // Creates a temporary RSA key pair to format the data according to the
+    // specified signature algorithm, then encrypts it with raw RSA encryption.
     internal static func prepareDataForRSASigning(
         _ data: Data,
         keySize: RSA.KeySize,
@@ -57,18 +48,9 @@ internal enum PIVDataFormatter {
         return encryptedData as Data
     }
 
-    /// Prepares data for ECDSA signing by hashing or formatting the input.
-    ///
-    /// For message signatures, this function hashes the input data using the specified
-    /// hash algorithm. For digest signatures, it uses the data as-is (assuming it's
-    /// already hashed). The resulting hash is then truncated or padded to match the
-    /// key size as required by ECDSA.
-    ///
-    /// - Parameters:
-    ///   - data: The data to be signed (raw message or pre-hashed digest)
-    ///   - curve: The elliptic curve (P-256 or P-384)
-    ///   - algorithm: The ECDSA signature algorithm to use
-    /// - Returns: The prepared signature data (hash truncated/padded to key size)
+    // Prepares data for ECDSA signing by hashing or formatting the input.
+    // For message signatures, hashes the input data. For digest signatures, uses data as-is.
+    // The resulting hash is truncated or padded to match the key size.
     internal static func prepareDataForECDSASigning(
         _ data: Data,
         curve: EC.Curve,
@@ -122,18 +104,9 @@ internal enum PIVDataFormatter {
         }
     }
 
-    /// Prepares data for RSA encryption by applying the specified encryption algorithm.
-    ///
-    /// This function creates a temporary RSA key pair to format the data according to the
-    /// specified encryption algorithm. This produces data in the format expected by the
-    /// YubiKey's RSA operation.
-    ///
-    /// - Parameters:
-    ///   - data: The data to be encrypted
-    ///   - keySize: The RSA key size
-    ///   - algorithm: The RSA encryption algorithm to use
-    /// - Returns: The prepared encryption data
-    /// - Throws: `PIV.SessionError` if the operation fails
+    // Prepares data for RSA encryption by applying the specified encryption algorithm.
+    // Creates a temporary RSA key pair to format the data according to the
+    // specified encryption algorithm.
     internal static func prepareDataForRSAEncryption(
         _ data: Data,
         keySize: RSA.KeySize,
@@ -158,16 +131,9 @@ internal enum PIVDataFormatter {
         return encryptedData as Data
     }
 
-    /// Extracts the original data from RSA encryption format.
-    ///
-    /// This function reverses the RSA encryption preparation by using a temporary RSA key pair
-    /// to decrypt the encryption-formatted data.
-    ///
-    /// - Parameters:
-    ///   - data: The RSA encryption-formatted data
-    ///   - algorithm: The RSA encryption algorithm that was used
-    /// - Returns: The extracted original data
-    /// - Throws: `PIV.SessionError.invalidDataSize` if the data size is invalid
+    // Extracts the original data from RSA encryption format.
+    // Reverses the RSA encryption preparation by using a temporary RSA key pair
+    // to decrypt the encryption-formatted data.
     internal static func extractDataFromRSAEncryption(
         _ data: Data,
         algorithm: PIV.RSAEncryptionAlgorithm
@@ -200,16 +166,9 @@ internal enum PIVDataFormatter {
         return decryptedData as Data
     }
 
-    /// Extracts the original data from RSA signature format.
-    ///
-    /// This function reverses the RSA signature preparation by using a temporary RSA key pair
-    /// to decrypt the signature-formatted data.
-    ///
-    /// - Parameters:
-    ///   - data: The RSA signature-formatted data
-    ///   - algorithm: The RSA signature algorithm that was used
-    /// - Returns: The extracted original data
-    /// - Throws: `PIV.SessionError.invalidDataSize` if the data size is invalid
+    // Extracts the original data from RSA signature format.
+    // Reverses the RSA signature preparation by using a temporary RSA key pair
+    // to decrypt the signature-formatted data.
     internal static func extractDataFromRSASigning(_ data: Data, algorithm: PIV.RSASignatureAlgorithm) throws -> Data {
 
         let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
@@ -242,7 +201,7 @@ internal enum PIVDataFormatter {
 }
 
 extension PIV.RSASignatureAlgorithm {
-    /// Maps to the corresponding SecKeyAlgorithm
+    // Maps to the corresponding SecKeyAlgorithm
     fileprivate var secKeyAlgorithm: SecKeyAlgorithm {
         switch self {
         case .pkcs1v15(let hash):
@@ -268,7 +227,7 @@ extension PIV.RSASignatureAlgorithm {
 }
 
 extension PIV.RSAEncryptionAlgorithm {
-    /// Maps to the corresponding SecKeyAlgorithm
+    // Maps to the corresponding SecKeyAlgorithm
     fileprivate var secKeyAlgorithm: SecKeyAlgorithm {
         switch self {
         case .pkcs1v15:

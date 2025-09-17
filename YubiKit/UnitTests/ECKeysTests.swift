@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// # ECKeysTests
-/// Unit tests for the ECKeys implementation.
-/// Validates key generation, encoding, decoding, SecKey conversions, and equality for EC keys.
+// # ECKeysTests
+// Unit tests for the ECKeys implementation.
+// Validates key generation, encoding, decoding, SecKey conversions, and equality for EC keys.
 
 import CommonCrypto
 import Foundation
@@ -22,12 +22,12 @@ import Testing
 
 @testable import YubiKit
 
-/// Tests for EC key size, generation, encoding/decoding, and SecKey interoperability.
+// Tests for EC key size, generation, encoding/decoding, and SecKey interoperability.
 struct ECKeysTests {
 
     // MARK: - Curve Properties
 
-    /// Test curve coordinate and key size properties.
+    // Test curve coordinate and key size properties.
     @Test func curveSizeProperties() {
         #expect(EC.Curve.p256.keySizeInBits == 256)
         #expect(EC.Curve.p384.keySizeInBits == 384)
@@ -37,7 +37,7 @@ struct ECKeysTests {
 
     // MARK: - Key Generation
 
-    /// Test random EC private key generation and its properties.
+    // Test random EC private key generation and its properties.
     @Test func generateRandomPrivateKey() throws {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {
@@ -51,7 +51,7 @@ struct ECKeysTests {
 
     // MARK: - SecKey Conversion
 
-    /// Test conversion from EC keys to SecKey.
+    // Test conversion from EC keys to SecKey.
     @Test func asSecKeyConversion() throws {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {
@@ -67,7 +67,7 @@ struct ECKeysTests {
 
     // MARK: - Encoding and Decoding
 
-    /// End-to-end test of key generation, encoding, decoding, and comparison for all key components.
+    // End-to-end test of key generation, encoding, decoding, and comparison for all key components.
     @Test func randomKeyGenerateEncodeDecodeCompare() throws {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {
@@ -95,7 +95,7 @@ struct ECKeysTests {
         }
     }
 
-    /// Test decoding of invalid representation returns nil.
+    // Test decoding of invalid representation returns nil.
     @Test func decodeInvalidRawReturnsNil() {
         let invalid = Data([0x00, 0x01, 0x02])
         let curves: [EC.Curve] = [.p256, .p384]
@@ -109,7 +109,7 @@ struct ECKeysTests {
 
     // MARK: - Public Key SecKey Round Trip
 
-    /// Test round-trip conversion from EC.PublicKey to SecKey and back, validating integrity.
+    // Test round-trip conversion from EC.PublicKey to SecKey and back, validating integrity.
     @Test func publicKeyToSecKeyAndBack() throws {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {
@@ -133,7 +133,7 @@ struct ECKeysTests {
 
     // MARK: - Private Key SecKey Round Trip
 
-    /// Test round-trip conversion from EC.PrivateKey to SecKey and back, validating integrity.
+    // Test round-trip conversion from EC.PrivateKey to SecKey and back, validating integrity.
     @Test func privateKeyToSecKeyAndBack() throws {
         let curves: [EC.Curve] = [.p256, .p384]
         for curve in curves {

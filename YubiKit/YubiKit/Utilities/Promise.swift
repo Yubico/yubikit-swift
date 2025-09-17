@@ -14,10 +14,9 @@
 
 import Foundation
 
-/// Simple one‑time broadcast promise.
-///
-/// - call `value()` to suspend until someone calls `fulfill(_:)`
-/// - call `fulfill(_:)` exactly once to resume everyone
+// Simple one‑time broadcast promise.
+// - call `value()` to suspend until someone calls `fulfill(_:)`
+// - call `fulfill(_:)` exactly once to resume everyone
 final class Promise<Value: Sendable>: Sendable {
     private struct DisposedError: Error {}
 
@@ -56,28 +55,25 @@ final class Promise<Value: Sendable>: Sendable {
         }
     }
 
-    /// Suspend until `fulfill(_:)` is called (or return immediately if already fulfilled).
-    ///
-    /// - Note: Upon deinitialization, any tasks awaiting 'value()' will resume with a 'DisposedError'.
+    // Suspend until `fulfill(_:)` is called (or return immediately if already fulfilled).
+    // Note: Upon deinitialization, any tasks awaiting 'value()' will resume with a 'DisposedError'.
     func value() async throws -> Value {
         try await state.value()
     }
 
-    /// Resume all waiters with `value`, clear them, and stash the result.
+    // Resume all waiters with `value`, clear them, and stash the result.
     func fulfill(_ value: Value) async {
         await state.fulfill(value)
     }
 
-    /// Cancels any pending waiters on call.
-    ///
-    /// - Note: Upon deinitialization, any tasks awaiting `value()` will resume with an `Error.disposed`.
+    // Cancels any pending waiters on call.
+    // Note: Upon deinitialization, any tasks awaiting `value()` will resume with an `Error.disposed`.
     func cancel(with error: Error) async {
         await state.cancel(with: error)
     }
 
-    /// Cancels any pending waiters when the promise is deinitialized.
-    ///
-    /// - Note: Upon deinitialization, any tasks awaiting `value()` will resume with a `DisposedError`.
+    // Cancels any pending waiters when the promise is deinitialized.
+    // Note: Upon deinitialization, any tasks awaiting `value()` will resume with a `DisposedError`.
     deinit {
         Task { [state] in await state.cancel(with: DisposedError()) }
     }

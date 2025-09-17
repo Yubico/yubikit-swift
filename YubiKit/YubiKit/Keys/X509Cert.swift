@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// # Certificate
-/// X.509 Certificate wrapper for DER encoding and public key extraction.
-/// Provides methods for working with SecCertificate and extracting cryptographic keys.
-///
 import Foundation
 
+/// X.509 certificate representation with DER encoding support.
+/// Provides methods for working with SecCertificate and extracting cryptographic keys.
 public struct X509Cert: Sendable {
 
     /// X.509 DER-encoded certificate data.
@@ -37,7 +35,7 @@ public struct X509Cert: Sendable {
 }
 
 extension X509Cert {
-    /// Converts a SecKey to a PublicKey (.rsa or .ec).
+    /// Extracts the public key from this certificate and returns it as a PublicKey.
     /// Returns nil if unsupported or extraction fails.
     public var publicKey: PublicKey? {
         guard let cert = asSecCertificate() else {

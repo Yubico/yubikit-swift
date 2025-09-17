@@ -28,21 +28,33 @@ public protocol Session: Sendable {
         scpKeyParams: SCPKeyParams?
     ) async throws -> Self
 
-    /// Determine wether the Session supports the specific feature.
-    func supports(_ feature: SessionFeature) -> Bool
+    /// Determine whether the Session supports the specific feature.
+    func supports(_ feature: SessionFeature) async -> Bool
 }
 
-public protocol SessionFeature {
+/// A protocol defining a feature that can be supported by a session.
+public protocol SessionFeature: Sendable {
+    /// Determines if this feature is supported by the given firmware version.
+    /// - Parameter version: The firmware version to check against.
+    /// - Returns: true if the feature is supported, false otherwise.
     func isSupported(by version: Version) -> Bool
 }
 
+/// Errors that can occur during session operations.
 public enum SessionError: Error, Sendable {
-    case notSupported(_: String?)  // consider renaming to illegalState to match Java sdk
+    /// The requested operation is not supported.
+    case notSupported(_: String?)
+    /// There is already an active session.
     case activeSession
+    /// The required application is missing or not available.
     case missingApplication
+    /// An unexpected result was returned.
     case unexpectedResult
+    /// An unexpected status code was returned.
     case unexpectedStatusCode
+    /// An unexpected response was received.
     case unexpectedResponse
+    /// An illegal argument was provided.
     case illegalArgument(_: String?)
 
     static var illegalArgument: Self {

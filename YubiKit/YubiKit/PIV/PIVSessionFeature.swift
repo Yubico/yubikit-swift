@@ -14,11 +14,37 @@
 
 import Foundation
 
+/// Features that may be supported by a PIV session depending on the YubiKey firmware version.
 public enum PIVSessionFeature: SessionFeature, Sendable {
 
-    case usagePolicy, aesKey, serialNumber, metadata, attestation, p384, touchCached, rsaGeneration, rsa3072and4096,
-        moveDelete, ed25519, x25519
+    /// PIN and touch policy support for PIV keys.
+    case usagePolicy
+    /// AES key management for PIV operations.
+    case aesKey
+    /// Serial number retrieval capability.
+    case serialNumber
+    /// Metadata storage and retrieval for PIV objects.
+    case metadata
+    /// Attestation certificate generation for PIV keys.
+    case attestation
+    /// P-384 elliptic curve support.
+    case p384
+    /// Cached touch policy support.
+    case touchCached
+    /// RSA key generation capability.
+    case rsaGeneration
+    /// RSA 3072 and 4096 bit key support.
+    case rsa3072and4096
+    /// Move and delete key operations.
+    case moveDelete
+    /// Ed25519 signature algorithm support.
+    case ed25519
+    /// X25519 key agreement algorithm support.
+    case x25519
 
+    /// Checks if this feature is supported by the given firmware version.
+    /// - Parameter version: The YubiKey firmware version.
+    /// - Returns: `true` if the feature is supported, `false` otherwise.
     public func isSupported(by version: Version) -> Bool {
         switch self {
         case .usagePolicy:

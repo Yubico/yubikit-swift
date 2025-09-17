@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// # RSAKeys
-/// Defines RSA public and private key types and DER encoding/decoding utilities for PKCS #1.
-
 import CryptoTokenKit
 import Foundation
 
+/// Defines RSA public and private key types and DER encoding/decoding utilities for PKCS #1.
 public enum RSA: Sendable {
 
     /// Supported RSA key sizes (in bits).
@@ -41,9 +39,12 @@ public enum RSA: Sendable {
     /// RSA public key with modulus and exponent.
     /// Uses PKCS #1 DER encoding.
     public struct PublicKey: Sendable, Equatable {
+        /// The size of the RSA key in bits.
         public let size: KeySize
 
+        /// The RSA modulus (n).
         public let n: Data  // modulus
+        /// The public exponent (e), typically 65537.
         public let e: Data  // public exponent
 
         /// Initializes an RSA public key.
@@ -63,25 +64,35 @@ public enum RSA: Sendable {
     /// RSA private key with associated public key and CRT components.
     /// Uses PKCS #1 DER encoding.
     public struct PrivateKey: Sendable, Equatable {
+        /// The corresponding RSA public key.
         public let publicKey: PublicKey
 
         // Shared
+
+        /// The RSA modulus (n), same as publicKey.n.
         public var n: Data {
             publicKey.n
         }
 
+        /// The size of the RSA key in bits, same as publicKey.size.
         public var size: KeySize {
             publicKey.size
         }
 
         // Private exponent
+
+        /// The private exponent (d).
         public let d: Data
 
-        // CRT-optimized
+        /// First prime factor (p).
         public let p: Data  // primeOne
+        /// Second prime factor (q).
         public let q: Data  // primeTwo
+        /// d mod (p-1) for CRT optimization.
         public let dP: Data  // exponentOne
+        /// d mod (q-1) for CRT optimization.
         public let dQ: Data  // exponentTwo
+        /// q⁻¹ mod p for CRT optimization.
         public let qInv: Data  // coefficient
 
         /// Initializes an RSA private key.
@@ -235,19 +246,19 @@ private enum PKCS1 {
 
     enum Encoder {
 
-        /// DER-encodes a SEQUENCE containing `body`.
-        ///
-        /// - Returns: BER‑TLV encoded `SEQUENCE` record (tag 0x30).
+        // DER-encodes a SEQUENCE containing `body`.
+        //
+        // - Returns: BER‑TLV encoded `SEQUENCE` record (tag 0x30).
         static func sequence(_ body: Data) -> Data {
             guard !body.isEmpty else { return Data() }
             let record = TKBERTLVRecord(tag: 0x30, value: body)
             return record.data
         }
 
-        /// DER‑encodes an INTEGER.
-        ///
-        /// - Parameter value: Big‑endian magnitude bytes (positive integer).
-        /// - Returns: BER‑TLV encoded `INTEGER` record (tag 0x02).
+        // DER‑encodes an INTEGER.
+        //
+        // - Parameter value: Big‑endian magnitude bytes (positive integer).
+        // - Returns: BER‑TLV encoded `INTEGER` record (tag 0x02).
         static func integer(_ value: Data) -> Data {
             if value.isEmpty { return Data() }
 
@@ -270,13 +281,13 @@ private enum PKCS1 {
 
     enum Decoder {
 
-        /// Consumes the DER SEQUENCE tag + length and sanity-checks that the
-        /// remaining buffer actually contains the declared number of bytes.
-        ///
-        /// On return `data` starts at the first byte **inside** the SEQUENCE.
-        ///
-        /// - Parameter data: Buffer to parse (will be replaced by the SEQUENCE body).
-        /// - Throws: `PKCS1.Error` if the tag, length, or remaining bytes are invalid.
+        // Consumes the DER SEQUENCE tag + length and sanity-checks that the
+        // remaining buffer actually contains the declared number of bytes.
+        //
+        // On return `data` starts at the first byte **inside** the SEQUENCE.
+        //
+        // - Parameter data: Buffer to parse (will be replaced by the SEQUENCE body).
+        // - Throws: `PKCS1.Error` if the tag, length, or remaining bytes are invalid.
         static func sequenceHeader(_ data: inout Data) throws {
             guard let record = TKBERTLVRecord.sequenceOfRecords(from: data)?.first,
                 record.tag == 0x30
@@ -291,11 +302,11 @@ private enum PKCS1 {
             data.replaceSubrange(0..<record.data.count, with: record.value)
         }
 
-        /// Reads an ASN.1 DER INTEGER and returns its raw bytes.
-        ///
-        /// - Parameter data: The input buffer (advanced past the integer on return).
-        /// - Returns: The INTEGER content bytes.
-        /// - Throws: `PKCS1.Error` if the tag/length/contents are malformed.
+        // Reads an ASN.1 DER INTEGER and returns its raw bytes.
+        //
+        // - Parameter data: The input buffer (advanced past the integer on return).
+        // - Returns: The INTEGER content bytes.
+        // - Throws: `PKCS1.Error` if the tag/length/contents are malformed.
         static func integer(_ data: inout Data) throws -> Data {
             guard let record = TKBERTLVRecord.sequenceOfRecords(from: data)?.first,
                 record.tag == 0x02

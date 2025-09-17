@@ -17,8 +17,11 @@ import Foundation
 /// Data model for encapsulating an APDU command, as defined by the ISO/IEC 7816-4 standard.
 public struct APDU: Sendable, CustomStringConvertible {
 
+    /// The type of APDU command format.
     public enum ApduType: Sendable {
+        /// Short APDU format with data length up to 255 bytes.
         case short
+        /// Extended APDU format supporting larger data payloads.
         case extended
     }
 
@@ -33,8 +36,8 @@ public struct APDU: Sendable, CustomStringConvertible {
     /// - Parameters:
     ///   - cla: The instruction class.
     ///   - ins: The instruction code.
-    ///   - p1: The first instruction paramater byte.
-    ///   - p2: The second instruction paramater byte.
+    ///   - p1: The first instruction parameter byte.
+    ///   - p2: The second instruction parameter byte.
     ///   - command: The command data.
     ///   - type: The type of the APDU, short or extended.
     public init(
@@ -53,6 +56,7 @@ public struct APDU: Sendable, CustomStringConvertible {
         self.type = type
     }
 
+    /// The raw APDU data bytes ready for transmission to the card.
     public var data: Data {
         var data = Data()
         data.append(cla)
@@ -85,6 +89,7 @@ public struct APDU: Sendable, CustomStringConvertible {
         return data
     }
 
+    /// A string representation of the APDU for debugging purposes.
     public var description: String {
         "APDU(cla: \(cla.hexValue), ins: \(ins.hexValue), p1: \(p1.hexValue), p2: \(p2.hexValue), command: \(command?.hexEncodedString ?? "nil"), type: \(String(describing: type))"
     }
