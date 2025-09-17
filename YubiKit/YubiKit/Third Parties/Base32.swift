@@ -26,41 +26,41 @@ import Foundation
 
 // MARK: - Base32 Data <-> String
 
-public func base32Encode(_ data: Data) -> String {
+func base32Encode(_ data: Data) -> String {
     data.withUnsafeBytes {
         base32encode($0.baseAddress!, $0.count, alphabetEncodeTable)
     }
 }
 
-public func base32HexEncode(_ data: Data) -> String {
+func base32HexEncode(_ data: Data) -> String {
     data.withUnsafeBytes {
         base32encode($0.baseAddress!, $0.count, extendedHexAlphabetEncodeTable)
     }
 }
 
-public func base32DecodeToData(_ string: String) -> Data? {
+func base32DecodeToData(_ string: String) -> Data? {
     base32decode(string, alphabetDecodeTable).flatMap(Data.init(_:))
 }
 
-public func base32HexDecodeToData(_ string: String) -> Data? {
+func base32HexDecodeToData(_ string: String) -> Data? {
     base32decode(string, extendedHexAlphabetDecodeTable).flatMap(Data.init(_:))
 }
 
 // MARK: - Base32 [UInt8] <-> String
 
-public func base32Encode(_ array: [UInt8]) -> String {
+func base32Encode(_ array: [UInt8]) -> String {
     base32encode(array, array.count, alphabetEncodeTable)
 }
 
-public func base32HexEncode(_ array: [UInt8]) -> String {
+func base32HexEncode(_ array: [UInt8]) -> String {
     base32encode(array, array.count, extendedHexAlphabetEncodeTable)
 }
 
-public func base32Decode(_ string: String) -> [UInt8]? {
+func base32Decode(_ string: String) -> [UInt8]? {
     base32decode(string, alphabetDecodeTable)
 }
 
-public func base32HexDecode(_ string: String) -> [UInt8]? {
+func base32HexDecode(_ string: String) -> [UInt8]? {
     base32decode(string, extendedHexAlphabetDecodeTable)
 }
 
@@ -68,34 +68,34 @@ public func base32HexDecode(_ string: String) -> [UInt8]? {
 
 extension String {
     // base32
-    public var base32DecodedData: Data? {
+    var base32DecodedData: Data? {
         base32DecodeToData(self)
     }
 
-    public var base32EncodedString: String {
+    var base32EncodedString: String {
         utf8CString.withUnsafeBufferPointer {
             base32encode($0.baseAddress!, $0.count - 1, alphabetEncodeTable)
         }
     }
 
-    public func base32DecodedString(_ encoding: String.Encoding = .utf8) -> String? {
+    func base32DecodedString(_ encoding: String.Encoding = .utf8) -> String? {
         base32DecodedData.flatMap {
             String(data: $0, encoding: .utf8)
         }
     }
 
     // base32Hex
-    public var base32HexDecodedData: Data? {
+    var base32HexDecodedData: Data? {
         base32HexDecodeToData(self)
     }
 
-    public var base32HexEncodedString: String {
+    var base32HexEncodedString: String {
         utf8CString.withUnsafeBufferPointer {
             base32encode($0.baseAddress!, $0.count - 1, extendedHexAlphabetEncodeTable)
         }
     }
 
-    public func base32HexDecodedString(_ encoding: String.Encoding = .utf8) -> String? {
+    func base32HexDecodedString(_ encoding: String.Encoding = .utf8) -> String? {
         base32HexDecodedData.flatMap {
             String(data: $0, encoding: .utf8)
         }
@@ -104,28 +104,28 @@ extension String {
 
 extension Data {
     // base32
-    public var base32EncodedString: String {
+    var base32EncodedString: String {
         base32Encode(self)
     }
 
-    public var base32EncodedData: Data {
+    var base32EncodedData: Data {
         base32EncodedString.dataUsingUTF8StringEncoding
     }
 
-    public var base32DecodedData: Data? {
+    var base32DecodedData: Data? {
         String(data: self, encoding: .utf8).flatMap(base32DecodeToData)
     }
 
     // base32Hex
-    public var base32HexEncodedString: String {
+    var base32HexEncodedString: String {
         base32HexEncode(self)
     }
 
-    public var base32HexEncodedData: Data {
+    var base32HexEncodedData: Data {
         base32HexEncodedString.dataUsingUTF8StringEncoding
     }
 
-    public var base32HexDecodedData: Data? {
+    var base32HexDecodedData: Data? {
         String(data: self, encoding: .utf8).flatMap(base32HexDecodeToData)
     }
 }
