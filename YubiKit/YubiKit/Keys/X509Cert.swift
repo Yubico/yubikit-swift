@@ -91,8 +91,12 @@ extension SecKey {
             return key.map { .rsa($0) }
 
         case kSecAttrKeyTypeECSECPrimeRandom:
-            let key = EC.PublicKey(uncompressedPoint: blob)
-            return key.map { .ec($0) }
+
+            return [EC.Curve.secp256r1, EC.Curve.secp384r1]
+                .compactMap { EC.PublicKey(uncompressedPoint: blob, curve: $0) }
+                .map { PublicKey.ec($0) }
+                .first
+
         default:
 
             // other keyTypes not supported by the Security framework

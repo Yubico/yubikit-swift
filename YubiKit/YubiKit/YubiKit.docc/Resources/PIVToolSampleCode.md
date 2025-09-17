@@ -53,7 +53,7 @@ The key generation returns the public key while keeping the private key secure o
 let rsaKey = try await session.generateKeyInSlot(slot: .authentication, type: .rsa(.bits2048))
 
 // ECDSA keys for smaller signatures and better performance
-let ecKey = try await session.generateKeyInSlot(slot: .signature, type: .ec(.p256))
+let ecKey = try await session.generateKeyInSlot(slot: .signature, type: .ec(.secp256r1))
 
 // Ed25519 for modern cryptographic applications
 let ed25519Key = try await session.generateKeyInSlot(slot: .cardAuthentication, type: .ed25519)
@@ -69,7 +69,7 @@ When generating keys, you control when authentication is required:
 ```swift
 let key = try await session.generateKeyInSlot(
     slot: .signature,
-    type: .ec(.p256),
+    type: .ec(.secp256r1),
     pinPolicy: .once,      // PIN required once per session
     touchPolicy: .always   // Physical touch required for each operation
 )
@@ -128,7 +128,7 @@ Sign documents, challenges, or any data using the private key:
 let documentHash = SHA256.hash(data: documentData)
 let signature = try await session.signWithKeyInSlot(
     .signature,
-    keyType: .ec(.p256),
+    keyType: .ec(.secp256r1),
     algorithm: .ecdsaSignatureMessageX962SHA256,
     message: Data(documentHash)
 )

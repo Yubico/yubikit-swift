@@ -1001,7 +1001,7 @@ extension PIVSession {
         generateKey: Bool
     ) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        if keyType == .ecc(.p384) {
+        if keyType == .ecc(.secp384r1) {
             guard await self.supports(PIVSessionFeature.p384) else { throw SessionError.notSupported }
         }
         if pinPolicy != .`defaultPolicy` || touchPolicy != .`defaultPolicy` {

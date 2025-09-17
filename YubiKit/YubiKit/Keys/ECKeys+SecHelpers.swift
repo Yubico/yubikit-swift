@@ -41,7 +41,7 @@ extension EC.PrivateKey {
             return nil
         }
 
-        return EC.PrivateKey(uncompressedRepresentation: keyData)
+        return EC.PrivateKey(uncompressedRepresentation: keyData, curve: curve)
     }
 
     /// Convert this EC private key to a native SecKey.

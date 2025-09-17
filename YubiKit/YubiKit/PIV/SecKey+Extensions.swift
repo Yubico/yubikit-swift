@@ -27,7 +27,7 @@ extension PIVSession {
                 throw PIV.SessionError.invalidResponse
             }
 
-            guard let key = EC.PublicKey(uncompressedPoint: keyData),
+            guard let key = EC.PublicKey(uncompressedPoint: keyData, curve: curve),
                 key.curve == curve
             else {
                 throw PIV.SessionError.dataParseError

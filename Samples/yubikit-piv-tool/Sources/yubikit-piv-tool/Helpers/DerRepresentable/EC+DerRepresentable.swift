@@ -21,11 +21,11 @@ extension EC.PublicKey: DerRepresentable {
         // Determine the curve OID based on the key's curve
         let curveOID: Data
         switch curve {
-        case .p256:
+        case .secp256r1:
             // secp256r1/prime256v1 OID (1.2.840.10045.3.1.7):
             // 06 08 2A 86 48 CE 3D 03 01 07
             curveOID = Data([0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07])
-        case .p384:
+        case .secp384r1:
             // secp384r1 OID (1.3.132.0.34):
             // 06 05 2B 81 04 00 22
             curveOID = Data([0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22])

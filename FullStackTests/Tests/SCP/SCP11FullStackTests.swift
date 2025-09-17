@@ -229,7 +229,7 @@ final class SCP11bFullStackTests: XCTestCase {
 
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x02)
 
-            let privateKey = EC.PrivateKey.random(curve: .p256)!
+            let privateKey = EC.PrivateKey.random(curve: .secp256r1)!
 
             let publicKey = privateKey.publicKey
 

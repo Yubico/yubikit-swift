@@ -15,18 +15,18 @@
 import Foundation
 
 /// Elliptic Curve cryptographic key types and utilities.
-/// Defines elliptic curve key types and utility methods for handling public and private keys for P-256 and P-384 curves.
+/// Defines elliptic curve key types and utility methods for handling public and private keys for secp256r1 and secp384r1 curves.
 public enum EC: Sendable {
-    /// Supported elliptic curve types (currently P-256 and P-384) using uncompressed point representation.
+    /// Supported elliptic curve types (currently secp256r1 and secp384r1) using uncompressed point representation.
     public enum Curve: Sendable, Equatable {
-        case p384
-        case p256
+        case secp384r1
+        case secp256r1
 
         /// The key size in bits for the selected curve.
         public var keySizeInBits: Int {
             switch self {
-            case .p256: return 256
-            case .p384: return 384
+            case .secp256r1: return 256
+            case .secp384r1: return 384
             }
         }
 
@@ -38,7 +38,7 @@ public enum EC: Sendable {
 
     /// An elliptic curve public key (x, y coordinates) on a supported curve.
     public struct PublicKey: Sendable, Equatable {
-        /// The elliptic curve type (P-256 or P-384).
+        /// The elliptic curve type (secp256r1 or secp384r1).
         public let curve: Curve
 
         /// The x coordinate of the public key point.
@@ -59,9 +59,11 @@ public enum EC: Sendable {
         }
 
         /// Initialize a public key from SEC1 uncompressed EC point format (0x04 || X || Y).
-        /// - Parameter uncompressedPoint: Data in SEC1 format.
+        /// - Parameters:
+        ///   - uncompressedPoint: Data in SEC1 format.
+        ///   - curve: The elliptic curve type (secp256r1 or secp384r1).
         /// - Returns: PublicKey if valid, otherwise nil.
-        public init?(uncompressedPoint: Data) {
+        public init?(uncompressedPoint: Data, curve: Curve) {
             var data = uncompressedPoint
             guard data.extract(1)?.bytes == [0x04] else {
                 // invalid representation
@@ -69,7 +71,7 @@ public enum EC: Sendable {
             }
 
             let coordSize = data.count / 2
-            guard let curve = Curve(coordinateSize: coordSize) else {
+            guard coordSize == curve.keySizeInBytes else {
                 // Invalid length
                 return nil
             }
@@ -105,9 +107,11 @@ public enum EC: Sendable {
         }
 
         /// Initialize a private key from 0x04 || X || Y || K
-        /// - Parameter uncompressedRepresentation: uncompressedPoint + K
+        /// - Parameters:
+        ///   - uncompressedRepresentation: uncompressedPoint + K
+        ///   - curve: The elliptic curve type (secp256r1 or secp384r1).
         /// - Returns: PrivateKey if valid, otherwise nil.
-        public init?(uncompressedRepresentation: Data) {
+        public init?(uncompressedRepresentation: Data, curve: Curve) {
             var data = uncompressedRepresentation
             guard data.extract(1)?.bytes == [0x04] else {
                 // invalid representation
@@ -115,33 +119,16 @@ public enum EC: Sendable {
             }
 
             let coordinateSizeInBytes = data.count / 3
-            guard let curve = Curve(coordinateSize: coordinateSizeInBytes),
-                let x = data.extract(coordinateSizeInBytes),  // x
-                let y = data.extract(coordinateSizeInBytes),  // y
-                let k = data.extract(coordinateSizeInBytes)  // k
+            guard coordinateSizeInBytes == curve.keySizeInBytes,
+                let x = data.extract(coordinateSizeInBytes),
+                let y = data.extract(coordinateSizeInBytes),
+                let k = data.extract(coordinateSizeInBytes)
             else {
                 return nil
             }
 
             self.publicKey = .init(curve: curve, x: x, y: y)
             self.k = k
-        }
-    }
-}
-
-// MARK: - Private helpers
-extension EC.Curve {
-    // Initialize a curve type based on the byte length of a coordinate.
-    // - Parameter bytesCount: Length in bytes of a single coordinate (x or y).
-    // - Returns: Matching curve if found, or nil if not supported.
-    fileprivate init?(coordinateSize bytesCount: Int) {
-        switch bytesCount {
-        case EC.Curve.p256.keySizeInBytes:
-            self = .p256
-        case EC.Curve.p384.keySizeInBytes:
-            self = .p384
-        default:
-            return nil
         }
     }
 }

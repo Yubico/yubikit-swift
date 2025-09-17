@@ -122,7 +122,7 @@ internal actor SCPProcessor: HasSCPLogger {
             let pkSdEcka = scp11Params.pkSdEcka
             Self.trace(message: "pkSdEcka: \(pkSdEcka.uncompressedPoint.hexEncodedString)")
 
-            guard let eskOceEcka = EC.PrivateKey.random(curve: .p256) else {
+            guard let eskOceEcka = EC.PrivateKey.random(curve: .secp256r1) else {
                 throw SCPError.encryptionFailed("Failed to generate private key")
             }
             let epkOceEcka = eskOceEcka.publicKey
@@ -169,7 +169,7 @@ internal actor SCPProcessor: HasSCPLogger {
             let keyAgreementData = data + tlvs[0].data
             let sharedInfo = keyUsage + keyType + keyLen
 
-            guard let epkSdEcka = EC.PublicKey(uncompressedPoint: epkSdEckaEncodedPoint) else {
+            guard let epkSdEcka = EC.PublicKey(uncompressedPoint: epkSdEckaEncodedPoint, curve: .secp256r1) else {
                 throw SCPError.notSupported("Unable to parse EC public key")
             }
 

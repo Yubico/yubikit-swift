@@ -384,7 +384,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
             throw SCPError.unexpectedResponse
         }
 
-        guard let key = EC.PublicKey(uncompressedPoint: tlv.value) else {
+        guard let key = EC.PublicKey(uncompressedPoint: tlv.value, curve: .secp256r1) else {
             throw SCPError.unexpectedResponse
         }
 
@@ -450,7 +450,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     public func putKey(keyRef: SCPKeyRef, publicKey: EC.PublicKey, replaceKvn: UInt8) async throws(SCPError) {
 
         // -- validate curve
-        guard publicKey.curve == .p256 else {
+        guard publicKey.curve == .secp256r1 else {
             throw SCPError.notSupported("Unsupported curve: \(publicKey.curve)")
         }
 
@@ -483,7 +483,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
     public func putKey(keyRef: SCPKeyRef, privateKey: EC.PrivateKey, replaceKvn: UInt8) async throws(SCPError) {
-        guard privateKey.curve == .p256 else {
+        guard privateKey.curve == .secp256r1 else {
             throw .illegalArgument  // Expected SECP256R1 private key size
         }
 
