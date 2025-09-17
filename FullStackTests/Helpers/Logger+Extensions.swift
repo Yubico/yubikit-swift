@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import OSLog
+import Testing
 
 @testable import YubiKit
 
@@ -25,4 +26,15 @@ protocol HasTestLogger: HasLogger {}
 
 extension HasTestLogger {
     public static var logger: Logger { .test }
+}
+
+@inline(__always)
+public func reportSkip(reason: String, function: String = #function) {
+    // `severity` argument is arriving in Swift 6.3
+    Issue.record(" Test \(function)() skipped: \"\(reason)\"" /*, severity: .warning */)
+}
+
+@inline(__always)
+public func trace(_ message: String) {
+    Logger.test.trace("\(message)")
 }

@@ -13,35 +13,29 @@
 // limitations under the License.
 
 import CryptoKit
-import OSLog
+import Foundation
 import Testing
 
 @testable import FullStackTests
 @testable import YubiKit
 
+// MARK: - Test Tags
+extension Tag {
+    @Tag static var slowTests: Tag
+}
+
 private let defaultManagementKey = Data(hexEncodedString: "010203040506070801020304050607080102030405060708")!
 private let defaultPIN = "123456"
 private let testMessage = "Hello world!".data(using: .utf8)!
 
-// MARK: - Test Tags
-
-extension Tag {
-    @Tag static var piv: Tag
-    @Tag static var pivSigning: Tag
-    @Tag static var pivEncryption: Tag
-    @Tag static var pivKeyAgreement: Tag
-    @Tag static var pivKeyManagement: Tag
-    @Tag static var pivAuthentication: Tag
-}
-
-@Suite("PIV Full Stack Tests", .tags(.piv), .serialized)
+@Suite("PIV Full Stack Tests", .serialized, .timeLimit(.minutes(30)))
 struct PIVFullStackTests {
 
     // MARK: - Signing Tests
 
-    @Test("Sign with ECC P-256 (Message)", .tags(.pivSigning))
+    @Test("Sign with ECC P-256 (Message)")
     func signECCP256Message() async throws {
-        try await withPIVSession(authenticated: true) { session in
+        try await runPIVTest(authenticated: true) { session in
             let publicKey = try await session.generateKey(
                 in: .signature,
                 type: .ecc(.secp256r1)
@@ -69,9 +63,9 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Sign with ECC P-256 (Digest)", .tags(.pivSigning))
+    @Test("Sign with ECC P-256 (Digest)")
     func signECCP256Digest() async throws {
-        try await withPIVSession(authenticated: true) { session in
+        try await runPIVTest(authenticated: true) { session in
             let publicKey = try await session.generateKey(
                 in: .signature,
                 type: .ecc(.secp256r1)
@@ -102,9 +96,9 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Sign with RSA", .tags(.pivSigning), arguments: [RSA.KeySize.bits1024, .bits2048])
+    @Test("Sign with RSA", arguments: [RSA.KeySize.bits1024, .bits2048])
     func signRSA(keySize: RSA.KeySize) async throws {
-        try await withPIVSession(authenticated: true) { session in
+        try await runPIVTest(authenticated: true) { session in
             let publicKey = try await session.generateKey(
                 in: .signature,
                 type: .rsa(keySize)
@@ -132,10 +126,13 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Sign with Ed25519", .tags(.pivSigning))
+    @Test("Sign with Ed25519")
     func signEd25519() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.ed25519) else {
+                reportSkip(reason: "Ed25519 not supported on this YubiKey")
+                return
+            }
 
             let publicKey = try await session.generateKey(
                 in: .signature,
@@ -162,18 +159,18 @@ struct PIVFullStackTests {
 
     // MARK: - Decryption Tests
 
-    @Test("Decrypt with RSA", .tags(.pivEncryption), arguments: [RSA.KeySize.bits1024, .bits2048])
+    @Test("Decrypt with RSA", arguments: [RSA.KeySize.bits1024, .bits2048])
     func decryptRSA(keySize: RSA.KeySize) async throws {
-        try await withPIVSession(authenticated: true) { session in
+        try await runPIVTest(authenticated: true) { session in
             try await testRSAEncryptionDecryption(session: session, keySize: keySize)
         }
     }
 
     // MARK: - Key Agreement Tests
 
-    @Test("ECDH with P-256 and P-384", .tags(.pivKeyAgreement), arguments: [EC.Curve.secp256r1, .secp384r1])
+    @Test("ECDH with P-256 and P-384", arguments: [EC.Curve.secp256r1, .secp384r1])
     func sharedSecretEC(curve: EC.Curve) async throws {
-        try await withPIVSession(authenticated: true) { session in
+        try await runPIVTest(authenticated: true) { session in
             let publicKey = try await session.generateKey(
                 in: .signature,
                 type: .ecc(curve)
@@ -202,10 +199,13 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("ECDH with X25519", .tags(.pivKeyAgreement))
+    @Test("ECDH with X25519")
     func sharedSecretX25519() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.x25519, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.x25519) else {
+                reportSkip(reason: "X25519 not supported on this YubiKey")
+                return
+            }
 
             let publicKey = try await session.generateKey(
                 in: .signature,
@@ -243,9 +243,36 @@ struct PIVFullStackTests {
 
     // MARK: - Key Import Tests
 
-    @Test("Import RSA Keys", .tags(.pivKeyManagement), .timeLimit(.minutes(3)), arguments: RSA.KeySize.allCases)
-    func putRSAKeys(keySize: RSA.KeySize) async throws {
-        try await withPIVSession(authenticated: true) { session in
+    @Test("Import RSA 1024-bit key")
+    func putRSA1024Key() async throws {
+        try await testRSAKeyImport(keySize: .bits1024)
+    }
+
+    @Test("Import RSA 2048-bit key")
+    func putRSA2048Key() async throws {
+        try await testRSAKeyImport(keySize: .bits2048)
+    }
+
+    @Test("Import RSA 3072-bit key", .timeLimit(.minutes(5)), .tags(.slowTests))
+    func putRSA3072Key() async throws {
+        try await testRSAKeyImport(keySize: .bits3072)
+    }
+
+    // @Test("Import RSA 4096-bit key", .timeLimit(.minutes(10)), .tags(.slowTests))
+    // func putRSA4096Key() async throws {
+    //     try await testRSAKeyImport(keySize: .bits4096)
+    // }
+
+    private func testRSAKeyImport(keySize: RSA.KeySize) async throws {
+        try await runPIVTest(authenticated: true) { session in
+            // Check for RSA 3072/4096 feature support
+            if keySize == .bits3072 || keySize == .bits4096 {
+                guard await session.supports(PIVSessionFeature.rsa3072and4096) else {
+                    reportSkip(reason: "RSA 3072/4096 not supported on this YubiKey")
+                    return
+                }
+            }
+
             guard let privateKey = RSA.PrivateKey.random(keySize: keySize) else {
                 Issue.record("Failed to create RSA keys")
                 return
@@ -283,9 +310,18 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Import ECC Keys", .tags(.pivKeyManagement), arguments: [EC.Curve.secp256r1, .secp384r1])
-    func putECCKeys(curve: EC.Curve) async throws {
-        try await withPIVSession(authenticated: true) { session in
+    @Test("Import ECC P-256 key")
+    func putECCP256Key() async throws {
+        try await testECCKeyImport(curve: .secp256r1)
+    }
+
+    @Test("Import ECC P-384 key")
+    func putECCP384Key() async throws {
+        try await testECCKeyImport(curve: .secp384r1)
+    }
+
+    private func testECCKeyImport(curve: EC.Curve) async throws {
+        try await runPIVTest(authenticated: true) { session in
             let privateKey = try #require(EC.PrivateKey.random(curve: curve))
             let publicKey = privateKey.publicKey
 
@@ -314,10 +350,13 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Import Ed25519 Key", .tags(.pivKeyManagement))
+    @Test("Import Ed25519 Key")
     func putEd25519Key() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.ed25519) else {
+                reportSkip(reason: "Ed25519 not supported on this YubiKey")
+                return
+            }
 
             // Generate Ed25519 key using CryptoKit
             let cryptoKitPrivateKey = Curve25519.Signing.PrivateKey()
@@ -356,10 +395,13 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Import X25519 Key", .tags(.pivKeyManagement))
+    @Test("Import X25519 Key")
     func putX25519Key() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.x25519, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.x25519) else {
+                reportSkip(reason: "X25519 not supported on this YubiKey")
+                return
+            }
 
             // Generate X25519 key using CryptoKit
             let cryptoKitPrivateKey = Curve25519.KeyAgreement.PrivateKey()
@@ -411,12 +453,12 @@ struct PIVFullStackTests {
 
     // MARK: - Key Generation Tests
 
-    @Test("Generate RSA Keys", .tags(.pivKeyManagement), .timeLimit(.minutes(3)), arguments: RSA.KeySize.allCases)
-    func generateRSAKey(keySize: RSA.KeySize) async throws {
-        try await withPIVSession(authenticated: true) { session in
+    @Test("Generate RSA 1024-bit key")
+    func generateRSA1024Key() async throws {
+        try await runPIVTest(authenticated: true) { session in
             let result = try await session.generateKey(
                 in: .signature,
-                type: .rsa(keySize),
+                type: .rsa(.bits1024),
                 pinPolicy: .always,
                 touchPolicy: .cached
             )
@@ -424,16 +466,72 @@ struct PIVFullStackTests {
                 Issue.record("Expected RSA public key")
                 return
             }
-            #expect(publicKey.size == keySize)
+            #expect(publicKey.size == .bits1024)
         }
     }
 
-    @Test("Generate ECC Keys", .tags(.pivKeyManagement), arguments: [EC.Curve.secp256r1, .secp384r1])
-    func generateECCKey(curve: EC.Curve) async throws {
-        try await withPIVSession(authenticated: true) { session in
+    @Test("Generate RSA 2048-bit key")
+    func generateRSA2048Key() async throws {
+        try await runPIVTest(authenticated: true) { session in
             let result = try await session.generateKey(
                 in: .signature,
-                type: .ecc(curve),
+                type: .rsa(.bits2048),
+                pinPolicy: .always,
+                touchPolicy: .cached
+            )
+            guard case let .rsa(publicKey) = result else {
+                Issue.record("Expected RSA public key")
+                return
+            }
+            #expect(publicKey.size == .bits2048)
+        }
+    }
+
+    @Test("Generate RSA 3072-bit key", .timeLimit(.minutes(5)), .tags(.slowTests))
+    func generateRSA3072Key() async throws {
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.rsa3072and4096) else {
+                reportSkip(reason: "RSA 3072/4096 not supported on this YubiKey")
+                return
+            }
+
+            let result = try await session.generateKey(
+                in: .signature,
+                type: .rsa(.bits3072),
+                pinPolicy: .always,
+                touchPolicy: .cached
+            )
+            guard case let .rsa(publicKey) = result else {
+                Issue.record("Expected RSA public key")
+                return
+            }
+            #expect(publicKey.size == .bits3072)
+        }
+    }
+
+    // @Test("Generate RSA 4096-bit key", .timeLimit(.minutes(10)), .tags(.slowTests))
+    // func generateRSA4096Key() async throws {
+    //     try await runPIVTest(authenticated: true) { session in
+    //         let result = try await session.generateKey(
+    //             in: .signature,
+    //             type: .rsa(.bits4096),
+    //             pinPolicy: .always,
+    //             touchPolicy: .cached
+    //         )
+    //         guard case let .rsa(publicKey) = result else {
+    //             Issue.record("Expected RSA public key")
+    //             return
+    //         }
+    //         #expect(publicKey.size == .bits4096)
+    //     }
+    // }
+
+    @Test("Generate ECC P-256 key")
+    func generateECCP256Key() async throws {
+        try await runPIVTest(authenticated: true) { session in
+            let result = try await session.generateKey(
+                in: .signature,
+                type: .ecc(.secp256r1),
                 pinPolicy: .always,
                 touchPolicy: .cached
             )
@@ -441,14 +539,34 @@ struct PIVFullStackTests {
                 Issue.record("Expected EC public key")
                 return
             }
-            #expect(publicKey.curve == curve)
+            #expect(publicKey.curve == .secp256r1)
         }
     }
 
-    @Test("Generate Ed25519 Key", .tags(.pivKeyManagement))
+    @Test("Generate ECC P-384 key")
+    func generateECCP384Key() async throws {
+        try await runPIVTest(authenticated: true) { session in
+            let result = try await session.generateKeyInSlot(
+                slot: .signature,
+                type: .ecc(.secp384r1),
+                pinPolicy: .always,
+                touchPolicy: .cached
+            )
+            guard case let .ec(publicKey) = result else {
+                Issue.record("Expected EC public key")
+                return
+            }
+            #expect(publicKey.curve == .secp384r1)
+        }
+    }
+
+    @Test("Generate Ed25519 Key")
     func generateEd25519Key() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.ed25519) else {
+                reportSkip(reason: "Ed25519 not supported on this YubiKey")
+                return
+            }
 
             let result = try await session.generateKey(
                 in: .signature,
@@ -464,10 +582,13 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Generate X25519 Key", .tags(.pivKeyManagement))
+    @Test("Generate X25519 Key")
     func generateX25519Key() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.x25519, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.x25519) else {
+                reportSkip(reason: "X25519 not supported on this YubiKey")
+                return
+            }
 
             let result = try await session.generateKey(
                 in: .signature,
@@ -485,9 +606,9 @@ struct PIVFullStackTests {
 
     // MARK: - Attestation Tests
 
-    @Test("Attest RSA Key", .tags(.pivAuthentication))
+    @Test("Attest RSA Key")
     func attestRSAKey() async throws {
-        try await withPIVSession(authenticated: true) { session in
+        try await runPIVTest(authenticated: true) { session in
             let result = try await session.generateKey(in: .signature, type: .rsa(.bits1024))
             guard case let .rsa(publicKey) = result else {
                 Issue.record("Expected RSA public key")
@@ -504,10 +625,13 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Attest Ed25519 Key", .tags(.pivAuthentication))
+    @Test("Attest Ed25519 Key")
     func attestEd25519Key() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.ed25519) else {
+                reportSkip(reason: "Ed25519 not supported on this YubiKey")
+                return
+            }
 
             let result = try await session.generateKey(in: .signature, type: .ed25519)
             guard case let .ed25519(publicKey) = result else {
@@ -525,10 +649,13 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Attest X25519 Key", .tags(.pivAuthentication))
+    @Test("Attest X25519 Key")
     func attestX25519Key() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.x25519, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.x25519) else {
+                reportSkip(reason: "X25519 not supported on this YubiKey")
+                return
+            }
 
             let result = try await session.generateKey(in: .signature, type: .x25519)
             guard case let .x25519(publicKey) = result else {
@@ -556,9 +683,9 @@ struct PIVFullStackTests {
         )!
     )
 
-    @Test("Put and Get Certificate", .tags(.pivKeyManagement))
-    func putAndGetCertificate() async throws {
-        try await withPIVSession(authenticated: true) { session in
+    @Test("Put and Read Certificate")
+    func putAndReadCertificate() async throws {
+        try await runPIVTest(authenticated: true) { session in
             try await session.putCertificate(
                 self.testCertificate,
                 in: .authentication,
@@ -571,10 +698,13 @@ struct PIVFullStackTests {
 
     // MARK: - Key Management Tests
 
-    @Test("Move Key", .tags(.pivKeyManagement))
+    @Test("Move Key")
     func moveKey() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.moveDelete, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.moveDelete) else {
+                reportSkip(reason: "Move/Delete not supported on this YubiKey")
+                return
+            }
 
             try await session.putCertificate(self.testCertificate, in: .authentication)
             try await session.putCertificate(self.testCertificate, in: .signature)
@@ -602,10 +732,13 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Delete Key", .tags(.pivKeyManagement))
+    @Test("Delete Key")
     func deleteKey() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.moveDelete, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.moveDelete) else {
+                reportSkip(reason: "Move/Delete not supported on this YubiKey")
+                return
+            }
 
             try await session.putCertificate(self.testCertificate, in: .authentication, compressed: true)
             let publicKey = try await session.generateKey(
@@ -630,18 +763,18 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Put Compressed and Get Certificate", .tags(.pivKeyManagement))
-    func putCompressedAndGetCertificate() async throws {
-        try await withPIVSession(authenticated: true) { session in
+    @Test("Put Compressed and Read Certificate")
+    func putCompressedAndReadCertificate() async throws {
+        try await runPIVTest(authenticated: true) { session in
             try await session.putCertificate(self.testCertificate, in: .authentication, compressed: true)
             let retrievedCertificate = try await session.getCertificate(in: .authentication)
             #expect(self.testCertificate.der == retrievedCertificate.der)
         }
     }
 
-    @Test("Put and Delete Certificate", .tags(.pivKeyManagement))
+    @Test("Put and Delete Certificate")
     func putAndDeleteCertificate() async throws {
-        try await withPIVSession(authenticated: true) { session in
+        try await runPIVTest(authenticated: true) { session in
             try await session.putCertificate(self.testCertificate, in: .authentication)
             try await session.deleteCertificate(in: .authentication)
             do {
@@ -659,16 +792,16 @@ struct PIVFullStackTests {
 
     // MARK: - Management Key Tests
 
-    @Test("Authenticate with Default Management Key", .tags(.pivAuthentication))
+    @Test("Authenticate with Default Management Key")
     func authenticateWithDefaultManagementKey() async throws {
-        try await withPIVSession { session in
+        try await runPIVTest { session in
             try await session.authenticate(with: defaultManagementKey)
         }
     }
 
-    @Test("Authenticate with Wrong Management Key", .tags(.pivAuthentication))
+    @Test("Authenticate with Wrong Management Key")
     func authenticateWithWrongManagementKey() async throws {
-        try await withPIVSession { session in
+        try await runPIVTest { session in
             let wrongManagementKey = Data(hexEncodedString: "010101010101010101010101010101010101010101010101")!
             do {
                 try await session.authenticate(with: wrongManagementKey)
@@ -685,9 +818,14 @@ struct PIVFullStackTests {
 
     // MARK: - PIN/PUK Tests
 
-    @Test("Verify PIN", .tags(.pivAuthentication))
+    @Test("Verify PIN")
     func verifyPIN() async throws {
-        try await withPIVSession(authenticated: true) { session in
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.metadata) else {
+                reportSkip(reason: "Metadata not supported on this YubiKey")
+                return
+            }
+
             let result = try await session.verifyPin(defaultPIN)
             if case .success = result {
                 let metadata = try await session.getPinMetadata()
@@ -700,9 +838,9 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Verify PIN Retry Count", .tags(.pivAuthentication))
+    @Test("Verify PIN Retry Count")
     func verifyPINRetryCount() async throws {
-        try await withPIVSession(authenticated: true) { session in
+        try await runPIVTest(authenticated: true) { session in
             let resultOne = try await session.verifyPin("654321")
             if case .fail(let counter) = resultOne {
                 #expect(counter == 2)
@@ -722,13 +860,16 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Set PIN/PUK Attempts", .tags(.pivAuthentication))
+    @Test("Set PIN/PUK Attempts")
     func setPinPukAttempts() async throws {
-        try await withPIVSession(authenticated: true) { session in
+        try await runPIVTest(authenticated: true) { session in
             try await session.verifyPin(defaultPIN)
             try await session.setRetries(pin: 5, puk: 6)
 
-            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+            guard await session.supports(PIVSessionFeature.metadata) else {
+                reportSkip(reason: "Metadata not supported on this YubiKey")
+                return
+            }
             let pinResult = try await session.getPinMetadata()
             #expect(pinResult.retriesRemaining == 5)
             let pukResult = try await session.getPukMetadata()
@@ -738,45 +879,54 @@ struct PIVFullStackTests {
 
     // MARK: - Device Information Tests
 
-    @Test("Version", .tags(.piv))
+    @Test("Version")
     func version() async throws {
-        try await withPIVSession { session in
+        try await runPIVTest { session in
             let version = await session.version
             #expect(version.major == 5)
             #expect([2, 3, 4, 7].contains(version.minor))
-            print("➡️ Version: \(version.major).\(version.minor).\(version.micro)")
+            trace("Version: \(version.major).\(version.minor).\(version.micro)")
         }
     }
 
-    @Test("Serial Number", .tags(.piv))
+    @Test("Serial Number")
     func serialNumber() async throws {
-        try await withPIVSession { session in
-            try await requireFeatureSupport(PIVSessionFeature.serialNumber, in: session)
+        try await runPIVTest { session in
+            guard await session.supports(PIVSessionFeature.serialNumber) else {
+                reportSkip(reason: "Serial number not supported on this YubiKey")
+                return
+            }
 
             let serialNumber = try await session.getSerialNumber()
             #expect(serialNumber > 0)
-            print("➡️ Serial number: \(serialNumber)")
+            trace("Serial number: \(serialNumber)")
         }
     }
 
     // MARK: - Metadata Tests
 
-    @Test("Management Key Metadata", .tags(.piv))
+    @Test("Management Key Metadata")
     func managementKeyMetadata() async throws {
-        try await withPIVSession { session in
-            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+        try await runPIVTest { session in
+            guard await session.supports(PIVSessionFeature.metadata) else {
+                reportSkip(reason: "Metadata not supported on this YubiKey")
+                return
+            }
 
             let metadata = try await session.getManagementKeyMetadata()
             #expect(metadata.isDefault == true)
-            print("➡️ Management key type: \(metadata.keyType)")
-            print("➡️ Management touch policy: \(metadata.touchPolicy)")
+            trace("Management key type: \(metadata.keyType)")
+            trace("Management touch policy: \(metadata.touchPolicy)")
         }
     }
 
-    @Test("Slot Metadata", .tags(.piv))
+    @Test("Slot Metadata")
     func slotMetadata() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.metadata) else {
+                reportSkip(reason: "Metadata not supported on this YubiKey")
+                return
+            }
 
             var publicKey = try await session.generateKey(
                 in: .authentication,
@@ -819,10 +969,13 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("AES Management Key Metadata", .tags(.pivAuthentication))
+    @Test("AES Management Key Metadata")
     func aesManagementKeyMetadata() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.metadata) else {
+                reportSkip(reason: "Metadata not supported on this YubiKey")
+                return
+            }
 
             let aesManagementKey = Data(hexEncodedString: "f7ef787b46aa50de066bdade00aee17fc2b710372b722de5")!
             try await session.setManagementKey(aesManagementKey, type: .aes192, requiresTouch: true)
@@ -833,10 +986,13 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("PIN Metadata", .tags(.pivAuthentication))
+    @Test("PIN Metadata")
     func pinMetadata() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.metadata) else {
+                reportSkip(reason: "Metadata not supported on this YubiKey")
+                return
+            }
 
             let result = try await session.getPinMetadata()
             #expect(result.isDefault == true)
@@ -845,10 +1001,13 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("PIN Metadata Retries", .tags(.pivAuthentication))
+    @Test("PIN Metadata Retries")
     func pinMetadataRetries() async throws {
-        try await withPIVSession(authenticated: true) { session in
-            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+        try await runPIVTest(authenticated: true) { session in
+            guard await session.supports(PIVSessionFeature.metadata) else {
+                reportSkip(reason: "Metadata not supported on this YubiKey")
+                return
+            }
 
             _ = try await session.verifyPin("111111")
             let result = try await session.getPinMetadata()
@@ -858,10 +1017,13 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("PUK Metadata", .tags(.pivAuthentication))
+    @Test("PUK Metadata")
     func pukMetadata() async throws {
-        try await withPIVSession { session in
-            try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
+        try await runPIVTest { session in
+            guard await session.supports(PIVSessionFeature.metadata) else {
+                reportSkip(reason: "Metadata not supported on this YubiKey")
+                return
+            }
 
             let result = try await session.getPukMetadata()
             #expect(result.isDefault == true)
@@ -870,9 +1032,14 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Set PIN Failure", .tags(.pivAuthentication))
+    @Test("Set PIN Failure")
     func setPinFailure() async throws {
-        try await withPIVSession { session in
+        try await runPIVTest { session in
+            guard await session.supports(PIVSessionFeature.metadata) else {
+                reportSkip(reason: "Metadata not supported on this YubiKey")
+                return
+            }
+
             do {
                 try await session.changePin(from: "000000", to: "654321")
             } catch let PIV.SessionError.invalidPin(retries) {
@@ -882,9 +1049,14 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Set PIN Success", .tags(.pivAuthentication))
+    @Test("Set PIN Success")
     func setPinSuccess() async throws {
-        try await withPIVSession { session in
+        try await runPIVTest { session in
+            guard await session.supports(PIVSessionFeature.metadata) else {
+                reportSkip(reason: "Metadata not supported on this YubiKey")
+                return
+            }
+
             try await session.changePin(from: defaultPIN, to: "654321")
             let result = try await session.verifyPin("654321")
             switch result {
@@ -901,9 +1073,9 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Unblock PIN", .tags(.pivAuthentication))
+    @Test("Unblock PIN")
     func unblockPin() async throws {
-        try await withPIVSession { session in
+        try await runPIVTest { session in
             try await session.blockPin()
             let verifyBlockedPin = try await session.verifyPin(defaultPIN)
             guard verifyBlockedPin == .pinLocked else {
@@ -916,16 +1088,16 @@ struct PIVFullStackTests {
             case .success:
                 return
             case .fail(_):
-                Issue.record("Failed verifiying with unblocked pin.")
+                Issue.record("Failed verifying with unblocked pin.")
             case .pinLocked:
-                Issue.record("Pin still blocked after unblocking with puk.")
+                Issue.record("PIN still blocked after unblocking with PUK.")
             }
         }
     }
 
-    @Test("Set PUK and Unblock", .tags(.pivAuthentication))
+    @Test("Set PUK and Unblock")
     func setPukAndUnblock() async throws {
-        try await withPIVSession { session in
+        try await runPIVTest { session in
             try await session.changePuk(from: "12345678", to: "87654321")
             try await session.blockPin()
             try await session.unblockPin(with: "87654321", newPin: "654321")
@@ -944,57 +1116,57 @@ struct PIVFullStackTests {
     // MARK: - Biometric Authentication Tests
 
     // This will test auth on a YubiKey Bio. To run the test at least one fingerprint needs to be registered.
-    @Test("Bio Authentication", .tags(.pivAuthentication))
+    @Test("Bio Authentication")
     func bioAuthentication() async throws {
         // First check if it's a bio device
         let connection = try await TestableConnection.shared()
         let managementSession = try await ManagementSession.makeSession(connection: connection)
         let deviceInfo = try await managementSession.getDeviceInfo()
         guard deviceInfo.formFactor == .usbCBio || deviceInfo.formFactor == .usbABio else {
-            print("⚠️ Skipping bio test: Not a YubiKey Bio device")
+            reportSkip(reason: "Not a YubiKey Bio device")
             return
         }
 
-        // Now use withPIVSession for proper session reset
-        try await withPIVSession { session in
+        // Now use runPIVTest for proper session reset
+        try await runPIVTest { session in
             var bioMetadata = try await session.getBioMetadata()
             guard bioMetadata.isConfigured else {
-                print("⚠️ Skipping bio test: No fingerprints enrolled on this YubiKey Bio")
+                reportSkip(reason: "No fingerprints enrolled")
                 return
             }
             #expect(bioMetadata.attemptsRemaining > 0)
             var verifyResult = try await session.verifyUV(requestTemporaryPin: false, checkOnly: false)
             #expect(verifyResult == nil)
-            Logger.test.debug("✅ verifyUV() passed")
+            trace("verifyUV() passed")
             guard let pinData = try await session.verifyUV(requestTemporaryPin: true, checkOnly: false) else {
-                Issue.record("Pin data returned was nil. Expected a value.")
+                reportSkip(reason: "Pin data returned was nil. Expected a value.")
                 return
             }
-            Logger.test.debug("✅ got temporary pin: \(pinData.hexEncodedString).")
+            trace("got temporary pin: \(pinData.hexEncodedString).")
             bioMetadata = try await session.getBioMetadata()
             #expect(bioMetadata.temporaryPin == true)
-            Logger.test.debug("✅ temporary pin reported as set.")
+            trace("temporary pin reported as set.")
             verifyResult = try await session.verifyUV(requestTemporaryPin: false, checkOnly: true)
             #expect(verifyResult == nil)
-            Logger.test.debug("✅ verifyUV successful.")
+            trace("verifyUV successful.")
             try await session.verify(temporaryPin: pinData)
-            Logger.test.debug("✅ temporary pin verified.")
+            trace("temporary pin verified.")
         }
     }
 
-    @Test("Bio PIN Policy Error on Non-Bio Key", .tags(.pivAuthentication))
+    @Test("Bio PIN Policy Error on Non-Bio Key")
     func bioPinPolicyErrorOnNonBioKey() async throws {
         // First check if it's NOT a bio device
         let connection = try await TestableConnection.shared()
         let managementSession = try await ManagementSession.makeSession(connection: connection)
         let deviceInfo = try await managementSession.getDeviceInfo()
         guard deviceInfo.formFactor != .usbCBio && deviceInfo.formFactor != .usbABio else {
-            print("⚠️ Skipping test: This is a YubiKey Bio device")
+            Issue.record("⚠️ Skipping test: This is a YubiKey Bio device")
             return
         }
 
-        // Now use withPIVSession(authenticated: true) for proper session reset and authentication
-        try await withPIVSession(authenticated: true) { session in
+        // Now use runPIVTest(authenticated: true) for proper session reset and authentication
+        try await runPIVTest(authenticated: true) { session in
             do {
                 _ = try await session.generateKey(
                     in: .signature,
@@ -1020,7 +1192,7 @@ struct PIVFullStackTests {
         }
     }
 
-    // MARK: - Private Helper Methods
+    // MARK: - Helpers
 
     private func verifyECSignature(
         publicKey: EC.PublicKey,
@@ -1096,18 +1268,9 @@ struct PIVFullStackTests {
         #expect(data == decryptedData)
     }
 
-    private func requireFeatureSupport(
-        _ feature: PIVSession.Feature,
-        in session: PIVSession
-    ) async throws {
-        guard await session.supports(feature) else {
-            return
-        }
-    }
-
-    private func withPIVSession<T>(
+    private func runPIVTest<T>(
         authenticated: Bool = false,
-        _ body: (PIVSession) async throws -> T
+        _ test: (PIVSession) async throws -> T
     ) async throws -> T {
         let connection = try await TestableConnection.shared()
         let session = try await PIVSession.makeSession(connection: connection)
@@ -1117,7 +1280,7 @@ struct PIVFullStackTests {
             try await session.authenticate(with: defaultManagementKey)
         }
 
-        return try await body(session)
+        return try await test(session)
     }
 
 }

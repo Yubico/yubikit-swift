@@ -13,16 +13,18 @@
 // limitations under the License.
 
 import CryptoKit
-import XCTest
+import Foundation
+import Testing
 
 @testable import YubiKit
 
 // MARK: - SCP 11a
-final class SCP11aFullStackTests: XCTestCase {
+@Suite("SCP11a Full Stack Tests", .serialized)
+struct SCP11aFullStackTests {
 
-    func testAuthenticate() throws {
-        runSCPTest { [self] in
-
+    @Test("SCP11a authentication")
+    func authenticate() async throws {
+        try await runSCPTest {
             let scpKeyRef = SCPKeyRef(kid: .scp11a, kvn: 0x03)
 
             // first we load keys using SCP03
@@ -41,13 +43,13 @@ final class SCP11aFullStackTests: XCTestCase {
             // delete the previously loaded keys
             try await securityDomainSession.deleteKey(for: scpKeyRef)
 
-            XCTAssert(true, "Successfully authenticated using SCP11a")
+            #expect(true, "Successfully authenticated using SCP11a")
         }
     }
 
-    func testAllowList() throws {
-        runSCPTest { [self] in
-
+    @Test("SCP11a allow list")
+    func allowList() async throws {
+        try await runSCPTest {
             let connection = try await TestableConnection.shared()
 
             // Reset YubiKey SCP state to factory defaults
@@ -84,12 +86,13 @@ final class SCP11aFullStackTests: XCTestCase {
             // Clean‑up – delete the loaded SCP‑11a keys
             try await sdSession.deleteKey(for: scpKeyRef)
 
-            XCTAssertTrue(true, "Successfully configured allow‑list for SCP11a")
+            #expect(true, "Successfully configured allow‑list for SCP11a")
         }
     }
 
-    func testAllowListBlocked() throws {
-        runSCPTest { [self] in
+    @Test("SCP11a allow list blocked")
+    func allowListBlocked() async throws {
+        try await runSCPTest {
 
             let kvn: UInt8 = 0x03
             let scpKeyRef = SCPKeyRef(kid: .scp11a, kvn: kvn)
@@ -119,14 +122,14 @@ final class SCP11aFullStackTests: XCTestCase {
                     connection: connection,
                     scpKeyParams: scpKeyParams
                 )
-                XCTFail("Authentication should have been blocked by allow‑list")
+                Issue.record("Authentication should have been blocked by allow‑list")
             } catch {
                 if case let SCPError.wrapped(inner) = error,
                     let rsp = inner as? ResponseError
                 {
-                    XCTAssert(rsp.responseStatus.rawStatus == 0x6640)
+                    #expect(rsp.responseStatus.rawStatus == 0x6640)
                 } else {
-                    XCTFail("Unexpected error: \(error)")
+                    Issue.record("Unexpected error: \(error)")
                 }
             }
 
@@ -143,7 +146,7 @@ final class SCP11aFullStackTests: XCTestCase {
                 scpKeyParams: scpKeyParams
             )
 
-            XCTAssertTrue(true, "Allow‑list correctly blocked and then allowed SCP11a authentication")
+            #expect(true, "Allow‑list correctly blocked and then allowed SCP11a authentication")
         }
     }
 
@@ -167,10 +170,12 @@ final class SCP11aFullStackTests: XCTestCase {
 }
 
 // MARK: - SCP 11b
-final class SCP11bFullStackTests: XCTestCase {
+@Suite("SCP11b Full Stack Tests", .serialized)
+struct SCP11bFullStackTests {
 
-    func testAuthenticate() throws {
-        runSCPTest { [self] in
+    @Test("SCP11b authentication")
+    func authenticate() async throws {
+        try await runSCPTest {
 
             let securityDomainSession = try await SecurityDomainSession.makeSession(connection: connection)
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
@@ -183,16 +188,17 @@ final class SCP11bFullStackTests: XCTestCase {
                 try await securityDomainSession.verifyScp11bAuth()
             } catch {
                 if case let SCPError.wrapped(error) = error, let error = error as? ResponseError {
-                    XCTAssert(error.responseStatus.status == .securityConditionNotSatisfied)
+                    #expect(error.responseStatus.status == .securityConditionNotSatisfied)
                 } else {
-                    XCTFail("Failed: Wrong error type: \(error)")
+                    Issue.record("Failed: Wrong error type: \(error)")
                 }
             }
         }
     }
 
-    func testWrongPubKey() throws {
-        runSCPTest { [self] in
+    @Test("SCP11b wrong public key")
+    func wrongPubKey() async throws {
+        try await runSCPTest {
 
             let securityDomainSession = try await SecurityDomainSession.makeSession(connection: connection)
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
@@ -200,7 +206,7 @@ final class SCP11bFullStackTests: XCTestCase {
             let chain = try await securityDomainSession.getCertificateBundle(for: scpKeyRef)
             let first: X509Cert = chain.first!
             guard case let .ec(publicKey) = first.publicKey! else {
-                XCTFail("Expected EC public key")
+                Issue.record("Expected EC public key")
                 return
             }
 
@@ -209,18 +215,19 @@ final class SCP11bFullStackTests: XCTestCase {
             do {
                 let _ = try await ManagementSession.makeSession(connection: connection, scpKeyParams: params)
             } catch let SCPError.unexpectedResponse(message) {
-                XCTAssert(true, "Expected: \(String(describing: message))")
+                #expect(true, "Expected: \(String(describing: message))")
                 return
             } catch (let error) {
-                XCTFail("Failed with: \(error)")
+                Issue.record("Failed with: \(error)")
                 return
             }
-            XCTFail("Failed: Should have thrown an error")
+            Issue.record("Failed: Should have thrown an error")
         }
     }
 
-    func testImport() throws {
-        runSCPTest { [self] in
+    @Test("SCP11b import key")
+    func importKey() async throws {
+        try await runSCPTest {
 
             let securityDomainSession = try await SecurityDomainSession.makeSession(
                 connection: connection,
@@ -238,16 +245,18 @@ final class SCP11bFullStackTests: XCTestCase {
             let params = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
             let _ = try await ManagementSession.makeSession(connection: connection, scpKeyParams: params)
 
-            XCTAssert(true, "Successfully imported key pair and authenticated")
+            #expect(true, "Successfully imported key pair and authenticated")
         }
     }
 }
 
 // MARK: - SCP 11c
-final class SCP11cFullStackTests: XCTestCase {
+@Suite("SCP11c Full Stack Tests", .serialized)
+struct SCP11cFullStackTests {
 
-    func testAuthenticate() throws {
-        runSCPTest { [self] in
+    @Test("SCP11c authentication")
+    func authenticate() async throws {
+        try await runSCPTest {
 
             let scpKeyRef = SCPKeyRef(kid: .scp11c, kvn: 0x03)
 
@@ -269,9 +278,9 @@ final class SCP11cFullStackTests: XCTestCase {
                 try await securityDomainSession.deleteKey(for: scpKeyRef)
             } catch {
                 if case let SCPError.wrapped(error) = error, let error = error as? ResponseError {
-                    XCTAssert(error.responseStatus.status == .securityConditionNotSatisfied)
+                    #expect(error.responseStatus.status == .securityConditionNotSatisfied)
                 } else {
-                    XCTFail("Failed: Wrong error type: \(error)")
+                    Issue.record("Failed: Wrong error type: \(error)")
                 }
             }
         }
@@ -296,7 +305,7 @@ extension SecurityDomainSession {
         // Upload the CA public key to the YubiKey so it can verify signatures
         let ca = Scp11TestData.caCert
         guard case let .ec(certificatePublicKey) = ca.publicKey! else {
-            XCTFail("Expected EC public key")
+            Issue.record("Expected EC public key")
             return nil
         }
         try await putPublicKey(certificatePublicKey, for: oceRef, replacing: 0)

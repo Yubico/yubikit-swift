@@ -27,23 +27,23 @@ struct FIDOInterfaceFullStackTests {
     func interfaceInitialization() async throws {
         // First test HID connection enumeration
         let devices = try await HIDFIDOConnection.availableDevices()
-        print("Found \(devices.count) FIDO HID devices")
+        trace("Found \(devices.count) FIDO HID devices")
         guard !devices.isEmpty else {
-            print("No FIDO HID devices found, skipping test")
+            reportSkip(reason: "No FIDO HID devices found")
             return
         }
 
         // Test basic connection
         let connection = try await HIDFIDOConnection.makeConnection()
-        print("Successfully opened HID connection")
-        print("Connection MTU: \(connection.mtu)")
+        trace("Successfully opened HID connection")
+        trace("Connection MTU: \(connection.mtu)")
 
         // Test FIDO interface initialization
         let fidoInterface = try await FIDOInterface(connection: connection)
 
-        print("Successfully established FIDO connection")
-        print("FIDO Interface Version: \(await fidoInterface.version)")
-        print("FIDO Interface Capabilities: 0x\(String(format: "%02x", await fidoInterface.capabilities))")
+        trace("Successfully established FIDO connection")
+        trace("FIDO Interface Version: \(await fidoInterface.version)")
+        trace("FIDO Interface Capabilities: 0x\(String(format: "%02x", await fidoInterface.capabilities))")
 
         #expect(await fidoInterface.version.description.isEmpty == false)
         #expect(await fidoInterface.capabilities > 0)
@@ -60,9 +60,9 @@ struct FIDOInterfaceFullStackTests {
         let supportsCBOR = await fidoInterface.supports(FIDOInterface.Capability.CBOR)
         let supportsNMSG = await fidoInterface.supports(FIDOInterface.Capability.NMSG)
 
-        print("WINK capability: \(supportsWink)")
-        print("CBOR capability: \(supportsCBOR)")
-        print("NMSG capability: \(supportsNMSG)")
+        trace("WINK capability: \(supportsWink)")
+        trace("CBOR capability: \(supportsCBOR)")
+        trace("NMSG capability: \(supportsNMSG)")
 
         #expect(supportsWink, "YubiKey should support WINK")
 
@@ -75,14 +75,14 @@ struct FIDOInterfaceFullStackTests {
         let fidoInterface = try await FIDOInterface(connection: connection)
 
         guard await fidoInterface.supports(FIDOInterface.Capability.WINK) else {
-            print("YubiKey does not support WINK, skipping test")
+            reportSkip(reason: "YubiKey does not support WINK")
             await connection.close(error: nil)
             return
         }
 
-        print("Testing WINK functionality...")
+        trace("Testing WINK functionality...")
         try await fidoInterface.wink()
-        print("WINK command completed successfully!")
+        trace("WINK command completed successfully!")
 
         #expect(true)
 
@@ -94,12 +94,12 @@ struct FIDOInterfaceFullStackTests {
         let connection = try await HIDFIDOConnection.makeConnection()
         let fidoInterface = try await FIDOInterface(connection: connection)
 
-        print("Testing basic send/receive with PING command...")
+        trace("Testing basic send/receive with PING command...")
 
         let pingData = Data([0x01, 0x02, 0x03, 0x04])
         let response = try await fidoInterface.sendAndReceive(cmd: 0x81, payload: pingData)  // PING command
 
-        print("PING response received: \(response.hexEncodedString)")
+        trace("PING response received: \(response.hexEncodedString)")
         #expect(response == pingData, "PING should echo back the same data")
 
         await connection.close(error: nil)
@@ -110,14 +110,14 @@ struct FIDOInterfaceFullStackTests {
         let connection = try await HIDFIDOConnection.makeConnection()
         let fidoInterface = try await FIDOInterface(connection: connection)
 
-        print("Testing FIDO error handling...")
+        trace("Testing FIDO error handling...")
 
         do {
             // Send an invalid command
             _ = try await fidoInterface.sendAndReceive(cmd: 0xFF, payload: nil)  // Invalid command
             Issue.record("Invalid command should have failed")
         } catch let error as CTAP.HIDError {
-            print("Invalid command correctly failed with HID error: \(error)")
+            trace("Invalid command correctly failed with HID error: \(error)")
             #expect(true)
         } catch {
             Issue.record("Unexpected error type: \(error)")

@@ -12,27 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoTokenKit
-import XCTest
+import Foundation
+import Testing
 
 @testable import YubiKit
 
-final class SCP03FullStackTests: XCTestCase {
+@Suite("SCP03 Full Stack Tests", .serialized)
+struct SCP03FullStackTests {
 
-    func testDefaultKeys() throws {
-        runSCPTest { [self] in
-
+    @Test("Test SCP03 with default keys")
+    func defaultKeys() async throws {
+        try await runSCPTest {
             let managementSession = try await ManagementSession.makeSession(
                 connection: connection,
                 scpKeyParams: defaultKeyParams
             )
             _ = try await managementSession.getDeviceInfo()
-            XCTAssertTrue(true)  // reached here
+            #expect(true, "Successfully authenticated with default keys")
         }
     }
 
-    func testImportKey() throws {
-        runSCPTest { [self] in
+    @Test("Import SCP03 key")
+    func importKey() async throws {
+        try await runSCPTest {
 
             // reset YubiKey's SCP state to the factory default
             try await SecurityDomainSession.makeSession(connection: connection).reset()
@@ -58,7 +60,7 @@ final class SCP03FullStackTests: XCTestCase {
             // new session that authenticates with the default keys
             let newSession = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params)
             let _ = try await newSession.getKeyInformation()
-            XCTAssertTrue(true)  // reached here
+            #expect(true, "Successfully authenticated with new key")
 
             // new session that authenticates with the default keys
             // shouldn't work anymore and must throw an error
@@ -67,15 +69,16 @@ final class SCP03FullStackTests: XCTestCase {
                     connection: connection,
                     scpKeyParams: defaultKeyParams
                 )
-                XCTFail("Should not reach here")
+                Issue.record("Should not reach here - authentication with default keys should fail")
             } catch {
-                XCTAssertTrue(true)
+                #expect(true, "Expected authentication failure")
             }
         }
     }
 
-    func testDeleteKey() throws {
-        runSCPTest { [self] in
+    @Test("Delete SCP03 key")
+    func deleteKey() async throws {
+        try await runSCPTest {
 
             // generate two random static key sets
             let sk1enc = generateRandomKey()
@@ -118,9 +121,9 @@ final class SCP03FullStackTests: XCTestCase {
             // authentication with first key should fail
             do {
                 _ = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params1)
-                XCTFail("Should not reach here")
+                Issue.record("Should not reach here - authentication with default keys should fail")
             } catch {
-                XCTAssertTrue(true)
+                #expect(true, "Expected authentication failure")
             }
 
             // second key still works
@@ -132,15 +135,16 @@ final class SCP03FullStackTests: XCTestCase {
             // authentication with second key should now fail
             do {
                 _ = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params2)
-                XCTFail("Should not reach here")
+                Issue.record("Should not reach here - authentication with default keys should fail")
             } catch {
-                XCTAssertTrue(true)
+                #expect(true, "Expected authentication failure")
             }
         }
     }
 
-    func testReplaceKey() throws {
-        runSCPTest { [self] in
+    @Test("Replace SCP03 key")
+    func replaceKey() async throws {
+        try await runSCPTest {
 
             let sk1 = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
             let sk2 = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
@@ -168,20 +172,21 @@ final class SCP03FullStackTests: XCTestCase {
             // keyRef1 should fail now
             do {
                 _ = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params1)
-                XCTFail("Should not reach here")
+                Issue.record("Should not reach here - authentication with default keys should fail")
             } catch {
-                XCTAssertTrue(true)
+                #expect(true, "Expected authentication failure")
             }
 
             // keyRef2 should work
             session = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params2)
             _ = try await session.getKeyInformation()
-            XCTAssertTrue(true)
+            #expect(true, "Successfully authenticated with replaced key")
         }
     }
 
-    func testWrongKey() throws {
-        runSCPTest { [self] in
+    @Test("Test SCP03 with wrong key")
+    func wrongKey() async throws {
+        try await runSCPTest {
 
             let sk = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
             let keyRef = SCPKeyRef(kid: .scp03, kvn: 0x01)
@@ -193,9 +198,9 @@ final class SCP03FullStackTests: XCTestCase {
             // Try authenticating with a wrong key
             do {
                 _ = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params)
-                XCTFail("Should not reach here")
+                Issue.record("Should not reach here - authentication with default keys should fail")
             } catch {
-                XCTAssertTrue(true)
+                #expect(true, "Expected authentication failure")
             }
 
             // Check that secure APDU still fails even if session is created
@@ -203,10 +208,10 @@ final class SCP03FullStackTests: XCTestCase {
                 let session = try? await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params)
                 if let session {
                     _ = try await session.getKeyInformation()
-                    XCTFail("Should not be able to send secure command")
+                    Issue.record("Should not be able to send secure command")
                 }
             } catch {
-                XCTAssertTrue(true)
+                #expect(true, "Expected authentication failure")
             }
 
             // Authenticate successfully with default key after failure
@@ -215,7 +220,7 @@ final class SCP03FullStackTests: XCTestCase {
                 scpKeyParams: defaultKeyParams
             )
             _ = try await session.getKeyInformation()
-            XCTAssertTrue(true)
+            #expect(true, "Successfully authenticated with default key after failed attempt")
         }
     }
 }

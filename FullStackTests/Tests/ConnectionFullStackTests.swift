@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import CryptoTokenKit
+import Foundation
 import Testing
 
 @testable import FullStackTests
@@ -26,7 +27,7 @@ struct ConnectionFullStackTests {
     @Test("Single Connection", .timeLimit(.minutes(1)))
     func singleConnection() async throws {
         let connection = try await Connection()
-        #expect(true, "✅ Got connection \(connection)")
+        #expect(true, "Got connection \(connection)")
         await connection.close(error: nil)
     }
 
@@ -50,33 +51,33 @@ struct ConnectionFullStackTests {
         // Wait for the closure notification
         let _ = await closureTask.value
 
-        #expect(true, "✅ Got notified when connection closed")
+        #expect(true, "Got notified when connection closed")
     }
 
     @Test("Serial Connections", .timeLimit(.minutes(1)))
     func serialConnections() async throws {
         let firstConnection = try await Connection()
-        #expect(true, "✅ Got first connection \(firstConnection)")
+        #expect(true, "Got first connection \(firstConnection)")
         let task = Task {
             let result = await firstConnection.waitUntilClosed()
-            #expect(true, "✅ First connection did close")
+            #expect(true, "First connection did close")
             return result
         }
 
         // attempt to create a second connection (should fail!)
         try? await Task.sleep(for: .seconds(1))
         let new = try? await Connection.makeConnection()
-        #expect(new == nil, "✅ Second connection failed as expected")
+        #expect(new == nil, "Second connection failed as expected")
 
         // close the first connection
         _ = await firstConnection.close(error: nil)
         let closingError = await task.value
-        #expect(closingError == nil, "✅ waitUntilClosed() returned: \(String(describing: closingError))")
+        #expect(closingError == nil, "waitUntilClosed() returned: \(String(describing: closingError))")
 
-        // attempt to create a second connection (now it should succed!)
+        // attempt to create a second connection (now it should succeed!)
         try? await Task.sleep(for: .seconds(1))
         let secondConnection = try await Connection()
-        #expect(true, "✅ Got second connection \(secondConnection)")
+        #expect(true, "Got second connection \(secondConnection)")
 
         // close the second connection
         await secondConnection.close(error: nil)
@@ -98,13 +99,13 @@ struct ConnectionFullStackTests {
         }
 
         let result1 = try? await task1.value
-        print("✅ Result 1: \(String(describing: result1))")
+        trace("Result 1: \(String(describing: result1))")
         let result2 = try? await task2.value
-        print("✅ Result 2: \(String(describing: result2))")
+        trace("Result 2: \(String(describing: result2))")
         let result3 = try? await task3.value
-        print("✅ Result 3: \(String(describing: result3))")
+        trace("Result 3: \(String(describing: result3))")
         let result4 = try? await task4.value
-        print("✅ Result 4: \(String(describing: result4))")
+        trace("Result 4: \(String(describing: result4))")
 
         let connections = [result1, result2, result3, result4].compactMap { $0 }
         #expect(connections.count == 1)
@@ -118,18 +119,18 @@ struct ConnectionFullStackTests {
 struct SmartCardConnectionFullStackTests {
 
     @Test("SmartCard Connection With Slot")
-    func smartCardConnectionWithDevice() async throws {
+    func smartCardConnectionWithSlot() async throws {
         let allDevices = try await USBSmartCardConnection.availableDevices()
         allDevices.enumerated().forEach { index, slot in
-            print("\(index): \(slot.name)")
+            trace("\(index): \(slot.name)")
         }
         let random = allDevices.randomElement()
         // we need at least one YubiKey connected
         let slot = try #require(random, "No YubiKey slots available")
         let connection = try await USBSmartCardConnection.makeConnection(slot: slot)
-        #expect(true, "✅ Got connection \(connection)")
+        #expect(true, "Got connection \(connection)")
 
-        // close the second connection
+        // close the connection
         await connection.close(error: nil)
     }
 
@@ -164,7 +165,7 @@ struct SmartCardConnectionFullStackTests {
         let major = bytes[0]
         let minor = bytes[1]
         let micro = bytes[2]
-        print("✅ Got version: \(major).\(minor).\(micro)")
+        trace("Got version: \(major).\(minor).\(micro)")
         #expect(major == 5)
         // Try to select non existing application
         let notFoundApdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: Data([0x01, 0x02, 0x03]))
@@ -180,17 +181,17 @@ struct SmartCardConnectionFullStackTests {
         await connection.close(error: nil)
     }
 
-    @Test("SmartCard Connection With Slot", .timeLimit(.minutes(1)))
-    func smartCardConnectionWithSlot() async throws {
+    @Test("SmartCard Connection With Specific Slot", .timeLimit(.minutes(1)))
+    func smartCardConnectionWithSpecificSlot() async throws {
         let allSlots = try await USBSmartCardConnection.availableDevices()
         allSlots.enumerated().forEach { index, slot in
-            print("\(index): \(slot.name)")
+            trace("\(index): \(slot.name)")
         }
         let random = allSlots.randomElement()
         // we need at least one YubiKey connected
         let slot = try #require(random, "No YubiKey slots available")
         let connection = try await USBSmartCardConnection.makeConnection(slot: slot)
-        #expect(true, "✅ Got connection \(connection)")
+        #expect(true, "Got connection \(connection)")
     }
 }
 
@@ -222,15 +223,15 @@ struct HIDFIDOConnectionFullStackTests {
     @Test("HID Connection With Device")
     func hidConnectionWithDevice() async throws {
         let allDevices = try await HIDFIDOConnection.availableDevices()
-        print("Found \(allDevices.count) FIDO HID devices:")
+        trace("Found \(allDevices.count) FIDO HID devices:")
         allDevices.enumerated().forEach { index, device in
-            print("\(index): \(device.name)")
+            trace("\(index): \(device.name)")
         }
         let random = allDevices.randomElement()
         // we need at least one YubiKey connected
         let device = try #require(random, "No FIDO HID devices available")
         let connection = try await HIDFIDOConnection.makeConnection(device: device)
-        #expect(true, "✅ Got connection \(connection)")
+        #expect(true, "Got connection \(connection)")
 
         await connection.close(error: nil)
     }

@@ -12,38 +12,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoTokenKit
-import XCTest
+import Foundation
+import Testing
 
 @testable import YubiKit
 
-class SCPFullStackTests: XCTestCase {
+@Suite("SCP Full Stack Tests", .serialized)
+struct SCPFullStackTests {
 
-    func testgetSupportedCAIdentifiers() throws {
-        runSCPTest { [self] in
+    @Test("Get supported CA identifiers")
+    func getSupportedCaIdentifiers() async throws {
+        try await runSCPTest {
             let securityDomainSession = try await SecurityDomainSession.makeSession(connection: connection)
             let info = try await securityDomainSession.getSupportedCAIdentifiers(kloc: true, klcc: true)
-            XCTAssertTrue(info != [:])
+            #expect(info != [:], "Should return non-empty CA identifiers")
         }
     }
 
-    func testGetInformation() throws {
-        runSCPTest { [self] in
+    @Test("Get key information")
+    func getInformation() async throws {
+        try await runSCPTest {
             let securityDomainSession = try await SecurityDomainSession.makeSession(connection: connection)
             let info = try await securityDomainSession.getKeyInformation()
-            XCTAssertTrue(info != [:])
+            #expect(info != [:], "Should return non-empty key information")
         }
     }
 
-    func testSCP11b() throws {
-        runSCPTest { [self] in
+    @Test("Test SCP11b authentication")
+    func scp11b() async throws {
+        try await runSCPTest {
             let securityDomainSession = try await SecurityDomainSession.makeSession(connection: connection)
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
             let certificates = try await securityDomainSession.getCertificateBundle(for: scpKeyRef)
             guard let last = certificates.last,
                 case let .ec(publicKey) = last.publicKey
             else {
-                XCTFail()
+                Issue.record("Failed to get EC public key from certificate")
                 return
             }
             let scp11KeyParams = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
@@ -52,12 +56,13 @@ class SCPFullStackTests: XCTestCase {
                 scpKeyParams: scp11KeyParams
             )
             let deviceInfo = try await managementSession.getDeviceInfo()
-            XCTAssertNotNil(deviceInfo)
+            #expect(deviceInfo != nil, "Should successfully get device info with SCP11b")
         }
     }
 
-    func testSCP03() throws {
-        runSCPTest { [self] in
+    @Test("Test SCP03 authentication")
+    func scp03() async throws {
+        try await runSCPTest {
             let scpKeyParams = try SCP03KeyParams(
                 keyRef: SCPKeyRef(kid: .scp03, kvn: 0xff),
                 staticKeys: StaticKeys.defaultKeys()
@@ -67,7 +72,7 @@ class SCPFullStackTests: XCTestCase {
                 scpKeyParams: scpKeyParams
             )
             let deviceInfo = try? await managementSession.getDeviceInfo()
-            XCTAssertNotNil(deviceInfo)
+            #expect(deviceInfo != nil, "Should successfully get device info with SCP03")
         }
     }
 }

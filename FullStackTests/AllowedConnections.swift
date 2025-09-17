@@ -13,8 +13,6 @@
 // limitations under the License.
 
 import Foundation
-import OSLog
-import XCTest
 
 @testable import YubiKit
 
