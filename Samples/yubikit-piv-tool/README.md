@@ -29,5 +29,5 @@ make test
 ```
 
 Tests require:
-- Physical YubiKey connected via USB-C
+- YubiKey connected via USB
 - BATS test framework (`brew install bats-core`)

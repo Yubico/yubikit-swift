@@ -148,7 +148,7 @@ public final actor PIVSession: Session {
     /// Decrypts a RSA-encrypted message.
     /// - Parameters:
     ///   - slot: The slot containing the private key to use.
-    ///   - algorithm: The RSA encryption algorithm to use for decryption.
+    ///   - algorithm: The padding algorithm to use when decrypting.
     ///   - data: The encrypted data to decrypt.
     /// - Returns: The decrypted data.
     public func decryptWithKeyInSlot(

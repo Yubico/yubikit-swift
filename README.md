@@ -61,9 +61,7 @@ Learn by example:
 ## Support
 
 - [GitHub Issues](https://github.com/Yubico/yubikit-swift/issues)
-- [Yubico Developer Support](https://support.yubico.com/hc/en-us/requests/new?ticket_form_id=360013943020)
 - [Developer Documentation](https://developers.yubico.com)
-- [Community Forum](https://forum.yubico.com/)
 
 ## License
 
