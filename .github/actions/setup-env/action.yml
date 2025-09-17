@@ -1,0 +1,18 @@
+name: 'Setup Environment'
+description: 'Common Xcode setup used across all workflows'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Select Xcode 26.0
+      shell: bash
+      run: |
+        sudo xcode-select -s /Applications/Xcode_26.0.app
+        xcodebuild -version
+    
+    - name: Install iOS Simulator
+      shell: bash
+      run: |
+        xcrun simctl list runtimes
+        sudo xcode-select -s /Applications/Xcode_26.0.app
+        xcodebuild -downloadPlatform iOS

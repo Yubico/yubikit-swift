@@ -10,10 +10,11 @@ jobs:
     name: Build and Test (macOS & iOS)
     runs-on: macos-15
     steps:
-      - name: Select Xcode 16.4
-        run: |
-          sudo xcode-select -s /Applications/Xcode_16.4.app
-          xcodebuild -version
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Environment
+        uses: ./.github/actions/setup-env
 
       - name: Check lint rules
         id: lint
@@ -24,26 +25,29 @@ jobs:
           --recursive \
           --strict
 
-      - name: Find iOS simulator UDID
-        id: sim
-        shell: bash
-        run: |
-          SIM_NAME="iPhone"
-
-          UDID=$(xcrun simctl list devices available \
-          | grep -m1 -E "${SIM_NAME}.*\\(" \
-          | sed -E 's/.*\(([0-9A-F-]+)\).*/\1/')
-
-          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Build and run tests (macOS)
         run: swift test -v --parallel
 
+      - name: List available simulators
+        run: xcrun simctl list devices
+
+      - name: Find iOS Simulator
+        id: simulator
+        run: |
+          set -euo pipefail
+          UDID="$(
+            xcrun simctl list devices |
+            grep -E 'iPhone.*\(' |
+            head -n 1 |
+            sed -nE 's/.*\(([0-9A-F-]{36})\).*/\1/p'
+          )"
+          test -n "$UDID" || { echo "No iOS Simulator found"; exit 1; }
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "Found iOS Simulator with UDID: $UDID"
+
       - name: Build and run unit tests (iOS Simulator)
         run: |
-          xcodebuild test -scheme YubiKitTests \
-            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
-            CODE_SIGNING_ALLOWED=NO
+          xcodebuild test \
+          -scheme YubiKitTests \
+          -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+          CODE_SIGNING_ALLOWED=NO

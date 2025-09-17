@@ -19,12 +19,11 @@ jobs:
     runs-on: macos-15
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Select Xcode 16.4
-        run: |
-          sudo xcode-select -s /Applications/Xcode_16.4.app
-          xcodebuild -version
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Environment
+        uses: ./.github/actions/setup-env
 
       - name: Build Docs
         uses: fwcd/swift-docc-action@v1
