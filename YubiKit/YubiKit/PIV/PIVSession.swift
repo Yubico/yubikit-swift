@@ -24,7 +24,7 @@ import OSLog
 /// It supports importing, generating and using private keys. Reading and writing data objects such as
 /// X.509 certificates and managing access (PIN, PUK, etc).
 
-public final actor PIVSession: Session {
+public final actor PIVSession: SmartCardSession {
 
     public typealias Feature = PIVSessionFeature
 

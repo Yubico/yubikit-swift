@@ -44,7 +44,7 @@ public enum SCPError: Error, Sendable {
 ///
 /// Create with ``session(withConnection:scpKeyParams:)`` and call the instance
 /// methods as needed.
-public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
+public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLogger {
 
     public typealias Feature = SecurityDomainFeature
 
