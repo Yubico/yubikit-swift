@@ -93,13 +93,13 @@ enum TestableConnection {
 
     #if os(iOS)
     private static func lightning() async throws -> SmartCardConnection? {
-        let connection = try await LightningSmartCardConnection.connection()
+        let connection = try await LightningSmartCardConnection()
         guard try await connection.isAllowed else { return nil }
         return connection
     }
 
     private static func nfc(alertMessage: String? = nil) async throws -> SmartCardConnection? {
-        let connection = try await NFCSmartCardConnection.connection(alertMessage: alertMessage)
+        let connection = try await NFCSmartCardConnection(alertMessage: alertMessage)
         guard try await connection.isAllowed else { return nil }
         return connection
     }
@@ -113,7 +113,7 @@ extension USBSmartCardConnection {
 
             var connections: [SmartCardConnection?] = []
             for slot in slots {
-                connections.append(try? await USBSmartCardConnection.connection(slot: slot))
+                connections.append(try? await USBSmartCardConnection(slot: slot))
             }
             return connections.compactMap { $0 }
         }

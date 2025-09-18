@@ -319,8 +319,8 @@ extension PIV.KeyType: RawRepresentable {
             }
         case .ecc(let curve):
             return switch curve {
-            case .p256: 0x11
-            case .p384: 0x14
+            case .secp256r1: 0x11
+            case .secp384r1: 0x14
             }
         case .ed25519:
             return 0xE0
@@ -336,8 +336,8 @@ extension PIV.KeyType: RawRepresentable {
         case 0x05: self = .rsa(.bits3072)
         case 0x16: self = .rsa(.bits4096)
 
-        case 0x11: self = .ecc(.p256)
-        case 0x14: self = .ecc(.p384)
+        case 0x11: self = .ecc(.secp256r1)
+        case 0x14: self = .ecc(.secp384r1)
 
         case 0xE0: self = .ed25519
         case 0xE1: self = .x25519

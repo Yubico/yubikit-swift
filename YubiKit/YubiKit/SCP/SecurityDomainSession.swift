@@ -44,7 +44,9 @@ public enum SCPError: Error, Sendable {
 ///
 /// Create with ``session(withConnection:scpKeyParams:)`` and call the instance
 /// methods as needed.
-public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
+public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLogger {
+
+    public typealias Feature = SecurityDomainFeature
 
     private let connection: SmartCardConnection
     private let processor: SCPProcessor?
@@ -80,12 +82,16 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
         try await SecurityDomainSession(connection: connection, scpKeyParams: scpKeyParams)
     }
 
-    /// Indicates whether the session supports the specified feature.
+    /// Checks if the session supports the specified feature.
     ///
-    /// - Parameter feature: The feature whose availability should be queried.
-    /// - Returns: `true` for all input values.
-    public func supports(_ feature: SessionFeature) async -> Bool {
-        true
+    /// This method is required by the Session protocol but is unreachable for
+    /// SecurityDomainSession since SecurityDomainFeature is an empty enum with no cases.
+    /// No instances of SecurityDomainFeature can exist, making this method impossible to call.
+    ///
+    /// - Parameter feature: The feature to check (no valid values exist).
+    /// - Returns: Never returns as this method is unreachable.
+    public func supports(_ feature: SecurityDomainSession.Feature) async -> Bool {
+        // Unreachable - SecurityDomainFeature has no cases
     }
 
     /// Sends a **GET DATA** command to the card and returns the raw response bytes.
@@ -384,7 +390,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
             throw SCPError.unexpectedResponse
         }
 
-        guard let key = EC.PublicKey(uncompressedPoint: tlv.value) else {
+        guard let key = EC.PublicKey(uncompressedPoint: tlv.value, curve: .secp256r1) else {
             throw SCPError.unexpectedResponse
         }
 
@@ -450,7 +456,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     public func putKey(keyRef: SCPKeyRef, publicKey: EC.PublicKey, replaceKvn: UInt8) async throws(SCPError) {
 
         // -- validate curve
-        guard publicKey.curve == .p256 else {
+        guard publicKey.curve == .secp256r1 else {
             throw SCPError.notSupported("Unsupported curve: \(publicKey.curve)")
         }
 
@@ -483,7 +489,7 @@ public final actor SecurityDomainSession: Session, HasSecurityDomainLogger {
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
     public func putKey(keyRef: SCPKeyRef, privateKey: EC.PrivateKey, replaceKvn: UInt8) async throws(SCPError) {
-        guard privateKey.curve == .p256 else {
+        guard privateKey.curve == .secp256r1 else {
             throw .illegalArgument  // Expected SECP256R1 private key size
         }
 

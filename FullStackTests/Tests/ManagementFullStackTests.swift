@@ -24,11 +24,12 @@ class ManagementFullStackTests: XCTestCase {
 
     func testReadKeyVersion() throws {
         runManagementTest { connection, session, _ in
-            print("✅ Got version: \(session.version)")
+            let version = await session.version
+            print("✅ Got version: \(version)")
             #if os(iOS)
             await connection.nfcConnection?.close(message: "YubiKey Version \(session.version)")
             #endif
-            XCTAssertNotNil(session.version)
+            XCTAssertNotNil(version)
         }
     }
 
@@ -197,7 +198,7 @@ class ManagementFullStackTests: XCTestCase {
     // Tests are run in alphabetical order. If running the tests via NFC this will disable NFC for all the following tests making them fail, hence the Z in the name.
     func testZNFCRestricted() throws {
         runManagementTest { connection, session, transport in
-            guard session.version >= Version(withString: "5.7.0")! else {
+            guard await session.version >= Version(withString: "5.7.0")! else {
                 print("⚠️ YubiKey without support for NFC restricted. Skip test.")
                 return
             }

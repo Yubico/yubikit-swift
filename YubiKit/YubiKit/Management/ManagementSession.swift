@@ -35,7 +35,9 @@ public enum ManagementSessionError: Error, Sendable {
 /// Use the Management application to get information and configure a YubiKey.
 /// Read more about the Management application on the
 /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
-public final actor ManagementSession: Session {
+public final actor ManagementSession: SmartCardSession {
+
+    public typealias Feature = ManagementFeature
 
     private let connection: SmartCardConnection
     private let processor: SCPProcessor?
@@ -74,7 +76,7 @@ public final actor ManagementSession: Session {
     /// Determines whether the session supports the specified feature.
     /// - Parameter feature: The feature to check for support.
     /// - Returns: true if the feature is supported, false otherwise.
-    public func supports(_ feature: SessionFeature) async -> Bool {
+    public func supports(_ feature: ManagementSession.Feature) async -> Bool {
         feature.isSupported(by: version)
     }
 

@@ -21,15 +21,26 @@ import OSLog
 /// A connection to the YubiKey utilizing the Lightning port and External Accessory framework.
 @available(iOS 16.0, *)
 public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
-    let accessoryConnectionID: Int
+    fileprivate let accessoryConnectionID: LightningConnectionID
+
+    /// Creates a new Lightning connection to a YubiKey.
+    ///
+    /// Waits for a YubiKey to be connected via Lightning port and establishes a connection.
+    ///
+    /// - Throws: ``ConnectionError.busy`` if there is already an active connection.
+    public init() async throws {
+        accessoryConnectionID = try await LightningConnectionManager.shared.connect()
+    }
 
     /// Creates a connection to a YubiKey via Lightning port.
     ///
     /// > Warning: Connections must be explicitly closed using ``close(error:)``.
     /// Only one connection can exist at a time - attempting to create another will throw ``ConnectionError/busy``.
-    public static func connection() async throws -> SmartCardConnection {
+    /// - Returns: A fully–established connection ready for APDU exchange.
+    /// - Throws: ``ConnectionError.busy`` if there is already an active connection.
+    public static func connection() async throws -> LightningSmartCardConnection {
         trace(message: "requesting new connection")
-        return try await LightningConnectionManager.shared.connect()
+        return try await LightningSmartCardConnection()
     }
 
     public func close(error: Error?) async {
@@ -54,6 +65,7 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
         trace(message: "received \(response.count) bytes")
         return response
     }
+
 }
 
 // MARK: - Internal helpers / extensions
@@ -75,19 +87,19 @@ private actor LightningConnectionManager {
 
     static let shared = LightningConnectionManager()
 
-    private var pendingConnectionPromise: Promise<LightningSmartCardConnection>?
-    private var connectionState: (connectionID: ConnectionID, didCloseConnection: (Promise<Error?>))?
+    private var pendingConnectionPromise: Promise<LightningConnectionID>?
+    private var connectionState: (connectionID: LightningConnectionID, didCloseConnection: (Promise<Error?>))?
 
     private init() {}
 
-    func connect() async throws -> LightningSmartCardConnection {
+    func connect() async throws -> LightningConnectionID {
         // If there is already a connection the caller must close the connection first.
         if connectionState != nil || pendingConnectionPromise != nil {
             throw ConnectionError.busy
         }
 
         // Otherwise, create and store a new connection task.
-        let task = Task { () -> LightningSmartCardConnection in
+        let task = Task { () -> LightningConnectionID in
             trace(message: "begin new connection task")
 
             do {
@@ -98,7 +110,7 @@ private actor LightningConnectionManager {
                 }
 
                 // Create a promise to bridge the callback from EAAccessoryWrapper
-                let connectionPromise: Promise<LightningSmartCardConnection> = .init()
+                let connectionPromise: Promise<LightningConnectionID> = .init()
                 self.pendingConnectionPromise = connectionPromise
 
                 // Connect to YubiKeys that are already plugged in
@@ -159,17 +171,16 @@ private actor LightningConnectionManager {
     }
 
     // Called by EAAccessoryWrapper when an accessory connects
-    func accessoryDidConnect(connectionID: Int) async {
+    func accessoryDidConnect(connectionID: LightningConnectionID) async {
         trace(message: "accessory connected with ID \(connectionID)")
         guard let promise = pendingConnectionPromise else { return }
 
         connectionState = (connectionID: connectionID, didCloseConnection: Promise<Error?>())
-        let connection = LightningSmartCardConnection(accessoryConnectionID: connectionID)
-        await promise.fulfill(connection)
+        await promise.fulfill(connectionID)
     }
 
     // Called by EAAccessoryWrapper when an accessory disconnects
-    func accessoryDidDisconnect(connectionID: Int) async {
+    func accessoryDidDisconnect(connectionID: LightningConnectionID) async {
         trace(message: "accessory disconnected with ID \(connectionID)")
 
         // If a connection attempt is in progress, fail it.
@@ -193,11 +204,11 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     private override init() {}
 
     private let manager = EAAccessoryManager.shared()
-    private var sessions: [ConnectionID: EASession] = [:]
+    private var sessions: [LightningConnectionID: EASession] = [:]
     private var connectObserver: NSObjectProtocol?
     private var disconnectObserver: NSObjectProtocol?
 
-    func setupConnection(id: ConnectionID, session: EASession) async {
+    func setupConnection(id: LightningConnectionID, session: EASession) async {
         trace(message: "opening session for ID \(id)")
         session.open()
         // Give streams time to stabilize
@@ -208,7 +219,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
         sessions[id] = session
     }
 
-    func cleanupConnection(id: ConnectionID) {
+    func cleanupConnection(id: LightningConnectionID) {
         trace(message: "closing session for ID \(id)")
         guard let session = sessions[id] else { return }
 
@@ -228,7 +239,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
         let connectedYubiKeys = getConnectedYubiKeys()
         if let connectedKey = connectedYubiKeys.first {
 
-            let connectionID = connectedKey.connectionID
+            let connectionID: LightningConnectionID = connectedKey.connectionID
 
             // Check if we already have a session for this accessory
             if let _ = sessions[connectionID] {
@@ -257,7 +268,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
                 let session = EASession(accessory: accessory, forProtocol: "com.yubico.ylp")
             else { return }
 
-            let connectionID = accessory.connectionID
+            let connectionID: LightningConnectionID = accessory.connectionID
 
             Task {
                 await EAAccessoryWrapper.shared.setupConnection(id: connectionID, session: session)
@@ -274,7 +285,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
                 accessory.isYubiKey
             else { return }
 
-            let connectionID = accessory.connectionID
+            let connectionID: LightningConnectionID = accessory.connectionID
 
             Task {
                 await EAAccessoryWrapper.shared.cleanupConnection(id: connectionID)
@@ -298,7 +309,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
         EAAccessoryManager.shared().unregisterForLocalNotifications()
     }
 
-    func transmit(id: ConnectionID, data: Data) async throws -> Data {
+    func transmit(id: LightningConnectionID, data: Data) async throws -> Data {
         guard let session = sessions[id],
             let inputStream = session.inputStream,
             let outputStream = session.outputStream
@@ -333,7 +344,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     }
 }
 
-private typealias ConnectionID = Int
+private typealias LightningConnectionID = Int
 
 extension EAAccessory {
     fileprivate var isYubiKey: Bool {

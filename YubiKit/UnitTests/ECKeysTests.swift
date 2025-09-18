@@ -29,17 +29,17 @@ struct ECKeysTests {
 
     // Test curve coordinate and key size properties.
     @Test func curveSizeProperties() {
-        #expect(EC.Curve.p256.keySizeInBits == 256)
-        #expect(EC.Curve.p384.keySizeInBits == 384)
-        #expect(EC.Curve.p256.keySizeInBytes == 32)
-        #expect(EC.Curve.p384.keySizeInBytes == 48)
+        #expect(EC.Curve.secp256r1.keySizeInBits == 256)
+        #expect(EC.Curve.secp384r1.keySizeInBits == 384)
+        #expect(EC.Curve.secp256r1.keySizeInBytes == 32)
+        #expect(EC.Curve.secp384r1.keySizeInBytes == 48)
     }
 
     // MARK: - Key Generation
 
     // Test random EC private key generation and its properties.
     @Test func generateRandomPrivateKey() throws {
-        let curves: [EC.Curve] = [.p256, .p384]
+        let curves: [EC.Curve] = [.secp256r1, .secp384r1]
         for curve in curves {
             let privKey = EC.PrivateKey.random(curve: curve)!
             #expect(privKey.publicKey.curve == curve)
@@ -53,7 +53,7 @@ struct ECKeysTests {
 
     // Test conversion from EC keys to SecKey.
     @Test func asSecKeyConversion() throws {
-        let curves: [EC.Curve] = [.p256, .p384]
+        let curves: [EC.Curve] = [.secp256r1, .secp384r1]
         for curve in curves {
             let privKey = EC.PrivateKey.random(curve: curve)!
             let pubKey = privKey.publicKey
@@ -69,7 +69,7 @@ struct ECKeysTests {
 
     // End-to-end test of key generation, encoding, decoding, and comparison for all key components.
     @Test func randomKeyGenerateEncodeDecodeCompare() throws {
-        let curves: [EC.Curve] = [.p256, .p384]
+        let curves: [EC.Curve] = [.secp256r1, .secp384r1]
         for curve in curves {
             // Generate a random key
             let privKey = EC.PrivateKey.random(curve: curve)!
@@ -79,8 +79,8 @@ struct ECKeysTests {
             let pubRaw = privKey.publicKey.uncompressedPoint
 
             // Decode back from uncompressed representation
-            let decodedPriv = EC.PrivateKey(uncompressedRepresentation: privRaw)
-            let decodedPub = EC.PublicKey(uncompressedPoint: pubRaw)
+            let decodedPriv = EC.PrivateKey(uncompressedRepresentation: privRaw, curve: curve)
+            let decodedPub = EC.PublicKey(uncompressedPoint: pubRaw, curve: curve)
 
             // Compare all components of private key
             #expect(decodedPriv != nil)
@@ -98,11 +98,11 @@ struct ECKeysTests {
     // Test decoding of invalid representation returns nil.
     @Test func decodeInvalidRawReturnsNil() {
         let invalid = Data([0x00, 0x01, 0x02])
-        let curves: [EC.Curve] = [.p256, .p384]
-        for _ in curves {
-            let decodedPriv = EC.PrivateKey(uncompressedRepresentation: invalid)
+        let curves: [EC.Curve] = [.secp256r1, .secp384r1]
+        for curve in curves {
+            let decodedPriv = EC.PrivateKey(uncompressedRepresentation: invalid, curve: curve)
             #expect(decodedPriv == nil)
-            let decodedPub = EC.PublicKey(uncompressedPoint: invalid)
+            let decodedPub = EC.PublicKey(uncompressedPoint: invalid, curve: curve)
             #expect(decodedPub == nil)
         }
     }
@@ -111,7 +111,7 @@ struct ECKeysTests {
 
     // Test round-trip conversion from EC.PublicKey to SecKey and back, validating integrity.
     @Test func publicKeyToSecKeyAndBack() throws {
-        let curves: [EC.Curve] = [.p256, .p384]
+        let curves: [EC.Curve] = [.secp256r1, .secp384r1]
         for curve in curves {
             let originalPrivKey = EC.PrivateKey.random(curve: curve)!
             let originalPubKey = originalPrivKey.publicKey
@@ -123,7 +123,7 @@ struct ECKeysTests {
 
             // Re-initialize EC.PublicKey from this uncompressed data
             if let pubRaw = publicDERFromSecKey {
-                let roundTrippedPubKey = EC.PublicKey(uncompressedPoint: pubRaw)
+                let roundTrippedPubKey = EC.PublicKey(uncompressedPoint: pubRaw, curve: curve)
                 #expect(roundTrippedPubKey != nil)
                 #expect(roundTrippedPubKey?.x == originalPubKey.x)
                 #expect(roundTrippedPubKey?.y == originalPubKey.y)
@@ -135,7 +135,7 @@ struct ECKeysTests {
 
     // Test round-trip conversion from EC.PrivateKey to SecKey and back, validating integrity.
     @Test func privateKeyToSecKeyAndBack() throws {
-        let curves: [EC.Curve] = [.p256, .p384]
+        let curves: [EC.Curve] = [.secp256r1, .secp384r1]
         for curve in curves {
             let originalPrivKey = EC.PrivateKey.random(curve: curve)!
 
@@ -146,7 +146,7 @@ struct ECKeysTests {
 
             // Re-initialize EC.PrivateKey from this uncompressed data
             if let privRaw = privateDERFromSecKey {
-                let roundTrippedPrivKey = EC.PrivateKey(uncompressedRepresentation: privRaw)
+                let roundTrippedPrivKey = EC.PrivateKey(uncompressedRepresentation: privRaw, curve: curve)
                 #expect(roundTrippedPrivKey != nil)
                 #expect(roundTrippedPrivKey?.publicKey.x == originalPrivKey.publicKey.x)
                 #expect(roundTrippedPrivKey?.publicKey.y == originalPrivKey.publicKey.y)

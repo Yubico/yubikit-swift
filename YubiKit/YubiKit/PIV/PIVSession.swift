@@ -24,7 +24,9 @@ import OSLog
 /// It supports importing, generating and using private keys. Reading and writing data objects such as
 /// X.509 certificates and managing access (PIN, PUK, etc).
 
-public final actor PIVSession: Session {
+public final actor PIVSession: SmartCardSession {
+
+    public typealias Feature = PIVSessionFeature
 
     /// The firmware version of the connected YubiKey.
     public let version: Version
@@ -67,7 +69,7 @@ public final actor PIVSession: Session {
     ///
     /// - Parameter feature: The feature to check for support.
     /// - Returns: `true` if the feature is supported, `false` otherwise.
-    public func supports(_ feature: SessionFeature) async -> Bool {
+    public func supports(_ feature: PIVSession.Feature) async -> Bool {
         feature.isSupported(by: version)
     }
 
@@ -1001,7 +1003,7 @@ extension PIVSession {
         generateKey: Bool
     ) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        if keyType == .ecc(.p384) {
+        if keyType == .ecc(.secp384r1) {
             guard await self.supports(PIVSessionFeature.p384) else { throw SessionError.notSupported }
         }
         if pinPolicy != .`defaultPolicy` || touchPolicy != .`defaultPolicy` {

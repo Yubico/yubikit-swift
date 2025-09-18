@@ -16,20 +16,15 @@ import Foundation
 
 /// A protocol defining a session with a specific application on the YubiKey.
 ///
-/// The Session uses a ``SmartCardConnection`` to handle communication with the YubiKey. Using a session is the preferred way
+/// Session is the base protocol for all YubiKey application sessions. Using a session is the preferred way
 /// of communicating with the different applications on the YubiKey.
-///
-/// The protocol is implemented by ``OATHSession`` and ``ManagementSession``.
 public protocol Session: Sendable {
 
-    /// Returns a new session using the supplied connection.
-    static func session(
-        withConnection connection: SmartCardConnection,
-        scpKeyParams: SCPKeyParams?
-    ) async throws -> Self
+    /// The type of features supported by this session.
+    associatedtype Feature: SessionFeature
 
     /// Determine whether the Session supports the specific feature.
-    func supports(_ feature: SessionFeature) async -> Bool
+    func supports(_ feature: Feature) async -> Bool
 }
 
 /// A protocol defining a feature that can be supported by a session.

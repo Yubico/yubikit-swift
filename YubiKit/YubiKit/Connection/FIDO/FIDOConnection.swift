@@ -19,6 +19,14 @@ import Foundation
 /// Works in terms of fixed-size packets (≤ `mtu`).
 /* public */ protocol FIDOConnection: Connection {
 
+    /// Create a new FIDOConnection to the YubiKey.
+    ///
+    /// Initialize a FIDOConnection to get a connection to a YubiKey.
+    /// The init method will wait until a connection to a YubiKey has been established.
+    ///
+    /// - Throws: Connection errors if no YubiKey is available.
+    init() async throws
+
     /// Maximum payload size (in bytes) for a single packet.
     var mtu: Int { get }
 
@@ -29,7 +37,7 @@ import Foundation
     func receive() async throws -> Data
 
     /// Opens a new connection.
-    static func connection() async throws -> FIDOConnection
+    static func connection() async throws -> Self
 
     /// Close the current connection.
     func close(error: Error?) async

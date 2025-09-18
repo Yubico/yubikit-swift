@@ -16,7 +16,7 @@ import Foundation
 
 /// Top-level public key enum (RSA, EC, Ed25519, or X25519).
 public enum PublicKey: Sendable, Equatable {
-    /// Elliptic curve public key (P-256 or P-384).
+    /// Elliptic curve public key (secp256r1 or secp384r1).
     case ec(EC.PublicKey)
     /// RSA public key (1024, 2048, 3072, or 4096 bits).
     case rsa(RSA.PublicKey)

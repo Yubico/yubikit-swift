@@ -67,7 +67,7 @@ final class ConnectionManager: ObservableObject {
         error = nil
 
         do {
-            nfcConnection = try await NFCSmartCardConnection.connection() as? NFCSmartCardConnection
+            nfcConnection = try await NFCSmartCardConnection()
         } catch {
             self.error = error
         }
