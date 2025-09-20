@@ -12,38 +12,57 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoTokenKit
-import XCTest
+import Foundation
+import Testing
 
 @testable import YubiKit
 
-class SCPFullStackTests: XCTestCase {
+@Suite("SCP Full Stack Tests", .serialized)
+struct SCPFullStackTests {
 
-    func testGetSupportedCaIdentifiers() throws {
-        runSCPTest { [self] in
+    @Test("Get supported CA identifiers")
+    func getSupportedCaIdentifiers() async throws {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.7.2")! else {
+                reportSkip(reason: "CA identifiers not supported on this YubiKey")
+                return
+            }
+
             let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
             let info = try await securityDomainSession.getSupportedCaIdentifiers(kloc: true, klcc: true)
-            XCTAssertTrue(info != [:])
+            #expect(info != [:], "Should return non-empty CA identifiers")
         }
     }
 
-    func testGetInformation() throws {
-        runSCPTest { [self] in
+    @Test("Get key information")
+    func getInformation() async throws {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.3.0")! else {
+                reportSkip(reason: "SCP not supported on this YubiKey")
+                return
+            }
+
             let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
             let info = try await securityDomainSession.getKeyInformation()
-            XCTAssertTrue(info != [:])
+            #expect(info != [:], "Should return non-empty key information")
         }
     }
 
-    func testSCP11b() throws {
-        runSCPTest { [self] in
+    @Test("Test SCP11b authentication")
+    func scp11b() async throws {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.7.2")! else {
+                reportSkip(reason: "SCP11b not supported on this YubiKey")
+                return
+            }
+
             let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
             let certificates = try await securityDomainSession.getCertificateBundle(scpKeyRef: scpKeyRef)
             guard let last = certificates.last,
                 case let .ec(publicKey) = last.publicKey
             else {
-                XCTFail()
+                Issue.record("Failed to get EC public key from certificate")
                 return
             }
             let scp11KeyParams = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
@@ -51,13 +70,19 @@ class SCPFullStackTests: XCTestCase {
                 withConnection: connection,
                 scpKeyParams: scp11KeyParams
             )
-            let deviceInfo = try await managementSession.getDeviceInfo()
-            XCTAssertNotNil(deviceInfo)
+            let deviceInfo = try? await managementSession.getDeviceInfo()
+            #expect(deviceInfo != nil, "Should successfully get device info with SCP03")
         }
     }
 
-    func testSCP03() throws {
-        runSCPTest { [self] in
+    @Test("Test SCP03 authentication")
+    func scp03() async throws {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.3.0")! else {
+                reportSkip(reason: "SCP03 not supported on this YubiKey")
+                return
+            }
+
             let scpKeyParams = try SCP03KeyParams(
                 keyRef: SCPKeyRef(kid: .scp03, kvn: 0xff),
                 staticKeys: StaticKeys.defaultKeys()
@@ -67,7 +92,7 @@ class SCPFullStackTests: XCTestCase {
                 scpKeyParams: scpKeyParams
             )
             let deviceInfo = try? await managementSession.getDeviceInfo()
-            XCTAssertNotNil(deviceInfo)
+            #expect(deviceInfo != nil, "Should successfully get device info with SCP03")
         }
     }
 }

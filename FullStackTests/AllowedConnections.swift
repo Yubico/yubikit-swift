@@ -13,12 +13,10 @@
 // limitations under the License.
 
 import Foundation
-import OSLog
-import XCTest
 
 @testable import YubiKit
 
-// These Yubikeys are allowed for tests.
+// These YubiKeys are allowed for tests.
 // Add your own personal test YubiKeys to this list.
 let allowedSerialNumbers: [UInt] = [
     14_453_003,  // 5C NFC (5.2.6)
