@@ -22,7 +22,12 @@ struct SCPFullStackTests {
 
     @Test("Get supported CA identifiers")
     func getSupportedCaIdentifiers() async throws {
-        try await runSCPTest {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.7.2")! else {
+                reportSkip(reason: "CA identifiers not supported on this YubiKey")
+                return
+            }
+
             let securityDomainSession = try await SecurityDomainSession.makeSession(connection: connection)
             let info = try await securityDomainSession.getSupportedCAIdentifiers(kloc: true, klcc: true)
             #expect(info != [:], "Should return non-empty CA identifiers")
@@ -31,7 +36,12 @@ struct SCPFullStackTests {
 
     @Test("Get key information")
     func getInformation() async throws {
-        try await runSCPTest {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.3.0")! else {
+                reportSkip(reason: "SCP not supported on this YubiKey")
+                return
+            }
+
             let securityDomainSession = try await SecurityDomainSession.makeSession(connection: connection)
             let info = try await securityDomainSession.getKeyInformation()
             #expect(info != [:], "Should return non-empty key information")
@@ -40,7 +50,12 @@ struct SCPFullStackTests {
 
     @Test("Test SCP11b authentication")
     func scp11b() async throws {
-        try await runSCPTest {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.7.2")! else {
+                reportSkip(reason: "SCP11b not supported on this YubiKey")
+                return
+            }
+
             let securityDomainSession = try await SecurityDomainSession.makeSession(connection: connection)
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
             let certificates = try await securityDomainSession.getCertificateBundle(for: scpKeyRef)
@@ -55,14 +70,19 @@ struct SCPFullStackTests {
                 connection: connection,
                 scpKeyParams: scp11KeyParams
             )
-            let deviceInfo = try await managementSession.getDeviceInfo()
-            #expect(deviceInfo != nil, "Should successfully get device info with SCP11b")
+            let deviceInfo = try? await managementSession.getDeviceInfo()
+            #expect(deviceInfo != nil, "Should successfully get device info with SCP03")
         }
     }
 
     @Test("Test SCP03 authentication")
     func scp03() async throws {
-        try await runSCPTest {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.3.0")! else {
+                reportSkip(reason: "SCP03 not supported on this YubiKey")
+                return
+            }
+
             let scpKeyParams = try SCP03KeyParams(
                 keyRef: SCPKeyRef(kid: .scp03, kvn: 0xff),
                 staticKeys: StaticKeys.defaultKeys()

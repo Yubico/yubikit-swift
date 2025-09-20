@@ -22,7 +22,12 @@ struct SCP03FullStackTests {
 
     @Test("Test SCP03 with default keys")
     func defaultKeys() async throws {
-        try await runSCPTest {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.3.0")! else {
+                reportSkip(reason: "SCP03 not supported on this YubiKey")
+                return
+            }
+
             let managementSession = try await ManagementSession.makeSession(
                 connection: connection,
                 scpKeyParams: defaultKeyParams
@@ -34,7 +39,11 @@ struct SCP03FullStackTests {
 
     @Test("Import SCP03 key")
     func importKey() async throws {
-        try await runSCPTest {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.3.0")! else {
+                reportSkip(reason: "SCP03 not supported on this YubiKey")
+                return
+            }
 
             // reset YubiKey's SCP state to the factory default
             try await SecurityDomainSession.makeSession(connection: connection).reset()
@@ -78,7 +87,11 @@ struct SCP03FullStackTests {
 
     @Test("Delete SCP03 key")
     func deleteKey() async throws {
-        try await runSCPTest {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.3.0")! else {
+                reportSkip(reason: "SCP03 not supported on this YubiKey")
+                return
+            }
 
             // generate two random static key sets
             let sk1enc = generateRandomKey()
@@ -144,7 +157,11 @@ struct SCP03FullStackTests {
 
     @Test("Replace SCP03 key")
     func replaceKey() async throws {
-        try await runSCPTest {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.3.0")! else {
+                reportSkip(reason: "SCP03 not supported on this YubiKey")
+                return
+            }
 
             let sk1 = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
             let sk2 = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
@@ -186,7 +203,11 @@ struct SCP03FullStackTests {
 
     @Test("Test SCP03 with wrong key")
     func wrongKey() async throws {
-        try await runSCPTest {
+        try await runSCPTest { version in
+            guard version >= Version(withString: "5.3.0")! else {
+                reportSkip(reason: "SCP03 not supported on this YubiKey")
+                return
+            }
 
             let sk = StaticKeys(enc: generateRandomKey(), mac: generateRandomKey(), dek: generateRandomKey())
             let keyRef = SCPKeyRef(kid: .scp03, kvn: 0x01)

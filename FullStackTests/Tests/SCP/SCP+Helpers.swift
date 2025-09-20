@@ -28,15 +28,19 @@ var defaultKeyParams: SCP03KeyParams {
 }
 
 func runSCPTest(
-    test: @escaping () async throws -> Void
+    test: @escaping (Version) async throws -> Void
 ) async throws {
     let connection = try await TestableConnection.shared()
 
+    // Get the YubiKey version first
+    let managementSession = try await ManagementSession.makeSession(connection: connection)
+    let version = await managementSession.version
+
     // reset YubiKey's SCP state to the factory default
-    try await SecurityDomainSession.session(withConnection: connection).reset()
+    try await SecurityDomainSession.makeSession(connection: connection).reset()
 
     _connection = connection
-    try await test()
+    try await test(version)
 }
 
 private var _connection: SmartCardConnection!
