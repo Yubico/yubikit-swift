@@ -1088,7 +1088,7 @@ struct PIVFullStackTests {
             case .success:
                 return
             case .fail(_):
-                Issue.record("Failed verifying with unblocked pin.")
+                Issue.record("Failed verifying with unblocked PIN.")
             case .pinLocked:
                 Issue.record("PIN still blocked after unblocking with PUK.")
             }
@@ -1161,7 +1161,7 @@ struct PIVFullStackTests {
         let managementSession = try await ManagementSession.makeSession(connection: connection)
         let deviceInfo = try await managementSession.getDeviceInfo()
         guard deviceInfo.formFactor != .usbCBio && deviceInfo.formFactor != .usbABio else {
-            Issue.record("⚠️ Skipping test: This is a YubiKey Bio device")
+            reportSkip(reason: "This is a YubiKey Bio device")
             return
         }
 

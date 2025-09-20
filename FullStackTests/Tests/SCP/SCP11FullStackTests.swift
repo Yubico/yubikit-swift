@@ -333,7 +333,7 @@ extension SecurityDomainSession {
         // Upload the CA public key to the YubiKey so it can verify signatures
         let ca = Scp11TestData.caCert
         guard case let .ec(certificatePublicKey) = ca.publicKey! else {
-            Issue.record("Expected EC public key")
+            Issue.record("Failed to extract EC public key from CA certificate")
             return nil
         }
         try await putPublicKey(certificatePublicKey, for: oceRef, replacing: 0)

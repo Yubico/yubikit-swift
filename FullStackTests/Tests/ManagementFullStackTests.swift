@@ -176,7 +176,7 @@ struct ManagementFullStackTests {
         try await runManagementTest { connection, session, transport in
             let config = try await session.getDeviceInfo().config
             do {
-                try await session.updateDeviceConfig(config, reboot: true, newLockCode: lockCode)
+                try await session.updateDeviceConfig(config, reboot: false, newLockCode: lockCode)
                 trace("Lock code set to: \(lockCode.hexEncodedString)")
             } catch {
                 Issue.record("Failed setting new lock code")

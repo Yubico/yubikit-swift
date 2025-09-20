@@ -73,6 +73,8 @@ run_test() {
     local test_selection="$1"
     local description="$2"
 
+    set -o pipefail  # Ensure pipeline fails if xcodebuild fails
+
     echo -e "${GREEN}Running: $description${NC}"
     echo
 
@@ -80,8 +82,6 @@ run_test() {
         echo -e "${RED}Error: Project file $PROJECT_FILE not found${NC}" >&2
         return 1
     fi
-
-    set -o pipefail  # Ensure pipeline fails if xcodebuild fails
     if ! xcodebuild test \
         -project "$PROJECT_FILE" \
         -scheme "$SCHEME" \
@@ -91,7 +91,6 @@ run_test() {
         echo -e "${RED}Test execution failed${NC}" >&2
         return 1
     fi
-    set +o pipefail
 }
 
 show_usage() {
