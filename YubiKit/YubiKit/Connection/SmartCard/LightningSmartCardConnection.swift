@@ -254,9 +254,11 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     }
 
     func startMonitoring() {
-        trace(message: "begin monitoring")
+        trace(message: "begin monitoring - blake's repo")
         // Prevent duplicate observers
         guard connectObserver == nil && disconnectObserver == nil else { return }
+
+        trace(message: "registering for EAAccessory notifications")
 
         connectObserver = NotificationCenter.default.addObserver(
             forName: .EAAccessoryDidConnect,
@@ -271,10 +273,15 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
             let connectionID: LightningConnectionID = accessory.connectionID
 
             Task {
+                trace(message: "accessory connected with ID \(connectionID)")
                 await EAAccessoryWrapper.shared.setupConnection(id: connectionID, session: session)
+
+                trace(message: "session setup complete for ID \(connectionID)")
                 await LightningConnectionManager.shared.accessoryDidConnect(connectionID: connectionID)
             }
         }
+
+        trace(message: "adding disconnect observer")
 
         disconnectObserver = NotificationCenter.default.addObserver(
             forName: .EAAccessoryDidDisconnect,
@@ -293,7 +300,11 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
             }
         }
 
+        trace(message: "registering for local notifications")
+
         EAAccessoryManager.shared().registerForLocalNotifications()
+
+        trace(message: "registration complete")
     }
 
     func stopMonitoring() {
