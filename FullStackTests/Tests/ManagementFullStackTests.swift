@@ -241,32 +241,10 @@ struct ManagementFullStackTests {
 
     // MARK: - Reset Tests
 
-    @Test("Bio device reset")
-    func bioDeviceReset() async throws {
-        try await runManagementTest { connection, session, transport in
-            let deviceInfo = try await session.getDeviceInfo()
-            guard deviceInfo.formFactor == .usbCBio || deviceInfo.formFactor == .usbABio else {
-                reportSkip(reason: "Not a YubiKey Bio device")
-                return
-            }
-            try await session.resetDevice()
-            var pivSession = try await PIVSession.makeSession(connection: connection)
-            var pinMetadata = try await pivSession.getPinMetadata()
-            #expect(pinMetadata.isDefault)
-            try await pivSession.changePin(from: "123456", to: "654321")
-            pinMetadata = try await pivSession.getPinMetadata()
-            #expect(!pinMetadata.isDefault)
-            let managementSession = try await ManagementSession.makeSession(connection: connection)
-            try await managementSession.resetDevice()
-            pivSession = try await PIVSession.makeSession(connection: connection)
-            pinMetadata = try await pivSession.getPinMetadata()
-            #expect(pinMetadata.isDefault)
-        }
-    }
 }
 
 // MARK: - Helpers
-private func runManagementTest(
+func runManagementTest(
     test: (SmartCardConnection, ManagementSession, DeviceTransport) async throws -> Void
 ) async throws {
     try await Task.sleep(for: .seconds(5))  // Give some time between tests to avoid issues with NFC

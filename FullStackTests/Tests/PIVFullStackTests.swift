@@ -263,53 +263,6 @@ struct PIVFullStackTests {
     //     try await testRSAKeyImport(keySize: .bits4096)
     // }
 
-    private func testRSAKeyImport(keySize: RSA.KeySize) async throws {
-        try await runPIVTest(authenticated: true) { session in
-            // Check for RSA 3072/4096 feature support
-            if keySize == .bits3072 || keySize == .bits4096 {
-                guard await session.supports(PIVSessionFeature.rsa3072and4096) else {
-                    reportSkip(reason: "RSA 3072/4096 not supported on this YubiKey")
-                    return
-                }
-            }
-
-            guard let privateKey = RSA.PrivateKey.random(keySize: keySize) else {
-                Issue.record("Failed to create RSA keys")
-                return
-            }
-            let publicKey = privateKey.publicKey
-
-            let keyType = try await session.putPrivateKey(
-                privateKey,
-                in: .signature,
-                pinPolicy: .always,
-                touchPolicy: .never
-            )
-            #expect(keyType == PIV.RSAKey.rsa(keySize))
-
-            let dataToEncrypt = testMessage
-            guard let secKey = publicKey.asSecKey(),
-                let encryptedData = SecKeyCreateEncryptedData(
-                    secKey,
-                    .rsaEncryptionPKCS1,
-                    dataToEncrypt as CFData,
-                    nil
-                ) as Data?
-            else {
-                Issue.record("Failed encrypting data with SecKeyCreateEncryptedData().")
-                return
-            }
-
-            try await session.verifyPin(defaultPIN)
-            let decryptedData = try await session.decrypt(
-                encryptedData,
-                in: .signature,
-                using: .pkcs1v15
-            )
-            #expect(dataToEncrypt == decryptedData)
-        }
-    }
-
     @Test("Import ECC P-256 key")
     func putECCP256Key() async throws {
         try await testECCKeyImport(curve: .secp256r1)
@@ -318,36 +271,6 @@ struct PIVFullStackTests {
     @Test("Import ECC P-384 key")
     func putECCP384Key() async throws {
         try await testECCKeyImport(curve: .secp384r1)
-    }
-
-    private func testECCKeyImport(curve: EC.Curve) async throws {
-        try await runPIVTest(authenticated: true) { session in
-            let privateKey = try #require(EC.PrivateKey.random(curve: curve))
-            let publicKey = privateKey.publicKey
-
-            let keyType = try await session.putPrivateKey(
-                privateKey,
-                in: .signature,
-                pinPolicy: .always,
-                touchPolicy: .never
-            )
-            #expect(keyType == PIV.ECCKey.ecc(curve))
-
-            try await session.verifyPin(defaultPIN)
-            let signature = try await session.sign(
-                testMessage,
-                in: .signature,
-                keyType: .ecc(curve),
-                using: .message(.sha256)
-            )
-
-            try self.verifyECSignature(
-                publicKey: publicKey,
-                message: testMessage,
-                signature: signature,
-                algorithm: .ecdsaSignatureMessageX962SHA256
-            )
-        }
     }
 
     @Test("Import Ed25519 Key")
@@ -1113,46 +1036,7 @@ struct PIVFullStackTests {
         }
     }
 
-    // MARK: - Biometric Authentication Tests
-
-    // This will test auth on a YubiKey Bio. To run the test at least one fingerprint needs to be registered.
-    @Test("Bio Authentication")
-    func bioAuthentication() async throws {
-        // First check if it's a bio device
-        let connection = try await TestableConnection.shared()
-        let managementSession = try await ManagementSession.makeSession(connection: connection)
-        let deviceInfo = try await managementSession.getDeviceInfo()
-        guard deviceInfo.formFactor == .usbCBio || deviceInfo.formFactor == .usbABio else {
-            reportSkip(reason: "Not a YubiKey Bio device")
-            return
-        }
-
-        // Now use runPIVTest for proper session reset
-        try await runPIVTest { session in
-            var bioMetadata = try await session.getBioMetadata()
-            guard bioMetadata.isConfigured else {
-                reportSkip(reason: "No fingerprints enrolled")
-                return
-            }
-            #expect(bioMetadata.attemptsRemaining > 0)
-            var verifyResult = try await session.verifyUV(requestTemporaryPin: false, checkOnly: false)
-            #expect(verifyResult == nil)
-            trace("verifyUV() passed")
-            guard let pinData = try await session.verifyUV(requestTemporaryPin: true, checkOnly: false) else {
-                reportSkip(reason: "Pin data returned was nil. Expected a value.")
-                return
-            }
-            trace("got temporary pin: \(pinData.hexEncodedString).")
-            bioMetadata = try await session.getBioMetadata()
-            #expect(bioMetadata.temporaryPin == true)
-            trace("temporary pin reported as set.")
-            verifyResult = try await session.verifyUV(requestTemporaryPin: false, checkOnly: true)
-            #expect(verifyResult == nil)
-            trace("verifyUV successful.")
-            try await session.verify(temporaryPin: pinData)
-            trace("temporary pin verified.")
-        }
-    }
+    // MARK: - PIN Policy Tests
 
     @Test("Bio PIN Policy Error on Non-Bio Key")
     func bioPinPolicyErrorOnNonBioKey() async throws {
@@ -1268,7 +1152,84 @@ struct PIVFullStackTests {
         #expect(data == decryptedData)
     }
 
-    private func runPIVTest<T>(
+    private func testRSAKeyImport(keySize: RSA.KeySize) async throws {
+        try await runPIVTest(authenticated: true) { session in
+            // Check for RSA 3072/4096 feature support
+            if keySize == .bits3072 || keySize == .bits4096 {
+                guard await session.supports(PIVSessionFeature.rsa3072and4096) else {
+                    reportSkip(reason: "RSA 3072/4096 not supported on this YubiKey")
+                    return
+                }
+            }
+
+            guard let privateKey = RSA.PrivateKey.random(keySize: keySize) else {
+                Issue.record("Failed to create RSA keys")
+                return
+            }
+            let publicKey = privateKey.publicKey
+
+            let keyType = try await session.putKey(
+                key: privateKey,
+                inSlot: .signature,
+                pinPolicy: .always,
+                touchPolicy: .never
+            )
+            #expect(keyType == PIV.RSAKey.rsa(keySize))
+
+            let dataToEncrypt = testMessage
+            guard let secKey = publicKey.asSecKey(),
+                let encryptedData = SecKeyCreateEncryptedData(
+                    secKey,
+                    .rsaEncryptionPKCS1,
+                    dataToEncrypt as CFData,
+                    nil
+                ) as Data?
+            else {
+                Issue.record("Failed encrypting data with SecKeyCreateEncryptedData().")
+                return
+            }
+
+            try await session.verifyPin(defaultPIN)
+            let decryptedData = try await session.decryptWithKeyInSlot(
+                slot: .signature,
+                algorithm: .pkcs1v15,
+                encrypted: encryptedData
+            )
+            #expect(dataToEncrypt == decryptedData)
+        }
+    }
+
+    private func testECCKeyImport(curve: EC.Curve) async throws {
+        try await runPIVTest(authenticated: true) { session in
+            let privateKey = try #require(EC.PrivateKey.random(curve: curve))
+            let publicKey = privateKey.publicKey
+
+            let keyType = try await session.putKey(
+                key: privateKey,
+                inSlot: .signature,
+                pinPolicy: .always,
+                touchPolicy: .never
+            )
+            #expect(keyType == PIV.ECCKey.ecc(curve))
+
+            try await session.verifyPin(defaultPIN)
+            let signature = try await session.sign(
+                slot: .signature,
+                keyType: .ecc(curve),
+                algorithm: .message(.sha256),
+                message: testMessage
+            )
+
+            try self.verifyECSignature(
+                publicKey: publicKey,
+                message: testMessage,
+                signature: signature,
+                algorithm: .ecdsaSignatureMessageX962SHA256
+            )
+        }
+    }
+
+    func runPIVTest<T>(
         authenticated: Bool = false,
         _ test: (PIVSession) async throws -> T
     ) async throws -> T {
