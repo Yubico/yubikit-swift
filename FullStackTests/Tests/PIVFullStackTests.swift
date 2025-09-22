@@ -96,7 +96,7 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Sign with RSA", arguments: [RSA.KeySize.bits1024, .bits2048])
+    @Test("Sign with RSA - 1024 bits", arguments: [RSA.KeySize.bits1024])
     func signRSA(keySize: RSA.KeySize) async throws {
         try await runPIVTest(authenticated: true) { session in
             let publicKey = try await session.generateKey(
@@ -124,6 +124,11 @@ struct PIVFullStackTests {
                 algorithm: .rsaSignatureMessagePKCS1v15SHA512
             )
         }
+    }
+
+    @Test("Sign with RSA - 2048 bits")
+    func signRSA2048() async throws {
+        try await signRSA(keySize: .bits2048)
     }
 
     @Test("Sign with Ed25519")
@@ -158,17 +163,23 @@ struct PIVFullStackTests {
     }
 
     // MARK: - Decryption Tests
-
-    @Test("Decrypt with RSA", arguments: [RSA.KeySize.bits1024, .bits2048])
-    func decryptRSA(keySize: RSA.KeySize) async throws {
+    @Test("Decrypt with RSA - 1024 bits")
+    func decryptRSA1024() async throws {
         try await runPIVTest(authenticated: true) { session in
-            try await testRSAEncryptionDecryption(session: session, keySize: keySize)
+            try await testRSAEncryptionDecryption(session: session, keySize: .bits1024)
+        }
+    }
+
+    @Test("Decrypt with RSA - 2048 bits")
+    func decryptRSA2048() async throws {
+        try await runPIVTest(authenticated: true) { session in
+            try await testRSAEncryptionDecryption(session: session, keySize: .bits2048)
         }
     }
 
     // MARK: - Key Agreement Tests
 
-    @Test("ECDH with P-256 and P-384", arguments: [EC.Curve.secp256r1, .secp384r1])
+    @Test("ECDH with P-256", arguments: [EC.Curve.secp256r1])
     func sharedSecretEC(curve: EC.Curve) async throws {
         try await runPIVTest(authenticated: true) { session in
             let publicKey = try await session.generateKey(
@@ -197,6 +208,11 @@ struct PIVFullStackTests {
 
             #expect(softwareSecret == yubiKeySecret)
         }
+    }
+
+    @Test("ECDH with P-384")
+    func sharedSecretECP384() async throws {
+        try await sharedSecretEC(curve: .secp384r1)
     }
 
     @Test("ECDH with X25519")
@@ -258,10 +274,10 @@ struct PIVFullStackTests {
         try await testRSAKeyImport(keySize: .bits3072)
     }
 
-    // @Test("Import RSA 4096-bit key", .timeLimit(.minutes(10)), .tags(.slowTests))
-    // func putRSA4096Key() async throws {
-    //     try await testRSAKeyImport(keySize: .bits4096)
-    // }
+    @Test("Import RSA 4096-bit key", .timeLimit(.minutes(10)), .tags(.slowTests))
+    func putRSA4096Key() async throws {
+        try await testRSAKeyImport(keySize: .bits4096)
+    }
 
     @Test("Import ECC P-256 key")
     func putECCP256Key() async throws {
