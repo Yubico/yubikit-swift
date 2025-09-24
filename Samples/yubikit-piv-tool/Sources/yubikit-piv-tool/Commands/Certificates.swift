@@ -73,13 +73,13 @@ struct GenerateCertificate: AsyncParsableCommand {
 
         let session = try await PIVSession.shared()
 
-        try await session.authenticateWithManagementKey(managementKey)
+        try await session.authenticate(with: managementKey)
 
         try await session.verifyPinIfProvided(pin)
 
         let metadata: PIV.SlotMetadata
         do {
-            metadata = try await session.getSlotMetadata(slotValue)
+            metadata = try await session.getMetadata(in: slotValue)
         } catch {
             throw PIVToolError.slotEmpty(slot: slot)
         }
@@ -102,7 +102,7 @@ struct GenerateCertificate: AsyncParsableCommand {
         }
 
         do {
-            try await session.putCertificate(certificate: certificate, inSlot: slotValue)
+            try await session.putCertificate(certificate, in: slotValue)
 
             // Print success message matching ykman format
             print("Certificate generated in slot \(slotValue.displayName).")
@@ -133,7 +133,7 @@ struct ExportCertificate: AsyncParsableCommand {
         // Get certificate from slot
         let certificate: X509Cert
         do {
-            certificate = try await session.getCertificateInSlot(slotValue)
+            certificate = try await session.getCertificate(in: slotValue)
         } catch {
             throw PIVToolError.certificateNotFound(slot: slot)
         }
@@ -187,7 +187,7 @@ struct RequestCertificate: AsyncParsableCommand {
         // Get slot metadata to get the public key and key type
         let metadata: PIV.SlotMetadata
         do {
-            metadata = try await session.getSlotMetadata(slotValue)
+            metadata = try await session.getMetadata(in: slotValue)
         } catch {
             throw PIVToolError.slotEmpty(slot: slot)
         }
@@ -248,7 +248,7 @@ struct ImportCertificate: AsyncParsableCommand {
 
         let session = try await PIVSession.shared()
 
-        try await session.authenticateWithManagementKey(managementKey)
+        try await session.authenticate(with: managementKey)
 
         try await session.verifyPinIfProvided(pin)
 
@@ -282,7 +282,7 @@ struct ImportCertificate: AsyncParsableCommand {
 
         // Import certificate into slot
         do {
-            try await session.putCertificate(certificate: x509Cert, inSlot: slotValue)
+            try await session.putCertificate(x509Cert, in: slotValue)
 
             print("Certificate imported into slot \(slotValue.displayName).")
         } catch {
@@ -311,13 +311,13 @@ struct DeleteCertificate: AsyncParsableCommand {
 
         let session = try await PIVSession.shared()
 
-        try await session.authenticateWithManagementKey(managementKey)
+        try await session.authenticate(with: managementKey)
 
         try await session.verifyPinIfProvided(pin)
 
         // Delete certificate from slot
         do {
-            try await session.deleteCertificateInSlot(slot: slotValue)
+            try await session.deleteCertificate(in: slotValue)
 
             print("Certificate deleted from slot \(slotValue.displayName).")
         }

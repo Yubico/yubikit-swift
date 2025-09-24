@@ -19,7 +19,7 @@ import YubiKit
 extension PIVSession {
     static func shared() async throws -> PIVSession {
         do {
-            return try await SessionManager.shared.session()
+            return try await SessionManager.shared.makeSession()
         }
     }
 }
@@ -32,11 +32,11 @@ private actor SessionManager {
     private var connection: SmartCardConnection?
     private var session: PIVSession?
 
-    func session() async throws -> PIVSession {
+    func makeSession() async throws -> PIVSession {
         guard let session = session else {
             // Create new PIV session with better error handling
-            let conn = try await connection()
-            let new = try await PIVSession.session(withConnection: conn)
+            let conn = try await makeConnection()
+            let new = try await PIVSession.makeSession(connection: conn)
             self.session = new
             return new
         }
@@ -45,10 +45,10 @@ private actor SessionManager {
         return session
     }
 
-    private func connection() async throws -> SmartCardConnection {
+    private func makeConnection() async throws -> SmartCardConnection {
         guard let connection else {
             // Create new connection with enhanced error handling
-            let new = try await WiredSmartCardConnection.connection()
+            let new = try await WiredSmartCardConnection.makeConnection()
             self.connection = new
             return new
         }

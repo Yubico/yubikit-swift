@@ -26,7 +26,7 @@ struct List: AsyncParsableCommand {
     func run() async throws {
         do {
             // Enumerate all available Smart Card slots
-            let availableDevices = try await USBSmartCardConnection.availableDevices
+            let availableDevices = try await USBSmartCardConnection.availableDevices()
 
             if availableDevices.isEmpty {
                 // No YubiKeys found
@@ -37,10 +37,10 @@ struct List: AsyncParsableCommand {
             for slot in availableDevices {
                 do {
                     // Establish Smart Card connection to the YubiKey
-                    let connection = try await USBSmartCardConnection.connection(slot: slot)
+                    let connection = try await USBSmartCardConnection.makeConnection(slot: slot)
 
                     // Create management session to access device metadata
-                    let session = try await ManagementSession.session(withConnection: connection)
+                    let session = try await ManagementSession.makeSession(connection: connection)
 
                     // Get basic device info: form factor (5A, 5C, etc), firmware version, serial number
                     let deviceInfo = try await session.getDeviceInfo()

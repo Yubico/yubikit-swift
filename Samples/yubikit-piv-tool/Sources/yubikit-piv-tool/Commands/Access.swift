@@ -65,7 +65,7 @@ struct ChangePin: AsyncParsableCommand {
         // Attempt PIN change - requires current PIN for authentication
         // This atomically verifies the old PIN and sets the new one
         do {
-            _ = try await session.setPin(newPin, oldPin: currentPin)
+            _ = try await session.changePin(from: currentPin, to: newPin)
             print("New PIN set.")
         } catch let error as PIV.SessionError {
             switch error {
@@ -115,7 +115,7 @@ struct ChangePuk: AsyncParsableCommand {
         // Attempt PUK change - requires current PUK for authentication
         // PUK is used to unblock PIN when retry counter reaches zero
         do {
-            _ = try await session.setPuk(newPuk, oldPuk: currentPuk)
+            _ = try await session.changePuk(from: currentPuk, to: newPuk)
             print("New PUK set.")
         } catch let error as PIV.SessionError {
             switch error {
@@ -173,7 +173,7 @@ struct ChangeManagementKey: AsyncParsableCommand {
 
         // authenticate with current key, then set new key
         do {
-            try await session.authenticateWith(managementKey: currentKeyData)
+            try await session.authenticate(with: currentKeyData)
             try await session.setManagementKey(newKeyData, type: .tripleDES, requiresTouch: false)
             print("New management key set.")
         } catch {
@@ -214,7 +214,7 @@ struct UnblockPin: AsyncParsableCommand {
         let session = try await PIVSession.shared()
 
         do {
-            try await session.unblockPinWithPuk(puk, newPin: newPin)
+            try await session.unblockPin(with: puk, newPin: newPin)
             print("PIN unblocked and set to new value.")
         } catch let error as PIV.SessionError {
             switch error {

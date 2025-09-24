@@ -149,7 +149,7 @@ struct Generate: AsyncParsableCommand {
             let mgmtKeyData = try ParameterValidator.validateManagementKey(managementKey)
 
             do {
-                try await session.authenticateWith(managementKey: mgmtKeyData)
+                try await session.authenticate(with: mgmtKeyData)
             } catch {
                 throw PIVToolError.managementKeyAuthenticationFailed
             }
@@ -171,8 +171,8 @@ struct Generate: AsyncParsableCommand {
         // Generate asymmetric key pair on the YubiKey for the specified slot
         let generatedKey: PublicKey
         do {
-            generatedKey = try await session.generateKeyInSlot(
-                slot: slotValue,
+            generatedKey = try await session.generateKey(
+                in: slotValue,
                 type: keyType,
                 pinPolicy: pinPol,
                 touchPolicy: touchPol
@@ -245,7 +245,7 @@ struct KeyInfo: AsyncParsableCommand {
         // Retrieve metadata about the key in the specified slot
         let metadata: PIV.SlotMetadata
         do {
-            metadata = try await session.getSlotMetadata(slotValue)
+            metadata = try await session.getMetadata(in: slotValue)
         } catch {
             throw PIVToolError.slotEmpty(slot: slot)
         }
@@ -259,7 +259,7 @@ struct KeyInfo: AsyncParsableCommand {
     private func algorithmName(for keyType: PIV.KeyType) -> String {
         switch keyType {
         case let .rsa(keySize):
-            return "RSA\(keySize.inBits)"
+            return "RSA\(keySize.bitCount)"
         case .ecc(.secp256r1):
             return "ECCP256"
         case .ecc(.secp384r1):
@@ -321,7 +321,7 @@ struct Attest: AsyncParsableCommand {
         // Generate hardware attestation certificate for the key
         let attestationCert: X509Cert
         do {
-            attestationCert = try await session.attestKeyInSlot(slot: slotValue)
+            attestationCert = try await session.attestKey(in: slotValue)
         } catch {
             throw PIVToolError.attestationNotSupported(slot: slot)
         }

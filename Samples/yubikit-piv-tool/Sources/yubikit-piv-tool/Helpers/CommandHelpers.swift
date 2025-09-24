@@ -30,13 +30,13 @@ extension PIV.Slot {
 }
 
 extension PIVSession {
-    func authenticateWithManagementKey(_ managementKeyHex: String?) async throws {
+    func authenticate(with managementKeyHex: String?) async throws {
         guard let managementKeyHex = managementKeyHex else { return }
 
         let mgmtKeyData = try ParameterValidator.validateManagementKey(managementKeyHex)
 
         do {
-            try await authenticateWith(managementKey: mgmtKeyData)
+            try await authenticate(with: mgmtKeyData)
         } catch {
             throw PIVToolError.managementKeyAuthenticationFailed
         }

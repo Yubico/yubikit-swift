@@ -28,7 +28,7 @@ extension RSA.PublicKey: SecKeyRepresentable {
         // Set RSA key attributes for Security framework
         attrs[kSecAttrKeyType as String] = kSecAttrKeyTypeRSA
         attrs[kSecAttrKeyClass as String] = kSecAttrKeyClassPublic
-        attrs[kSecAttrKeySizeInBits as String] = size.inBits
+        attrs[kSecAttrKeySizeInBits as String] = size.bitCount
 
         // RSA keys use full SPKI DER structure
         let keyData = der
