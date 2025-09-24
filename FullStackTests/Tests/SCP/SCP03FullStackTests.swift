@@ -22,8 +22,8 @@ final class SCP03FullStackTests: XCTestCase {
     func testDefaultKeys() throws {
         runSCPTest { [self] in
 
-            let managementSession = try await ManagementSession.session(
-                withConnection: connection,
+            let managementSession = try await ManagementSession.makeSession(
+                connection: connection,
                 scpKeyParams: defaultKeyParams
             )
             _ = try await managementSession.getDeviceInfo()
@@ -35,11 +35,11 @@ final class SCP03FullStackTests: XCTestCase {
         runSCPTest { [self] in
 
             // reset YubiKey's SCP state to the factory default
-            try await SecurityDomainSession.session(withConnection: connection).reset()
+            try await SecurityDomainSession.makeSession(connection: connection).reset()
 
             // new session that authenticates with the default keys
-            let session = try await SecurityDomainSession.session(
-                withConnection: connection,
+            let session = try await SecurityDomainSession.makeSession(
+                connection: connection,
                 scpKeyParams: defaultKeyParams
             )
 
@@ -53,18 +53,18 @@ final class SCP03FullStackTests: XCTestCase {
             let params = try SCP03KeyParams(keyRef: keyRef, staticKeys: staticKeys)
 
             // import new key
-            try await session.putKey(keyRef: keyRef, keys: staticKeys, replaceKvn: 0)
+            try await session.putStaticKeys(staticKeys, for: keyRef, replacing: 0)
 
             // new session that authenticates with the default keys
-            let newSession = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params)
+            let newSession = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params)
             let _ = try await newSession.getKeyInformation()
             XCTAssertTrue(true)  // reached here
 
             // new session that authenticates with the default keys
             // shouldn't work anymore and must throw an error
             do {
-                let _ = try await SecurityDomainSession.session(
-                    withConnection: connection,
+                let _ = try await SecurityDomainSession.makeSession(
+                    connection: connection,
                     scpKeyParams: defaultKeyParams
                 )
                 XCTFail("Should not reach here")
@@ -94,44 +94,44 @@ final class SCP03FullStackTests: XCTestCase {
             let params2 = try SCP03KeyParams(keyRef: keyRef2, staticKeys: staticKeys2)
 
             // reset YubiKey's SCP state to the factory default
-            try await SecurityDomainSession.session(withConnection: connection).reset()
+            try await SecurityDomainSession.makeSession(connection: connection).reset()
 
             // import first key using default credentials
-            var session = try await SecurityDomainSession.session(
-                withConnection: connection,
+            var session = try await SecurityDomainSession.makeSession(
+                connection: connection,
                 scpKeyParams: defaultKeyParams
             )
-            try await session.putKey(keyRef: keyRef1, keys: staticKeys1, replaceKvn: 0)
+            try await session.putStaticKeys(staticKeys1, for: keyRef1, replacing: 0)
 
             // authenticate with first key and import second
-            session = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params1)
-            try await session.putKey(keyRef: keyRef2, keys: staticKeys2, replaceKvn: 0)
+            session = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params1)
+            try await session.putStaticKeys(staticKeys2, for: keyRef2, replacing: 0)
 
             // verify authentication with both keys
-            _ = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params1)
-            _ = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params2)
+            _ = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params1)
+            _ = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params2)
 
             // delete the first key
-            session = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params2)
-            try await session.deleteKey(keyRef: keyRef1)
+            session = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params2)
+            try await session.deleteKey(for: keyRef1)
 
             // authentication with first key should fail
             do {
-                _ = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params1)
+                _ = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params1)
                 XCTFail("Should not reach here")
             } catch {
                 XCTAssertTrue(true)
             }
 
             // second key still works
-            session = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params2)
+            session = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params2)
 
             // delete the second (last) key
-            try await session.deleteKey(keyRef: keyRef2, deleteLast: true)
+            try await session.deleteKey(for: keyRef2, deleteLast: true)
 
             // authentication with second key should now fail
             do {
-                _ = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params2)
+                _ = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params2)
                 XCTFail("Should not reach here")
             } catch {
                 XCTAssertTrue(true)
@@ -152,29 +152,29 @@ final class SCP03FullStackTests: XCTestCase {
             let params2 = try SCP03KeyParams(keyRef: keyRef2, staticKeys: sk2)
 
             // reset to factory default
-            try await SecurityDomainSession.session(withConnection: connection).reset()
+            try await SecurityDomainSession.makeSession(connection: connection).reset()
 
             // import keyRef1 with default credentials
-            var session = try await SecurityDomainSession.session(
-                withConnection: connection,
+            var session = try await SecurityDomainSession.makeSession(
+                connection: connection,
                 scpKeyParams: defaultKeyParams
             )
-            try await session.putKey(keyRef: keyRef1, keys: sk1, replaceKvn: 0)
+            try await session.putStaticKeys(sk1, for: keyRef1, replacing: 0)
 
             // authenticate with keyRef1 and replace it with keyRef2
-            session = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params1)
-            try await session.putKey(keyRef: keyRef2, keys: sk2, replaceKvn: keyRef1.kvn)
+            session = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params1)
+            try await session.putStaticKeys(sk2, for: keyRef2, replacing: keyRef1.kvn)
 
             // keyRef1 should fail now
             do {
-                _ = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params1)
+                _ = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params1)
                 XCTFail("Should not reach here")
             } catch {
                 XCTAssertTrue(true)
             }
 
             // keyRef2 should work
-            session = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params2)
+            session = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params2)
             _ = try await session.getKeyInformation()
             XCTAssertTrue(true)
         }
@@ -188,11 +188,11 @@ final class SCP03FullStackTests: XCTestCase {
             let params = try SCP03KeyParams(keyRef: keyRef, staticKeys: sk)
 
             // reset YubiKey's SCP state to the factory default
-            try await SecurityDomainSession.session(withConnection: connection).reset()
+            try await SecurityDomainSession.makeSession(connection: connection).reset()
 
             // Try authenticating with a wrong key
             do {
-                _ = try await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params)
+                _ = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params)
                 XCTFail("Should not reach here")
             } catch {
                 XCTAssertTrue(true)
@@ -200,7 +200,7 @@ final class SCP03FullStackTests: XCTestCase {
 
             // Check that secure APDU still fails even if session is created
             do {
-                let session = try? await SecurityDomainSession.session(withConnection: connection, scpKeyParams: params)
+                let session = try? await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params)
                 if let session {
                     _ = try await session.getKeyInformation()
                     XCTFail("Should not be able to send secure command")
@@ -210,8 +210,8 @@ final class SCP03FullStackTests: XCTestCase {
             }
 
             // Authenticate successfully with default key after failure
-            let session = try await SecurityDomainSession.session(
-                withConnection: connection,
+            let session = try await SecurityDomainSession.makeSession(
+                connection: connection,
                 scpKeyParams: defaultKeyParams
             )
             _ = try await session.getKeyInformation()

@@ -42,8 +42,8 @@ struct PIVFullStackTests {
     @Test("Sign with ECC P-256 (Message)", .tags(.pivSigning))
     func signECCP256Message() async throws {
         try await withPIVSession(authenticated: true) { session in
-            let publicKey = try await session.generateKeyInSlot(
-                slot: .signature,
+            let publicKey = try await session.generateKey(
+                in: .signature,
                 type: .ecc(.secp256r1)
             )
 
@@ -54,10 +54,10 @@ struct PIVFullStackTests {
 
             try await session.verifyPin(defaultPIN)
             let signature = try await session.sign(
-                slot: .signature,
+                testMessage,
+                in: .signature,
                 keyType: PIV.ECCKey.ecc(.secp256r1),
-                algorithm: .message(.sha256),
-                message: testMessage
+                using: .message(.sha256)
             )
 
             try self.verifyECSignature(
@@ -72,8 +72,8 @@ struct PIVFullStackTests {
     @Test("Sign with ECC P-256 (Digest)", .tags(.pivSigning))
     func signECCP256Digest() async throws {
         try await withPIVSession(authenticated: true) { session in
-            let publicKey = try await session.generateKeyInSlot(
-                slot: .signature,
+            let publicKey = try await session.generateKey(
+                in: .signature,
                 type: .ecc(.secp256r1)
             )
 
@@ -87,10 +87,10 @@ struct PIVFullStackTests {
             let digestData = Data(digest)
 
             let signature = try await session.sign(
-                slot: .signature,
+                digestData,
+                in: .signature,
                 keyType: PIV.ECCKey.ecc(.secp256r1),
-                algorithm: .digest(.sha256),
-                message: digestData
+                using: .digest(.sha256)
             )
 
             try self.verifyECSignature(
@@ -105,8 +105,8 @@ struct PIVFullStackTests {
     @Test("Sign with RSA", .tags(.pivSigning), arguments: [RSA.KeySize.bits1024, .bits2048])
     func signRSA(keySize: RSA.KeySize) async throws {
         try await withPIVSession(authenticated: true) { session in
-            let publicKey = try await session.generateKeyInSlot(
-                slot: .signature,
+            let publicKey = try await session.generateKey(
+                in: .signature,
                 type: .rsa(keySize)
             )
 
@@ -117,10 +117,10 @@ struct PIVFullStackTests {
 
             try await session.verifyPin(defaultPIN)
             let signature = try await session.sign(
-                slot: .signature,
+                testMessage,
+                in: .signature,
                 keyType: .rsa(keySize),
-                algorithm: .pkcs1v15(.sha512),
-                message: testMessage
+                using: .pkcs1v15(.sha512)
             )
 
             try self.verifyRSASignature(
@@ -137,8 +137,8 @@ struct PIVFullStackTests {
         try await withPIVSession(authenticated: true) { session in
             try await requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
 
-            let publicKey = try await session.generateKeyInSlot(
-                slot: .signature,
+            let publicKey = try await session.generateKey(
+                in: .signature,
                 type: .ed25519
             )
 
@@ -149,9 +149,9 @@ struct PIVFullStackTests {
 
             try await session.verifyPin(defaultPIN)
             let signature = try await session.sign(
-                slot: .signature,
-                keyType: .ed25519,
-                message: testMessage
+                testMessage,
+                in: .signature,
+                keyType: .ed25519
             )
 
             // Convert YubiKit public key to CryptoKit for verification
@@ -174,8 +174,8 @@ struct PIVFullStackTests {
     @Test("ECDH with P-256 and P-384", .tags(.pivKeyAgreement), arguments: [EC.Curve.secp256r1, .secp384r1])
     func sharedSecretEC(curve: EC.Curve) async throws {
         try await withPIVSession(authenticated: true) { session in
-            let publicKey = try await session.generateKeyInSlot(
-                slot: .signature,
+            let publicKey = try await session.generateKey(
+                in: .signature,
                 type: .ecc(curve)
             )
 
@@ -188,7 +188,7 @@ struct PIVFullStackTests {
             let peerPublicKey = privateKey.publicKey
 
             try await session.verifyPin(defaultPIN)
-            let yubiKeySecret = try await session.calculateSecretKeyInSlot(slot: .signature, peerKey: peerPublicKey)
+            let yubiKeySecret = try await session.deriveSharedSecret(in: .signature, with: peerPublicKey)
             let softwareSecret =
                 SecKeyCopyKeyExchangeResult(
                     privateKey.asSecKey()!,
@@ -207,8 +207,8 @@ struct PIVFullStackTests {
         try await withPIVSession(authenticated: true) { session in
             try await requireFeatureSupport(PIVSessionFeature.x25519, in: session)
 
-            let publicKey = try await session.generateKeyInSlot(
-                slot: .signature,
+            let publicKey = try await session.generateKey(
+                in: .signature,
                 type: .x25519
             )
 
@@ -229,7 +229,7 @@ struct PIVFullStackTests {
             }
 
             try await session.verifyPin(defaultPIN)
-            let yubiKeySecret = try await session.calculateSecretKeyInSlot(slot: .signature, peerKey: yubiKitPublicKey)
+            let yubiKeySecret = try await session.deriveSharedSecret(in: .signature, with: yubiKitPublicKey)
 
             // Calculate shared secret using CryptoKit
             let softwareSecret = try cryptoKitPrivateKey.sharedSecretFromKeyAgreement(
@@ -252,9 +252,9 @@ struct PIVFullStackTests {
             }
             let publicKey = privateKey.publicKey
 
-            let keyType = try await session.putKey(
-                key: privateKey,
-                inSlot: .signature,
+            let keyType = try await session.putPrivateKey(
+                privateKey,
+                in: .signature,
                 pinPolicy: .always,
                 touchPolicy: .never
             )
@@ -274,10 +274,10 @@ struct PIVFullStackTests {
             }
 
             try await session.verifyPin(defaultPIN)
-            let decryptedData = try await session.decryptWithKeyInSlot(
-                slot: .signature,
-                algorithm: .pkcs1v15,
-                encrypted: encryptedData
+            let decryptedData = try await session.decrypt(
+                encryptedData,
+                in: .signature,
+                using: .pkcs1v15
             )
             #expect(dataToEncrypt == decryptedData)
         }
@@ -289,9 +289,9 @@ struct PIVFullStackTests {
             let privateKey = try #require(EC.PrivateKey.random(curve: curve))
             let publicKey = privateKey.publicKey
 
-            let keyType = try await session.putKey(
-                key: privateKey,
-                inSlot: .signature,
+            let keyType = try await session.putPrivateKey(
+                privateKey,
+                in: .signature,
                 pinPolicy: .always,
                 touchPolicy: .never
             )
@@ -299,10 +299,10 @@ struct PIVFullStackTests {
 
             try await session.verifyPin(defaultPIN)
             let signature = try await session.sign(
-                slot: .signature,
+                testMessage,
+                in: .signature,
                 keyType: .ecc(curve),
-                algorithm: .message(.sha256),
-                message: testMessage
+                using: .message(.sha256)
             )
 
             try self.verifyECSignature(
@@ -335,9 +335,9 @@ struct PIVFullStackTests {
             }
 
             // Import the key
-            let keyType = try await session.putKey(
-                key: yubiKitPrivateKey,
-                inSlot: .signature,
+            let keyType = try await session.putPrivateKey(
+                yubiKitPrivateKey,
+                in: .signature,
                 pinPolicy: .always,
                 touchPolicy: .never
             )
@@ -346,9 +346,9 @@ struct PIVFullStackTests {
             // Test signing with the imported key
             try await session.verifyPin(defaultPIN)
             let signature = try await session.sign(
-                slot: .signature,
-                keyType: .ed25519,
-                message: testMessage
+                testMessage,
+                in: .signature,
+                keyType: .ed25519
             )
 
             // Verify signature using CryptoKit
@@ -377,9 +377,9 @@ struct PIVFullStackTests {
             }
 
             // Import the key
-            let keyType = try await session.putKey(
-                key: yubiKitPrivateKey,
-                inSlot: .signature,
+            let keyType = try await session.putPrivateKey(
+                yubiKitPrivateKey,
+                in: .signature,
                 pinPolicy: .always,
                 touchPolicy: .never
             )
@@ -396,9 +396,9 @@ struct PIVFullStackTests {
             }
 
             try await session.verifyPin(defaultPIN)
-            let yubiKeySecret = try await session.calculateSecretKeyInSlot(
-                slot: .signature,
-                peerKey: otherYubiKitPublicKey
+            let yubiKeySecret = try await session.deriveSharedSecret(
+                in: .signature,
+                with: otherYubiKitPublicKey
             )
 
             // Verify key agreement using CryptoKit
@@ -414,8 +414,8 @@ struct PIVFullStackTests {
     @Test("Generate RSA Keys", .tags(.pivKeyManagement), .timeLimit(.minutes(3)), arguments: RSA.KeySize.allCases)
     func generateRSAKey(keySize: RSA.KeySize) async throws {
         try await withPIVSession(authenticated: true) { session in
-            let result = try await session.generateKeyInSlot(
-                slot: .signature,
+            let result = try await session.generateKey(
+                in: .signature,
                 type: .rsa(keySize),
                 pinPolicy: .always,
                 touchPolicy: .cached
@@ -431,8 +431,8 @@ struct PIVFullStackTests {
     @Test("Generate ECC Keys", .tags(.pivKeyManagement), arguments: [EC.Curve.secp256r1, .secp384r1])
     func generateECCKey(curve: EC.Curve) async throws {
         try await withPIVSession(authenticated: true) { session in
-            let result = try await session.generateKeyInSlot(
-                slot: .signature,
+            let result = try await session.generateKey(
+                in: .signature,
                 type: .ecc(curve),
                 pinPolicy: .always,
                 touchPolicy: .cached
@@ -450,8 +450,8 @@ struct PIVFullStackTests {
         try await withPIVSession(authenticated: true) { session in
             try await requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
 
-            let result = try await session.generateKeyInSlot(
-                slot: .signature,
+            let result = try await session.generateKey(
+                in: .signature,
                 type: .ed25519,
                 pinPolicy: .always,
                 touchPolicy: .cached
@@ -469,8 +469,8 @@ struct PIVFullStackTests {
         try await withPIVSession(authenticated: true) { session in
             try await requireFeatureSupport(PIVSessionFeature.x25519, in: session)
 
-            let result = try await session.generateKeyInSlot(
-                slot: .signature,
+            let result = try await session.generateKey(
+                in: .signature,
                 type: .x25519,
                 pinPolicy: .always,
                 touchPolicy: .cached
@@ -488,13 +488,13 @@ struct PIVFullStackTests {
     @Test("Attest RSA Key", .tags(.pivAuthentication))
     func attestRSAKey() async throws {
         try await withPIVSession(authenticated: true) { session in
-            let result = try await session.generateKeyInSlot(slot: .signature, type: .rsa(.bits1024))
+            let result = try await session.generateKey(in: .signature, type: .rsa(.bits1024))
             guard case let .rsa(publicKey) = result else {
                 Issue.record("Expected RSA public key")
                 return
             }
 
-            let cert = try await session.attestKeyInSlot(slot: .signature)
+            let cert = try await session.attestKey(in: .signature)
             guard case let .rsa(attestKey) = cert.publicKey else {
                 Issue.record("Expected RSA public key in certificate")
                 return
@@ -509,13 +509,13 @@ struct PIVFullStackTests {
         try await withPIVSession(authenticated: true) { session in
             try await requireFeatureSupport(PIVSessionFeature.ed25519, in: session)
 
-            let result = try await session.generateKeyInSlot(slot: .signature, type: .ed25519)
+            let result = try await session.generateKey(in: .signature, type: .ed25519)
             guard case let .ed25519(publicKey) = result else {
                 Issue.record("Expected Ed25519 public key")
                 return
             }
 
-            let cert = try await session.attestKeyInSlot(slot: .signature)
+            let cert = try await session.attestKey(in: .signature)
             guard case let .ed25519(attestKey) = cert.publicKey else {
                 Issue.record("Expected Ed25519 public key in certificate")
                 return
@@ -530,13 +530,13 @@ struct PIVFullStackTests {
         try await withPIVSession(authenticated: true) { session in
             try await requireFeatureSupport(PIVSessionFeature.x25519, in: session)
 
-            let result = try await session.generateKeyInSlot(slot: .signature, type: .x25519)
+            let result = try await session.generateKey(in: .signature, type: .x25519)
             guard case let .x25519(publicKey) = result else {
                 Issue.record("Expected X25519 public key")
                 return
             }
 
-            let cert = try await session.attestKeyInSlot(slot: .signature)
+            let cert = try await session.attestKey(in: .signature)
             // Note: X509Cert may not support X25519 key extraction yet
             if case let .x25519(attestKey) = cert.publicKey {
                 #expect(attestKey == publicKey)
@@ -556,15 +556,15 @@ struct PIVFullStackTests {
         )!
     )
 
-    @Test("Put and Read Certificate", .tags(.pivKeyManagement))
-    func putAndReadCertificate() async throws {
+    @Test("Put and Get Certificate", .tags(.pivKeyManagement))
+    func putAndGetCertificate() async throws {
         try await withPIVSession(authenticated: true) { session in
             try await session.putCertificate(
-                certificate: self.testCertificate,
-                inSlot: .authentication,
-                compress: false
+                self.testCertificate,
+                in: .authentication,
+                compressed: false
             )
-            let retrievedCertificate = try await session.getCertificateInSlot(.authentication)
+            let retrievedCertificate = try await session.getCertificate(in: .authentication)
             #expect(self.testCertificate.der == retrievedCertificate.der)
         }
     }
@@ -576,21 +576,21 @@ struct PIVFullStackTests {
         try await withPIVSession(authenticated: true) { session in
             try await requireFeatureSupport(PIVSessionFeature.moveDelete, in: session)
 
-            try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication)
-            try await session.putCertificate(certificate: self.testCertificate, inSlot: .signature)
-            let publicKey = try await session.generateKeyInSlot(
-                slot: .authentication,
+            try await session.putCertificate(self.testCertificate, in: .authentication)
+            try await session.putCertificate(self.testCertificate, in: .signature)
+            let publicKey = try await session.generateKey(
+                in: .authentication,
                 type: .rsa(.bits1024),
                 pinPolicy: .always,
                 touchPolicy: .always
             )
-            let authSlotMetadata = try await session.getSlotMetadata(.authentication)
+            let authSlotMetadata = try await session.getMetadata(in: .authentication)
             #expect(publicKey == authSlotMetadata.publicKey)
-            try await session.moveKey(sourceSlot: .authentication, destinationSlot: .signature)
-            let signSlotMetadata = try await session.getSlotMetadata(.signature)
+            try await session.moveKey(from: .authentication, to: .signature)
+            let signSlotMetadata = try await session.getMetadata(in: .signature)
             #expect(publicKey == signSlotMetadata.publicKey)
             do {
-                _ = try await session.getSlotMetadata(.authentication)
+                _ = try await session.getMetadata(in: .authentication)
                 Issue.record("Got metadata when we should have thrown a referenceDataNotFound exception.")
             } catch {
                 guard let responseError = error as? ResponseError else {
@@ -607,18 +607,18 @@ struct PIVFullStackTests {
         try await withPIVSession(authenticated: true) { session in
             try await requireFeatureSupport(PIVSessionFeature.moveDelete, in: session)
 
-            try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: true)
-            let publicKey = try await session.generateKeyInSlot(
-                slot: .authentication,
+            try await session.putCertificate(self.testCertificate, in: .authentication, compressed: true)
+            let publicKey = try await session.generateKey(
+                in: .authentication,
                 type: .rsa(.bits1024),
                 pinPolicy: .always,
                 touchPolicy: .always
             )
-            let slotMetadata = try await session.getSlotMetadata(.authentication)
+            let slotMetadata = try await session.getMetadata(in: .authentication)
             #expect(publicKey == slotMetadata.publicKey)
             try await session.deleteKey(in: .authentication)
             do {
-                _ = try await session.getSlotMetadata(.authentication)
+                _ = try await session.getMetadata(in: .authentication)
                 Issue.record("Got metadata when we should have thrown a referenceDataNotFound exception.")
             } catch {
                 guard let responseError = error as? ResponseError else {
@@ -630,11 +630,11 @@ struct PIVFullStackTests {
         }
     }
 
-    @Test("Put Compressed and Read Certificate", .tags(.pivKeyManagement))
-    func putCompressedAndReadCertificate() async throws {
+    @Test("Put Compressed and Get Certificate", .tags(.pivKeyManagement))
+    func putCompressedAndGetCertificate() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication, compress: true)
-            let retrievedCertificate = try await session.getCertificateInSlot(.authentication)
+            try await session.putCertificate(self.testCertificate, in: .authentication, compressed: true)
+            let retrievedCertificate = try await session.getCertificate(in: .authentication)
             #expect(self.testCertificate.der == retrievedCertificate.der)
         }
     }
@@ -642,10 +642,10 @@ struct PIVFullStackTests {
     @Test("Put and Delete Certificate", .tags(.pivKeyManagement))
     func putAndDeleteCertificate() async throws {
         try await withPIVSession(authenticated: true) { session in
-            try await session.putCertificate(certificate: self.testCertificate, inSlot: .authentication)
-            try await session.deleteCertificateInSlot(slot: .authentication)
+            try await session.putCertificate(self.testCertificate, in: .authentication)
+            try await session.deleteCertificate(in: .authentication)
             do {
-                _ = try await session.getCertificateInSlot(.authentication)
+                _ = try await session.getCertificate(in: .authentication)
                 Issue.record("Deleted certificate still present on YubiKey.")
             } catch {
                 guard let error = error as? ResponseError else {
@@ -662,7 +662,7 @@ struct PIVFullStackTests {
     @Test("Authenticate with Default Management Key", .tags(.pivAuthentication))
     func authenticateWithDefaultManagementKey() async throws {
         try await withPIVSession { session in
-            try await session.authenticateWith(managementKey: defaultManagementKey)
+            try await session.authenticate(with: defaultManagementKey)
         }
     }
 
@@ -671,7 +671,7 @@ struct PIVFullStackTests {
         try await withPIVSession { session in
             let wrongManagementKey = Data(hexEncodedString: "010101010101010101010101010101010101010101010101")!
             do {
-                try await session.authenticateWith(managementKey: wrongManagementKey)
+                try await session.authenticate(with: wrongManagementKey)
                 Issue.record("Successfully authenticated with the wrong management key.")
             } catch {
                 guard let error = error as? ResponseError else {
@@ -726,7 +726,7 @@ struct PIVFullStackTests {
     func setPinPukAttempts() async throws {
         try await withPIVSession(authenticated: true) { session in
             try await session.verifyPin(defaultPIN)
-            try await session.set(pinAttempts: 5, pukAttempts: 6)
+            try await session.setRetries(pin: 5, puk: 6)
 
             try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
             let pinResult = try await session.getPinMetadata()
@@ -778,39 +778,39 @@ struct PIVFullStackTests {
         try await withPIVSession(authenticated: true) { session in
             try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
 
-            var publicKey = try await session.generateKeyInSlot(
-                slot: .authentication,
+            var publicKey = try await session.generateKey(
+                in: .authentication,
                 type: .ecc(.secp256r1),
                 pinPolicy: .always,
                 touchPolicy: .always
             )
-            var metadata = try await session.getSlotMetadata(.authentication)
+            var metadata = try await session.getMetadata(in: .authentication)
             #expect(metadata.keyType == .ecc(.secp256r1))
             #expect(metadata.pinPolicy == .always)
             #expect(metadata.touchPolicy == .always)
             #expect(metadata.generated == true)
             #expect(metadata.publicKey == publicKey)
 
-            publicKey = try await session.generateKeyInSlot(
-                slot: .authentication,
+            publicKey = try await session.generateKey(
+                in: .authentication,
                 type: .ecc(.secp384r1),
                 pinPolicy: .never,
                 touchPolicy: .never
             )
-            metadata = try await session.getSlotMetadata(.authentication)
+            metadata = try await session.getMetadata(in: .authentication)
             #expect(metadata.keyType == .ecc(.secp384r1))
             #expect(metadata.pinPolicy == .never)
             #expect(metadata.touchPolicy == .never)
             #expect(metadata.generated == true)
             #expect(metadata.publicKey == publicKey)
 
-            publicKey = try await session.generateKeyInSlot(
-                slot: .authentication,
+            publicKey = try await session.generateKey(
+                in: .authentication,
                 type: .ecc(.secp256r1),
                 pinPolicy: .once,
                 touchPolicy: .cached
             )
-            metadata = try await session.getSlotMetadata(.authentication)
+            metadata = try await session.getMetadata(in: .authentication)
             #expect(metadata.keyType == .ecc(.secp256r1))
             #expect(metadata.pinPolicy == .once)
             #expect(metadata.touchPolicy == .cached)
@@ -825,10 +825,10 @@ struct PIVFullStackTests {
             try await requireFeatureSupport(PIVSessionFeature.metadata, in: session)
 
             let aesManagementKey = Data(hexEncodedString: "f7ef787b46aa50de066bdade00aee17fc2b710372b722de5")!
-            try await session.setManagementKey(aesManagementKey, type: .AES192, requiresTouch: true)
+            try await session.setManagementKey(aesManagementKey, type: .aes192, requiresTouch: true)
             let metadata = try await session.getManagementKeyMetadata()
             #expect(metadata.isDefault == false)
-            #expect(metadata.keyType == .AES192)
+            #expect(metadata.keyType == .aes192)
             #expect(metadata.touchPolicy == .always)
         }
     }
@@ -874,7 +874,7 @@ struct PIVFullStackTests {
     func setPinFailure() async throws {
         try await withPIVSession { session in
             do {
-                try await session.setPin("654321", oldPin: "000000")
+                try await session.changePin(from: "000000", to: "654321")
             } catch let PIV.SessionError.invalidPin(retries) {
                 let total = try await session.getPinMetadata().retriesTotal
                 #expect(retries == total - 1)
@@ -885,7 +885,7 @@ struct PIVFullStackTests {
     @Test("Set PIN Success", .tags(.pivAuthentication))
     func setPinSuccess() async throws {
         try await withPIVSession { session in
-            try await session.setPin("654321", oldPin: defaultPIN)
+            try await session.changePin(from: defaultPIN, to: "654321")
             let result = try await session.verifyPin("654321")
             switch result {
             case .success:
@@ -910,7 +910,7 @@ struct PIVFullStackTests {
                 Issue.record("Pin failed to block.")
                 return
             }
-            try await session.unblockPinWithPuk("12345678", newPin: "222222")
+            try await session.unblockPin(with: "12345678", newPin: "222222")
             let verifyUnblockedPin = try await session.verifyPin("222222")
             switch verifyUnblockedPin {
             case .success:
@@ -926,9 +926,9 @@ struct PIVFullStackTests {
     @Test("Set PUK and Unblock", .tags(.pivAuthentication))
     func setPukAndUnblock() async throws {
         try await withPIVSession { session in
-            try await session.setPuk("87654321", oldPuk: "12345678")
+            try await session.changePuk(from: "12345678", to: "87654321")
             try await session.blockPin()
-            try await session.unblockPinWithPuk("87654321", newPin: "654321")
+            try await session.unblockPin(with: "87654321", newPin: "654321")
             let result = try await session.verifyPin("654321")
             switch result {
             case .success:
@@ -948,7 +948,7 @@ struct PIVFullStackTests {
     func bioAuthentication() async throws {
         // First check if it's a bio device
         let connection = try await TestableConnection.shared()
-        let managementSession = try await ManagementSession.session(withConnection: connection)
+        let managementSession = try await ManagementSession.makeSession(connection: connection)
         let deviceInfo = try await managementSession.getDeviceInfo()
         guard deviceInfo.formFactor == .usbCBio || deviceInfo.formFactor == .usbABio else {
             print("⚠️ Skipping bio test: Not a YubiKey Bio device")
@@ -963,10 +963,10 @@ struct PIVFullStackTests {
                 return
             }
             #expect(bioMetadata.attemptsRemaining > 0)
-            var verifyResult = try await session.verifyUv(requestTemporaryPin: false, checkOnly: false)
+            var verifyResult = try await session.verifyUV(requestTemporaryPin: false, checkOnly: false)
             #expect(verifyResult == nil)
             Logger.test.debug("✅ verifyUV() passed")
-            guard let pinData = try await session.verifyUv(requestTemporaryPin: true, checkOnly: false) else {
+            guard let pinData = try await session.verifyUV(requestTemporaryPin: true, checkOnly: false) else {
                 Issue.record("Pin data returned was nil. Expected a value.")
                 return
             }
@@ -974,10 +974,10 @@ struct PIVFullStackTests {
             bioMetadata = try await session.getBioMetadata()
             #expect(bioMetadata.temporaryPin == true)
             Logger.test.debug("✅ temporary pin reported as set.")
-            verifyResult = try await session.verifyUv(requestTemporaryPin: false, checkOnly: true)
+            verifyResult = try await session.verifyUV(requestTemporaryPin: false, checkOnly: true)
             #expect(verifyResult == nil)
-            Logger.test.debug("✅ verifyUv successful.")
-            try await session.verifyTemporaryPin(pinData)
+            Logger.test.debug("✅ verifyUV successful.")
+            try await session.verify(temporaryPin: pinData)
             Logger.test.debug("✅ temporary pin verified.")
         }
     }
@@ -986,7 +986,7 @@ struct PIVFullStackTests {
     func bioPinPolicyErrorOnNonBioKey() async throws {
         // First check if it's NOT a bio device
         let connection = try await TestableConnection.shared()
-        let managementSession = try await ManagementSession.session(withConnection: connection)
+        let managementSession = try await ManagementSession.makeSession(connection: connection)
         let deviceInfo = try await managementSession.getDeviceInfo()
         guard deviceInfo.formFactor != .usbCBio && deviceInfo.formFactor != .usbABio else {
             print("⚠️ Skipping test: This is a YubiKey Bio device")
@@ -996,8 +996,8 @@ struct PIVFullStackTests {
         // Now use withPIVSession(authenticated: true) for proper session reset and authentication
         try await withPIVSession(authenticated: true) { session in
             do {
-                _ = try await session.generateKeyInSlot(
-                    slot: .signature,
+                _ = try await session.generateKey(
+                    in: .signature,
                     type: .ecc(.secp384r1),
                     pinPolicy: .matchAlways,
                     touchPolicy: .defaultPolicy
@@ -1007,8 +1007,8 @@ struct PIVFullStackTests {
                 #expect(sessionError == SessionError.notSupported)
             }
             do {
-                _ = try await session.generateKeyInSlot(
-                    slot: .signature,
+                _ = try await session.generateKey(
+                    in: .signature,
                     type: .ecc(.secp384r1),
                     pinPolicy: .matchOnce,
                     touchPolicy: .defaultPolicy
@@ -1067,8 +1067,8 @@ struct PIVFullStackTests {
         keySize: RSA.KeySize,
         data: Data = testMessage
     ) async throws {
-        let publicKey = try await session.generateKeyInSlot(
-            slot: .signature,
+        let publicKey = try await session.generateKey(
+            in: .signature,
             type: .rsa(keySize)
         )
 
@@ -1088,10 +1088,10 @@ struct PIVFullStackTests {
         )
 
         try await session.verifyPin(defaultPIN)
-        let decryptedData = try await session.decryptWithKeyInSlot(
-            slot: .signature,
-            algorithm: .pkcs1v15,
-            encrypted: encryptedData
+        let decryptedData = try await session.decrypt(
+            encryptedData,
+            in: .signature,
+            using: .pkcs1v15
         )
         #expect(data == decryptedData)
     }
@@ -1110,11 +1110,11 @@ struct PIVFullStackTests {
         _ body: (PIVSession) async throws -> T
     ) async throws -> T {
         let connection = try await TestableConnection.shared()
-        let session = try await PIVSession.session(withConnection: connection)
+        let session = try await PIVSession.makeSession(connection: connection)
         try await session.reset()
 
         if authenticated {
-            try await session.authenticateWith(managementKey: defaultManagementKey)
+            try await session.authenticate(with: defaultManagementKey)
         }
 
         return try await body(session)

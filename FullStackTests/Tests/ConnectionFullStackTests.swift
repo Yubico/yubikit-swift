@@ -31,12 +31,12 @@ struct ConnectionFullStackTests {
     }
 
     @Test("Connection Did Close", .timeLimit(.minutes(1)))
-    func connectionDidClose() async throws {
+    func waitUntilClosed() async throws {
         let connection = try await Connection()
 
         // Start a task to wait for connection closure
         let closureTask = Task {
-            let error = await connection.connectionDidClose()
+            let error = await connection.waitUntilClosed()
             return error
         }
 
@@ -58,20 +58,20 @@ struct ConnectionFullStackTests {
         let firstConnection = try await Connection()
         #expect(true, "✅ Got first connection \(firstConnection)")
         let task = Task {
-            let result = await firstConnection.connectionDidClose()
+            let result = await firstConnection.waitUntilClosed()
             #expect(true, "✅ First connection did close")
             return result
         }
 
         // attempt to create a second connection (should fail!)
         try? await Task.sleep(for: .seconds(1))
-        let new = try? await Connection.connection()
+        let new = try? await Connection.makeConnection()
         #expect(new == nil, "✅ Second connection failed as expected")
 
         // close the first connection
         _ = await firstConnection.close(error: nil)
         let closingError = await task.value
-        #expect(closingError == nil, "✅ connectionDidClose() returned: \(String(describing: closingError))")
+        #expect(closingError == nil, "✅ waitUntilClosed() returned: \(String(describing: closingError))")
 
         // attempt to create a second connection (now it should succed!)
         try? await Task.sleep(for: .seconds(1))
@@ -85,16 +85,16 @@ struct ConnectionFullStackTests {
     @Test("Connection Cancellation", .timeLimit(.minutes(1)))
     func connectionCancellation() async {
         let task1 = Task {
-            try await Connection.connection()
+            try await Connection.makeConnection()
         }
         let task2 = Task {
-            try await Connection.connection()
+            try await Connection.makeConnection()
         }
         let task3 = Task {
-            try await Connection.connection()
+            try await Connection.makeConnection()
         }
         let task4 = Task {
-            try await Connection.connection()
+            try await Connection.makeConnection()
         }
 
         let result1 = try? await task1.value
@@ -119,14 +119,14 @@ struct SmartCardConnectionFullStackTests {
 
     @Test("SmartCard Connection With Slot")
     func smartCardConnectionWithDevice() async throws {
-        let allDevices = try await USBSmartCardConnection.availableDevices
+        let allDevices = try await USBSmartCardConnection.availableDevices()
         allDevices.enumerated().forEach { index, slot in
             print("\(index): \(slot.name)")
         }
         let random = allDevices.randomElement()
         // we need at least one YubiKey connected
         let slot = try #require(random, "No YubiKey slots available")
-        let connection = try await USBSmartCardConnection.connection(slot: slot)
+        let connection = try await USBSmartCardConnection.makeConnection(slot: slot)
         #expect(true, "✅ Got connection \(connection)")
 
         // close the second connection
@@ -135,7 +135,7 @@ struct SmartCardConnectionFullStackTests {
 
     @Test("Send Manually", .timeLimit(.minutes(1)))
     func sendManually() async throws {
-        let connection = try await USBSmartCardConnection.connection()
+        let connection = try await USBSmartCardConnection.makeConnection()
         // Select Management application
         let apdu = APDU(
             cla: 0x00,
@@ -182,14 +182,14 @@ struct SmartCardConnectionFullStackTests {
 
     @Test("SmartCard Connection With Slot", .timeLimit(.minutes(1)))
     func smartCardConnectionWithSlot() async throws {
-        let allSlots = try await USBSmartCardConnection.availableDevices
+        let allSlots = try await USBSmartCardConnection.availableDevices()
         allSlots.enumerated().forEach { index, slot in
             print("\(index): \(slot.name)")
         }
         let random = allSlots.randomElement()
         // we need at least one YubiKey connected
         let slot = try #require(random, "No YubiKey slots available")
-        let connection = try await USBSmartCardConnection.connection(slot: slot)
+        let connection = try await USBSmartCardConnection.makeConnection(slot: slot)
         #expect(true, "✅ Got connection \(connection)")
     }
 }
@@ -221,7 +221,7 @@ struct HIDFIDOConnectionFullStackTests {
 
     @Test("HID Connection With Device")
     func hidConnectionWithDevice() async throws {
-        let allDevices = try await HIDFIDOConnection.availableDevices
+        let allDevices = try await HIDFIDOConnection.availableDevices()
         print("Found \(allDevices.count) FIDO HID devices:")
         allDevices.enumerated().forEach { index, device in
             print("\(index): \(device.name)")
@@ -229,7 +229,7 @@ struct HIDFIDOConnectionFullStackTests {
         let random = allDevices.randomElement()
         // we need at least one YubiKey connected
         let device = try #require(random, "No FIDO HID devices available")
-        let connection = try await HIDFIDOConnection.connection(device: device)
+        let connection = try await HIDFIDOConnection.makeConnection(device: device)
         #expect(true, "✅ Got connection \(connection)")
 
         await connection.close(error: nil)

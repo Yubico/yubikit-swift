@@ -40,7 +40,7 @@ extension XCTestCase: HasTestLogger {
             let connection = try await TestableConnection.shared()
 
             // reset YubiKey's SCP state to the factory default
-            try await SecurityDomainSession.session(withConnection: connection).reset()
+            try await SecurityDomainSession.makeSession(connection: connection).reset()
 
             logger.debug("→ → → SCP Test: \(testName) started")
             _connection = connection

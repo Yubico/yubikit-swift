@@ -18,7 +18,7 @@ import XCTest
 
 @testable import YubiKit
 
-// These Yubikeys are allowed for tests.
+// These YubiKeys are allowed for tests.
 // Add your own personal test YubiKeys to this list.
 let allowedSerialNumbers: [UInt] = [
     14_453_003,  // 5C NFC (5.2.6)
@@ -27,9 +27,9 @@ let allowedSerialNumbers: [UInt] = [
     31_683_782,  // YubiKey 5C FIPS (5.7.4)
 ]
 
-enum TestableConnection {
+enum TestableConnection: Equatable {
 
-    public enum Kind {
+    public enum Kind: Equatable {
         // This is the default connection for the tests.
         // Change to test different types of connection.
         static let `default`: TestableConnection.Kind = .smartCard
@@ -45,7 +45,7 @@ enum TestableConnection {
     }
 
     static func shared(with kind: Kind = .default) async throws -> SmartCardConnection {
-        try await ConnectionManager.shared.connection(with: kind)
+        try await ConnectionManager.shared.makeConnection(with: kind)
     }
 
     static func create(with kind: Kind = .default) async throws -> SmartCardConnection {
@@ -109,7 +109,7 @@ enum TestableConnection {
 extension USBSmartCardConnection {
     fileprivate static var all: [SmartCardConnection] {
         get async throws {
-            let slots = try await USBSmartCardConnection.availableDevices
+            let slots = try await USBSmartCardConnection.availableDevices()
 
             var connections: [SmartCardConnection?] = []
             for slot in slots {
@@ -123,7 +123,7 @@ extension USBSmartCardConnection {
 extension SmartCardConnection {
     fileprivate var isAllowed: Bool {
         get async throws {
-            let session = try await ManagementSession.session(withConnection: self)
+            let session = try await ManagementSession.makeSession(connection: self)
             let deviceInfo = try await session.getDeviceInfo()
             return allowedSerialNumbers.contains(deviceInfo.serialNumber)
         }
@@ -133,7 +133,7 @@ extension SmartCardConnection {
 private final class ConnectionManager {
     static let shared = ConnectionManager()
 
-    func connection(with kind: TestableConnection.Kind = .default) async throws -> SmartCardConnection {
+    func makeConnection(with kind: TestableConnection.Kind = .default) async throws -> SmartCardConnection {
         if let previous = previous, previous.kind == kind {
             return previous.connection
         }

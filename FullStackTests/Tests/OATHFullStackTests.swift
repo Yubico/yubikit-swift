@@ -23,8 +23,8 @@ class OATHFullStackTests: XCTestCase {
             for n in 0...14 {
                 let secret = "abba".base32DecodedData!
                 let credentialOne = OATHSession.CredentialTemplate(
-                    type: .TOTP(),
-                    algorithm: .SHA1,
+                    type: .totp(),
+                    algorithm: .sha1,
                     secret: secret,
                     issuer: "Yubico-\(n)",
                     name: "test@yubico.com",
@@ -32,7 +32,7 @@ class OATHFullStackTests: XCTestCase {
                 )
                 try await session.addCredential(template: credentialOne)
             }
-            let result = try await session.calculateCodes()
+            let result = try await session.calculateCredentialCodes()
             XCTAssert(result.count == 20)
             print(result)
         }
@@ -55,7 +55,7 @@ class OATHFullStackTests: XCTestCase {
 
     func testCalculateAllCodes() throws {
         runOATHTest { session in
-            let result = try await session.calculateCodes(timestamp: Date(timeIntervalSince1970: 0))
+            let result = try await session.calculateCredentialCodes(timestamp: Date(timeIntervalSince1970: 0))
             var codes: [OATHSession.Code] = []
             for pair in result {
                 if let code = pair.1 {
@@ -65,8 +65,8 @@ class OATHFullStackTests: XCTestCase {
                     if credential.requiresTouch {
                         print("👆 Touch the YubiKey!")
                     }
-                    let code = try await session.calculateCode(
-                        credential: credential,
+                    let code = try await session.calculateCredentialCode(
+                        for: credential,
                         timestamp: Date(timeIntervalSince1970: 0)
                     )
                     codes.append(code)
@@ -83,7 +83,7 @@ class OATHFullStackTests: XCTestCase {
 
     func testCalculateCodes() throws {
         runOATHTest { session in
-            let result = try await session.calculateCodes(timestamp: Date(timeIntervalSince1970: 0))
+            let result = try await session.calculateCredentialCodes(timestamp: Date(timeIntervalSince1970: 0))
             let codes = result.map { $0.1?.code }.compactMap { $0 }
             XCTAssert(codes.count == 3, "To many codes. Might have calculated code that requires touch or a HOTP code.")
             XCTAssert(codes[0] == "659165")
@@ -105,10 +105,10 @@ class OATHFullStackTests: XCTestCase {
                 string:
                     "otpauth://totp/Yubico:test@yubico.com?secret=\(secret)&issuer=test-create-and-calculate-response&algorithm=SHA1&digits=7&counter=30"
             )!
-            let template = try! OATHSession.CredentialTemplate(withURL: url)
+            let template = try! OATHSession.CredentialTemplate(url: url)
             let credential = try await session.addCredential(template: template)
-            let response = try await session.calculateResponse(
-                credentialId: credential.id,
+            let response = try await session.calculateCredentialResponse(
+                for: credential.id,
                 challenge: Data("Hi There".utf8)
             )
             let expected = Data([
@@ -122,8 +122,8 @@ class OATHFullStackTests: XCTestCase {
     func testCredentialsBeginningWithNumbers() throws {
         runOATHTest(populated: false) { session in
             let template = OATHSession.CredentialTemplate(
-                type: .TOTP(),
-                algorithm: .SHA1,
+                type: .totp(),
+                algorithm: .sha1,
                 secret: "abba2".base32DecodedData!,
                 issuer: "15 Issuer",
                 name: "15 begin with numbers",
@@ -132,7 +132,7 @@ class OATHFullStackTests: XCTestCase {
             try await session.addCredential(template: template)
             let list = try await session.listCredentials()
             let credential = try XCTUnwrap(list.first, "Failed to add credential")
-            let code = try await session.calculateCode(credential: credential)
+            let code = try await session.calculateCredentialCode(for: credential)
             print("Got code: \(code.code)")
             XCTAssertNotNil(code.code)
         }
@@ -141,7 +141,7 @@ class OATHFullStackTests: XCTestCase {
     // This will also test setPassword
     func testUnlockWithPassword() throws {
         runOATHTest(password: "password") { session in
-            try await session.unlockWithPassword("password")
+            try await session.unlock(password: "password")
             let credentials = try await session.listCredentials()
             XCTAssert(credentials.count == 5)
         }
@@ -150,7 +150,7 @@ class OATHFullStackTests: XCTestCase {
     func testUnlockWithWrongPassword() throws {
         runOATHTest(password: "password") { session in
             do {
-                try await session.unlockWithPassword("abc123")
+                try await session.unlock(password: "abc123")
             } catch {
                 if case OATHSessionError.wrongPassword = error {
                     print("Got expected error: \(error)")
@@ -164,8 +164,8 @@ class OATHFullStackTests: XCTestCase {
     func testRenameCredential() throws {
         runOATHTest(populated: false) { session in
             let template = OATHSession.CredentialTemplate(
-                type: .TOTP(),
-                algorithm: .SHA1,
+                type: .totp(),
+                algorithm: .sha1,
                 secret: "abba".base32DecodedData!,
                 issuer: "Original Issuer",
                 name: "Original Name",
@@ -197,8 +197,8 @@ class OATHFullStackTests: XCTestCase {
     func testRenameCredentialNoIssuer() throws {
         runOATHTest(populated: false) { session in
             let template = OATHSession.CredentialTemplate(
-                type: .TOTP(),
-                algorithm: .SHA1,
+                type: .totp(),
+                algorithm: .sha1,
                 secret: "abba".base32DecodedData!,
                 issuer: "Original Issuer",
                 name: "Original Name",
@@ -239,8 +239,8 @@ class OATHFullStackTests: XCTestCase {
     func testSHA512Feature() throws {
         runOATHTest(populated: false) { session in
             let template = OATHSession.CredentialTemplate(
-                type: .TOTP(),
-                algorithm: .SHA512,
+                type: .totp(),
+                algorithm: .sha512,
                 secret: "abba2".base32DecodedData!,
                 issuer: "SHA-512",
                 name: "FeatureTest"
@@ -251,7 +251,7 @@ class OATHFullStackTests: XCTestCase {
                     XCTFail("Failed adding SHA512 credential.")
                     return
                 }
-                XCTAssertEqual(credential.hashAlgorithm!, .SHA512)
+                XCTAssertEqual(credential.hashAlgorithm!, .sha512)
                 XCTAssertEqual(String(data: credential.id, encoding: .utf8), template.identifier)
             } catch {
                 guard let error = error as? SessionError, error == .notSupported else {
@@ -267,15 +267,15 @@ class OATHFullStackTests: XCTestCase {
         runOATHTest(populated: false) { session in
             do {
                 let touchTemplate = OATHSession.CredentialTemplate(
-                    type: .TOTP(),
-                    algorithm: .SHA256,
+                    type: .totp(),
+                    algorithm: .sha256,
                     secret: "abba2".base32DecodedData!,
                     issuer: "Touch",
                     name: "FeatureTest",
                     requiresTouch: true
                 )
                 try await session.addCredential(template: touchTemplate)
-                guard let touchCredential = try await session.calculateCodes().first else {
+                guard let touchCredential = try await session.calculateCredentialCodes().first else {
                     XCTFail("Failed adding touch required credential.")
                     return
                 }
@@ -284,15 +284,15 @@ class OATHFullStackTests: XCTestCase {
                 XCTAssertNil(touchCredential.1)
                 try await session.deleteCredential(touchCredential.0)
                 let noTouchTemplate = OATHSession.CredentialTemplate(
-                    type: .TOTP(),
-                    algorithm: .SHA256,
+                    type: .totp(),
+                    algorithm: .sha256,
                     secret: "abba2".base32DecodedData!,
                     issuer: "Touch",
                     name: "FeatureTest",
                     requiresTouch: false
                 )
                 try await session.addCredential(template: noTouchTemplate)
-                guard let noTouchCredential = try await session.calculateCodes().first else {
+                guard let noTouchCredential = try await session.calculateCredentialCodes().first else {
                     XCTFail("Failed adding no touch required credential.")
                     return
                 }
@@ -312,11 +312,11 @@ class OATHFullStackTests: XCTestCase {
     func testDeleteAccessKey() throws {
         runOATHTest(password: "password") { session in
             do {
-                try await session.unlockWithPassword("password")
+                try await session.unlock(password: "password")
                 try await session.deleteAccessKey()
                 let connection = try await TestableConnection.shared()
-                let _ = try await ManagementSession.session(withConnection: connection)
-                let session = try await OATHSession.session(withConnection: connection)
+                let _ = try await ManagementSession.makeSession(connection: connection)
+                let session = try await OATHSession.makeSession(connection: connection)
                 let credentials = try await session.listCredentials()
                 XCTAssertEqual(credentials.count, 5)
             }
@@ -342,14 +342,14 @@ extension XCTestCase {
     ) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
             let connection = try await TestableConnection.shared()
-            var session = try await OATHSession.session(withConnection: connection)
+            var session = try await OATHSession.makeSession(connection: connection)
             try await session.reset()
-            session = try await OATHSession.session(withConnection: connection)
+            session = try await OATHSession.makeSession(connection: connection)
             if populated {
                 let secret = "abba".base32DecodedData!
                 let credentialOne = OATHSession.CredentialTemplate(
-                    type: .TOTP(),
-                    algorithm: .SHA1,
+                    type: .totp(),
+                    algorithm: .sha1,
                     secret: secret,
                     issuer: "TOTP SHA1",
                     name: "6 digits, 30 sec",
@@ -357,8 +357,8 @@ extension XCTestCase {
                 )
                 try await session.addCredential(template: credentialOne)
                 let credentialTwo = OATHSession.CredentialTemplate(
-                    type: .TOTP(),
-                    algorithm: .SHA256,
+                    type: .totp(),
+                    algorithm: .sha256,
                     secret: secret,
                     issuer: "TOTP SHA256",
                     name: "6 digits, 30 sec",
@@ -366,8 +366,8 @@ extension XCTestCase {
                 )
                 try await session.addCredential(template: credentialTwo)
                 let credentialThree = OATHSession.CredentialTemplate(
-                    type: .TOTP(period: 15),
-                    algorithm: .SHA1,
+                    type: .totp(period: 15),
+                    algorithm: .sha1,
                     secret: secret,
                     issuer: nil,
                     name: "TOTP SHA1 15s no issuer",
@@ -375,8 +375,8 @@ extension XCTestCase {
                 )
                 try await session.addCredential(template: credentialThree)
                 let credentialFour = OATHSession.CredentialTemplate(
-                    type: .TOTP(),
-                    algorithm: .SHA256,
+                    type: .totp(),
+                    algorithm: .sha256,
                     secret: secret,
                     issuer: "TOTP SHA256",
                     name: "requires touch, 6 digits, 30 sec",
@@ -385,8 +385,8 @@ extension XCTestCase {
                 )
                 try await session.addCredential(template: credentialFour)
                 let credentialFive = OATHSession.CredentialTemplate(
-                    type: .HOTP(),
-                    algorithm: .SHA1,
+                    type: .hotp(),
+                    algorithm: .sha1,
                     secret: secret,
                     issuer: "HOTP SHA1",
                     name: "6 digits, counter = 0",
@@ -397,8 +397,8 @@ extension XCTestCase {
 
             if let password {
                 try await session.setPassword(password)
-                let _ = try await ManagementSession.session(withConnection: connection)
-                session = try await OATHSession.session(withConnection: connection)
+                let _ = try await ManagementSession.makeSession(connection: connection)
+                session = try await OATHSession.makeSession(connection: connection)
             }
 
             try await test(session)

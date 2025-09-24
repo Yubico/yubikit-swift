@@ -26,7 +26,7 @@ struct FIDOInterfaceFullStackTests {
     @Test("FIDO Interface Initialization")
     func interfaceInitialization() async throws {
         // First test HID connection enumeration
-        let devices = try await HIDFIDOConnection.availableDevices
+        let devices = try await HIDFIDOConnection.availableDevices()
         print("Found \(devices.count) FIDO HID devices")
         guard !devices.isEmpty else {
             print("No FIDO HID devices found, skipping test")
@@ -34,7 +34,7 @@ struct FIDOInterfaceFullStackTests {
         }
 
         // Test basic connection
-        let connection = try await HIDFIDOConnection.connection()
+        let connection = try await HIDFIDOConnection.makeConnection()
         print("Successfully opened HID connection")
         print("Connection MTU: \(connection.mtu)")
 
@@ -53,7 +53,7 @@ struct FIDOInterfaceFullStackTests {
 
     @Test("FIDO Capability Detection")
     func capabilityDetection() async throws {
-        let connection = try await HIDFIDOConnection.connection()
+        let connection = try await HIDFIDOConnection.makeConnection()
         let fidoInterface = try await FIDOInterface(connection: connection)
 
         let supportsWink = await fidoInterface.supports(FIDOInterface.Capability.WINK)
@@ -71,7 +71,7 @@ struct FIDOInterfaceFullStackTests {
 
     @Test("FIDO WINK Functionality")
     func winkFunctionality() async throws {
-        let connection = try await HIDFIDOConnection.connection()
+        let connection = try await HIDFIDOConnection.makeConnection()
         let fidoInterface = try await FIDOInterface(connection: connection)
 
         guard await fidoInterface.supports(FIDOInterface.Capability.WINK) else {
@@ -91,7 +91,7 @@ struct FIDOInterfaceFullStackTests {
 
     @Test("FIDO PING Command")
     func pingCommand() async throws {
-        let connection = try await HIDFIDOConnection.connection()
+        let connection = try await HIDFIDOConnection.makeConnection()
         let fidoInterface = try await FIDOInterface(connection: connection)
 
         print("Testing basic send/receive with PING command...")
@@ -107,7 +107,7 @@ struct FIDOInterfaceFullStackTests {
 
     @Test("FIDO Error Handling")
     func errorHandling() async throws {
-        let connection = try await HIDFIDOConnection.connection()
+        let connection = try await HIDFIDOConnection.makeConnection()
         let fidoInterface = try await FIDOInterface(connection: connection)
 
         print("Testing FIDO error handling...")
