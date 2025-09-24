@@ -29,9 +29,9 @@ struct RSAKeysTests {
 
     // Test basic key size properties for RSA.KeySize.
     @Test func keySizeProperties() {
-        #expect(RSA.KeySize.bits1024.inBits == 1024)
-        #expect(RSA.KeySize.bits2048.inBits == 2048)
-        #expect(RSA.KeySize.bits4096.inBytes == 4096 / 8)
+        #expect(RSA.KeySize.bits1024.bitCount == 1024)
+        #expect(RSA.KeySize.bits2048.bitCount == 2048)
+        #expect(RSA.KeySize.bits4096.byteCount == 4096 / 8)
     }
 
     // MARK: - Key Generation
@@ -43,7 +43,7 @@ struct RSAKeysTests {
             let privKey = RSA.PrivateKey.random(keySize: keySize)
             #expect(privKey != nil)
             #expect(privKey?.publicKey.size == keySize)
-            #expect(privKey?.publicKey.n.count == keySize.inBytes)
+            #expect(privKey?.publicKey.n.count == keySize.byteCount)
         }
     }
 
