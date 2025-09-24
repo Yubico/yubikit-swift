@@ -13,7 +13,7 @@
 ### Managing the USBSmartCardConnection
 
 - ``close(error:)``
-- ``connectionDidClose()``
+- ``waitUntilClosed()``
 
 ### Sending data to the YubiKey
 

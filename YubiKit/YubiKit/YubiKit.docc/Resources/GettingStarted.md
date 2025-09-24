@@ -94,7 +94,7 @@ To add support for the 5Ci YubiKey that connect to the iPhone via the Lightning 
 
 4. If not present add the `Supported external accessory protocols` key and insert the string `com.yubico.ylp` in its list.
 
-![An image showing how to support for lightning Yubikeys.](external-accessory.png)
+![An image showing how to support for lightning YubiKeys.](external-accessory.png)
 
 > Note: The YubiKey 5Ci is an Apple MFi certified external accessory and communicates over iAP2. Setting the value for `Supported external accessory protocols` to `com.yubico.ylp` will tell the app that all communication with the 5Ci YubiKey via the Lightning port is done using the External Accessory framework.
 
@@ -121,10 +121,10 @@ import YubiKit
 
 // Start an NFC scan
 do {
-    let connection = try await NFCSmartCardConnection.connection()
+    let connection = try await NFCSmartCardConnection.makeConnection()
 
     // Use the connection quickly - NFC sessions have a timeout
-    let session = try await OATHSession.session(withConnection: connection)
+    let session = try await OATHSession.makeSession(connection: connection)
     let codes = try await session.calculateCodes()
 
     // Always close NFC connections with a user message
@@ -147,14 +147,14 @@ import YubiKit
 
 // Connect to any wired YubiKey (USB-C or Lightning)
 do {
-    let connection = try await WiredSmartCardConnection.connection()
+    let connection = try await WiredSmartCardConnection.makeConnection()
 
     // Perform operations - connection stays active
-    let session = try await OATHSession.session(withConnection: connection)
+    let session = try await OATHSession.makeSession(connection: connection)
     let codes = try await session.calculateCodes()
 
     // Monitor for disconnection or close when done
-    let error = await connection.connectionDidClose()
+    let error = await connection.waitUntilClosed()
     if let error = error {
         print("Connection closed with error: \(error)")
     }
@@ -164,7 +164,7 @@ do {
 }
 ```
 
-The `WiredSmartCardConnection.connection()` method automatically detects whether you're using USB-C or Lightning.
+The `WiredSmartCardConnection.makeConnection()` method automatically detects whether you're using USB-C or Lightning.
 
 ### Specific Connection Types
 
@@ -172,10 +172,10 @@ For more control, you can connect to specific interfaces:
 
 ```swift
 // USB-C only
-let usbConnection = try await USBSmartCardConnection.connection()
+let usbConnection = try await USBSmartCardConnection.makeConnection()
 
 // Lightning only (iOS)
-let lightningConnection = try await LightningSmartCardConnection.connection()
+let lightningConnection = try await LightningSmartCardConnection.makeConnection()
 
 // NFC with custom message (iOS)
 let nfcConnection = try await NFCSmartCardConnection.connection(
@@ -202,7 +202,7 @@ Once you have a connection, create sessions to access different YubiKey applicat
 ### OATH Session (TOTP/HOTP codes)
 
 ```swift
-let session = try await OATHSession.session(withConnection: connection)
+let session = try await OATHSession.makeSession(connection: connection)
 let codes = try await session.calculateCodes()
 
 for (credential, code) in codes {
@@ -213,18 +213,18 @@ for (credential, code) in codes {
 ### PIV Session (Certificates and keys)
 
 ```swift
-let session = try await PIVSession.session(withConnection: connection)
-let certificate = try await session.getCertificateInSlot(.authentication)
+let session = try await PIVSession.makeSession(connection: connection)
+let certificate = try await session.getCertificate(in: .authentication)
 print("Found certificate: \(certificate.subject)")
 ```
 
 ### Management Session (Device information)
 
 ```swift
-let session = try await ManagementSession.session(withConnection: connection)
+let session = try await ManagementSession.makeSession(connection: connection)
 print("YubiKey version: \(session.version)")
 
-let deviceInfo = try await session.getDeviceInfo()
+let deviceInfo = try await session.readDeviceInfo()
 print("Device info: \(deviceInfo)")
 ```
 

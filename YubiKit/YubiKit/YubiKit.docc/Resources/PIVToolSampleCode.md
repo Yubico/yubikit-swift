@@ -38,8 +38,8 @@ The typical PIV application workflow involves generating keys directly on the Yu
 PIV applications typically generate keys directly on the YubiKey to ensure private keys never exist outside the secure element:
 
 ```swift
-let publicKey = try await session.generateKeyInSlot(
-    slot: .authentication,
+let publicKey = try await session.generateKey(
+    in: .authentication,
     type: .rsa(.bits2048),
     pinPolicy: .always,
     touchPolicy: .never
@@ -50,16 +50,16 @@ The key generation returns the public key while keeping the private key secure o
 
 ```swift
 // RSA keys for traditional PKI compatibility
-let rsaKey = try await session.generateKeyInSlot(slot: .authentication, type: .rsa(.bits2048))
+let rsaKey = try await session.generateKey(in: .authentication, type: .rsa(.bits2048))
 
 // ECDSA keys for smaller signatures and better performance
-let ecKey = try await session.generateKeyInSlot(slot: .signature, type: .ec(.secp256r1))
+let ecKey = try await session.generateKey(in: .signature, type: .ec(.secp256r1))
 
 // Ed25519 for modern cryptographic applications
-let ed25519Key = try await session.generateKeyInSlot(slot: .cardAuthentication, type: .ed25519)
+let ed25519Key = try await session.generateKey(in: .cardAuthentication, type: .ed25519)
 
 // X25519 for key agreement/ECDH operations
-let x25519Key = try await session.generateKeyInSlot(slot: .keyManagement, type: .x25519)
+let x25519Key = try await session.generateKey(in: .keyManagement, type: .x25519)
 ```
 
 ### PIN and Touch Policies
@@ -67,8 +67,8 @@ let x25519Key = try await session.generateKeyInSlot(slot: .keyManagement, type: 
 When generating keys, you control when authentication is required:
 
 ```swift
-let key = try await session.generateKeyInSlot(
-    slot: .signature,
+let key = try await session.generateKey(
+    in: .signature,
     type: .ec(.secp256r1),
     pinPolicy: .once,      // PIN required once per session
     touchPolicy: .always   // Physical touch required for each operation
@@ -82,7 +82,7 @@ These policies provide different security levels depending on your application's
 For compliance requirements, you can prove that keys were generated on the YubiKey:
 
 ```swift
-let attestationCert = try await session.attestKeyInSlot(slot: .authentication)
+let attestationCert = try await session.attestKey(in: .authentication)
 // This certificate proves the key was generated in hardware, not imported
 ```
 
@@ -100,9 +100,9 @@ After generating a key or receiving a signed certificate, store it in the corres
 let certificateData = try Data(contentsOf: certificateURL)
 let certificate = try Certificate(derEncoded: Array(certificateData))
 
-try await session.putCertificate(
+try await session.store(
     certificate: certificate,
-    inSlot: .authentication,
+    in: .authentication,
     compress: true  // Save space on the YubiKey
 )
 ```
@@ -112,7 +112,7 @@ try await session.putCertificate(
 Applications often need to read certificates for identity verification:
 
 ```swift
-let certificate = try await session.getCertificateInSlot(.authentication)
+let certificate = try await session.getCertificate(in: .authentication)
 // Use the certificate for identity verification, chain building, etc.
 ```
 
@@ -141,10 +141,10 @@ This is commonly used for document signing, authentication challenges, or code s
 For applications that encrypt data to the YubiKey's public key:
 
 ```swift
-let decryptedData = try await session.decryptWithKeyInSlot(
-    slot: .keyManagement,
-    algorithm: .rsaDecryptionPKCS1,
-    encrypted: encryptedData
+let decryptedData = try await session.decrypt(
+    encryptedData,
+    in: .keyManagement,
+    using: .pkcs1v15
 )
 ```
 
@@ -153,9 +153,9 @@ let decryptedData = try await session.decryptWithKeyInSlot(
 For secure communications, use ECDH to establish shared secrets:
 
 ```swift
-let sharedSecret = try await session.calculateSecretKeyInSlot(
-    slot: .keyManagement,
-    peerPublicKey: peerPublicKey
+let sharedSecret = try await session.deriveSharedSecret(
+    in: .keyManagement,
+    with: peerPublicKey
 )
 // Use the shared secret for symmetric encryption
 ```
@@ -226,7 +226,7 @@ if metadata.generatedOnDevice {
 Different YubiKey models support different features:
 
 ```swift
-if await session.supports(.ed25519) {
+if await session.supports( .ed25519) {
     // Use modern Ed25519 keys
 } else {
     // Fall back to RSA or ECDSA

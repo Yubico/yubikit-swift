@@ -18,8 +18,8 @@ in Swift and SwiftUI based applications. The async/await syntax provides an easy
 creating connections and sending commands to the different applications on the YubiKey.
 
 ```swift
-let connection = try await NFCSmartCardConnection.connection()
-let session = try await OATHSession.session(withConnection: connection)
+let connection = try await NFCSmartCardConnection.makeConnection()
+let session = try await OATHSession.makeSession(connection: connection)
 let codes = try await session.calculateCodes()
 ```
 
@@ -59,7 +59,7 @@ This will either return the full response data or throw a ``ResponseError``.
 ### Creating a Session
 
 The implementations of the ``Session`` protocol provides an interface to the different applications on a YubiKey.
-A Session is created by calling ``Session/session(withConnection:)`` providing the ``SmartCardConnection`` you want to use for
+A Session is created by calling ``Session/session(connection:)`` providing the ``SmartCardConnection`` you want to use for
 communication with the YubiKey.
 
 - ``Session``

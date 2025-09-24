@@ -13,7 +13,7 @@
 ### Managing the SmartCardConnection
 
 - ``close(error:)``
-- ``connectionDidClose()``
+- ``waitUntilClosed()``
 - ``nfcConnection``
 
 ### Sending and receiving data to the YubiKey
