@@ -27,11 +27,11 @@ public enum ManagementFeature: SessionFeature, Sendable {
     public func isSupported(by version: Version) -> Bool {
         switch self {
         case .deviceInfo:
-            return version >= Version(withString: "4.1.0")!
+            return version >= Version("4.1.0")!
         case .deviceConfig:
-            return version >= Version(withString: "5.0.0")!
+            return version >= Version("5.0.0")!
         case .deviceReset:
-            return version >= Version(withString: "5.6.0")!
+            return version >= Version("5.6.0")!
         }
     }
 }

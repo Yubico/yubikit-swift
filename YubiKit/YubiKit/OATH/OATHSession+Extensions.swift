@@ -37,14 +37,14 @@ extension OATHSession {
     /// The type of OATH credential (HOTP or TOTP).
     public enum CredentialType: CustomStringConvertible, Sendable {
 
-        case HOTP(counter: UInt32 = 0)
-        case TOTP(period: TimeInterval = 30)
+        case hotp(counter: UInt32 = 0)
+        case totp(period: TimeInterval = 30)
 
         public var code: UInt8 {
             switch self {
-            case .HOTP:
+            case .hotp:
                 return hotpCode
-            case .TOTP:
+            case .totp:
                 return totpCode
             }
         }
@@ -59,27 +59,27 @@ extension OATHSession {
 
         public var period: TimeInterval? {
             switch self {
-            case .HOTP(counter: _):
+            case .hotp(counter: _):
                 return nil
-            case .TOTP(let period):
+            case .totp(let period):
                 return period
             }
         }
 
         public var counter: UInt32? {
             switch self {
-            case .HOTP(let counter):
+            case .hotp(let counter):
                 return counter
-            case .TOTP(period: _):
+            case .totp(period: _):
                 return nil
             }
         }
 
         public var description: String {
             switch self {
-            case .HOTP(let counter):
+            case .hotp(let counter):
                 return "HOTP(\(counter))"
-            case .TOTP(let period):
+            case .totp(let period):
                 return "TOTP(\(period))"
             }
         }
@@ -88,11 +88,11 @@ extension OATHSession {
     /// Hash algorithms supported for OATH credentials.
     public enum HashAlgorithm: UInt8, Sendable {
         /// SHA-1 hash algorithm.
-        case SHA1 = 0x01
+        case sha1 = 0x01
         /// SHA-256 hash algorithm.
-        case SHA256 = 0x02
+        case sha256 = 0x02
         /// SHA-512 hash algorithm.
-        case SHA512 = 0x03
+        case sha512 = 0x03
     }
 
     /// A reference to an OATH Credential stored on a YubiKey.
@@ -210,9 +210,9 @@ extension OATHSession {
         /// The date this code will be valid from.
         public var validFrom: Date {
             switch credentialType {
-            case .HOTP(_):
+            case .hotp(_):
                 return Date()
-            case .TOTP(let period):
+            case .totp(let period):
                 return Date(
                     timeIntervalSince1970: timestamp.timeIntervalSince1970
                         - timestamp.timeIntervalSince1970.truncatingRemainder(dividingBy: period)
@@ -223,9 +223,9 @@ extension OATHSession {
         /// The date this code ends being valid.
         public var validTo: Date {
             switch credentialType {
-            case .HOTP(_):
+            case .hotp(_):
                 return validFrom.addingTimeInterval(.infinity)
-            case .TOTP(let period):
+            case .totp(let period):
                 return validFrom.addingTimeInterval(period)
             }
         }
@@ -249,7 +249,7 @@ extension OATHSession {
             } else {
                 key = name
             }
-            if case let .TOTP(period) = type {
+            if case let .totp(period) = type {
                 if period != oathDefaultPeriod {
                     return "\(String(format: "%.0f", period))/\(key)"
                 } else {
@@ -284,7 +284,7 @@ extension OATHSession {
         /// - Parameters:
         ///   - url: The otpauth:// URI to parse.
         ///   - skipValidation: Set to true to skip input validation when parsing the uri.
-        public init(withURL url: URL, skipValidation: Bool = false) throws {
+        public init(url: URL, skipValidation: Bool = false) throws {
             guard url.scheme == "otpauth" else { throw CredentialTemplateError.missingScheme }
 
             var issuer: String?
@@ -303,7 +303,7 @@ extension OATHSession {
 
             let type = try OATHSession.CredentialType(fromURL: url)
 
-            let algorithm = try OATHSession.HashAlgorithm(fromUrl: url) ?? .SHA1
+            let algorithm = try OATHSession.HashAlgorithm(fromUrl: url) ?? .sha1
 
             let digits: UInt8
             if let digitsString = url.queryValueFor(key: "digits"), let parsedDigits = UInt8(digitsString) {
@@ -344,11 +344,11 @@ extension OATHSession {
                 var mutableSecret = secret
                 mutableSecret.append(Data(count: Self.minSecretLenght - secret.count))
                 self.secret = mutableSecret
-            } else if algorithm == .SHA1 && secret.count > CC_SHA1_BLOCK_BYTES {
+            } else if algorithm == .sha1 && secret.count > CC_SHA1_BLOCK_BYTES {
                 self.secret = secret.sha1()
-            } else if algorithm == .SHA256 && secret.count > CC_SHA256_BLOCK_BYTES {
+            } else if algorithm == .sha256 && secret.count > CC_SHA256_BLOCK_BYTES {
                 self.secret = secret.sha256()
-            } else if algorithm == .SHA512 && secret.count > CC_SHA512_BLOCK_BYTES {
+            } else if algorithm == .sha512 && secret.count > CC_SHA512_BLOCK_BYTES {
                 self.secret = secret.sha512()
             } else {
                 self.secret = secret
@@ -367,11 +367,11 @@ extension OATHSession.HashAlgorithm {
         if let name = url.queryValueFor(key: "algorithm") {
             switch name {
             case "SHA1":
-                self = .SHA1
+                self = .sha1
             case "SHA256":
-                self = .SHA256
+                self = .sha256
             case "SHA512":
-                self = .SHA512
+                self = .sha512
             default:
                 throw OATHSession.CredentialTemplateError.parseAlgorithm
             }
@@ -388,15 +388,15 @@ extension OATHSession.CredentialType {
         switch type {
         case "totp":
             if let stringPeriod = url.queryValueFor(key: "period"), let period = Double(stringPeriod) {
-                self = .TOTP(period: period)
+                self = .totp(period: period)
             } else {
-                self = .TOTP()
+                self = .totp()
             }
         case "hotp":
             if let stringCounter = url.queryValueFor(key: "counter"), let counter = UInt32(stringCounter) {
-                self = .HOTP(counter: counter)
+                self = .hotp(counter: counter)
             } else {
-                self = .HOTP()
+                self = .hotp()
             }
         default:
             throw OATHSession.CredentialTemplateError.parseType

@@ -39,8 +39,9 @@ public protocol SmartCardConnection: Connection {
     /// > Warning: Only one connection can exist at a time. If this method is called while
     /// another connection is active or pending, it will throw ``ConnectionError/busy``.
     /// The existing connection must be closed first using ``close(error:)``.
-    static func connection() async throws -> Self
+    static func makeConnection() async throws -> Self
 
+    /*
     /// Send an APDU to the SmartCardConnection.
     ///
     /// This will send the APDU to the YubiKey using the SmartCardConnection. Commands returning data to big
@@ -51,6 +52,7 @@ public protocol SmartCardConnection: Connection {
     /// wrapping the status code will be thrown.
     @discardableResult
     func send(apdu: APDU) async throws -> Data
+     */
 
     /// Send a command as Data to the SmartCardConnection and handle the result manually.
     ///

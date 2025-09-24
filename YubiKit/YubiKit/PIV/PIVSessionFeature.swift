@@ -48,29 +48,29 @@ public enum PIVSessionFeature: SessionFeature, Sendable {
     public func isSupported(by version: Version) -> Bool {
         switch self {
         case .usagePolicy:
-            return version >= Version(withString: "4.0.0")!
+            return version >= Version("4.0.0")!
         case .aesKey:
-            return version >= Version(withString: "5.4.0")!
+            return version >= Version("5.4.0")!
         case .serialNumber:
-            return version >= Version(withString: "5.0.0")!
+            return version >= Version("5.0.0")!
         case .metadata:
-            return version >= Version(withString: "5.3.0")!
+            return version >= Version("5.3.0")!
         case .attestation:
-            return version >= Version(withString: "4.3.0")!
+            return version >= Version("4.3.0")!
         case .p384:
-            return version >= Version(withString: "4.0.0")!
+            return version >= Version("4.0.0")!
         case .touchCached:
-            return version >= Version(withString: "4.3.0")!
+            return version >= Version("4.3.0")!
         case .rsaGeneration:
-            return version < Version(withString: "4.2.6")! || version >= Version(withString: "4.3.5")!
+            return version < Version("4.2.6")! || version >= Version("4.3.5")!
         case .rsa3072and4096:
-            return version >= Version(withString: "5.7.0")!
+            return version >= Version("5.7.0")!
         case .moveDelete:
-            return version >= Version(withString: "5.7.0")!
+            return version >= Version("5.7.0")!
         case .ed25519:
-            return version >= Version(withString: "5.7.0")!
+            return version >= Version("5.7.0")!
         case .x25519:
-            return version >= Version(withString: "5.7.0")!
+            return version >= Version("5.7.0")!
         }
     }
 }

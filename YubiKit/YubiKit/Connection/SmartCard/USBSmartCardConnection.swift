@@ -31,7 +31,7 @@ public struct USBSmartCardConnection: Sendable {
     /// - Throws: ``ConnectionError.busy`` if there is already an active connection.
     public init() async throws {
         while true {
-            guard let slot = try await Self.availableDevices.first else {
+            guard let slot = try await Self.availableDevices().first else {
                 try await Task.sleep(for: .seconds(1))
                 continue
             }
@@ -53,10 +53,8 @@ public struct USBSmartCardConnection: Sendable {
     }
 
     /// Returns all available smart card slots that contain YubiKeys.
-    public static var availableDevices: [USBSmartCard.YubiKeyDevice] {
-        get async throws {
-            try await SmartCardConnectionsManager.shared.availableDevices()
-        }
+    public static func availableDevices() async throws -> [USBSmartCard.YubiKeyDevice] {
+        try await SmartCardConnectionsManager.shared.availableDevices()
     }
 
     private var isConnected: Bool {
@@ -75,7 +73,7 @@ extension USBSmartCardConnection: SmartCardConnection {
     /// - Returns: A fully–established connection ready for APDU exchange.
     /// - Throws: ``ConnectionError/busy`` if another connection is active, or other ConnectionError if no YubiKey is found or connection fails.
     // @TraceScope
-    public static func connection() async throws -> USBSmartCardConnection {
+    public static func makeConnection() async throws -> USBSmartCardConnection {
         try await USBSmartCardConnection()
     }
 
@@ -88,7 +86,7 @@ extension USBSmartCardConnection: SmartCardConnection {
     /// - Returns: A fully–established connection ready for APDU exchange.
     /// - Throws: ``ConnectionError/busy`` if another connection is active, or other ConnectionError if connection fails.
     // @TraceScope
-    public static func connection(slot: USBSmartCard.YubiKeyDevice) async throws -> USBSmartCardConnection {
+    public static func makeConnection(slot: USBSmartCard.YubiKeyDevice) async throws -> USBSmartCardConnection {
         try await USBSmartCardConnection(slot: slot)
     }
 
@@ -105,7 +103,7 @@ extension USBSmartCardConnection: SmartCardConnection {
     ///
     /// - Returns: An error if the connection was closed due to an error, nil otherwise.
     // @TraceScope
-    public func connectionDidClose() async -> Error? {
+    public func waitUntilClosed() async -> Error? {
         try? await SmartCardConnectionsManager.shared.didClose(for: slot).value()
     }
 

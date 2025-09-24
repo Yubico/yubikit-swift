@@ -38,7 +38,7 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
     /// Only one connection can exist at a time - attempting to create another will throw ``ConnectionError/busy``.
     /// - Returns: A fully–established connection ready for APDU exchange.
     /// - Throws: ``ConnectionError.busy`` if there is already an active connection.
-    public static func connection() async throws -> LightningSmartCardConnection {
+    public static func makeConnection() async throws -> LightningSmartCardConnection {
         trace(message: "requesting new connection")
         return try await LightningSmartCardConnection()
     }
@@ -48,7 +48,7 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
         await LightningConnectionManager.shared.close(for: self, error: error)
     }
 
-    public func connectionDidClose() async -> Error? {
+    public func waitUntilClosed() async -> Error? {
         trace(message: "awaiting dismissal")
         let error = await LightningConnectionManager.shared.didClose(for: self)
         if let error {

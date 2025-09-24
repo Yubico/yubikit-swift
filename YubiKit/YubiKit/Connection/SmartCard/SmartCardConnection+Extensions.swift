@@ -39,12 +39,12 @@ enum Application {
 }
 
 extension SmartCardConnection {
-    public func send(apdu: APDU) async throws -> Data {
+    func send(apdu: APDU) async throws -> Data {
         try await send(apdu: apdu, insSendRemaining: nil)
     }
 
     @discardableResult
-    public func send(apdu: APDU, insSendRemaining: UInt8?) async throws -> Data {
+    func send(apdu: APDU, insSendRemaining: UInt8?) async throws -> Data {
         Logger.connection.debug("SmartCardConnection+Extension, \(#function): \(apdu)")
 
         if let insSendRemaining {

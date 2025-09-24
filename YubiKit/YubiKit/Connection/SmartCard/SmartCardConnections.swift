@@ -28,9 +28,9 @@ public enum WiredSmartCardConnection: Sendable {
     /// - Throws: An error if a connection could not be established.
     ///
     /// ```swift
-    /// let wiredConnection = try await WiredSmartCardConnection.connection()
+    /// let wiredConnection = try await WiredSmartCardConnection.makeConnection()
     /// ```
-    public static func connection() async throws -> SmartCardConnection {
+    public static func makeConnection() async throws -> SmartCardConnection {
         try await SmartCardConnections.new(kind: .wired)
     }
 }
@@ -72,7 +72,7 @@ private enum SmartCardConnections {
     private static func wired() async throws -> SmartCardConnection {
         let connection = try await withThrowingTaskGroup(of: SmartCardConnection.self) { group -> SmartCardConnection in
             #if os(iOS)
-            if Device.hasLightningPort {
+            if TargetDevice.hasLightningPort {
                 group.addTask {
                     try await LightningSmartCardConnection()
                 }
@@ -97,7 +97,7 @@ private enum SmartCardConnections {
     private static func any(nfcAlertMessage: String? = nil) async throws -> SmartCardConnection {
         let connection = try await withThrowingTaskGroup(of: SmartCardConnection.self) { group -> SmartCardConnection in
             #if os(iOS)
-            if Device.supportsNFC {
+            if TargetDevice.supportsNFC {
                 group.addTask {
                     // wait for wired connected yubikeys to connect before starting NFC
                     try await Task.sleep(for: .seconds(0.75))

@@ -30,7 +30,7 @@ internal enum PIVDataFormatter {
         let attributes =
             [
                 kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keySize.inBits,
+                kSecAttrKeySizeInBits: keySize.bitCount,
             ] as [CFString: Any]
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
@@ -115,7 +115,7 @@ internal enum PIVDataFormatter {
         let attributes =
             [
                 kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keySize.inBits,
+                kSecAttrKeySizeInBits: keySize.bitCount,
             ] as [CFString: Any]
         var error: Unmanaged<CFError>?
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
@@ -139,14 +139,14 @@ internal enum PIVDataFormatter {
         algorithm: PIV.RSAEncryptionAlgorithm
     ) throws -> Data {
         let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
-        guard let keyType = validTypes.first(where: { $0.keysize.inBytes == data.count }) else {
+        guard let keyType = validTypes.first(where: { $0.keysize.byteCount == data.count }) else {
             throw PIV.SessionError.invalidDataSize
         }
 
         let attributes =
             [
                 kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keyType.keysize.inBits,
+                kSecAttrKeySizeInBits: keyType.keysize.bitCount,
             ] as [CFString: Any]
 
         var error: Unmanaged<CFError>?
@@ -172,14 +172,14 @@ internal enum PIVDataFormatter {
     internal static func extractDataFromRSASigning(_ data: Data, algorithm: PIV.RSASignatureAlgorithm) throws -> Data {
 
         let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
-        guard let keyType = validTypes.first(where: { $0.keysize.inBytes == data.count }) else {
+        guard let keyType = validTypes.first(where: { $0.keysize.byteCount == data.count }) else {
             throw PIV.SessionError.invalidDataSize
         }
 
         let attributes =
             [
                 kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keyType.keysize.inBits,
+                kSecAttrKeySizeInBits: keyType.keysize.bitCount,
             ] as [CFString: Any]
 
         var error: Unmanaged<CFError>?

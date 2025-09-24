@@ -32,11 +32,11 @@ public enum OATHSessionFeature: SessionFeature, Sendable {
     public func isSupported(by version: Version) -> Bool {
         switch self {
         case .rename:
-            return version >= Version(withString: "5.3.0")!
+            return version >= Version("5.3.0")!
         case .touch:
-            return version >= Version(withString: "4.2.0")!
+            return version >= Version("4.2.0")!
         case .sha512:
-            return version >= Version(withString: "4.3.1")!
+            return version >= Version("4.3.1")!
         }
     }
 }

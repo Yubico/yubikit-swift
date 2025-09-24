@@ -18,7 +18,7 @@ import Foundation
 import CoreNFC
 #endif
 
-enum Device {
+enum TargetDevice {
     // Returns `true` when the current device has a Lightning port.
     // List contains every Lightning-equipped model that can install iOS/iPadOS 16 or newer.
     static var hasLightningPort: Bool {

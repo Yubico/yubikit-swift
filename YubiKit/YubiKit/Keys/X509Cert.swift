@@ -29,7 +29,7 @@ public struct X509Cert: Sendable {
 
     /// Returns this certificate as a SecCertificate.
     /// - Returns: The native SecCertificate, or nil if DER is invalid.
-    public func asSecCertificate() -> SecCertificate? {
+    func asSecCertificate() -> SecCertificate? {
         SecCertificateCreateWithData(nil, der as CFData)
     }
 }

@@ -26,8 +26,8 @@ public protocol SmartCardSession: Session {
     ///   - scpKeyParams: Optional SCP key parameters for encrypted communication.
     /// - Returns: A new session instance for the specific application.
     /// - Throws: An error if the session cannot be established.
-    static func session(
-        withConnection connection: SmartCardConnection,
+    static func makeSession(
+        connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams?
     ) async throws -> Self
 }
