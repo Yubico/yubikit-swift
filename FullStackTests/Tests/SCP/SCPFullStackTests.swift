@@ -23,7 +23,7 @@ struct SCPFullStackTests {
     @Test("Get supported CA identifiers")
     func getSupportedCaIdentifiers() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.7.2")! else {
+            guard version >= Version("5.7.2")! else {
                 reportSkip(reason: "CA identifiers not supported on this YubiKey")
                 return
             }
@@ -37,7 +37,7 @@ struct SCPFullStackTests {
     @Test("Get key information")
     func getInformation() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.3.0")! else {
+            guard version >= Version("5.3.0")! else {
                 reportSkip(reason: "SCP not supported on this YubiKey")
                 return
             }
@@ -51,7 +51,7 @@ struct SCPFullStackTests {
     @Test("Test SCP11b authentication")
     func scp11b() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.7.2")! else {
+            guard version >= Version("5.7.2")! else {
                 reportSkip(reason: "SCP11b not supported on this YubiKey")
                 return
             }
@@ -78,7 +78,7 @@ struct SCPFullStackTests {
     @Test("Test SCP03 authentication")
     func scp03() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.3.0")! else {
+            guard version >= Version("5.3.0")! else {
                 reportSkip(reason: "SCP03 not supported on this YubiKey")
                 return
             }

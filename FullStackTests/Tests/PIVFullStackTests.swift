@@ -485,8 +485,8 @@ struct PIVFullStackTests {
     @Test("Generate ECC P-384 key")
     func generateECCP384Key() async throws {
         try await runPIVTest(authenticated: true) { session in
-            let result = try await session.generateKeyInSlot(
-                slot: .signature,
+            let result = try await session.generateKey(
+                in: .signature,
                 type: .ecc(.secp384r1),
                 pinPolicy: .always,
                 touchPolicy: .cached
@@ -1184,9 +1184,9 @@ struct PIVFullStackTests {
             }
             let publicKey = privateKey.publicKey
 
-            let keyType = try await session.putKey(
-                key: privateKey,
-                inSlot: .signature,
+            let keyType = try await session.putPrivateKey(
+                privateKey,
+                in: .signature,
                 pinPolicy: .always,
                 touchPolicy: .never
             )
@@ -1206,10 +1206,10 @@ struct PIVFullStackTests {
             }
 
             try await session.verifyPin(defaultPIN)
-            let decryptedData = try await session.decryptWithKeyInSlot(
-                slot: .signature,
-                algorithm: .pkcs1v15,
-                encrypted: encryptedData
+            let decryptedData = try await session.decrypt(
+                encryptedData,
+                in: .signature,
+                using: .pkcs1v15
             )
             #expect(dataToEncrypt == decryptedData)
         }
@@ -1220,9 +1220,9 @@ struct PIVFullStackTests {
             let privateKey = try #require(EC.PrivateKey.random(curve: curve))
             let publicKey = privateKey.publicKey
 
-            let keyType = try await session.putKey(
-                key: privateKey,
-                inSlot: .signature,
+            let keyType = try await session.putPrivateKey(
+                privateKey,
+                in: .signature,
                 pinPolicy: .always,
                 touchPolicy: .never
             )
@@ -1230,10 +1230,10 @@ struct PIVFullStackTests {
 
             try await session.verifyPin(defaultPIN)
             let signature = try await session.sign(
-                slot: .signature,
+                testMessage,
+                in: .signature,
                 keyType: .ecc(curve),
-                algorithm: .message(.sha256),
-                message: testMessage
+                using: .message(.sha256)
             )
 
             try self.verifyECSignature(

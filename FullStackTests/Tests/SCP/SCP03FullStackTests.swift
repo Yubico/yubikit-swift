@@ -23,7 +23,7 @@ struct SCP03FullStackTests {
     @Test("Test SCP03 with default keys")
     func defaultKeys() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.3.0")! else {
+            guard version >= Version("5.3.0")! else {
                 reportSkip(reason: "SCP03 not supported on this YubiKey")
                 return
             }
@@ -40,7 +40,7 @@ struct SCP03FullStackTests {
     @Test("Import SCP03 key")
     func importKey() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.3.0")! else {
+            guard version >= Version("5.3.0")! else {
                 reportSkip(reason: "SCP03 not supported on this YubiKey")
                 return
             }
@@ -88,7 +88,7 @@ struct SCP03FullStackTests {
     @Test("Delete SCP03 key")
     func deleteKey() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.3.0")! else {
+            guard version >= Version("5.3.0")! else {
                 reportSkip(reason: "SCP03 not supported on this YubiKey")
                 return
             }
@@ -158,7 +158,7 @@ struct SCP03FullStackTests {
     @Test("Replace SCP03 key")
     func replaceKey() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.3.0")! else {
+            guard version >= Version("5.3.0")! else {
                 reportSkip(reason: "SCP03 not supported on this YubiKey")
                 return
             }
@@ -204,7 +204,7 @@ struct SCP03FullStackTests {
     @Test("Test SCP03 with wrong key")
     func wrongKey() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.3.0")! else {
+            guard version >= Version("5.3.0")! else {
                 reportSkip(reason: "SCP03 not supported on this YubiKey")
                 return
             }

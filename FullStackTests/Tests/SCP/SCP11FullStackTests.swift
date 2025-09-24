@@ -25,7 +25,7 @@ struct SCP11aFullStackTests {
     @Test("SCP11a authentication")
     func authenticate() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.7.2")! else {
+            guard version >= Version("5.7.2")! else {
                 reportSkip(reason: "SCP11a not supported on this YubiKey")
                 return
             }
@@ -34,7 +34,7 @@ struct SCP11aFullStackTests {
             // first we load keys using SCP03
             var securityDomainSession = try await SecurityDomainSession.makeSession(
                 connection: connection,
-                scpKeyParams: self.defaultKeyParams
+                scpKeyParams: defaultKeyParams
             )
             let scpKeyParams = try await securityDomainSession.loadKeys(scpKeyRef)
 
@@ -54,7 +54,7 @@ struct SCP11aFullStackTests {
     @Test("SCP11a allow list")
     func allowList() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.7.2")! else {
+            guard version >= Version("5.7.2")! else {
                 reportSkip(reason: "SCP11a not supported on this YubiKey")
                 return
             }
@@ -70,7 +70,7 @@ struct SCP11aFullStackTests {
             // Load SCP‑11a keys using SCP03, then switch to SCP‑11a
             var sdSession = try await SecurityDomainSession.makeSession(
                 connection: connection,
-                scpKeyParams: self.defaultKeyParams
+                scpKeyParams: defaultKeyParams
             )
             let scpKeyParams = try await sdSession.loadKeys(scpKeyRef)
             sdSession = try await SecurityDomainSession.makeSession(
@@ -101,7 +101,7 @@ struct SCP11aFullStackTests {
     @Test("SCP11a allow list blocked")
     func allowListBlocked() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.7.2")! else {
+            guard version >= Version("5.7.2")! else {
                 reportSkip(reason: "SCP11a not supported on this YubiKey")
                 return
             }
@@ -173,7 +173,7 @@ struct SCP11aFullStackTests {
 
         let session = try await SecurityDomainSession.makeSession(
             connection: connection,
-            scpKeyParams: self.defaultKeyParams
+            scpKeyParams: defaultKeyParams
         )
         try await session.putStaticKeys(staticKeys, for: scp03Ref, replacing: 0)
 
@@ -188,7 +188,7 @@ struct SCP11bFullStackTests {
     @Test("SCP11b authentication")
     func authenticate() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.7.2")! else {
+            guard version >= Version("5.7.2")! else {
                 reportSkip(reason: "SCP11b not supported on this YubiKey")
                 return
             }
@@ -215,7 +215,7 @@ struct SCP11bFullStackTests {
     @Test("SCP11b wrong public key")
     func wrongPubKey() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.7.2")! else {
+            guard version >= Version("5.7.2")! else {
                 reportSkip(reason: "SCP11b not supported on this YubiKey")
                 return
             }
@@ -248,14 +248,14 @@ struct SCP11bFullStackTests {
     @Test("SCP11b import key")
     func importKey() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.7.2")! else {
+            guard version >= Version("5.7.2")! else {
                 reportSkip(reason: "SCP11b not supported on this YubiKey")
                 return
             }
 
             let securityDomainSession = try await SecurityDomainSession.makeSession(
                 connection: connection,
-                scpKeyParams: self.defaultKeyParams
+                scpKeyParams: defaultKeyParams
             )
 
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x02)
@@ -281,7 +281,7 @@ struct SCP11cFullStackTests {
     @Test("SCP11c authentication")
     func authenticate() async throws {
         try await runSCPTest { version in
-            guard version >= Version(withString: "5.7.2")! else {
+            guard version >= Version("5.7.2")! else {
                 reportSkip(reason: "SCP11c not supported on this YubiKey")
                 return
             }
@@ -291,7 +291,7 @@ struct SCP11cFullStackTests {
             // first we load keys using SCP03
             var securityDomainSession = try await SecurityDomainSession.makeSession(
                 connection: connection,
-                scpKeyParams: self.defaultKeyParams
+                scpKeyParams: defaultKeyParams
             )
             let scpKeyParams = try await securityDomainSession.loadKeys(scpKeyRef)
 

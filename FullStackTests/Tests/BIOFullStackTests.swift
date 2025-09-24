@@ -30,7 +30,7 @@ struct BIOFullStackTests {
     func bioAuthentication() async throws {
         // First check if it's a bio device
         let connection = try await TestableConnection.shared()
-        let managementSession = try await ManagementSession.session(withConnection: connection)
+        let managementSession = try await ManagementSession.makeSession(connection: connection)
         let deviceInfo = try await managementSession.getDeviceInfo()
         guard deviceInfo.formFactor == .usbCBio || deviceInfo.formFactor == .usbABio else {
             reportSkip(reason: "Not a YubiKey Bio device")
@@ -46,10 +46,10 @@ struct BIOFullStackTests {
                 return
             }
             #expect(bioMetadata.attemptsRemaining > 0)
-            var verifyResult = try await session.verifyUv(requestTemporaryPin: false, checkOnly: false)
+            var verifyResult = try await session.verifyUV(requestTemporaryPin: false, checkOnly: false)
             #expect(verifyResult == nil)
             trace("verifyUV() passed")
-            guard let pinData = try await session.verifyUv(requestTemporaryPin: true, checkOnly: false) else {
+            guard let pinData = try await session.verifyUV(requestTemporaryPin: true, checkOnly: false) else {
                 reportSkip(reason: "Pin data returned was nil. Expected a value.")
                 return
             }
@@ -57,10 +57,10 @@ struct BIOFullStackTests {
             bioMetadata = try await session.getBioMetadata()
             #expect(bioMetadata.temporaryPin == true)
             trace("temporary pin reported as set.")
-            verifyResult = try await session.verifyUv(requestTemporaryPin: false, checkOnly: true)
+            verifyResult = try await session.verifyUV(requestTemporaryPin: false, checkOnly: true)
             #expect(verifyResult == nil)
-            trace("verifyUv successful.")
-            try await session.verifyTemporaryPin(pinData)
+            trace("verifyUV successful.")
+            try await session.verify(temporaryPin: pinData)
             trace("temporary pin verified.")
         }
     }
@@ -75,16 +75,16 @@ struct BIOFullStackTests {
                 reportSkip(reason: "Not a YubiKey Bio device")
                 return
             }
-            try await session.deviceReset()
-            var pivSession = try await PIVSession.session(withConnection: connection)
+            try await session.resetDevice()
+            var pivSession = try await PIVSession.makeSession(connection: connection)
             var pinMetadata = try await pivSession.getPinMetadata()
             #expect(pinMetadata.isDefault)
-            try await pivSession.setPin("654321", oldPin: "123456")
+            try await pivSession.changePin(from: "123456", to: "654321")
             pinMetadata = try await pivSession.getPinMetadata()
             #expect(!pinMetadata.isDefault)
-            let managementSession = try await ManagementSession.session(withConnection: connection)
-            try await managementSession.deviceReset()
-            pivSession = try await PIVSession.session(withConnection: connection)
+            let managementSession = try await ManagementSession.makeSession(connection: connection)
+            try await managementSession.resetDevice()
+            pivSession = try await PIVSession.makeSession(connection: connection)
             pinMetadata = try await pivSession.getPinMetadata()
             #expect(pinMetadata.isDefault)
         }
