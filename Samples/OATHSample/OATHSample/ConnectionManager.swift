@@ -41,12 +41,12 @@ final class ConnectionManager: ObservableObject {
                     error = nil
                     guard !Task.isCancelled else { return }
 
-                    let newConnection = try await WiredSmartCardConnection.connection()
+                    let newConnection = try await WiredSmartCardConnection.makeConnection()
                     guard !Task.isCancelled else { return }
 
                     wiredConnection = newConnection
 
-                    let closeError = await newConnection.connectionDidClose()
+                    let closeError = await newConnection.waitUntilClosed()
 
                     wiredConnection = nil
 
