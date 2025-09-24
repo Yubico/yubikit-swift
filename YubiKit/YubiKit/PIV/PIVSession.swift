@@ -57,8 +57,8 @@ public final actor PIVSession: SmartCardSession {
     ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
     /// - Returns: A new PIV session instance.
     /// - Throws: An error if the PIV application cannot be selected or session creation fails.
-    public static func session(
-        withConnection connection: SmartCardConnection,
+    public static func makeSession(
+        connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
     ) async throws -> PIVSession {
         // Return new PIVSession
@@ -75,16 +75,16 @@ public final actor PIVSession: SmartCardSession {
 
     /// Create a signature for a given message.
     /// - Parameters:
+    ///   - message: The message to sign.
     ///   - slot: The slot containing the private key to use.
     ///   - keyType: The type of RSA key stored in the slot.
     ///   - algorithm: The signing algorithm, which specifies both the key type and hash algorithm.
-    ///   - message: The message to sign.
     /// - Returns: The generated signature for the message.
     public func sign(
-        slot: PIV.Slot,
+        _ message: Data,
+        in slot: PIV.Slot,
         keyType: PIV.RSAKey,
-        algorithm: PIV.RSASignatureAlgorithm,
-        message: Data
+        using algorithm: PIV.RSASignatureAlgorithm
     ) async throws -> Data {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
 
@@ -104,16 +104,16 @@ public final actor PIVSession: SmartCardSession {
 
     /// Create a signature for a given message.
     /// - Parameters:
+    ///   - message: The message to sign.
     ///   - slot: The slot containing the private key to use.
     ///   - keyType: The type of ECC key stored in the slot.
     ///   - algorithm: The ECDSA signature algorithm to use.
-    ///   - message: The message to sign.
     /// - Returns: The generated signature for the message.
     public func sign(
-        slot: PIV.Slot,
+        _ message: Data,
+        in slot: PIV.Slot,
         keyType: PIV.ECCKey,
-        algorithm: PIV.ECDSASignatureAlgorithm,
-        message: Data
+        using algorithm: PIV.ECDSASignatureAlgorithm
     ) async throws -> Data {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
 
@@ -133,14 +133,14 @@ public final actor PIVSession: SmartCardSession {
 
     /// Create a signature for a given message.
     /// - Parameters:
+    ///   - message: The message to sign.
     ///   - slot: The slot containing the private key to use.
     ///   - keyType: The type of Ed25519 key stored in the slot.
-    ///   - message: The message to sign.
     /// - Returns: The generated signature for the message.
     public func sign(
-        slot: PIV.Slot,
-        keyType: PIV.Ed25519Key,
-        message: Data
+        _ message: Data,
+        in slot: PIV.Slot,
+        keyType: PIV.Ed25519Key
     ) async throws -> Data {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
 
@@ -149,17 +149,17 @@ public final actor PIVSession: SmartCardSession {
 
     /// Decrypts a RSA-encrypted message.
     /// - Parameters:
+    ///   - data: The encrypted data to decrypt.
     ///   - slot: The slot containing the private key to use.
     ///   - algorithm: The padding algorithm to use when decrypting.
-    ///   - data: The encrypted data to decrypt.
     /// - Returns: The decrypted data.
-    public func decryptWithKeyInSlot(
-        slot: PIV.Slot,
-        algorithm: PIV.RSAEncryptionAlgorithm,
-        encrypted data: Data
+    public func decrypt(
+        _ data: Data,
+        in slot: PIV.Slot,
+        using algorithm: PIV.RSAEncryptionAlgorithm
     ) async throws -> Data {
         let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
-        guard let rsaKey = validTypes.first(where: { $0.keysize.inBytes == data.count }) else {
+        guard let rsaKey = validTypes.first(where: { $0.keysize.byteCount == data.count }) else {
             throw PIV.SessionError.invalidDataSize
         }
         let result = try await usePrivateKeyInSlot(
@@ -176,7 +176,7 @@ public final actor PIVSession: SmartCardSession {
     ///   - slot: The slot containing the private EC key to use.
     ///   - peerKey: The peer public key for the operation.
     /// - Returns: The shared secret.
-    public func calculateSecretKeyInSlot(slot: PIV.Slot, peerKey: EC.PublicKey) async throws -> Data {
+    public func deriveSharedSecret(in slot: PIV.Slot, with peerKey: EC.PublicKey) async throws -> Data {
 
         try await usePrivateKeyInSlot(
             slot: slot,
@@ -191,7 +191,7 @@ public final actor PIVSession: SmartCardSession {
     ///   - slot: The slot containing the private X25519 key to use.
     ///   - peerKey: The peer public key for the operation.
     /// - Returns: The shared secret.
-    public func calculateSecretKeyInSlot(slot: PIV.Slot, peerKey: X25519.PublicKey) async throws -> Data {
+    public func deriveSharedSecret(in slot: PIV.Slot, with peerKey: X25519.PublicKey) async throws -> Data {
 
         try await usePrivateKeyInSlot(
             slot: slot,
@@ -215,7 +215,7 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// - Parameter slot: The slot containing the private key to use.
     /// - Returns: The attestation certificate.
-    public func attestKeyInSlot(slot: PIV.Slot) async throws -> X509Cert {
+    public func attestKey(in slot: PIV.Slot) async throws -> X509Cert {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard await self.supports(PIVSessionFeature.attestation) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insAttest, p1: slot.rawValue, p2: 0)
@@ -229,7 +229,7 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIV.PinPolicy.never`.
     ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
-    ///        `PIV.KeyType.ECCP348` requires P384 support, available on YubiKey 4 or later.
+    ///        `PIV.KeyType.ecc(.secp384r1)` requires P384 support, available on YubiKey 4 or later.
     ///        Ed25519 and X25519 require YubiKey 5.7 or later.
     ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy, available on YubiKey 4 or later.
     ///        `PIV.TouchPolicy.cached` requires support for touch cached, available on YubiKey 4.3 or later.
@@ -240,8 +240,8 @@ public final actor PIVSession: SmartCardSession {
     ///   - pinPolicy: The PIN policy for using the private key.
     ///   - touchPolicy: The touch policy for using the private key.
     /// - Returns: The generated public key.
-    public func generateKeyInSlot(
-        slot: PIV.Slot,
+    public func generateKey(
+        in slot: PIV.Slot,
         type: PIV.KeyType,
         pinPolicy: PIV.PinPolicy = .defaultPolicy,
         touchPolicy: PIV.TouchPolicy = .`defaultPolicy`
@@ -278,9 +278,9 @@ public final actor PIVSession: SmartCardSession {
     ///   - touchPolicy: The touch policy for using the private key.
     /// - Returns: The RSA key type that was stored.
     @discardableResult
-    public func putKey(
-        key: RSA.PrivateKey,
-        inSlot slot: PIV.Slot,
+    public func putPrivateKey(
+        _ key: RSA.PrivateKey,
+        in slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
     ) async throws -> PIV.RSAKey {
@@ -294,7 +294,7 @@ public final actor PIVSession: SmartCardSession {
         let exponentOne = key.dP
         let exponentTwo = key.dQ
         let coefficient = key.qInv
-        let length = key.size.inBytes / 2
+        let length = key.size.byteCount / 2
         data.append(TKBERTLVRecord(tag: 0x01, value: primeOne.padOrTrim(to: length)).data)
         data.append(TKBERTLVRecord(tag: 0x02, value: primeTwo.padOrTrim(to: length)).data)
         data.append(TKBERTLVRecord(tag: 0x03, value: exponentOne.padOrTrim(to: length)).data)
@@ -315,7 +315,7 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// This method requires authentication.
     ///
-    /// >Note: `PIV.KeyType.ECCP348` requires P384 support, available on YubiKey 4 or later.
+    /// >Note: `PIV.KeyType.ecc(.secp384r1)` requires P384 support, available on YubiKey 4 or later.
     ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy,
     ///        available on YubiKey 4 or later.
     ///
@@ -326,9 +326,9 @@ public final actor PIVSession: SmartCardSession {
     ///   - touchPolicy: The touch policy for using the private key.
     /// - Returns: The ECC key type that was stored.
     @discardableResult
-    public func putKey(
-        key: EC.PrivateKey,
-        inSlot slot: PIV.Slot,
+    public func putPrivateKey(
+        _ key: EC.PrivateKey,
+        in slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
     ) async throws -> PIV.ECCKey {
@@ -361,9 +361,9 @@ public final actor PIVSession: SmartCardSession {
     ///   - touchPolicy: The touch policy for using the private key.
     /// - Returns: The Ed25519 key type that was stored.
     @discardableResult
-    public func putKey(
-        key: Ed25519.PrivateKey,
-        inSlot slot: PIV.Slot,
+    public func putPrivateKey(
+        _ key: Ed25519.PrivateKey,
+        in slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
     ) async throws -> PIV.Ed25519Key {
@@ -396,9 +396,9 @@ public final actor PIVSession: SmartCardSession {
     ///   - touchPolicy: The touch policy for using the private key.
     /// - Returns: The X25519 key type that was stored.
     @discardableResult
-    public func putKey(
-        key: X25519.PrivateKey,
-        inSlot slot: PIV.Slot,
+    public func putPrivateKey(
+        _ key: X25519.PrivateKey,
+        in slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
     ) async throws -> PIV.X25519Key {
@@ -422,7 +422,7 @@ public final actor PIVSession: SmartCardSession {
     /// - Parameters:
     ///   - sourceSlot: Slot to move the key from.
     ///   - destinationSlot: Slot to move the key to.
-    public func moveKey(sourceSlot: PIV.Slot, destinationSlot: PIV.Slot) async throws {
+    public func moveKey(from sourceSlot: PIV.Slot, to destinationSlot: PIV.Slot) async throws {
         guard await self.supports(PIVSessionFeature.moveDelete) else { throw SessionError.notSupported }
         guard sourceSlot != PIV.Slot.attestation else { throw SessionError.illegalArgument }
         Logger.piv.debug(
@@ -448,23 +448,23 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIV.PinPolicy.never`.
     ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
-    ///        `PIV.KeyType.ECCP348` requires P384 support, available on YubiKey 4 or later.
+    ///        `PIV.KeyType.ecc(.secp384r1)` requires P384 support, available on YubiKey 4 or later.
     ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy, available on YubiKey 4 or later.
     ///        `PIV.TouchPolicy.cached` requires support for touch cached, available on YubiKey 4.3 or later.
     ///
     /// - Parameters:
     ///   - certificate: Certificate to write.
     ///   - slot: The slot to write the certificate to.
-    ///   - compress: If true the certificate will be compressed before being stored on the YubiKey.
-    public func putCertificate(certificate: X509Cert, inSlot slot: PIV.Slot, compress: Bool = false) async throws {
+    ///   - compressed: If true the certificate will be compressed before being stored on the YubiKey.
+    public func putCertificate(_ certificate: X509Cert, in slot: PIV.Slot, compressed: Bool = false) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         var certData = certificate.der
-        if compress {
+        if compressed {
             certData = try certData.gzipped()
         }
         var data = Data()
         data.append(TKBERTLVRecord(tag: tagCertificate, value: certData).data)
-        let isCompressed: UInt8 = compress ? 1 : 0
+        let isCompressed: UInt8 = compressed ? 1 : 0
         data.append(TKBERTLVRecord(tag: tagCertificateInfo, value: isCompressed.data).data)
         data.append(TKBERTLVRecord(tag: tagLRC, value: Data()).data)
         try await self.putObject(data, objectId: slot.objectId)
@@ -473,7 +473,7 @@ public final actor PIVSession: SmartCardSession {
     /// Reads the X.509 certificate stored in the specified slot on the YubiKey.
     /// - Parameter slot: The slot where the certificate is stored.
     /// - Returns: The X.509 certificate.
-    public func getCertificateInSlot(_ slot: PIV.Slot) async throws -> X509Cert {
+    public func getCertificate(in slot: PIV.Slot) async throws -> X509Cert {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let command = TKBERTLVRecord(tag: tagObjectId, value: slot.objectId).data
         let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command, type: .extended)
@@ -501,7 +501,7 @@ public final actor PIVSession: SmartCardSession {
     /// >Note: This does NOT delete any corresponding private key.
     ///
     /// - Parameter slot: The slot where the certificate is stored.
-    public func deleteCertificateInSlot(slot: PIV.Slot) async throws {
+    public func deleteCertificate(in slot: PIV.Slot) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await putObject(Data(), objectId: slot.objectId)
     }
@@ -533,7 +533,7 @@ public final actor PIVSession: SmartCardSession {
     /// Authenticate with the Management Key.
     /// - Parameters:
     ///   - managementKey: The management key as Data.
-    public func authenticateWith(managementKey: Data) async throws {
+    public func authenticate(with managementKey: Data) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
 
         let keyType: PIV.ManagementKeyType
@@ -550,7 +550,7 @@ public final actor PIVSession: SmartCardSession {
             switch keyType {
             case .tripleDES:
                 UInt32(kCCAlgorithm3DES)
-            case .AES128, .AES192, .AES256:
+            case .aes128, .aes192, .aes256:
                 UInt32(kCCAlgorithmAES)
             }
 
@@ -609,7 +609,7 @@ public final actor PIVSession: SmartCardSession {
     /// Reads metadata about the private key stored in a slot.
     /// - Parameter slot: The slot to read metadata about.
     /// - Returns: The metadata for the slot.
-    public func getSlotMetadata(_ slot: PIV.Slot) async throws -> PIV.SlotMetadata {
+    public func getMetadata(in slot: PIV.Slot) async throws -> PIV.SlotMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard await self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
         let result = try await send(apdu: APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: slot.rawValue))
@@ -678,12 +678,13 @@ public final actor PIVSession: SmartCardSession {
     ///        This functionality requires support for feature serial, available on YubiKey 5 or later.
     ///
     /// - Returns: The serial number.
-    public func getSerialNumber() async throws -> UInt32 {
+    public func getSerialNumber() async throws -> UInt {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard await self.supports(PIVSessionFeature.serialNumber) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: insGetSerial, p1: 0, p2: 0)
         let result = try await send(apdu: apdu)
-        return CFSwapInt32BigToHost(result.uint32)
+        let serial = CFSwapInt32BigToHost(result.uint32)
+        return UInt(serial)
     }
 
     /// Authenticate with PIN.
@@ -716,7 +717,7 @@ public final actor PIVSession: SmartCardSession {
     /// - Parameters:
     ///   - newPin: The new UTF8 encoded PIN.
     ///   - oldPin: Old PIN code. UTF8 encoded.
-    public func setPin(_ newPin: String, oldPin: String) async throws {
+    public func changePin(from oldPin: String, to newPin: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await changeReference(ins: insChangeReference, p2: p2Pin, valueOne: oldPin, valueTwo: newPin)
     }
@@ -725,7 +726,7 @@ public final actor PIVSession: SmartCardSession {
     /// - Parameters:
     ///   - newPuk: The new UTF8 encoded PUK.
     ///   - oldPuk: Old PUK code. UTF8 encoded.
-    public func setPuk(_ newPuk: String, oldPuk: String) async throws {
+    public func changePuk(from oldPuk: String, to newPuk: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await changeReference(ins: insChangeReference, p2: p2Puk, valueOne: oldPuk, valueTwo: newPuk)
     }
@@ -734,7 +735,7 @@ public final actor PIVSession: SmartCardSession {
     /// - Parameters:
     ///   - puk: The UTF8 encoded PUK.
     ///   - newPin: The new UTF8 encoded PIN.
-    public func unblockPinWithPuk(_ puk: String, newPin: String) async throws {
+    public func unblockPin(with puk: String, newPin: String) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
     }
@@ -762,7 +763,7 @@ public final actor PIVSession: SmartCardSession {
     /// - Parameters:
     ///   - pinAttempts: The number of attempts to allow for PIN entry before blocking the PIN.
     ///   - pukAttempts: The number of attempts to allow for PUK entry before blocking the PUK.
-    public func set(pinAttempts: UInt8, pukAttempts: UInt8) async throws {
+    public func setRetries(pin pinAttempts: UInt8, puk pukAttempts: UInt8) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let apdu = APDU(cla: 0, ins: insSetPinPukAttempts, p1: pinAttempts, p2: pukAttempts)
         try await send(apdu: apdu)
@@ -848,8 +849,8 @@ public final actor PIVSession: SmartCardSession {
     /// - Parameters:
     ///   - requestTemporaryPin: After successful match generate a temporary PIN.
     ///   - checkOnly: Check verification state of biometrics, don't perform UV.
-    /// - Returns: Temporary PIN if requestTemporaryPin is true, otherwise null.
-    public func verifyUv(requestTemporaryPin: Bool, checkOnly: Bool) async throws -> Data? {
+    /// - Returns: Temporary PIN if requestTemporaryPin is true, otherwise nil.
+    public func verifyUV(requestTemporaryPin: Bool, checkOnly: Bool) async throws -> Data? {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         if requestTemporaryPin && checkOnly {
             throw SessionError.illegalArgument
@@ -883,14 +884,14 @@ public final actor PIVSession: SmartCardSession {
 
     /// Authenticate YubiKey Bio multi-protocol with temporary PIN.
     ///
-    /// The PIN has to be generated by calling ``verifyUv(requestTemporaryPin:checkOnly:)`` and is
+    /// The PIN has to be generated by calling ``verifyUV(requestTemporaryPin:checkOnly:)`` and is
     /// valid only for operations during this session and depending on slot PIN policy.
     ///
     /// >Note: Before calling this method, clients must verify that the authenticator is bio-capable and
     ///        not blocked for bio matching.
     ///
     /// - Parameter pin: Temporary PIN.
-    public func verifyTemporaryPin(_ pin: Data) async throws {
+    public func verify(temporaryPin pin: Data) async throws {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         guard pin.count == temporaryPinLength else { throw SessionError.illegalArgument }
         do {
@@ -1050,7 +1051,7 @@ extension PIVSession {
         if statusCode.rawStatus == 0x6983 {
             return 0
         }
-        if version < Version(withString: "1.0.4")! {
+        if version < Version("1.0.4")! {
             if statusCode.rawStatus >= 0x6300 && statusCode.rawStatus <= 0x63ff {
                 return Int(statusCode.rawStatus & 0xff)
             }

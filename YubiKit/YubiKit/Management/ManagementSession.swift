@@ -21,7 +21,7 @@ public enum ManagementSessionError: Error, Sendable {
     /// Application is not supported on this YubiKey.
     case applicationNotSupported
     /// Unexpected configuration state.
-    case unexpectedYubikeyConfigState
+    case unexpectedYubiKeyConfigState
     /// Unexpected data returned by YubiKey.
     case unexpectedData
     /// YubiKey did not return any data.
@@ -63,8 +63,8 @@ public final actor ManagementSession: SmartCardSession {
     ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
     /// - Returns: A new ManagementSession instance.
     /// - Throws: ManagementSessionError if session creation fails.
-    public static func session(
-        withConnection connection: SmartCardConnection,
+    public static func makeSession(
+        connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
     ) async throws -> ManagementSession {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
@@ -134,48 +134,46 @@ public final actor ManagementSession: SmartCardSession {
     /// Check whether an application is supported over the specified transport.
     public func isApplicationSupported(
         _ application: Capability,
-        overTransport transport: DeviceTransport
+        over transport: DeviceTransport
     ) async throws -> Bool {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         let deviceInfo = try await getDeviceInfo()
-        return deviceInfo.isApplicationSupported(application, overTransport: transport)
+        return deviceInfo.isApplicationSupported(application, over: transport)
     }
 
     /// Check whether an application is enabled over the specified transport.
     public func isApplicationEnabled(
         _ application: Capability,
-        overTransport transport: DeviceTransport
+        over transport: DeviceTransport
     ) async throws -> Bool {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         let deviceInfo = try await getDeviceInfo()
-        return deviceInfo.config.isApplicationEnabled(application, overTransport: transport)
+        return deviceInfo.config.isApplicationEnabled(application, over: transport)
     }
 
-    /// Enable or disable an application over the specified transport.
-    public func setEnabled(
-        _ enabled: Bool,
-        application: Capability,
-        overTransport transport: DeviceTransport,
+    /// Enable an application over the specified transport.
+    public func enableApplication(
+        _ application: Capability,
+        over transport: DeviceTransport,
         reboot: Bool = false
     ) async throws {
         Logger.management.debug(
-            "\(String(describing: self).lastComponent), \(#function): \(enabled), application: \(String(describing: application)), overTransport: \(String(describing: transport)), reboot: \(reboot)"
+            "\(String(describing: self).lastComponent), \(#function): \(String(describing: application)), over: \(String(describing: transport)), reboot: \(reboot)"
         )
         let deviceInfo = try await getDeviceInfo()
-        guard enabled != deviceInfo.config.isApplicationEnabled(application, overTransport: transport) else { return }
-        guard deviceInfo.isApplicationSupported(application, overTransport: transport) else {
+        guard !deviceInfo.config.isApplicationEnabled(application, over: transport) else { return }
+        guard deviceInfo.isApplicationSupported(application, over: transport) else {
             throw ManagementSessionError.applicationNotSupported
         }
         guard
-            let config = deviceInfo.config.deviceConfig(
-                enabling: enabled,
+            let config = deviceInfo.config.enable(
                 application: application,
-                overTransport: transport
+                over: transport
             )
         else { return }
 
         guard config.enabledCapabilities[transport] != nil else {
-            throw ManagementSessionError.unexpectedYubikeyConfigState
+            throw ManagementSessionError.unexpectedYubiKeyConfigState
         }
 
         try await updateDeviceConfig(config, reboot: reboot)
@@ -184,31 +182,35 @@ public final actor ManagementSession: SmartCardSession {
     /// Disable an application over the specified transport.
     public func disableApplication(
         _ application: Capability,
-        overTransport transport: DeviceTransport,
+        over transport: DeviceTransport,
         reboot: Bool = false
     ) async throws {
         Logger.management.debug(
-            "\(String(describing: self).lastComponent), \(#function): \(String(describing: application)), overTransport: \(String(describing: transport)), reboot: \(reboot)"
+            "\(String(describing: self).lastComponent), \(#function): \(String(describing: application)), over: \(String(describing: transport)), reboot: \(reboot)"
         )
-        try await setEnabled(false, application: application, overTransport: transport, reboot: reboot)
-    }
+        let deviceInfo = try await getDeviceInfo()
+        guard deviceInfo.config.isApplicationEnabled(application, over: transport) else { return }
+        guard deviceInfo.isApplicationSupported(application, over: transport) else {
+            throw ManagementSessionError.applicationNotSupported
+        }
+        guard
+            let config = deviceInfo.config.disable(
+                application: application,
+                over: transport
+            )
+        else { return }
 
-    /// Enable an application over the specified transport.
-    public func enableApplication(
-        _ application: Capability,
-        overTransport transport: DeviceTransport,
-        reboot: Bool = false
-    ) async throws {
-        Logger.management.debug(
-            "\(String(describing: self).lastComponent), \(#function): \(String(describing: application)), overTransport: \(String(describing: transport)), reboot: \(reboot)"
-        )
-        try await setEnabled(true, application: application, overTransport: transport, reboot: reboot)
+        guard config.enabledCapabilities[transport] != nil else {
+            throw ManagementSessionError.unexpectedYubiKeyConfigState
+        }
+
+        try await updateDeviceConfig(config, reboot: reboot)
     }
 
     /// Perform a device-wide reset in Bio Multi-protocol Edition devices.
     ///
     /// >Note: This functionality requires support for ``ManagementFeature/deviceReset``, available on YubiKey 5.6 or later.
-    public func deviceReset() async throws {
+    public func resetDevice() async throws {
         guard await self.supports(ManagementFeature.deviceReset) else { throw SessionError.notSupported }
         let apdu = APDU(cla: 0, ins: 0x1f, p1: 0, p2: 0)
         try await send(apdu: apdu)

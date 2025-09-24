@@ -13,7 +13,7 @@
 ### Managing the LightningSmartCardConnection
 
 - ``close(error:)``
-- ``connectionDidClose()``
+- ``waitUntilClosed()``
 
 ### Sending data to the YubiKey
 

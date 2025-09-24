@@ -31,7 +31,7 @@ import IOKit.hid
 }
 
 // Used to identify a device / connection.
-// Exposed when calling `HIDFIDOConnection.availableDevices`
+// Exposed when calling `HIDFIDOConnection.availableDevices()`
 // and when creating a connection with HIDFIDOConnection.connection(device:)
 /* public */ enum HIDFIDO {
     /* public */ struct YubiKeyDevice: Sendable, Hashable, CustomStringConvertible {
@@ -57,10 +57,8 @@ import IOKit.hid
     // Private / Fileprivate
     private let locationID: Int
 
-    /* public */ static var availableDevices: [HIDFIDO.YubiKeyDevice] {
-        get async throws {
-            try await HIDFIDOConnectionManager.shared.availableDevices()
-        }
+    /* public */ static func availableDevices() async throws -> [HIDFIDO.YubiKeyDevice] {
+        try await HIDFIDOConnectionManager.shared.availableDevices()
     }
 
     /// Creates a new FIDO connection to the first available YubiKey.
@@ -70,7 +68,7 @@ import IOKit.hid
     ///
     /// - Throws: ``HIDFIDOConnectionError.noAvailableDevices`` if no YubiKey is available.
     /* public */ init() async throws {
-        guard let first = try await HIDFIDOConnection.availableDevices.first else {
+        guard let first = try await HIDFIDOConnection.availableDevices().first else {
             throw HIDFIDOConnectionError.noAvailableDevices
         }
         try await self.init(device: first)
@@ -87,7 +85,7 @@ import IOKit.hid
         self.locationID = device.locationID
     }
 
-    /* public */ static func connection(device: HIDFIDO.YubiKeyDevice) async throws -> HIDFIDOConnection {
+    /* public */ static func makeConnection(device: HIDFIDO.YubiKeyDevice) async throws -> HIDFIDOConnection {
         try await HIDFIDOConnection(device: device)
     }
 
@@ -95,7 +93,7 @@ import IOKit.hid
         await HIDFIDOConnectionManager.shared.close(locationID: locationID, error: error)
     }
 
-    /* public */ func connectionDidClose() async -> Error? {
+    /* public */ func waitUntilClosed() async -> Error? {
         try? await didClose.value()
     }
 
@@ -106,7 +104,7 @@ import IOKit.hid
     ///
     /// - Returns: A fully–established connection ready for FIDO communication.
     /// - Throws: ``HIDFIDOConnectionError.noAvailableDevices`` if no YubiKey is available.
-    /* public */ static func connection() async throws -> HIDFIDOConnection {
+    /* public */ static func makeConnection() async throws -> HIDFIDOConnection {
         try await HIDFIDOConnection()
     }
 

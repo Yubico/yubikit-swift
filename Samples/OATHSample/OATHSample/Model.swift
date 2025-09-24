@@ -45,7 +45,7 @@ class Model: ObservableObject {
 
     private func getKeyVersion(using connection: SmartCardConnection) async {
         do {
-            let session = try await ManagementSession.session(withConnection: connection)
+            let session = try await ManagementSession.makeSession(connection: connection)
             self.keyVersion = await session.version.description
         } catch {
             self.error = error
@@ -54,8 +54,8 @@ class Model: ObservableObject {
 
     private func calculateCodes(using connection: SmartCardConnection) async {
         do {
-            let session = try await OATHSession.session(withConnection: connection)
-            let result = try await session.calculateCodes()
+            let session = try await OATHSession.makeSession(connection: connection)
+            let result = try await session.calculateCredentialCodes()
             accounts = result.map { credential, code in
                 Account(
                     label: credential.label,

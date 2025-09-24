@@ -12,18 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// # RSAKeys+SecHelpers
-/// Integration helpers between the RSA key types and Apple's Security framework (`SecKey`).
-/// Provides conversion and random key generation for interoperability with native APIs.
+// Integration helpers between the RSA key types and Apple's Security framework (`SecKey`).
+// Provides conversion and random key generation for interoperability with native APIs.
 
 import Foundation
 import Security
 
 extension RSA.PrivateKey {
-    /// Generate a random RSA private key of the specified size using Apple's Security framework.
-    /// - Parameter keySize: Desired RSA key size.
-    /// - Returns: A valid RSA.PrivateKey or nil if generation / parsing fails.
-    public static func random(keySize: RSA.KeySize) -> RSA.PrivateKey? {
+    // Generate a random RSA private key of the specified size using Apple's Security framework.
+    // - Parameter keySize: Desired RSA key size.
+    // - Returns: A valid RSA.PrivateKey or nil if generation / parsing fails.
+    static func random(keySize: RSA.KeySize) -> RSA.PrivateKey? {
         let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPrivate,
             kSecAttrKeyType: kSecAttrKeyTypeRSA,
@@ -46,9 +45,9 @@ extension RSA.PrivateKey {
 }
 
 extension RSA.PublicKey {
-    /// Convert this RSA public key to a native SecKey.
-    /// - Returns: A SecKey suitable for cryptographic operations, or nil if conversion fails.
-    public func asSecKey() -> SecKey? {
+    // Convert this RSA public key to a native SecKey.
+    // - Returns: A SecKey suitable for cryptographic operations, or nil if conversion fails.
+    func asSecKey() -> SecKey? {
         let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPublic,
             kSecAttrKeyType: kSecAttrKeyTypeRSA,
@@ -61,9 +60,9 @@ extension RSA.PublicKey {
 }
 
 extension RSA.PrivateKey {
-    /// Convert this RSA private key to a native SecKey.
-    /// - Returns: A SecKey suitable for cryptographic operations, or nil if conversion fails.
-    public func asSecKey() -> SecKey? {
+    // Convert this RSA private key to a native SecKey.
+    // - Returns: A SecKey suitable for cryptographic operations, or nil if conversion fails.
+    func asSecKey() -> SecKey? {
         let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPrivate,
             kSecAttrKeyType: kSecAttrKeyTypeRSA,

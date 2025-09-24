@@ -8,7 +8,7 @@
 
 ### Managing the OATHSession
 
-- ``session(withConnection:)``
+- ``session(connection:scpKeyParams:)``
 - ``end()``
 - ``reset()``
 

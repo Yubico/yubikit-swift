@@ -26,12 +26,12 @@ public enum RSA: Sendable {
         case bits4096 = 4096
 
         /// Returns the key size in bits.
-        public var inBits: Int {
+        public var bitCount: Int {
             rawValue
         }
 
         /// Returns the key size in bytes.
-        public var inBytes: Int {
+        public var byteCount: Int {
             rawValue / 8
         }
     }

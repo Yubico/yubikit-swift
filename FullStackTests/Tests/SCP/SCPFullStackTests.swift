@@ -19,17 +19,17 @@ import XCTest
 
 class SCPFullStackTests: XCTestCase {
 
-    func testGetSupportedCaIdentifiers() throws {
+    func testgetSupportedCAIdentifiers() throws {
         runSCPTest { [self] in
-            let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
-            let info = try await securityDomainSession.getSupportedCaIdentifiers(kloc: true, klcc: true)
+            let securityDomainSession = try await SecurityDomainSession.makeSession(connection: connection)
+            let info = try await securityDomainSession.getSupportedCAIdentifiers(kloc: true, klcc: true)
             XCTAssertTrue(info != [:])
         }
     }
 
     func testGetInformation() throws {
         runSCPTest { [self] in
-            let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
+            let securityDomainSession = try await SecurityDomainSession.makeSession(connection: connection)
             let info = try await securityDomainSession.getKeyInformation()
             XCTAssertTrue(info != [:])
         }
@@ -37,9 +37,9 @@ class SCPFullStackTests: XCTestCase {
 
     func testSCP11b() throws {
         runSCPTest { [self] in
-            let securityDomainSession = try await SecurityDomainSession.session(withConnection: connection)
+            let securityDomainSession = try await SecurityDomainSession.makeSession(connection: connection)
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x01)
-            let certificates = try await securityDomainSession.getCertificateBundle(scpKeyRef: scpKeyRef)
+            let certificates = try await securityDomainSession.getCertificateBundle(for: scpKeyRef)
             guard let last = certificates.last,
                 case let .ec(publicKey) = last.publicKey
             else {
@@ -47,8 +47,8 @@ class SCPFullStackTests: XCTestCase {
                 return
             }
             let scp11KeyParams = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
-            let managementSession = try await ManagementSession.session(
-                withConnection: connection,
+            let managementSession = try await ManagementSession.makeSession(
+                connection: connection,
                 scpKeyParams: scp11KeyParams
             )
             let deviceInfo = try await managementSession.getDeviceInfo()
@@ -62,8 +62,8 @@ class SCPFullStackTests: XCTestCase {
                 keyRef: SCPKeyRef(kid: .scp03, kvn: 0xff),
                 staticKeys: StaticKeys.defaultKeys()
             )
-            let managementSession = try await ManagementSession.session(
-                withConnection: connection,
+            let managementSession = try await ManagementSession.makeSession(
+                connection: connection,
                 scpKeyParams: scpKeyParams
             )
             let deviceInfo = try? await managementSession.getDeviceInfo()

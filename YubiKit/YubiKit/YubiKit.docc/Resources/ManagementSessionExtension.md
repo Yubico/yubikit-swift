@@ -8,29 +8,28 @@
 
 ### Managing the ManagementSession
 
-- ``session(withConnection:)``
+- ``session(connection:scpKeyParams:)``
 - ``end()``
 
 ### Running commands in the Management application
 
-- ``getDeviceInfo()``
+- ``deviceInfo()``
 - ``updateDeviceConfig(_:reboot:lockCode:newLockCode:)``
-- ``isApplicationSupported(_:overTransport:)``
-- ``isApplicationEnabled(_:overTransport:)``
-- ``setEnabled(_:application:overTransport:reboot:)``
-- ``enableApplication(_:overTransport:reboot:)``
-- ``disableApplication(_:overTransport:reboot:)``
+- ``isApplicationSupported(_:over:)``
+- ``isApplicationEnabled(_:over:)``
+- ``enable(_:over:reboot:)``
+- ``disable(_:over:reboot:)``
 - ``deviceReset()``
 
 ### Return types
 
-- ``DeviceInfo``
-- ``DeviceConfig``
+- ``Device/Info``
+- ``Device/Config``
 
 ### Enumerations
 
 - ``Capability``
-- ``DeviceTransport``
+- ``Device.Transport``
 - ``FormFactor``
 - ``ManagementFeature``
 

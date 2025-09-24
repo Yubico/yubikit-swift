@@ -30,7 +30,7 @@ public struct DeviceConfig: Sendable {
     /// The currently enabled capabilities for a given ``DeviceTransport``. The enabled capabilities are represented as
     /// ``Capability`` bits being set (1) or not (0).
     ///
-    ///>Note: This method will return null if the given transport is not supported by the YubiKey, OR if the enabled
+    ///>Note: This method will return nil if the given transport is not supported by the YubiKey, OR if the enabled
     /// capabilities state isn't readable. The YubiKey 4 series, for example, does not return enabled-status for USB
     public let enabledCapabilities: [DeviceTransport: UInt]
     public let isNFCRestricted: Bool?
@@ -78,7 +78,7 @@ public struct DeviceConfig: Sendable {
         }
     }
 
-    public func isApplicationEnabled(_ application: Capability, overTransport transport: DeviceTransport) -> Bool {
+    public func isApplicationEnabled(_ application: Capability, over transport: DeviceTransport) -> Bool {
         guard let mask = enabledCapabilities[transport] else { return false }
         return (mask & application.rawValue) == application.rawValue
     }
@@ -97,13 +97,13 @@ public struct DeviceConfig: Sendable {
         self.isNFCRestricted = isNFCRestricted
     }
 
-    public func deviceConfig(
-        enabling: Bool,
+    private func with(
         application: Capability,
-        overTransport transport: DeviceTransport
+        enabled: Bool,
+        over transport: DeviceTransport
     ) -> DeviceConfig? {
         guard let oldMask = enabledCapabilities[transport] else { return nil }
-        let newMask = enabling ? oldMask | application.rawValue : oldMask & ~application.rawValue
+        let newMask = enabled ? oldMask | application.rawValue : oldMask & ~application.rawValue
         var newEnabledCapabilities = enabledCapabilities
         newEnabledCapabilities[transport] = newMask
 
@@ -116,23 +116,25 @@ public struct DeviceConfig: Sendable {
         )
     }
 
-    public func deviceConfig(autoEjectTimeout: TimeInterval, challengeResponseTimeout: TimeInterval) -> DeviceConfig {
-        Self.init(
-            autoEjectTimeout: autoEjectTimeout,
-            challengeResponseTimeout: challengeResponseTimeout,
-            deviceFlags: self.deviceFlags,
-            enabledCapabilities: self.enabledCapabilities,
-            isNFCRestricted: self.isNFCRestricted
-        )
+    public func enable(application: Capability, over transport: DeviceTransport) -> DeviceConfig? {
+        with(application: application, enabled: true, over: transport)
     }
 
-    public func deviceConfig(nfcRestricted: Bool) -> DeviceConfig {
+    public func disable(application: Capability, over transport: DeviceTransport) -> DeviceConfig? {
+        with(application: application, enabled: false, over: transport)
+    }
+
+    public func with(
+        autoEjectTimeout: TimeInterval? = nil,
+        challengeResponseTimeout: TimeInterval? = nil,
+        nfcRestricted: Bool? = nil
+    ) -> DeviceConfig {
         Self.init(
-            autoEjectTimeout: self.autoEjectTimeout,
-            challengeResponseTimeout: self.challengeResponseTimeout,
+            autoEjectTimeout: autoEjectTimeout ?? self.autoEjectTimeout,
+            challengeResponseTimeout: challengeResponseTimeout ?? self.challengeResponseTimeout,
             deviceFlags: self.deviceFlags,
             enabledCapabilities: self.enabledCapabilities,
-            isNFCRestricted: nfcRestricted
+            isNFCRestricted: nfcRestricted ?? self.isNFCRestricted
         )
     }
 

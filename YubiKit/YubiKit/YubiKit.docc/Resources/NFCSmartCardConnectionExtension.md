@@ -16,7 +16,7 @@
 
 - ``close(error:)``
 - ``close(message:)``
-- ``connectionDidClose()``
+- ``waitUntilClosed()``
 - ``nfcConnection``
 
 ### Sending data to the YubiKey

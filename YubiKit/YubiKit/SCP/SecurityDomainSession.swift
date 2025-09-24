@@ -42,7 +42,7 @@ public enum SCPError: Error, Sendable {
 /// Provides async, high‑level helpers for key management, cert storage and
 /// factory reset.
 ///
-/// Create with ``session(withConnection:scpKeyParams:)`` and call the instance
+/// Create with ``makeSession(connection:scpKeyParams:)`` and call the instance
 /// methods as needed.
 public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLogger {
 
@@ -75,8 +75,8 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     /// - Throws: ``SCPError`` if the application selection fails or if the SCP11 processor cannot be created.
     /// - Returns: A fully initialised ``SecurityDomainSession`` ready for commands.
     // @TraceScope
-    public static func session(
-        withConnection connection: SmartCardConnection,
+    public static func makeSession(
+        connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
     ) async throws(SCPError) -> SecurityDomainSession {
         try await SecurityDomainSession(connection: connection, scpKeyParams: scpKeyParams)
@@ -122,7 +122,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
-    public func storeData(_ data: Data) async throws(SCPError) {
+    public func putData(_ data: Data) async throws(SCPError) {
         do {
             try await send(apdu: APDU(cla: 0x00, ins: 0xE2, p1: 0x90, p2: 0x00, command: data, type: .extended))
         } catch {
@@ -189,12 +189,12 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     /// - Throws: ``SCPError`` if the command fails or the response format is invalid.
     /// - Returns: An array of ``X509Cert`` objects representing the certificate chain.
     // @TraceScope
-    public func getCertificateBundle(scpKeyRef: SCPKeyRef) async throws(SCPError) -> [X509Cert] {
+    public func getCertificateBundle(for keyRef: SCPKeyRef) async throws(SCPError) -> [X509Cert] {
 
         do {
             let result = try await getData(
                 tag: 0xBF21,
-                data: TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: scpKeyRef.data).data).data
+                data: TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data
             )
             guard let rawCerts = TKBERTLVRecord.sequenceOfRecords(from: result) else {
                 throw SCPError.unexpectedResponse
@@ -223,7 +223,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     ///   or the response is malformed.
     /// - Returns: A dictionary mapping each ``SCPKeyRef`` to its associated identifier bytes.
     // @TraceScope
-    public func getSupportedCaIdentifiers(kloc: Bool, klcc: Bool) async throws(SCPError) -> [SCPKeyRef: Data] {
+    public func getSupportedCAIdentifiers(kloc: Bool, klcc: Bool) async throws(SCPError) -> [SCPKeyRef: Data] {
 
         if !kloc && !klcc {
             throw .illegalArgument
@@ -275,16 +275,16 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
-    public func storeCertificateBundle(keyRef: SCPKeyRef, certificiates: [X509Cert]) async throws(SCPError) {
+    public func putCertificateBundle(_ certificates: [X509Cert], for keyRef: SCPKeyRef) async throws(SCPError) {
 
         var certsData = Data()
-        certificiates.forEach { certificate in
+        certificates.forEach { certificate in
             certsData.append(certificate.der)
         }
         let data =
             TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data
             + TKBERTLVRecord(tag: 0xBF21, value: certsData).data
-        try await storeData(data)
+        try await putData(data)
     }
 
     /// Store which certificate serial numbers that can be used for a given key.
@@ -296,7 +296,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
-    public func storeAllowlist(keyRef: SCPKeyRef, serials: [Data]) async throws(SCPError) {
+    public func putAllowlist(for keyRef: SCPKeyRef, serials: [Data]) async throws(SCPError) {
 
         var serialsData = Data()
         serials.forEach { serial in
@@ -305,7 +305,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
         let data =
             TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data
             + TKBERTLVRecord(tag: 0x70, value: serialsData).data
-        try await storeData(data)
+        try await putData(data)
     }
 
     /// Store the SKI (Subject Key Identifier) for the CA of a given key.
@@ -315,7 +315,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
-    public func storeCaIssuer(keyRef: SCPKeyRef, ski: Data) async throws(SCPError) {
+    public func putCAIssuer(for keyRef: SCPKeyRef, ski: Data) async throws(SCPError) {
         let klcc: UInt8
         switch keyRef.kid {
         case SCPKid.scp11a, SCPKid.scp11b, SCPKid.scp11c: klcc = 1
@@ -326,7 +326,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
             value: TKBERTLVRecord(tag: 0x80, value: klcc.data).data + TKBERTLVRecord(tag: 0x42, value: ski).data
                 + TKBERTLVRecord(tag: 0x83, value: keyRef.data).data
         ).data
-        try await storeData(data)
+        try await putData(data)
     }
 
     /// Delete one (or more) keys.
@@ -339,7 +339,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
-    public func deleteKey(keyRef: SCPKeyRef, deleteLast: Bool = false) async throws(SCPError) {
+    public func deleteKey(for keyRef: SCPKeyRef, deleteLast: Bool = false) async throws(SCPError) {
         var kid = keyRef.kid
         let kvn = keyRef.kvn
 
@@ -371,18 +371,18 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     ///
     /// Requires off-card entity verification.
     /// - Parameter keyRef: the KID-KVN pair to assign the new key
-    /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
+    /// - Parameter kvn: 0 to generate a new keypair, non-zero to replace an existing KVN
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the response format is invalid.
     /// - Returns: the public key from the generated key pair
     // @TraceScope
-    public func generateEcKey(keyRef: SCPKeyRef, replaceKvn: UInt8) async throws(SCPError) -> EC.PublicKey {
+    public func generateECKey(for keyRef: SCPKeyRef, replacing kvn: UInt8) async throws(SCPError) -> EC.PublicKey {
         let params = TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data
         var data = Data()
         data.append(keyRef.kvn.data)
         data.append(contentsOf: params)
 
-        let apdu = APDU(cla: 0x80, ins: 0xF1, p1: replaceKvn, p2: keyRef.kid, command: data, type: .extended)
+        let apdu = APDU(cla: 0x80, ins: 0xF1, p1: kvn, p2: keyRef.kid, command: data, type: .extended)
 
         let response = try await send(apdu: apdu)
 
@@ -401,11 +401,11 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     /// Requires off-card entity verification.
     /// - Parameter keyRef: the KID-KVN pair to assign the new key set, KID must be 1
     /// - Parameter keys: the key material to import
-    /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
+    /// - Parameter kvn: 0 to generate a new keypair, non-zero to replace an existing KVN
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
-    public func putKey(keyRef: SCPKeyRef, keys: StaticKeys, replaceKvn: UInt8) async throws(SCPError) {
+    public func putStaticKeys(_ keys: StaticKeys, for keyRef: SCPKeyRef, replacing kvn: UInt8) async throws(SCPError) {
         guard keyRef.kid == .scp03 else {
             throw SCPError.illegalArgument("KID must be 0x01 for SCP03 key sets")
         }
@@ -435,7 +435,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
 
         assert(data.bytes.count == 1 + 3 * (18 + 4), "Unexpected command data length")
 
-        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: 0x80 | keyRef.kid, command: data, type: .extended)
+        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: kvn, p2: 0x80 | keyRef.kid, command: data, type: .extended)
         let resp = try await send(apdu: apdu)
 
         guard resp.constantTimeCompare(expected) else {
@@ -450,10 +450,14 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     /// - Parameters:
     ///   - keyRef: The KID/KVN pair where the new public key will be stored.
     ///   - publicKey: EC public key (must be prime256v1) used as CA to authenticate the off-card entity.
-    ///   - replaceKvn: Set to a non-zero KVN to delete/replace an existing key before import.
+    ///   - kvn: Set to a non-zero KVN to delete/replace an existing key before import.
     /// - Throws: ``SCPError`` on validation failures or any error from the APDU exchange.
     // @TraceScope
-    public func putKey(keyRef: SCPKeyRef, publicKey: EC.PublicKey, replaceKvn: UInt8) async throws(SCPError) {
+    public func putPublicKey(
+        _ publicKey: EC.PublicKey,
+        for keyRef: SCPKeyRef,
+        replacing kvn: UInt8
+    ) async throws(SCPError) {
 
         // -- validate curve
         guard publicKey.curve == .secp256r1 else {
@@ -469,7 +473,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
         data.append(0x00)  // END TLV list
 
         // -- send APDU
-        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: keyRef.kid, command: data, type: .extended)
+        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: kvn, p2: keyRef.kid, command: data, type: .extended)
         let resp = try await send(apdu: apdu)
 
         // -- verify KCV
@@ -484,11 +488,15 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     /// Requires off-card entity verification.
     /// - Parameter keyRef: the KID-KVN pair to assign the new secret key, KID must be 0x11, 0x13, or 0x15
     /// - Parameter privateKey: a private EC key used to authenticate the SD
-    /// - Parameter replaceKvn: 0 to generate a new keypair, non-zero to replace an existing KVN
+    /// - Parameter kvn: 0 to generate a new keypair, non-zero to replace an existing KVN
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
-    public func putKey(keyRef: SCPKeyRef, privateKey: EC.PrivateKey, replaceKvn: UInt8) async throws(SCPError) {
+    public func putPrivateKey(
+        _ privateKey: EC.PrivateKey,
+        for keyRef: SCPKeyRef,
+        replacing kvn: UInt8
+    ) async throws(SCPError) {
         guard privateKey.curve == .secp256r1 else {
             throw .illegalArgument  // Expected SECP256R1 private key size
         }
@@ -515,7 +523,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
         data.append(TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data)
         data.append(0x00)
 
-        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: replaceKvn, p2: keyRef.kid, command: data, type: .extended)
+        let apdu = APDU(cla: 0x80, ins: 0xD8, p1: kvn, p2: keyRef.kid, command: data, type: .extended)
         let resp = try await send(apdu: apdu)
         guard resp.constantTimeCompare(Data([keyRef.kvn])) else {
             throw .unexpectedResponse

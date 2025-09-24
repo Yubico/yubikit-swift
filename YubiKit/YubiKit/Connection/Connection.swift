@@ -22,14 +22,14 @@ public protocol Connection: Sendable {
 
     /// Close the current connection.
     ///
-    /// This closes the connection sending the optional error to the ``connectionDidClose()`` method.
+    /// This closes the connection sending the optional error to the ``waitUntilClosed()`` method.
     func close(error: Error?) async
 
     /// Wait for the connection to close.
     ///
     /// This method will wait until the connection closes. If the connection was closed due to an error said
     /// error will be returned.
-    func connectionDidClose() async -> Error?
+    func waitUntilClosed() async -> Error?
 }
 
 /// Connection Errors.

@@ -37,11 +37,11 @@ import Foundation
     func receive() async throws -> Data
 
     /// Opens a new connection.
-    static func connection() async throws -> Self
+    static func makeConnection() async throws -> Self
 
     /// Close the current connection.
     func close(error: Error?) async
 
     /// Wait for the connection to close.
-    func connectionDidClose() async -> Error?
+    func waitUntilClosed() async -> Error?
 }

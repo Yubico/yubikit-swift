@@ -8,7 +8,7 @@
 
 ### Creating a session
 
-- ``session(withConnection:)``
+- ``session(connection:)``
 
 ### Ending a session
 
@@ -17,7 +17,7 @@
 ### Session feature support
 
 - ``SessionFeature``
-- ``supports(_:)``
+- ``hasSupport(for:)``
 
 ### Errors
 

@@ -43,17 +43,17 @@ extension ShieldX509.Certificate.Builder {
         switch keyType {
         case let .rsa(keySize):
             signature = try await session.sign(
-                slot: slot,
+                tbsData,
+                in: slot,
                 keyType: .rsa(keySize),
-                algorithm: .pkcs1v15(algorithm),
-                message: tbsData
+                using: .pkcs1v15(algorithm)
             )
         case let .ecc(curve):
             signature = try await session.sign(
-                slot: slot,
+                tbsData,
+                in: slot,
                 keyType: .ecc(curve),
-                algorithm: .digest(algorithm),
-                message: tbsData
+                using: .digest(algorithm)
             )
         case .x25519, .ed25519:
             return nil

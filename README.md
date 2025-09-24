@@ -13,8 +13,8 @@ Swift SDK for YubiKey integration on iOS and macOS.
 YubiKit provides a native Swift interface with async/await for YubiKey hardware devices.
 
 ```swift
-let connection = try await NFCSmartCardConnection.connection()
-let session = try await OATHSession.session(withConnection: connection)
+let connection = try await NFCSmartCardConnection.makeConnection()
+let session = try await OATHSession.makeSession(connection: connection)
 let codes = try await session.calculateCodes()
 await connection.close(message: "Done")
 ```

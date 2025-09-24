@@ -185,20 +185,20 @@ public enum PIV: Sendable {
         /// Triple DES
         case tripleDES = 0x03
         /// AES-128
-        case AES128 = 0x08
+        case aes128 = 0x08
         /// AES-192
-        case AES192 = 0x0a
+        case aes192 = 0x0a
         /// AES-256
-        case AES256 = 0x0c
+        case aes256 = 0x0c
 
         /// The length of the key.
         var keyLength: Int {
             switch self {
-            case .tripleDES, .AES192:
+            case .tripleDES, .aes192:
                 return 24
-            case .AES128:
+            case .aes128:
                 return 16
-            case .AES256:
+            case .aes256:
                 return 32
             }
         }
@@ -208,7 +208,7 @@ public enum PIV: Sendable {
             switch self {
             case .tripleDES:
                 return 8
-            case .AES128, .AES192, .AES256:
+            case .aes128, .aes192, .aes256:
                 return 16
             }
         }

@@ -66,7 +66,7 @@ public final actor OATHSession: SmartCardSession {
     }
 
     private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws {
-        self.selectResponse = try await Self.selectApplication(withConnection: connection)
+        self.selectResponse = try await Self.selectApplication(connection: connection)
         if let scpKeyParams {
             processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams, insSendRemaining: 0xa5)
         } else {
@@ -75,8 +75,7 @@ public final actor OATHSession: SmartCardSession {
         self.connection = connection
     }
 
-    private static func selectApplication(withConnection connection: SmartCardConnection) async throws -> SelectResponse
-    {
+    private static func selectApplication(connection: SmartCardConnection) async throws -> SelectResponse {
         let data: Data = try await connection.selectApplication(.oath)
         guard let result = TKBERTLVRecord.dictionaryOfData(from: data) else {
             throw OATHSessionError.responseDataNotTLVFormatted
@@ -103,8 +102,8 @@ public final actor OATHSession: SmartCardSession {
     ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
     /// - Returns: A new OATH session instance.
     /// - Throws: An error if the OATH application cannot be selected or session creation fails.
-    public static func session(
-        withConnection connection: SmartCardConnection,
+    public static func makeSession(
+        connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
     ) async throws -> OATHSession {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: connection))")
@@ -147,7 +146,7 @@ public final actor OATHSession: SmartCardSession {
     @discardableResult
     public func addCredential(template: CredentialTemplate) async throws -> Credential {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
-        if template.algorithm == .SHA512 {
+        if template.algorithm == .sha512 {
             guard await self.supports(OATHSessionFeature.sha512) else { throw SessionError.notSupported }
         }
         if template.requiresTouch {
@@ -168,7 +167,7 @@ public final actor OATHSession: SmartCardSession {
             data.append(UInt8(0x02))
         }
 
-        if case let .HOTP(counter) = template.type {
+        if case let .hotp(counter) = template.type {
             data.append(TKBERTLVRecord(tag: 0x7a, value: counter.data).data)
         }
 
@@ -239,9 +238,9 @@ public final actor OATHSession: SmartCardSession {
             let typeCode = bytes[0] & 0xf0
             let credentialType: CredentialType
             if CredentialType.isTOTP(typeCode) {
-                credentialType = .TOTP(period: credentialId.period ?? oathDefaultPeriod)
+                credentialType = .totp(period: credentialId.period ?? oathDefaultPeriod)
             } else if CredentialType.isHOTP(typeCode) {
-                credentialType = .HOTP(counter: 0)
+                credentialType = .hotp(counter: 0)
             } else {
                 throw OATHSessionError.unexpectedData
             }
@@ -267,7 +266,7 @@ public final actor OATHSession: SmartCardSession {
     ///   - credential: The stored Credential to calculate a new code for.
     ///   - timestamp: The timestamp which is used as start point for TOTP, this is ignored for HOTP.
     /// - Returns: Calculated code.
-    public func calculateCode(credential: Credential, timestamp: Date = Date()) async throws -> Code {
+    public func calculateCredentialCode(for credential: Credential, timestamp: Date = Date()) async throws -> Code {
         Logger.oath.debug(
             "\(String(describing: self).lastComponent), \(#function): credential: \(credential), timeStamp: \(timestamp)"
         )
@@ -278,9 +277,9 @@ public final actor OATHSession: SmartCardSession {
         let challengeTLV: TKBERTLVRecord
 
         switch credential.type {
-        case .HOTP:
+        case .hotp:
             challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: Data())
-        case .TOTP(let period):
+        case .totp(let period):
             let time = timestamp.timeIntervalSince1970
             let challenge = UInt64(time / Double(period))
             let bigChallenge = CFSwapInt64HostToBig(challenge)
@@ -308,7 +307,7 @@ public final actor OATHSession: SmartCardSession {
     ///   - credentialId: The ID of a stored Credential.
     ///   - challenge: The input to the HMAC operation.
     /// - Returns: The calculated response.
-    public func calculateResponse(credentialId: Data, challenge: Data) async throws -> Data {
+    public func calculateCredentialResponse(for credentialId: Data, challenge: Data) async throws -> Data {
         Logger.oath.debug(
             "\(String(describing: self).lastComponent), \(#function): credentialId: \(credentialId.hexEncodedString), challenge: \(challenge.hexEncodedString)"
         )
@@ -328,7 +327,7 @@ public final actor OATHSession: SmartCardSession {
     /// They will still be present in the result, but with a nil value.
     /// - Parameter timestamp: The timestamp which is used as start point for TOTP, this is ignored for HOTP.
     /// - Returns: An array of tuples containing a ``Credential`` and an optional ``Code``.
-    public func calculateCodes(timestamp: Date = Date()) async throws -> [(Credential, Code?)] {
+    public func calculateCredentialCodes(timestamp: Date = Date()) async throws -> [(Credential, Code?)] {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): timeStamp: \(timestamp)")
         let time = timestamp.timeIntervalSince1970
         let challenge = UInt64(time / 30)
@@ -348,9 +347,9 @@ public final actor OATHSession: SmartCardSession {
 
             let credentialType: CredentialType
             if response.tag == tagTypeHOTP {
-                credentialType = .HOTP(counter: 0)
+                credentialType = .hotp(counter: 0)
             } else {
-                credentialType = .TOTP(period: credentialId.period ?? oathDefaultPeriod)
+                credentialType = .totp(period: credentialId.period ?? oathDefaultPeriod)
             }
 
             let requiresTouch = response.tag == tagTypeTouch
@@ -366,7 +365,7 @@ public final actor OATHSession: SmartCardSession {
 
             if response.value.count == 5 {
                 if credentialId.period != oathDefaultPeriod {
-                    let code = try await self.calculateCode(credential: credential, timestamp: timestamp)
+                    let code = try await self.calculateCredentialCode(for: credential, timestamp: timestamp)
                     credentialCodePairs.append((credential, code))
                 } else {
                     let digits = response.value.first!
@@ -394,10 +393,10 @@ public final actor OATHSession: SmartCardSession {
 
     /// Unlock with password.
     /// - Parameter password: The user-supplied password used to unlock the application.
-    public func unlockWithPassword(_ password: String) async throws {
+    public func unlock(password: String) async throws {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(password)")
         let derivedKey = try deriveAccessKey(from: password)
-        try await self.unlockWithAccessKey(derivedKey)
+        try await self.unlock(accessKey: derivedKey)
     }
 
     /// Sets an access key.
@@ -409,7 +408,7 @@ public final actor OATHSession: SmartCardSession {
     /// - Parameter accessKey: The shared secret key used to unlock access to the application.
     public func setAccessKey(_ accessKey: Data) async throws {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)")
-        let header = CredentialType.TOTP().code | HashAlgorithm.SHA1.rawValue
+        let header = CredentialType.totp().code | HashAlgorithm.sha1.rawValue
         var data = Data([header])
         data.append(accessKey)
         let keyTlv = TKBERTLVRecord(tag: tagSetCodeKey, value: data)
@@ -430,7 +429,7 @@ public final actor OATHSession: SmartCardSession {
     /// Once unlocked, the application will remain unlocked for the duration of the session.
     /// See the [YKOATH protocol specification](https://developers.yubico.com/OATH/) for further details.
     /// - Parameter accessKey: The shared access key.
-    public func unlockWithAccessKey(_ accessKey: Data) async throws {
+    public func unlock(accessKey: Data) async throws {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)")
         guard let responseChallenge = self.selectResponse.challenge else { throw SessionError.unexpectedResult }
         let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))

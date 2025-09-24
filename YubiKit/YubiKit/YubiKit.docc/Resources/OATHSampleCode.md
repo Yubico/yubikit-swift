@@ -30,11 +30,11 @@ private func startWiredConnection() {
     wiredConnectionTask = Task { @MainActor in
         while !Task.isCancelled {
             do {
-                let newConnection = try await WiredSmartCardConnection.connection()
+                let newConnection = try await WiredSmartCardConnection.makeConnection()
                 wiredConnection = newConnection
 
                 // Wait for disconnection
-                let closeError = await newConnection.connectionDidClose()
+                let closeError = await newConnection.waitUntilClosed()
                 wiredConnection = nil
             } catch {
                 self.error = error
@@ -44,7 +44,7 @@ private func startWiredConnection() {
 }
 ```
 
-The key insight here is using `connectionDidClose()` to detect when the YubiKey is unplugged, then automatically waiting for the next connection.
+The key insight here is using `waitUntilClosed()` to detect when the YubiKey is unplugged, then automatically waiting for the next connection.
 
 ### NFC Connections
 
@@ -53,7 +53,7 @@ NFC connections work differently - they're initiated by user action and are shor
 ```swift
 func requestNFCConnection() async {
     do {
-        nfcConnection = try await NFCSmartCardConnection.connection()
+        nfcConnection = try await NFCSmartCardConnection.makeConnection()
     } catch {
         self.error = error
     }
@@ -78,7 +78,7 @@ Once you have a connection, getting TOTP codes is straightforward:
 ```swift
 private func calculateCodes(using connection: SmartCardConnection) async {
     do {
-        let session = try await OATHSession.session(withConnection: connection)
+        let session = try await OATHSession.makeSession(connection: connection)
         let result = try await session.calculateCodes()
 
         accounts = result.map { credential, code in
@@ -104,7 +104,7 @@ Use `ManagementSession` to get YubiKey information:
 ```swift
 private func getKeyVersion(using connection: SmartCardConnection) async {
     do {
-        let session = try await ManagementSession.session(withConnection: connection)
+        let session = try await ManagementSession.makeSession(connection: connection)
         self.keyVersion = session.version.description
     } catch {
         self.error = error
@@ -196,7 +196,7 @@ This is helpful because NFC connections are slower than USB, and users like to k
 
 The sample uses a background loop that continuously waits for wired connections. This might seem unusual, but it solves a key problem: YubiKeys get plugged and unplugged frequently, but apps need to stay responsive.
 
-When you unplug your YubiKey, the app doesn't crash or freeze - it detects the disconnection via `connectionDidClose()` and immediately starts waiting for the next YubiKey. This creates a smoother user experience where the app responds when you plug / unplug a YubiKey.
+When you unplug your YubiKey, the app doesn't crash or freeze - it detects the disconnection via `waitUntilClosed()` and immediately starts waiting for the next YubiKey. This creates a smoother user experience where the app responds when you plug / unplug a YubiKey.
 
 NFC works differently since you can't continuously scan - the user has to explicitly initiate each scan. That's why NFC connections are handled separately through user actions like the scan button or pull-to-refresh.
 

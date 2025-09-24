@@ -71,10 +71,10 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Throws: ``NFCConnectionError.unsupported`` when NFC is unavailable or
     ///           ``ConnectionError.busy`` if there is already an active connection.
     // @TraceScope
-    public static func connection() async throws -> NFCSmartCardConnection {
-        trace(message: "NFCSmartCardConnection.connection() – requesting new connection")
+    public static func makeConnection() async throws -> NFCSmartCardConnection {
+        trace(message: "NFCSmartCardConnection.makeConnection() – requesting new connection")
         let tag = try await NFCConnectionManagerWrapper.shared.connect(message: nil)
-        trace(message: "NFCSmartCardConnection.connection() – connection established")
+        trace(message: "NFCSmartCardConnection.makeConnection() – connection established")
         return NFCSmartCardConnection(tag: tag)
     }
 
@@ -87,7 +87,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Throws: ``NFCConnectionError.unsupported`` when NFC is unavailable or
     ///           ``ConnectionError.busy`` if there is already an active connection.
     // @TraceScope
-    public static func connection(alertMessage message: String?) async throws -> NFCSmartCardConnection {
+    public static func makeConnection(alertMessage message: String?) async throws -> NFCSmartCardConnection {
         trace(message: "NFCSmartCardConnection.connection(alertMessage:) – requesting new connection")
         let tag = try await NFCConnectionManagerWrapper.shared.connect(message: message)
         trace(message: "NFCSmartCardConnection.connection(alertMessage:) – connection established")
@@ -134,17 +134,17 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     ///
     /// - Returns: An error if the connection was closed due to an error, nil otherwise.
     // @TraceScope
-    public func connectionDidClose() async -> Error? {
-        trace(message: "NFCSmartCardConnection.connectionDidClose() – awaiting dismissal")
+    public func waitUntilClosed() async -> Error? {
+        trace(message: "NFCSmartCardConnection.waitUntilClosed() – awaiting dismissal")
         do {
             try await NFCConnectionManagerWrapper.shared.didClose(for: self)
         } catch {
             trace(
-                message: "NFCSmartCardConnection.connectionDidClose() – dismissed, error: \(String(describing: error))"
+                message: "NFCSmartCardConnection.waitUntilClosed() – dismissed, error: \(String(describing: error))"
             )
             return error
         }
-        trace(message: "NFCSmartCardConnection.connectionDidClose() – dismissed")
+        trace(message: "NFCSmartCardConnection.waitUntilClosed() – dismissed")
         return nil
     }
 

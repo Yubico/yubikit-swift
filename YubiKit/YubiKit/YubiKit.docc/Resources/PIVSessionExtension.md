@@ -8,21 +8,21 @@
 
 ### Managing the PIVSession
 
-- ``session(withConnection:)``
+- ``session(connection:scpKeyParams:)``
 - ``end()``
 - ``reset()``
 
 ### Running commands in the PIV application
 
-- ``supports(_:)``
+- ``hasSupport(for:)``
 - ``signWithKeyInSlot(_:keyType:algorithm:message:)``
-- ``decryptWithKeyInSlot(slot:algorithm:encrypted:)``
-- ``calculateSecretKeyInSlot(slot:peerPublicKey:)``
-- ``attestKeyInSlot(slot:)``
-- ``generateKeyInSlot(slot:type:pinPolicy:touchPolicy:)``
-- ``putKey(key:inSlot:pinPolicy:touchPolicy:)``
-- ``putCertificate(certificate:inSlot:compress:)``
-- ``getCertificateInSlot(_:)``
+- ``decrypt(in:algorithm:encrypted:)``
+- ``deriveSharedSecret(in:with:)``
+- ``attestKey(in:)``
+- ``generateKey(in:type:pinPolicy:touchPolicy:)``
+- ``put(privateKey:in:pinPolicy:touchPolicy:)``
+- ``put(certificate:in:compress:)``
+- ``getCertificate(in:)``
 - ``deleteCertificateInSlot(slot:)``
 - ``setManagementKey(_:type:requiresTouch:)``
 - ``authenticateWith(managementKey:)``
@@ -40,8 +40,8 @@
 - ``blockPin(counter:)``
 - ``blockPuk(counter:)``
 - ``getBioMetadata()``
-- ``verifyUv(requestTemporaryPin:checkOnly:)``
-- ``verifyTemporaryPin(_:)``
+- ``verifyUV(requestTemporaryPin:checkOnly:)``
+- ``verify(temporaryPin:)``
 
 ### Return types
 

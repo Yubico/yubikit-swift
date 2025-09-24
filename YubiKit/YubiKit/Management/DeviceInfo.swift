@@ -53,13 +53,13 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
         Supported capabilities: \(supportedCapabilities)
         Enabled capabilities: \(config.enabledCapabilities)
         isConfigLocked: \(isConfigLocked)
-        isFips: \(isFips)
+        isFips: \(isFIPS)
         isSky: \(isSky)
         partNumber: \(String(describing: partNumber))
-        isFipsCapable: \(isFIPSCapable)
-        isFipsApproved: \(isFIPSApproved)
+        fipsCapabilityFlags: \(fipsCapabilityFlags)
+        fipsApprovalFlags: \(fipsApprovalFlags)
         pinComplexity: \(pinComplexity)
-        resetBlocked: \(isResetBlocked)
+        resetBlockedFlags: \(resetBlockedFlags)
         fpsVersion: \(String(describing: fpsVersion))
         stmVersion: \(String(describing: stmVersion))
         """
@@ -77,9 +77,9 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
     /// The part number of the YubiKey.
     public let partNumber: String?
     /// FIPS capable flags.
-    public let isFIPSCapable: UInt
+    public let fipsCapabilityFlags: UInt
     /// FIPS approved flags.
-    public let isFIPSApproved: UInt
+    public let fipsApprovalFlags: UInt
     /// The FPS version.
     public let fpsVersion: Version?
     /// The STM version
@@ -89,7 +89,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
     /// Returns whether or not a Configuration Lock is set for the Management application on the YubiKey.
     public let isConfigLocked: Bool
     /// Returns whether or not this is a FIPS compliant device.
-    public let isFips: Bool
+    public let isFIPS: Bool
     /// Returns whether or not this is a Security key.
     public let isSky: Bool
     /// The mutable configuration of the YubiKey.
@@ -97,7 +97,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
     /// PIN complexity
     public let pinComplexity: Bool
     /// The reset blocked flag.
-    public let isResetBlocked: UInt
+    public let resetBlockedFlags: UInt
 
     internal let tagUSBSupported: TKTLVTag = 0x01
     internal let tagSerialNumber: TKTLVTag = 0x02
@@ -125,7 +125,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
         self.serialNumber = tlvs[tagSerialNumber]?.integer ?? 0
 
         if let rawFormFactor = tlvs[tagFormFactor]?.uint8 {
-            self.isFips = (rawFormFactor & 0x80) != 0
+            self.isFIPS = (rawFormFactor & 0x80) != 0
             self.isSky = (rawFormFactor & 0x40) != 0
             if let formFactor = FormFactor(rawValue: rawFormFactor & 0x0f) {
                 self.formFactor = formFactor
@@ -134,16 +134,16 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
             }
         } else {
             self.formFactor = .unknown
-            self.isFips = false
+            self.isFIPS = false
             self.isSky = false
         }
 
-        self.isFIPSCapable = Capability.translateMaskFrom(fipsMask: tlvs[tagFIPSCapable]?.integer ?? 0)
-        self.isFIPSApproved = Capability.translateMaskFrom(fipsMask: tlvs[tagFIPSApproved]?.integer ?? 0)
+        self.fipsCapabilityFlags = Capability.translateMaskFrom(fipsMask: tlvs[tagFIPSCapable]?.integer ?? 0)
+        self.fipsApprovalFlags = Capability.translateMaskFrom(fipsMask: tlvs[tagFIPSApproved]?.integer ?? 0)
 
         self.pinComplexity = tlvs[tagPINComplexity]?.integer == 1
 
-        self.isResetBlocked = tlvs[tagResetBlocked]?.integer ?? 0
+        self.resetBlockedFlags = tlvs[tagResetBlocked]?.integer ?? 0
 
         if let data = tlvs[tagFirmwareVersion], let version = Version(withData: data) {
             self.version = version
@@ -185,7 +185,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
     }
 
     /// Returns whether the application is supported over the specific transport.
-    public func isApplicationSupported(_ application: Capability, overTransport transport: DeviceTransport) -> Bool {
+    public func isApplicationSupported(_ application: Capability, over transport: DeviceTransport) -> Bool {
         guard let mask = supportedCapabilities[transport] else { return false }
         return (mask & application.rawValue) == application.rawValue
     }

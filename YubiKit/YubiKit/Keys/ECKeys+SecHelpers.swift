@@ -12,18 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// # ECKeys+SecHelpers
-/// Integration helpers between the EC key types and Apple's Security framework (`SecKey`).
-/// Provides conversion and random key generation for interoperability with native APIs.
+// Integration helpers between the EC key types and Apple's Security framework (`SecKey`).
+// Provides conversion and random key generation for interoperability with native APIs.
 
 import Foundation
 import Security
 
 extension EC.PrivateKey {
-    /// Generate a random EC private key of the specified curve using Apple's Security framework.
-    /// - Parameter curve: Desired EC curve.
-    /// - Returns: A valid EC.PrivateKey or nil if generation / parsing fails.
-    public static func random(curve: EC.Curve) -> EC.PrivateKey? {
+    // Generate a random EC private key of the specified curve using Apple's Security framework.
+    // - Parameter curve: Desired EC curve.
+    // - Returns: A valid EC.PrivateKey or nil if generation / parsing fails.
+    static func random(curve: EC.Curve) -> EC.PrivateKey? {
         let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPrivate,
             kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
@@ -44,9 +43,9 @@ extension EC.PrivateKey {
         return EC.PrivateKey(uncompressedRepresentation: keyData, curve: curve)
     }
 
-    /// Convert this EC private key to a native SecKey.
-    /// - Returns: A SecKey suitable for cryptographic operations, or nil if conversion fails.
-    public func asSecKey() -> SecKey? {
+    // Convert this EC private key to a native SecKey.
+    // - Returns: A SecKey suitable for cryptographic operations, or nil if conversion fails.
+    func asSecKey() -> SecKey? {
         let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPrivate,
             kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
@@ -63,9 +62,9 @@ extension EC.PrivateKey {
 }
 
 extension EC.PublicKey {
-    /// Convert this EC public key to a native SecKey.
-    /// - Returns: A SecKey suitable for cryptographic operations, or nil if conversion fails.
-    public func asSecKey() -> SecKey? {
+    // Convert this EC public key to a native SecKey.
+    // - Returns: A SecKey suitable for cryptographic operations, or nil if conversion fails.
+    func asSecKey() -> SecKey? {
         let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPublic,
             kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
