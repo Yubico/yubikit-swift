@@ -57,7 +57,7 @@ struct PIVFullStackTests {
                 testMessage,
                 in: .signature,
                 keyType: PIV.ECCKey.ecc(.secp256r1),
-                using: .message(.sha256)
+                using: .hash(.sha256)
             )
 
             try self.verifyECSignature(
@@ -90,7 +90,7 @@ struct PIVFullStackTests {
                 digestData,
                 in: .signature,
                 keyType: PIV.ECCKey.ecc(.secp256r1),
-                using: .digest(.sha256)
+                using: .prehashed(.sha256)
             )
 
             try self.verifyECSignature(
@@ -302,7 +302,7 @@ struct PIVFullStackTests {
                 testMessage,
                 in: .signature,
                 keyType: .ecc(curve),
-                using: .message(.sha256)
+                using: .hash(.sha256)
             )
 
             try self.verifyECSignature(

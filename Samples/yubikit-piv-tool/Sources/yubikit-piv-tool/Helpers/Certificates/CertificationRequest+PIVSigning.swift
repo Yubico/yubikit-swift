@@ -53,7 +53,7 @@ extension ShieldX509.CertificationRequest.Builder {
                 tbsData,
                 in: slot,
                 keyType: .ecc(curve),
-                using: .digest(algorithm)
+                using: .prehashed(algorithm)
             )
         case .ed25519:
             signature = try await session.sign(

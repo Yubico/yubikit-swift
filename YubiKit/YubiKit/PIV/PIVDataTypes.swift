@@ -53,6 +53,28 @@ public enum PIV: Sendable {
         case signature = 0x9c
         case keyManagement = 0x9d
         case cardAuth = 0x9e
+
+        case retired1 = 0x82
+        case retired2 = 0x83
+        case retired3 = 0x84
+        case retired4 = 0x85
+        case retired5 = 0x86
+        case retired6 = 0x87
+        case retired7 = 0x88
+        case retired8 = 0x89
+        case retired9 = 0x8a
+        case retired10 = 0x8b
+        case retired11 = 0x8c
+        case retired12 = 0x8d
+        case retired13 = 0x8e
+        case retired14 = 0x8f
+        case retired15 = 0x90
+        case retired16 = 0x91
+        case retired17 = 0x92
+        case retired18 = 0x93
+        case retired19 = 0x94
+        case retired20 = 0x95
+
         case attestation = 0xf9
 
         var objectId: Data {
@@ -65,6 +87,48 @@ public enum PIV: Sendable {
                 return Data([0x5f, 0xc1, 0x0b])
             case .cardAuth:
                 return Data([0x5f, 0xc1, 0x01])
+
+            case .retired1:
+                return Data([0x5f, 0xc1, 0x0d])
+            case .retired2:
+                return Data([0x5f, 0xc1, 0x0e])
+            case .retired3:
+                return Data([0x5f, 0xc1, 0x0f])
+            case .retired4:
+                return Data([0x5f, 0xc1, 0x10])
+            case .retired5:
+                return Data([0x5f, 0xc1, 0x11])
+            case .retired6:
+                return Data([0x5f, 0xc1, 0x12])
+            case .retired7:
+                return Data([0x5f, 0xc1, 0x13])
+            case .retired8:
+                return Data([0x5f, 0xc1, 0x14])
+            case .retired9:
+                return Data([0x5f, 0xc1, 0x15])
+            case .retired10:
+                return Data([0x5f, 0xc1, 0x16])
+            case .retired11:
+                return Data([0x5f, 0xc1, 0x17])
+            case .retired12:
+                return Data([0x5f, 0xc1, 0x18])
+            case .retired13:
+                return Data([0x5f, 0xc1, 0x19])
+            case .retired14:
+                return Data([0x5f, 0xc1, 0x1a])
+            case .retired15:
+                return Data([0x5f, 0xc1, 0x1b])
+            case .retired16:
+                return Data([0x5f, 0xc1, 0x1c])
+            case .retired17:
+                return Data([0x5f, 0xc1, 0x1d])
+            case .retired18:
+                return Data([0x5f, 0xc1, 0x1e])
+            case .retired19:
+                return Data([0x5f, 0xc1, 0x1f])
+            case .retired20:
+                return Data([0x5f, 0xc1, 0x20])
+
             case .attestation:
                 return Data([0x5f, 0xff, 0x01])
             }
@@ -278,14 +342,14 @@ public enum PIV: Sendable {
     /// ECDSA signature algorithms supported by PIV
     public enum ECDSASignatureAlgorithm: Sendable {
         /// Signs a pre-hashed digest
-        case digest(HashAlgorithm)
+        case prehashed(HashAlgorithm)
         /// Signs a raw message (hashing is performed internally)
-        case message(HashAlgorithm)
+        case hash(HashAlgorithm)
 
         // Maps to the corresponding SecKeyAlgorithm
         internal var secKeyAlgorithm: SecKeyAlgorithm {
             switch self {
-            case .digest(let hash):
+            case .prehashed(let hash):
                 switch hash {
                 case .sha1: return .ecdsaSignatureDigestX962SHA1
                 case .sha224: return .ecdsaSignatureDigestX962SHA224
@@ -293,7 +357,7 @@ public enum PIV: Sendable {
                 case .sha384: return .ecdsaSignatureDigestX962SHA384
                 case .sha512: return .ecdsaSignatureDigestX962SHA512
                 }
-            case .message(let hash):
+            case .hash(let hash):
                 switch hash {
                 case .sha1: return .ecdsaSignatureMessageX962SHA1
                 case .sha224: return .ecdsaSignatureMessageX962SHA224
