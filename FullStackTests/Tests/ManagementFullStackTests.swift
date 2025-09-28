@@ -143,13 +143,22 @@ class ManagementFullStackTests: XCTestCase {
 
     func testDisableAndEnableWithHelperOATH() throws {
         runManagementTest { connection, session, transport in
-            try await session.disableApplication(.oath, over: transport)
+            // Disable OATH application
             var info = try await session.getDeviceInfo()
+            if let disabledConfig = info.config.disable(application: .oath, over: transport) {
+                try await session.updateDeviceConfig(disabledConfig, reboot: false)
+            }
+            info = try await session.getDeviceInfo()
             XCTAssertFalse(info.config.isApplicationEnabled(.oath, over: transport))
             let oathSession = try? await OATHSession.makeSession(connection: connection)
             XCTAssert(oathSession == nil)
+
+            // Re-enable OATH application
             let managementSession = try await ManagementSession.makeSession(connection: connection)
-            try await managementSession.enableApplication(.oath, over: transport)
+            info = try await managementSession.getDeviceInfo()
+            if let enabledConfig = info.config.enable(application: .oath, over: transport) {
+                try await managementSession.updateDeviceConfig(enabledConfig, reboot: false)
+            }
             info = try await managementSession.getDeviceInfo()
             XCTAssert(info.config.isApplicationEnabled(.oath, over: transport))
             #if os(iOS)
