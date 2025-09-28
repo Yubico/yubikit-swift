@@ -46,6 +46,27 @@ public struct DeviceConfig: Sendable {
     internal let tagReboot: TKTLVTag = 0x0c
     internal let tagNFCRestricted: TKTLVTag = 0x17
 
+    /// Creates a new DeviceConfig with the specified settings.
+    /// - Parameters:
+    ///   - autoEjectTimeout: The timeout used when in CCID-only mode with flag eject enabled.
+    ///   - challengeResponseTimeout: The timeout value used by the YubiOTP application when waiting for a user presence check.
+    ///   - deviceFlags: The device flags that are set.
+    ///   - enabledCapabilities: The enabled capabilities for each transport.
+    ///   - isNFCRestricted: Whether NFC is restricted.
+    public init(
+        autoEjectTimeout: TimeInterval? = nil,
+        challengeResponseTimeout: TimeInterval? = nil,
+        deviceFlags: UInt8? = nil,
+        enabledCapabilities: [DeviceTransport: UInt],
+        isNFCRestricted: Bool? = nil
+    ) {
+        self.autoEjectTimeout = autoEjectTimeout
+        self.challengeResponseTimeout = challengeResponseTimeout
+        self.deviceFlags = deviceFlags
+        self.enabledCapabilities = enabledCapabilities
+        self.isNFCRestricted = isNFCRestricted
+    }
+
     internal init(withTlvs tlvs: [TKTLVTag: Data], version: Version) throws {
         if let timeout = tlvs[tagAutoEjectTimeout]?.integer {
             self.autoEjectTimeout = TimeInterval(timeout)
