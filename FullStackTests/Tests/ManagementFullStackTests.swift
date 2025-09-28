@@ -60,15 +60,10 @@ class ManagementFullStackTests: XCTestCase {
     func testDisableAndEnableConfigOATHandPIVoverUSB() throws {
         runManagementTest { connection, session, transport in
             let deviceInfo = try await session.getDeviceInfo()
-            guard
-                let disableConfig = deviceInfo.config.disable(
-                    application: .oath,
-                    over: .usb
-                )?.disable(application: .piv, over: .usb)
-            else {
-                XCTFail()
-                return
-            }
+            let disableConfig = deviceInfo.config
+                .disable(application: .oath, over: .usb)
+                .disable(application: .piv, over: .usb)
+
             try await session.updateDeviceConfig(disableConfig, reboot: false)
             let disabledInfo = try await session.getDeviceInfo()
             XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.oath, over: .usb))
@@ -78,15 +73,10 @@ class ManagementFullStackTests: XCTestCase {
                 XCTAssert(oathSession == nil)
             }
             let managementSession = try await ManagementSession.makeSession(connection: connection)
-            guard
-                let enableConfig = deviceInfo.config.enable(
-                    application: .oath,
-                    over: .usb
-                )?.enable(application: .piv, over: .usb)
-            else {
-                XCTFail()
-                return
-            }
+            let enableConfig = deviceInfo.config
+                .enable(application: .oath, over: .usb)
+                .enable(application: .piv, over: .usb)
+
             try await managementSession.updateDeviceConfig(enableConfig, reboot: false)
             let enabledInfo = try await managementSession.getDeviceInfo()
             XCTAssert(enabledInfo.config.isApplicationEnabled(.oath, over: .usb))
@@ -104,15 +94,10 @@ class ManagementFullStackTests: XCTestCase {
                 print("⚠️ No NFC YubiKey. Skip test.")
                 return
             }
-            guard
-                let disableConfig = deviceInfo.config.disable(
-                    application: .oath,
-                    over: .nfc
-                )?.disable(application: .piv, over: .nfc)
-            else {
-                XCTFail()
-                return
-            }
+            let disableConfig = deviceInfo.config
+                .disable(application: .oath, over: .nfc)
+                .disable(application: .piv, over: .nfc)
+
             try await session.updateDeviceConfig(disableConfig, reboot: false)
             let disabledInfo = try await session.getDeviceInfo()
             XCTAssertFalse(disabledInfo.config.isApplicationEnabled(.oath, over: .nfc))
@@ -122,15 +107,10 @@ class ManagementFullStackTests: XCTestCase {
                 XCTAssert(oathSession == nil)
             }
             let managementSession = try await ManagementSession.makeSession(connection: connection)
-            guard
-                let enableConfig = deviceInfo.config.enable(
-                    application: .oath,
-                    over: .nfc
-                )?.enable(application: .piv, over: .nfc)
-            else {
-                XCTFail()
-                return
-            }
+            let enableConfig = deviceInfo.config
+                .enable(application: .oath, over: .nfc)
+                .enable(application: .piv, over: .nfc)
+
             try await managementSession.updateDeviceConfig(enableConfig, reboot: false)
             let enabledInfo = try await managementSession.getDeviceInfo()
             XCTAssert(enabledInfo.config.isApplicationEnabled(.oath, over: .nfc))
@@ -143,24 +123,80 @@ class ManagementFullStackTests: XCTestCase {
 
     func testDisableAndEnableWithHelperOATH() throws {
         runManagementTest { connection, session, transport in
+            let initialInfo = try await session.getDeviceInfo()
+            let initialConfig = initialInfo.config
+
             // Disable OATH application
-            var info = try await session.getDeviceInfo()
-            if let disabledConfig = info.config.disable(application: .oath, over: transport) {
-                try await session.updateDeviceConfig(disabledConfig, reboot: false)
-            }
-            info = try await session.getDeviceInfo()
+            let disabledConfig = initialConfig.disable(application: .oath, over: transport)
+            try await session.updateDeviceConfig(disabledConfig, reboot: false)
+            let info = try await session.getDeviceInfo()
             XCTAssertFalse(info.config.isApplicationEnabled(.oath, over: transport))
             let oathSession = try? await OATHSession.makeSession(connection: connection)
             XCTAssert(oathSession == nil)
 
             // Re-enable OATH application
             let managementSession = try await ManagementSession.makeSession(connection: connection)
-            info = try await managementSession.getDeviceInfo()
-            if let enabledConfig = info.config.enable(application: .oath, over: transport) {
-                try await managementSession.updateDeviceConfig(enabledConfig, reboot: false)
+            let enabledConfig = initialConfig.enable(application: .oath, over: transport)
+            try await managementSession.updateDeviceConfig(enabledConfig, reboot: false)
+            let updatedInfo = try await managementSession.getDeviceInfo()
+            XCTAssert(updatedInfo.config.isApplicationEnabled(.oath, over: transport))
+
+            // Restore initial state
+            try? await managementSession.updateDeviceConfig(initialConfig, reboot: false)
+
+            #if os(iOS)
+            await connection.nfcConnection?.close(message: "Test successful!")
+            #endif
+        }
+    }
+
+    func testChainingEnableDisable() throws {
+        runManagementTest { connection, session, transport in
+            let info = try await session.getDeviceInfo()
+
+            // Store initial state to restore later
+            let initialConfig = info.config
+
+            let chainedConfig = info.config
+                .disable(application: .oath, over: transport)
+                .enable(application: .piv, over: transport)
+                .disable(application: .openPGP, over: transport)
+                .enable(application: .fido2, over: transport)
+
+            // Apply the chained configuration
+            try await session.updateDeviceConfig(chainedConfig, reboot: false)
+
+            let updatedInfo = try await session.getDeviceInfo()
+
+            // Verify the operations were applied for supported applications
+            if info.isApplicationSupported(.oath, over: transport) {
+                XCTAssertFalse(
+                    updatedInfo.config.isApplicationEnabled(.oath, over: transport),
+                    "OATH should be disabled"
+                )
             }
-            info = try await managementSession.getDeviceInfo()
-            XCTAssert(info.config.isApplicationEnabled(.oath, over: transport))
+            if info.isApplicationSupported(.piv, over: transport) {
+                XCTAssert(
+                    updatedInfo.config.isApplicationEnabled(.piv, over: transport),
+                    "PIV should be enabled"
+                )
+            }
+            if info.isApplicationSupported(.openPGP, over: transport) {
+                XCTAssertFalse(
+                    updatedInfo.config.isApplicationEnabled(.openPGP, over: transport),
+                    "OpenPGP should be disabled"
+                )
+            }
+            if info.isApplicationSupported(.fido2, over: transport) {
+                XCTAssert(
+                    updatedInfo.config.isApplicationEnabled(.fido2, over: transport),
+                    "FIDO2 should be enabled"
+                )
+            }
+
+            // Restore initial state
+            try await session.updateDeviceConfig(initialConfig, reboot: false)
+
             #if os(iOS)
             await connection.nfcConnection?.close(message: "Test successful!")
             #endif
@@ -170,6 +206,7 @@ class ManagementFullStackTests: XCTestCase {
     func testLockCode() throws {
         runManagementTest { connection, session, transport in
             let config = try await session.getDeviceInfo().config
+
             do {
                 try await session.updateDeviceConfig(config, reboot: false, newLockCode: lockCode)
                 print("✅ Lock code set to: \(lockCode.hexEncodedString)")
@@ -178,7 +215,7 @@ class ManagementFullStackTests: XCTestCase {
             }
             do {
                 try await session.updateDeviceConfig(
-                    config.disable(application: .oath, over: .usb)!,
+                    config.disable(application: .oath, over: .usb),
                     reboot: false
                 )
                 XCTFail(
@@ -189,7 +226,7 @@ class ManagementFullStackTests: XCTestCase {
             }
             do {
                 try await session.updateDeviceConfig(
-                    config.disable(application: .oath, over: .usb)!,
+                    config.disable(application: .oath, over: .usb),
                     reboot: false,
                     lockCode: lockCode
                 )
@@ -197,6 +234,9 @@ class ManagementFullStackTests: XCTestCase {
             } catch {
                 XCTFail("Failed to update device config even though lock code was supplied.")
             }
+
+            // Clear the lock code at the end
+            try? await session.updateDeviceConfig(config, reboot: false, lockCode: lockCode, newLockCode: clearLockCode)
         }
     }
 
