@@ -49,10 +49,10 @@ public struct DeviceConfig: Sendable {
     /// Creates a new DeviceConfig with the specified settings.
     /// - Parameters:
     ///   - autoEjectTimeout: The timeout used when in CCID-only mode with flag eject enabled.
-    ///   - challengeResponseTimeout: The timeout value used by the YubiOTP application when waiting for a user presence check.
+    ///   - challengeResponseTimeout: The timeout value used by the YubiOTP application when waiting for a user presence check (physical touch).
     ///   - deviceFlags: The device flags that are set.
     ///   - enabledCapabilities: The enabled capabilities for each transport.
-    ///   - isNFCRestricted: Whether NFC is restricted.
+    ///   - isNFCRestricted: Indicates whether NFC is restricted.
     public init(
         autoEjectTimeout: TimeInterval? = nil,
         challengeResponseTimeout: TimeInterval? = nil,
@@ -127,13 +127,13 @@ public struct DeviceConfig: Sendable {
     }
 
     /// Enable an application over the specified transport.
-    /// - Note: If the transport is not available on this device, returns the configuration unchanged.
+    /// - Note: If the specified transport is not supported by this device configuration, returns the configuration unchanged.
     public func enable(application: Capability, over transport: DeviceTransport) -> DeviceConfig {
         with(application: application, enabled: true, over: transport)
     }
 
     /// Disable an application over the specified transport.
-    /// - Note: If the transport is not available on this device, returns the configuration unchanged.
+    /// - Note: If the specified transport is not supported by this device configuration, returns the configuration unchanged.
     public func disable(application: Capability, over transport: DeviceTransport) -> DeviceConfig {
         with(application: application, enabled: false, over: transport)
     }
