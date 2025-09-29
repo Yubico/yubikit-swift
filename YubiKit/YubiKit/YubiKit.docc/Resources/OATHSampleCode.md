@@ -161,7 +161,7 @@ The sample shows how to handle different types of connection errors:
 ```swift
 .onReceive(connectionManager.$error) { error in
     switch error {
-    case .some(ConnectionError.cancelledByUser):
+    case .some(SmartCardConnectionError.cancelledByUser):
         return  // Don't show error for user cancellation
     default:
         model.error = error

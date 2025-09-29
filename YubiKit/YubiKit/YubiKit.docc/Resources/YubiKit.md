@@ -51,8 +51,8 @@ data in the form of a ``APDU`` to the YubiKey. In most cases it is adviced to us
 
 ### Sending and receiving data
 
-Use the default implementation of ``SmartCardConnection/send(apdu:)-7bmw4`` to send data to the YubiKey using the SmartCardConnection.
-This will either return the full response data or throw a ``ResponseError``.
+Use ``SmartCardConnection/send(data:)`` to send raw data to the YubiKey using the SmartCardConnection.
+For most use cases, it's recommended to use one of the provided Sessions instead of sending raw data.
 
 - ``APDU``
 

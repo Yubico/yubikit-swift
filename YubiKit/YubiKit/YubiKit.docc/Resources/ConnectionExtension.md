@@ -18,10 +18,9 @@
 
 ### Sending and receiving data to the YubiKey
 
-- ``send(apdu:)``
+- ``send(data:)``
 
 ### Errors
 
-- ``ConnectionError``
-- ``ResponseError``
+- ``SmartCardConnectionError``
 - ``ResponseStatusCode``
