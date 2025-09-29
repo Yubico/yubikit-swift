@@ -58,7 +58,7 @@ internal enum PIVDataFormatter {
     ) -> Data {
         var hash: Data
         switch algorithm {
-        case .message(let hashAlg):
+        case .hash(let hashAlg):
             switch hashAlg {
             case .sha1:
                 hash = Data(count: Int(CC_SHA1_DIGEST_LENGTH))
@@ -89,7 +89,7 @@ internal enum PIVDataFormatter {
             case .sha512:
                 hash = SHA512.hash(data: data).data
             }
-        case .digest:
+        case .prehashed:
             // For digest signatures, the data is already hashed
             hash = data
         }

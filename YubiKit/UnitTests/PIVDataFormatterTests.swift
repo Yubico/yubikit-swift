@@ -33,28 +33,28 @@ struct PIVDataFormatterTests {
         arguments: [
             ECDSATestCase(
                 curve: .secp256r1,
-                algorithm: .message(.sha256),
+                algorithm: .hash(.sha256),
                 expectedHex: "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a"
             ),
             ECDSATestCase(
                 curve: .secp384r1,
-                algorithm: .message(.sha256),
+                algorithm: .hash(.sha256),
                 expectedHex:
                     "00000000000000000000000000000000c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a"
             ),
             ECDSATestCase(
                 curve: .secp256r1,
-                algorithm: .message(.sha1),
+                algorithm: .hash(.sha1),
                 expectedHex: "000000000000000000000000d3486ae9136e7856bc42212385ea797094475802"
             ),
             ECDSATestCase(
                 curve: .secp256r1,
-                algorithm: .message(.sha512),
+                algorithm: .hash(.sha512),
                 expectedHex: "f6cde2a0f819314cdde55fc227d8d7dae3d28cc556222a0a8ad66d91ccad4aad"
             ),
             ECDSATestCase(
                 curve: .secp384r1,
-                algorithm: .message(.sha512),
+                algorithm: .hash(.sha512),
                 expectedHex:
                     "f6cde2a0f819314cdde55fc227d8d7dae3d28cc556222a0a8ad66d91ccad4aad6094f517a2182360c9aacf6a3dc32316"
             ),
@@ -77,7 +77,7 @@ struct PIVDataFormatterTests {
             let result = PIVDataFormatter.prepareDataForECDSASigning(
                 data,
                 curve: .secp256r1,
-                algorithm: .digest(.sha256)
+                algorithm: .prehashed(.sha256)
             )
             let expected = Data(hexEncodedString: "c0535e4be2b79ffd93291305436bf889314e4a3faec05ecffcbb7df31ad9e51a")!
             #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
@@ -122,7 +122,7 @@ struct PIVDataFormatterTests {
             let result = PIVDataFormatter.prepareDataForECDSASigning(
                 data,
                 curve: .secp384r1,
-                algorithm: .digest(.sha256)
+                algorithm: .prehashed(.sha256)
             )
             let expected = Data(
                 hexEncodedString:

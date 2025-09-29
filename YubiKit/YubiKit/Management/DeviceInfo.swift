@@ -54,7 +54,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
         Enabled capabilities: \(config.enabledCapabilities)
         isConfigLocked: \(isConfigLocked)
         isFips: \(isFIPS)
-        isSky: \(isSky)
+        isSKY: \(isSKY)
         partNumber: \(String(describing: partNumber))
         fipsCapabilityFlags: \(fipsCapabilityFlags)
         fipsApprovalFlags: \(fipsApprovalFlags)
@@ -91,7 +91,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
     /// Returns whether or not this is a FIPS compliant device.
     public let isFIPS: Bool
     /// Returns whether or not this is a Security key.
-    public let isSky: Bool
+    public let isSKY: Bool
     /// The mutable configuration of the YubiKey.
     public let config: DeviceConfig
     /// PIN complexity
@@ -126,7 +126,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
 
         if let rawFormFactor = tlvs[tagFormFactor]?.uint8 {
             self.isFIPS = (rawFormFactor & 0x80) != 0
-            self.isSky = (rawFormFactor & 0x40) != 0
+            self.isSKY = (rawFormFactor & 0x40) != 0
             if let formFactor = FormFactor(rawValue: rawFormFactor & 0x0f) {
                 self.formFactor = formFactor
             } else {
@@ -135,7 +135,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
         } else {
             self.formFactor = .unknown
             self.isFIPS = false
-            self.isSky = false
+            self.isSKY = false
         }
 
         self.fipsCapabilityFlags = Capability.translateMaskFrom(fipsMask: tlvs[tagFIPSCapable]?.integer ?? 0)

@@ -46,6 +46,27 @@ public struct DeviceConfig: Sendable {
     internal let tagReboot: TKTLVTag = 0x0c
     internal let tagNFCRestricted: TKTLVTag = 0x17
 
+    /// Creates a new DeviceConfig with the specified settings.
+    /// - Parameters:
+    ///   - autoEjectTimeout: The timeout used when in CCID-only mode with flag eject enabled.
+    ///   - challengeResponseTimeout: The timeout value used by the YubiOTP application when waiting for a user presence check (physical touch).
+    ///   - deviceFlags: The device flags that are set.
+    ///   - enabledCapabilities: The enabled capabilities for each transport.
+    ///   - isNFCRestricted: Indicates whether NFC is restricted.
+    public init(
+        autoEjectTimeout: TimeInterval? = nil,
+        challengeResponseTimeout: TimeInterval? = nil,
+        deviceFlags: UInt8? = nil,
+        enabledCapabilities: [DeviceTransport: UInt],
+        isNFCRestricted: Bool? = nil
+    ) {
+        self.autoEjectTimeout = autoEjectTimeout
+        self.challengeResponseTimeout = challengeResponseTimeout
+        self.deviceFlags = deviceFlags
+        self.enabledCapabilities = enabledCapabilities
+        self.isNFCRestricted = isNFCRestricted
+    }
+
     internal init(withTlvs tlvs: [TKTLVTag: Data], version: Version) throws {
         if let timeout = tlvs[tagAutoEjectTimeout]?.integer {
             self.autoEjectTimeout = TimeInterval(timeout)
@@ -83,26 +104,15 @@ public struct DeviceConfig: Sendable {
         return (mask & application.rawValue) == application.rawValue
     }
 
-    private init(
-        autoEjectTimeout: TimeInterval?,
-        challengeResponseTimeout: TimeInterval?,
-        deviceFlags: UInt8?,
-        enabledCapabilities: [DeviceTransport: UInt],
-        isNFCRestricted: Bool?
-    ) {
-        self.autoEjectTimeout = autoEjectTimeout
-        self.challengeResponseTimeout = challengeResponseTimeout
-        self.deviceFlags = deviceFlags
-        self.enabledCapabilities = enabledCapabilities
-        self.isNFCRestricted = isNFCRestricted
-    }
-
     private func with(
         application: Capability,
         enabled: Bool,
         over transport: DeviceTransport
-    ) -> DeviceConfig? {
-        guard let oldMask = enabledCapabilities[transport] else { return nil }
+    ) -> DeviceConfig {
+        guard let oldMask = enabledCapabilities[transport] else {
+            // Transport not available - return unchanged config for chaining
+            return self
+        }
         let newMask = enabled ? oldMask | application.rawValue : oldMask & ~application.rawValue
         var newEnabledCapabilities = enabledCapabilities
         newEnabledCapabilities[transport] = newMask
@@ -116,11 +126,15 @@ public struct DeviceConfig: Sendable {
         )
     }
 
-    public func enable(application: Capability, over transport: DeviceTransport) -> DeviceConfig? {
+    /// Enable an application over the specified transport.
+    /// - Note: If the specified transport is not supported by this device configuration, returns the configuration unchanged.
+    public func enable(application: Capability, over transport: DeviceTransport) -> DeviceConfig {
         with(application: application, enabled: true, over: transport)
     }
 
-    public func disable(application: Capability, over transport: DeviceTransport) -> DeviceConfig? {
+    /// Disable an application over the specified transport.
+    /// - Note: If the specified transport is not supported by this device configuration, returns the configuration unchanged.
+    public func disable(application: Capability, over transport: DeviceTransport) -> DeviceConfig {
         with(application: application, enabled: false, over: transport)
     }
 
