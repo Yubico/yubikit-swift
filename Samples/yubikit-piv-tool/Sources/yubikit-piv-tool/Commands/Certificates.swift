@@ -69,37 +69,32 @@ struct GenerateCertificate: AsyncParsableCommand {
 
     func run() async throws {
 
-        let slotValue = try ParameterValidator.validateSlot(slot)
+        let slotValue = ParameterValidator.validateSlot(slot)
 
         let session = try await PIVSession.shared()
 
-        try await session.authenticate(with: managementKey)
+        await session.authenticate(with: managementKey)
 
-        try await session.verifyPinIfProvided(pin)
+        await session.verifyPinIfProvided(pin)
 
         let metadata: PIV.SlotMetadata
         do {
             metadata = try await session.getMetadata(in: slotValue)
         } catch {
-            throw PIVToolError.slotEmpty(slot: slot)
+            exitWithError("Slot \(slot) is empty.")
         }
 
-        let algorithm = try ParameterValidator.validateHashAlgorithm(hashAlgorithm)
+        let algorithm = ParameterValidator.validateHashAlgorithm(hashAlgorithm)
 
         // Create self-signed X.509 certificate using PIV private key for signing
-        let certificate: X509Cert
-        do {
-            certificate = try await createSelfSignedCertificate(
-                publicKey: metadata.publicKey,
-                keyType: metadata.keyType,
-                slot: slotValue,
-                validDays: validDays,
-                hashAlgorithm: algorithm,
-                session: session
-            )
-        } catch {
-            throw PIVToolError.generic("Failed to create certificate")
-        }
+        let certificate = try await createSelfSignedCertificate(
+            publicKey: metadata.publicKey,
+            keyType: metadata.keyType,
+            slot: slotValue,
+            validDays: validDays,
+            hashAlgorithm: algorithm,
+            session: session
+        )
 
         do {
             try await session.putCertificate(certificate, in: slotValue)
@@ -107,7 +102,7 @@ struct GenerateCertificate: AsyncParsableCommand {
             // Print success message matching ykman format
             print("Certificate generated in slot \(slotValue.displayName).")
         } catch {
-            throw PIVToolError.importFailed(reason: error.localizedDescription)
+            exitWithError("Import failed: \(error.localizedDescription)")
         }
     }
 }
@@ -126,7 +121,7 @@ struct ExportCertificate: AsyncParsableCommand {
     var output: String?
 
     func run() async throws {
-        let slotValue = try ParameterValidator.validateSlot(slot)
+        let slotValue = ParameterValidator.validateSlot(slot)
 
         let session = try await PIVSession.shared()
 
@@ -135,7 +130,7 @@ struct ExportCertificate: AsyncParsableCommand {
         do {
             certificate = try await session.getCertificate(in: slotValue)
         } catch {
-            throw PIVToolError.certificateNotFound(slot: slot)
+            exitWithError("Certificate not found in slot \(slot).")
         }
 
         // Convert DER to PEM format using Exportable protocol
@@ -147,7 +142,7 @@ struct ExportCertificate: AsyncParsableCommand {
             do {
                 try (pemString + "\n").write(toFile: output, atomically: true, encoding: .utf8)
             } catch {
-                throw PIVToolError.fileWriteError(path: output, reason: error.localizedDescription)
+                exitWithError("Failed to write file \(output): \(error.localizedDescription)")
             }
         } else {
             print(pemString)
@@ -178,35 +173,30 @@ struct RequestCertificate: AsyncParsableCommand {
     var hashAlgorithm: String = "SHA256"
 
     func run() async throws {
-        let slotValue = try ParameterValidator.validateSlot(slot)
+        let slotValue = ParameterValidator.validateSlot(slot)
 
         let session = try await PIVSession.shared()
 
-        try await session.verifyPinIfProvided(pin)
+        await session.verifyPinIfProvided(pin)
 
         // Get slot metadata to get the public key and key type
         let metadata: PIV.SlotMetadata
         do {
             metadata = try await session.getMetadata(in: slotValue)
         } catch {
-            throw PIVToolError.slotEmpty(slot: slot)
+            exitWithError("Slot \(slot) is empty.")
         }
 
-        let algorithm = try ParameterValidator.validateHashAlgorithm(hashAlgorithm)
+        let algorithm = ParameterValidator.validateHashAlgorithm(hashAlgorithm)
 
         // Create CSR using helper function
-        let csr: Data
-        do {
-            csr = try await createCertificateSigningRequest(
-                publicKey: metadata.publicKey,
-                keyType: metadata.keyType,
-                slot: slotValue,
-                hashAlgorithm: algorithm,
-                session: session
-            )
-        } catch {
-            throw PIVToolError.generic("Failed to create CSR: \(error.localizedDescription)")
-        }
+        let csr = try await createCertificateSigningRequest(
+            publicKey: metadata.publicKey,
+            keyType: metadata.keyType,
+            slot: slotValue,
+            hashAlgorithm: algorithm,
+            session: session
+        )
 
         // Convert to PEM format
         let pemDocument = PEMDocument(type: "CERTIFICATE REQUEST", derBytes: [UInt8](csr))
@@ -219,7 +209,7 @@ struct RequestCertificate: AsyncParsableCommand {
             do {
                 try (pemString + "\n").write(toFile: output, atomically: true, encoding: .utf8)
             } catch {
-                throw PIVToolError.fileWriteError(path: output, reason: error.localizedDescription)
+                exitWithError("Failed to write file \(output): \(error.localizedDescription)")
             }
         }
     }
@@ -244,13 +234,13 @@ struct ImportCertificate: AsyncParsableCommand {
     var pin: String?
 
     func run() async throws {
-        let slotValue = try ParameterValidator.validateSlot(slot)
+        let slotValue = ParameterValidator.validateSlot(slot)
 
         let session = try await PIVSession.shared()
 
-        try await session.authenticate(with: managementKey)
+        await session.authenticate(with: managementKey)
 
-        try await session.verifyPinIfProvided(pin)
+        await session.verifyPinIfProvided(pin)
 
         // Read certificate data
         let certData: Data
@@ -262,7 +252,7 @@ struct ImportCertificate: AsyncParsableCommand {
             do {
                 certData = try Data(contentsOf: URL(fileURLWithPath: certificate))
             } catch {
-                throw PIVToolError.fileReadError(path: certificate, reason: error.localizedDescription)
+                exitWithError("Failed to read file \(certificate): \(error.localizedDescription)")
             }
         }
 
@@ -286,7 +276,7 @@ struct ImportCertificate: AsyncParsableCommand {
 
             print("Certificate imported into slot \(slotValue.displayName).")
         } catch {
-            throw PIVToolError.importFailed(reason: error.localizedDescription)
+            exitWithError("Import failed: \(error.localizedDescription)")
         }
     }
 }
@@ -307,19 +297,21 @@ struct DeleteCertificate: AsyncParsableCommand {
     var pin: String?
 
     func run() async throws {
-        let slotValue = try ParameterValidator.validateSlot(slot)
+        let slotValue = ParameterValidator.validateSlot(slot)
 
         let session = try await PIVSession.shared()
 
-        try await session.authenticate(with: managementKey)
+        await session.authenticate(with: managementKey)
 
-        try await session.verifyPinIfProvided(pin)
+        await session.verifyPinIfProvided(pin)
 
         // Delete certificate from slot
         do {
             try await session.deleteCertificate(in: slotValue)
 
             print("Certificate deleted from slot \(slotValue.displayName).")
+        } catch {
+            exitWithError("Delete failed: \(error.localizedDescription)")
         }
     }
 }

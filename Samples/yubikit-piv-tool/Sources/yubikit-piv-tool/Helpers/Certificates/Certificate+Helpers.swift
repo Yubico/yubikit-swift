@@ -25,14 +25,12 @@ extension PublicKey {
         let secKey: SecKey?
         switch self {
         case .ed25519:
-            throw PIVToolError.unsupportedOperation(
-                operation: operation,
-                reason: "Ed25519 keys are not currently supported for \(operation)"
+            exitWithError(
+                "Unsupported operation: \(operation).\n\tEd25519 keys are not currently supported for \(operation)"
             )
         case .x25519:
-            throw PIVToolError.unsupportedOperation(
-                operation: operation,
-                reason: "X25519 keys cannot be used for \(operation) (key agreement only)"
+            exitWithError(
+                "Unsupported operation: \(operation).\n\tX25519 keys cannot be used for \(operation) (key agreement only)"
             )
         case let .rsa(rsaKey):
             secKey = rsaKey.makeSecKey()
@@ -41,7 +39,7 @@ extension PublicKey {
         }
 
         guard let key = secKey else {
-            throw PIVToolError.generic("Failed to create SecKey from public key in slot \(slot)")
+            exitWithError("Key conversion failed for slot \(slot).")
         }
 
         return key
@@ -77,7 +75,7 @@ extension GenerateCertificate {
             )
 
         guard let cert = shieldCert else {
-            throw PIVToolError.generic("Certificate generation failed: buildWithPIV returned nil")
+            exitWithError("Certificate generation failed: buildWithPIV returned nil")
         }
 
         // Convert Shield Certificate to YubiKit X509Cert
@@ -112,7 +110,7 @@ extension RequestCertificate {
             )
 
         guard let csr = csr else {
-            throw PIVToolError.exportFailed(reason: "Failed to build CSR")
+            exitWithError("Export failed: Failed to build CSR")
         }
 
         // Return the DER-encoded CSR data

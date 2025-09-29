@@ -36,9 +36,13 @@ private actor SessionManager {
         guard let session = session else {
             // Create new PIV session with better error handling
             let conn = try await makeConnection()
-            let new = try await PIVSession.makeSession(connection: conn)
-            self.session = new
-            return new
+            do {
+                let new = try await PIVSession.makeSession(connection: conn)
+                self.session = new
+                return new
+            } catch {
+                handlePIVError(error)
+            }
         }
 
         // Return existing
@@ -48,9 +52,13 @@ private actor SessionManager {
     private func makeConnection() async throws -> SmartCardConnection {
         guard let connection else {
             // Create new connection with enhanced error handling
-            let new = try await WiredSmartCardConnection.makeConnection()
-            self.connection = new
-            return new
+            do {
+                let new = try await WiredSmartCardConnection.makeConnection()
+                self.connection = new
+                return new
+            } catch {
+                handleConnectionError(error)
+            }
         }
 
         // Return existing

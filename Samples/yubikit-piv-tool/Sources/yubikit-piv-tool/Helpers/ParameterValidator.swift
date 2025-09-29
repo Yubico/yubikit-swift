@@ -16,40 +16,40 @@ import Foundation
 import YubiKit
 
 enum ParameterValidator {
-    static func validateSlot(_ slot: String) throws -> PIV.Slot {
+    static func validateSlot(_ slot: String) -> PIV.Slot {
         // Trim whitespace and validate empty string
         let trimmedSlot = slot.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard let pivSlot = PIV.Slot(fromString: trimmedSlot) else {
-            throw PIVToolError.invalidSlot(slot: slot)
+            exitWithError("Invalid slot: \(slot)")
         }
 
         return pivSlot
     }
 
-    static func validateManagementKey(_ hexString: String) throws -> Data {
+    static func validateManagementKey(_ hexString: String) -> Data {
         // Trim whitespace and validate empty string
         let trimmedHex = hexString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedHex.isEmpty else {
-            throw PIVToolError.invalidManagementKeyFormat()
+            exitWithError("Invalid management key format.\n\tExpected: 48 hex characters for 3DES")
         }
 
         // Must be 48 characters (3DES)
         guard trimmedHex.count == 48 else {
-            throw PIVToolError.invalidManagementKeyFormat()
+            exitWithError("Invalid management key format.\n\tExpected: 48 hex characters for 3DES")
         }
 
         guard let data = Data(hexString: trimmedHex), data.count == 24 else {
-            throw PIVToolError.invalidManagementKeyFormat()
+            exitWithError("Invalid management key format.\n\tExpected: 48 hex characters for 3DES")
         }
         return data
     }
 
-    static func validateHashAlgorithm(_ algorithm: String) throws -> PIV.HashAlgorithm {
+    static func validateHashAlgorithm(_ algorithm: String) -> PIV.HashAlgorithm {
         // Trim whitespace and validate empty string
         let algorithm = algorithm.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !algorithm.isEmpty else {
-            throw PIVToolError.invalidHashAlgorithm(algorithm: algorithm)
+            exitWithError("Invalid hash algorithm: \(algorithm)")
         }
 
         switch algorithm.uppercased() {
@@ -58,40 +58,36 @@ enum ParameterValidator {
         case "SHA384": return .sha384
         case "SHA512": return .sha512
         default:
-            throw PIVToolError.invalidHashAlgorithm(algorithm: algorithm)
+            exitWithError("Invalid hash algorithm: \(algorithm)")
         }
     }
 
     // Validate PIN format and length constraints
-    static func validatePin(_ pin: String) throws {
+    static func validatePin(_ pin: String) {
         // PIV PIN must be 6-8 characters
         guard pin.count >= 6, pin.count <= 8 else {
-            throw PIVToolError.invalidPinLength(actual: pin.count)
+            exitWithError("Invalid PIN length: \(pin.count).\n\tPIN must be 6-8 characters.")
         }
 
         // PIN must contain only ASCII digits
         guard pin.allSatisfy({ $0.isASCII && $0.isNumber }) else {
-            throw PIVToolError.invalidFormat(
-                parameter: "PIN",
-                expected: "6-8 numeric digits",
-                actual: "contains non-numeric characters"
+            exitWithError(
+                "Invalid format for PIN.\n\tExpected: 6-8 numeric digits.\n\tActual: contains non-numeric characters"
             )
         }
     }
 
     // Validate PUK format and length constraints
-    static func validatePuk(_ puk: String) throws {
+    static func validatePuk(_ puk: String) {
         // PIV PUK must be 6-8 characters
         guard puk.count >= 6, puk.count <= 8 else {
-            throw PIVToolError.invalidPukLength(actual: puk.count)
+            exitWithError("Invalid PUK length: \(puk.count).\n\tPUK must be 6-8 characters.")
         }
 
         // PUK must contain only ASCII digits
         guard puk.allSatisfy({ $0.isASCII && $0.isNumber }) else {
-            throw PIVToolError.invalidFormat(
-                parameter: "PUK",
-                expected: "6-8 numeric digits",
-                actual: "contains non-numeric characters"
+            exitWithError(
+                "Invalid format for PUK.\n\tExpected: 6-8 numeric digits.\n\tActual: contains non-numeric characters"
             )
         }
     }

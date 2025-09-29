@@ -48,7 +48,7 @@ struct List: AsyncParsableCommand {
                 }
             }
         } catch {
-            throw PIVToolError.generic("Could not enumerate devices: \(error.localizedDescription)")
+            exitWithError("Device enumeration failed: \(error.localizedDescription)")
         }
     }
 }
@@ -67,16 +67,15 @@ struct Info: AsyncParsableCommand {
 
         // Verify YubiKey supports metadata operations
         guard await session.supports(PIVSessionFeature.metadata) else {
-            throw PIVToolError.unsupportedOperation(
-                operation: "metadata",
-                reason: "This YubiKey does not support metadata operations"
-            )
+            exitWithError("Unsupported operation: metadata.\n\tThis YubiKey does not support metadata operations")
         }
 
         // Get PIN retry counter and whether it's still the factory default
         let pinMetadata: PIV.PinPukMetadata
         do {
             pinMetadata = try await session.getPinMetadata()
+        } catch {
+            handlePIVError(error)
         }
         print("PIN tries remaining: \(pinMetadata.retriesRemaining)/\(pinMetadata.retriesTotal)")
 
@@ -84,6 +83,8 @@ struct Info: AsyncParsableCommand {
         let pukMetadata: PIV.PinPukMetadata
         do {
             pukMetadata = try await session.getPukMetadata()
+        } catch {
+            handlePIVError(error)
         }
         print("PUK tries remaining: \(pukMetadata.retriesRemaining)/\(pukMetadata.retriesTotal)")
         if pukMetadata.isDefault {
@@ -94,6 +95,8 @@ struct Info: AsyncParsableCommand {
         let mgmtKeyMetadata: PIV.ManagementKeyMetadata
         do {
             mgmtKeyMetadata = try await session.getManagementKeyMetadata()
+        } catch {
+            handlePIVError(error)
         }
         if mgmtKeyMetadata.isDefault {
             print("WARNING! Using default Management key")
@@ -113,6 +116,8 @@ struct Reset: AsyncParsableCommand {
         // Deletes ALL keys, certificates, and resets all credentials to factory defaults
         do {
             try await session.reset()
+        } catch {
+            handlePIVError(error)
         }
 
         // Inform user about the reset completion and new default credentials
