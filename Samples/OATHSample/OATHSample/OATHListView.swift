@@ -131,12 +131,7 @@ struct OATHListView: View {
             Task { await model.update(using: connection) }
         }
         .onReceive(connectionManager.$error) { error in
-            switch error {
-            case .some(ConnectionError.cancelledByUser):
-                return
-            default:
-                model.error = error
-            }
+            model.error = error
         }
         .alert(
             "Something went wrong",
