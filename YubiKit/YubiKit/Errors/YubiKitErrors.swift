@@ -113,16 +113,27 @@ public enum SmartCardConnectionError: Error, Sendable {
     case cancelledByUser
 
     /// Failed to set up the connection.
-    case setupFailed(String? = nil, Error? = nil)
+    case setupFailed(String?, Error? = nil)
 
     /// Failed to transmit data.
-    case transmitFailed(String? = nil, Error? = nil)
+    case transmitFailed(String?, Error? = nil)
 
     /// Provided data is malformed.
     case malformedData(String? = nil)
 
     /// Failed to poll for devices.
     case pollingFailed(String? = nil)
+
+    // MARK: - Internal methods to flatten the error
+    static func setupFailed(_ message: String? = nil, flatten error: Error?) -> Self {
+        if let connectionError = error as? SmartCardConnectionError { return connectionError }
+        return .setupFailed(message, error)
+    }
+
+    static func transmitFailed(_ message: String? = nil, flatten error: Error?) -> Self {
+        if let connectionError = error as? SmartCardConnectionError { return connectionError }
+        return .transmitFailed(message, error)
+    }
 }
 
 // MARK: - Utility Errors

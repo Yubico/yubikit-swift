@@ -137,7 +137,7 @@ private actor LightningConnectionManager {
         do {
             return try await task.value
         } catch {
-            throw SmartCardConnectionError.setupFailed("Failed to begin SmartCard session", error)
+            throw SmartCardConnectionError.setupFailed("Failed to begin SmartCard session", flatten: error)
         }
     }
 
@@ -326,7 +326,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
         do {
             try outputStream.writeToYubiKey(data: Data([0x00]) + data)
         } catch {
-            throw SmartCardConnectionError.transmitFailed("Lightning write failed", error)
+            throw SmartCardConnectionError.transmitFailed("Lightning write failed", flatten: error)
         }
 
         while true {
@@ -335,7 +335,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
             do {
                 result = try inputStream.readFromYubiKey()
             } catch {
-                throw SmartCardConnectionError.transmitFailed("Lightning read failed", error)
+                throw SmartCardConnectionError.transmitFailed("Lightning read failed", flatten: error)
             }
             trace(
                 message:

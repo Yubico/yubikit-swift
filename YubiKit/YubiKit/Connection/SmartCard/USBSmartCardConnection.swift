@@ -202,7 +202,7 @@ private final actor SmartCardConnectionsManager {
             throw error
         } catch {
             // Map TKSmartCard errors to SmartCardConnectionError
-            throw SmartCardConnectionError.transmitFailed("USB transmit failed", error)
+            throw SmartCardConnectionError.transmitFailed("USB transmit failed", flatten: error)
         }
     }
 

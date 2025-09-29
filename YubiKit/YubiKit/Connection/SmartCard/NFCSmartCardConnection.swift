@@ -225,7 +225,7 @@ private actor NFCConnectionManagerWrapper {
             }
         } catch {
             // Map NFC errors to SmartCardConnectionError
-            throw SmartCardConnectionError.transmitFailed("NFC transmit failed", error)
+            throw SmartCardConnectionError.transmitFailed("NFC transmit failed", flatten: error)
         }
     }
 
@@ -249,7 +249,7 @@ private actor NFCConnectionManagerWrapper {
                 }
             }
         } catch {
-            throw SmartCardConnectionError.setupFailed("Failed to begin SmartCard session", error)
+            throw .setupFailed("Failed to begin SmartCard session", flatten: error)
         }
     }
 
