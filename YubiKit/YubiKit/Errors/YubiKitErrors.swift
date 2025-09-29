@@ -31,7 +31,7 @@ public struct SourceLocation: Sendable {
 
 /// Common protocol for all session error types.
 /// Enforces common error cases that all sessions must handle.
-public protocol SessionError: Error, Sendable {
+public protocol SmartCardSessionError: Error, Sendable {
     /// Connection error occurred during communication with the YubiKey.
     static func connectionError(
         _ error: SmartCardConnectionError,

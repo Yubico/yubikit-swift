@@ -284,7 +284,7 @@ extension OATHSession {
         /// - Parameters:
         ///   - url: The otpauth:// URI to parse.
         ///   - skipValidation: Set to true to skip input validation when parsing the uri.
-        public init(url: URL, skipValidation: Bool = false) throws {
+        public init(url: URL, skipValidation: Bool = false) throws(CredentialTemplateError) {
             guard url.scheme == "otpauth" else { throw CredentialTemplateError.missingScheme }
 
             var issuer: String?
@@ -363,7 +363,7 @@ extension OATHSession {
 }
 
 extension OATHSession.HashAlgorithm {
-    internal init?(fromUrl url: URL) throws {
+    internal init?(fromUrl url: URL) throws(OATHSession.CredentialTemplateError) {
         if let name = url.queryValueFor(key: "algorithm") {
             switch name {
             case "SHA1":
@@ -382,7 +382,7 @@ extension OATHSession.HashAlgorithm {
 }
 
 extension OATHSession.CredentialType {
-    internal init(fromURL url: URL) throws {
+    internal init(fromURL url: URL) throws(OATHSession.CredentialTemplateError) {
         let type = url.host?.lowercased()
 
         switch type {

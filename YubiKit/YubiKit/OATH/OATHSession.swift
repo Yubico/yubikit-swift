@@ -512,7 +512,7 @@ public final actor OATHSession: SmartCardSession {
 
 }
 
-public struct DeriveAccessKeyError: Error, Sendable {
+struct DeriveAccessKeyError: Error, Sendable {
     let cryptorStatus: CCCryptorStatus
 }
 

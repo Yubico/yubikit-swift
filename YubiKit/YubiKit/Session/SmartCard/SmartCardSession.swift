@@ -20,7 +20,7 @@ import Foundation
 /// supporting communication over NFC, Lightning, and USB interfaces with optional secure channel encryption.
 public protocol SmartCardSession: Session {
 
-    associatedtype Error: SessionError
+    associatedtype Error: SmartCardSessionError
 
     static var application: Application { get }
 
@@ -37,5 +37,5 @@ public protocol SmartCardSession: Session {
     static func makeSession(
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams?
-    ) async throws -> Self
+    ) async throws(Self.Error) -> Self
 }

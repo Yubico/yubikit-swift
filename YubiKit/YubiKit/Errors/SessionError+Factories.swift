@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - SessionError Factory Methods
 
-extension SessionError {
+extension SmartCardSessionError {
     @inline(__always)
     static func connectionError(
         _ error: SmartCardConnectionError,

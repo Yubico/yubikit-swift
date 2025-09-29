@@ -20,7 +20,7 @@ import Foundation
 ///
 /// SCP (Secure Channel Protocol) provides encrypted communication with YubiKeys.
 /// These errors represent failures in the cryptographic security layer.
-public enum SCPError: SessionError, Sendable {
+public enum SCPError: SmartCardSessionError, Sendable {
     // MARK: - SessionError Protocol Cases
     case missingApplication(source: SourceLocation)
     case featureNotSupported(source: SourceLocation)
@@ -49,7 +49,7 @@ public enum SCPError: SessionError, Sendable {
 /// Management session errors.
 ///
 /// Handles device configuration, capability detection, and general YubiKey management operations.
-public enum ManagementSessionError: SessionError, Sendable {
+public enum ManagementSessionError: SmartCardSessionError, Sendable {
     // MARK: - SessionError Protocol Cases
     case missingApplication(source: SourceLocation)
     case featureNotSupported(source: SourceLocation)
@@ -73,7 +73,7 @@ public enum ManagementSessionError: SessionError, Sendable {
 /// OATH session errors.
 ///
 /// Handles TOTP/HOTP credential management and authentication operations.
-public enum OATHSessionError: SessionError, Sendable {
+public enum OATHSessionError: SmartCardSessionError, Sendable {
     // MARK: - SessionError Protocol Cases
     case missingApplication(source: SourceLocation)
     case featureNotSupported(source: SourceLocation)
@@ -103,7 +103,7 @@ public enum OATHSessionError: SessionError, Sendable {
 ///
 /// Handles smart card operations including certificate management, key generation,
 /// digital signatures, and PIN/PUK authentication.
-public enum PIVSessionError: SessionError, Sendable {
+public enum PIVSessionError: SmartCardSessionError, Sendable {
     // MARK: - SessionError Protocol Cases
     case missingApplication(source: SourceLocation)
     case featureNotSupported(source: SourceLocation)
