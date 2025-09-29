@@ -84,7 +84,7 @@ public final actor OATHSession: SmartCardSession {
             }
             switch responseStatus.status {
             case .invalidInstruction, .fileNotFound:
-                throw .missingApplication()
+                throw .featureNotSupported()
             default:
                 throw error
             }
@@ -484,7 +484,7 @@ public final actor OATHSession: SmartCardSession {
         } catch {
             guard case let .failedResponse(responseStatus, _) = error else { throw error }
             if responseStatus.status == .incorrectParameters {
-                throw OATHSessionError.wrongPassword()
+                throw OATHSessionError.invalidPassword()
             } else {
                 throw error
             }

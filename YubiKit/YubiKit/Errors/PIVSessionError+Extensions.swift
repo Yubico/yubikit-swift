@@ -37,7 +37,10 @@ extension PIVSessionError {
         line: Int = #line,
         column: Int = #column
     ) -> Self {
-        Self.invalidPin(retries, source: SourceLocation(file: file, function: function, line: line, column: column))
+        Self.invalidPin(
+            retries,
+            source: SourceLocation(file: file, function: function, line: line, column: column)
+        )
     }
 
     @inline(__always)

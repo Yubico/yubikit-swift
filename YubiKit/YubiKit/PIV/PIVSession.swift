@@ -47,7 +47,7 @@ public final actor PIVSession: SmartCardSession {
             }
             switch responseStatus.status {
             case .invalidInstruction, .fileNotFound:
-                throw .missingApplication()
+                throw .featureNotSupported()
             default:
                 throw error
             }

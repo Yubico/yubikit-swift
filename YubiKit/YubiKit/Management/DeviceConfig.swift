@@ -152,7 +152,7 @@ public struct DeviceConfig: Sendable {
         )
     }
 
-    internal func data(reboot: Bool, lockCode: Data?, newLockCode: Data?) throws(ManagementSessionError) -> Data {
+    internal func data(reboot: Bool, lockCode: Data?, newLockCode: Data?) -> Data? {
         var data = Data()
         if reboot {
             data.append(TKBERTLVRecord(tag: tagReboot, value: Data()).data)
@@ -183,7 +183,7 @@ public struct DeviceConfig: Sendable {
             data.append(TKBERTLVRecord(tag: tagNFCRestricted, value: UInt8(0x01).data).data)
         }
 
-        guard data.count <= 0xff else { throw .configTooLarge() }
+        guard data.count <= 0xff else { return nil }
 
         return UInt8(data.count).data + data
     }

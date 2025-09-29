@@ -48,7 +48,7 @@ public final actor ManagementSession: SmartCardSession {
             }
             switch responseStatus.status {
             case .invalidInstruction, .fileNotFound:
-                throw .missingApplication()
+                throw .featureNotSupported()
             default:
                 throw error
             }
@@ -141,9 +141,8 @@ public final actor ManagementSession: SmartCardSession {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         guard await self.supports(ManagementFeature.deviceConfig) else { throw .featureNotSupported() }
 
-        let data: Data
-        do { data = try config.data(reboot: reboot, lockCode: lockCode, newLockCode: newLockCode) } catch {
-            throw .configTooLarge()
+        guard let data = config.data(reboot: reboot, lockCode: lockCode, newLockCode: newLockCode) else {
+            throw .illegalArgument("Device configuration is too large (maximum 255 bytes)")
         }
 
         let apdu = APDU(cla: 0, ins: 0x1c, p1: 0, p2: 0, command: data)

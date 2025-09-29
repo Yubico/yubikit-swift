@@ -31,25 +31,7 @@ public struct SourceLocation: Sendable {
 
 /// Common protocol for all session error types.
 /// Enforces common error cases that all sessions must handle.
-public protocol SmartCardSessionError: Error, Sendable {
-    /// Connection error occurred during communication with the YubiKey.
-    static func connectionError(
-        _ error: SmartCardConnectionError,
-        source: SourceLocation
-    ) -> Self
-
-    /// Response status error that couldn't be handled specifically by the session.
-    static func failedResponse(
-        _ responseStatus: ResponseStatus,
-        source: SourceLocation
-    ) -> Self
-
-    /// SCP-level error occurred during secure channel operations.
-    static func scpError(
-        _ error: SCPError,
-        source: SourceLocation
-    ) -> Self
-
+public protocol SessionError: Error, Sendable {
     /// Encryption or cryptographic operation failed.
     static func encryptionFailed(
         _ message: String,
@@ -69,19 +51,36 @@ public protocol SmartCardSessionError: Error, Sendable {
         source: SourceLocation
     ) -> Self
 
+    /// Invalid argument provided to a method.
+    static func illegalArgument(
+        _ message: String,
+        source: SourceLocation
+    ) -> Self
+
     /// Feature is not supported on this YubiKey.
     static func featureNotSupported(
         source: SourceLocation
     ) -> Self
+}
 
-    /// The application is not available on this YubiKey.
-    static func missingApplication(
+/// Common protocol for all smart card session error types.
+/// Enforces common error cases that all smart card sessions must handle.
+public protocol SmartCardSessionError: SessionError {
+    /// Connection error occurred during communication with the YubiKey.
+    static func connectionError(
+        _ error: SmartCardConnectionError,
         source: SourceLocation
     ) -> Self
 
-    /// Invalid argument provided to a method.
-    static func illegalArgument(
-        _ message: String,
+    /// Response status error that couldn't be handled specifically by the session.
+    static func failedResponse(
+        _ responseStatus: ResponseStatus,
+        source: SourceLocation
+    ) -> Self
+
+    /// SCP-level error occurred during secure channel operations.
+    static func scpError(
+        _ error: SCPError,
         source: SourceLocation
     ) -> Self
 }

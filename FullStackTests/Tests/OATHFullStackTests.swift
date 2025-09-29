@@ -152,7 +152,7 @@ class OATHFullStackTests: XCTestCase {
             do {
                 try await session.unlock(password: "abc123")
             } catch {
-                if case OATHSessionError.wrongPassword = error {
+                if case OATHSessionError.invalidPassword = error {
                     print("Got expected error: \(error)")
                 } else {
                     XCTFail("Got unexpected error: \(error)")

@@ -94,16 +94,6 @@ extension SmartCardSessionError {
     }
 
     @inline(__always)
-    static func missingApplication(
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .missingApplication(source: SourceLocation(file: file, function: function, line: line, column: column))
-    }
-
-    @inline(__always)
     static func illegalArgument(
         _ message: String,
         file: String = #file,

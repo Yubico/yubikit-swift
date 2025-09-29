@@ -19,13 +19,13 @@ extension OATHSessionError {
     // MARK: - OATH-Specific Convenience Methods
 
     @inline(__always)
-    static func wrongPassword(
+    static func invalidPassword(
         file: String = #file,
         function: String = #function,
         line: Int = #line,
         column: Int = #column
     ) -> Self {
-        .wrongPassword(source: SourceLocation(file: file, function: function, line: line, column: column))
+        .invalidPassword(source: SourceLocation(file: file, function: function, line: line, column: column))
     }
 
     @inline(__always)

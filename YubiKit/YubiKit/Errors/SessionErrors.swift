@@ -22,7 +22,6 @@ import Foundation
 /// These errors represent failures in the cryptographic security layer.
 public enum SCPError: SmartCardSessionError, Sendable {
     // MARK: - SessionError Protocol Cases
-    case missingApplication(source: SourceLocation)
     case featureNotSupported(source: SourceLocation)
     case connectionError(SmartCardConnectionError, source: SourceLocation)
     case failedResponse(ResponseStatus, source: SourceLocation)
@@ -51,7 +50,6 @@ public enum SCPError: SmartCardSessionError, Sendable {
 /// Handles device configuration, capability detection, and general YubiKey management operations.
 public enum ManagementSessionError: SmartCardSessionError, Sendable {
     // MARK: - SessionError Protocol Cases
-    case missingApplication(source: SourceLocation)
     case featureNotSupported(source: SourceLocation)
     case connectionError(SmartCardConnectionError, source: SourceLocation)
     case failedResponse(ResponseStatus, source: SourceLocation)
@@ -62,10 +60,7 @@ public enum ManagementSessionError: SmartCardSessionError, Sendable {
     case illegalArgument(String, source: SourceLocation)
 
     // MARK: - Management-Specific Cases
-    /// Unexpected configuration state encountered.
-    case unexpectedYubiKeyConfigState(source: SourceLocation)
-    /// Device configuration too large
-    case configTooLarge(source: SourceLocation)
+    // ...
 }
 
 // MARK: - OATH Session Errors
@@ -75,7 +70,6 @@ public enum ManagementSessionError: SmartCardSessionError, Sendable {
 /// Handles TOTP/HOTP credential management and authentication operations.
 public enum OATHSessionError: SmartCardSessionError, Sendable {
     // MARK: - SessionError Protocol Cases
-    case missingApplication(source: SourceLocation)
     case featureNotSupported(source: SourceLocation)
     case connectionError(SmartCardConnectionError, source: SourceLocation)
     case failedResponse(ResponseStatus, source: SourceLocation)
@@ -88,7 +82,7 @@ public enum OATHSessionError: SmartCardSessionError, Sendable {
     // MARK: - OATH-Specific Cases
 
     /// Wrong password provided for authentication.
-    case wrongPassword(source: SourceLocation)
+    case invalidPassword(source: SourceLocation)
 
     /// Failed to derive device ID.
     case failedDerivingDeviceId(source: SourceLocation)
@@ -105,7 +99,6 @@ public enum OATHSessionError: SmartCardSessionError, Sendable {
 /// digital signatures, and PIN/PUK authentication.
 public enum PIVSessionError: SmartCardSessionError, Sendable {
     // MARK: - SessionError Protocol Cases
-    case missingApplication(source: SourceLocation)
     case featureNotSupported(source: SourceLocation)
     case connectionError(SmartCardConnectionError, source: SourceLocation)
     case failedResponse(ResponseStatus, source: SourceLocation)

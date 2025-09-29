@@ -93,8 +93,6 @@ func handlePIVError(_ error: PIVSessionError, context: String = "PIN") -> Never 
         message = "Operation not supported by this YubiKey."
     case .illegalArgument(let argMessage, _):
         message = "Invalid argument: \(argMessage)"
-    case .missingApplication:
-        message = "PIV application not found on YubiKey."
     case .connectionError(let connectionError, _):
         message = "Connection error: \(connectionError.localizedDescription)"
     case .scpError(let scpError, _):

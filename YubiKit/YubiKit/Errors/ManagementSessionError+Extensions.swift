@@ -17,26 +17,5 @@ import Foundation
 extension ManagementSessionError {
 
     // MARK: - Management-Specific Convenience Methods
-
-    @inline(__always)
-    static func unexpectedYubiKeyConfigState(
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .unexpectedYubiKeyConfigState(
-            source: SourceLocation(file: file, function: function, line: line, column: column)
-        )
-    }
-
-    @inline(__always)
-    static func configTooLarge(
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .configTooLarge(source: SourceLocation(file: file, function: function, line: line, column: column))
-    }
+    // ...
 }
