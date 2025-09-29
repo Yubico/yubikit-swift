@@ -119,7 +119,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
     internal let tagFPSVersion: TKTLVTag = 0x20
     internal let tagSTMVersion: TKTLVTag = 0x21
 
-    internal init(withTlvs tlvs: [TKTLVTag: Data], fallbackVersion: Version) throws {
+    internal init(withTlvs tlvs: [TKTLVTag: Data], fallbackVersion: Version) {
 
         self.isConfigLocked = tlvs[tagConfigLocked]?.integer == 1
         self.serialNumber = tlvs[tagSerialNumber]?.integer ?? 0
@@ -176,7 +176,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
         }
         self.supportedCapabilities = supportedCapabilities
 
-        self.config = try DeviceConfig(withTlvs: tlvs, version: self.version)
+        self.config = DeviceConfig(withTlvs: tlvs, version: self.version)
     }
 
     /// Returns whether or not a specific transport is available on this YubiKey.

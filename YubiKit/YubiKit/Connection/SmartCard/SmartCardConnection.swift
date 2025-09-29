@@ -29,7 +29,7 @@ public protocol SmartCardConnection: Connection {
     ///
     /// The init will throw with ``.busy`` if there is an already established connection for the same
     /// resource.
-    init() async throws
+    init() async throws(SmartCardConnectionError)
 
     /// Create a new SmartCardConnection to the YubiKey.
     ///
@@ -37,9 +37,9 @@ public protocol SmartCardConnection: Connection {
     /// until a connection to a YubiKey has been established and then return it.
     ///
     /// > Warning: Only one connection can exist at a time. If this method is called while
-    /// another connection is active or pending, it will throw ``ConnectionError/busy``.
+    /// another connection is active or pending, it will throw ``SmartCardConnectionError/busy``.
     /// The existing connection must be closed first using ``close(error:)``.
-    static func makeConnection() async throws -> Self
+    static func makeConnection() async throws(SmartCardConnectionError) -> Self
 
     /*
     /// Send an APDU to the SmartCardConnection.
@@ -48,8 +48,8 @@ public protocol SmartCardConnection: Connection {
     /// to be handled by a single read operation will be handled automatically by the SDK and the
     /// complete result will be returned by the function. Only operations returning a 0x9000 status
     /// code will return data. Operations returning a 0x61XX (more data) status code will be handled
-    /// by the SDK until they finish with a 0x9000 or an error. For all other status codes a ResponseError
-    /// wrapping the status code will be thrown.
+    /// by the SDK until they finish with a 0x9000 or an error. For all other status codes an error
+    /// with the response status will be thrown.
     @discardableResult
     func send(apdu: APDU) async throws -> Data
      */
@@ -60,11 +60,5 @@ public protocol SmartCardConnection: Connection {
     /// returned as Data. If the returned data is to big for a single read operation this has
     /// to be handled manually.
     @discardableResult
-    func send(data: Data) async throws -> Data
-}
-
-/// A ResponseError containing the status code.
-public struct ResponseError: Error, Sendable {
-    /// Status code of the response.
-    public let responseStatus: ResponseStatus
+    func send(data: Data) async throws(SmartCardConnectionError) -> Data
 }

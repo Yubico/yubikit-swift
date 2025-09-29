@@ -27,8 +27,8 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
     ///
     /// Waits for a YubiKey to be connected via Lightning port and establishes a connection.
     ///
-    /// - Throws: ``ConnectionError.busy`` if there is already an active connection.
-    public init() async throws {
+    /// - Throws: ``SmartCardConnectionError.busy`` if there is already an active connection.
+    public init() async throws(SmartCardConnectionError) {
         accessoryConnectionID = try await LightningConnectionManager.shared.connect()
     }
 
@@ -37,8 +37,8 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
     /// > Warning: Connections must be explicitly closed using ``close(error:)``.
     /// Only one connection can exist at a time - attempting to create another will throw ``ConnectionError/busy``.
     /// - Returns: A fully–established connection ready for APDU exchange.
-    /// - Throws: ``ConnectionError.busy`` if there is already an active connection.
-    public static func makeConnection() async throws -> LightningSmartCardConnection {
+    /// - Throws: ``SmartCardConnectionError.busy`` if there is already an active connection.
+    public static func makeConnection() async throws(SmartCardConnectionError) -> LightningSmartCardConnection {
         trace(message: "requesting new connection")
         return try await LightningSmartCardConnection()
     }
@@ -59,7 +59,7 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
         return error
     }
 
-    public func send(data: Data) async throws -> Data {
+    public func send(data: Data) async throws(SmartCardConnectionError) -> Data {
         trace(message: "\(data.count) bytes")
         let response = try await LightningConnectionManager.shared.transmit(request: data, for: self)
         trace(message: "received \(response.count) bytes")
@@ -92,10 +92,10 @@ private actor LightningConnectionManager {
 
     private init() {}
 
-    func connect() async throws -> LightningConnectionID {
+    func connect() async throws(SmartCardConnectionError) -> LightningConnectionID {
         // If there is already a connection the caller must close the connection first.
         if connectionState != nil || pendingConnectionPromise != nil {
-            throw ConnectionError.busy
+            throw SmartCardConnectionError.busy
         }
 
         // Otherwise, create and store a new connection task.
@@ -134,10 +134,17 @@ private actor LightningConnectionManager {
             }
         }
 
-        return try await task.value
+        do {
+            return try await task.value
+        } catch {
+            throw SmartCardConnectionError.setupFailed("Failed to begin SmartCard session", error)
+        }
     }
 
-    func transmit(request: Data, for connection: LightningSmartCardConnection) async throws -> Data {
+    func transmit(
+        request: Data,
+        for connection: LightningSmartCardConnection
+    ) async throws(SmartCardConnectionError) -> Data {
         let connectionID = connection.accessoryConnectionID
         trace(message: "\(request.count) bytes to connection \(connectionID)")
 
@@ -145,7 +152,7 @@ private actor LightningConnectionManager {
             state.connectionID == connectionID
         else {
             trace(message: "noConnection")
-            throw ConnectionError.noConnection
+            throw SmartCardConnectionError.connectionLost
         }
 
         return try await EAAccessoryWrapper.shared.transmit(id: connectionID, data: request)
@@ -185,7 +192,7 @@ private actor LightningConnectionManager {
 
         // If a connection attempt is in progress, fail it.
         if let promise = pendingConnectionPromise {
-            await promise.cancel(with: ConnectionError.noConnection)
+            await promise.cancel(with: SmartCardConnectionError.connectionLost)
             self.pendingConnectionPromise = nil
         }
 
@@ -309,22 +316,32 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
         EAAccessoryManager.shared().unregisterForLocalNotifications()
     }
 
-    func transmit(id: LightningConnectionID, data: Data) async throws -> Data {
+    func transmit(id: LightningConnectionID, data: Data) async throws(SmartCardConnectionError) -> Data {
         guard let session = sessions[id],
             let inputStream = session.inputStream,
             let outputStream = session.outputStream
-        else { throw ConnectionError.noConnection }
+        else { throw SmartCardConnectionError.connectionLost }
 
         // Append YLP iAP2 Signal
-        try outputStream.writeToYubiKey(data: Data([0x00]) + data)
+        do {
+            try outputStream.writeToYubiKey(data: Data([0x00]) + data)
+        } catch {
+            throw SmartCardConnectionError.transmitFailed("Lightning write failed", error)
+        }
+
         while true {
-            try await Task.sleep(for: .seconds(0.002))
-            let result = try inputStream.readFromYubiKey()
+            try? await Task.sleep(for: .seconds(0.002))
+            let result: Data
+            do {
+                result = try inputStream.readFromYubiKey()
+            } catch {
+                throw SmartCardConnectionError.transmitFailed("Lightning read failed", error)
+            }
             trace(
                 message:
                     "got \(result.count) bytes, SW: \(String(format:"%02X%02X", result.bytes[result.count-2], result.bytes[result.count-1]))"
             )
-            guard result.count >= 2 else { throw ConnectionError.unexpectedResult }
+            guard result.count >= 2 else { throw SmartCardConnectionError.connectionLost }
             let status = ResponseStatus(data: result.subdata(in: result.count - 2..<result.count))
 
             // BUG #62 - Workaround for WTX == 0x01 while status is 0x9000 (success).
@@ -334,7 +351,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
                 } else if result.bytes[0] == 0x01 {  // Remove the YLP key protocol header and the WTX
                     return result.subdata(in: 4..<result.count)
                 }
-                throw ConnectionError.unexpectedResult
+                throw SmartCardConnectionError.connectionLost
             }
         }
     }

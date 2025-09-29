@@ -197,19 +197,6 @@ public enum PIV: Sendable {
         case pinLocked
     }
 
-    /// PIV session specific errors.
-    public enum SessionError: Error, Sendable {
-        case dataParseError
-        case unknownKeyType
-        case invalidPin(_ retries: Int)
-        case pinLocked
-        case invalidResponse
-        case authenticationFailed
-        case responseDataNotTLVFormatted
-        case invalidKeyLength
-        case invalidDataSize
-    }
-
     /// Metadata about the card management key.
     public struct ManagementKeyMetadata: Sendable {
         /// Whether or not the default card management key is set.

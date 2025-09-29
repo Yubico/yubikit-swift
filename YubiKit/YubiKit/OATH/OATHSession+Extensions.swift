@@ -21,7 +21,7 @@ private let totpCode: UInt8 = 0x20
 extension OATHSession {
 
     /// Errors that can occur when creating credential templates from URLs.
-    public enum CredentialTemplateError: Error {
+    public enum CredentialTemplateError: Swift.Error, Sendable {
         /// The URL is missing the required scheme (e.g., otpauth).
         case missingScheme
         /// The credential name is missing from the URL.

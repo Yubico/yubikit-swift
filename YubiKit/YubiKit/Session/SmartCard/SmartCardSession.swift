@@ -19,6 +19,14 @@ import Foundation
 /// SmartCardSession extends ``Session`` to provide session creation with SmartCard connections,
 /// supporting communication over NFC, Lightning, and USB interfaces with optional secure channel encryption.
 public protocol SmartCardSession: Session {
+
+    associatedtype Error: SessionError
+
+    static var application: Application { get }
+
+    var scpState: SCPState? { get }
+    var connection: SmartCardConnection { get }
+
     /// Creates a new session using the supplied connection.
     ///
     /// - Parameters:

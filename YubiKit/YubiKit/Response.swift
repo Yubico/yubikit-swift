@@ -14,9 +14,9 @@
 
 import Foundation
 
-public struct Response: CustomStringConvertible, Sendable {
+struct Response: CustomStringConvertible, Sendable {
 
-    public init(rawData: Data) {
+    init(rawData: Data) {
         if rawData.count > 2 {
             data = rawData.subdata(in: 0..<rawData.count - 2)
         } else {
@@ -32,11 +32,11 @@ public struct Response: CustomStringConvertible, Sendable {
 
     /// The data returned in the response.
     /// >Note: The data does not contain the response code. It is stored in the `ResponseStatus`.
-    public let data: Data
+    let data: Data
 
     /// Status code of the response
-    public let responseStatus: ResponseStatus
-    public var description: String {
+    let responseStatus: ResponseStatus
+    var description: String {
         "<Response: \(responseStatus.status) \(responseStatus.rawStatus.data.hexEncodedString), length: \(data.count)>"
     }
 }
