@@ -121,10 +121,8 @@ final class SCP11aFullStackTests: XCTestCase {
                 )
                 XCTFail("Authentication should have been blocked by allow‑list")
             } catch {
-                if case let SCPError.wrapped(inner) = error,
-                    let rsp = inner as? ResponseError
-                {
-                    XCTAssert(rsp.responseStatus.rawStatus == 0x6640)
+                if case let SCPError.failedResponse(responseStatus, _) = error {
+                    XCTAssert(responseStatus.rawStatus == 0x6640)
                 } else {
                     XCTFail("Unexpected error: \(error)")
                 }
@@ -182,8 +180,8 @@ final class SCP11bFullStackTests: XCTestCase {
             do {
                 try await securityDomainSession.verifyScp11bAuth()
             } catch {
-                if case let SCPError.wrapped(error) = error, let error = error as? ResponseError {
-                    XCTAssert(error.responseStatus.status == .securityConditionNotSatisfied)
+                if case let SCPError.failedResponse(responseStatus, _) = error {
+                    XCTAssert(responseStatus.status == .securityConditionNotSatisfied)
                 } else {
                     XCTFail("Failed: Wrong error type: \(error)")
                 }
@@ -208,10 +206,10 @@ final class SCP11bFullStackTests: XCTestCase {
 
             do {
                 let _ = try await ManagementSession.makeSession(connection: connection, scpKeyParams: params)
-            } catch let SCPError.unexpectedResponse(message) {
+            } catch ManagementSessionError.responseParseError(let message, _) {
                 XCTAssert(true, "Expected: \(String(describing: message))")
                 return
-            } catch (let error) {
+            } catch {
                 XCTFail("Failed with: \(error)")
                 return
             }
@@ -268,8 +266,8 @@ final class SCP11cFullStackTests: XCTestCase {
             do {
                 try await securityDomainSession.deleteKey(for: scpKeyRef)
             } catch {
-                if case let SCPError.wrapped(error) = error, let error = error as? ResponseError {
-                    XCTAssert(error.responseStatus.status == .securityConditionNotSatisfied)
+                if case let SCPError.failedResponse(responseStatus, _) = error {
+                    XCTAssert(responseStatus.status == .securityConditionNotSatisfied)
                 } else {
                     XCTFail("Failed: Wrong error type: \(error)")
                 }

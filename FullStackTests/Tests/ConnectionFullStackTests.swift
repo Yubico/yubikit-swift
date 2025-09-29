@@ -44,13 +44,13 @@ struct ConnectionFullStackTests {
         try await Task.sleep(for: .seconds(1))
 
         // Close the connection with a custom error
-        let testError = ConnectionError.cancelled
-        await connection.close(error: testError)
+        struct TestError: Error {}
+        await connection.close(error: TestError())
 
         // Wait for the closure notification
-        let _ = await closureTask.value
+        let error = await closureTask.value
 
-        #expect(true, "✅ Got notified when connection closed")
+        #expect(error is TestError, "✅ Notified when connection closed with correct Error")
     }
 
     @Test("Serial Connections", .timeLimit(.minutes(1)))

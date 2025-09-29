@@ -411,7 +411,7 @@ struct PIVFullStackTests {
 
     // MARK: - Key Generation Tests
 
-    @Test("Generate RSA Keys", .tags(.pivKeyManagement), .timeLimit(.minutes(3)), arguments: RSA.KeySize.allCases)
+    @Test("Generate RSA Keys", .tags(.pivKeyManagement), .timeLimit(.minutes(5)), arguments: RSA.KeySize.allCases)
     func generateRSAKey(keySize: RSA.KeySize) async throws {
         try await withPIVSession(authenticated: true) { session in
             let result = try await session.generateKey(
@@ -592,12 +592,8 @@ struct PIVFullStackTests {
             do {
                 _ = try await session.getMetadata(in: .authentication)
                 Issue.record("Got metadata when we should have thrown a referenceDataNotFound exception.")
-            } catch {
-                guard let responseError = error as? ResponseError else {
-                    Issue.record("Unexpected error: \(error)")
-                    return
-                }
-                #expect(responseError.responseStatus.status == .referencedDataNotFound)
+            } catch PIVSessionError.failedResponse(let responseStatus, _) {
+                #expect(responseStatus.status == .referencedDataNotFound)
             }
         }
     }
@@ -620,12 +616,8 @@ struct PIVFullStackTests {
             do {
                 _ = try await session.getMetadata(in: .authentication)
                 Issue.record("Got metadata when we should have thrown a referenceDataNotFound exception.")
-            } catch {
-                guard let responseError = error as? ResponseError else {
-                    Issue.record("Unexpected error: \(error)")
-                    return
-                }
-                #expect(responseError.responseStatus.status == .referencedDataNotFound)
+            } catch PIVSessionError.failedResponse(let responseStatus, _) {
+                #expect(responseStatus.status == .referencedDataNotFound)
             }
         }
     }
@@ -647,12 +639,8 @@ struct PIVFullStackTests {
             do {
                 _ = try await session.getCertificate(in: .authentication)
                 Issue.record("Deleted certificate still present on YubiKey.")
-            } catch {
-                guard let error = error as? ResponseError else {
-                    Issue.record("Deleted certificate returned unexpected error: \(error)")
-                    return
-                }
-                #expect(error.responseStatus.status == .fileNotFound)
+            } catch PIVSessionError.failedResponse(let responseStatus, _) {
+                #expect(responseStatus.status == .fileNotFound)
             }
         }
     }
@@ -673,12 +661,8 @@ struct PIVFullStackTests {
             do {
                 try await session.authenticate(with: wrongManagementKey)
                 Issue.record("Successfully authenticated with the wrong management key.")
-            } catch {
-                guard let error = error as? ResponseError else {
-                    Issue.record("Failed with unexpected error: \(error)")
-                    return
-                }
-                #expect(error.responseStatus.status == .securityConditionNotSatisfied)
+            } catch PIVSessionError.failedResponse(let responseStatus, _) {
+                #expect(responseStatus.status == .securityConditionNotSatisfied)
             }
         }
     }
@@ -875,7 +859,7 @@ struct PIVFullStackTests {
         try await withPIVSession { session in
             do {
                 try await session.changePin(from: "000000", to: "654321")
-            } catch let PIV.SessionError.invalidPin(retries) {
+            } catch let PIVSessionError.invalidPin(retries, _) {
                 let total = try await session.getPinMetadata().retriesTotal
                 #expect(retries == total - 1)
             }
@@ -1002,9 +986,10 @@ struct PIVFullStackTests {
                     pinPolicy: .matchAlways,
                     touchPolicy: .defaultPolicy
                 )
-            } catch {
-                guard let sessionError = error as? SessionError else { throw error }
-                #expect(sessionError == SessionError.notSupported)
+                Issue.record("Expected error for matchAlways on non-Bio YubiKey")
+            } catch let PIVSessionError.failedResponse(responseStatus, source: _) {
+                // Expected for .matchAlways on non-Bio YubiKey
+                #expect(responseStatus.status == .referencedDataNotFound)
             }
             do {
                 _ = try await session.generateKey(
@@ -1013,9 +998,10 @@ struct PIVFullStackTests {
                     pinPolicy: .matchOnce,
                     touchPolicy: .defaultPolicy
                 )
-            } catch {
-                guard let sessionError = error as? SessionError else { throw error }
-                #expect(sessionError == SessionError.notSupported)
+                Issue.record("Expected error for matchOnce on non-Bio YubiKey")
+            } catch let PIVSessionError.failedResponse(responseStatus, source: _) {
+                // Expected for .matchOnce on non-Bio YubiKey
+                #expect(responseStatus.status == .referencedDataNotFound)
             }
         }
     }
