@@ -17,5 +17,15 @@ import Foundation
 extension ManagementSessionError {
 
     // MARK: - Management-Specific Convenience Methods
-    // ...
+
+    @inline(__always)
+    static func other(
+        _ error: Error,
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line,
+        column: Int = #column
+    ) -> Self {
+        .other(error, source: SourceLocation(file: file, function: function, line: line, column: column))
+    }
 }

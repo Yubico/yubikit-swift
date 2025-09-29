@@ -41,6 +41,8 @@ public enum SCPError: SmartCardSessionError, Sendable {
 
     /// Secure channel is required for this operation.
     case secureChannelRequired(source: SourceLocation)
+
+    case other(Error, source: SourceLocation)
 }
 
 // MARK: - Application Session Errors
@@ -60,7 +62,7 @@ public enum ManagementSessionError: SmartCardSessionError, Sendable {
     case illegalArgument(String, source: SourceLocation)
 
     // MARK: - Management-Specific Cases
-    // ...
+    case other(Error, source: SourceLocation)
 }
 
 // MARK: - OATH Session Errors
@@ -89,6 +91,8 @@ public enum OATHSessionError: SmartCardSessionError, Sendable {
 
     /// Credential not present on current YubiKey.
     case credentialNotPresentOnCurrentYubiKey(source: SourceLocation)
+
+    case other(Error, source: SourceLocation)
 }
 
 // MARK: - PIV Session Errors
@@ -130,4 +134,6 @@ public enum PIVSessionError: SmartCardSessionError, Sendable {
 
     /// Gzip compression/decompression failed.
     case gzip(Error, source: SourceLocation)
+
+    case other(Error, source: SourceLocation)
 }

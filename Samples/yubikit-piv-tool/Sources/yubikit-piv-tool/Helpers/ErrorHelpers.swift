@@ -107,6 +107,8 @@ func handlePIVError(_ error: PIVSessionError, context: String = "PIN") -> Never 
         message = "Data processing error: \(dataMessage)"
     case .gzip(let error, _):
         message = "Compression error: \(error.localizedDescription)"
+    case .other(let error, _):
+        message = "Error: \(error.localizedDescription)"
     }
     exitWithError(message)
 }
