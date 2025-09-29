@@ -39,6 +39,8 @@ public enum SCPError: SessionError, Sendable {
     }
 
     // MARK: - SCP-Specific Cases
+
+    /// Secure channel is required for this operation.
     case secureChannelRequired(source: SourceLocation)
 }
 
@@ -84,11 +86,14 @@ public enum OATHSessionError: SessionError, Sendable {
     case illegalArgument(String, source: SourceLocation)
 
     // MARK: - OATH-Specific Cases
-    /// Wrong password provided for authentication
+
+    /// Wrong password provided for authentication.
     case wrongPassword(source: SourceLocation)
-    /// Failed to derive device ID
+
+    /// Failed to derive device ID.
     case failedDerivingDeviceId(source: SourceLocation)
-    /// Credential not present on current YubiKey
+
+    /// Credential not present on current YubiKey.
     case credentialNotPresentOnCurrentYubiKey(source: SourceLocation)
 }
 
@@ -111,18 +116,25 @@ public enum PIVSessionError: SessionError, Sendable {
     case illegalArgument(String, source: SourceLocation)
 
     // MARK: - PIV-Specific Cases
-    /// Unknown key type encountered
+
+    /// Unknown key type encountered.
     case unknownKeyType(UInt8, source: SourceLocation)
-    /// Invalid PIN with remaining retries
+
+    /// Invalid PIN with remaining retries.
     case invalidPin(_ retries: Int, source: SourceLocation)
-    /// PIN is locked and requires PUK to reset
+
+    /// PIN is locked and requires PUK to reset.
     case pinLocked(source: SourceLocation)
-    /// Authentication failed
+
+    /// Authentication failed.
     case authenticationFailed(source: SourceLocation)
-    /// Invalid key length for operation
+
+    /// Invalid key length for operation.
     case invalidKeyLength(source: SourceLocation)
-    /// Invalid data size for operation
+
+    /// Invalid data size for operation.
     case invalidDataSize(source: SourceLocation)
-    /// Gzip compression/decompression failed
+
+    /// Gzip compression/decompression failed.
     case gzip(Error, source: SourceLocation)
 }
