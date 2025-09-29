@@ -209,7 +209,7 @@ extension SmartCardSession {
         readMoreData: Bool,
         insSendRemaining: UInt8
     ) async throws(Self.Error) -> Data {
-        Logger.connection.debug("SmartCardHelpers, \(#function): accumulated data: \(data)")
+        /* Fix trace: Logger.connection.debug("SmartCardHelpers, \(#function): accumulated data: \(data)") */
 
         let responseData: Data
         let response: Response
@@ -228,9 +228,9 @@ extension SmartCardSession {
         response = Response(rawData: responseData)
 
         guard response.responseStatus.status == .ok || response.responseStatus.sw1 == 0x61 else {
-            Logger.connection.error(
+            /* Fix trace: Logger.connection.error(
                 "SmartCardHelpers, \(#function): failed with statusCode: \(response.responseStatus.status)"
-            )
+            ) */
             throw .failedResponse(response.responseStatus)
         }
 
@@ -244,9 +244,9 @@ extension SmartCardSession {
                 insSendRemaining: insSendRemaining
             )
         } else {
-            Logger.connection.debug(
+            /* Fix trace: Logger.connection.debug(
                 "SmartCardHelpers, \(#function): response: \(newData.hexEncodedString)"
-            )
+            ) */
             return newData
         }
     }

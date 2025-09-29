@@ -177,7 +177,7 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
                 else { return nil }
                 return HIDFIDO.YubiKeyDevice(hidLocationID: locationID, name: name)
             }
-            self.trace(message: "found \(yubikeys.count) FIDO HID devices")
+            /* Fix trace: self.trace(message: "found \(yubikeys.count) FIDO HID devices") */
             return yubikeys
         }
     }
@@ -192,32 +192,32 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
     }
 
     func open(device: HIDFIDO.YubiKeyDevice) async throws {
-        trace(message: "opening connection to \(device.name)")
+        /* Fix trace: trace(message: "opening connection to \(device.name)") */
         try await performAsync {
             try self.openDeviceInternal(device)
         }
-        trace(message: "connection established to \(device.name)")
+        /* Fix trace: trace(message: "connection established to \(device.name)") */
     }
 
     func sendPacket(_ packet: Data, to locationID: Int) async throws {
-        trace(message: "sending \(packet.count) bytes")
+        /* Fix trace: trace(message: "sending \(packet.count) bytes") */
         try await performAsync {
             try self.sendPacketInternal(packet, to: locationID)
         }
     }
 
     func receivePacket(from locationID: Int) async throws -> Data {
-        trace(message: "waiting for data")
+        /* Fix trace: trace(message: "waiting for data") */
         let promise = try await performAsync {
             try self.receivePacketInternal(from: locationID)
         }
         let data = try await promise.value()
-        trace(message: "received \(data.count) bytes")
+        /* Fix trace: trace(message: "received \(data.count) bytes") */
         return data
     }
 
     func close(locationID: Int, error: Error?) async {
-        trace(message: "closing connection, error: \(String(describing: error))")
+        /* Fix trace: trace(message: "closing connection, error: \(String(describing: error))") */
         await performAsync {
             self.closeInternal(locationID: locationID, error: error)
         }
@@ -306,14 +306,14 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
 
         let openResult = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
         guard openResult == kIOReturnSuccess else {
-            trace(
+            /* Fix trace: trace(
                 message:
                     "IOHIDManagerOpen failed with result: 0x\(String(format: "%08X", openResult)) – likely missing entitlements"
-            )
+            ) */
             return
         }
 
-        trace(message: "HID manager opened successfully")
+        /* Fix trace: trace(message: "HID manager opened successfully") */
     }
 
     // MARK: - Internal HID Operations (Must run on HID thread)
@@ -329,7 +329,7 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
     private func openDeviceInternal(_ device: HIDFIDO.YubiKeyDevice) throws {
         // Check if device is already connected
         if openConnections[device.locationID] != nil {
-            trace(message: "device already connected – throwing .busy")
+            /* Fix trace: trace(message: "device already connected – throwing .busy") */
             throw HIDFIDOConnectionError.busy
         }
 
@@ -339,13 +339,13 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
         })
 
         guard let ioDev = ioDevice else {
-            trace(message: "failed to get HID device")
+            /* Fix trace: trace(message: "failed to get HID device") */
             throw HIDFIDOConnectionError.getDeviceFailed
         }
 
         let openResult = IOHIDDeviceOpen(ioDev, IOOptionBits(kIOHIDOptionsTypeSeizeDevice))
         guard openResult == kIOReturnSuccess else {
-            trace(message: "IOHIDDeviceOpen failed with result: 0x\(String(format: "%08X", openResult))")
+            /* Fix trace: trace(message: "IOHIDDeviceOpen failed with result: 0x\(String(format: "%08X", openResult))") */
             throw HIDFIDOConnectionError.beginSessionFailed
         }
 
@@ -368,12 +368,12 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
         IOHIDDeviceScheduleWithRunLoop(ioDev, hidRunLoop!, CFRunLoopMode.defaultMode.rawValue)
 
         openConnections[device.locationID] = connectionState
-        trace(message: "device opened successfully")
+        /* Fix trace: trace(message: "device opened successfully") */
     }
 
     private func closeInternal(locationID: Int, error: Error?) {
         guard let connectionState = openConnections.removeValue(forKey: locationID) else {
-            trace(message: "no connection found")
+            /* Fix trace: trace(message: "no connection found") */
             return
         }
 
@@ -399,22 +399,22 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
 
         // Close the device
         IOHIDDeviceClose(connectionState.device, IOOptionBits(kIOHIDOptionsTypeSeizeDevice))
-        trace(message: "device closed")
+        /* Fix trace: trace(message: "device closed") */
     }
 
     private func sendPacketInternal(_ packet: Data, to locationID: Int) throws {
         guard packet.count <= hidPayloadSize else {
-            trace(message: "packet too large: \(packet.count) > \(hidPayloadSize)")
+            /* Fix trace: trace(message: "packet too large: \(packet.count) > \(hidPayloadSize)") */
             throw HIDFIDOConnectionError.unexpectedResult
         }
         guard let connectionState = openConnections[locationID] else {
-            trace(message: "no connection – throwing .noConnection")
+            /* Fix trace: trace(message: "no connection – throwing .noConnection") */
             throw HIDFIDOConnectionError.noConnection
         }
         let dev = connectionState.device
 
         // Send packet directly to HID device
-        trace(message: "sending HID report directly (\(packet.count) bytes)")
+        /* Fix trace: trace(message: "sending HID report directly (\(packet.count) bytes)") */
         let result = packet.withUnsafeBytes {
             IOHIDDeviceSetReport(
                 dev,
@@ -425,7 +425,7 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
             )
         }
         guard result == kIOReturnSuccess else {
-            trace(message: "IOHIDDeviceSetReport failed with result: 0x\(String(format: "%08X", result))")
+            /* Fix trace: trace(message: "IOHIDDeviceSetReport failed with result: 0x\(String(format: "%08X", result))") */
             throw HIDFIDOConnectionError.unexpectedResult
         }
     }
@@ -481,7 +481,7 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
     // Handle input report from callback
     private func handleInputReport(_ data: Data, from sender: UnsafeMutableRawPointer?) {
 
-        trace(message: "received input report of size \(data.count)")
+        /* Fix trace: trace(message: "received input report of size \(data.count)") */
         guard data.count >= 1 else { return }
         // Find connection by matching the device pointer
         for (_, connectionState) in openConnections {
@@ -498,7 +498,7 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
             }
         }
 
-        trace(message: "received report for unknown device")
+        /* Fix trace: trace(message: "received report for unknown device") */
     }
 }
 

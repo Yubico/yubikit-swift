@@ -66,9 +66,9 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     ///           ``SmartCardConnectionError.busy`` if there is already an active connection.
     // @TraceScope
     public static func makeConnection() async throws(SmartCardConnectionError) -> NFCSmartCardConnection {
-        trace(message: "NFCSmartCardConnection.makeConnection() – requesting new connection")
+        /* Fix trace: trace(message: "NFCSmartCardConnection.makeConnection() – requesting new connection") */
         let tag = try await NFCConnectionManagerWrapper.shared.connect(message: nil)
-        trace(message: "NFCSmartCardConnection.makeConnection() – connection established")
+        /* Fix trace: trace(message: "NFCSmartCardConnection.makeConnection() – connection established") */
         return NFCSmartCardConnection(tag: tag)
     }
 
@@ -84,9 +84,9 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     public static func makeConnection(
         alertMessage message: String?
     ) async throws(SmartCardConnectionError) -> NFCSmartCardConnection {
-        trace(message: "NFCSmartCardConnection.connection(alertMessage:) – requesting new connection")
+        /* Fix trace: trace(message: "NFCSmartCardConnection.connection(alertMessage:) – requesting new connection") */
         let tag = try await NFCConnectionManagerWrapper.shared.connect(message: message)
-        trace(message: "NFCSmartCardConnection.connection(alertMessage:) – connection established")
+        /* Fix trace: trace(message: "NFCSmartCardConnection.connection(alertMessage:) – connection established") */
         return NFCSmartCardConnection(tag: tag)
     }
 
@@ -95,7 +95,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Parameter message: The message to display while scanning.
     // @TraceScope
     public func setAlertMessage(_ message: String) async {
-        trace(message: "NFCSmartCardConnection.setAlertMessage(:)")
+        /* Fix trace: trace(message: "NFCSmartCardConnection.setAlertMessage(:)") */
         await NFCConnectionManagerWrapper.shared.set(alertMessage: message)
     }
 
@@ -105,12 +105,12 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     // @TraceScope
     public func close(error: Error?) async {
         if let error = error {
-            trace(
+            /* Fix trace: trace(
                 message: "NFCSmartCardConnection.close(error:) – closing with error msg: \(String(describing: error))"
-            )
+            ) */
             await NFCConnectionManagerWrapper.shared.stop(with: .failure(error))
         } else {
-            trace(message: "NFCSmartCardConnection.close(error: nil) – closing with success")
+            /* Fix trace: trace(message: "NFCSmartCardConnection.close(error: nil) – closing with success") */
             await NFCConnectionManagerWrapper.shared.stop(with: .success(nil))
         }
     }
@@ -120,9 +120,9 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Parameter message: Optional success message to display when closing.
     // @TraceScope
     public func close(message: String? = nil) async {
-        trace(
+        /* Fix trace: trace(
             message: "NFCSmartCardConnection.close(message:) – closing with success msg: \(String(describing: message))"
-        )
+        ) */
         await NFCConnectionManagerWrapper.shared.stop(with: .success(message))
     }
 
@@ -131,16 +131,16 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Returns: An error if the connection was closed due to an error, nil otherwise.
     // @TraceScope
     public func waitUntilClosed() async -> Error? {
-        trace(message: "NFCSmartCardConnection.waitUntilClosed() – awaiting dismissal")
+        /* Fix trace: trace(message: "NFCSmartCardConnection.waitUntilClosed() – awaiting dismissal") */
         do {
             try await NFCConnectionManagerWrapper.shared.didClose(for: self)
         } catch {
-            trace(
+            /* Fix trace: trace(
                 message: "NFCSmartCardConnection.waitUntilClosed() – dismissed, error: \(String(describing: error))"
-            )
+            ) */
             return error
         }
-        trace(message: "NFCSmartCardConnection.waitUntilClosed() – dismissed")
+        /* Fix trace: trace(message: "NFCSmartCardConnection.waitUntilClosed() – dismissed") */
         return nil
     }
 
@@ -153,9 +153,9 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     ///           attached or ``SmartCardConnectionError.malformedData`` when `data`
     ///           is not a valid APDU.
     public func send(data: Data) async throws(SmartCardConnectionError) -> Data {
-        trace(message: "NFCSmartCardConnection.send(data:) – \(data.count) bytes")
+        /* Fix trace: trace(message: "NFCSmartCardConnection.send(data:) – \(data.count) bytes") */
         let response = try await NFCConnectionManagerWrapper.shared.transmit(request: data, for: self)
-        trace(message: "NFCSmartCardConnection.send(data:) – received \(response.count) bytes")
+        /* Fix trace: trace(message: "NFCSmartCardConnection.send(data:) – received \(response.count) bytes") */
         return response
     }
 
@@ -286,7 +286,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
     // @TraceScope
     func didClose(for connection: NFCSmartCardConnection, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
     {
-        trace(message: "Manager.didClose(for:) – tracking closure for tag \(connection.tag)")
+        /* Fix trace: trace(message: "Manager.didClose(for:) – tracking closure for tag \(connection.tag)") */
 
         switch currentState.phase {
         case .inactive, .scanning:
@@ -314,17 +314,17 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         for connection: NFCSmartCardConnection,
         completion: @escaping @Sendable (Result<Data, Error>) -> Void
     ) {
-        trace(message: "Manager.transmit – \(request.count) bytes to tag \(connection.tag)")
+        /* Fix trace: trace(message: "Manager.transmit – \(request.count) bytes to tag \(connection.tag)") */
         guard let tag = currentState.tag,
             connection.tag == .init(tag.identifier)
         else {
-            trace(message: "Manager.transmit – noConnection")
+            /* Fix trace: trace(message: "Manager.transmit – noConnection") */
             completion(.failure(SmartCardConnectionError.connectionLost))
             return
         }
 
         guard let apdu = NFCISO7816APDU(data: request) else {
-            trace(message: "Manager.transmit – malformed APDU")
+            /* Fix trace: trace(message: "Manager.transmit – malformed APDU") */
             completion(.failure(SmartCardConnectionError.malformedData("Invalid APDU format")))
             return
         }
@@ -333,9 +333,9 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             if let error = error {
                 completion(.failure(error))
             } else {
-                self.trace(
+                /* Fix trace: self.trace(
                     message: "Manager.transmit – got \(data.count) bytes, SW: \(String(format:"%02X%02X", sw1, sw2))"
-                )
+                ) */
                 completion(.success(data + sw1.data + sw2.data))
             }
         }
@@ -343,7 +343,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
 
     // @TraceScope
     func stop(with result: Result<String?, Error>, completion: @escaping @Sendable () -> Void) {
-        trace(message: "Manager.stop(with:) - result: \(String(describing: result))")
+        /* Fix trace: trace(message: "Manager.stop(with:) - result: \(String(describing: result))") */
 
         switch result {
         case let .failure(error):
@@ -363,9 +363,9 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         message alertMessage: String?,
         completion: @escaping @Sendable (Result<ISO7816Identifier, Error>) -> Void
     ) {
-        trace(message: "Manager.connect – begin")
+        /* Fix trace: trace(message: "Manager.connect – begin") */
         guard NFCReaderSession.readingAvailable else {
-            trace(message: "Manager.connect – unsupported")
+            /* Fix trace: trace(message: "Manager.connect – unsupported") */
             completion(.failure(SmartCardConnectionError.unsupported))
             return
         }
@@ -410,7 +410,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
 
     // @TraceScope
     func connected(session: NFCTagReaderSession, tag: NFCISO7816Tag) {
-        trace(message: "Manager.connected(session:tag:) - tag: \(String(describing: tag.identifier))")
+        /* Fix trace: trace(message: "Manager.connected(session:tag:) - tag: \(String(describing: tag.identifier))") */
 
         guard let connectionCompletion = currentState.connectionCompletion else {
             cleanup(session: session)
@@ -448,12 +448,12 @@ extension NFCConnectionManager: NFCTagReaderSessionDelegate, HasNFCLogger {
 
     // @TraceScope
     public func tagReaderSessionDidBecomeActive(_ session: NFCTagReaderSession) {
-        trace(message: "NFCTagReaderSessionDelegate: Session did become active")
+        /* Fix trace: trace(message: "NFCTagReaderSessionDelegate: Session did become active") */
     }
 
     // @TraceScope
     public func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
-        trace(message: "NFCTagReaderSessionDelegate: Session invalidated – \(error.localizedDescription)")
+        /* Fix trace: trace(message: "NFCTagReaderSessionDelegate: Session invalidated – \(error.localizedDescription)") */
 
         let nfcError = error as? NFCReaderError
 
@@ -470,14 +470,14 @@ extension NFCConnectionManager: NFCTagReaderSessionDelegate, HasNFCLogger {
 
     // @TraceScope
     public func tagReaderSession(_ session: NFCTagReaderSession, didDetect tags: [NFCTag]) {
-        trace(message: "NFCTagReaderSessionDelegate: Session didDetectTags – \(tags.count) tags")
+        /* Fix trace: trace(message: "NFCTagReaderSessionDelegate: Session didDetectTags – \(tags.count) tags") */
         let iso7816Tags = tags.compactMap { tag -> NFCISO7816Tag? in
             if case .iso7816(let iso7816Tag) = tag { return iso7816Tag }
             return nil
         }
 
         guard let firstTag = iso7816Tags.first else {
-            trace(message: "NFCTagReaderSessionDelegate: No ISO-7816 tag found")
+            /* Fix trace: trace(message: "NFCTagReaderSessionDelegate: No ISO-7816 tag found") */
             return
         }
 

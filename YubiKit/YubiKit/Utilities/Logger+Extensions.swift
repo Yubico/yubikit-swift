@@ -73,7 +73,7 @@ extension Logger {
     fileprivate static let scp = Logger(subsystem: subsystem, category: "SCP")
 
     static func export() async throws -> String {
-        Logger.system.info("Logger, export(): compiling logs.")
+        /* Fix trace: Logger.system.info("Logger, export(): compiling logs.") */
         let store = try OSLogStore(scope: .currentProcessIdentifier)
         let date = Date.now.addingTimeInterval(-48 * 3600)
         let position = store.position(date: date)
@@ -118,9 +118,9 @@ extension HasLogger {
     ) {
 
         let typeName = String(describing: type(of: self))
-        let label = "\(typeName).\(function)"
+        let _ = "\(typeName).\(function)"
 
-        logger.trace("\(label): \(message)")
+        /* Fix trace: logger.trace("\(label): \(message)") */
     }
 
     // instance helper
@@ -132,14 +132,14 @@ extension HasLogger {
     ) {
 
         let typeName = String(describing: type(of: self))
-        var label = "\(typeName).\(function)"
+        let _ = "\(typeName).\(function)"
 
         if let obj = self as AnyObject? {
             let ptr = Unmanaged.passUnretained(obj).toOpaque()
             let ptrStr = String(format: "0x%08x", UInt(bitPattern: ptr) & 0xFFFF_FFFF)
-            label = "\(typeName)[\(ptrStr)].\(function)"
+            _ = "\(typeName)[\(ptrStr)].\(function)"
         }
 
-        logger.trace("\(label): \(message)")
+        /* Fix trace: logger.trace("\(label): \(message)") */
     }
 }

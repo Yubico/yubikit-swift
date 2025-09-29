@@ -80,7 +80,7 @@ import OSLog
     /// TODO: multi-frame support, keepalive handling, continuation frames
     /* public */ func sendAndReceive(cmd: UInt8, payload: Data?) async throws -> Data {
 
-        trace(message: "sendAndReceive for cmd 0x\(String(format: "%02x", cmd))")
+        /* Fix trace: trace(message: "sendAndReceive for cmd 0x\(String(format: "%02x", cmd))") */
 
         // Build CTAP frame: CID(4) + CMD(1) + LEN(2) + DATA + padding
         let toSend = payload ?? Data()
@@ -110,11 +110,11 @@ import OSLog
 
         // Send command
         try await connection.send(packet)
-        trace(message: "Sent \(packet.count) bytes: \(packet.hexEncodedString)")
+        /* Fix trace: trace(message: "Sent \(packet.count) bytes: \(packet.hexEncodedString)") */
 
         // Wait for response
         let responsePacket = try await receiveTask.value
-        trace(message: "Got response: \(responsePacket.hexEncodedString)")
+        /* Fix trace: trace(message: "Got response: \(responsePacket.hexEncodedString)") */
 
         // HID reports are always 64 bytes
         guard responsePacket.count == 64 else {
@@ -162,7 +162,7 @@ import OSLog
         }
 
         _ = try await sendAndReceive(cmd: Self.CTAPHID_WINK, payload: nil)
-        trace(message: "WINK command completed successfully")
+        /* Fix trace: trace(message: "WINK command completed successfully") */
     }
 
     /// Check if the authenticator supports a capability
@@ -173,11 +173,11 @@ import OSLog
     // MARK: - Private Methods
 
     private func initialize() async throws {
-        trace(message: "Starting FIDO interface initialization...")
+        /* Fix trace: trace(message: "Starting FIDO interface initialization...") */
 
         // Generate random nonce for INIT
         let nonce = try generateRandomBytes(count: 8)
-        trace(message: "Generated nonce: \(nonce.hexEncodedString)")
+        /* Fix trace: trace(message: "Generated nonce: \(nonce.hexEncodedString)") */
 
         // Send INIT command and get response
         let response = try await sendAndReceive(cmd: Self.CTAPHID_INIT, payload: nonce)
@@ -205,13 +205,13 @@ import OSLog
         // Get capability flags
         self.capabilities = response[16]
 
-        trace(message: "INIT successful")
-        trace(message: "Assigned channel ID: 0x\(String(format: "%08x", self.channelId))")
-        trace(message: "Version: \(self.version)")
-        trace(message: "Capabilities: 0x\(String(format: "%02x", self.capabilities))")
+        /* Fix trace: trace(message: "INIT successful") */
+        /* Fix trace: trace(message: "Assigned channel ID: 0x\(String(format: "%08x", self.channelId))") */
+        /* Fix trace: trace(message: "Version: \(self.version)") */
+        /* Fix trace: trace(message: "Capabilities: 0x\(String(format: "%02x", self.capabilities))") */
 
         if (capabilities & Capability.WINK) != 0 {
-            trace(message: "Device supports WINK")
+            /* Fix trace: trace(message: "Device supports WINK") */
         }
     }
 

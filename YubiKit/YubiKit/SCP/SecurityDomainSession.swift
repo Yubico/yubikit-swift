@@ -415,7 +415,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
             throw .responseParseError("SCP key verification failed: response mismatch")
         }
 
-        trace(message: "SCP03 Key set imported")
+        /* Fix trace: trace(message: "SCP03 Key set imported") */
     }
 
     /// Imports a public key for SCP11a/c authentication of the off-card entity.
@@ -454,7 +454,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
             throw .responseParseError("SCP key store verification failed: KCV mismatch")
         }
 
-        trace(message: "SCP11 public key imported")
+        /* Fix trace: trace(message: "SCP11 public key imported") */
     }
 
     /// Imports a secret key for SCP11.
@@ -504,7 +504,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
             throw .responseParseError("SCP key deletion verification failed: KCV mismatch")
         }
 
-        trace(message: "SCP11 private key imported")
+        /* Fix trace: trace(message: "SCP11 private key imported") */
     }
 
     /// Perform a factory reset of the Security Domain.
@@ -562,7 +562,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
                 }
             }
         }
-        trace(message: "SCP keys reset")
+        /* Fix trace: trace(message: "SCP keys reset") */
     }
 
 }

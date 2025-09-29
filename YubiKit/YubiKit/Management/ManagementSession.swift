@@ -81,9 +81,9 @@ public final actor ManagementSession: SmartCardSession {
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
     ) async throws(ManagementSessionError) -> ManagementSession {
-        Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
+        /* Fix trace: Logger.management.debug("\(String(describing: self).lastComponent), \(#function)") */
         // Create a new ManagementSession
-        return try await ManagementSession(connection: connection, scpKeyParams: scpKeyParams)
+        try await ManagementSession(connection: connection, scpKeyParams: scpKeyParams)
     }
 
     /// Determines whether the session supports the specified feature.
@@ -97,7 +97,7 @@ public final actor ManagementSession: SmartCardSession {
     ///
     /// >Note: This functionality requires support for ``ManagementFeature/deviceInfo``, available on YubiKey 4.1 or later.
     public func getDeviceInfo() async throws(ManagementSessionError) -> DeviceInfo {
-        Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
+        /* Fix trace: Logger.management.debug("\(String(describing: self).lastComponent), \(#function)") */
         guard await self.supports(ManagementFeature.deviceInfo) else { throw .featureNotSupported() }
 
         var page: UInt8 = 0
@@ -111,9 +111,9 @@ public final actor ManagementSession: SmartCardSession {
             else {
                 throw .responseParseError("Failed to parse TLV data from device info")
             }
-            Logger.management.debug(
+            /* Fix trace: Logger.management.debug(
                 "\(String(describing: self).lastComponent), \(#function): page: \(page), data: \(data.hexEncodedString)"
-            )
+            ) */
             result.merge(tlvs) { (_, new) in new }
             hasMoreData = tlvs[0x10] != nil
             page += 1
@@ -138,7 +138,7 @@ public final actor ManagementSession: SmartCardSession {
         lockCode: Data? = nil,
         newLockCode: Data? = nil
     ) async throws(ManagementSessionError) {
-        Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
+        /* Fix trace: Logger.management.debug("\(String(describing: self).lastComponent), \(#function)") */
         guard await self.supports(ManagementFeature.deviceConfig) else { throw .featureNotSupported() }
 
         guard let data = config.data(reboot: reboot, lockCode: lockCode, newLockCode: newLockCode) else {
@@ -159,7 +159,7 @@ public final actor ManagementSession: SmartCardSession {
     }
 
     deinit {
-        Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
+        /* Fix trace: Logger.management.debug("\(String(describing: self).lastComponent), \(#function)") */
     }
 
 }
