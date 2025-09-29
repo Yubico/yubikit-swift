@@ -25,6 +25,7 @@ extension PIV.Slot {
         case .keyManagement: return "KEY MANAGEMENT"
         case .cardAuth: return "CARD AUTHENTICATION"
         case .attestation: return "ATTESTATION"
+        default: return "RETIRED"
         }
     }
 }

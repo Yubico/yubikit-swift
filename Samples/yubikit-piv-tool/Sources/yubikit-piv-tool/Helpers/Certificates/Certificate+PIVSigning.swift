@@ -58,7 +58,7 @@ extension ShieldX509.Certificate.Builder {
                     tbsData,
                     in: slot,
                     keyType: .ecc(curve),
-                    using: .digest(algorithm)
+                    using: .prehashed(algorithm)
                 )
             } catch {
                 handlePIVError(error)
