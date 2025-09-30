@@ -543,7 +543,7 @@ extension OATHSession {
             }
         } catch {
             let encryptionError = error as! EncryptionError
-            throw OATHSessionError.encryptionFailed("Unable to derive access key", error: encryptionError)
+            throw OATHSessionError.cryptoError("Unable to derive access key", error: encryptionError)
         }
         return derivedKey
     }

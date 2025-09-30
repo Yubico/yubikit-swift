@@ -56,7 +56,7 @@ extension SmartCardSession {
             do {
                 genCardCryptogram = try StaticKeys.deriveKey(key: sessionKeys.smac, t: 0x00, context: context, l: 0x40)
             } catch {
-                throw .encryptionFailed("Failed to derive card cryptogram", error: error)
+                throw .cryptoError("Failed to derive card cryptogram", error: error)
             }
 
             guard genCardCryptogram.constantTimeCompare(cardCryptogram) == true else {
@@ -67,7 +67,7 @@ extension SmartCardSession {
             do {
                 hostCryptogram = try StaticKeys.deriveKey(key: sessionKeys.smac, t: 0x01, context: context, l: 0x40)
             } catch {
-                throw .encryptionFailed("Failed to derive host cryptogram", error: error)
+                throw .cryptoError("Failed to derive host cryptogram", error: error)
             }
 
             let state = SCPState(sessionKeys: sessionKeys, macChain: Data(count: 16))
@@ -139,7 +139,7 @@ extension SmartCardSession {
             // Self.// trace(message: "pkSdEcka: \(pkSdEcka.uncompressedPoint.hexEncodedString)")
 
             guard let eskOceEcka = EC.PrivateKey.random(curve: .secp256r1) else {
-                throw .encryptionFailed("Failed to generate private key", error: nil)
+                throw .cryptoError("Failed to generate private key", error: nil)
             }
             let epkOceEcka = eskOceEcka.publicKey
 
@@ -197,7 +197,7 @@ extension SmartCardSession {
             guard let keyAgreement1 = eskOceEcka.sharedSecret(with: epkSdEcka),
                 let keyAgreement2 = skOceEcka.sharedSecret(with: pkSdEcka)
             else {
-                throw .encryptionFailed("Unable to generate shared secret", error: nil)
+                throw .cryptoError("Unable to generate shared secret", error: nil)
             }
             let keyMaterial = keyAgreement1 + keyAgreement2
 
@@ -217,7 +217,7 @@ extension SmartCardSession {
             do {
                 genReceipt = try keyAgreementData.aescmac(key: keys[0])
             } catch {
-                throw .encryptionFailed("Failed to generate receipt", error: error)
+                throw .cryptoError("Failed to generate receipt", error: error)
             }
 
             // Self.// trace(message: "receipt: \(receipt.hexEncodedString)")

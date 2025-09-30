@@ -621,7 +621,7 @@ public final actor PIVSession: SmartCardSession {
                 key: managementKey
             )
         } catch {
-            throw .encryptionFailed("Failed to decrypt witness", error: error)
+            throw .cryptoError("Failed to decrypt witness", error: error)
         }
         let decryptedWitnessRecord = TKBERTLVRecord(tag: tagAuthWitness, value: decryptedWitness)
         let challengeSent = Data.random(length: keyType.challengeLength)
@@ -652,7 +652,7 @@ public final actor PIVSession: SmartCardSession {
                 key: managementKey
             )
         } catch {
-            throw .encryptionFailed("Failed to decrypt challenge", error: error)
+            throw .cryptoError("Failed to decrypt challenge", error: error)
         }
         guard challengeSent == challengeReturned else {
             throw .authenticationFailed()

@@ -33,7 +33,7 @@ public struct SourceLocation: Sendable {
 /// Enforces common error cases that all sessions must handle.
 public protocol SessionError: Error, Sendable {
     /// Encryption or cryptographic operation failed.
-    static func encryptionFailed(
+    static func cryptoError(
         _ message: String,
         error: Error?,
         source: SourceLocation

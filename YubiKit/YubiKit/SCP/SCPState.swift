@@ -81,7 +81,7 @@ public actor SCPState: HasSCPLogger {
         do {
             rmac = try (macChain + message).aescmac(key: sessionKeys.srmac).prefix(8)
         } catch {
-            throw SCPError.encryptionFailed("Failed to verify MAC", error: error)
+            throw SCPError.cryptoError("Failed to verify MAC", error: error)
         }
 
         guard rmac.constantTimeCompare(data.suffix(8)) else {

@@ -43,7 +43,7 @@ extension SmartCardSessionError {
     }
 
     @inline(__always)
-    static func encryptionFailed(
+    static func cryptoError(
         _ message: String,
         error: Error? = nil,
         file: String = #file,
@@ -51,7 +51,7 @@ extension SmartCardSessionError {
         line: Int = #line,
         column: Int = #column
     ) -> Self {
-        .encryptionFailed(
+        .cryptoError(
             message,
             error: error,
             source: SourceLocation(file: file, function: function, line: line, column: column)

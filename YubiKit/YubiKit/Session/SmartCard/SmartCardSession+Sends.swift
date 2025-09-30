@@ -101,7 +101,7 @@ extension SmartCardSession {
             do {
                 data = try await scpState.encrypt(apdu.command ?? Data())
             } catch {
-                throw .encryptionFailed("Failed to encrypt APDU command", error: error)
+                throw .cryptoError("Failed to encrypt APDU command", error: error)
             }
         } else {
             data = apdu.command ?? Data()
@@ -121,7 +121,7 @@ extension SmartCardSession {
                 ).data.dropLast(8)
             )
         } catch {
-            throw .encryptionFailed("Failed to calculate MAC", error: error)
+            throw .cryptoError("Failed to calculate MAC", error: error)
         }
 
         let apdu = APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac, type: .extended)
@@ -138,7 +138,7 @@ extension SmartCardSession {
             do {
                 result = try await scpState.decrypt(result)
             } catch {
-                throw .encryptionFailed("Failed to decrypt result", error: error)
+                throw .cryptoError("Failed to decrypt result", error: error)
             }
         }
 

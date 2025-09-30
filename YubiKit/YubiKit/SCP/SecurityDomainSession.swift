@@ -485,7 +485,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
             rawSecret = p256.rawRepresentation
             precondition(rawSecret.count == 32)
         } catch {
-            throw .encryptionFailed("Failed to generate P256 key pair", error: error)
+            throw .cryptoError("Failed to generate P256 key pair", error: error)
         }
 
         let currentDek = scpState.sessionKeys.dek!
@@ -575,7 +575,7 @@ extension Data {
         do {
             return try encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES), key: key, iv: iv)
         } catch {
-            throw SCPError.encryptionFailed("Failed to encrypt data with AES", error: error)
+            throw SCPError.cryptoError("Failed to encrypt data with AES", error: error)
         }
     }
 }

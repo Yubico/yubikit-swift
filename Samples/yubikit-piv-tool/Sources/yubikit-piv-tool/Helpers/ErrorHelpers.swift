@@ -97,7 +97,7 @@ func handlePIVError(_ error: PIVSessionError, context: String = "PIN") -> Never 
         message = "Connection error: \(connectionError.localizedDescription)"
     case .scpError(let scpError, _):
         message = "Secure channel error: \(scpError.localizedDescription)"
-    case .encryptionFailed(let encMessage, let error, _):
+    case .cryptoError(let encMessage, let error, _):
         if let error = error {
             message = "Encryption failed: \(encMessage) (\(error.localizedDescription))"
         } else {

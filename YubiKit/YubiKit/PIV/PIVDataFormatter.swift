@@ -36,20 +36,20 @@ internal enum PIVDataFormatter {
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
             let publicKey = SecKeyCopyPublicKey(privateKey)
         else {
-            throw .encryptionFailed(
+            throw .cryptoError(
                 "Failed to create RSA key pair for signing",
                 error: error?.takeRetainedValue()
             )
         }
         guard let signedData = SecKeyCreateSignature(privateKey, algorithm.secKeyAlgorithm, data as CFData, &error)
         else {
-            throw .encryptionFailed(
+            throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
                 error: error?.takeRetainedValue()
             )
         }
         guard let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionRaw, signedData, &error) else {
-            throw .encryptionFailed(
+            throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
                 error: error?.takeRetainedValue()
             )
@@ -130,7 +130,7 @@ internal enum PIVDataFormatter {
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
             let publicKey = SecKeyCopyPublicKey(privateKey)
         else {
-            throw .encryptionFailed(
+            throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
                 error: error?.takeRetainedValue()
             )
@@ -138,7 +138,7 @@ internal enum PIVDataFormatter {
         guard
             let encryptedData = SecKeyCreateEncryptedData(publicKey, algorithm.secKeyAlgorithm, data as CFData, &error)
         else {
-            throw .encryptionFailed(
+            throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
                 error: error?.takeRetainedValue()
             )
@@ -168,13 +168,13 @@ internal enum PIVDataFormatter {
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
             let publicKey = SecKeyCopyPublicKey(privateKey)
         else {
-            throw .encryptionFailed(
+            throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
                 error: error?.takeRetainedValue()
             )
         }
         guard let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionRaw, data as CFData, &error) else {
-            throw .encryptionFailed(
+            throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
                 error: error?.takeRetainedValue()
             )
@@ -182,7 +182,7 @@ internal enum PIVDataFormatter {
         guard
             let decryptedData = SecKeyCreateDecryptedData(privateKey, algorithm.secKeyAlgorithm, encryptedData, &error)
         else {
-            throw .encryptionFailed(
+            throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
                 error: error?.takeRetainedValue()
             )
@@ -213,13 +213,13 @@ internal enum PIVDataFormatter {
         guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
             let publicKey = SecKeyCopyPublicKey(privateKey)
         else {
-            throw .encryptionFailed(
+            throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
                 error: error?.takeRetainedValue()
             )
         }
         guard let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionRaw, data as CFData, &error) else {
-            throw .encryptionFailed(
+            throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
                 error: error?.takeRetainedValue()
             )
@@ -227,7 +227,7 @@ internal enum PIVDataFormatter {
         guard
             let decryptedData = SecKeyCreateDecryptedData(privateKey, algorithm.secKeyAlgorithm, encryptedData, &error)
         else {
-            throw .encryptionFailed(
+            throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
                 error: error?.takeRetainedValue()
             )
