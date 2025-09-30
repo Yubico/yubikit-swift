@@ -41,7 +41,7 @@ public struct SCP11KeyParams: SCPKeyParams, Sendable {
     ///   - oceKeyRef: The OCE key reference (required for SCP11a/c, must be nil for SCP11b).
     ///   - skOceEcka: The OCE private key for ECKA (required for SCP11a/c, must be nil for SCP11b).
     ///   - certificates: The certificate chain (required for SCP11a/c, must be empty for SCP11b).
-    /// - Throws: `SCPError.illegalArgument` if the parameters don't match the SCP11 variant requirements.
+    /// - Throws: ``SCPError/illegalArgument(_:source:)`` if the parameters don't match the SCP11 variant requirements.
     public init(
         keyRef: SCPKeyRef,
         pkSdEcka: EC.PublicKey,

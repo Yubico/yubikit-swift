@@ -44,7 +44,7 @@ struct PIVFullStackTests {
         try await withPIVSession(authenticated: true) { session in
             let publicKey = try await session.generateKey(
                 in: .signature,
-                type: .ecc(.secp256r1)
+                type: .ec(.secp256r1)
             )
 
             guard case let .ec(ecPublicKey) = publicKey else {
@@ -56,7 +56,7 @@ struct PIVFullStackTests {
             let signature = try await session.sign(
                 testMessage,
                 in: .signature,
-                keyType: PIV.ECCKey.ecc(.secp256r1),
+                keyType: PIV.ECKey.ec(.secp256r1),
                 using: .hash(.sha256)
             )
 
@@ -74,7 +74,7 @@ struct PIVFullStackTests {
         try await withPIVSession(authenticated: true) { session in
             let publicKey = try await session.generateKey(
                 in: .signature,
-                type: .ecc(.secp256r1)
+                type: .ec(.secp256r1)
             )
 
             guard case let .ec(ecPublicKey) = publicKey else {
@@ -89,7 +89,7 @@ struct PIVFullStackTests {
             let signature = try await session.sign(
                 digestData,
                 in: .signature,
-                keyType: PIV.ECCKey.ecc(.secp256r1),
+                keyType: PIV.ECKey.ec(.secp256r1),
                 using: .prehashed(.sha256)
             )
 
@@ -176,7 +176,7 @@ struct PIVFullStackTests {
         try await withPIVSession(authenticated: true) { session in
             let publicKey = try await session.generateKey(
                 in: .signature,
-                type: .ecc(curve)
+                type: .ec(curve)
             )
 
             guard case let .ec(yubiKeyPublicKey) = publicKey else {
@@ -284,7 +284,7 @@ struct PIVFullStackTests {
     }
 
     @Test("Import ECC Keys", .tags(.pivKeyManagement), arguments: [EC.Curve.secp256r1, .secp384r1])
-    func putECCKeys(curve: EC.Curve) async throws {
+    func putECKeys(curve: EC.Curve) async throws {
         try await withPIVSession(authenticated: true) { session in
             let privateKey = try #require(EC.PrivateKey.random(curve: curve))
             let publicKey = privateKey.publicKey
@@ -295,13 +295,13 @@ struct PIVFullStackTests {
                 pinPolicy: .always,
                 touchPolicy: .never
             )
-            #expect(keyType == PIV.ECCKey.ecc(curve))
+            #expect(keyType == PIV.ECKey.ec(curve))
 
             try await session.verifyPin(defaultPIN)
             let signature = try await session.sign(
                 testMessage,
                 in: .signature,
-                keyType: .ecc(curve),
+                keyType: .ec(curve),
                 using: .hash(.sha256)
             )
 
@@ -429,11 +429,11 @@ struct PIVFullStackTests {
     }
 
     @Test("Generate ECC Keys", .tags(.pivKeyManagement), arguments: [EC.Curve.secp256r1, .secp384r1])
-    func generateECCKey(curve: EC.Curve) async throws {
+    func generateECKey(curve: EC.Curve) async throws {
         try await withPIVSession(authenticated: true) { session in
             let result = try await session.generateKey(
                 in: .signature,
-                type: .ecc(curve),
+                type: .ec(curve),
                 pinPolicy: .always,
                 touchPolicy: .cached
             )
@@ -764,12 +764,12 @@ struct PIVFullStackTests {
 
             var publicKey = try await session.generateKey(
                 in: .authentication,
-                type: .ecc(.secp256r1),
+                type: .ec(.secp256r1),
                 pinPolicy: .always,
                 touchPolicy: .always
             )
             var metadata = try await session.getMetadata(in: .authentication)
-            #expect(metadata.keyType == .ecc(.secp256r1))
+            #expect(metadata.keyType == .ec(.secp256r1))
             #expect(metadata.pinPolicy == .always)
             #expect(metadata.touchPolicy == .always)
             #expect(metadata.generated == true)
@@ -777,12 +777,12 @@ struct PIVFullStackTests {
 
             publicKey = try await session.generateKey(
                 in: .authentication,
-                type: .ecc(.secp384r1),
+                type: .ec(.secp384r1),
                 pinPolicy: .never,
                 touchPolicy: .never
             )
             metadata = try await session.getMetadata(in: .authentication)
-            #expect(metadata.keyType == .ecc(.secp384r1))
+            #expect(metadata.keyType == .ec(.secp384r1))
             #expect(metadata.pinPolicy == .never)
             #expect(metadata.touchPolicy == .never)
             #expect(metadata.generated == true)
@@ -790,12 +790,12 @@ struct PIVFullStackTests {
 
             publicKey = try await session.generateKey(
                 in: .authentication,
-                type: .ecc(.secp256r1),
+                type: .ec(.secp256r1),
                 pinPolicy: .once,
                 touchPolicy: .cached
             )
             metadata = try await session.getMetadata(in: .authentication)
-            #expect(metadata.keyType == .ecc(.secp256r1))
+            #expect(metadata.keyType == .ec(.secp256r1))
             #expect(metadata.pinPolicy == .once)
             #expect(metadata.touchPolicy == .cached)
             #expect(metadata.generated == true)
@@ -982,7 +982,7 @@ struct PIVFullStackTests {
             do {
                 _ = try await session.generateKey(
                     in: .signature,
-                    type: .ecc(.secp384r1),
+                    type: .ec(.secp384r1),
                     pinPolicy: .matchAlways,
                     touchPolicy: .defaultPolicy
                 )
@@ -994,7 +994,7 @@ struct PIVFullStackTests {
             do {
                 _ = try await session.generateKey(
                     in: .signature,
-                    type: .ecc(.secp384r1),
+                    type: .ec(.secp384r1),
                     pinPolicy: .matchOnce,
                     touchPolicy: .defaultPolicy
                 )

@@ -34,7 +34,7 @@ extension AlgorithmIdentifier {
         switch keyType {
         case .rsa:
             signatureAlgorithm = try AlgorithmIdentifier(digestAlgorithm: mapped, keyType: .rsa)
-        case .ecc:
+        case .ec:
             signatureAlgorithm = try AlgorithmIdentifier(digestAlgorithm: mapped, keyType: .ec)
         case .ed25519:
             // Ed25519 is not supported by Shield

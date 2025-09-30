@@ -16,7 +16,7 @@
 import Foundation
 import OSLog
 
-/// A connection to the YubiKey utilizing the USB-C port and the TKSmartCard implementation from
+/// A connection to the YubiKey utilizing the USB port and the TKSmartCard implementation from
 /// the CryptoTokenKit framework.
 @available(iOS 16.0, macOS 13.0, *)
 public struct USBSmartCardConnection: Sendable {

@@ -35,7 +35,7 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
     /// Creates a connection to a YubiKey via Lightning port.
     ///
     /// > Warning: Connections must be explicitly closed using ``close(error:)``.
-    /// Only one connection can exist at a time - attempting to create another will throw ``ConnectionError/busy``.
+    /// Only one connection can exist at a time - attempting to create another will throw ``SmartCardConnectionError/busy``.
     /// - Returns: A fully–established connection ready for APDU exchange.
     /// - Throws: ``SmartCardConnectionError.busy`` if there is already an active connection.
     public static func makeConnection() async throws(SmartCardConnectionError) -> LightningSmartCardConnection {

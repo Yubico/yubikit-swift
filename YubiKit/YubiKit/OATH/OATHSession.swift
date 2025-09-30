@@ -116,7 +116,7 @@ public final actor OATHSession: SmartCardSession {
     ///   - connection: The smart card connection to use for this session.
     ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
     /// - Returns: A new OATH session instance.
-    /// - Throws: An error if the OATH application cannot be selected or session creation fails.
+    /// - Throws: ``OATHSessionError`` if the OATH application cannot be selected or session creation fails.
     public static func makeSession(
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
@@ -202,7 +202,7 @@ public final actor OATHSession: SmartCardSession {
 
     /// Sends to the key an OATH Rename request to update issuer and account on an existing credential.
     ///
-    /// >Note: This functionality requires support for renaming, available on YubiKey 5.3 or later.
+    /// > Note: This functionality requires support for renaming, available on YubiKey 5.3 or later.
     ///
     /// - Parameters:
     ///   - credential: The credential to rename.
@@ -241,7 +241,7 @@ public final actor OATHSession: SmartCardSession {
 
     /// List credentials on YubiKey
     ///
-    /// >Note: The requires touch property of Credential will always be set to false when using `listCredentials()`. If you need this property use ``calculateCodes(timestamp:)`` instead.
+    /// > Note: The `requiresTouch` property of ``Credential`` will always be set to `false` when using `listCredentials()`. If you need this property use ``calculateCredentialCodes(timestamp:)`` instead.
     /// - Returns: An array of Credentials.
     public func listCredentials() async throws(OATHSessionError) -> [Credential] {
         /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)") */

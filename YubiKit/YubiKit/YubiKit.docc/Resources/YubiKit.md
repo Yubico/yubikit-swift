@@ -1,6 +1,6 @@
 # ``YubiKit``
 
-Connect and run commands on the different applications on a YubiKey. The framework support connecting using NFC, Lightning and USB-C.
+Connect and run commands on the different applications on a YubiKey. The framework support connecting using NFC, Lightning and USB.
 
 @Metadata {
     @PageImage(purpose: icon, 
@@ -20,7 +20,7 @@ creating connections and sending commands to the different applications on the Y
 ```swift
 let connection = try await NFCSmartCardConnection.makeConnection()
 let session = try await OATHSession.makeSession(connection: connection)
-let codes = try await session.calculateCodes()
+let codes = try await session.calculateCredentialCodes()
 ```
 
 ## Topics
@@ -59,7 +59,7 @@ For most use cases, it's recommended to use one of the provided Sessions instead
 ### Creating a Session
 
 The implementations of the ``Session`` protocol provides an interface to the different applications on a YubiKey.
-A Session is created by calling ``Session/session(connection:)`` providing the ``SmartCardConnection`` you want to use for
+A Session is created by calling ``Session/makeSession(connection:)`` providing the ``SmartCardConnection`` you want to use for
 communication with the YubiKey.
 
 - ``Session``

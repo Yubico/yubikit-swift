@@ -33,7 +33,7 @@ private func startWiredConnection() {
                 let newConnection = try await WiredSmartCardConnection.makeConnection()
                 wiredConnection = newConnection
 
-                // Wait for disconnection
+                // Wait for disconnect
                 let closeError = await newConnection.waitUntilClosed()
                 wiredConnection = nil
             } catch {
@@ -53,7 +53,7 @@ NFC connections work differently - they're initiated by user action and are shor
 ```swift
 func requestNFCConnection() async {
     do {
-        nfcConnection = try await NFCSmartCardConnection.makeConnection()
+        nfcConnection = try await NFCSmartCardConnection()
     } catch {
         self.error = error
     }
@@ -79,8 +79,7 @@ Once you have a connection, getting TOTP codes is straightforward:
 private func calculateCodes(using connection: SmartCardConnection) async {
     do {
         let session = try await OATHSession.makeSession(connection: connection)
-        let result = try await session.calculateCodes()
-
+        let result = try await session.calculateCredentialCodes()
         accounts = result.map { credential, code in
             Account(
                 label: credential.label,
@@ -95,7 +94,7 @@ private func calculateCodes(using connection: SmartCardConnection) async {
 }
 ```
 
-The `calculateCodes()` method returns a dictionary mapping credentials to their current codes. Some codes might be `nil` if they require touch or are password-protected.
+The `calculateCredentialCodes()` method returns a dictionary mapping credentials to their current codes. Some codes might be `nil` if they require touch or are password-protected.
 
 ### Getting Device Information
 
@@ -105,7 +104,7 @@ Use `ManagementSession` to get YubiKey information:
 private func getKeyVersion(using connection: SmartCardConnection) async {
     do {
         let session = try await ManagementSession.makeSession(connection: connection)
-        self.keyVersion = session.version.description
+        self.keyVersion = await session.version.description
     } catch {
         self.error = error
     }
@@ -153,23 +152,6 @@ The app handles iOS vs macOS differences with conditional compilation:
 ```
 
 iOS users can pull-to-refresh to scan with NFC, while macOS users only see USB options.
-
-### Error Handling in SwiftUI
-
-The sample shows how to handle different types of connection errors:
-
-```swift
-.onReceive(connectionManager.$error) { error in
-    switch error {
-    case .some(SmartCardConnectionError.cancelledByUser):
-        return  // Don't show error for user cancellation
-    default:
-        model.error = error
-    }
-}
-```
-
-This prevents showing errors when users intentionally cancel NFC scans.
 
 ### Connection Type Detection
 

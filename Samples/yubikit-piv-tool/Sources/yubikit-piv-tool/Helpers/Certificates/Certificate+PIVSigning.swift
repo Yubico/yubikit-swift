@@ -52,12 +52,12 @@ extension ShieldX509.Certificate.Builder {
             } catch {
                 handlePIVError(error)
             }
-        case let .ecc(curve):
+        case let .ec(curve):
             do {
                 signature = try await session.sign(
                     tbsData,
                     in: slot,
-                    keyType: .ecc(curve),
+                    keyType: .ec(curve),
                     using: .prehashed(algorithm)
                 )
             } catch {
