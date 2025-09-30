@@ -70,7 +70,7 @@ struct Generate: AsyncParsableCommand {
     var touchPolicy: String?
 
     func run() async throws {
-        let slotValue = try ParameterValidator.validateSlot(slot)
+        let slotValue = ParameterValidator.validateSlot(slot)
 
         let keyType: PIV.KeyType
         switch algorithm.uppercased() {
@@ -91,7 +91,7 @@ struct Generate: AsyncParsableCommand {
         case "X25519":
             keyType = .x25519
         default:
-            throw PIVToolError.invalidKeyType(keyType: algorithm)
+            exitWithError("Invalid key type: \(algorithm)")
         }
 
         let pinPol: PIV.PinPolicy
@@ -110,10 +110,8 @@ struct Generate: AsyncParsableCommand {
             case "MATCH-ALWAYS":
                 pinPol = .matchAlways
             default:
-                throw PIVToolError.invalidFormat(
-                    parameter: "pin-policy",
-                    expected: "DEFAULT, NEVER, ONCE, ALWAYS, MATCH-ONCE, MATCH-ALWAYS",
-                    actual: pinPolicy
+                exitWithError(
+                    "Invalid format for pin-policy.\n\tExpected: DEFAULT, NEVER, ONCE, ALWAYS, MATCH-ONCE, MATCH-ALWAYS.\n\tActual: \(pinPolicy)"
                 )
             }
         } else {
@@ -132,10 +130,8 @@ struct Generate: AsyncParsableCommand {
             case "CACHED":
                 touchPol = .cached
             default:
-                throw PIVToolError.invalidFormat(
-                    parameter: "touch-policy",
-                    expected: "DEFAULT, NEVER, ALWAYS, CACHED",
-                    actual: touchPolicy
+                exitWithError(
+                    "Invalid format for touch-policy.\n\tExpected: DEFAULT, NEVER, ALWAYS, CACHED.\n\tActual: \(touchPolicy)"
                 )
             }
         } else {
@@ -146,25 +142,23 @@ struct Generate: AsyncParsableCommand {
 
         // Authenticate with management key if provided
         if let managementKey = managementKey {
-            let mgmtKeyData = try ParameterValidator.validateManagementKey(managementKey)
-
-            do {
-                try await session.authenticate(with: mgmtKeyData)
-            } catch {
-                throw PIVToolError.managementKeyAuthenticationFailed
-            }
+            await session.authenticate(with: managementKey)
         }
 
         // Verify PIN if provided
         if let pin = pin {
-            let result = try await session.verifyPin(pin)
-            switch result {
-            case .success:
-                break
-            case let .fail(retries):
-                throw PIVToolError.pinVerificationFailed(retriesRemaining: retries)
-            case .pinLocked:
-                throw PIVToolError.pinBlocked
+            do {
+                let result = try await session.verifyPin(pin)
+                switch result {
+                case .success:
+                    break
+                case let .fail(retries):
+                    exitWithError("PIN verification failed - \(retries) tries left.")
+                case .pinLocked:
+                    exitWithError("PIN is blocked.")
+                }
+            } catch {
+                handlePIVError(error)
             }
         }
 
@@ -177,6 +171,8 @@ struct Generate: AsyncParsableCommand {
                 pinPolicy: pinPol,
                 touchPolicy: touchPol
             )
+        } catch {
+            handlePIVError(error)
         }
 
         // Export public key in requested format (PEM or DER)
@@ -189,7 +185,7 @@ struct Generate: AsyncParsableCommand {
                 do {
                     try pemString.write(toFile: publicKey, atomically: true, encoding: .utf8)
                 } catch {
-                    throw PIVToolError.fileWriteError(path: publicKey, reason: error.localizedDescription)
+                    exitWithError("Failed to write file \(publicKey): \(error.localizedDescription)")
                 }
             } else {
                 // Write to stdout
@@ -215,7 +211,7 @@ struct Generate: AsyncParsableCommand {
                 do {
                     try derData.write(to: URL(fileURLWithPath: publicKey))
                 } catch {
-                    throw PIVToolError.fileWriteError(path: publicKey, reason: error.localizedDescription)
+                    exitWithError("Failed to write file \(publicKey): \(error.localizedDescription)")
                 }
             } else {
                 // Write binary to stdout
@@ -223,7 +219,7 @@ struct Generate: AsyncParsableCommand {
             }
 
         default:
-            throw PIVToolError.invalidFormat(parameter: "format", expected: "PEM, DER", actual: format)
+            exitWithError("Invalid format for format.\n\tExpected: PEM, DER.\n\tActual: \(format)")
         }
     }
 }
@@ -238,7 +234,7 @@ struct KeyInfo: AsyncParsableCommand {
     var slot: String
 
     func run() async throws {
-        let slotValue = try ParameterValidator.validateSlot(slot)
+        let slotValue = ParameterValidator.validateSlot(slot)
 
         let session = try await PIVSession.shared()
 
@@ -247,7 +243,7 @@ struct KeyInfo: AsyncParsableCommand {
         do {
             metadata = try await session.getMetadata(in: slotValue)
         } catch {
-            throw PIVToolError.slotEmpty(slot: slot)
+            exitWithError("Slot \(slot) is empty.")
         }
 
         print("Algorithm: \(algorithmName(for: metadata.keyType))")
@@ -314,7 +310,7 @@ struct Attest: AsyncParsableCommand {
     var output: String?
 
     func run() async throws {
-        let slotValue = try ParameterValidator.validateSlot(slot)
+        let slotValue = ParameterValidator.validateSlot(slot)
 
         let session = try await PIVSession.shared()
 
@@ -323,7 +319,7 @@ struct Attest: AsyncParsableCommand {
         do {
             attestationCert = try await session.attestKey(in: slotValue)
         } catch {
-            throw PIVToolError.attestationNotSupported(slot: slot)
+            exitWithError("Attestation not supported for slot \(slot).")
         }
 
         // Convert attestation certificate to PEM format
@@ -335,7 +331,7 @@ struct Attest: AsyncParsableCommand {
             do {
                 try (pemString + "\n").write(toFile: output, atomically: true, encoding: .utf8)
             } catch {
-                throw PIVToolError.fileWriteError(path: output, reason: error.localizedDescription)
+                exitWithError("Failed to write file \(output): \(error.localizedDescription)")
             }
         } else {
             print(pemString)

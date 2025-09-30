@@ -28,6 +28,10 @@ import IOKit.hid
     case getDeviceFailed
     /// Failed to open HID device session
     case beginSessionFailed
+
+    case unexpectedResult
+    case noConnection
+    case busy
 }
 
 // Used to identify a device / connection.
@@ -181,7 +185,7 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
     func didClose(for locationID: Int) async throws -> Promise<Error?> {
         try await performAsync {
             guard let connectionState = self.openConnections[locationID] else {
-                throw ConnectionError.noConnection
+                throw HIDFIDOConnectionError.noConnection
             }
             return connectionState.didClose
         }
@@ -326,7 +330,7 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
         // Check if device is already connected
         if openConnections[device.locationID] != nil {
             trace(message: "device already connected – throwing .busy")
-            throw ConnectionError.busy
+            throw HIDFIDOConnectionError.busy
         }
 
         let allDevices = try allDevicesInternal()
@@ -401,11 +405,11 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
     private func sendPacketInternal(_ packet: Data, to locationID: Int) throws {
         guard packet.count <= hidPayloadSize else {
             trace(message: "packet too large: \(packet.count) > \(hidPayloadSize)")
-            throw ConnectionError.unexpectedResult
+            throw HIDFIDOConnectionError.unexpectedResult
         }
         guard let connectionState = openConnections[locationID] else {
             trace(message: "no connection – throwing .noConnection")
-            throw ConnectionError.noConnection
+            throw HIDFIDOConnectionError.noConnection
         }
         let dev = connectionState.device
 
@@ -422,13 +426,13 @@ private final class HIDFIDOConnectionManager: @unchecked Sendable, HasFIDOLogger
         }
         guard result == kIOReturnSuccess else {
             trace(message: "IOHIDDeviceSetReport failed with result: 0x\(String(format: "%08X", result))")
-            throw ConnectionError.unexpectedResult
+            throw HIDFIDOConnectionError.unexpectedResult
         }
     }
 
     private func receivePacketInternal(from locationID: Int) throws -> Promise<Data> {
         guard let connectionState = openConnections[locationID] else {
-            throw ConnectionError.noConnection
+            throw HIDFIDOConnectionError.noConnection
         }
 
         // Create a new promise for this receive operation

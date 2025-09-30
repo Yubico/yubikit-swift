@@ -191,7 +191,7 @@ let nfcConnection = try await NFCSmartCardConnection.connection(
 
 - **Exclusive access**: Only one connection can exist per YubiKey at any time
 - **Manual closure required**: Dropping a connection reference does NOT automatically close it - you must call `close()`
-- **Resource blocking**: An unclosed connection prevents new connections (throws `ConnectionError.busy`)
+- **Resource blocking**: An unclosed connection prevents new connections (throws `SmartCardConnectionError.busy`)
 
 Connections are value types that act as exclusive access tokens to the underlying hardware resource.
 

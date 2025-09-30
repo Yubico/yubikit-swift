@@ -30,7 +30,7 @@ public enum WiredSmartCardConnection: Sendable {
     /// ```swift
     /// let wiredConnection = try await WiredSmartCardConnection.makeConnection()
     /// ```
-    public static func makeConnection() async throws -> SmartCardConnection {
+    public static func makeConnection() async throws(SmartCardConnectionError) -> SmartCardConnection {
         try await SmartCardConnections.new(kind: .wired)
     }
 }
@@ -52,7 +52,9 @@ private enum SmartCardConnections {
         #endif
     }
 
-    fileprivate static func new(kind: SmartCardConnections.Kind) async throws -> SmartCardConnection {
+    fileprivate static func new(
+        kind: SmartCardConnections.Kind
+    ) async throws(SmartCardConnectionError) -> SmartCardConnection {
         switch kind {
         case .usb:
             return try await USBSmartCardConnection()
@@ -69,51 +71,55 @@ private enum SmartCardConnections {
         }
     }
 
-    private static func wired() async throws -> SmartCardConnection {
-        let connection = try await withThrowingTaskGroup(of: SmartCardConnection.self) { group -> SmartCardConnection in
-            #if os(iOS)
-            if TargetDevice.hasLightningPort {
-                group.addTask {
-                    try await LightningSmartCardConnection()
+    private static func wired() async throws(SmartCardConnectionError) -> SmartCardConnection {
+        do {
+            return try await withThrowingTaskGroup(of: SmartCardConnection.self) { group -> SmartCardConnection in
+                #if os(iOS)
+                if TargetDevice.hasLightningPort {
+                    group.addTask {
+                        try await LightningSmartCardConnection()
+                    }
+                } else {
+                    group.addTask {
+                        try await USBSmartCardConnection()
+                    }
                 }
-            } else {
+                #else
                 group.addTask {
                     try await USBSmartCardConnection()
                 }
-            }
-            #else
-            group.addTask {
-                try await USBSmartCardConnection()
-            }
-            #endif
+                #endif
 
-            let result = try await group.next()!
-            group.cancelAll()
-            return result
-        }
-        return connection
+                let result = try await group.next()!
+                group.cancelAll()
+                return result
+            }
+        } catch { throw error as! SmartCardConnectionError }
     }
 
-    private static func any(nfcAlertMessage: String? = nil) async throws -> SmartCardConnection {
-        let connection = try await withThrowingTaskGroup(of: SmartCardConnection.self) { group -> SmartCardConnection in
-            #if os(iOS)
-            if TargetDevice.supportsNFC {
-                group.addTask {
-                    // wait for wired connected yubikeys to connect before starting NFC
-                    try await Task.sleep(for: .seconds(0.75))
-                    try Task.checkCancellation()
-                    return try await NFCSmartCardConnection(alertMessage: nfcAlertMessage)
+    private static func any(
+        nfcAlertMessage: String? = nil
+    ) async throws(SmartCardConnectionError) -> SmartCardConnection {
+        do {
+            return try await withThrowingTaskGroup(of: SmartCardConnection.self) { group -> SmartCardConnection in
+                #if os(iOS)
+                if TargetDevice.supportsNFC {
+                    group.addTask {
+                        // wait for wired connected yubikeys to connect before starting NFC
+                        try? await Task.sleep(for: .seconds(0.75))
+                        try? Task.checkCancellation()
+                        return try await NFCSmartCardConnection(alertMessage: nfcAlertMessage)
+                    }
                 }
-            }
-            #endif
-            group.addTask {
-                try await wired()
-            }
+                #endif
+                group.addTask {
+                    try await wired()
+                }
 
-            let result = try await group.next()!
-            group.cancelAll()
-            return result
-        }
-        return connection
+                let result = try await group.next()
+                group.cancelAll()
+                return result!
+            }
+        } catch { throw error as! SmartCardConnectionError }
     }
 }

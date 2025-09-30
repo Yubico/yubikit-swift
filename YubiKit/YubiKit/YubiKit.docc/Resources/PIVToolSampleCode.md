@@ -250,7 +250,7 @@ do {
     case .pinLocked:
         print("PIN is locked. Use PUK to unlock.")
     }
-} catch PIV.SessionError.authenticationFailed {
+} catch .authenticationFailed {
     print("Management key authentication required.")
 } catch {
     print("PIN verification error: \(error)")

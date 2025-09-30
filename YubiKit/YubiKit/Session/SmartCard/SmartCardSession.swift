@@ -19,6 +19,14 @@ import Foundation
 /// SmartCardSession extends ``Session`` to provide session creation with SmartCard connections,
 /// supporting communication over NFC, Lightning, and USB interfaces with optional secure channel encryption.
 public protocol SmartCardSession: Session {
+
+    associatedtype Error: SmartCardSessionError
+
+    static var application: Application { get }
+
+    var scpState: SCPState? { get }
+    var connection: SmartCardConnection { get }
+
     /// Creates a new session using the supplied connection.
     ///
     /// - Parameters:
@@ -29,5 +37,5 @@ public protocol SmartCardSession: Session {
     static func makeSession(
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams?
-    ) async throws -> Self
+    ) async throws(Self.Error) -> Self
 }

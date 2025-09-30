@@ -54,8 +54,6 @@ final class ConnectionManager: ObservableObject {
                         error = closeError
                     }
                 } catch {
-                    // Ignore cancellation errors
-                    if let _ = error as? CancellationError { return }
                     self.error = error
                 }
             }

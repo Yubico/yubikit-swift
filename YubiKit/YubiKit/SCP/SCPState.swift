@@ -15,11 +15,7 @@
 import CommonCrypto
 import Foundation
 
-struct SCPState: CustomDebugStringConvertible, HasSCPLogger {
-    var debugDescription: String {
-        "SCPState(sessionKeys: \(sessionKeys), macChain: \(macChain.hexEncodedString), encCounter: \(encCounter)"
-    }
-
+public actor SCPState: HasSCPLogger {
     let sessionKeys: SCPSessionKeys
     var macChain: Data
     var encCounter: UInt32 = 1
@@ -29,7 +25,7 @@ struct SCPState: CustomDebugStringConvertible, HasSCPLogger {
         self.macChain = macChain
     }
 
-    internal mutating func encrypt(_ data: Data) throws -> Data {
+    func encrypt(_ data: Data) throws(EncryptionError) -> Data {
         trace(message: "encrypt \(data.hexEncodedString) using \(self)")
 
         let paddedData = data.bitPadded()
@@ -40,7 +36,7 @@ struct SCPState: CustomDebugStringConvertible, HasSCPLogger {
         return try paddedData.encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES128), key: sessionKeys.senc, iv: iv)
     }
 
-    internal mutating func decrypt(_ data: Data) throws -> Data {
+    func decrypt(_ data: Data) throws(EncryptionError) -> Data {
         trace(message: "decrypt: \(data.hexEncodedString)")
 
         var ivData = Data()
@@ -59,7 +55,7 @@ struct SCPState: CustomDebugStringConvertible, HasSCPLogger {
         return unpadData(decrypted)!
     }
 
-    private func unpadData(_ data: Data) -> Data? {
+    func unpadData(_ data: Data) -> Data? {
         guard let lastNonZeroIndex = data.lastIndex(where: { $0 != 0x00 }) else {
             return nil  // The data is entirely zero or empty.
         }
@@ -72,18 +68,26 @@ struct SCPState: CustomDebugStringConvertible, HasSCPLogger {
         return nil  // Invalid padding scheme
     }
 
-    internal mutating func mac(data: Data) throws -> Data {
+    func mac(data: Data) throws(EncryptionError) -> Data {
         let message = macChain + data
         self.macChain = try message.aescmac(key: sessionKeys.smac)
         return macChain.prefix(8)
     }
 
-    internal mutating func unmac(data: Data, sw: UInt16) throws -> Data {
+    func unmac(data: Data, sw: UInt16) throws(SCPError) -> Data {
         let message = data.prefix(data.count - 8) + sw.bigEndian.data
-        let rmac = try (macChain + message).aescmac(key: sessionKeys.srmac).prefix(8)
-        guard rmac.constantTimeCompare(data.suffix(8)) else {
-            throw SCPError.unexpectedResponse("Wrong MAC")
+
+        let rmac: Data
+        do {
+            rmac = try (macChain + message).aescmac(key: sessionKeys.srmac).prefix(8)
+        } catch {
+            throw SCPError.cryptoError("Failed to verify MAC", error: error)
         }
+
+        guard rmac.constantTimeCompare(data.suffix(8)) else {
+            throw SCPError.responseParseError("Wrong MAC")
+        }
+
         return Data(message.prefix(message.count - 2))
     }
 }

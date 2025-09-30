@@ -16,44 +16,58 @@ import CryptoTokenKit
 import Foundation
 import OSLog
 
-/// Errors that can occur during ManagementSession operations.
-public enum ManagementSessionError: Error, Sendable {
-    /// Application is not supported on this YubiKey.
-    case applicationNotSupported
-    /// Unexpected configuration state.
-    case unexpectedYubiKeyConfigState
-    /// Unexpected data returned by YubiKey.
-    case unexpectedData
-    /// YubiKey did not return any data.
-    case missingData
-    /// Device configuration too large
-    case configTooLarge
-}
-
 /// An interface to the Management application on the YubiKey.
 ///
 /// Use the Management application to get information and configure a YubiKey.
 /// Read more about the Management application on the
 /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
 public final actor ManagementSession: SmartCardSession {
+    public static let application: Application = .management
 
+    public typealias Error = ManagementSessionError
     public typealias Feature = ManagementFeature
 
-    private let connection: SmartCardConnection
-    private let processor: SCPProcessor?
+    public let connection: SmartCardConnection
+    public let scpState: SCPState?
 
     /// The firmware version of the YubiKey.
     public let version: Version
 
-    private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws {
-        let result = try await connection.selectApplication(.management)
-        guard let version = Version(withManagementResult: result) else { throw ManagementSessionError.unexpectedData }
-        self.version = version
-        if let scpKeyParams {
-            processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
-        } else {
-            processor = nil
+    private init(
+        connection: SmartCardConnection,
+        scpKeyParams: SCPKeyParams? = nil
+    ) async throws(ManagementSessionError) {
+
+        // Select application
+        let result: Data
+        do {
+            result = try await Self.selectApplication(using: connection)
+        } catch {
+            guard case let .failedResponse(responseStatus, source: _) = error else {
+                throw error
+            }
+            switch responseStatus.status {
+            case .invalidInstruction, .fileNotFound:
+                throw .featureNotSupported()
+            default:
+                throw error
+            }
         }
+
+        // Set the version
+        if let version = Version(withManagementResult: result) {
+            self.version = version
+        } else {
+            throw .responseParseError("Failed to parse version from management response")
+        }
+
+        // Setup SCP if parameters provided
+        if let scpKeyParams {
+            scpState = try await Self.setupSCP(connection: connection, keyParams: scpKeyParams)
+        } else {
+            scpState = nil
+        }
+
         self.connection = connection
     }
 
@@ -66,11 +80,10 @@ public final actor ManagementSession: SmartCardSession {
     public static func makeSession(
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
-    ) async throws -> ManagementSession {
+    ) async throws(ManagementSessionError) -> ManagementSession {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
         // Create a new ManagementSession
-        let session = try await ManagementSession(connection: connection, scpKeyParams: scpKeyParams)
-        return session
+        return try await ManagementSession(connection: connection, scpKeyParams: scpKeyParams)
     }
 
     /// Determines whether the session supports the specified feature.
@@ -83,19 +96,20 @@ public final actor ManagementSession: SmartCardSession {
     /// Returns the DeviceInfo for the connected YubiKey.
     ///
     /// >Note: This functionality requires support for ``ManagementFeature/deviceInfo``, available on YubiKey 4.1 or later.
-    public func getDeviceInfo() async throws -> DeviceInfo {
+    public func getDeviceInfo() async throws(ManagementSessionError) -> DeviceInfo {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard await self.supports(ManagementFeature.deviceInfo) else { throw SessionError.notSupported }
+        guard await self.supports(ManagementFeature.deviceInfo) else { throw .featureNotSupported() }
 
         var page: UInt8 = 0
         var hasMoreData = true
         var result = [TKTLVTag: Data]()
         while hasMoreData {
             let apdu = APDU(cla: 0, ins: 0x1d, p1: page, p2: 0)
-            let data = try await send(apdu: apdu)
-            guard let count = data.bytes.first, count > 0 else { throw ManagementSessionError.missingData }
-            guard let tlvs = TKBERTLVRecord.dictionaryOfData(from: data.subdata(in: 1..<data.count)) else {
-                throw ManagementSessionError.unexpectedData
+            let data = try await process(apdu: apdu)
+            guard let count = data.bytes.first, count > 0,
+                let tlvs = TKBERTLVRecord.dictionaryOfData(from: data.subdata(in: 1..<data.count))
+            else {
+                throw .responseParseError("Failed to parse TLV data from device info")
             }
             Logger.management.debug(
                 "\(String(describing: self).lastComponent), \(#function): page: \(page), data: \(data.hexEncodedString)"
@@ -105,7 +119,7 @@ public final actor ManagementSession: SmartCardSession {
             page += 1
         }
 
-        return try DeviceInfo(withTlvs: result, fallbackVersion: version)
+        return DeviceInfo(withTlvs: result, fallbackVersion: version)
     }
 
     /// Write device config to a YubiKey 5 or later.
@@ -123,36 +137,34 @@ public final actor ManagementSession: SmartCardSession {
         reboot: Bool,
         lockCode: Data? = nil,
         newLockCode: Data? = nil
-    ) async throws {
+    ) async throws(ManagementSessionError) {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard await self.supports(ManagementFeature.deviceConfig) else { throw SessionError.notSupported }
-        let data = try config.data(reboot: reboot, lockCode: lockCode, newLockCode: newLockCode)
+        guard await self.supports(ManagementFeature.deviceConfig) else { throw .featureNotSupported() }
+
+        guard let data = config.data(reboot: reboot, lockCode: lockCode, newLockCode: newLockCode) else {
+            throw .illegalArgument("Device configuration is too large (maximum 255 bytes)")
+        }
+
         let apdu = APDU(cla: 0, ins: 0x1c, p1: 0, p2: 0, command: data)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     /// Perform a device-wide reset in Bio Multi-protocol Edition devices.
     ///
     /// >Note: This functionality requires support for ``ManagementFeature/deviceReset``, available on YubiKey 5.6 or later.
-    public func resetDevice() async throws {
-        guard await self.supports(ManagementFeature.deviceReset) else { throw SessionError.notSupported }
+    public func resetDevice() async throws(ManagementSessionError) {
+        guard await self.supports(.deviceReset) else { throw .featureNotSupported() }
         let apdu = APDU(cla: 0, ins: 0x1f, p1: 0, p2: 0)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     deinit {
         Logger.management.debug("\(String(describing: self).lastComponent), \(#function)")
     }
 
-    @discardableResult
-    private func send(apdu: APDU) async throws -> Data {
-        if let processor {
-            return try await processor.send(apdu: apdu, using: connection)
-        } else {
-            return try await connection.send(apdu: apdu)
-        }
-    }
 }
+
+// MARK: - Private helpers
 
 extension Version {
     internal init?(withManagementResult data: Data) {

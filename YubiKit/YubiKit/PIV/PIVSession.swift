@@ -25,26 +25,50 @@ import OSLog
 /// X.509 certificates and managing access (PIN, PUK, etc).
 
 public final actor PIVSession: SmartCardSession {
+    public static let application: Application = .piv
 
+    public typealias Error = PIVSessionError
     public typealias Feature = PIVSessionFeature
 
     /// The firmware version of the connected YubiKey.
     public let version: Version
 
-    private let connection: SmartCardConnection
-    private let processor: SCPProcessor?
+    public let connection: SmartCardConnection
+    public let scpState: SCPState?
 
-    private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws {
-        try await connection.selectApplication(.piv)
+    private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws(PIVSessionError) {
+
+        // Select application
+        do {
+            try await Self.selectApplication(using: connection)
+        } catch {
+            guard case let .failedResponse(responseStatus, _) = error else {
+                throw error
+            }
+            switch responseStatus.status {
+            case .invalidInstruction, .fileNotFound:
+                throw .featureNotSupported()
+            default:
+                throw error
+            }
+        }
+
         let versionApdu = APDU(cla: 0, ins: 0xfd, p1: 0, p2: 0)
-        guard let version = try await Version(withData: connection.send(apdu: versionApdu)) else {
-            throw PIV.SessionError.dataParseError
+
+        let data = try await Self.send(
+            apdu: versionApdu,
+            using: connection,
+            insSendRemaining: nil
+        )
+        guard let version = Version(withData: data) else {
+            throw PIVSessionError.responseParseError("Failed to parse version from PIV application response")
         }
         self.version = version
+
         if let scpKeyParams {
-            processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
+            scpState = try await PIVSession.setupSCP(connection: connection, keyParams: scpKeyParams)
         } else {
-            processor = nil
+            scpState = nil
         }
         self.connection = connection
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: version))")
@@ -60,7 +84,7 @@ public final actor PIVSession: SmartCardSession {
     public static func makeSession(
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
-    ) async throws -> PIVSession {
+    ) async throws(PIVSessionError) -> PIVSession {
         // Return new PIVSession
         try await PIVSession(connection: connection, scpKeyParams: scpKeyParams)
     }
@@ -85,7 +109,7 @@ public final actor PIVSession: SmartCardSession {
         in slot: PIV.Slot,
         keyType: PIV.RSAKey,
         using algorithm: PIV.RSASignatureAlgorithm
-    ) async throws -> Data {
+    ) async throws(PIVSessionError) -> Data {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
 
         let signature = try PIVDataFormatter.prepareDataForRSASigning(
@@ -114,7 +138,7 @@ public final actor PIVSession: SmartCardSession {
         in slot: PIV.Slot,
         keyType: PIV.ECCKey,
         using algorithm: PIV.ECDSASignatureAlgorithm
-    ) async throws -> Data {
+    ) async throws(PIVSessionError) -> Data {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
 
         let signature = PIVDataFormatter.prepareDataForECDSASigning(
@@ -141,7 +165,7 @@ public final actor PIVSession: SmartCardSession {
         _ message: Data,
         in slot: PIV.Slot,
         keyType: PIV.Ed25519Key
-    ) async throws -> Data {
+    ) async throws(PIVSessionError) -> Data {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
 
         return try await usePrivateKeyInSlot(slot: slot, keyType: .ed25519, message: message, exponentiation: false)
@@ -157,10 +181,10 @@ public final actor PIVSession: SmartCardSession {
         _ data: Data,
         in slot: PIV.Slot,
         using algorithm: PIV.RSAEncryptionAlgorithm
-    ) async throws -> Data {
+    ) async throws(PIVSessionError) -> Data {
         let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
         guard let rsaKey = validTypes.first(where: { $0.keysize.byteCount == data.count }) else {
-            throw PIV.SessionError.invalidDataSize
+            throw .invalidDataSize()
         }
         let result = try await usePrivateKeyInSlot(
             slot: slot,
@@ -176,8 +200,10 @@ public final actor PIVSession: SmartCardSession {
     ///   - slot: The slot containing the private EC key to use.
     ///   - peerKey: The peer public key for the operation.
     /// - Returns: The shared secret.
-    public func deriveSharedSecret(in slot: PIV.Slot, with peerKey: EC.PublicKey) async throws -> Data {
-
+    public func deriveSharedSecret(
+        in slot: PIV.Slot,
+        with peerKey: EC.PublicKey
+    ) async throws(PIVSessionError) -> Data {
         try await usePrivateKeyInSlot(
             slot: slot,
             keyType: .ecc(peerKey.curve),
@@ -191,7 +217,10 @@ public final actor PIVSession: SmartCardSession {
     ///   - slot: The slot containing the private X25519 key to use.
     ///   - peerKey: The peer public key for the operation.
     /// - Returns: The shared secret.
-    public func deriveSharedSecret(in slot: PIV.Slot, with peerKey: X25519.PublicKey) async throws -> Data {
+    public func deriveSharedSecret(
+        in slot: PIV.Slot,
+        with peerKey: X25519.PublicKey
+    ) async throws(PIVSessionError) -> Data {
 
         try await usePrivateKeyInSlot(
             slot: slot,
@@ -215,11 +244,11 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// - Parameter slot: The slot containing the private key to use.
     /// - Returns: The attestation certificate.
-    public func attestKey(in slot: PIV.Slot) async throws -> X509Cert {
+    public func attestKey(in slot: PIV.Slot) async throws(PIVSessionError) -> X509Cert {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard await self.supports(PIVSessionFeature.attestation) else { throw SessionError.notSupported }
+        guard await self.supports(PIVSessionFeature.attestation) else { throw .featureNotSupported() }
         let apdu = APDU(cla: 0, ins: insAttest, p1: slot.rawValue, p2: 0)
-        let result = try await send(apdu: apdu)
+        let result = try await process(apdu: apdu)
         return X509Cert(der: result)
     }
 
@@ -245,7 +274,7 @@ public final actor PIVSession: SmartCardSession {
         type: PIV.KeyType,
         pinPolicy: PIV.PinPolicy = .defaultPolicy,
         touchPolicy: PIV.TouchPolicy = .`defaultPolicy`
-    ) async throws -> PublicKey {
+    ) async throws(PIVSessionError) -> PublicKey {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await checkKeyFeatures(keyType: type, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: true)
         let records: [TKBERTLVRecord] = [
@@ -256,10 +285,10 @@ public final actor PIVSession: SmartCardSession {
         ].compactMap { $0 }
         let tlvContainer = TKBERTLVRecord(tag: 0xac, records: records)
         let apdu = APDU(cla: 0, ins: insGenerateAsymetric, p1: 0, p2: slot.rawValue, command: tlvContainer.data)
-        let result = try await send(apdu: apdu)
+        let result = try await process(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
             let record = records.recordWithTag(0x7F49)
-        else { throw PIV.SessionError.invalidResponse }
+        else { throw .responseParseError("Missing required TLV record for attestation") }
         return try publicKey(from: record.value, type: type)
     }
 
@@ -283,7 +312,7 @@ public final actor PIVSession: SmartCardSession {
         in slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
-    ) async throws -> PIV.RSAKey {
+    ) async throws(PIVSessionError) -> PIV.RSAKey {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let rsaKeyType = PIV.RSAKey.rsa(key.size)
         let keyType = PIV.KeyType.rsa(key.size)
@@ -331,7 +360,7 @@ public final actor PIVSession: SmartCardSession {
         in slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
-    ) async throws -> PIV.ECCKey {
+    ) async throws(PIVSessionError) -> PIV.ECCKey {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let eccKeyType = PIV.ECCKey.ecc(key.curve)
         let keyType = PIV.KeyType.ecc(key.curve)
@@ -366,7 +395,7 @@ public final actor PIVSession: SmartCardSession {
         in slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
-    ) async throws -> PIV.Ed25519Key {
+    ) async throws(PIVSessionError) -> PIV.Ed25519Key {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let ed25519KeyType = PIV.Ed25519Key.ed25519
         let keyType = PIV.KeyType.ed25519
@@ -401,7 +430,7 @@ public final actor PIVSession: SmartCardSession {
         in slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
-    ) async throws -> PIV.X25519Key {
+    ) async throws(PIVSessionError) -> PIV.X25519Key {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let x25519KeyType = PIV.X25519Key.x25519
         let keyType = PIV.KeyType.x25519
@@ -422,24 +451,26 @@ public final actor PIVSession: SmartCardSession {
     /// - Parameters:
     ///   - sourceSlot: Slot to move the key from.
     ///   - destinationSlot: Slot to move the key to.
-    public func moveKey(from sourceSlot: PIV.Slot, to destinationSlot: PIV.Slot) async throws {
-        guard await self.supports(PIVSessionFeature.moveDelete) else { throw SessionError.notSupported }
-        guard sourceSlot != PIV.Slot.attestation else { throw SessionError.illegalArgument }
+    public func moveKey(from sourceSlot: PIV.Slot, to destinationSlot: PIV.Slot) async throws(PIVSessionError) {
+        guard await self.supports(PIVSessionFeature.moveDelete) else { throw .featureNotSupported() }
+        guard sourceSlot != PIV.Slot.attestation else {
+            throw .illegalArgument("Cannot use attestation slot as source")
+        }
         Logger.piv.debug(
             "Move key from \(String(describing: sourceSlot)) to \(String(describing: destinationSlot)), \(#function)"
         )
         let apdu = APDU(cla: 0, ins: insMoveKey, p1: destinationSlot.rawValue, p2: sourceSlot.rawValue)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     /// Delete key from slot. This method requires authentication with the management key.
     ///
     /// - Parameter slot: Slot to delete the key from.
-    public func deleteKey(in slot: PIV.Slot) async throws {
-        guard await self.supports(PIVSessionFeature.moveDelete) else { throw SessionError.notSupported }
+    public func deleteKey(in slot: PIV.Slot) async throws(PIVSessionError) {
+        guard await self.supports(PIVSessionFeature.moveDelete) else { throw .featureNotSupported() }
         Logger.piv.debug("Delete key in \(String(describing: slot)), \(#function)")
         let apdu = APDU(cla: 0, ins: insMoveKey, p1: 0xff, p2: slot.rawValue)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     /// Writes an X.509 certificate to a slot on the YubiKey.
@@ -456,11 +487,19 @@ public final actor PIVSession: SmartCardSession {
     ///   - certificate: Certificate to write.
     ///   - slot: The slot to write the certificate to.
     ///   - compressed: If true the certificate will be compressed before being stored on the YubiKey.
-    public func putCertificate(_ certificate: X509Cert, in slot: PIV.Slot, compressed: Bool = false) async throws {
+    public func putCertificate(
+        _ certificate: X509Cert,
+        in slot: PIV.Slot,
+        compressed: Bool = false
+    ) async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         var certData = certificate.der
         if compressed {
-            certData = try certData.gzipped()
+            do {
+                certData = try certData.gzipped()
+            } catch {
+                throw .gzip(error)
+            }
         }
         var data = Data()
         data.append(TKBERTLVRecord(tag: tagCertificate, value: certData).data)
@@ -473,23 +512,27 @@ public final actor PIVSession: SmartCardSession {
     /// Reads the X.509 certificate stored in the specified slot on the YubiKey.
     /// - Parameter slot: The slot where the certificate is stored.
     /// - Returns: The X.509 certificate.
-    public func getCertificate(in slot: PIV.Slot) async throws -> X509Cert {
+    public func getCertificate(in slot: PIV.Slot) async throws(PIVSessionError) -> X509Cert {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let command = TKBERTLVRecord(tag: tagObjectId, value: slot.objectId).data
         let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command, type: .extended)
-        let result = try await send(apdu: apdu)
+        let result = try await process(apdu: apdu)
 
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
             let objectData = records.recordWithTag(tagObjectData)?.value,
             let subRecords = TKBERTLVRecord.sequenceOfRecords(from: objectData),
             var certificateData = subRecords.recordWithTag(tagCertificate)?.value
-        else { throw PIV.SessionError.dataParseError }
+        else { throw .responseParseError("Failed to parse certificate data from object") }
 
         if let certificateInfo = subRecords.recordWithTag(tagCertificateInfo)?.value,
             !certificateInfo.isEmpty,
             certificateInfo.bytes[0] == 1
         {
-            certificateData = try certificateData.gunzipped()
+            do {
+                certificateData = try certificateData.gunzipped()
+            } catch {
+                throw .gzip(error)
+            }
         }
         return X509Cert(der: certificateData)
     }
@@ -501,7 +544,7 @@ public final actor PIVSession: SmartCardSession {
     /// >Note: This does NOT delete any corresponding private key.
     ///
     /// - Parameter slot: The slot where the certificate is stored.
-    public func deleteCertificate(in slot: PIV.Slot) async throws {
+    public func deleteCertificate(in slot: PIV.Slot) async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await putObject(Data(), objectId: slot.objectId)
     }
@@ -515,25 +558,25 @@ public final actor PIVSession: SmartCardSession {
         _ managementKeyData: Data,
         type: PIV.ManagementKeyType,
         requiresTouch: Bool
-    ) async throws {
+    ) async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         if requiresTouch {
-            guard await self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.usagePolicy) else { throw .featureNotSupported() }
         }
         if type == .tripleDES {
-            guard await self.supports(PIVSessionFeature.aesKey) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.aesKey) else { throw .featureNotSupported() }
         }
         let tlv = TKBERTLVRecord(tag: tagSlotCardManagement, value: managementKeyData)
         var data = Data([type.rawValue])
         data.append(tlv.data)
         let apdu = APDU(cla: 0, ins: insSetManagementKey, p1: 0xff, p2: requiresTouch ? 0xfe : 0xff, command: data)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     /// Authenticate with the Management Key.
     /// - Parameters:
     ///   - managementKey: The management key as Data.
-    public func authenticate(with managementKey: Data) async throws {
+    public func authenticate(with managementKey: Data) async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
 
         let keyType: PIV.ManagementKeyType
@@ -544,7 +587,7 @@ public final actor PIVSession: SmartCardSession {
             keyType = .tripleDES
         }
 
-        guard keyType.keyLength == managementKey.count else { throw PIV.SessionError.invalidKeyLength }
+        guard keyType.keyLength == managementKey.count else { throw .invalidKeyLength() }
 
         let ccAlgorithm =
             switch keyType {
@@ -564,17 +607,22 @@ public final actor PIVSession: SmartCardSession {
             command: command,
             type: .extended
         )
-        let witnessResult = try await send(apdu: witnessApdu)
+        let witnessResult = try await process(apdu: witnessApdu)
 
         guard let dynAuthRecord = TKBERTLVRecord(from: witnessResult),
             dynAuthRecord.tag == tagDynAuth,
             let witnessRecord = TKBERTLVRecord(from: dynAuthRecord.value),
             witnessRecord.tag == tagAuthWitness
-        else { throw PIV.SessionError.responseDataNotTLVFormatted }
-        let decryptedWitness = try witnessRecord.value.decrypt(
-            algorithm: ccAlgorithm,
-            key: managementKey
-        )
+        else { throw .responseParseError("Response data not in expected TLV format") }
+        let decryptedWitness: Data
+        do {
+            decryptedWitness = try witnessRecord.value.decrypt(
+                algorithm: ccAlgorithm,
+                key: managementKey
+            )
+        } catch {
+            throw .cryptoError("Failed to decrypt witness", error: error)
+        }
         let decryptedWitnessRecord = TKBERTLVRecord(tag: tagAuthWitness, value: decryptedWitness)
         let challengeSent = Data.random(length: keyType.challengeLength)
         let challengeRecord = TKBERTLVRecord(tag: tagChallenge, value: challengeSent)
@@ -590,31 +638,36 @@ public final actor PIVSession: SmartCardSession {
             command: authRecord.data,
             type: .extended
         )
-        let challengeResult = try await send(apdu: challengeApdu)
+        let challengeResult = try await process(apdu: challengeApdu)
 
         guard let dynAuthRecord = TKBERTLVRecord(from: challengeResult),
             dynAuthRecord.tag == tagDynAuth,
             let encryptedChallengeRecord = TKBERTLVRecord(from: dynAuthRecord.value),
             encryptedChallengeRecord.tag == tagAuthResponse
-        else { throw PIV.SessionError.responseDataNotTLVFormatted }
-        let challengeReturned = try encryptedChallengeRecord.value.decrypt(
-            algorithm: ccAlgorithm,
-            key: managementKey
-        )
+        else { throw .responseParseError("Response data not in expected TLV format") }
+        let challengeReturned: Data
+        do {
+            challengeReturned = try encryptedChallengeRecord.value.decrypt(
+                algorithm: ccAlgorithm,
+                key: managementKey
+            )
+        } catch {
+            throw .cryptoError("Failed to decrypt challenge", error: error)
+        }
         guard challengeSent == challengeReturned else {
-            throw PIV.SessionError.authenticationFailed
+            throw .authenticationFailed()
         }
     }
 
     /// Reads metadata about the private key stored in a slot.
     /// - Parameter slot: The slot to read metadata about.
     /// - Returns: The metadata for the slot.
-    public func getMetadata(in slot: PIV.Slot) async throws -> PIV.SlotMetadata {
+    public func getMetadata(in slot: PIV.Slot) async throws(PIVSessionError) -> PIV.SlotMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard await self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
-        let result = try await send(apdu: APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: slot.rawValue))
+        guard await self.supports(PIVSessionFeature.metadata) else { throw .featureNotSupported() }
+        let result = try await process(apdu: APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: slot.rawValue))
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result) else {
-            throw PIV.SessionError.dataParseError
+            throw .responseParseError("Failed to parse metadata TLV records")
         }
 
         guard let rawKeyType = records.recordWithTag(tagMetadataAlgorithm)?.value.bytes[0],
@@ -627,7 +680,7 @@ public final actor PIVSession: SmartCardSession {
 
             let publicKey = try? publicKey(from: publicKeyData, type: keyType)
 
-        else { throw PIV.SessionError.dataParseError }
+        else { throw .responseParseError("Failed to parse slot metadata") }
 
         return PIV.SlotMetadata(
             keyType: keyType,
@@ -640,21 +693,21 @@ public final actor PIVSession: SmartCardSession {
 
     /// Reads metadata about the card management key.
     /// - Returns: The metadata for the management key.
-    public func getManagementKeyMetadata() async throws -> PIV.ManagementKeyMetadata {
+    public func getManagementKeyMetadata() async throws(PIVSessionError) -> PIV.ManagementKeyMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard await self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
+        guard await self.supports(PIVSessionFeature.metadata) else { throw .featureNotSupported() }
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2SlotCardmanagement)
-        let result = try await send(apdu: apdu)
+        let result = try await process(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
             let isDefault = records.recordWithTag(tagMetadataIsDefault)?.value.bytes[0],
             let rawTouchPolicy = records.recordWithTag(tagMetadataPolicy)?.value.bytes[1],
             let touchPolicy = PIV.TouchPolicy(rawValue: rawTouchPolicy)
-        else { throw PIV.SessionError.responseDataNotTLVFormatted }
+        else { throw .responseParseError("Response data not in expected TLV format") }
 
         let keyType: PIV.ManagementKeyType
         if let rawKeyType = records.recordWithTag(tagMetadataAlgorithm)?.value.bytes[0] {
             guard let parsedKeyType = PIV.ManagementKeyType(rawValue: rawKeyType) else {
-                throw PIV.SessionError.unknownKeyType
+                throw .unknownKeyType(rawKeyType)
             }
             keyType = parsedKeyType
         } else {
@@ -664,12 +717,12 @@ public final actor PIVSession: SmartCardSession {
     }
 
     /// Resets the PIV application to just-installed state.
-    public func reset() async throws {
+    public func reset() async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await blockPin()
         try await blockPuk()
         let apdu = APDU(cla: 0, ins: insReset, p1: 0, p2: 0)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     /// Get the serial number of the YubiKey.
@@ -678,11 +731,11 @@ public final actor PIVSession: SmartCardSession {
     ///        This functionality requires support for feature serial, available on YubiKey 5 or later.
     ///
     /// - Returns: The serial number.
-    public func getSerialNumber() async throws -> UInt {
+    public func getSerialNumber() async throws(PIVSessionError) -> UInt {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard await self.supports(PIVSessionFeature.serialNumber) else { throw SessionError.notSupported }
+        guard await self.supports(PIVSessionFeature.serialNumber) else { throw .featureNotSupported() }
         let apdu = APDU(cla: 0, ins: insGetSerial, p1: 0, p2: 0)
-        let result = try await send(apdu: apdu)
+        let result = try await process(apdu: apdu)
         let serial = CFSwapInt32BigToHost(result.uint32)
         return UInt(serial)
     }
@@ -693,22 +746,22 @@ public final actor PIVSession: SmartCardSession {
     ///            blocked. Note that 15 is the highest number of retries left that will be returned even if
     ///            remaining tries is higher.
     @discardableResult
-    public func verifyPin(_ pin: String) async throws -> PIV.VerifyPinResult {
+    public func verifyPin(_ pin: String) async throws(PIVSessionError) -> PIV.VerifyPinResult {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard let pinData = pin.paddedPinData() else { throw SessionError.illegalArgument }
+        guard let pinData = pin.paddedPinData() else { throw .illegalArgument("Invalid PIN format") }
         let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: 0x80, command: pinData)
         do {
-            try await send(apdu: apdu)
+            try await process(apdu: apdu)
             return .success
         } catch {
-            guard let responseError = error as? ResponseError else { throw error }
-            let retriesLeft = retriesFrom(responseError: responseError)
+            guard case let .failedResponse(status, source: _) = error else { throw error }
+            let retriesLeft = retriesFrom(status)
             if retriesLeft > 0 {
                 return .fail(retriesLeft)
             } else if retriesLeft == 0 {
                 return .pinLocked
             } else {
-                throw error
+                throw .failedResponse(status)
             }
         }
     }
@@ -717,7 +770,7 @@ public final actor PIVSession: SmartCardSession {
     /// - Parameters:
     ///   - newPin: The new UTF8 encoded PIN.
     ///   - oldPin: Old PIN code. UTF8 encoded.
-    public func changePin(from oldPin: String, to newPin: String) async throws {
+    public func changePin(from oldPin: String, to newPin: String) async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await changeReference(ins: insChangeReference, p2: p2Pin, valueOne: oldPin, valueTwo: newPin)
     }
@@ -726,7 +779,7 @@ public final actor PIVSession: SmartCardSession {
     /// - Parameters:
     ///   - newPuk: The new UTF8 encoded PUK.
     ///   - oldPuk: Old PUK code. UTF8 encoded.
-    public func changePuk(from oldPuk: String, to newPuk: String) async throws {
+    public func changePuk(from oldPuk: String, to newPuk: String) async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await changeReference(ins: insChangeReference, p2: p2Puk, valueOne: oldPuk, valueTwo: newPuk)
     }
@@ -735,7 +788,7 @@ public final actor PIVSession: SmartCardSession {
     /// - Parameters:
     ///   - puk: The UTF8 encoded PUK.
     ///   - newPin: The new UTF8 encoded PIN.
-    public func unblockPin(with puk: String, newPin: String) async throws {
+    public func unblockPin(with puk: String, newPin: String) async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
     }
@@ -743,7 +796,7 @@ public final actor PIVSession: SmartCardSession {
     /// Reads metadata about the PIN, such as total number of retries, attempts left, and if the PIN has
     /// been changed from the default value.
     /// - Returns: The PIN metadata.
-    public func getPinMetadata() async throws -> PIV.PinPukMetadata {
+    public func getPinMetadata() async throws(PIVSessionError) -> PIV.PinPukMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await getPinPukMetadata(p2: p2Pin)
     }
@@ -751,7 +804,7 @@ public final actor PIVSession: SmartCardSession {
     /// Reads metadata about the PUK, such as total number of retries, attempts left, and if the PUK has
     /// been changed from the default value.
     /// - Returns: The PUK metadata.
-    public func getPukMetadata() async throws -> PIV.PinPukMetadata {
+    public func getPukMetadata() async throws(PIVSessionError) -> PIV.PinPukMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         return try await getPinPukMetadata(p2: p2Puk)
     }
@@ -763,21 +816,21 @@ public final actor PIVSession: SmartCardSession {
     /// - Parameters:
     ///   - pinAttempts: The number of attempts to allow for PIN entry before blocking the PIN.
     ///   - pukAttempts: The number of attempts to allow for PUK entry before blocking the PUK.
-    public func setRetries(pin pinAttempts: UInt8, puk pukAttempts: UInt8) async throws {
+    public func setRetries(pin pinAttempts: UInt8, puk pukAttempts: UInt8) async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let apdu = APDU(cla: 0, ins: insSetPinPukAttempts, p1: pinAttempts, p2: pukAttempts)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     /// Block the PIN by exhausting all retry attempts.
     ///
     /// This method repeatedly attempts PIN verification with invalid values until the PIN becomes locked.
     /// Primarily used for testing and resetting purposes.
-    public func blockPin() async throws {
+    public func blockPin() async throws(PIVSessionError) {
         try await blockPin(counter: 0)
     }
 
-    private func blockPin(counter: Int) async throws {
+    private func blockPin(counter: Int) async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         let result = try await verifyPin("")
         switch result {
@@ -794,15 +847,15 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// This method repeatedly attempts PUK verification with invalid values until the PUK becomes locked.
     /// Primarily used for testing and resetting purposes.
-    public func blockPuk() async throws {
+    public func blockPuk() async throws(PIVSessionError) {
         try await blockPuk(counter: 0)
     }
 
-    private func blockPuk(counter: Int) async throws {
+    private func blockPuk(counter: Int) async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         do {
             try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: "", valueTwo: "")
-        } catch let PIV.SessionError.invalidPin(retries) {
+        } catch let PIVSessionError.invalidPin(retries, _) {
             if retries <= 0 || counter > 15 {
                 return
             } else {
@@ -816,30 +869,20 @@ public final actor PIVSession: SmartCardSession {
     /// Reads metadata specific to YubiKey Bio multi-protocol.
     ///
     /// - Returns: Metadata about the key.
-    public func getBioMetadata() async throws -> PIV.BioMetadata {
+    public func getBioMetadata() async throws(PIVSessionError) -> PIV.BioMetadata {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        do {
-            let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: UInt8(tagSlotOCCAuth))
-            let data = try await send(apdu: apdu)
-            let records = TKBERTLVRecord.sequenceOfRecords(from: data)
-            guard let isConfigured = records?.recordWithTag(tagMetadataBioConfigured)?.value.integer,
-                let retries = records?.recordWithTag(tagMetadataRetries)?.value.integer,
-                let temporaryPin = records?.recordWithTag(tagMetadataTemporaryPIN)?.value.integer
-            else { throw PIV.SessionError.dataParseError }
-            return PIV.BioMetadata(
-                isConfigured: isConfigured == 1,
-                attemptsRemaining: retries,
-                temporaryPin: temporaryPin == 1
-            )
-        } catch {
-            if let responseError = error as? ResponseError,
-                responseError.responseStatus.status == .referencedDataNotFound
-            {
-                throw SessionError.notSupported
-            } else {
-                throw error
-            }
-        }
+        let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: UInt8(tagSlotOCCAuth))
+        let data = try await process(apdu: apdu)
+        let records = TKBERTLVRecord.sequenceOfRecords(from: data)
+        guard let isConfigured = records?.recordWithTag(tagMetadataBioConfigured)?.value.integer,
+            let retries = records?.recordWithTag(tagMetadataRetries)?.value.integer,
+            let temporaryPin = records?.recordWithTag(tagMetadataTemporaryPIN)?.value.integer
+        else { throw .responseParseError("Failed to parse bio metadata") }
+        return PIV.BioMetadata(
+            isConfigured: isConfigured == 1,
+            attemptsRemaining: retries,
+            temporaryPin: temporaryPin == 1
+        )
     }
 
     /// Authenticate with YubiKey Bio multi-protocol capabilities.
@@ -850,10 +893,10 @@ public final actor PIVSession: SmartCardSession {
     ///   - requestTemporaryPin: After successful match generate a temporary PIN.
     ///   - checkOnly: Check verification state of biometrics, don't perform UV.
     /// - Returns: Temporary PIN if requestTemporaryPin is true, otherwise nil.
-    public func verifyUV(requestTemporaryPin: Bool, checkOnly: Bool) async throws -> Data? {
+    public func verifyUV(requestTemporaryPin: Bool, checkOnly: Bool) async throws(PIVSessionError) -> Data? {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         if requestTemporaryPin && checkOnly {
-            throw SessionError.illegalArgument
+            throw .illegalArgument("Cannot request temporary PIN in check-only mode")
         }
         do {
             var data: Data? = nil
@@ -865,19 +908,20 @@ public final actor PIVSession: SmartCardSession {
                 }
             }
             let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: UInt8(tagSlotOCCAuth), command: data)
-            let response = try await send(apdu: apdu)
+            let response = try await process(apdu: apdu)
             return requestTemporaryPin ? response : nil
         } catch {
-            guard let responseError = error as? ResponseError else { throw error }
-            guard responseError.responseStatus.status != .referencedDataNotFound else {
-                throw SessionError.notSupported
-            }
-            let retries = retriesFrom(responseError: responseError)
+            guard case let .failedResponse(responseStatus, _) = error
+            else { throw error }
+
+            guard responseStatus.status != .referencedDataNotFound
+            else { throw PIVSessionError.featureNotSupported() }
+
+            let retries = retriesFrom(responseStatus)
             if retries >= 0 {
-                throw PIV.SessionError.invalidPin(retries)
+                throw PIVSessionError.invalidPin(retries)
             } else {
-                // Status code returned error, not number of retries
-                throw error
+                throw PIVSessionError.failedResponse(responseStatus)
             }
         }
     }
@@ -891,20 +935,22 @@ public final actor PIVSession: SmartCardSession {
     ///        not blocked for bio matching.
     ///
     /// - Parameter pin: Temporary PIN.
-    public func verify(temporaryPin pin: Data) async throws {
+    public func verify(temporaryPin pin: Data) async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
-        guard pin.count == temporaryPinLength else { throw SessionError.illegalArgument }
+        guard pin.count == temporaryPinLength else {
+            throw .illegalArgument("PIN must be \(temporaryPinLength) characters")
+        }
         do {
             let data = TKBERTLVRecord(tag: 0x01, value: pin).data
             let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: UInt8(tagSlotOCCAuth), command: data)
-            try await send(apdu: apdu)
-            return
+            try await process(apdu: apdu)
         } catch {
-            guard let responseError = error as? ResponseError else { throw error }
-            guard responseError.responseStatus.status != .referencedDataNotFound else {
-                throw SessionError.notSupported
+            guard case let .failedResponse(responseStatus, _) = error
+            else { throw error }
+            guard responseStatus.status != .referencedDataNotFound else {
+                throw .featureNotSupported()
             }
-            throw error
+            throw .failedResponse(responseStatus)
         }
     }
 }
@@ -917,7 +963,7 @@ extension PIVSession {
         slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
-    ) async throws {
+    ) async throws(PIVSessionError) {
         try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
 
         var data = keyData
@@ -936,7 +982,7 @@ extension PIVSession {
             command: data,
             type: .extended
         )
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     private func usePrivateKeyInSlot(
@@ -944,7 +990,7 @@ extension PIVSession {
         keyType: PIV.KeyType,
         message: Data,
         exponentiation: Bool
-    ) async throws -> Data {
+    ) async throws(PIVSessionError) -> Data {
         Logger.piv.debug(
             "\(String(describing: self).lastComponent), \(#function): slot: \(String(describing: slot)), type: \(String(describing: keyType)), message: \(message.hexEncodedString), exponentiation: \(exponentiation)"
         )
@@ -960,39 +1006,46 @@ extension PIVSession {
             command: command,
             type: .extended
         )
-        let resultData = try await send(apdu: apdu)
+        let resultData = try await process(apdu: apdu)
         guard let result = TKBERTLVRecord.init(from: resultData), result.tag == tagDynAuth else {
-            throw PIV.SessionError.responseDataNotTLVFormatted
+            throw .responseParseError("Failed to parse TLV or unexpected tag in authentication response")
         }
         guard let data = TKBERTLVRecord(from: result.value), data.tag == tagAuthResponse else {
-            throw PIV.SessionError.responseDataNotTLVFormatted
+            throw .responseParseError("Failed to parse TLV or unexpected tag in authentication data")
         }
         return data.value
     }
 
-    private func putObject(_ data: Data, objectId: Data) async throws {
+    private func putObject(_ data: Data, objectId: Data) async throws(PIVSessionError) {
         var command = Data()
         command.append(TKBERTLVRecord(tag: tagObjectId, value: objectId).data)
         command.append(TKBERTLVRecord(tag: tagObjectData, value: data).data)
         let apdu = APDU(cla: 0, ins: insPutData, p1: 0x3f, p2: 0xff, command: command, type: .extended)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
-    private func changeReference(ins: UInt8, p2: UInt8, valueOne: String, valueTwo: String) async throws {
+    private func changeReference(
+        ins: UInt8,
+        p2: UInt8,
+        valueOne: String,
+        valueTwo: String
+    ) async throws(PIVSessionError) {
         guard let paddedValueOne = valueOne.paddedPinData(), let paddedValueTwo = valueTwo.paddedPinData() else {
-            throw SessionError.illegalArgument
+            throw .illegalArgument("Invalid PIN/PUK format")
         }
         let data = paddedValueOne + paddedValueTwo
         let apdu = APDU(cla: 0, ins: ins, p1: 0, p2: p2, command: data)
         do {
-            try await send(apdu: apdu)
+            try await process(apdu: apdu)
         } catch {
-            guard let responseError = error as? ResponseError else { throw PIV.SessionError.invalidResponse }
-            let retries = retriesFrom(responseError: responseError)
-            if retries >= 0 {
-                throw PIV.SessionError.invalidPin(retries)
-            } else {
+            guard case let .failedResponse(responseStatus, _) = error else {
                 throw error
+            }
+            let retries = retriesFrom(responseStatus)
+            if retries >= 0 {
+                throw .invalidPin(retries)
+            } else {
+                throw .failedResponse(responseStatus)
             }
         }
     }
@@ -1002,41 +1055,41 @@ extension PIVSession {
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy,
         generateKey: Bool
-    ) async throws {
+    ) async throws(PIVSessionError) {
         Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)")
         if keyType == .ecc(.secp384r1) {
-            guard await self.supports(PIVSessionFeature.p384) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.p384) else { throw .featureNotSupported() }
         }
         if pinPolicy != .`defaultPolicy` || touchPolicy != .`defaultPolicy` {
-            guard await self.supports(PIVSessionFeature.usagePolicy) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.usagePolicy) else { throw .featureNotSupported() }
         }
         if pinPolicy == .matchAlways || pinPolicy == .matchOnce {
-            // This will throw SessionError.notSupported if the key is not a Bio key
+            // This will throw .featureNotSupported() if the key is not a Bio key
             _ = try await self.getBioMetadata()
         }
         if generateKey && (keyType == .rsa(.bits1024) || keyType == .rsa(.bits2048)) {
-            guard await self.supports(PIVSessionFeature.rsaGeneration) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.rsaGeneration) else { throw .featureNotSupported() }
         }
         if generateKey && (keyType == .rsa(.bits3072) || keyType == .rsa(.bits4096)) {
-            guard await self.supports(PIVSessionFeature.rsa3072and4096) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.rsa3072and4096) else { throw .featureNotSupported() }
         }
         if keyType == .ed25519 {
-            guard await self.supports(PIVSessionFeature.ed25519) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.ed25519) else { throw .featureNotSupported() }
         }
         if keyType == .x25519 {
-            guard await self.supports(PIVSessionFeature.x25519) else { throw SessionError.notSupported }
+            guard await self.supports(PIVSessionFeature.x25519) else { throw .featureNotSupported() }
         }
     }
 
-    private func getPinPukMetadata(p2: UInt8) async throws -> PIV.PinPukMetadata {
-        guard await self.supports(PIVSessionFeature.metadata) else { throw SessionError.notSupported }
+    private func getPinPukMetadata(p2: UInt8) async throws(PIVSessionError) -> PIV.PinPukMetadata {
+        guard await self.supports(PIVSessionFeature.metadata) else { throw .featureNotSupported() }
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2)
-        let result = try await send(apdu: apdu)
+        let result = try await process(apdu: apdu)
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
             let isDefault = records.recordWithTag(tagMetadataIsDefault)?.value.bytes[0],
             let retriesTotal = records.recordWithTag(tagMetadataRetries)?.value.bytes[0],
             let retriesRemaining = records.recordWithTag(tagMetadataRetries)?.value.bytes[1]
-        else { throw PIV.SessionError.responseDataNotTLVFormatted }
+        else { throw .responseParseError("Response data not in expected TLV format") }
 
         return PIV.PinPukMetadata(
             isDefault: isDefault != 0,
@@ -1045,32 +1098,23 @@ extension PIVSession {
         )
     }
 
-    private func retriesFrom(responseError: ResponseError) -> Int {
-        let statusCode = responseError.responseStatus
+    private func retriesFrom(_ responseStatus: ResponseStatus) -> Int {
 
-        if statusCode.rawStatus == 0x6983 {
+        if responseStatus.rawStatus == 0x6983 {
             return 0
         }
         if version < Version("1.0.4")! {
-            if statusCode.rawStatus >= 0x6300 && statusCode.rawStatus <= 0x63ff {
-                return Int(statusCode.rawStatus & 0xff)
+            if responseStatus.rawStatus >= 0x6300 && responseStatus.rawStatus <= 0x63ff {
+                return Int(responseStatus.rawStatus & 0xff)
             }
         } else {
-            if statusCode.rawStatus >= 0x63c0 && statusCode.rawStatus <= 0x63cf {
-                return Int(statusCode.rawStatus & 0xf)
+            if responseStatus.rawStatus >= 0x63c0 && responseStatus.rawStatus <= 0x63cf {
+                return Int(responseStatus.rawStatus & 0xf)
             }
         }
         return -1  // error
     }
 
-    @discardableResult
-    private func send(apdu: APDU) async throws -> Data {
-        if let processor {
-            return try await processor.send(apdu: apdu, using: connection)
-        } else {
-            return try await connection.send(apdu: apdu)
-        }
-    }
 }
 
 extension String {

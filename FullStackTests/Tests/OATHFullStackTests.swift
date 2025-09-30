@@ -152,7 +152,7 @@ class OATHFullStackTests: XCTestCase {
             do {
                 try await session.unlock(password: "abc123")
             } catch {
-                if case OATHSessionError.wrongPassword = error {
+                if case OATHSessionError.invalidPassword = error {
                     print("Got expected error: \(error)")
                 } else {
                     XCTFail("Got unexpected error: \(error)")
@@ -185,7 +185,7 @@ class OATHFullStackTests: XCTestCase {
                 XCTAssertEqual(renamedCredential.name, "New Name")
                 XCTAssertEqual(renamedCredential.issuer, "New Issuer")
             } catch {
-                guard let error = error as? SessionError, error == .notSupported else {
+                guard case OATHSessionError.featureNotSupported = error else {
                     XCTFail("Unexpected error: \(error)")
                     return
                 }
@@ -218,7 +218,7 @@ class OATHFullStackTests: XCTestCase {
                 XCTAssertEqual(renamedCredential.name, "New Name")
                 XCTAssertNil(renamedCredential.issuer)
             } catch {
-                guard let error = error as? SessionError, error == .notSupported else {
+                guard case OATHSessionError.featureNotSupported = error else {
                     XCTFail("Unexpected error: \(error)")
                     return
                 }
@@ -254,7 +254,7 @@ class OATHFullStackTests: XCTestCase {
                 XCTAssertEqual(credential.hashAlgorithm!, .sha512)
                 XCTAssertEqual(String(data: credential.id, encoding: .utf8), template.identifier)
             } catch {
-                guard let error = error as? SessionError, error == .notSupported else {
+                guard case OATHSessionError.featureNotSupported = error else {
                     XCTFail("Unexpected error: \(error)")
                     return
                 }
@@ -300,7 +300,7 @@ class OATHFullStackTests: XCTestCase {
                 XCTAssertNotNil(noTouchCredential.1)
                 XCTAssertFalse(noTouchCredential.0.requiresTouch)
             } catch {
-                guard let error = error as? SessionError, error == .notSupported else {
+                guard case OATHSessionError.featureNotSupported = error else {
                     XCTFail("Unexpected error: \(error)")
                     return
                 }

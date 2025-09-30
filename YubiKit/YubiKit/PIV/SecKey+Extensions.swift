@@ -16,21 +16,21 @@ import CryptoTokenKit
 import Foundation
 
 extension PIVSession {
-    func publicKey(from yubiKeyData: Data, type: PIV.KeyType) throws -> PublicKey {
+    func publicKey(from yubiKeyData: Data, type: PIV.KeyType) throws(PIVSessionError) -> PublicKey {
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: yubiKeyData) else {
-            throw PIV.SessionError.dataParseError
+            throw .dataProcessingError("Failed to create public key from data")
         }
 
         switch type {
         case let .ecc(curve):
             guard let keyData = records.recordWithTag(0x86)?.value else {
-                throw PIV.SessionError.invalidResponse
+                throw .responseParseError("Missing EC key data in TLV record")
             }
 
             guard let key = EC.PublicKey(uncompressedPoint: keyData, curve: curve),
                 key.curve == curve
             else {
-                throw PIV.SessionError.dataParseError
+                throw .dataProcessingError("Failed to create public key from data")
             }
 
             return .ec(key)
@@ -39,33 +39,33 @@ extension PIVSession {
             guard let modulus = records.recordWithTag(0x81)?.value,
                 let exponent = records.recordWithTag(0x82)?.value
             else {
-                throw PIV.SessionError.invalidResponse
+                throw .responseParseError("Missing RSA modulus or exponent in TLV records")
             }
 
             guard let key = RSA.PublicKey(n: modulus, e: exponent), key.size == keySize else {
-                throw PIV.SessionError.invalidKeyLength
+                throw .invalidKeyLength()
             }
 
             return .rsa(key)
 
         case .ed25519:
             guard let keyData = records.recordWithTag(0x86)?.value else {
-                throw PIV.SessionError.invalidResponse
+                throw .responseParseError("Missing Ed25519 key data in TLV record")
             }
 
             guard let key = Ed25519.PublicKey(keyData: keyData) else {
-                throw PIV.SessionError.dataParseError
+                throw .dataProcessingError("Failed to create public key from data")
             }
 
             return .ed25519(key)
 
         case .x25519:
             guard let keyData = records.recordWithTag(0x86)?.value else {
-                throw PIV.SessionError.invalidResponse
+                throw .responseParseError("Missing X25519 key data in TLV record")
             }
 
             guard let key = X25519.PublicKey(keyData: keyData) else {
-                throw PIV.SessionError.dataParseError
+                throw .dataProcessingError("Failed to create public key from data")
             }
 
             return .x25519(key)

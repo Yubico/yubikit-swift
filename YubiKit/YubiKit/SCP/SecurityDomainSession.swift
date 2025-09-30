@@ -18,25 +18,6 @@ import CryptoTokenKit
 import Foundation
 import OSLog
 
-/// Errors that can be emitted by ``SecurityDomainSession`` and helpers.
-///
-/// - unexpectedResponse: The card replied with unexpected data or status words.
-/// - illegalArgument: Caller supplied an invalid parameter.
-/// - notSupported: Requested operation isn't available in the current context.
-/// - encryptionFailed: AES‑CBC encryption failed (CommonCrypto).
-/// - wrapped: Wraps a lower‑level ``Error`` (e.g. CryptoTokenKit).
-public enum SCPError: Error, Sendable {
-    case unexpectedResponse(String?)
-    case illegalArgument(String?)
-    case notSupported(String?)
-    case encryptionFailed(String?)
-    case wrapped(Error)
-
-    static var unexpectedResponse: SCPError { .unexpectedResponse(nil) }
-    static var illegalArgument: SCPError { .illegalArgument(nil) }
-    static var notSupported: SCPError { .notSupported(nil) }
-}
-
 /// Session for the YubiKey **Security Domain** application.
 ///
 /// Provides async, high‑level helpers for key management, cert storage and
@@ -45,23 +26,25 @@ public enum SCPError: Error, Sendable {
 /// Create with ``makeSession(connection:scpKeyParams:)`` and call the instance
 /// methods as needed.
 public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLogger {
+    public static let application: Application = .securityDomain
 
     public typealias Feature = SecurityDomainFeature
+    public typealias Error = SCPError
 
-    private let connection: SmartCardConnection
-    private let processor: SCPProcessor?
+    public let connection: SmartCardConnection
+    public let scpState: SCPState?
 
     private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws(SCPError) {
         do {
-            try await connection.selectApplication(.securityDomain)
+            try await Self.selectApplication(using: connection)
             self.connection = connection
             if let scpKeyParams {
-                processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams)
+                scpState = try await Self.setupSCP(connection: connection, keyParams: scpKeyParams)
             } else {
-                processor = nil
+                scpState = nil
             }
         } catch {
-            throw .wrapped(error)
+            throw error
         }
     }
 
@@ -104,7 +87,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     /// - Returns: The data payload extracted from the successful APDU response.
     // @TraceScope
     public func getData(tag: UInt16, data: Data?) async throws(SCPError) -> Data {
-        try await send(
+        try await process(
             apdu: APDU(
                 cla: 0x00,
                 ins: 0xCA,
@@ -123,11 +106,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     // @TraceScope
     public func putData(_ data: Data) async throws(SCPError) {
-        do {
-            try await send(apdu: APDU(cla: 0x00, ins: 0xE2, p1: 0x90, p2: 0x00, command: data, type: .extended))
-        } catch {
-            throw .wrapped(error)
-        }
+        try await process(apdu: APDU(cla: 0x00, ins: 0xE2, p1: 0x90, p2: 0x00, command: data, type: .extended))
     }
 
     /// Retrieves the card‑recognition data (**tag 0x66**).
@@ -138,7 +117,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     public func getCardRecognitionData() async throws(SCPError) -> Data {
         let data = try await self.getData(tag: 0x66, data: nil)
         guard let tlv = TKBERTLVRecord(from: data), tlv.tag == 0x73 else {
-            throw .unexpectedResponse
+            throw .responseParseError("Malformed SCP response: expected tag 0x73")
         }
         return tlv.value
     }
@@ -152,31 +131,25 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     public func getKeyInformation() async throws(SCPError) -> [SCPKeyRef: [UInt8: UInt8]] {
         let tlvData: Data = try await self.getData(tag: 0xE0, data: nil)
         guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: tlvData) else {
-            throw SCPError.unexpectedResponse
+            throw SCPError.responseParseError("Malformed SCP key info response")
         }
         var keys = [SCPKeyRef: [UInt8: UInt8]]()
-        do {
-            try tlvs.forEach { tlv in
-                if tlv.tag == 0xC0 {
-                    var data = tlv.value
-                    guard let kid = data.extract(1)?.uint8, let kvn = data.extract(1)?.uint8 else {
-                        throw SCPError.unexpectedResponse
-                    }
-                    let keyRef = SCPKeyRef(kid: kid, kvn: kvn)
-                    var components: [UInt8: UInt8] = [:]
-                    while data.count >= 2 {
-                        guard let typeByte = data.extract(1)?.uint8, let versionByte = data.extract(1)?.uint8 else {
-                            throw SCPError.unexpectedResponse
-                        }
-                        components[typeByte] = versionByte
-                    }
-                    keys[keyRef] = components
+        for tlv in tlvs {
+            if tlv.tag == 0xC0 {
+                var data = tlv.value
+                guard let kid = data.extract(1)?.uint8, let kvn = data.extract(1)?.uint8 else {
+                    throw SCPError.responseParseError("Malformed SCP key reference data")
                 }
+                let keyRef = SCPKeyRef(kid: kid, kvn: kvn)
+                var components: [UInt8: UInt8] = [:]
+                while data.count >= 2 {
+                    guard let typeByte = data.extract(1)?.uint8, let versionByte = data.extract(1)?.uint8 else {
+                        throw SCPError.responseParseError("Malformed SCP key component data")
+                    }
+                    components[typeByte] = versionByte
+                }
+                keys[keyRef] = components
             }
-        } catch let error where error is SCPError {
-            throw error as! SCPError
-        } catch {
-            throw .wrapped(error)
         }
 
         return keys
@@ -191,26 +164,25 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     // @TraceScope
     public func getCertificateBundle(for keyRef: SCPKeyRef) async throws(SCPError) -> [X509Cert] {
 
+        let data: Data
         do {
-            let result = try await getData(
+            data = try await getData(
                 tag: 0xBF21,
                 data: TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data
             )
-            guard let rawCerts = TKBERTLVRecord.sequenceOfRecords(from: result) else {
-                throw SCPError.unexpectedResponse
-            }
-            let certs = rawCerts.map { X509Cert(der: $0.data) }
-            return certs
         } catch {
-            if let reponseError = error as? ResponseError, reponseError.responseStatus.status == .referencedDataNotFound
-            {
+            guard case let .failedResponse(responseStatus, _) = error else { throw error }
+            if responseStatus.status == .referencedDataNotFound {
                 return []
-            } else if let error = error as? SCPError {
-                throw error
             } else {
-                throw .wrapped(error)
+                throw error
             }
         }
+        guard let rawCerts = TKBERTLVRecord.sequenceOfRecords(from: data) else {
+            throw .responseParseError("Malformed certificate response")
+        }
+        let certs = rawCerts.map { X509Cert(der: $0.data) }
+        return certs
     }
 
     /// Retrieves the CA identifiers (KLOC/KLCC) that the card currently stores.
@@ -226,39 +198,40 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     public func getSupportedCAIdentifiers(kloc: Bool, klcc: Bool) async throws(SCPError) -> [SCPKeyRef: Data] {
 
         if !kloc && !klcc {
-            throw .illegalArgument
+            throw .illegalArgument("At least one of kloc or klcc must be true")
         }
         var data = Data()
         if kloc {
             do {
                 data.append(try await getData(tag: 0xFF33, data: nil))
             } catch {
-                if case let .wrapped(inner) = error,
-                    let responseError = inner as? ResponseError,
-                    responseError.responseStatus.status != .referencedDataNotFound
+                if case let .failedResponse(responseStatus, _) = error,
+                    responseStatus.status != .referencedDataNotFound
                 {
                     throw error
                 }
             }
         }
+
         if klcc {
             do {
                 data.append(try await getData(tag: 0xFF34, data: nil))
             } catch {
-                if case let .wrapped(inner) = error,
-                    let responseError = inner as? ResponseError,
-                    responseError.responseStatus.status != .referencedDataNotFound
+                if case let .failedResponse(responseStatus, _) = error,
+                    responseStatus.status != .referencedDataNotFound
                 {
                     throw error
                 }
             }
         }
-        guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: data) else { throw .unexpectedResponse }
+        guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: data) else {
+            throw .responseParseError("Malformed SCP key identifiers response")
+        }
         var identifiers = [SCPKeyRef: Data]()
         for i in stride(from: 0, to: tlvs.count, by: 2) {
             var ref = tlvs[i + 1].value
             guard let kid = ref.extract(1)?.uint8, let kvn = ref.extract(1)?.uint8 else {
-                throw .unexpectedResponse
+                throw .responseParseError("Malformed SCP key identifier data")
             }
             let keyRef = SCPKeyRef(kid: kid, kvn: kvn)
             identifiers[keyRef] = tlvs[i].value
@@ -344,14 +317,14 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
         let kvn = keyRef.kvn
 
         if kid == 0 && kvn == 0 {
-            throw SCPError.illegalArgument
+            throw .illegalArgument("Both KID and KVN cannot be zero")
         }
 
         if kid == 1 || kid == 2 || kid == 3 {
             if kvn != 0 {
                 kid = 0
             } else {
-                throw SCPError.illegalArgument
+                throw .illegalArgument("KVN must be non-zero for KID 1, 2, or 3")
             }
         }
 
@@ -364,7 +337,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
         }
 
         let apdu = APDU(cla: 0x80, ins: 0xE4, p1: 0, p2: deleteLast ? 1 : 0, command: data, type: .extended)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     /// Generate a new SCP11 key.
@@ -384,14 +357,14 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
 
         let apdu = APDU(cla: 0x80, ins: 0xF1, p1: kvn, p2: keyRef.kid, command: data, type: .extended)
 
-        let response = try await send(apdu: apdu)
+        let response = try await process(apdu: apdu)
 
         guard let tlv = TKBERTLVRecord(from: response), tlv.tag == 0xB0 else {
-            throw SCPError.unexpectedResponse
+            throw SCPError.responseParseError("Malformed EC key response: expected tag 0xB0")
         }
 
         guard let key = EC.PublicKey(uncompressedPoint: tlv.value, curve: .secp256r1) else {
-            throw SCPError.unexpectedResponse
+            throw SCPError.dataProcessingError("Unable to parse EC public key from response")
         }
 
         return key
@@ -407,13 +380,13 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     // @TraceScope
     public func putStaticKeys(_ keys: StaticKeys, for keyRef: SCPKeyRef, replacing kvn: UInt8) async throws(SCPError) {
         guard keyRef.kid == .scp03 else {
-            throw SCPError.illegalArgument("KID must be 0x01 for SCP03 key sets")
+            throw .illegalArgument("KID must be 0x01 for SCP03 key sets")
         }
         guard let dek = keys.dek else {
-            throw SCPError.illegalArgument("New DEK must be set in static keys")
+            throw .illegalArgument("New DEK must be set in static keys")
         }
-        guard let processor else {
-            throw SCPError.notSupported("No session DEK key available")
+        guard let scpState else {
+            throw SCPError.secureChannelRequired()
         }
 
         var data = Data([keyRef.kvn])
@@ -424,7 +397,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
         for key in [keys.enc, keys.mac, dek] {
             let kcv = try defaultKcvIv.cbcEncrypt(key: key).prefix(3)
 
-            let currentDek = await processor.state.sessionKeys.dek!
+            let currentDek = scpState.sessionKeys.dek!
 
             let encryptedKey = try key.cbcEncrypt(key: currentDek)
             data.append(TKBERTLVRecord(tag: 0x88, value: encryptedKey).data)
@@ -436,10 +409,10 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
         assert(data.bytes.count == 1 + 3 * (18 + 4), "Unexpected command data length")
 
         let apdu = APDU(cla: 0x80, ins: 0xD8, p1: kvn, p2: 0x80 | keyRef.kid, command: data, type: .extended)
-        let resp = try await send(apdu: apdu)
+        let resp = try await process(apdu: apdu)
 
         guard resp.constantTimeCompare(expected) else {
-            throw .unexpectedResponse
+            throw .responseParseError("SCP key verification failed: response mismatch")
         }
 
         trace(message: "SCP03 Key set imported")
@@ -461,7 +434,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
 
         // -- validate curve
         guard publicKey.curve == .secp256r1 else {
-            throw SCPError.notSupported("Unsupported curve: \(publicKey.curve)")
+            throw .illegalArgument("Unsupported curve: \(publicKey.curve)")
         }
 
         // -- TLV build
@@ -474,11 +447,11 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
 
         // -- send APDU
         let apdu = APDU(cla: 0x80, ins: 0xD8, p1: kvn, p2: keyRef.kid, command: data, type: .extended)
-        let resp = try await send(apdu: apdu)
+        let resp = try await process(apdu: apdu)
 
         // -- verify KCV
         guard resp.constantTimeCompare(Data([keyRef.kvn])) else {
-            throw .unexpectedResponse
+            throw .responseParseError("SCP key store verification failed: KCV mismatch")
         }
 
         trace(message: "SCP11 public key imported")
@@ -498,11 +471,11 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
         replacing kvn: UInt8
     ) async throws(SCPError) {
         guard privateKey.curve == .secp256r1 else {
-            throw .illegalArgument  // Expected SECP256R1 private key size
+            throw .illegalArgument("Expected SECP256R1 private key")
         }
 
-        guard let processor else {
-            throw .notSupported
+        guard let scpState else {
+            throw .secureChannelRequired()
         }
 
         let rawSecret: Data
@@ -511,9 +484,11 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
             let p256 = try P256.Signing.PrivateKey(rawRepresentation: secretScalar)
             rawSecret = p256.rawRepresentation
             precondition(rawSecret.count == 32)
-        } catch { throw .wrapped(error) }
+        } catch {
+            throw .cryptoError("Failed to generate P256 key pair", error: error)
+        }
 
-        let currentDek = await processor.state.sessionKeys.dek!
+        let currentDek = scpState.sessionKeys.dek!
         let encryptedSecret = try rawSecret.cbcEncrypt(key: currentDek)
         precondition(encryptedSecret.count == 32)
 
@@ -524,9 +499,9 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
         data.append(0x00)
 
         let apdu = APDU(cla: 0x80, ins: 0xD8, p1: kvn, p2: keyRef.kid, command: data, type: .extended)
-        let resp = try await send(apdu: apdu)
+        let resp = try await process(apdu: apdu)
         guard resp.constantTimeCompare(Data([keyRef.kvn])) else {
-            throw .unexpectedResponse
+            throw .responseParseError("SCP key deletion verification failed: KCV mismatch")
         }
 
         trace(message: "SCP11 private key imported")
@@ -564,20 +539,20 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
 
             for _ in 0..<65 {
                 do {
-                    _ = try await send(apdu: apdu)
+                    _ = try await process(apdu: apdu)
                 } catch let error {
-                    guard case let .wrapped(error) = error, let error = error as? ResponseError else {
+                    guard case let .failedResponse(responseStatus, _) = error else {
                         throw error
                     }
 
                     let shouldExit =
-                        switch error.responseStatus.status {
+                        switch responseStatus.status {
                         case .authMethodBlocked, .securityConditionNotSatisfied:
                             true
                         case .incorrectParameters:
                             false  // Continue loop
                         default:
-                            throw .wrapped(error)  // Re-throw other APDU errors
+                            throw error  // Re-throw
                         }
                     if shouldExit {
                         break  // This breaks out of the for loop
@@ -590,18 +565,6 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
         trace(message: "SCP keys reset")
     }
 
-    @discardableResult
-    private func send(apdu: APDU) async throws(SCPError) -> Data {
-        do {
-            if let processor {
-                return try await processor.send(apdu: apdu, using: connection)
-            } else {
-                return try await connection.send(apdu: apdu)
-            }
-        } catch {
-            throw .wrapped(error)
-        }
-    }
 }
 
 extension Data {
@@ -612,7 +575,7 @@ extension Data {
         do {
             return try encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES), key: key, iv: iv)
         } catch {
-            throw SCPError.encryptionFailed(error.localizedDescription)
+            throw SCPError.cryptoError("Failed to encrypt data with AES", error: error)
         }
     }
 }

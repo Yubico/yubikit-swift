@@ -59,9 +59,7 @@ public struct StaticKeys: Sendable {
         )
     }
 
-    static func deriveKey(key: Data, t: Int8, context: Data, l: Int16) throws -> Data {
-        guard l == 0x40 || l == 0x80 else { throw SCPError.illegalArgument }
-
+    static func deriveKey(key: Data, t: Int8, context: Data, l: Int16) throws(EncryptionError) -> Data {
         var i = Data(count: 11)
         i.append(t.data)
         i.append(UInt8(0).data)

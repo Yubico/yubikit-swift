@@ -31,17 +31,3 @@ public protocol Connection: Sendable {
     /// error will be returned.
     func waitUntilClosed() async -> Error?
 }
-
-/// Connection Errors.
-public enum ConnectionError: Error, Sendable {
-    /// There is an active connection.
-    case busy
-    /// No current connection.
-    case noConnection
-    /// Unexpected result returned from YubiKey.
-    case unexpectedResult
-    /// Awaiting call to connect() was cancelled.
-    case cancelled
-    /// Awaiting call to connect() was dismissed by the user.
-    case cancelledByUser
-}

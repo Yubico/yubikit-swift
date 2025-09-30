@@ -15,15 +15,9 @@
 import CommonCrypto
 import Foundation
 
-public enum EncryptionError: Error, Sendable {
-    case cryptorError(CCCryptorStatus)
-    case missingData
-    case unsupportedAlgorithm
-}
-
 extension Data {
 
-    internal func aescmac(key: Data) throws -> Data {
+    internal func aescmac(key: Data) throws(EncryptionError) -> Data {
 
         let constZero = Data([
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -79,12 +73,12 @@ extension Data {
         return paddedData + Data(count: zeroPadding)
     }
 
-    internal func encrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws -> Data {
+    internal func encrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws(EncryptionError) -> Data {
         let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
         return try cryptOperation(UInt32(kCCEncrypt), algorithm: algorithm, mode: mode, key: key, iv: iv)
     }
 
-    internal func decrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws -> Data {
+    internal func decrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws(EncryptionError) -> Data {
         let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
         return try cryptOperation(UInt32(kCCDecrypt), algorithm: algorithm, mode: mode, key: key, iv: iv)
     }
@@ -95,7 +89,7 @@ extension Data {
         mode: CCMode,
         key: Data,
         iv: Data?
-    ) throws -> Data {
+    ) throws(EncryptionError) -> Data {
         guard !key.isEmpty else { throw EncryptionError.missingData }
 
         let blockSize: Int

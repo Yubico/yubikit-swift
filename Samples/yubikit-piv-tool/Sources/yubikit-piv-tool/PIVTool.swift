@@ -45,15 +45,7 @@ struct PIVTool: AsyncParsableCommand {
                 try command.run()
             }
             Foundation.exit(EXIT_SUCCESS)
-        } catch let error as PIVToolError {
-            fputs("Error: \(error.description)\n", stderr)
-            Foundation.exit(EXIT_FAILURE)
         } catch {
-            if let errorDescription = error.mappedDescription {
-                fputs("Error: \(errorDescription)\n", stderr)
-                Foundation.exit(EXIT_FAILURE)
-            }
-
             // ArgumentParser handles its own errors
             exit(withError: error)
         }

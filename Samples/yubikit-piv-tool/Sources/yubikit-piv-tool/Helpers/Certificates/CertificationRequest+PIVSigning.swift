@@ -42,25 +42,37 @@ extension ShieldX509.CertificationRequest.Builder {
         let signature: Data!
         switch keyType {
         case let .rsa(keySize):
-            signature = try await session.sign(
-                tbsData,
-                in: slot,
-                keyType: .rsa(keySize),
-                using: .pkcs1v15(algorithm)
-            )
+            do {
+                signature = try await session.sign(
+                    tbsData,
+                    in: slot,
+                    keyType: .rsa(keySize),
+                    using: .pkcs1v15(algorithm)
+                )
+            } catch {
+                handlePIVError(error)
+            }
         case let .ecc(curve):
-            signature = try await session.sign(
-                tbsData,
-                in: slot,
-                keyType: .ecc(curve),
-                using: .prehashed(algorithm)
-            )
+            do {
+                signature = try await session.sign(
+                    tbsData,
+                    in: slot,
+                    keyType: .ecc(curve),
+                    using: .prehashed(algorithm)
+                )
+            } catch {
+                handlePIVError(error)
+            }
         case .ed25519:
-            signature = try await session.sign(
-                tbsData,
-                in: slot,
-                keyType: .ed25519
-            )
+            do {
+                signature = try await session.sign(
+                    tbsData,
+                    in: slot,
+                    keyType: .ed25519
+                )
+            } catch {
+                handlePIVError(error)
+            }
         case .x25519:
             return nil  // Invalid key type for signing
         }

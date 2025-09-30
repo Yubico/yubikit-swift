@@ -45,20 +45,14 @@ struct ChangePin: AsyncParsableCommand {
     func run() async throws {
         // Validate required parameters
         guard let currentPin = pin else {
-            throw PIVToolError.missingRequiredParameter(
-                parameter: "pin",
-                help: "Use --pin to provide current PIN"
-            )
+            exitWithError("Missing required parameter: pin.\n\tUse --pin to provide current PIN")
         }
         guard let newPin = newPin else {
-            throw PIVToolError.missingRequiredParameter(
-                parameter: "new-pin",
-                help: "Use --new-pin to provide new PIN (6-8 characters)"
-            )
+            exitWithError("Missing required parameter: new-pin.\n\tUse --new-pin to provide new PIN (6-8 characters)")
         }
 
         // Validate PIN format and length
-        try ParameterValidator.validatePin(newPin)
+        ParameterValidator.validatePin(newPin)
 
         let session = try await PIVSession.shared()
 
@@ -67,15 +61,8 @@ struct ChangePin: AsyncParsableCommand {
         do {
             _ = try await session.changePin(from: currentPin, to: newPin)
             print("New PIN set.")
-        } catch let error as PIV.SessionError {
-            switch error {
-            case let .invalidPin(retries):
-                throw PIVToolError.pinVerificationFailed(retriesRemaining: retries)
-            case .pinLocked:
-                throw PIVToolError.pinBlocked
-            default:
-                throw error
-            }
+        } catch {
+            handlePIVError(error)
         }
     }
 }
@@ -95,20 +82,14 @@ struct ChangePuk: AsyncParsableCommand {
     func run() async throws {
         // Validate required parameters
         guard let currentPuk = puk else {
-            throw PIVToolError.missingRequiredParameter(
-                parameter: "puk",
-                help: "Use --puk to provide current PUK"
-            )
+            exitWithError("Missing required parameter: puk.\n\tUse --puk to provide current PUK")
         }
         guard let newPuk = newPuk else {
-            throw PIVToolError.missingRequiredParameter(
-                parameter: "new-puk",
-                help: "Use --new-puk to provide new PUK"
-            )
+            exitWithError("Missing required parameter: new-puk.\n\tUse --new-puk to provide new PUK")
         }
 
         // Validate PUK format and length
-        try ParameterValidator.validatePuk(newPuk)
+        ParameterValidator.validatePuk(newPuk)
 
         let session = try await PIVSession.shared()
 
@@ -117,16 +98,8 @@ struct ChangePuk: AsyncParsableCommand {
         do {
             _ = try await session.changePuk(from: currentPuk, to: newPuk)
             print("New PUK set.")
-        } catch let error as PIV.SessionError {
-            switch error {
-            case let .invalidPin(retries):
-                throw PIVToolError.pukVerificationFailed(retriesRemaining: retries)
-            case .pinLocked:
-                // This means PUK is locked
-                throw PIVToolError.pukBlocked
-            default:
-                throw error
-            }
+        } catch {
+            handlePIVError(error, context: "PUK")
         }
     }
 }
@@ -153,21 +126,19 @@ struct ChangeManagementKey: AsyncParsableCommand {
     func run() async throws {
         // Validate required parameters
         guard let currentKey = managementKey else {
-            throw PIVToolError.missingRequiredParameter(
-                parameter: "management-key",
-                help: "Use --management-key to provide current management key"
+            exitWithError(
+                "Missing required parameter: management-key.\n\tUse --management-key to provide current management key"
             )
         }
         guard let newKey = newManagementKey else {
-            throw PIVToolError.missingRequiredParameter(
-                parameter: "new-management-key",
-                help: "Use --new-management-key to provide new management key"
+            exitWithError(
+                "Missing required parameter: new-management-key.\n\tUse --new-management-key to provide new management key"
             )
         }
 
         // Parse and validate management keys
-        let currentKeyData = try ParameterValidator.validateManagementKey(currentKey)
-        let newKeyData = try ParameterValidator.validateManagementKey(newKey)
+        let currentKeyData = ParameterValidator.validateManagementKey(currentKey)
+        let newKeyData = ParameterValidator.validateManagementKey(newKey)
 
         let session = try await PIVSession.shared()
 
@@ -177,7 +148,7 @@ struct ChangeManagementKey: AsyncParsableCommand {
             try await session.setManagementKey(newKeyData, type: .tripleDES, requiresTouch: false)
             print("New management key set.")
         } catch {
-            throw PIVToolError.managementKeyAuthenticationFailed
+            exitWithError("Authentication with management key failed.")
         }
     }
 }
@@ -197,37 +168,21 @@ struct UnblockPin: AsyncParsableCommand {
     func run() async throws {
         // Validate required parameters
         guard let puk = puk else {
-            throw PIVToolError.missingRequiredParameter(
-                parameter: "puk",
-                help: "Use --puk to provide PUK for unblocking"
-            )
+            exitWithError("Missing required parameter: puk.\n\tUse --puk to provide PUK for unblocking")
         }
         guard let newPin = newPin else {
-            throw PIVToolError.missingRequiredParameter(
-                parameter: "new-pin",
-                help: "Use --new-pin to set new PIN after unblocking"
-            )
+            exitWithError("Missing required parameter: new-pin.\n\tUse --new-pin to set new PIN after unblocking")
         }
 
-        try ParameterValidator.validatePin(newPin)
+        ParameterValidator.validatePin(newPin)
 
         let session = try await PIVSession.shared()
 
         do {
             try await session.unblockPin(with: puk, newPin: newPin)
             print("PIN unblocked and set to new value.")
-        } catch let error as PIV.SessionError {
-            switch error {
-            case let .invalidPin(retries):
-                if retries == 0 {
-                    throw PIVToolError.pukBlocked
-                }
-                throw PIVToolError.pukVerificationFailed(retriesRemaining: retries)
-            case .pinLocked:
-                throw PIVToolError.pukBlocked
-            default:
-                throw error
-            }
+        } catch {
+            handlePIVError(error, context: "PUK")
         }
     }
 }

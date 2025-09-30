@@ -25,4 +25,4 @@
 
 ### Errors
 
-- ``NFCConnectionError``
+- ``SmartCardConnectionError``

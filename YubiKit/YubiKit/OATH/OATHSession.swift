@@ -28,18 +28,6 @@ private let tagResponse: TKTLVTag = 0x75
 
 let oathDefaultPeriod = 30.0
 
-public enum OATHSessionError: Error, Sendable {
-    case wrongPassword
-    case responseDataNotTLVFormatted
-    case missingVersionInfo
-    case missingSalt
-    case failedDerivingDeviceId
-    case unexpectedTag
-    case unexpectedData
-    case credentialNotPresentOnCurrentYubiKey
-    case badCalculation
-}
-
 /// An interface to the OATH application on the YubiKey.
 ///
 /// The OATHSession is an interface to the OATH application on the YubiKey that will
@@ -48,9 +36,12 @@ public enum OATHSessionError: Error, Sendable {
 public final actor OATHSession: SmartCardSession {
 
     public typealias Feature = OATHSessionFeature
+    public typealias Error = OATHSessionError
 
-    private let connection: SmartCardConnection
-    private let processor: SCPProcessor?
+    static public let application: Application = .oath
+
+    public let connection: SmartCardConnection
+    public let scpState: SCPState?
 
     private struct SelectResponse {
         let salt: Data
@@ -65,32 +56,56 @@ public final actor OATHSession: SmartCardSession {
         selectResponse.version
     }
 
-    private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws {
-        self.selectResponse = try await Self.selectApplication(connection: connection)
+    private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws(OATHSessionError) {
+        self.selectResponse = try await Self.selectOATHApplication(connection: connection)
         if let scpKeyParams {
-            processor = try await SCPProcessor(connection: connection, keyParams: scpKeyParams, insSendRemaining: 0xa5)
+            scpState = try await Self.setupSCP(
+                connection: connection,
+                keyParams: scpKeyParams,
+                insSendRemaining: 0xa5
+            )
         } else {
-            processor = nil
+            scpState = nil
         }
         self.connection = connection
     }
 
-    private static func selectApplication(connection: SmartCardConnection) async throws -> SelectResponse {
-        let data: Data = try await connection.selectApplication(.oath)
+    private static func selectOATHApplication(
+        connection: SmartCardConnection
+    ) async throws(OATHSessionError) -> SelectResponse {
+
+        // Select application
+        let data: Data
+        do {
+            data = try await Self.selectApplication(using: connection)
+        } catch {
+            guard case let .failedResponse(responseStatus, source: _) = error else {
+                throw error
+            }
+            switch responseStatus.status {
+            case .invalidInstruction, .fileNotFound:
+                throw .featureNotSupported()
+            default:
+                throw error
+            }
+        }
+
         guard let result = TKBERTLVRecord.dictionaryOfData(from: data) else {
-            throw OATHSessionError.responseDataNotTLVFormatted
+            throw .responseParseError("Response data not in expected TLV format")
         }
 
         let challenge = result[tagChallenge]
 
         guard let versionData = result[tagVersion],
             let version = Version(withData: versionData)
-        else { throw OATHSessionError.missingVersionInfo }
+        else { throw .responseParseError("Missing version information in OATH application select response") }
 
-        guard let salt = result[tagName] else { throw OATHSessionError.missingSalt }
+        guard let salt = result[tagName] else {
+            throw .responseParseError("Missing salt in OATH application select response")
+        }
 
         let digest = SHA256.hash(data: salt)
-        guard digest.data.count >= 16 else { throw OATHSessionError.failedDerivingDeviceId }
+        guard digest.data.count >= 16 else { throw .failedDerivingDeviceId() }
         let deviceId = digest.data.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
         return SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
     }
@@ -105,7 +120,7 @@ public final actor OATHSession: SmartCardSession {
     public static func makeSession(
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
-    ) async throws -> OATHSession {
+    ) async throws(OATHSessionError) -> OATHSession {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: connection))")
         // Create a new OATHSession
         let session = try await OATHSession(connection: connection, scpKeyParams: scpKeyParams)
@@ -120,10 +135,10 @@ public final actor OATHSession: SmartCardSession {
     /// > After reset, the `OATHSession` should be discarded and a new session should be established.
     ///
     /// - Throws: An error if the reset operation fails.
-    public func reset() async throws {
+    public func reset() async throws(OATHSessionError) {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     /// Checks if the OATH application supports the specified feature.
@@ -144,15 +159,17 @@ public final actor OATHSession: SmartCardSession {
     /// - Parameter template: The template describing the credential.
     /// - Returns: The newly added credential.
     @discardableResult
-    public func addCredential(template: CredentialTemplate) async throws -> Credential {
+    public func addCredential(template: CredentialTemplate) async throws(OATHSessionError) -> Credential {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         if template.algorithm == .sha512 {
-            guard await self.supports(OATHSessionFeature.sha512) else { throw SessionError.notSupported }
+            guard await self.supports(OATHSessionFeature.sha512) else { throw .featureNotSupported() }
         }
         if template.requiresTouch {
-            guard await self.supports(OATHSessionFeature.touch) else { throw SessionError.notSupported }
+            guard await self.supports(OATHSessionFeature.touch) else { throw .featureNotSupported() }
         }
-        guard let nameData = template.identifier.data(using: .utf8) else { throw OATHSessionError.unexpectedData }
+        guard let nameData = template.identifier.data(using: .utf8) else {
+            throw .illegalArgument("Failed to encode credential name")
+        }
         let nameTlv = TKBERTLVRecord(tag: 0x71, value: nameData)
         var keyData = Data()
 
@@ -172,7 +189,7 @@ public final actor OATHSession: SmartCardSession {
         }
 
         let apdu = APDU(cla: 0x00, ins: 0x01, p1: 0x00, p2: 0x00, command: data)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
         return Credential(
             deviceId: selectResponse.deviceId,
             id: nameData,
@@ -191,8 +208,12 @@ public final actor OATHSession: SmartCardSession {
     ///   - credential: The credential to rename.
     ///   - newName: The new account name.
     ///   - newIssuer: The new issuer.
-    public func renameCredential(_ credential: Credential, newName: String, newIssuer: String?) async throws {
-        guard await self.supports(OATHSessionFeature.rename) else { throw SessionError.notSupported }
+    public func renameCredential(
+        _ credential: Credential,
+        newName: String,
+        newIssuer: String?
+    ) async throws(OATHSessionError) {
+        guard await supports(OATHSessionFeature.rename) else { throw .featureNotSupported() }
         guard
             let currentId = CredentialIdentifier.identifier(
                 name: credential.name,
@@ -201,40 +222,40 @@ public final actor OATHSession: SmartCardSession {
             ).data(using: .utf8),
             let renamedId = CredentialIdentifier.identifier(name: newName, issuer: newIssuer, type: credential.type)
                 .data(using: .utf8)
-        else { throw OATHSessionError.unexpectedData }
+        else { throw .illegalArgument("Failed to encode renamed credential ID") }
         var data = Data()
         data.append(TKBERTLVRecord(tag: 0x71, value: currentId).data)
         data.append(TKBERTLVRecord(tag: 0x71, value: renamedId).data)
         let apdu = APDU(cla: 0, ins: 0x05, p1: 0, p2: 0, command: data)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     /// Deletes an existing Credential from the YubiKey.
     /// - Parameter credential: The credential that will be deleted from the YubiKey.
-    public func deleteCredential(_ credential: Credential) async throws {
+    public func deleteCredential(_ credential: Credential) async throws(OATHSessionError) {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(credential)")
         let deleteTlv = TKBERTLVRecord(tag: 0x71, value: credential.id)
         let apdu = APDU(cla: 0, ins: 0x02, p1: 0, p2: 0, command: deleteTlv.data)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     /// List credentials on YubiKey
     ///
     /// >Note: The requires touch property of Credential will always be set to false when using `listCredentials()`. If you need this property use ``calculateCodes(timestamp:)`` instead.
     /// - Returns: An array of Credentials.
-    public func listCredentials() async throws -> [Credential] {
+    public func listCredentials() async throws(OATHSessionError) -> [Credential] {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
-        let data = try await send(apdu: apdu)
+        let data = try await process(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else {
-            throw OATHSessionError.responseDataNotTLVFormatted
+            throw .responseParseError("Failed to parse TLV records from list response")
         }
-        return try result.map {
-            guard $0.tag == 0x72 else { throw OATHSessionError.unexpectedTag }
-            guard let credentialId = CredentialIdParser(data: $0.value.dropFirst()) else {
-                throw OATHSessionError.unexpectedData
+        return try result.map { record throws(OATHSessionError) in
+            guard record.tag == 0x72 else { throw .responseParseError("Unexpected TLV tag in credential list") }
+            guard let credentialId = CredentialIdParser(data: record.value.dropFirst()) else {
+                throw .responseParseError("Failed to parse credential data from TLV")
             }
-            let bytes = $0.value.bytes
+            let bytes = record.value.bytes
             let typeCode = bytes[0] & 0xf0
             let credentialType: CredentialType
             if CredentialType.isTOTP(typeCode) {
@@ -242,16 +263,16 @@ public final actor OATHSession: SmartCardSession {
             } else if CredentialType.isHOTP(typeCode) {
                 credentialType = .hotp(counter: 0)
             } else {
-                throw OATHSessionError.unexpectedData
+                throw .responseParseError("Unexpected credential type value")
             }
 
             guard let hashAlgorithm = HashAlgorithm(rawValue: bytes[0] & 0x0f) else {
-                throw OATHSessionError.unexpectedData
+                throw .responseParseError("Invalid hash algorithm value")
             }
 
             return Credential(
                 deviceId: selectResponse.deviceId,
-                id: $0.value.dropFirst(),
+                id: record.value.dropFirst(),
                 type: credentialType,
                 hashAlgorithm: hashAlgorithm,
                 name: credentialId.account,
@@ -266,13 +287,16 @@ public final actor OATHSession: SmartCardSession {
     ///   - credential: The stored Credential to calculate a new code for.
     ///   - timestamp: The timestamp which is used as start point for TOTP, this is ignored for HOTP.
     /// - Returns: Calculated code.
-    public func calculateCredentialCode(for credential: Credential, timestamp: Date = Date()) async throws -> Code {
+    public func calculateCredentialCode(
+        for credential: Credential,
+        timestamp: Date = Date()
+    ) async throws(OATHSessionError) -> Code {
         Logger.oath.debug(
             "\(String(describing: self).lastComponent), \(#function): credential: \(credential), timeStamp: \(timestamp)"
         )
 
         guard credential.deviceId == selectResponse.deviceId else {
-            throw OATHSessionError.credentialNotPresentOnCurrentYubiKey
+            throw .credentialNotPresentOnCurrentYubiKey()
         }
         let challengeTLV: TKBERTLVRecord
 
@@ -289,10 +313,14 @@ public final actor OATHSession: SmartCardSession {
         let nameTLV = TKBERTLVRecord(tag: tagName, value: credential.id)
         let apdu = APDU(cla: 0x00, ins: 0xa2, p1: 0, p2: 1, command: nameTLV.data + challengeTLV.data, type: .extended)
 
-        let data = try await send(apdu: apdu)
-        guard let result = TKBERTLVRecord.init(from: data) else { throw OATHSessionError.responseDataNotTLVFormatted }
+        let data = try await process(apdu: apdu)
+        guard let result = TKBERTLVRecord.init(from: data) else {
+            throw .responseParseError("Failed to parse TLV response for code calculation")
+        }
 
-        guard let digits = result.value.first else { throw OATHSessionError.unexpectedData }
+        guard let digits = result.value.first else {
+            throw .responseParseError("Missing digits value in code response")
+        }
         let code = UInt32(bigEndian: result.value.subdata(in: 1..<result.value.count).uint32)
         let stringCode = String(format: "%0\(digits)d", UInt(code))
         return Code(code: stringCode, timestamp: timestamp, credentialType: credential.type)
@@ -307,7 +335,10 @@ public final actor OATHSession: SmartCardSession {
     ///   - credentialId: The ID of a stored Credential.
     ///   - challenge: The input to the HMAC operation.
     /// - Returns: The calculated response.
-    public func calculateCredentialResponse(for credentialId: Data, challenge: Data) async throws -> Data {
+    public func calculateCredentialResponse(
+        for credentialId: Data,
+        challenge: Data
+    ) async throws(OATHSessionError) -> Data {
         Logger.oath.debug(
             "\(String(describing: self).lastComponent), \(#function): credentialId: \(credentialId.hexEncodedString), challenge: \(challenge.hexEncodedString)"
         )
@@ -315,9 +346,13 @@ public final actor OATHSession: SmartCardSession {
         data.append(TKBERTLVRecord(tag: tagName, value: credentialId).data)
         data.append(TKBERTLVRecord(tag: tagChallenge, value: challenge).data)
         let apdu = APDU(cla: 0, ins: 0xa2, p1: 0, p2: 0, command: data)
-        let result = try await send(apdu: apdu)
-        guard let result = TKBERTLVRecord.init(from: result) else { throw OATHSessionError.responseDataNotTLVFormatted }
-        guard result.tag == tagResponse || result.data.count > 0 else { throw OATHSessionError.badCalculation }
+        let result = try await process(apdu: apdu)
+        guard let result = TKBERTLVRecord.init(from: result) else {
+            throw .responseParseError("Failed to parse TLV response for calculation")
+        }
+        guard result.tag == tagResponse || result.data.count > 0 else {
+            throw .responseParseError("Invalid OATH calculation response")
+        }
         return result.value.dropFirst()
     }
 
@@ -327,23 +362,27 @@ public final actor OATHSession: SmartCardSession {
     /// They will still be present in the result, but with a nil value.
     /// - Parameter timestamp: The timestamp which is used as start point for TOTP, this is ignored for HOTP.
     /// - Returns: An array of tuples containing a ``Credential`` and an optional ``Code``.
-    public func calculateCredentialCodes(timestamp: Date = Date()) async throws -> [(Credential, Code?)] {
+    public func calculateCredentialCodes(
+        timestamp: Date = Date()
+    ) async throws(OATHSessionError) -> [(Credential, Code?)] {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): timeStamp: \(timestamp)")
         let time = timestamp.timeIntervalSince1970
         let challenge = UInt64(time / 30)
         let bigChallenge = CFSwapInt64HostToBig(challenge)
         let challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, command: challengeTLV.data)
-        let data = try await send(apdu: apdu)
+        let data = try await process(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else {
-            throw OATHSessionError.responseDataNotTLVFormatted
+            throw .responseParseError("Failed to parse TLV records from calculate all response")
         }
 
         var credentialCodePairs: [(Credential, Code?)] = []
         for (name, response) in result {
-            guard name.tag == 0x71 else { throw OATHSessionError.unexpectedTag }
+            guard name.tag == 0x71 else { throw .responseParseError("Unexpected TLV tag for credential name") }
 
-            guard let credentialId = CredentialIdParser(data: name.value) else { throw OATHSessionError.unexpectedData }
+            guard let credentialId = CredentialIdParser(data: name.value) else {
+                throw .responseParseError("Failed to parse credential ID")
+            }
 
             let credentialType: CredentialType
             if response.tag == tagTypeHOTP {
@@ -385,7 +424,7 @@ public final actor OATHSession: SmartCardSession {
     /// Sets an Access Key derived from a password. Once a key is set, any usage of the credentials stored will
     /// require the application to be unlocked via one of the unlock functions. Also see ``setAccessKey(_:)``.
     /// - Parameter password: The user-supplied password to set.
-    public func setPassword(_ password: String) async throws {
+    public func setPassword(_ password: String) async throws(OATHSessionError) {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(password)")
         let derivedKey = try deriveAccessKey(from: password)
         try await self.setAccessKey(derivedKey)
@@ -393,7 +432,7 @@ public final actor OATHSession: SmartCardSession {
 
     /// Unlock with password.
     /// - Parameter password: The user-supplied password used to unlock the application.
-    public func unlock(password: String) async throws {
+    public func unlock(password: String) async throws(OATHSessionError) {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(password)")
         let derivedKey = try deriveAccessKey(from: password)
         try await self.unlock(accessKey: derivedKey)
@@ -406,7 +445,7 @@ public final actor OATHSession: SmartCardSession {
     /// Typically this key is derived from a password (see ``deriveAccessKey(from:)``). This method
     /// sets the raw 16 byte key.
     /// - Parameter accessKey: The shared secret key used to unlock access to the application.
-    public func setAccessKey(_ accessKey: Data) async throws {
+    public func setAccessKey(_ accessKey: Data) async throws(OATHSessionError) {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)")
         let header = CredentialType.totp().code | HashAlgorithm.sha1.rawValue
         var data = Data([header])
@@ -421,7 +460,7 @@ public final actor OATHSession: SmartCardSession {
         let response = challenge.hmacSha1(usingKey: accessKey)
         let responseTlv = TKBERTLVRecord(tag: tagResponse, value: response)
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: keyTlv.data + challengeTlv.data + responseTlv.data)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     /// Unlock OATH application on the YubiKey. Once unlocked other commands may be sent to the key.
@@ -429,53 +468,51 @@ public final actor OATHSession: SmartCardSession {
     /// Once unlocked, the application will remain unlocked for the duration of the session.
     /// See the [YKOATH protocol specification](https://developers.yubico.com/OATH/) for further details.
     /// - Parameter accessKey: The shared access key.
-    public func unlock(accessKey: Data) async throws {
+    public func unlock(accessKey: Data) async throws(OATHSessionError) {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)")
-        guard let responseChallenge = self.selectResponse.challenge else { throw SessionError.unexpectedResult }
+        guard let responseChallenge = self.selectResponse.challenge else {
+            throw .responseParseError("Missing challenge in OATH application select response")
+        }
         let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
         let challenge = Data.random(length: 8)
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
         let apdu = APDU(cla: 0, ins: 0xa3, p1: 0, p2: 0, command: reponseTlv.data + challengeTlv.data)
 
+        let data: Data
         do {
-            let data = try await connection.send(apdu: apdu)
-            guard let resultTlv = TKBERTLVRecord(from: data), resultTlv.tag == tagResponse else {
-                throw OATHSessionError.unexpectedTag
-            }
-            let expectedResult = challenge.hmacSha1(usingKey: accessKey)
-            guard resultTlv.value == expectedResult else { throw OATHSessionError.unexpectedData }
+            data = try await process(apdu: apdu)
         } catch {
-            if let reponseError = error as? ResponseError, reponseError.responseStatus.status == .incorrectParameters {
-                throw OATHSessionError.wrongPassword
+            guard case let .failedResponse(responseStatus, _) = error else { throw error }
+            if responseStatus.status == .incorrectParameters {
+                throw OATHSessionError.invalidPassword()
             } else {
                 throw error
             }
         }
+        guard let resultTlv = TKBERTLVRecord(from: data), resultTlv.tag == tagResponse else {
+            throw .responseParseError("Unexpected tag in validate response")
+        }
+        let expectedResult = challenge.hmacSha1(usingKey: accessKey)
+        guard resultTlv.value == expectedResult else {
+            throw .responseParseError("Validation failed: response does not match expected result")
+        }
     }
 
     /// Removes the access key, if one is set.
-    public func deleteAccessKey() async throws {
+    public func deleteAccessKey() async throws(OATHSessionError) {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
         let tlv = TKBERTLVRecord(tag: tagSetCodeKey, value: Data())
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: tlv.data)
-        try await send(apdu: apdu)
+        try await process(apdu: apdu)
     }
 
     deinit {
         Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
     }
 
-    @discardableResult
-    private func send(apdu: APDU) async throws -> Data {
-        if let processor {
-            return try await processor.send(apdu: apdu, using: connection, insSendRemaining: 0xa5)
-        } else {
-            return try await connection.send(apdu: apdu, insSendRemaining: 0xa5)
-        }
-    }
 }
 
-public struct DeriveAccessKeyError: Error, Sendable {
+struct DeriveAccessKeyError: Error, Sendable {
     let cryptorStatus: CCCryptorStatus
 }
 
@@ -485,23 +522,28 @@ extension OATHSession {
     /// 1000 rounds of PBKDF2 using the password and salt as inputs, with a 16 byte output.
     /// - Parameter password: A user-supplied password.
     /// - Returns: Access key for unlocking the session.
-    public func deriveAccessKey(from password: String) throws -> Data {
+    public func deriveAccessKey(from password: String) throws(OATHSessionError) -> Data {
         var derivedKey = Data(count: 16)
-        try derivedKey.withUnsafeMutableBytes { (outputBytes: UnsafeMutableRawBufferPointer) in
-            let status = CCKeyDerivationPBKDF(
-                CCPBKDFAlgorithm(kCCPBKDF2),
-                password,
-                password.utf8.count,
-                selectResponse.salt.bytes,
-                selectResponse.salt.bytes.count,
-                CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA1),
-                1000,
-                outputBytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                kCCKeySizeAES256
-            )
-            guard status == kCCSuccess else {
-                throw DeriveAccessKeyError(cryptorStatus: status)
+        do {
+            try derivedKey.withUnsafeMutableBytes { (outputBytes: UnsafeMutableRawBufferPointer) in
+                let status = CCKeyDerivationPBKDF(
+                    CCPBKDFAlgorithm(kCCPBKDF2),
+                    password,
+                    password.utf8.count,
+                    selectResponse.salt.bytes,
+                    selectResponse.salt.bytes.count,
+                    CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA1),
+                    1000,
+                    outputBytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
+                    kCCKeySizeAES256
+                )
+                guard status == kCCSuccess else {
+                    throw EncryptionError.cryptorError(status)
+                }
             }
+        } catch {
+            let encryptionError = error as! EncryptionError
+            throw OATHSessionError.cryptoError("Unable to derive access key", error: encryptionError)
         }
         return derivedKey
     }
