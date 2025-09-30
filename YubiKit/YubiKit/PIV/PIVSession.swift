@@ -80,7 +80,7 @@ public final actor PIVSession: SmartCardSession {
     ///   - connection: The smart card connection to use for this session.
     ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
     /// - Returns: A new PIV session instance.
-    /// - Throws: An error if the PIV application cannot be selected or session creation fails.
+    /// - Throws: ``PIVSessionError`` if the PIV application cannot be selected or session creation fails.
     public static func makeSession(
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
@@ -240,7 +240,7 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// This method requires authentication.
     ///
-    /// >Note: This functionality requires support for attestation, available on YubiKey 4.3 or later.
+    /// > Note: This functionality requires support for attestation, available on YubiKey 4.3 or later.
     ///
     /// - Parameter slot: The slot containing the private key to use.
     /// - Returns: The attestation certificate.
@@ -256,12 +256,12 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// This method requires authentication and pin verification.
     ///
-    /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIV.PinPolicy.never`.
+    /// > Note: YubiKey FIPS does not allow RSA1024 nor ``PIV/PinPolicy/never``.
     ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
-    ///        `PIV.KeyType.ecc(.secp384r1)` requires P384 support, available on YubiKey 4 or later.
-    ///        Ed25519 and X25519 require YubiKey 5.7 or later.
-    ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy, available on YubiKey 4 or later.
-    ///        `PIV.TouchPolicy.cached` requires support for touch cached, available on YubiKey 4.3 or later.
+    ///        ``PIV/KeyType/ecc(_:)`` with `.secp384r1` requires P384 support, available on YubiKey 4 or later.
+    ///        ``PIV/KeyType/ed25519`` and ``PIV/KeyType/x25519`` require YubiKey 5.7 or later.
+    ///        ``PIV/PinPolicy`` or ``PIV/TouchPolicy`` other than ``PIV/PinPolicy/defaultPolicy`` require support for usage policy, available on YubiKey 4 or later.
+    ///        ``PIV/TouchPolicy/cached`` requires support for touch cached, available on YubiKey 4.3 or later.
     ///
     /// - Parameters:
     ///   - slot: The slot to generate the new key in.
@@ -296,8 +296,8 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// This method requires authentication.
     ///
-    /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIV.PinPolicy.never`.
-    ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy,
+    /// > Note: YubiKey FIPS does not allow RSA1024 nor ``PIV/PinPolicy/never``.
+    ///        ``PIV/PinPolicy`` or ``PIV/TouchPolicy`` other than ``PIV/PinPolicy/defaultPolicy`` require support for usage policy,
     ///        available on YubiKey 4 or later.
     ///
     /// - Parameters:
@@ -344,8 +344,8 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// This method requires authentication.
     ///
-    /// >Note: `PIV.KeyType.ecc(.secp384r1)` requires P384 support, available on YubiKey 4 or later.
-    ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy,
+    /// > Note: ``PIV/KeyType/ecc(_:)`` with `.secp384r1` requires P384 support, available on YubiKey 4 or later.
+    ///        ``PIV/PinPolicy`` or ``PIV/TouchPolicy`` other than ``PIV/PinPolicy/defaultPolicy`` require support for usage policy,
     ///        available on YubiKey 4 or later.
     ///
     /// - Parameters:
@@ -379,8 +379,8 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// This method requires authentication.
     ///
-    /// >Note: Ed25519 requires YubiKey 5.7 or later.
-    ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy,
+    /// > Note: ``PIV/KeyType/ed25519`` requires YubiKey 5.7 or later.
+    ///        ``PIV/PinPolicy`` or ``PIV/TouchPolicy`` other than ``PIV/PinPolicy/defaultPolicy`` require support for usage policy,
     ///        available on YubiKey 4 or later.
     ///
     /// - Parameters:
@@ -414,8 +414,8 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// This method requires authentication.
     ///
-    /// >Note: X25519 requires YubiKey 5.7 or later.
-    ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy,
+    /// > Note: ``PIV/KeyType/x25519`` requires YubiKey 5.7 or later.
+    ///        ``PIV/PinPolicy`` or ``PIV/TouchPolicy`` other than ``PIV/PinPolicy/defaultPolicy`` require support for usage policy,
     ///        available on YubiKey 4 or later.
     ///
     /// - Parameters:
@@ -477,11 +477,11 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// This method requires authentication.
     ///
-    /// >Note: YubiKey FIPS does not allow RSA1024 nor `PIV.PinPolicy.never`.
+    /// > Note: YubiKey FIPS does not allow RSA1024 nor ``PIV/PinPolicy/never``.
     ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
-    ///        `PIV.KeyType.ecc(.secp384r1)` requires P384 support, available on YubiKey 4 or later.
-    ///        ``PIV.PinPolicy`` or ``PIV.TouchPolicy`` other than `defaultPolicy` require support for usage policy, available on YubiKey 4 or later.
-    ///        `PIV.TouchPolicy.cached` requires support for touch cached, available on YubiKey 4.3 or later.
+    ///        ``PIV/KeyType/ecc(_:)`` with `.secp384r1` requires P384 support, available on YubiKey 4 or later.
+    ///        ``PIV/PinPolicy`` or ``PIV/TouchPolicy`` other than ``PIV/PinPolicy/defaultPolicy`` require support for usage policy, available on YubiKey 4 or later.
+    ///        ``PIV/TouchPolicy/cached`` requires support for touch cached, available on YubiKey 4.3 or later.
     ///
     /// - Parameters:
     ///   - certificate: Certificate to write.
@@ -541,7 +541,7 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// This method requires authentication.
     ///
-    /// >Note: This does NOT delete any corresponding private key.
+    /// > Note: This does NOT delete any corresponding private key.
     ///
     /// - Parameter slot: The slot where the certificate is stored.
     public func deleteCertificate(in slot: PIV.Slot) async throws(PIVSessionError) {
@@ -727,7 +727,7 @@ public final actor PIVSession: SmartCardSession {
 
     /// Get the serial number of the YubiKey.
     ///
-    /// >Note: This requires the SERIAL_API_VISIBLE flag to be set on one of the YubiOTP slots (it is set by default).
+    /// > Note: This requires the SERIAL_API_VISIBLE flag to be set on one of the YubiOTP slots (it is set by default).
     ///        This functionality requires support for feature serial, available on YubiKey 5 or later.
     ///
     /// - Returns: The serial number.
@@ -887,7 +887,7 @@ public final actor PIVSession: SmartCardSession {
 
     /// Authenticate with YubiKey Bio multi-protocol capabilities.
     ///
-    /// >Note: Before calling this method, clients must verify that the authenticator is bio-capable and
+    /// > Note: Before calling this method, clients must verify that the authenticator is bio-capable and
     ///        not blocked for bio matching.
     /// - Parameters:
     ///   - requestTemporaryPin: After successful match generate a temporary PIN.
@@ -931,7 +931,7 @@ public final actor PIVSession: SmartCardSession {
     /// The PIN has to be generated by calling ``verifyUV(requestTemporaryPin:checkOnly:)`` and is
     /// valid only for operations during this session and depending on slot PIN policy.
     ///
-    /// >Note: Before calling this method, clients must verify that the authenticator is bio-capable and
+    /// > Note: Before calling this method, clients must verify that the authenticator is bio-capable and
     ///        not blocked for bio matching.
     ///
     /// - Parameter pin: Temporary PIN.

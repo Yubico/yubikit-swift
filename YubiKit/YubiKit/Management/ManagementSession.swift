@@ -76,7 +76,7 @@ public final actor ManagementSession: SmartCardSession {
     ///   - connection: The smart card connection to use for this session.
     ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
     /// - Returns: A new ManagementSession instance.
-    /// - Throws: ManagementSessionError if session creation fails.
+    /// - Throws: ``ManagementSessionError`` if session creation fails.
     public static func makeSession(
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
@@ -95,7 +95,7 @@ public final actor ManagementSession: SmartCardSession {
 
     /// Returns the DeviceInfo for the connected YubiKey.
     ///
-    /// >Note: This functionality requires support for ``ManagementFeature/deviceInfo``, available on YubiKey 4.1 or later.
+    /// > Note: This functionality requires support for ``ManagementFeature/deviceInfo``, available on YubiKey 4.1 or later.
     public func getDeviceInfo() async throws(ManagementSessionError) -> DeviceInfo {
         /* Fix trace: Logger.management.debug("\(String(describing: self).lastComponent), \(#function)") */
         guard await self.supports(ManagementFeature.deviceInfo) else { throw .featureNotSupported() }
@@ -124,7 +124,7 @@ public final actor ManagementSession: SmartCardSession {
 
     /// Write device config to a YubiKey 5 or later.
     ///
-    /// >Note: This functionality requires support for ``ManagementFeature/deviceConfig``, available on YubiKey 5 or later.
+    /// > Note: This functionality requires support for ``ManagementFeature/deviceConfig``, available on YubiKey 5 or later.
     ///
     /// - Parameters:
     ///   - config: The device configuration to write.
@@ -151,7 +151,7 @@ public final actor ManagementSession: SmartCardSession {
 
     /// Perform a device-wide reset in Bio Multi-protocol Edition devices.
     ///
-    /// >Note: This functionality requires support for ``ManagementFeature/deviceReset``, available on YubiKey 5.6 or later.
+    /// > Note: This functionality requires support for ``ManagementFeature/deviceReset``, available on YubiKey 5.6 or later.
     public func resetDevice() async throws(ManagementSessionError) {
         guard await self.supports(.deviceReset) else { throw .featureNotSupported() }
         let apdu = APDU(cla: 0, ins: 0x1f, p1: 0, p2: 0)

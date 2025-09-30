@@ -31,7 +31,7 @@ struct Response: CustomStringConvertible, Sendable {
     }
 
     /// The data returned in the response.
-    /// >Note: The data does not contain the response code. It is stored in the `ResponseStatus`.
+    /// > Note: The data does not contain the response code. It is stored in the ``ResponseStatus``.
     let data: Data
 
     /// Status code of the response

@@ -26,7 +26,7 @@ public struct SCP03KeyParams: SCPKeyParams, Sendable {
     /// - Parameters:
     ///   - keyRef: The key reference with KID and KVN
     ///   - staticKeys: The static keys for encryption and MAC operations.
-    /// - Throws: `SCPError.illegalArgument` if the KID is invalid for SCP03.
+    /// - Throws: ``SCPError/illegalArgument(_:source:)`` if the KID is invalid for SCP03.
     public init(keyRef: SCPKeyRef, staticKeys: StaticKeys) throws(SCPError) {
         if 0xFF & keyRef.kid > 3 {
             throw .illegalArgument("Invalid KID for SCP03")

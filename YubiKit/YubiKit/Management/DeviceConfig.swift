@@ -30,7 +30,7 @@ public struct DeviceConfig: Sendable {
     /// The currently enabled capabilities for a given ``DeviceTransport``. The enabled capabilities are represented as
     /// ``Capability`` bits being set (1) or not (0).
     ///
-    ///>Note: This method will return nil if the given transport is not supported by the YubiKey, OR if the enabled
+    /// > Note: This method will return nil if the given transport is not supported by the YubiKey, OR if the enabled
     /// capabilities state isn't readable. The YubiKey 4 series, for example, does not return enabled-status for USB
     public let enabledCapabilities: [DeviceTransport: UInt]
     public let isNFCRestricted: Bool?
