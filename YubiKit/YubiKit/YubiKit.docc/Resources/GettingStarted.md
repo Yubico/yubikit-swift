@@ -125,7 +125,7 @@ do {
 
     // Use the connection quickly - NFC sessions have a timeout
     let session = try await OATHSession.makeSession(connection: connection)
-    let codes = try await session.calculateCodes()
+    let codes = try await session.calculateCredentialCodes()
 
     // Always close NFC connections with a user message
     await connection.close(message: "OATH codes retrieved")
@@ -151,7 +151,7 @@ do {
 
     // Perform operations - connection stays active
     let session = try await OATHSession.makeSession(connection: connection)
-    let codes = try await session.calculateCodes()
+    let codes = try await session.calculateCredentialCodes()
 
     // Monitor for disconnection or close when done
     let error = await connection.waitUntilClosed()
@@ -178,7 +178,7 @@ let usbConnection = try await USBSmartCardConnection.makeConnection()
 let lightningConnection = try await LightningSmartCardConnection.makeConnection()
 
 // NFC with custom message (iOS)
-let nfcConnection = try await NFCSmartCardConnection.connection(
+let nfcConnection = try await NFCSmartCardConnection.makeConnection(
     alertMessage: "Hold your YubiKey near the phone"
 )
 ```
@@ -203,7 +203,7 @@ Once you have a connection, create sessions to access different YubiKey applicat
 
 ```swift
 let session = try await OATHSession.makeSession(connection: connection)
-let codes = try await session.calculateCodes()
+let codes = try await session.calculateCredentialCodes()
 
 for (credential, code) in codes {
     print("\(credential.label): \(code?.code ?? "Touch required")")
@@ -222,9 +222,9 @@ print("Found certificate: \(certificate.subject)")
 
 ```swift
 let session = try await ManagementSession.makeSession(connection: connection)
-print("YubiKey version: \(session.version)")
+print("YubiKey version: \(await session.version)")
 
-let deviceInfo = try await session.readDeviceInfo()
+let deviceInfo = try await session.getDeviceInfo()
 print("Device info: \(deviceInfo)")
 ```
 

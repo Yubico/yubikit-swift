@@ -83,9 +83,9 @@ struct Generate: AsyncParsableCommand {
         case "RSA4096":
             keyType = .rsa(.bits4096)
         case "ECCP256", "P256":
-            keyType = .ecc(.secp256r1)
+            keyType = .ec(.secp256r1)
         case "ECCP384", "P384":
-            keyType = .ecc(.secp384r1)
+            keyType = .ec(.secp384r1)
         case "ED25519":
             keyType = .ed25519
         case "X25519":
@@ -256,9 +256,9 @@ struct KeyInfo: AsyncParsableCommand {
         switch keyType {
         case let .rsa(keySize):
             return "RSA\(keySize.bitCount)"
-        case .ecc(.secp256r1):
+        case .ec(.secp256r1):
             return "ECCP256"
-        case .ecc(.secp384r1):
+        case .ec(.secp384r1):
             return "ECCP384"
         case .ed25519:
             return "Ed25519"

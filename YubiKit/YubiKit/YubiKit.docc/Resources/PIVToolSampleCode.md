@@ -56,7 +56,7 @@ let rsaKey = try await session.generateKey(in: .authentication, type: .rsa(.bits
 let ecKey = try await session.generateKey(in: .signature, type: .ec(.secp256r1))
 
 // Ed25519 for modern cryptographic applications
-let ed25519Key = try await session.generateKey(in: .cardAuthentication, type: .ed25519)
+let ed25519Key = try await session.generateKey(in: .cardAuth, type: .ed25519)
 
 // X25519 for key agreement/ECDH operations
 let x25519Key = try await session.generateKey(in: .keyManagement, type: .x25519)
@@ -100,10 +100,10 @@ After generating a key or receiving a signed certificate, store it in the corres
 let certificateData = try Data(contentsOf: certificateURL)
 let certificate = try Certificate(derEncoded: Array(certificateData))
 
-try await session.store(
-    certificate: certificate,
+try await session.putCertificate(
+    certificate,
     in: .authentication,
-    compress: true  // Save space on the YubiKey
+    compressed: true  // Save space on the YubiKey
 )
 ```
 

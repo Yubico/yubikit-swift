@@ -148,12 +148,12 @@ public enum PIV: Sendable {
         }
     }
 
-    /// ECC key type for PIV operations.
-    public struct ECCKey: Equatable, Sendable {
+    /// EC key type for PIV operations.
+    public struct ECKey: Equatable, Sendable {
         public let curve: EC.Curve
 
-        public static func ecc(_ curve: EC.Curve) -> ECCKey {
-            ECCKey(curve: curve)
+        public static func ec(_ curve: EC.Curve) -> ECKey {
+            ECKey(curve: curve)
         }
 
         private init(curve: EC.Curve) {
@@ -182,7 +182,7 @@ public enum PIV: Sendable {
     /// Supported cryptographic key types for PIV operations.
     public enum KeyType: Equatable, Sendable {
         case rsa(RSA.KeySize)
-        case ecc(EC.Curve)
+        case ec(EC.Curve)
         case ed25519
         case x25519
     }
@@ -368,7 +368,7 @@ extension PIV.KeyType: RawRepresentable {
             case .bits3072: 0x05
             case .bits4096: 0x16
             }
-        case .ecc(let curve):
+        case .ec(let curve):
             return switch curve {
             case .secp256r1: 0x11
             case .secp384r1: 0x14
@@ -387,8 +387,8 @@ extension PIV.KeyType: RawRepresentable {
         case 0x05: self = .rsa(.bits3072)
         case 0x16: self = .rsa(.bits4096)
 
-        case 0x11: self = .ecc(.secp256r1)
-        case 0x14: self = .ecc(.secp384r1)
+        case 0x11: self = .ec(.secp256r1)
+        case 0x14: self = .ec(.secp384r1)
 
         case 0xE0: self = .ed25519
         case 0xE1: self = .x25519

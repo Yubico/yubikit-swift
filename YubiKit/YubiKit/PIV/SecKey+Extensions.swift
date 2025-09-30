@@ -22,7 +22,7 @@ extension PIVSession {
         }
 
         switch type {
-        case let .ecc(curve):
+        case let .ec(curve):
             guard let keyData = records.recordWithTag(0x86)?.value else {
                 throw .responseParseError("Missing EC key data in TLV record")
             }

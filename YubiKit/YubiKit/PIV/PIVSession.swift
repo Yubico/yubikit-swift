@@ -130,13 +130,13 @@ public final actor PIVSession: SmartCardSession {
     /// - Parameters:
     ///   - message: The message to sign.
     ///   - slot: The slot containing the private key to use.
-    ///   - keyType: The type of ECC key stored in the slot.
+    ///   - keyType: The type of EC key stored in the slot.
     ///   - algorithm: The ECDSA signature algorithm to use.
     /// - Returns: The generated signature for the message.
     public func sign(
         _ message: Data,
         in slot: PIV.Slot,
-        keyType: PIV.ECCKey,
+        keyType: PIV.ECKey,
         using algorithm: PIV.ECDSASignatureAlgorithm
     ) async throws(PIVSessionError) -> Data {
         /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
@@ -149,7 +149,7 @@ public final actor PIVSession: SmartCardSession {
 
         return try await usePrivateKeyInSlot(
             slot: slot,
-            keyType: .ecc(keyType.curve),
+            keyType: .ec(keyType.curve),
             message: signature,
             exponentiation: false
         )
@@ -206,7 +206,7 @@ public final actor PIVSession: SmartCardSession {
     ) async throws(PIVSessionError) -> Data {
         try await usePrivateKeyInSlot(
             slot: slot,
-            keyType: .ecc(peerKey.curve),
+            keyType: .ec(peerKey.curve),
             message: peerKey.uncompressedPoint,
             exponentiation: true
         )
@@ -258,7 +258,7 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// > Note: YubiKey FIPS does not allow RSA1024 nor ``PIV/PinPolicy/never``.
     ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
-    ///        ``PIV/KeyType/ecc(_:)`` with `.secp384r1` requires P384 support, available on YubiKey 4 or later.
+    ///        ``PIV/KeyType/ec(_:)`` with `.secp384r1` requires P384 support, available on YubiKey 4 or later.
     ///        ``PIV/KeyType/ed25519`` and ``PIV/KeyType/x25519`` require YubiKey 5.7 or later.
     ///        ``PIV/PinPolicy`` or ``PIV/TouchPolicy`` other than ``PIV/PinPolicy/defaultPolicy`` require support for usage policy, available on YubiKey 4 or later.
     ///        ``PIV/TouchPolicy/cached`` requires support for touch cached, available on YubiKey 4.3 or later.
@@ -340,30 +340,30 @@ public final actor PIVSession: SmartCardSession {
         return rsaKeyType
     }
 
-    /// Import an ECC private key into a slot.
+    /// Import an EC private key into a slot.
     ///
     /// This method requires authentication.
     ///
-    /// > Note: ``PIV/KeyType/ecc(_:)`` with `.secp384r1` requires P384 support, available on YubiKey 4 or later.
+    /// > Note: ``PIV/KeyType/ec(_:)`` with `.secp384r1` requires P384 support, available on YubiKey 4 or later.
     ///        ``PIV/PinPolicy`` or ``PIV/TouchPolicy`` other than ``PIV/PinPolicy/defaultPolicy`` require support for usage policy,
     ///        available on YubiKey 4 or later.
     ///
     /// - Parameters:
-    ///   - key: The ECC private key to import.
+    ///   - key: The EC private key to import.
     ///   - slot: The slot to write the key to.
     ///   - pinPolicy: The PIN policy for using the private key.
     ///   - touchPolicy: The touch policy for using the private key.
-    /// - Returns: The ECC key type that was stored.
+    /// - Returns: The EC key type that was stored.
     @discardableResult
     public func putPrivateKey(
         _ key: EC.PrivateKey,
         in slot: PIV.Slot,
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
-    ) async throws(PIVSessionError) -> PIV.ECCKey {
+    ) async throws(PIVSessionError) -> PIV.ECKey {
         /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
-        let eccKeyType = PIV.ECCKey.ecc(key.curve)
-        let keyType = PIV.KeyType.ecc(key.curve)
+        let ecKeyType = PIV.ECKey.ec(key.curve)
+        let keyType = PIV.KeyType.ec(key.curve)
 
         try await importKey(
             keyType: keyType,
@@ -372,7 +372,7 @@ public final actor PIVSession: SmartCardSession {
             pinPolicy: pinPolicy,
             touchPolicy: touchPolicy
         )
-        return eccKeyType
+        return ecKeyType
     }
 
     /// Import an Ed25519 private key into a slot.
@@ -479,7 +479,7 @@ public final actor PIVSession: SmartCardSession {
     ///
     /// > Note: YubiKey FIPS does not allow RSA1024 nor ``PIV/PinPolicy/never``.
     ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
-    ///        ``PIV/KeyType/ecc(_:)`` with `.secp384r1` requires P384 support, available on YubiKey 4 or later.
+    ///        ``PIV/KeyType/ec(_:)`` with `.secp384r1` requires P384 support, available on YubiKey 4 or later.
     ///        ``PIV/PinPolicy`` or ``PIV/TouchPolicy`` other than ``PIV/PinPolicy/defaultPolicy`` require support for usage policy, available on YubiKey 4 or later.
     ///        ``PIV/TouchPolicy/cached`` requires support for touch cached, available on YubiKey 4.3 or later.
     ///
@@ -1057,7 +1057,7 @@ extension PIVSession {
         generateKey: Bool
     ) async throws(PIVSessionError) {
         /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
-        if keyType == .ecc(.secp384r1) {
+        if keyType == .ec(.secp384r1) {
             guard await self.supports(PIVSessionFeature.p384) else { throw .featureNotSupported() }
         }
         if pinPolicy != .`defaultPolicy` || touchPolicy != .`defaultPolicy` {
