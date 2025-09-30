@@ -39,30 +39,30 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
     /// - Returns: A fully–established connection ready for APDU exchange.
     /// - Throws: ``SmartCardConnectionError.busy`` if there is already an active connection.
     public static func makeConnection() async throws(SmartCardConnectionError) -> LightningSmartCardConnection {
-        trace(message: "requesting new connection")
-        return try await LightningSmartCardConnection()
+        /* Fix trace: trace(message: "requesting new connection") */
+        try await LightningSmartCardConnection()
     }
 
     public func close(error: Error?) async {
-        trace(message: "closing connection")
+        /* Fix trace: trace(message: "closing connection") */
         await LightningConnectionManager.shared.close(for: self, error: error)
     }
 
     public func waitUntilClosed() async -> Error? {
-        trace(message: "awaiting dismissal")
+        /* Fix trace: trace(message: "awaiting dismissal") */
         let error = await LightningConnectionManager.shared.didClose(for: self)
         if let error {
-            trace(message: "dismissed, error: \(String(describing: error))")
+            /* Fix trace: trace(message: "dismissed, error: \(String(describing: error))") */
         } else {
-            trace(message: "dismissed")
+            /* Fix trace: trace(message: "dismissed") */
         }
         return error
     }
 
     public func send(data: Data) async throws(SmartCardConnectionError) -> Data {
-        trace(message: "\(data.count) bytes")
+        /* Fix trace: trace(message: "\(data.count) bytes") */
         let response = try await LightningConnectionManager.shared.transmit(request: data, for: self)
-        trace(message: "received \(response.count) bytes")
+        /* Fix trace: trace(message: "received \(response.count) bytes") */
         return response
     }
 
@@ -100,7 +100,7 @@ private actor LightningConnectionManager {
 
         // Otherwise, create and store a new connection task.
         let task = Task { () -> LightningConnectionID in
-            trace(message: "begin new connection task")
+            /* Fix trace: trace(message: "begin new connection task") */
 
             do {
                 // Close previous connection if it exists
@@ -121,11 +121,11 @@ private actor LightningConnectionManager {
 
                 // Await the promise which will be fulfilled by accessoryDidConnect()
                 let result = try await connectionPromise.value()
-                trace(message: "connection established")
+                /* Fix trace: trace(message: "connection established") */
                 self.pendingConnectionPromise = nil
                 return result
             } catch {
-                trace(message: "connection failed: \(error.localizedDescription)")
+                /* Fix trace: trace(message: "connection failed: \(error.localizedDescription)") */
                 // Cleanup on failure
                 self.pendingConnectionPromise = nil
                 self.connectionState = nil
@@ -146,12 +146,12 @@ private actor LightningConnectionManager {
         for connection: LightningSmartCardConnection
     ) async throws(SmartCardConnectionError) -> Data {
         let connectionID = connection.accessoryConnectionID
-        trace(message: "\(request.count) bytes to connection \(connectionID)")
+        /* Fix trace: trace(message: "\(request.count) bytes to connection \(connectionID)") */
 
         guard let state = connectionState,
             state.connectionID == connectionID
         else {
-            trace(message: "noConnection")
+            /* Fix trace: trace(message: "noConnection") */
             throw SmartCardConnectionError.connectionLost
         }
 
@@ -179,7 +179,7 @@ private actor LightningConnectionManager {
 
     // Called by EAAccessoryWrapper when an accessory connects
     func accessoryDidConnect(connectionID: LightningConnectionID) async {
-        trace(message: "accessory connected with ID \(connectionID)")
+        /* Fix trace: trace(message: "accessory connected with ID \(connectionID)") */
         guard let promise = pendingConnectionPromise else { return }
 
         connectionState = (connectionID: connectionID, didCloseConnection: Promise<Error?>())
@@ -188,7 +188,7 @@ private actor LightningConnectionManager {
 
     // Called by EAAccessoryWrapper when an accessory disconnects
     func accessoryDidDisconnect(connectionID: LightningConnectionID) async {
-        trace(message: "accessory disconnected with ID \(connectionID)")
+        /* Fix trace: trace(message: "accessory disconnected with ID \(connectionID)") */
 
         // If a connection attempt is in progress, fail it.
         if let promise = pendingConnectionPromise {
@@ -216,7 +216,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     private var disconnectObserver: NSObjectProtocol?
 
     func setupConnection(id: LightningConnectionID, session: EASession) async {
-        trace(message: "opening session for ID \(id)")
+        /* Fix trace: trace(message: "opening session for ID \(id)") */
         session.open()
         // Give streams time to stabilize
         try? await Task.sleep(for: .milliseconds(100))
@@ -227,7 +227,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     }
 
     func cleanupConnection(id: LightningConnectionID) {
-        trace(message: "closing session for ID \(id)")
+        /* Fix trace: trace(message: "closing session for ID \(id)") */
         guard let session = sessions[id] else { return }
 
         session.close()
@@ -261,7 +261,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     }
 
     func startMonitoring() {
-        trace(message: "begin monitoring")
+        /* Fix trace: trace(message: "begin monitoring") */
         // Prevent duplicate observers
         guard connectObserver == nil && disconnectObserver == nil else { return }
 
@@ -304,7 +304,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     }
 
     func stopMonitoring() {
-        trace(message: "stop monitoring")
+        /* Fix trace: trace(message: "stop monitoring") */
         if let observer = connectObserver {
             NotificationCenter.default.removeObserver(observer)
             connectObserver = nil
@@ -337,10 +337,10 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
             } catch {
                 throw SmartCardConnectionError.transmitFailed("Lightning read failed", flatten: error)
             }
-            trace(
+            /* Fix trace: trace(
                 message:
                     "got \(result.count) bytes, SW: \(String(format:"%02X%02X", result.bytes[result.count-2], result.bytes[result.count-1]))"
-            )
+            ) */
             guard result.count >= 2 else { throw SmartCardConnectionError.connectionLost }
             let status = ResponseStatus(data: result.subdata(in: result.count - 2..<result.count))
 
@@ -357,7 +357,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     }
 
     nonisolated func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
-        trace(message: "stream event: \(String(describing: eventCode))")
+        /* Fix trace: trace(message: "stream event: \(String(describing: eventCode))") */
     }
 }
 

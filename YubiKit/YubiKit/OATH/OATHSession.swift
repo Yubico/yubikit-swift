@@ -121,7 +121,7 @@ public final actor OATHSession: SmartCardSession {
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
     ) async throws(OATHSessionError) -> OATHSession {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: connection))")
+        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: connection))") */
         // Create a new OATHSession
         let session = try await OATHSession(connection: connection, scpKeyParams: scpKeyParams)
         return session
@@ -136,7 +136,7 @@ public final actor OATHSession: SmartCardSession {
     ///
     /// - Throws: An error if the reset operation fails.
     public func reset() async throws(OATHSessionError) {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
+        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)") */
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad)
         try await process(apdu: apdu)
     }
@@ -160,7 +160,7 @@ public final actor OATHSession: SmartCardSession {
     /// - Returns: The newly added credential.
     @discardableResult
     public func addCredential(template: CredentialTemplate) async throws(OATHSessionError) -> Credential {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
+        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)") */
         if template.algorithm == .sha512 {
             guard await self.supports(OATHSessionFeature.sha512) else { throw .featureNotSupported() }
         }
@@ -233,7 +233,7 @@ public final actor OATHSession: SmartCardSession {
     /// Deletes an existing Credential from the YubiKey.
     /// - Parameter credential: The credential that will be deleted from the YubiKey.
     public func deleteCredential(_ credential: Credential) async throws(OATHSessionError) {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(credential)")
+        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(credential)") */
         let deleteTlv = TKBERTLVRecord(tag: 0x71, value: credential.id)
         let apdu = APDU(cla: 0, ins: 0x02, p1: 0, p2: 0, command: deleteTlv.data)
         try await process(apdu: apdu)
@@ -244,7 +244,7 @@ public final actor OATHSession: SmartCardSession {
     /// >Note: The requires touch property of Credential will always be set to false when using `listCredentials()`. If you need this property use ``calculateCodes(timestamp:)`` instead.
     /// - Returns: An array of Credentials.
     public func listCredentials() async throws(OATHSessionError) -> [Credential] {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
+        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)") */
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
         let data = try await process(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else {
@@ -291,9 +291,9 @@ public final actor OATHSession: SmartCardSession {
         for credential: Credential,
         timestamp: Date = Date()
     ) async throws(OATHSessionError) -> Code {
-        Logger.oath.debug(
+        /* Fix trace: Logger.oath.debug(
             "\(String(describing: self).lastComponent), \(#function): credential: \(credential), timeStamp: \(timestamp)"
-        )
+        ) */
 
         guard credential.deviceId == selectResponse.deviceId else {
             throw .credentialNotPresentOnCurrentYubiKey()
@@ -339,9 +339,9 @@ public final actor OATHSession: SmartCardSession {
         for credentialId: Data,
         challenge: Data
     ) async throws(OATHSessionError) -> Data {
-        Logger.oath.debug(
+        /* Fix trace: Logger.oath.debug(
             "\(String(describing: self).lastComponent), \(#function): credentialId: \(credentialId.hexEncodedString), challenge: \(challenge.hexEncodedString)"
-        )
+        ) */
         var data = Data()
         data.append(TKBERTLVRecord(tag: tagName, value: credentialId).data)
         data.append(TKBERTLVRecord(tag: tagChallenge, value: challenge).data)
@@ -365,7 +365,7 @@ public final actor OATHSession: SmartCardSession {
     public func calculateCredentialCodes(
         timestamp: Date = Date()
     ) async throws(OATHSessionError) -> [(Credential, Code?)] {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): timeStamp: \(timestamp)")
+        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): timeStamp: \(timestamp)") */
         let time = timestamp.timeIntervalSince1970
         let challenge = UInt64(time / 30)
         let bigChallenge = CFSwapInt64HostToBig(challenge)
@@ -425,7 +425,7 @@ public final actor OATHSession: SmartCardSession {
     /// require the application to be unlocked via one of the unlock functions. Also see ``setAccessKey(_:)``.
     /// - Parameter password: The user-supplied password to set.
     public func setPassword(_ password: String) async throws(OATHSessionError) {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(password)")
+        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(password)") */
         let derivedKey = try deriveAccessKey(from: password)
         try await self.setAccessKey(derivedKey)
     }
@@ -433,7 +433,7 @@ public final actor OATHSession: SmartCardSession {
     /// Unlock with password.
     /// - Parameter password: The user-supplied password used to unlock the application.
     public func unlock(password: String) async throws(OATHSessionError) {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(password)")
+        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(password)") */
         let derivedKey = try deriveAccessKey(from: password)
         try await self.unlock(accessKey: derivedKey)
     }
@@ -446,7 +446,7 @@ public final actor OATHSession: SmartCardSession {
     /// sets the raw 16 byte key.
     /// - Parameter accessKey: The shared secret key used to unlock access to the application.
     public func setAccessKey(_ accessKey: Data) async throws(OATHSessionError) {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)")
+        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)") */
         let header = CredentialType.totp().code | HashAlgorithm.sha1.rawValue
         var data = Data([header])
         data.append(accessKey)
@@ -469,7 +469,7 @@ public final actor OATHSession: SmartCardSession {
     /// See the [YKOATH protocol specification](https://developers.yubico.com/OATH/) for further details.
     /// - Parameter accessKey: The shared access key.
     public func unlock(accessKey: Data) async throws(OATHSessionError) {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)")
+        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)") */
         guard let responseChallenge = self.selectResponse.challenge else {
             throw .responseParseError("Missing challenge in OATH application select response")
         }
@@ -500,14 +500,14 @@ public final actor OATHSession: SmartCardSession {
 
     /// Removes the access key, if one is set.
     public func deleteAccessKey() async throws(OATHSessionError) {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
+        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)") */
         let tlv = TKBERTLVRecord(tag: tagSetCodeKey, value: Data())
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: tlv.data)
         try await process(apdu: apdu)
     }
 
     deinit {
-        Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)")
+        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)") */
     }
 
 }

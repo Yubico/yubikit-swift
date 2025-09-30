@@ -97,7 +97,7 @@ extension USBSmartCardConnection: SmartCardConnection {
     // @TraceScope
     public func close(error: Error?) async {
         try? await SmartCardConnectionsManager.shared.didClose(for: slot).fulfill(error)
-        trace(message: "disconnect called on sessionManager")
+        /* Fix trace: trace(message: "disconnect called on sessionManager") */
     }
 
     /// Waits for the connection to close and returns any error that caused the closure.
@@ -116,11 +116,11 @@ extension USBSmartCardConnection: SmartCardConnection {
     // @TraceScope
     public func send(data: Data) async throws(SmartCardConnectionError) -> Data {
         guard await isConnected else {
-            trace(message: "no connection – throwing .connectionLost")
+            /* Fix trace: trace(message: "no connection – throwing .connectionLost") */
             throw SmartCardConnectionError.connectionLost
         }
         let response = try await SmartCardConnectionsManager.shared.transmit(request: data, for: slot)
-        trace(message: "transmit returned \(response.count) bytes")
+        /* Fix trace: trace(message: "transmit returned \(response.count) bytes") */
         return response
     }
 }
@@ -163,7 +163,7 @@ private final actor SmartCardConnectionsManager {
         get throws(SmartCardConnectionError) {
             guard let manager = TKSmartCardSlotManager.default else {
                 assertionFailure("🪪 No default TKSmartCardSlotManager, check entitlements for com.apple.smartcard.")
-                trace(message: "no slotsManager – throwing .unsupported")
+                /* Fix trace: trace(message: "no slotsManager – throwing .unsupported") */
                 throw SmartCardConnectionError.unsupported
             }
 
@@ -225,26 +225,26 @@ private final actor SmartCardConnectionsManager {
         let tkSlot = try? await slotManager.getSlot(withName: slot.name)
 
         guard let tkSlot else {
-            trace(message: "failed to connect to slot \(slot.name)")
+            /* Fix trace: trace(message: "failed to connect to slot \(slot.name)") */
             throw SmartCardConnectionError.setupFailed("Failed to connect to slot \(slot.name)")
         }
 
         guard let card = tkSlot.makeSmartCard() else {
-            trace(message: "slot.makeSmartCard() returned nil")
+            /* Fix trace: trace(message: "slot.makeSmartCard() returned nil") */
             throw SmartCardConnectionError.setupFailed("Failed to create SmartCard from slot")
         }
 
-        trace(message: "will call card.beginSession()")
+        /* Fix trace: trace(message: "will call card.beginSession()") */
         do {
             guard try await card.beginSession() else {
-                trace(message: "card.beginSession() failed: Got nil")
+                /* Fix trace: trace(message: "card.beginSession() failed: Got nil") */
                 throw SmartCardConnectionError.setupFailed("Failed to begin SmartCard session (returned nil)")
             }
         } catch {
-            trace(message: "card.beginSession() failed: " + error.localizedDescription)
+            /* Fix trace: trace(message: "card.beginSession() failed: " + error.localizedDescription) */
             throw SmartCardConnectionError.setupFailed("Failed to begin SmartCard session", error)
         }
-        trace(message: "card.beginSession() succeded")
+        /* Fix trace: trace(message: "card.beginSession() succeded") */
 
         // create and save a new connection state
         let state = ConnectionState(card: card)

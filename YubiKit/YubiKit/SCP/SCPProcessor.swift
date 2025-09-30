@@ -27,7 +27,7 @@ extension SmartCardSession {
     ) async throws(Self.Error) -> SCPState {
         if let scp03Params = keyParams as? SCP03KeyParams {
             let hostChallenge = Data.random(length: 8)
-            // Self.// trace(message: "send challenge: \(hostChallenge.hexEncodedString)")
+            /* Fix trace: Self.trace(message: "send challenge: \(hostChallenge.hexEncodedString)") */
             var result = try await send(
                 apdu: APDU(
                     cla: 0x80,
@@ -82,7 +82,7 @@ extension SmartCardSession {
                 insSendRemaining: insSendRemaining
             )
 
-            // // trace(message: "done configuring SCP03")
+            /* Fix trace: trace(message: "done configuring SCP03") */
             return state
         }
 
@@ -115,7 +115,7 @@ extension SmartCardSession {
                 for (index, cert) in certificates.enumerated() {
                     // For every cert except the last, set bit 7 of P2 to indicate "more blocks"
                     let p2: UInt8 = oceRef.kid | (index < certificates.count - 1 ? 0x80 : 0x00)
-                    // Self.// trace(message: "sending certificate \(index)")
+                    /* Fix trace: Self.trace(message: "sending certificate \(index)") */
                     _ = try await send(
                         apdu: APDU(
                             cla: 0x80,
@@ -136,7 +136,7 @@ extension SmartCardSession {
             let keyLen = Data([16])  // 128-bit
 
             let pkSdEcka = scp11Params.pkSdEcka
-            // Self.// trace(message: "pkSdEcka: \(pkSdEcka.uncompressedPoint.hexEncodedString)")
+            /* Fix trace: Self.trace(message: "pkSdEcka: \(pkSdEcka.uncompressedPoint.hexEncodedString)") */
 
             guard let eskOceEcka = EC.PrivateKey.random(curve: .secp256r1) else {
                 throw .cryptoError("Failed to generate private key", error: nil)
@@ -144,9 +144,9 @@ extension SmartCardSession {
             let epkOceEcka = eskOceEcka.publicKey
 
             let epkOceEckaData = epkOceEcka.uncompressedPoint
-            // Self.// trace(message: "epkOceEckaData: \(epkOceEckaData.hexEncodedString)")
+            /* Fix trace: Self.trace(message: "epkOceEckaData: \(epkOceEckaData.hexEncodedString)") */
 
-            // Self.// trace(message: "params: \(Data([0x11, params]).hexEncodedString)")
+            /* Fix trace: Self.trace(message: "params: \(Data([0x11, params]).hexEncodedString)") */
 
             // GPC v2.3 Amendment F (SCP11) v1.4 §7.6.2.3
             let data =
@@ -156,7 +156,7 @@ extension SmartCardSession {
                         + TKBERTLVRecord(tag: 0x95, value: keyUsage).data
                         + TKBERTLVRecord(tag: 0x80, value: keyType).data + TKBERTLVRecord(tag: 0x81, value: keyLen).data
                 ).data + TKBERTLVRecord(tag: 0x5f49, value: epkOceEckaData).data
-            // Self.// trace(message: "data: \(data.hexEncodedString)")
+            /* Fix trace: Self.trace(message: "data: \(data.hexEncodedString)") */
             let skOceEcka = scp11Params.skOceEcka ?? eskOceEcka
             let ins: UInt8 = kid == .scp11b ? 0x88 : 0x82
             /*
@@ -204,15 +204,15 @@ extension SmartCardSession {
             var keys = [Data]()
 
             for counter in UInt32(1)...UInt32(4) {
-                // Self.// trace(message: "counter: \(counter.bigEndian)")
-                // Self.// trace(message: "hex counter: \(counter.bigEndian.data.hexEncodedString)")
+                /* Fix trace: Self.trace(message: "counter: \(counter.bigEndian)") */
+                /* Fix trace: Self.trace(message: "hex counter: \(counter.bigEndian.data.hexEncodedString)") */
                 let data = keyMaterial + counter.bigEndian.data + sharedInfo
                 var digest = data.sha256()
                 keys.append(digest.extract(16)!)
                 keys.append(digest)
             }
 
-            // Self.// trace(message: "keys[0]: \(keys[0].hexEncodedString)")
+            /* Fix trace: Self.trace(message: "keys[0]: \(keys[0].hexEncodedString)") */
             let genReceipt: Data
             do {
                 genReceipt = try keyAgreementData.aescmac(key: keys[0])
@@ -220,8 +220,8 @@ extension SmartCardSession {
                 throw .cryptoError("Failed to generate receipt", error: error)
             }
 
-            // Self.// trace(message: "receipt: \(receipt.hexEncodedString)")
-            // Self.// trace(message: "genReceipt: \(genReceipt.hexEncodedString)")
+            /* Fix trace: Self.trace(message: "receipt: \(receipt.hexEncodedString)") */
+            /* Fix trace: Self.trace(message: "genReceipt: \(genReceipt.hexEncodedString)") */
 
             guard genReceipt.constantTimeCompare(receipt) else {
                 throw .responseParseError("Receipt does not match")
@@ -230,7 +230,7 @@ extension SmartCardSession {
             let sessionKeys = SCPSessionKeys(senc: keys[1], smac: keys[2], srmac: keys[3], dek: keys[4])
             let state = SCPState(sessionKeys: sessionKeys, macChain: receipt)
 
-            // Self.// trace(message: "done configuring SCP11")
+            /* Fix trace: Self.trace(message: "done configuring SCP11") */
             return state
         }
 
