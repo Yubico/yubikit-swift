@@ -1,6 +1,6 @@
 # ``YubiKit``
 
-Connect and run commands on the different applications on a YubiKey. The framework support connecting using NFC, Lightning and USB-C.
+Connect and run commands on the different applications on a YubiKey. The framework support connecting using NFC, Lightning and USB.
 
 @Metadata {
     @PageImage(purpose: icon, 

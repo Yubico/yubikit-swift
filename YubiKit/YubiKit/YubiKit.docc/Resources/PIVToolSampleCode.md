@@ -126,11 +126,11 @@ Sign documents, challenges, or any data using the private key:
 
 ```swift
 let documentHash = SHA256.hash(data: documentData)
-let signature = try await session.signWithKeyInSlot(
-    .signature,
+let signature = try await session.sign(
+    Data(documentHash),
+    in: .signature,
     keyType: .ec(.secp256r1),
-    algorithm: .ecdsaSignatureMessageX962SHA256,
-    message: Data(documentHash)
+    using: .hash(.sha256)
 )
 ```
 
@@ -237,23 +237,50 @@ This lets your application adapt to different YubiKey capabilities.
 
 ## Error Handling in PIV Applications
 
-PIV operations can fail for various reasons - locked PINs, missing authentication, or unsupported operations:
+PIV operations can fail for various reasons - locked PINs, missing authentication, or unsupported operations. The PIV tool demonstrates comprehensive error handling with typed throws:
 
 ```swift
-do {
-    let result = try await session.verifyPin(pin)
-    switch result {
-    case .success:
-        // PIN verified successfully
-    case .fail(let attemptsRemaining):
-        print("PIN verification failed. \(attemptsRemaining) attempts remaining.")
-    case .pinLocked:
-        print("PIN is locked. Use PUK to unlock.")
+func verifyPinIfProvided(_ pin: String?) async {
+    guard let pin = pin else { return }
+
+    do {
+        let result = try await verifyPin(pin)
+        switch result {
+        case .success:
+            break
+        case let .fail(retries):
+            exitWithError("PIN verification failed - \(retries) tries left.")
+        case .pinLocked:
+            exitWithError("PIN is blocked.")
+        }
+    } catch {
+        handlePIVError(error)
     }
-} catch .authenticationFailed {
-    print("Management key authentication required.")
-} catch {
-    print("PIN verification error: \(error)")
 }
 ```
+
+The `handlePIVError` helper demonstrates matching on specific `PIVSessionError` cases:
+
+```swift
+func handlePIVError(_ error: PIVSessionError) {
+    let message: String
+    switch error {
+    case let .failedResponse(responseStatus, _):
+        let statusHex = String(format: "0x%04X", responseStatus.rawStatus)
+        message = "YubiKey responded with status \(statusHex)"
+    case let .invalidPin(retries, _):
+        message = retries > 0 ? "PIN verification failed - \(retries) tries left." : "PIN is blocked."
+    case .pinLocked:
+        message = "PIN is blocked."
+    case .authenticationFailed:
+        message = "Authentication required."
+    case .featureNotSupported:
+        message = "Operation not supported by this YubiKey."
+    // ... handle other cases
+    }
+    print("Error: \(message)")
+}
+```
+
+With typed throws, the compiler ensures you handle all error cases specific to PIV operations.
 

@@ -69,9 +69,9 @@ the application e.g "The application needs access to NFC reading to communicate 
 
 ![An image showing how to add NFC privacy string tro project.](nfc-privacy.png)
 
-### SmartCard/USB-C
+### SmartCard/USB
 
-To support YubiKeys connected via the USB-C port on a device running iOS 16 or higher, you need to add the 
+To support YubiKeys connected via the USB port on a device running iOS 16 or higher, you need to add the 
 `com.apple.security.smartcard` entitlement to your application.
 
 1. Select the application entitlements file.
@@ -80,7 +80,7 @@ To support YubiKeys connected via the USB-C port on a device running iOS 16 or h
 
 ![An image showing how to add NFC privacy string to project.](smart-card.png)
 
-> Note: The SmartCard/USB-C connection only support the CCID based applications on the YubiKey and does not support U2F, FIDO2 or OTP.
+> Note: The SmartCard/USB connection only support the CCID based applications on the YubiKey and does not support U2F, FIDO2 or OTP.
 
 ### Lightning/AccessoryConnection i.e 5Ci YubiKey
 
@@ -107,7 +107,7 @@ Now that your project is configured, you can start connecting to YubiKeys. YubiK
 YubiKit handles three different connection methods:
 
 - **NFC**: Short-range wireless communication (iOS only)
-- **USB-C**: Direct USB connection via SmartCard interface
+- **USB**: Direct USB connection via SmartCard interface
 - **Lightning**: YubiKey 5Ci connected to Lightning port (iOS only)
 
 Each connection type works differently, so let's explore how to use them.
@@ -145,7 +145,7 @@ Wired connections are persistent - they stay connected until the YubiKey is unpl
 ```swift
 import YubiKit
 
-// Connect to any wired YubiKey (USB-C or Lightning)
+// Connect to any wired YubiKey (USB or Lightning)
 do {
     let connection = try await WiredSmartCardConnection.makeConnection()
 
@@ -164,14 +164,14 @@ do {
 }
 ```
 
-The `WiredSmartCardConnection.makeConnection()` method automatically detects whether you're using USB-C or Lightning.
+The `WiredSmartCardConnection.makeConnection()` method automatically detects whether you're using USB or Lightning.
 
 ### Specific Connection Types
 
 For more control, you can connect to specific interfaces:
 
 ```swift
-// USB-C only
+// USB only
 let usbConnection = try await USBSmartCardConnection.makeConnection()
 
 // Lightning only (iOS)

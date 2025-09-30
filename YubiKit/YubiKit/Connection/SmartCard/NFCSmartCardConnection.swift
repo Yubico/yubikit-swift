@@ -370,7 +370,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             return
         }
 
-        // if there is already a connection for this slot we throw `ConnectionError.busy`.
+        // if there is already a connection for this slot we throw `SmartCardConnectionError.busy`.
         // The caller must close the connection first.
         switch currentState.phase {
         case .inactive:
