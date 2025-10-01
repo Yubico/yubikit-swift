@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       
       - name: Setup Environment
         uses: ./.github/actions/setup-env
@@ -52,7 +52,7 @@ jobs:
 
       # always run – auto decides deploy vs remove
       - name: Deploy / Remove PR preview
-        uses: rossjrw/pr-preview-action@v1
+        uses: rossjrw/pr-preview-action@9f77b1d057b494e662c50b8ca40ecc63f21e0887 # v1.6.2
         with:
           source-dir: ${{ env.DOCS_PATH }}
           preview-branch: ${{ env.PREVIEW_BRANCH }}
