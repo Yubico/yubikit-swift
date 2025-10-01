@@ -31,13 +31,16 @@ jobs:
       # build only when the PR isn’t being closed
       - name: Build Docs
         if: ${{ github.event.action != 'closed' }}
-        uses: fwcd/swift-docc-action@v1
-        with:
-          target: YubiKit
-          output: ${{ env.DOCS_PATH }}
-          hosting-base-path: yubikit-swift/pr-${{ github.event.number }}/
-          disable-indexing: 'true'
-          transform-for-static-hosting: 'true'
+        run: |
+          xcodebuild docbuild \
+            -scheme YubiKit \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .build
+
+          $(xcrun --find docc) process-archive \
+            transform-for-static-hosting .build/Build/Products/Debug-iphonesimulator/YubiKit.doccarchive \
+            --output-path ${{ env.DOCS_PATH }} \
+            --hosting-base-path yubikit-swift/pr-${{ github.event.number }}/
 
       - name: Redirect root to documentation
         if: ${{ github.event.action != 'closed' }}

@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    tags: ['v*']
 
 permissions:
   contents: write      # push to gh-pages
@@ -25,14 +26,28 @@ jobs:
       - name: Setup Environment
         uses: ./.github/actions/setup-env
 
+      - name: Determine deployment paths
+        id: path
+        run: |
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            echo "base_path=yubikit-swift" >> $GITHUB_OUTPUT
+            echo "target_folder=." >> $GITHUB_OUTPUT
+          else
+            echo "base_path=yubikit-swift/${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "target_folder=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build Docs
-        uses: fwcd/swift-docc-action@v1
-        with:
-          target: YubiKit
-          output: ${{ env.DOCS_PATH }}
-          hosting-base-path: yubikit-swift
-          disable-indexing: 'true'
-          transform-for-static-hosting: 'true'
+        run: |
+          xcodebuild docbuild \
+            -scheme YubiKit \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath .build
+
+          $(xcrun --find docc) process-archive \
+            transform-for-static-hosting .build/Build/Products/Debug-iphonesimulator/YubiKit.doccarchive \
+            --output-path ${{ env.DOCS_PATH }} \
+            --hosting-base-path ${{ steps.path.outputs.base_path }}
 
       - name: Redirect root to documentation
         run: |
@@ -46,6 +61,7 @@ jobs:
         with:
           folder: ${{ env.DOCS_PATH }}
           branch: ${{ env.PAGES_BRANCH }}
-          clean-exclude: pr-*
+          target-folder: ${{ steps.path.outputs.target_folder }}
+          clean-exclude: pr-* v*
           force: false
           token: ${{ secrets.GITHUB_TOKEN }}
