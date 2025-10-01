@@ -19,7 +19,7 @@ env:
 jobs:
   pr-preview:
     name: PR DocC Preview
-    runs-on: macos-15
+    runs-on: macos-26-xlarge
 
     steps:
       - name: Checkout

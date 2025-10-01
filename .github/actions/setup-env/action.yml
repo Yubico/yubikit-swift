@@ -4,15 +4,20 @@ description: 'Common Xcode setup used across all workflows'
 runs:
   using: 'composite'
   steps:
-    - name: Select Xcode 26.0
+    - name: Check Xcode version
       shell: bash
-      run: |
-        sudo xcode-select -s /Applications/Xcode_26.0.app
-        xcodebuild -version
-    
-    - name: Install iOS Simulator
-      shell: bash
-      run: |
-        xcrun simctl list runtimes
-        sudo xcode-select -s /Applications/Xcode_26.0.app
-        xcodebuild -downloadPlatform iOS
+      run: xcodebuild -version
+
+    # Uncomment if you need to select a specific Xcode version
+    # - name: Select Xcode 26.0
+    #   shell: bash
+    #   run: |
+    #     sudo xcode-select -s /Applications/Xcode_26.0.app
+    #     xcodebuild -version
+
+    # Uncomment if iOS Simulator is not pre-installed on macos-26
+    # - name: Install iOS Simulator
+    #   shell: bash
+    #   run: |
+    #     xcrun simctl list runtimes
+    #     xcodebuild -downloadPlatform iOS
