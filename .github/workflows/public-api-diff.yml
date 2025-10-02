@@ -19,7 +19,7 @@ jobs:
     
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
       with:
         fetch-depth: 0
 
@@ -35,14 +35,14 @@ jobs:
         echo "NEW_VERSION=$NEW" >> $GITHUB_ENV
     
     - name: Detect YubiKit Public API Changes (macOS)
-      uses: Adyen/adyen-swift-public-api-diff@0.10.1
+      uses: Adyen/adyen-swift-public-api-diff@61d3be134cfdd1a8b6f2165e23a74a0086460234 # 0.10.1
       with:
         platform: macOS
         new: ${{ env.NEW_VERSION }}
         old: ${{ env.OLD_VERSION }}
 
     - name: Detect YubiKit Public API Changes (iOS)
-      uses: Adyen/adyen-swift-public-api-diff@0.10.1
+      uses: Adyen/adyen-swift-public-api-diff@61d3be134cfdd1a8b6f2165e23a74a0086460234 # 0.10.1
       with:
         platform: iOS
         new: ${{ env.NEW_VERSION }}
