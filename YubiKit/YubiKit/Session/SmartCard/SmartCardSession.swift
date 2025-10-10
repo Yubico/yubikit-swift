@@ -65,8 +65,7 @@ extension SmartCardSessionInternal {
     @discardableResult
     func process(apdu: APDU) async throws(Self.Error) -> Data {
         let isOATH = Self.application == .oath
-        let insSendRemaining: UInt8 = isOATH ? 0xa5 : 0xc0
 
-        return try await interface.send(apdu: apdu, insSendRemaining: insSendRemaining)
+        return try await interface.send(apdu: apdu, insSendRemaining: isOATH ? 0xa5 : 0xc0)
     }
 }

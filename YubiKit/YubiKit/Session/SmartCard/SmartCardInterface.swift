@@ -136,7 +136,8 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
 
     // Send APDU without SCP encryption
     private func sendPlain(apdu: APDU, insSendRemaining: UInt8) async throws(Error) -> Data {
-        try await sendWithContinuation(
+        try await Self.sendWithContinuationStatic(
+            connection: connection,
             apdu: apdu,
             accumulated: Data(),
             readMoreData: false,
@@ -157,49 +158,6 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
             readMoreData: false,
             insSendRemaining: insSendRemaining
         )
-    }
-
-    // Send APDU and handle continuation responses (0x61)
-    private func sendWithContinuation(
-        apdu: APDU,
-        accumulated: Data,
-        readMoreData: Bool,
-        insSendRemaining: UInt8
-    ) async throws(Error) -> Data {
-        // Send APDU or continuation command
-        let responseData: Data
-        do {
-            if readMoreData {
-                let continueApdu = APDU(cla: 0, ins: insSendRemaining, p1: 0, p2: 0, command: nil)
-                responseData = try await connection.send(data: continueApdu.data)
-            } else {
-                responseData = try await connection.send(data: apdu.data)
-            }
-        } catch {
-            throw .connectionError(error)
-        }
-
-        // Parse response status
-        let response = Response(rawData: responseData)
-
-        guard response.responseStatus.status == .ok || response.responseStatus.sw1 == 0x61 else {
-            throw .failedResponse(response.responseStatus)
-        }
-
-        // Accumulate data
-        let newData = accumulated + response.data
-
-        // Handle continuation
-        if response.responseStatus.sw1 == 0x61 {
-            return try await sendWithContinuation(
-                apdu: apdu,
-                accumulated: newData,
-                readMoreData: true,
-                insSendRemaining: insSendRemaining
-            )
-        } else {
-            return newData
-        }
     }
 
     // Send APDU and handle continuation responses (0x61) - static version for use in init

@@ -46,7 +46,7 @@ public final actor PIVSession: SmartCardSessionInternal {
 
         // Get version
         let versionApdu = APDU(cla: 0, ins: 0xfd, p1: 0, p2: 0)
-        let data: Data = try await interface.send(apdu: versionApdu, insSendRemaining: 0xc0)
+        let data: Data = try await interface.send(apdu: versionApdu)
 
         guard let version = Version(withData: data) else {
             throw PIVSessionError.responseParseError("Failed to parse version from PIV application response")
