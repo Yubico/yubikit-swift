@@ -25,27 +25,23 @@ import OSLog
 ///
 /// Create with ``makeSession(connection:scpKeyParams:)`` and call the instance
 /// methods as needed.
-public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLogger {
+public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityDomainLogger {
     public static let application: Application = .securityDomain
 
     public typealias Feature = SecurityDomainFeature
     public typealias Error = SCPError
 
-    public let connection: SmartCardConnection
-    public let scpState: SCPState?
+    let interface: SmartCardInterface<Error>
 
     private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws(SCPError) {
-        do {
-            try await Self.selectApplication(using: connection)
-            self.connection = connection
-            if let scpKeyParams {
-                scpState = try await Self.setupSCP(connection: connection, keyParams: scpKeyParams)
-            } else {
-                scpState = nil
-            }
-        } catch {
-            throw error
-        }
+        // Create interface with application selection and optional SCP
+        let interface = try await SmartCardInterface<Error>(
+            connection: connection,
+            application: .securityDomain,
+            keyParams: scpKeyParams
+        )
+
+        self.interface = interface
     }
 
     /// Creates a new ``SecurityDomainSession`` by selecting the Security Domain application on the provided
@@ -291,7 +287,7 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
     public func putCAIssuer(for keyRef: SCPKeyRef, ski: Data) async throws(SCPError) {
         let klcc: UInt8
         switch keyRef.kid {
-        case SCPKid.scp11a, SCPKid.scp11b, SCPKid.scp11c: klcc = 1
+        case SCPKeyRef.Kid.scp11a, SCPKeyRef.Kid.scp11b, SCPKeyRef.Kid.scp11c: klcc = 1
         default: klcc = 0
         }
         let data = TKBERTLVRecord(
@@ -522,14 +518,14 @@ public final actor SecurityDomainSession: SmartCardSession, HasSecurityDomainLog
             let ins: UInt8
 
             switch keyRef.kid {
-            case SCPKid.scp03:
+            case SCPKeyRef.Kid.scp03:
                 keyRef = SCPKeyRef(kid: 0, kvn: 0)
                 ins = 0x50
             case 0x02, 0x03:
                 continue  // Skip these as they are deleted by 0x01
-            case SCPKid.scp11a, SCPKid.scp11c:
+            case SCPKeyRef.Kid.scp11a, SCPKeyRef.Kid.scp11c:
                 ins = 0x82
-            case SCPKid.scp11b:
+            case SCPKeyRef.Kid.scp11b:
                 ins = 0x88
             default:  // 0x10, 0x20-0x2F
                 ins = 0x2A

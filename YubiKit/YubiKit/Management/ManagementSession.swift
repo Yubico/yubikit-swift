@@ -21,14 +21,13 @@ import OSLog
 /// Use the Management application to get information and configure a YubiKey.
 /// Read more about the Management application on the
 /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
-public final actor ManagementSession: SmartCardSession {
+public final actor ManagementSession: SmartCardSessionInternal {
     public static let application: Application = .management
 
     public typealias Error = ManagementSessionError
     public typealias Feature = ManagementFeature
 
-    public let connection: SmartCardConnection
-    public let scpState: SCPState?
+    let interface: SmartCardInterface<Error>
 
     /// The firmware version of the YubiKey.
     public let version: Version
@@ -38,37 +37,20 @@ public final actor ManagementSession: SmartCardSession {
         scpKeyParams: SCPKeyParams? = nil
     ) async throws(ManagementSessionError) {
 
-        // Select application
-        let result: Data
-        do {
-            result = try await Self.selectApplication(using: connection)
-        } catch {
-            guard case let .failedResponse(responseStatus, source: _) = error else {
-                throw error
-            }
-            switch responseStatus.status {
-            case .invalidInstruction, .fileNotFound:
-                throw .featureNotSupported()
-            default:
-                throw error
-            }
-        }
+        // Create interface with application selection and optional SCP
+        let interface = try await SmartCardInterface<Error>(
+            connection: connection,
+            application: .management,
+            keyParams: scpKeyParams
+        )
 
-        // Set the version
-        if let version = Version(withManagementResult: result) {
-            self.version = version
-        } else {
+        // Parse version from select response
+        guard let version = Version(withManagementResult: interface.selectResponse) else {
             throw .responseParseError("Failed to parse version from management response")
         }
 
-        // Setup SCP if parameters provided
-        if let scpKeyParams {
-            scpState = try await Self.setupSCP(connection: connection, keyParams: scpKeyParams)
-        } else {
-            scpState = nil
-        }
-
-        self.connection = connection
+        self.version = version
+        self.interface = interface
     }
 
     /// Creates a new ManagementSession with the provided connection.

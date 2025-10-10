@@ -83,6 +83,8 @@ public protocol SmartCardSessionError: SessionError {
         _ error: SCPError,
         source: SourceLocation
     ) -> Self
+
+    var responseStatus: ResponseStatus? { get }
 }
 
 // MARK: - Transport Errors

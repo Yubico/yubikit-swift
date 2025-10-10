@@ -14,6 +14,14 @@
 
 import Foundation
 
+/// Identifies a YubiKey application that can be selected on a SmartCard connection.
+public enum Application: Sendable {
+    case oath
+    case management
+    case piv
+    case securityDomain
+}
+
 /// A protocol for sessions that communicate with YubiKey applications using SmartCard connections.
 ///
 /// SmartCardSession extends ``Session`` to provide session creation with SmartCard connections,
@@ -25,6 +33,7 @@ public protocol SmartCardSession: Session {
     static var application: Application { get }
 
     var scpState: SCPState? { get }
+
     var connection: SmartCardConnection { get }
 
     /// Creates a new session using the supplied connection.
@@ -38,4 +47,25 @@ public protocol SmartCardSession: Session {
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams?
     ) async throws(Self.Error) -> Self
+}
+
+protocol SmartCardSessionInternal: SmartCardSession {
+    var interface: SmartCardInterface<Error> { get }
+}
+
+extension SmartCardSessionInternal {
+    public var scpState: SCPState? {
+        interface.scpState
+    }
+
+    public var connection: SmartCardConnection {
+        interface.connection
+    }
+
+    @discardableResult
+    func process(apdu: APDU) async throws(Self.Error) -> Data {
+        let isOATH = Self.application == .oath
+
+        return try await interface.send(apdu: apdu, insSendRemaining: isOATH ? 0xa5 : 0xc0)
+    }
 }

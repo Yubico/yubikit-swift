@@ -33,15 +33,14 @@ let oathDefaultPeriod = 30.0
 /// The OATHSession is an interface to the OATH application on the YubiKey that will
 /// let you store, calculate and edit TOTP and HOTP credentials on the YubiKey. Learn
 /// more about OATH on the [Yubico developer website](https://developers.yubico.com/OATH/).
-public final actor OATHSession: SmartCardSession {
+public final actor OATHSession: SmartCardSessionInternal {
 
     public typealias Feature = OATHSessionFeature
     public typealias Error = OATHSessionError
 
     static public let application: Application = .oath
 
-    public let connection: SmartCardConnection
-    public let scpState: SCPState?
+    let interface: SmartCardInterface<Error>
 
     private struct SelectResponse {
         let salt: Data
@@ -57,40 +56,16 @@ public final actor OATHSession: SmartCardSession {
     }
 
     private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws(OATHSessionError) {
-        self.selectResponse = try await Self.selectOATHApplication(connection: connection)
-        if let scpKeyParams {
-            scpState = try await Self.setupSCP(
-                connection: connection,
-                keyParams: scpKeyParams,
-                insSendRemaining: 0xa5
-            )
-        } else {
-            scpState = nil
-        }
-        self.connection = connection
-    }
+        // Create interface with application selection and optional SCP (OATH uses 0xa5 for continuation)
+        let interface = try await SmartCardInterface<Error>(
+            connection: connection,
+            application: .oath,
+            keyParams: scpKeyParams,
+            insSendRemaining: 0xa5
+        )
 
-    private static func selectOATHApplication(
-        connection: SmartCardConnection
-    ) async throws(OATHSessionError) -> SelectResponse {
-
-        // Select application
-        let data: Data
-        do {
-            data = try await Self.selectApplication(using: connection)
-        } catch {
-            guard case let .failedResponse(responseStatus, source: _) = error else {
-                throw error
-            }
-            switch responseStatus.status {
-            case .invalidInstruction, .fileNotFound:
-                throw .featureNotSupported()
-            default:
-                throw error
-            }
-        }
-
-        guard let result = TKBERTLVRecord.dictionaryOfData(from: data) else {
+        // Parse select response
+        guard let result = TKBERTLVRecord.dictionaryOfData(from: interface.selectResponse) else {
             throw .responseParseError("Response data not in expected TLV format")
         }
 
@@ -107,7 +82,9 @@ public final actor OATHSession: SmartCardSession {
         let digest = SHA256.hash(data: salt)
         guard digest.data.count >= 16 else { throw .failedDerivingDeviceId() }
         let deviceId = digest.data.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
-        return SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
+
+        self.selectResponse = SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
+        self.interface = interface
     }
 
     /// Creates a new OATH session with the provided connection.
