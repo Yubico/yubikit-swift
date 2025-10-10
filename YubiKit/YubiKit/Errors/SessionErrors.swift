@@ -37,6 +37,13 @@ public enum SCPError: SmartCardSessionError, Sendable {
         error
     }
 
+    public var responseStatus: ResponseStatus? {
+        guard case let .failedResponse(status, _) = self else {
+            return nil
+        }
+        return status
+    }
+
     // MARK: - SCP-Specific Cases
 
     /// Secure channel is required for this operation.
@@ -61,6 +68,13 @@ public enum ManagementSessionError: SmartCardSessionError, Sendable {
     case dataProcessingError(String, source: SourceLocation)
     case illegalArgument(String, source: SourceLocation)
 
+    public var responseStatus: ResponseStatus? {
+        guard case let .failedResponse(status, _) = self else {
+            return nil
+        }
+        return status
+    }
+
     // MARK: - Management-Specific Cases
     case other(Error, source: SourceLocation)
 }
@@ -80,6 +94,13 @@ public enum OATHSessionError: SmartCardSessionError, Sendable {
     case responseParseError(String, source: SourceLocation)
     case dataProcessingError(String, source: SourceLocation)
     case illegalArgument(String, source: SourceLocation)
+
+    public var responseStatus: ResponseStatus? {
+        guard case let .failedResponse(status, _) = self else {
+            return nil
+        }
+        return status
+    }
 
     // MARK: - OATH-Specific Cases
 
@@ -111,6 +132,13 @@ public enum PIVSessionError: SmartCardSessionError, Sendable {
     case responseParseError(String, source: SourceLocation)
     case dataProcessingError(String, source: SourceLocation)
     case illegalArgument(String, source: SourceLocation)
+
+    public var responseStatus: ResponseStatus? {
+        guard case let .failedResponse(status, _) = self else {
+            return nil
+        }
+        return status
+    }
 
     // MARK: - PIV-Specific Cases
 

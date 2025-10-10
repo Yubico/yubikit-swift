@@ -24,7 +24,7 @@ import OSLog
 /// It supports importing, generating and using private keys. Reading and writing data objects such as
 /// X.509 certificates and managing access (PIN, PUK, etc).
 
-public final actor PIVSession: SmartCardSession {
+public final actor PIVSession: SmartCardSessionInternal {
     public static let application: Application = .piv
 
     public typealias Error = PIVSessionError
@@ -33,44 +33,26 @@ public final actor PIVSession: SmartCardSession {
     /// The firmware version of the connected YubiKey.
     public let version: Version
 
-    public let connection: SmartCardConnection
-    public let scpState: SCPState?
+    let interface: SmartCardInterface<Error>
 
     private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws(PIVSessionError) {
 
-        // Select application
-        do {
-            try await Self.selectApplication(using: connection)
-        } catch {
-            guard case let .failedResponse(responseStatus, _) = error else {
-                throw error
-            }
-            switch responseStatus.status {
-            case .invalidInstruction, .fileNotFound:
-                throw .featureNotSupported()
-            default:
-                throw error
-            }
-        }
-
-        let versionApdu = APDU(cla: 0, ins: 0xfd, p1: 0, p2: 0)
-
-        let data = try await Self.send(
-            apdu: versionApdu,
-            using: connection,
-            insSendRemaining: nil
+        // Create interface with application selection and optional SCP
+        let interface = try await SmartCardInterface<Error>(
+            connection: connection,
+            application: .piv,
+            keyParams: scpKeyParams
         )
+
+        // Get version
+        let versionApdu = APDU(cla: 0, ins: 0xfd, p1: 0, p2: 0)
+        let data: Data = try await interface.send(apdu: versionApdu, insSendRemaining: 0xc0)
+
         guard let version = Version(withData: data) else {
             throw PIVSessionError.responseParseError("Failed to parse version from PIV application response")
         }
         self.version = version
-
-        if let scpKeyParams {
-            scpState = try await PIVSession.setupSCP(connection: connection, keyParams: scpKeyParams)
-        } else {
-            scpState = nil
-        }
-        self.connection = connection
+        self.interface = interface
         /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: version))") */
     }
 
