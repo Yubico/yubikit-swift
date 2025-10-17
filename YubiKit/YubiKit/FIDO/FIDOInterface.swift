@@ -17,162 +17,109 @@ import OSLog
 
 /// FIDO interface for CTAP HID communication
 /// Handles authenticator communication over USB HID transport
-/* public */ final actor FIDOInterface: HasFIDOLogger {
+final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
-    // MARK: - Public Properties
+    // MARK: - Properties
 
-    /* public */ let connection: FIDOConnection
-    /* public */ private(set) var version: Version = Version(withData: Data([0, 0, 0]))!
-    /* public */ private(set) var capabilities: UInt8 = 0
+    let connection: FIDOConnection
 
-    // MARK: - Private Properties
+    // Private
+    private(set) var version: Version = Version(withData: Data([0, 0, 0]))!
+    private(set) var capabilities: CTAP.Capabilities = []
+    private(set) var protocolVersion: UInt8 = 0
 
-    // Channel ID for HID communication (starts as broadcast, gets assigned during init)
-    private var channelId: UInt32 = 0xffff_ffff
-
-    // MARK: - Constants
-
-    /// Authenticator capability flags
-    /* public */ struct Capability {
-        /// Supports wink command
-        /* public */ static let WINK: UInt8 = 0x01
-        /// TODO: CTAP2 support
-        /* public */ static let CBOR: UInt8 = 0x04
-        /// TODO: Messages without user presence
-        /* public */ static let NMSG: UInt8 = 0x08
-    }
-
-    // CTAP HID command codes
-    private static let TYPE_INIT: UInt8 = 0x80
-
-    // TODO: ping support
-    private static let CTAPHID_PING = TYPE_INIT | 0x01
-    // TODO: U2F messages
-    private static let CTAPHID_MSG = TYPE_INIT | 0x03
-    // TODO: channel lock
-    private static let CTAPHID_LOCK = TYPE_INIT | 0x04
-    // Channel initialization command
-    private static let CTAPHID_INIT = TYPE_INIT | 0x06
-    // Wink command (visual indicator)
-    private static let CTAPHID_WINK = TYPE_INIT | 0x08
-    // TODO: CTAP2 CBOR support
-    private static let CTAPHID_CBOR = TYPE_INIT | 0x10
-    // TODO: cancel operation
-    private static let CTAPHID_CANCEL = TYPE_INIT | 0x11
-
-    // Error response command
-    private static let CTAPHID_ERROR = TYPE_INIT | 0x3f
-    // Keep-alive message
-    private static let CTAPHID_KEEPALIVE = TYPE_INIT | 0x3b
+    private var channelId: UInt32 = CTAP.CID_BROADCAST
+    private let frameTimeout: Duration = .seconds(1.5)
 
     // MARK: - Initialization
 
     /// Initialize FIDO interface with the given connection
     /// Automatically performs CTAP INIT handshake
-    /* public */ init(connection: FIDOConnection) async throws {
+    init(connection: FIDOConnection) async throws(Error) {
         self.connection = connection
         try await initialize()
     }
 
-    // MARK: - Public Methods
+    // MARK: - Internal API
 
-    /// Send CTAP command and wait for response
-    /// TODO: multi-frame support, keepalive handling, continuation frames
-    /* public */ func sendAndReceive(cmd: UInt8, payload: Data?) async throws -> Data {
+    /// Test communication by sending data and receiving it back
+    ///
+    /// The PING command is used to verify that the HID transport is working correctly.
+    /// The authenticator echoes back the exact data that was sent.
+    ///
+    /// - Parameter data: Data to send (and receive back). If nil, sends empty payload.
+    /// - Returns: The echoed data from the authenticator
+    /// - Throws: ``FIDOSessionError`` if the response doesn't match the sent data
+    func ping(data: Data? = nil) async throws(Error) -> Data {
+        let payload = data ?? Data()
+        let response = try await sendAndReceive(cmd: Self.hidCommand(.ping), payload: payload)
 
-        /* Fix trace: trace(message: "sendAndReceive for cmd 0x\(String(format: "%02x", cmd))") */
-
-        // Build CTAP frame: CID(4) + CMD(1) + LEN(2) + DATA + padding
-        let toSend = payload ?? Data()
-        var packet = Data()
-
-        // INIT uses broadcast channel, others use assigned channel
-        let cid = (cmd == Self.CTAPHID_INIT) ? 0xffff_ffff : channelId
-        var channelIdBE = cid.bigEndian
-        packet.append(Data(bytes: &channelIdBE, count: 4))
-        packet.append(cmd)
-        var lengthBE = UInt16(toSend.count).bigEndian
-        packet.append(Data(bytes: &lengthBE, count: 2))
-
-        if !toSend.isEmpty {
-            packet.append(toSend)
+        guard response == payload else {
+            throw Error.responseParseError("PING response data mismatch")
         }
 
-        // Pad to 64 bytes with zeros
-        while packet.count < connection.mtu {
-            packet.append(0)
-        }
-
-        // Set up receive before sending to avoid race conditions
-        let receiveTask = Task { [connection] in
-            try await connection.receive()
-        }
-
-        // Send command
-        try await connection.send(packet)
-        /* Fix trace: trace(message: "Sent \(packet.count) bytes: \(packet.hexEncodedString)") */
-
-        // Wait for response
-        let responsePacket = try await receiveTask.value
-        /* Fix trace: trace(message: "Got response: \(responsePacket.hexEncodedString)") */
-
-        // HID reports are always 64 bytes
-        guard responsePacket.count == 64 else {
-            throw CTAP.HIDError.parseError("Expected 64 bytes, got \(responsePacket.count)")
-        }
-
-        // Check response channel matches
-        let responseChannel = responsePacket.subdata(in: 0..<4).withUnsafeBytes {
-            $0.load(as: UInt32.self).bigEndian
-        }
-
-        // INIT responses can come from any channel
-        if cmd != Self.CTAPHID_INIT {
-            guard responseChannel == channelId else {
-                throw CTAP.HIDError.invalidChannel
-            }
-        }
-
-        // Verify response command
-        let responseCmd = responsePacket[4]
-        guard responseCmd == cmd else {
-            if responseCmd == Self.CTAPHID_ERROR {
-                let errorCode = responsePacket[7]
-                throw CTAP.HIDError.from(errorCode: errorCode) ?? CTAP.UnknownError(errorCode: errorCode)
-            }
-            throw CTAP.HIDError.unexpectedResponse(expected: cmd, received: responseCmd)
-        }
-
-        // Extract the payload
-        let responseLength = Int(
-            responsePacket.subdata(in: 5..<7).withUnsafeBytes {
-                $0.load(as: UInt16.self).bigEndian
-            }
-        )
-
-        let payloadStart = 7
-        let payloadEnd = min(payloadStart + responseLength, responsePacket.count)
-        return responsePacket.subdata(in: payloadStart..<payloadEnd)
+        /* Fix trace: trace(message: "PING command completed: \(response.count) bytes echoed") */
+        return response
     }
 
     /// Send wink command to the authenticator
-    /* public */ func wink() async throws {
-        guard supports(Capability.WINK) else {
-            throw CTAP.HIDError.invalidCmd(Self.CTAPHID_WINK)
-        }
-
-        _ = try await sendAndReceive(cmd: Self.CTAPHID_WINK, payload: nil)
+    func wink() async throws(Error) {
+        _ = try await sendAndReceive(cmd: Self.hidCommand(.wink), payload: nil)
         /* Fix trace: trace(message: "WINK command completed successfully") */
     }
 
-    /// Check if the authenticator supports a capability
-    /* public */ func supports(_ capability: UInt8) -> Bool {
-        (capabilities & capability) == capability
+    /// Lock the channel for exclusive access
+    ///
+    /// Prevents other channels from communicating with the device until the lock times out
+    /// or is explicitly released. Useful for aggregated transactions that cannot be interrupted.
+    ///
+    /// - Parameter seconds: Lock duration in seconds (0-10). Values > 10 are capped at 10.
+    ///   A value of 0 immediately releases the lock.
+    func lock(seconds: UInt) async throws(Error) {
+        let cappedSeconds = min(seconds, 10)
+        let payload = Data([UInt8(cappedSeconds)])
+        _ = try await sendAndReceive(cmd: Self.hidCommand(.lock), payload: payload)
+        /* Fix trace: trace(message: "LOCK command completed: \(cappedSeconds) seconds") */
     }
 
-    // MARK: - Private Methods
+    /// Release the channel lock
+    ///
+    /// Convenience method that immediately releases any active lock by calling ``lock(seconds:)`` with 0.
+    func unlock() async throws(Error) {
+        try await lock(seconds: 0)
+    }
 
-    private func initialize() async throws {
+    /// Cancel any pending operation on this channel
+    ///
+    /// Aborts ongoing operations such as waiting for user interaction (touch prompt, PIN entry, etc.).
+    /// Also prevents the authenticator from locking indefinitely if an incomplete multi-packet
+    /// transaction has stalled.
+    func cancel() async throws(Error) {
+        _ = try await sendAndReceive(cmd: Self.hidCommand(.cancel), payload: nil)
+        /* Fix trace: trace(message: "CANCEL command completed") */
+    }
+
+    /// Check if the authenticator supports a capability
+    func supports(_ capability: CTAP.Capabilities) -> Bool {
+        capabilities.contains(capability)
+    }
+
+    /// Send CTAP command and wait for response
+    /// Supports both single-frame and multi-frame messages.
+    func sendAndReceive(cmd: UInt8, payload: Data?) async throws(Error) -> Data {
+        /* Fix trace: trace(message: "sendAndReceive for cmd 0x\(String(format: "%02x", cmd))") */
+
+        // Send request frames
+        try await sendRequest(cmd: cmd, payload: payload)
+
+        // Receive and parse response frames
+        return try await receiveResponse(expectedCommand: cmd)
+    }
+
+    // MARK: - Private Implementation
+
+    /// Perform CTAP INIT handshake to obtain channel ID and device info
+    private func initialize() async throws(Error) {
         /* Fix trace: trace(message: "Starting FIDO interface initialization...") */
 
         // Generate random nonce for INIT
@@ -180,17 +127,17 @@ import OSLog
         /* Fix trace: trace(message: "Generated nonce: \(nonce.hexEncodedString)") */
 
         // Send INIT command and get response
-        let response = try await sendAndReceive(cmd: Self.CTAPHID_INIT, payload: nonce)
+        let response = try await sendAndReceive(cmd: Self.hidCommand(.`init`), payload: nonce)
 
         // INIT response format: nonce(8) + cid(4) + proto(1) + version(3) + caps(1)
         guard response.count >= 17 else {
-            throw CTAP.HIDError.parseError("INIT response too short: \(response.count) bytes")
+            throw Error.initializationFailed("INIT response too short: \(response.count) bytes")
         }
 
         // Check nonce was echoed back
         let responseNonce = response.subdata(in: 0..<8)
         guard responseNonce == nonce else {
-            throw CTAP.HIDError.parseError("INIT nonce mismatch")
+            throw Error.initializationFailed("INIT nonce mismatch")
         }
 
         // Get our assigned channel ID
@@ -198,32 +145,297 @@ import OSLog
             $0.load(as: UInt32.self).bigEndian
         }
 
+        // Extract CTAPHID protocol version
+        self.protocolVersion = response[12]
+
         // Extract device version info
         let versionBytes = response.subdata(in: 13..<16)
         self.version = Version(withData: versionBytes)!
 
         // Get capability flags
-        self.capabilities = response[16]
+        self.capabilities = CTAP.Capabilities(rawValue: response[16])
 
         /* Fix trace: trace(message: "INIT successful") */
         /* Fix trace: trace(message: "Assigned channel ID: 0x\(String(format: "%08x", self.channelId))") */
-        /* Fix trace: trace(message: "Version: \(self.version)") */
-        /* Fix trace: trace(message: "Capabilities: 0x\(String(format: "%02x", self.capabilities))") */
+        /* Fix trace: trace(message: "CTAPHID protocol version: \(self.protocolVersion)") */
+        /* Fix trace: trace(message: "Device version: \(self.version)") */
+        /* Fix trace: trace(message: "Capabilities: 0x\(String(format: "%02x", self.capabilities.rawValue))") */
+    }
 
-        if (capabilities & Capability.WINK) != 0 {
-            /* Fix trace: trace(message: "Device supports WINK") */
+    /// Send CTAP request (init frame + continuation frames if needed)
+    private func sendRequest(cmd: UInt8, payload: Data?) async throws(Error) {
+        let payloadData = payload ?? Data()
+
+        // INIT command uses broadcast channel, all others use assigned channel
+        let cid = (cmd == Self.hidCommand(.`init`)) ? CTAP.CID_BROADCAST : channelId
+
+        // Send init frame with first chunk of data
+        let initFrame = buildInitFrame(channelId: cid, command: cmd, payload: payloadData)
+        do {
+            try await connection.send(initFrame)
+        } catch {
+            throw .connectionError(error)
+        }
+        /* Fix trace: trace(message: "Sent init frame (\(payloadData.count) total bytes)") */
+
+        // If payload is larger than init frame can hold, send continuation frames
+        var remainingData = payloadData.dropFirst(CTAP.INIT_DATA_SIZE)
+        var sequence: UInt8 = 0
+
+        while !remainingData.isEmpty {
+            let contFrame = buildContinuationFrame(
+                channelId: cid,
+                sequence: sequence,
+                payload: Data(remainingData)
+            )
+            do {
+                try await connection.send(contFrame)
+            } catch {
+                throw .connectionError(error)
+            }
+            /* Fix trace: trace(message: "Sent continuation frame \(sequence)") */
+
+            remainingData = remainingData.dropFirst(CTAP.CONT_DATA_SIZE)
+            sequence += 1
+
+            guard sequence < 128 else {
+                throw Error.responseParseError("Too many continuation frames (max 127)")
+            }
         }
     }
 
-    // MARK: - Private Helpers
+    /// Receive CTAP response (init frame + continuation frames if needed)
+    /// Handles KEEPALIVE messages
+    private func receiveResponse(expectedCommand: UInt8) async throws(Error) -> Data {
+        // Loop to handle KEEPALIVE messages
+        while true {
+            // Read init frame with frame timeout
+            let responseInitFrame: Data
+            do {
+                responseInitFrame = try await self.connection.receive()
+            } catch {
+                throw .connectionError(error)
+            }
 
-    private func generateRandomBytes(count: Int) throws -> Data {
+            let (responseChannelId, responseCommand, payloadLength, initFrameData) = try parseInitFrame(
+                responseInitFrame
+            )
+
+            // Validate channel ID (INIT responses can come from any channel)
+            if expectedCommand != Self.hidCommand(.`init`) {
+                guard responseChannelId == channelId else {
+                    throw Error.responseParseError("Invalid channel ID in response")
+                }
+            }
+
+            // Handle KEEPALIVE - continue waiting
+            if responseCommand == Self.hidCommand(.keepalive) {
+                let status = initFrameData.first ?? 0
+                /* Fix trace: trace(message: "KEEPALIVE status: \(status) (0x01=processing, 0x02=need touch, 0x03=need verification)") */
+                continue  // Keep waiting for actual response
+            }
+
+            // Check if response is an error from the authenticator
+            if responseCommand == Self.hidCommand(.error) {
+                guard !initFrameData.isEmpty else {
+                    throw Error.responseParseError("ERROR frame has no error code")
+                }
+                let errorCode = initFrameData[0]
+                let hidError = CTAP.HIDError.from(errorCode: errorCode)
+                throw .hidError(hidError)
+            }
+
+            // Validate response command matches request
+            guard responseCommand == expectedCommand else {
+                throw Error.responseParseError(
+                    "Unexpected response command: expected 0x\(String(format: "%02x", expectedCommand)), received 0x\(String(format: "%02x", responseCommand))"
+                )
+            }
+
+            /* Fix trace: trace(message: "Received init frame") */
+
+            // Start building response payload with data from init frame
+            var responsePayload = Data()
+            responsePayload.append(initFrameData)
+
+            // If more data expected, read continuation frames
+            var expectedSequence: UInt8 = 0
+            while responsePayload.count < payloadLength {
+                let contFrame: Data?
+                do {
+                    contFrame = try await withTimeout(frameTimeout) { try await self.connection.receive() }
+                } catch {
+                    throw .connectionError(error as! FIDOConnectionError)
+                }
+
+                guard let contFrame = contFrame else {
+                    throw .timeout()
+                }
+                /* Fix trace: trace(message: "Received continuation frame") */
+
+                let (contChannelId, sequence, contData) = try parseContinuationFrame(contFrame)
+
+                // Validate channel ID matches
+                guard contChannelId == responseChannelId else {
+                    throw Error.responseParseError("Channel ID mismatch in continuation frame")
+                }
+
+                // Validate sequence number
+                guard sequence == expectedSequence else {
+                    throw Error.responseParseError(
+                        "Sequence number mismatch: expected \(expectedSequence), got \(sequence)"
+                    )
+                }
+
+                // Append data from continuation frame
+                let bytesNeeded = payloadLength - responsePayload.count
+                let bytesToTake = min(bytesNeeded, contData.count)
+                responsePayload.append(contData.prefix(bytesToTake))
+
+                expectedSequence += 1
+            }
+
+            /* Fix trace: trace(message: "Received complete response: \(responsePayload.count) bytes") */
+            return responsePayload
+        }
+    }
+
+    /// Build a HID initialization frame
+    /// Init frame structure: CID(4) | CMD(1) | BCNT(2) | DATA(up to 57) | PADDING
+    private func buildInitFrame(channelId: UInt32, command: UInt8, payload: Data) -> Data {
+        var frame = Data()
+        frame.reserveCapacity(CTAP.HID_PACKET_SIZE)
+
+        // Channel ID (4 bytes, big-endian)
+        var cidBE = channelId.bigEndian
+        frame.append(Data(bytes: &cidBE, count: 4))
+
+        // Command byte (1 byte)
+        frame.append(command)
+
+        // Byte count - total payload length (2 bytes, big-endian)
+        var lengthBE = UInt16(payload.count).bigEndian
+        frame.append(Data(bytes: &lengthBE, count: 2))
+
+        // Payload data (up to 57 bytes for init frame)
+        let dataToInclude = min(payload.count, CTAP.INIT_DATA_SIZE)
+        if dataToInclude > 0 {
+            frame.append(payload.prefix(dataToInclude))
+        }
+
+        // Pad to HID packet size (64 bytes) with zeros
+        while frame.count < CTAP.HID_PACKET_SIZE {
+            frame.append(0)
+        }
+
+        return frame
+    }
+
+    /// Build a HID continuation frame
+    /// Continuation frame structure: CID(4) | SEQ(1) | DATA(up to 59) | PADDING
+    private func buildContinuationFrame(channelId: UInt32, sequence: UInt8, payload: Data) -> Data {
+        var frame = Data()
+        frame.reserveCapacity(CTAP.HID_PACKET_SIZE)
+
+        // Channel ID (4 bytes, big-endian)
+        var cidBE = channelId.bigEndian
+        frame.append(Data(bytes: &cidBE, count: 4))
+
+        // Sequence number (1 byte, 0-127, no FRAME_INIT bit)
+        frame.append(sequence)
+
+        // Payload data (up to 59 bytes for continuation frame)
+        let dataToInclude = min(payload.count, CTAP.CONT_DATA_SIZE)
+        if dataToInclude > 0 {
+            frame.append(payload.prefix(dataToInclude))
+        }
+
+        // Pad to HID packet size (64 bytes) with zeros
+        while frame.count < CTAP.HID_PACKET_SIZE {
+            frame.append(0)
+        }
+
+        return frame
+    }
+
+    /// Parse a HID initialization frame response
+    /// Init frame structure: CID(4) | CMD(1) | BCNT(2) | DATA(up to 57)
+    /// - Returns: (channelId, command, payloadLength, payloadData)
+    private func parseInitFrame(
+        _ frame: Data
+    ) throws(Error) -> (
+        channelId: UInt32, command: UInt8, payloadLength: Int, data: Data
+    ) {
+        guard frame.count == CTAP.HID_PACKET_SIZE else {
+            throw Error.responseParseError("Expected \(CTAP.HID_PACKET_SIZE) bytes, got \(frame.count)")
+        }
+
+        // Extract channel ID (bytes 0-3, big-endian)
+        let channelId = frame.subdata(in: 0..<4).withUnsafeBytes {
+            $0.load(as: UInt32.self).bigEndian
+        }
+
+        // Extract command byte (byte 4)
+        let command = frame[4]
+
+        // Extract payload length (bytes 5-6, big-endian)
+        let payloadLength = Int(
+            frame.subdata(in: 5..<7).withUnsafeBytes {
+                $0.load(as: UInt16.self).bigEndian
+            }
+        )
+
+        // Extract payload data (bytes 7+, up to payloadLength or end of init frame)
+        let dataStart = CTAP.INIT_HEADER_SIZE
+        let dataEnd = min(dataStart + payloadLength, frame.count)
+        let data = frame.subdata(in: dataStart..<dataEnd)
+
+        return (channelId: channelId, command: command, payloadLength: payloadLength, data: data)
+    }
+
+    /// Parse a HID continuation frame response
+    /// Continuation frame structure: CID(4) | SEQ(1) | DATA(up to 59)
+    /// - Returns: (channelId, sequence, payloadData)
+    private func parseContinuationFrame(
+        _ frame: Data
+    ) throws(Error) -> (
+        channelId: UInt32, sequence: UInt8, data: Data
+    ) {
+        guard frame.count == CTAP.HID_PACKET_SIZE else {
+            throw Error.responseParseError("Expected \(CTAP.HID_PACKET_SIZE) bytes, got \(frame.count)")
+        }
+
+        // Extract channel ID (bytes 0-3, big-endian)
+        let channelId = frame.subdata(in: 0..<4).withUnsafeBytes {
+            $0.load(as: UInt32.self).bigEndian
+        }
+
+        // Extract sequence number (byte 4, 0-127, no FRAME_INIT bit)
+        let sequence = frame[4]
+
+        // Extract payload data (bytes 5+)
+        let dataStart = CTAP.CONT_HEADER_SIZE
+        let data = frame.subdata(in: dataStart..<frame.count)
+
+        return (channelId: channelId, sequence: sequence, data: data)
+    }
+
+    // MARK: - Utilities
+
+    /// Convert CTAP command to HID command byte (with INIT frame bit set)
+    @inlinable
+    static func hidCommand(_ command: CTAP.Command) -> UInt8 {
+        CTAP.FRAME_INIT | command.rawValue
+    }
+
+    /// Generate cryptographically secure random bytes
+    private func generateRandomBytes(count: Int) throws(Error) -> Data {
         var randomData = Data(count: count)
         let result = randomData.withUnsafeMutableBytes {
             SecRandomCopyBytes(kSecRandomDefault, count, $0.baseAddress!)
         }
         guard result == errSecSuccess else {
-            throw CTAP.HIDError.other
+            throw .cryptoError("Failed to generate random bytes for CTAP INIT")
         }
         return randomData
     }

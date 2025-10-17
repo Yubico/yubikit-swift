@@ -39,14 +39,14 @@ struct FIDOInterfaceFullStackTests {
         print("Connection MTU: \(connection.mtu)")
 
         // Test FIDO interface initialization
-        let fidoInterface = try await FIDOInterface(connection: connection)
+        let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
 
         print("Successfully established FIDO connection")
         print("FIDO Interface Version: \(await fidoInterface.version)")
-        print("FIDO Interface Capabilities: 0x\(String(format: "%02x", await fidoInterface.capabilities))")
+        print("FIDO Interface Capabilities: 0x\(String(format: "%02x", await fidoInterface.capabilities.rawValue))")
 
         #expect(await fidoInterface.version.description.isEmpty == false)
-        #expect(await fidoInterface.capabilities > 0)
+        #expect(await fidoInterface.capabilities != [])
 
         await connection.close(error: nil)
     }
@@ -54,11 +54,11 @@ struct FIDOInterfaceFullStackTests {
     @Test("FIDO Capability Detection")
     func capabilityDetection() async throws {
         let connection = try await HIDFIDOConnection.makeConnection()
-        let fidoInterface = try await FIDOInterface(connection: connection)
+        let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
 
-        let supportsWink = await fidoInterface.supports(FIDOInterface.Capability.WINK)
-        let supportsCBOR = await fidoInterface.supports(FIDOInterface.Capability.CBOR)
-        let supportsNMSG = await fidoInterface.supports(FIDOInterface.Capability.NMSG)
+        let supportsWink = await fidoInterface.supports(CTAP.Capabilities.wink)
+        let supportsCBOR = await fidoInterface.supports(CTAP.Capabilities.cbor)
+        let supportsNMSG = await fidoInterface.supports(CTAP.Capabilities.nmsg)
 
         print("WINK capability: \(supportsWink)")
         print("CBOR capability: \(supportsCBOR)")
@@ -72,11 +72,12 @@ struct FIDOInterfaceFullStackTests {
     @Test("FIDO WINK Functionality")
     func winkFunctionality() async throws {
         let connection = try await HIDFIDOConnection.makeConnection()
-        let fidoInterface = try await FIDOInterface(connection: connection)
+        let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
 
-        guard await fidoInterface.supports(FIDOInterface.Capability.WINK) else {
+        guard await fidoInterface.supports(CTAP.Capabilities.wink) else {
             print("YubiKey does not support WINK, skipping test")
             await connection.close(error: nil)
+            Issue.record("WINK not supported")
             return
         }
 
@@ -92,15 +93,20 @@ struct FIDOInterfaceFullStackTests {
     @Test("FIDO PING Command")
     func pingCommand() async throws {
         let connection = try await HIDFIDOConnection.makeConnection()
-        let fidoInterface = try await FIDOInterface(connection: connection)
+        let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
 
         print("Testing basic send/receive with PING command...")
 
-        let pingData = Data([0x01, 0x02, 0x03, 0x04])
-        let response = try await fidoInterface.sendAndReceive(cmd: 0x81, payload: pingData)  // PING command
+        // Test empty ping
+        let response1 = try await fidoInterface.ping()
+        print("Empty PING response received: \(response1.hexEncodedString)")
+        #expect(response1.bytes == [])
 
-        print("PING response received: \(response.hexEncodedString)")
-        #expect(response == pingData, "PING should echo back the same data")
+        // Test ping with data
+        let pingData = Data([0x01, 0x02, 0x03, 0x04])
+        let response2 = try await fidoInterface.ping(data: pingData)
+        print("PING with data response received: \(response2.hexEncodedString)")
+        #expect(response2 == pingData, "PING should echo back the same data")
 
         await connection.close(error: nil)
     }
@@ -108,23 +114,38 @@ struct FIDOInterfaceFullStackTests {
     @Test("FIDO Error Handling")
     func errorHandling() async throws {
         let connection = try await HIDFIDOConnection.makeConnection()
-        let fidoInterface = try await FIDOInterface(connection: connection)
+        let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
 
         print("Testing FIDO error handling...")
 
         do {
             // Send an invalid command
-            _ = try await fidoInterface.sendAndReceive(cmd: 0xFF, payload: nil)  // Invalid command
+            let emptyPayload: Data? = nil
+            _ = try await fidoInterface.sendAndReceive(cmd: 0xFF, payload: emptyPayload)  // Invalid command
             Issue.record("Invalid command should have failed")
-        } catch let error as CTAP.HIDError {
-            print("Invalid command correctly failed with HID error: \(error)")
-            #expect(true)
-        } catch {
-            Issue.record("Unexpected error type: \(error)")
+        } catch let error {
+            print("Invalid command correctly failed with FIDO error: \(error)")
+            if case .hidError(let hidError, _) = error {
+                print("HID error details: \(hidError)")
+            }
         }
 
         await connection.close(error: nil)
     }
+}
+
+// MARK: - Test Error Type
+
+private enum TestFIDOError: FIDOSessionError {
+    case timeout(source: YubiKit.SourceLocation)
+    case initializationFailed(String, source: YubiKit.SourceLocation)
+    case hidError(CTAP.HIDError, source: YubiKit.SourceLocation)
+    case connectionError(FIDOConnectionError, source: YubiKit.SourceLocation)
+    case responseParseError(String, source: YubiKit.SourceLocation)
+    case cryptoError(String, error: Error?, source: YubiKit.SourceLocation)
+    case dataProcessingError(String, source: YubiKit.SourceLocation)
+    case illegalArgument(String, source: YubiKit.SourceLocation)
+    case featureNotSupported(source: YubiKit.SourceLocation)
 }
 
 #endif
