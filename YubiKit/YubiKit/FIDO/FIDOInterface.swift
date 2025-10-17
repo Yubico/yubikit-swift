@@ -199,7 +199,7 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
             sequence += 1
 
             guard sequence < 128 else {
-                throw Error.responseParseError("Too many continuation frames (max 127)")
+                throw Error.illegalArgument("Payload too large: exceeds maximum CTAP HID message size")
             }
         }
     }
@@ -210,11 +210,15 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
         // Loop to handle KEEPALIVE messages
         while true {
             // Read init frame with frame timeout
-            let responseInitFrame: Data
+            let responseInitFrame: Data?
             do {
-                responseInitFrame = try await self.connection.receive()
+                responseInitFrame = try await withTimeout(frameTimeout) { try await self.connection.receive() }
             } catch {
-                throw .connectionError(error)
+                throw .connectionError(error as! FIDOConnectionError)
+            }
+
+            guard let responseInitFrame = responseInitFrame else {
+                throw .timeout()
             }
 
             let (responseChannelId, responseCommand, payloadLength, initFrameData) = try parseInitFrame(
@@ -412,6 +416,11 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
         // Extract sequence number (byte 4, 0-127, no FRAME_INIT bit)
         let sequence = frame[4]
+        guard sequence < 128 else {
+            throw Error.responseParseError(
+                "Invalid continuation frame sequence: \(sequence) (must be 0-127)"
+            )
+        }
 
         // Extract payload data (bytes 5+)
         let dataStart = CTAP.CONT_HEADER_SIZE
