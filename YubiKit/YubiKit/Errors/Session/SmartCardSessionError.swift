@@ -12,11 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
+/// Common protocol for all smart card session error types.
+/// Enforces common error cases that all smart card sessions must handle.
+public protocol SmartCardSessionError: SessionError {
+    /// Connection error occurred during communication with the YubiKey.
+    static func connectionError(
+        _ error: SmartCardConnectionError,
+        source: SourceLocation
+    ) -> Self
 
-// MARK: - SessionError Factory Methods
+    /// Response status error that couldn't be handled specifically by the session.
+    static func failedResponse(
+        _ responseStatus: ResponseStatus,
+        source: SourceLocation
+    ) -> Self
 
+    /// SCP-level error occurred during secure channel operations.
+    static func scpError(
+        _ error: SCPError,
+        source: SourceLocation
+    ) -> Self
+
+    /// The response status code from the YubiKey, if this error was caused by a failed response.
+    /// Returns `nil` for errors that don't originate from a response status (connection errors, crypto errors).
+    var responseStatus: ResponseStatus? { get }
+}
+
+// MARK: - Internal Convenience Methods
 extension SmartCardSessionError {
+
     @inline(__always)
     static func connectionError(
         _ error: SmartCardConnectionError,

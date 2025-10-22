@@ -12,20 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
-
-extension ManagementSessionError {
-
-    // MARK: - Management-Specific Convenience Methods
-
-    @inline(__always)
-    static func other(
-        _ error: Error,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .other(error, source: SourceLocation(file: file, function: function, line: line, column: column))
-    }
+/// Source location information for debugging and error reporting.
+public struct SourceLocation: Sendable {
+    /// The source file where the error occurred.
+    public let file: String
+    /// The function where the error occurred.
+    public let function: String
+    /// The line number where the error occurred.
+    public let line: Int
+    /// The column number where the error occurred.
+    public let column: Int
 }

@@ -15,107 +15,73 @@
 import Foundation
 
 /// CTAP (Client to Authenticator Protocol) constants and structures
-/* public */ enum CTAP {
+enum CTAP {
 
-    // CTAP Commands
-    static let CMD_PING: UInt8 = 0x01
-    static let CMD_MSG: UInt8 = 0x03
-    static let CMD_LOCK: UInt8 = 0x04
-    static let CMD_INIT: UInt8 = 0x06
-    static let CMD_WINK: UInt8 = 0x08
-    static let CMD_CBOR: UInt8 = 0x10
-    static let CMD_CANCEL: UInt8 = 0x11
-    static let CMD_KEEPALIVE: UInt8 = 0x3b
-    static let CMD_ERROR: UInt8 = 0x3f
+    // MARK: - Commands
 
-    // Frame types
+    /// CTAP Commands
+    enum Command: UInt8, Sendable {
+        case ping = 0x01
+        case msg = 0x03
+        case lock = 0x04
+        case `init` = 0x06
+        case wink = 0x08
+        case cbor = 0x10
+        case cancel = 0x11
+        case keepalive = 0x3b
+        case error = 0x3f
+
+        // Yubico specific commands
+        case yubikeyDeviceConfig = 0x40
+        case readConfig = 0x42
+        case writeConfig = 0x43
+    }
+
+    // MARK: - HID Frame Structure Constants
+
+    /// Frame type bit for initialization frames (0x80)
     static let FRAME_INIT: UInt8 = 0x80
 
-    // Channel IDs
+    /// Broadcast channel ID used for INIT command (0xFFFFFFFF)
     static let CID_BROADCAST: UInt32 = 0xffff_ffff
 
-    // Frame structure constants
-    static let INIT_HEADER_LEN: Int = 7  // CID(4) + CMD(1) + BCNT(2)
-    static let CONT_HEADER_LEN: Int = 5  // CID(4) + SEQ(1)
+    /// HID packet size (64 bytes for USB HID)
+    static let HID_PACKET_SIZE: Int = 64
 
-    // Capabilities
-    static let FIDO_CAP_WINK: UInt8 = 0x01
-    static let FIDO_CAP_CBOR: UInt8 = 0x04
-    static let FIDO_CAP_NMSG: UInt8 = 0x08
+    // Initialization frame structure: CID(4) + CMD(1) + BCNT(2) + DATA(57)
+    /// Size of initialization frame header: CID(4) + CMD(1) + BCNT(2)
+    static let INIT_HEADER_SIZE: Int = 7
+    /// Maximum payload data in an initialization frame (64 - 7 = 57 bytes)
+    static let INIT_DATA_SIZE: Int = HID_PACKET_SIZE - INIT_HEADER_SIZE
 
-    // HID Error codes
-    static let HID_ERR_INVALID_CMD: UInt8 = 0x01
-    static let HID_ERR_INVALID_PAR: UInt8 = 0x02
-    static let HID_ERR_INVALID_LEN: UInt8 = 0x03
-    static let HID_ERR_INVALID_SEQ: UInt8 = 0x04
-    static let HID_ERR_MSG_TIMEOUT: UInt8 = 0x05
-    static let HID_ERR_CHANNEL_BUSY: UInt8 = 0x06
-    static let HID_ERR_LOCK_REQUIRED: UInt8 = 0x0a
-    static let HID_ERR_INVALID_CHANNEL: UInt8 = 0x0b
-    static let HID_ERR_OTHER: UInt8 = 0x7f
+    // Continuation frame structure: CID(4) + SEQ(1) + DATA(59)
+    /// Size of continuation frame header: CID(4) + SEQ(1)
+    static let CONT_HEADER_SIZE: Int = 5
+    /// Maximum payload data in a continuation frame (64 - 5 = 59 bytes)
+    static let CONT_DATA_SIZE: Int = HID_PACKET_SIZE - CONT_HEADER_SIZE
 
-    // CTAP2 Error codes
-    static let ERR_SUCCESS: UInt8 = 0x00
-    static let ERR_INVALID_COMMAND: UInt8 = 0x01
-    static let ERR_INVALID_PARAMETER: UInt8 = 0x02
-    static let ERR_INVALID_LENGTH: UInt8 = 0x03
-    static let ERR_INVALID_SEQ: UInt8 = 0x04
-    static let ERR_TIMEOUT: UInt8 = 0x05
-    static let ERR_CHANNEL_BUSY: UInt8 = 0x06
-    static let ERR_LOCK_REQUIRED: UInt8 = 0x0A
-    static let ERR_INVALID_CHANNEL: UInt8 = 0x0B
-    static let ERR_CBOR_UNEXPECTED_TYPE: UInt8 = 0x11
-    static let ERR_INVALID_CBOR: UInt8 = 0x12
-    static let ERR_MISSING_PARAMETER: UInt8 = 0x14
-    static let ERR_LIMIT_EXCEEDED: UInt8 = 0x15
-    static let ERR_UNSUPPORTED_EXTENSION: UInt8 = 0x16
-    static let ERR_FP_DATABASE_FULL: UInt8 = 0x17
-    static let ERR_LARGE_BLOB_STORAGE_FULL: UInt8 = 0x18
-    static let ERR_CREDENTIAL_EXCLUDED: UInt8 = 0x19
-    static let ERR_PROCESSING: UInt8 = 0x21
-    static let ERR_INVALID_CREDENTIAL: UInt8 = 0x22
-    static let ERR_USER_ACTION_PENDING: UInt8 = 0x23
-    static let ERR_OPERATION_PENDING: UInt8 = 0x24
-    static let ERR_NO_OPERATIONS: UInt8 = 0x25
-    static let ERR_UNSUPPORTED_ALGORITHM: UInt8 = 0x26
-    static let ERR_OPERATION_DENIED: UInt8 = 0x27
-    static let ERR_KEY_STORE_FULL: UInt8 = 0x28
-    static let ERR_NOT_BUSY: UInt8 = 0x29
-    static let ERR_NO_OPERATION_PENDING: UInt8 = 0x2A
-    static let ERR_UNSUPPORTED_OPTION: UInt8 = 0x2B
-    static let ERR_INVALID_OPTION: UInt8 = 0x2C
-    static let ERR_KEEPALIVE_CANCEL: UInt8 = 0x2D
-    static let ERR_NO_CREDENTIALS: UInt8 = 0x2E
-    static let ERR_USER_ACTION_TIMEOUT: UInt8 = 0x2F
-    static let ERR_NOT_ALLOWED: UInt8 = 0x30
-    static let ERR_PIN_INVALID: UInt8 = 0x31
-    static let ERR_PIN_BLOCKED: UInt8 = 0x32
-    static let ERR_PIN_AUTH_INVALID: UInt8 = 0x33
-    static let ERR_PIN_AUTH_BLOCKED: UInt8 = 0x34
-    static let ERR_PIN_NOT_SET: UInt8 = 0x35
-    static let ERR_PUAT_REQUIRED: UInt8 = 0x36  // CTAP2.1 naming (was PIN_REQUIRED)
-    static let ERR_PIN_POLICY_VIOLATION: UInt8 = 0x37
-    static let ERR_PIN_TOKEN_EXPIRED: UInt8 = 0x38
-    static let ERR_REQUEST_TOO_LARGE: UInt8 = 0x39
-    static let ERR_ACTION_TIMEOUT: UInt8 = 0x3A
-    static let ERR_UP_REQUIRED: UInt8 = 0x3B
-    static let ERR_UV_BLOCKED: UInt8 = 0x3C
-    static let ERR_INTEGRITY_FAILURE: UInt8 = 0x3D
-    static let ERR_INVALID_SUBCOMMAND: UInt8 = 0x3E
-    static let ERR_UV_INVALID: UInt8 = 0x3F
-    static let ERR_UNAUTHORIZED_PERMISSION: UInt8 = 0x40
-    static let ERR_OTHER: UInt8 = 0x7F
-    static let ERR_SPEC_LAST: UInt8 = 0xDF
-    static let ERR_EXTENSION_FIRST: UInt8 = 0xE0
-    static let ERR_EXTENSION_LAST: UInt8 = 0xEF
-    static let ERR_VENDOR_FIRST: UInt8 = 0xF0
-    static let ERR_VENDOR_LAST: UInt8 = 0xFF
+    // MARK: - Capabilities
+
+    /// FIDO authenticator capabilities
+    struct Capabilities: OptionSet, Sendable {
+        let rawValue: UInt8
+
+        init(rawValue: UInt8) {
+            self.rawValue = rawValue
+        }
+
+        /// Supports wink command (visual indicator)
+        static let wink = Capabilities(rawValue: 0x01)
+        /// Supports CTAP2/CBOR commands
+        static let cbor = Capabilities(rawValue: 0x04)
+        /// Does NOT support CTAPHID_MSG (CTAP1/U2F messages)
+        static let nmsg = Capabilities(rawValue: 0x08)
+    }
 
     // MARK: - Error Types
 
     /// CTAP-level errors returned from the Authenticator.
-    /* public */ enum Error: UInt8, Swift.Error, Sendable {
-        case success = 0x00
+    enum Error: UInt8, Swift.Error, Sendable {
         case invalidCommand = 0x01
         case invalidParameter = 0x02
         case invalidLength = 0x03
@@ -203,28 +169,29 @@ import Foundation
         case vendorE = 0xFE
         case vendorF = 0xFF
 
-        /* public */ var localizedDescription: String {
+        var localizedDescription: String {
             String(format: "CTAP error: 0x%02x", rawValue)
         }
     }
 
     /// Unknown CTAP error codes
-    /* public */ struct UnknownError: Swift.Error, Sendable {
-        /* public */ let errorCode: UInt8
+    struct UnknownError: Swift.Error, Sendable {
+        let errorCode: UInt8
 
-        /* public */ init(errorCode: UInt8) {
+        init(errorCode: UInt8) {
             self.errorCode = errorCode
         }
 
-        /* public */ var localizedDescription: String {
+        var localizedDescription: String {
             "Unknown CTAP error code: 0x\(String(format: "%02x", errorCode))"
         }
     }
 
-    /// HID transport errors
-    /* public */ enum HIDError: Swift.Error, Sendable {
-        // HID errors with codes
-        case invalidCmd(UInt8)
+    /// CTAPHID transport-layer errors returned by the authenticator via ERROR frames.
+    ///
+    /// These errors indicate problems at the HID transport level (as opposed to CTAP2 protocol-level errors).
+    enum HIDError: Swift.Error, Sendable {
+        case invalidCmd
         case invalidPar
         case invalidLen
         case invalidSeq
@@ -233,34 +200,30 @@ import Foundation
         case lockRequired
         case invalidChannel
         case other
+        case unknown(UInt8)
 
-        // Transport errors
-        case parseError(String)
-        case framingError(String)
-        case unexpectedResponse(expected: UInt8, received: UInt8)
-
-        static func from(errorCode: UInt8) -> HIDError? {
+        static func from(errorCode: UInt8) -> HIDError {
             switch errorCode {
-            case HID_ERR_INVALID_CMD:
-                return .invalidCmd(errorCode)
-            case HID_ERR_INVALID_PAR:
+            case 0x01:
+                return .invalidCmd
+            case 0x02:
                 return .invalidPar
-            case HID_ERR_INVALID_LEN:
+            case 0x03:
                 return .invalidLen
-            case HID_ERR_INVALID_SEQ:
+            case 0x04:
                 return .invalidSeq
-            case HID_ERR_MSG_TIMEOUT:
+            case 0x05:
                 return .msgTimeout
-            case HID_ERR_CHANNEL_BUSY:
+            case 0x06:
                 return .channelBusy
-            case HID_ERR_LOCK_REQUIRED:
+            case 0x0a:
                 return .lockRequired
-            case HID_ERR_INVALID_CHANNEL:
+            case 0x0b:
                 return .invalidChannel
-            case HID_ERR_OTHER:
+            case 0x7f:
                 return .other
             default:
-                return nil
+                return .unknown(errorCode)
             }
         }
     }
