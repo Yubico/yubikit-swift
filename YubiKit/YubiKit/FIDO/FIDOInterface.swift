@@ -166,11 +166,8 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
     private func sendRequest(cmd: UInt8, payload: Data?) async throws(Error) {
         let payloadData = payload ?? Data()
 
-        // INIT command uses broadcast channel, all others use assigned channel
-        let cid = (cmd == Self.hidCommand(.`init`)) ? CTAP.CID_BROADCAST : channelId
-
         // Send init frame with first chunk of data
-        let initFrame = buildInitFrame(channelId: cid, command: cmd, payload: payloadData)
+        let initFrame = buildInitFrame(channelId: channelId, command: cmd, payload: payloadData)
         do {
             try await connection.send(initFrame)
         } catch {
@@ -184,7 +181,7 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
         while !remainingData.isEmpty {
             let contFrame = buildContinuationFrame(
-                channelId: cid,
+                channelId: channelId,
                 sequence: sequence,
                 payload: Data(remainingData)
             )
@@ -225,11 +222,9 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
                 responseInitFrame
             )
 
-            // Validate channel ID (INIT responses can come from any channel)
-            if expectedCommand != Self.hidCommand(.`init`) {
-                guard responseChannelId == channelId else {
-                    throw Error.responseParseError("Invalid channel ID in response")
-                }
+            // Validate channel ID
+            guard responseChannelId == channelId else {
+                throw Error.responseParseError("Invalid channel ID in response")
             }
 
             // Handle KEEPALIVE - continue waiting
