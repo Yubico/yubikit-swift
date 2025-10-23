@@ -60,7 +60,7 @@ public enum Management {
         typealias Error = ManagementSessionError
 
         /// The underlying interface for communication (SmartCard or FIDO).
-        public let interface: I
+        let interface: I
 
         /// The firmware version of the YubiKey.
         public let version: Version
