@@ -57,7 +57,7 @@ public enum Management {
     /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
     public final actor Session<I: ManagementInterface> where I.Error == ManagementSessionError {
 
-        typealias Error = ManagementSessionError
+        public typealias Error = ManagementSessionError
 
         /// The underlying interface for communication (SmartCard or FIDO).
         let interface: I
@@ -146,6 +146,9 @@ public enum Management {
 }
 
 extension Management.Session where I == SmartCardInterface<ManagementSessionError> {
+
+    public var connection: SmartCardConnection { interface.connection }
+
     /// Creates a new Management session with the provided SmartCard interface.
     ///
     /// - Parameters:
@@ -169,6 +172,9 @@ extension Management.Session where I == SmartCardInterface<ManagementSessionErro
 }
 
 extension Management.Session where I == FIDOInterface<ManagementSessionError> {
+
+    public var connection: FIDOConnection { interface.connection }
+
     /// Creates a new Management session with the provided FIDO interface.
     ///
     /// - Parameter connection: The FIDO connection to use for this session.
