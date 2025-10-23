@@ -451,34 +451,3 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
         return randomData
     }
 }
-
-// MARK: - ManagementInterface Conformance
-extension FIDOInterface: ManagementInterface {
-
-    /// Read a configuration page from the YubiKey using vendor-specific CTAP commands.
-    ///
-    /// Uses the CTAP `readConfig` command (0x42) to read device configuration pages.
-    ///
-    /// - Parameter page: The page number to read (0-based).
-    /// - Returns: The raw TLV-encoded configuration data for the requested page.
-    public func readConfig(page: UInt8) async throws -> Data {
-        let payload = Data([page])
-        return try await sendAndReceive(cmd: Self.hidCommand(.readConfig), payload: payload)
-    }
-
-    /// Write configuration data to the YubiKey using vendor-specific CTAP commands.
-    ///
-    /// Uses the CTAP `writeConfig` command (0x43) to write device configuration.
-    ///
-    /// - Parameter data: The configuration data to write.
-    public func writeConfig(data: Data) async throws {
-        _ = try await sendAndReceive(cmd: Self.hidCommand(.writeConfig), payload: data)
-    }
-
-    /// Device reset is not supported over FIDO/CTAP transport.
-    ///
-    /// Device reset is only available over SmartCard (CCID) connections.
-    public func resetDevice() async throws {
-        throw Error.featureNotSupported(source: .here())
-    }
-}
