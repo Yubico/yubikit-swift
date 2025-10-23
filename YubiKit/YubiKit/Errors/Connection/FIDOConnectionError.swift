@@ -16,7 +16,7 @@
 ///
 /// These errors represent failures at the transport layer for FIDO connections.
 /// They cover device discovery, connection establishment, and low-level data transmission issues.
-enum FIDOConnectionError: Error, Sendable {
+public enum FIDOConnectionError: Error, Sendable {
     /// Connection type is not supported on this device.
     case unsupported
 

@@ -20,10 +20,18 @@ import XCTest
 private let lockCode = Data(hexEncodedString: "01020304050607080102030405060708")!
 private let clearLockCode = Data(hexEncodedString: "00000000000000000000000000000000")!
 
+#if MANAGEMENT_OVER_FIDO && os(macOS)
+private typealias TestManagementSession = YubiKit.ManagementSessionOverFIDO
+private typealias TestConnection = YubiKit.FIDOConnection
+#else
+private typealias TestManagementSession = YubiKit.ManagementSessionOverSmartCard
+private typealias TestConnection = YubiKit.SmartCardConnection
+#endif
+
 class ManagementFullStackTests: XCTestCase {
 
     func testReadKeyVersion() throws {
-        runManagementTest { connection, session, _ in
+        runManagementTest { connection, testConnection, session, _ in
             let version = await session.version
             print("✅ Got version: \(version)")
             #if os(iOS)
@@ -34,7 +42,7 @@ class ManagementFullStackTests: XCTestCase {
     }
 
     func testGetDeviceInfo() throws {
-        runManagementTest { connection, session, _ in
+        runManagementTest { connection, testConnection, session, _ in
             let info = try await session.getDeviceInfo()
             print("✅ Successfully got device info:\n\(info)")
             #if os(iOS)
@@ -44,7 +52,7 @@ class ManagementFullStackTests: XCTestCase {
     }
 
     func testTimeouts() throws {
-        runManagementTest { connection, session, _ in
+        runManagementTest { connection, testConnection, session, _ in
             let deviceInfo = try await session.getDeviceInfo()
             let config = deviceInfo.config.with(autoEjectTimeout: 320.0, challengeResponseTimeout: 135.0)
             try await session.updateDeviceConfig(config, reboot: false)
@@ -58,7 +66,7 @@ class ManagementFullStackTests: XCTestCase {
     }
 
     func testDisableAndEnableConfigOATHandPIVoverUSB() throws {
-        runManagementTest { connection, session, transport in
+        runManagementTest { connection, testConnection, session, transport in
             let deviceInfo = try await session.getDeviceInfo()
             let disableConfig = deviceInfo.config
                 .disable(application: .oath, over: .usb)
@@ -88,7 +96,7 @@ class ManagementFullStackTests: XCTestCase {
     }
 
     func testDisableAndEnableConfigOATHandPIVoverNFC() throws {
-        runManagementTest { connection, session, transport in
+        runManagementTest { connection, testConnection, session, transport in
             let deviceInfo = try await session.getDeviceInfo()
             guard deviceInfo.hasTransport(.nfc) else {
                 print("⚠️ No NFC YubiKey. Skip test.")
@@ -122,7 +130,7 @@ class ManagementFullStackTests: XCTestCase {
     }
 
     func testDisableAndEnableWithHelperOATH() throws {
-        runManagementTest { connection, session, transport in
+        runManagementTest { connection, testConnection, session, transport in
             let initialInfo = try await session.getDeviceInfo()
             let initialConfig = initialInfo.config
 
@@ -135,7 +143,7 @@ class ManagementFullStackTests: XCTestCase {
             XCTAssert(oathSession == nil)
 
             // Re-enable OATH application
-            let managementSession = try await ManagementSession.makeSession(connection: connection)
+            let managementSession = try await TestManagementSession.makeSession(connection: testConnection)
             let enabledConfig = initialConfig.enable(application: .oath, over: transport)
             try await managementSession.updateDeviceConfig(enabledConfig, reboot: false)
             let updatedInfo = try await managementSession.getDeviceInfo()
@@ -151,7 +159,7 @@ class ManagementFullStackTests: XCTestCase {
     }
 
     func testChainingEnableDisable() throws {
-        runManagementTest { connection, session, transport in
+        runManagementTest { connection, testConnection, session, transport in
             let info = try await session.getDeviceInfo()
 
             // Store initial state to restore later
@@ -204,7 +212,7 @@ class ManagementFullStackTests: XCTestCase {
     }
 
     func testLockCode() throws {
-        runManagementTest { connection, session, transport in
+        runManagementTest { connection, testConnection, session, transport in
             let config = try await session.getDeviceInfo().config
 
             do {
@@ -242,7 +250,7 @@ class ManagementFullStackTests: XCTestCase {
 
     // Tests are run in alphabetical order. If running the tests via NFC this will disable NFC for all the following tests making them fail, hence the Z in the name.
     func testZNFCRestricted() throws {
-        runManagementTest { connection, session, transport in
+        runManagementTest { connection, testConnection, session, transport in
             guard await session.version >= Version("5.7.0")! else {
                 print("⚠️ YubiKey without support for NFC restricted. Skip test.")
                 return
@@ -259,10 +267,10 @@ class ManagementFullStackTests: XCTestCase {
                 )
                 do {
                     let newConnection = try await TestableConnection.shared()
-                    _ = try await ManagementSession.makeSession(connection: newConnection)
+                    let _ = try await ManagementSession.makeSession(connection: newConnection)
                     XCTFail("Got connection even if NFC restriced was turned on!")
                 } catch {
-                    print("✅ Failed creating ManagementSession as expected.")
+                    print("✅ Failed creating Management.Session as expected.")
                 }
                 #endif
             }
@@ -274,7 +282,7 @@ class ManagementFullStackTests: XCTestCase {
     }
 
     func testBioDeviceReset() throws {
-        runManagementTest { connection, session, transport in
+        runManagementTest { connection, testConnection, session, transport in
             let deviceInfo = try await session.getDeviceInfo()
             guard deviceInfo.formFactor == .usbCBio || deviceInfo.formFactor == .usbABio else {
                 print("⚠️ Skip testBioDeviceReset()")
@@ -287,7 +295,8 @@ class ManagementFullStackTests: XCTestCase {
             try await pivSession.changePin(from: "123456", to: "654321")
             pinMetadata = try await pivSession.getPinMetadata()
             XCTAssertFalse(pinMetadata.isDefault)
-            let managementSession = try await ManagementSession.makeSession(connection: connection)
+            let managementSession: TestManagementSession =
+                try await .makeSession(connection: testConnection)
             try await managementSession.resetDevice()
             pivSession = try await PIVSession.makeSession(connection: connection)
             pinMetadata = try await pivSession.getPinMetadata()
@@ -297,15 +306,23 @@ class ManagementFullStackTests: XCTestCase {
 }
 
 extension XCTestCase {
-    func runManagementTest(
+    fileprivate func runManagementTest(
         named testName: String = #function,
         in file: StaticString = #file,
         at line: UInt = #line,
         withTimeout timeout: TimeInterval = 20,
-        test: @escaping (SmartCardConnection, ManagementSession, DeviceTransport) async throws -> Void
+        test:
+            @escaping (SmartCardConnection, TestConnection, TestManagementSession, DeviceTransport) async throws -> Void
     ) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
+            #if MANAGEMENT_OVER_FIDO && os(macOS)
+            let testConnection = try await HIDFIDOConnection()
             let connection = try await TestableConnection.shared()
+            #else
+            let connection = try await TestableConnection.shared()
+            let testConnection = connection
+            #endif
+
             let transport: DeviceTransport
             #if os(iOS)
             if connection as? NFCSmartCardConnection != nil {
@@ -317,11 +334,11 @@ extension XCTestCase {
             transport = .usb
             #endif
 
-            let session = try await ManagementSession.makeSession(connection: connection)
+            let session = try await TestManagementSession.makeSession(connection: testConnection)
             let config = try await session.getDeviceInfo().config
             // Try removing the lock code.
             try? await session.updateDeviceConfig(config, reboot: false, lockCode: lockCode, newLockCode: clearLockCode)
-            try await test(connection, session, transport)
+            try await test(connection, testConnection, session, transport)
         }
     }
 }
