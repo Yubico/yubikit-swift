@@ -15,12 +15,12 @@
 import Foundation
 
 /// CTAP (Client to Authenticator Protocol) constants and structures
-enum CTAP {
+public enum CTAP {
 
     // MARK: - Commands
 
     /// CTAP Commands
-    enum Command: UInt8, Sendable {
+    public enum Command: UInt8, Sendable {
         case ping = 0x01
         case msg = 0x03
         case lock = 0x04
@@ -190,7 +190,7 @@ enum CTAP {
     /// CTAPHID transport-layer errors returned by the authenticator via ERROR frames.
     ///
     /// These errors indicate problems at the HID transport level (as opposed to CTAP2 protocol-level errors).
-    enum HIDError: Swift.Error, Sendable {
+    public enum HIDError: Swift.Error, Sendable {
         case invalidCmd
         case invalidPar
         case invalidLen

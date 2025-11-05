@@ -140,7 +140,7 @@ private enum TestFIDOError: FIDOSessionError {
     case timeout(source: YubiKit.SourceLocation)
     case initializationFailed(String, source: YubiKit.SourceLocation)
     case hidError(CTAP.HIDError, source: YubiKit.SourceLocation)
-    case connectionError(FIDOConnectionError, source: YubiKit.SourceLocation)
+    case fidoConnectionError(FIDOConnectionError, source: YubiKit.SourceLocation)
     case responseParseError(String, source: YubiKit.SourceLocation)
     case cryptoError(String, error: Error?, source: YubiKit.SourceLocation)
     case dataProcessingError(String, source: YubiKit.SourceLocation)

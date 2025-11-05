@@ -19,7 +19,7 @@ import Foundation
 /// Use a connection to communicate with the YubiKey's FIDO authenticator via USB HID.
 ///
 /// Protocol implemented in ``HIDFIDOConnection``.
-protocol FIDOConnection: Connection {
+public protocol FIDOConnection: Connection {
 
     /// Create a new FIDOConnection to the YubiKey.
     ///

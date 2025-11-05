@@ -18,9 +18,10 @@ import OSLog
 
 // Internal helper for SmartCard APDU communication with optional SCP encryption.
 // Handles application selection, SCP setup, and APDU transmission with automatic continuation.
-final actor SmartCardInterface<Error: SmartCardSessionError> {
+public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
+    typealias Connection = SmartCardConnection
 
-    let connection: SmartCardConnection
+    let connection: Connection
     let scpState: SCPState?
     let selectResponse: Data
 
@@ -47,7 +48,7 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
             // Convert application not found errors to featureNotSupported
             switch responseStatus.status {
             case .invalidInstruction, .fileNotFound:
-                throw .featureNotSupported()
+                throw .featureNotSupported(source: .here())
             default:
                 throw error
             }
@@ -86,7 +87,7 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
         do {
             data = try await scpState.encrypt(apdu.command ?? Data())
         } catch {
-            throw .cryptoError("Failed to encrypt APDU command", error: error)
+            throw .cryptoError("Failed to encrypt APDU command", error: error, source: .here())
         }
 
         // Set CLA secure messaging bit
@@ -106,7 +107,7 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
                 ).data.dropLast(8)
             )
         } catch {
-            throw .cryptoError("Failed to calculate MAC", error: error)
+            throw .cryptoError("Failed to calculate MAC", error: error, source: .here())
         }
 
         // Send encrypted APDU with MAC
@@ -118,7 +119,7 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
             do {
                 result = try await scpState.unmac(data: result, sw: 0x9000)
             } catch {
-                throw .scpError(error)
+                throw .scpError(error, source: .here())
             }
         }
 
@@ -127,7 +128,7 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
             do {
                 result = try await scpState.decrypt(result)
             } catch {
-                throw .cryptoError("Failed to decrypt result", error: error)
+                throw .cryptoError("Failed to decrypt result", error: error, source: .here())
             }
         }
 
@@ -178,14 +179,14 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
                 responseData = try await connection.send(data: apdu.data)
             }
         } catch {
-            throw .connectionError(error)
+            throw .connectionError(error, source: .here())
         }
 
         // Parse response status
         let response = Response(rawData: responseData)
 
         guard response.responseStatus.status == .ok || response.responseStatus.sw1 == 0x61 else {
-            throw .failedResponse(response.responseStatus)
+            throw .failedResponse(response.responseStatus, source: .here())
         }
 
         // Accumulate data
@@ -230,7 +231,7 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
         }
 
         // Not implemented
-        throw .featureNotSupported()
+        throw .featureNotSupported(source: .here())
     }
 
     // Setup SCP03
@@ -260,7 +261,7 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
             let cardChallenge = result.extract(8),
             let cardCryptogram = result.extract(8)
         else {
-            throw .responseParseError("Malformed SCP03 response")
+            throw .responseParseError("Malformed SCP03 response", source: .here())
         }
 
         let context = hostChallenge + cardChallenge
@@ -270,18 +271,18 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
         do {
             genCardCryptogram = try StaticKeys.deriveKey(key: sessionKeys.smac, t: 0x00, context: context, l: 0x40)
         } catch {
-            throw .cryptoError("Failed to derive card cryptogram", error: error)
+            throw .cryptoError("Failed to derive card cryptogram", error: error, source: .here())
         }
 
         guard genCardCryptogram.constantTimeCompare(cardCryptogram) == true else {
-            throw .responseParseError("Wrong SCP03 key set")
+            throw .responseParseError("Wrong SCP03 key set", source: .here())
         }
 
         let hostCryptogram: Data
         do {
             hostCryptogram = try StaticKeys.deriveKey(key: sessionKeys.smac, t: 0x01, context: context, l: 0x40)
         } catch {
-            throw .cryptoError("Failed to derive host cryptogram", error: error)
+            throw .cryptoError("Failed to derive host cryptogram", error: error, source: .here())
         }
 
         let state = SCPState(sessionKeys: sessionKeys, macChain: Data(count: 16))
@@ -316,14 +317,14 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
         case .scp11c:
             params = 0b11
         default:
-            throw .illegalArgument("Invalid SCP11 KID")
+            throw .illegalArgument("Invalid SCP11 KID", source: .here())
         }
 
         // Load the OCE certificate chain for SCP11a / SCP11c
         if kid == .scp11a || kid == .scp11c {
             let certificates = scp11Params.certificates
             guard !certificates.isEmpty else {
-                throw .illegalArgument("SCP11a and SCP11c require a certificate chain")
+                throw .illegalArgument("SCP11a and SCP11c require a certificate chain", source: .here())
             }
 
             let oceRef = scp11Params.oceKeyRef ?? SCPKeyRef(kid: 0x00, kvn: 0x00)
@@ -352,7 +353,7 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
         let pkSdEcka = scp11Params.pkSdEcka
 
         guard let eskOceEcka = EC.PrivateKey.random(curve: .secp256r1) else {
-            throw .cryptoError("Failed to generate private key", error: nil)
+            throw .cryptoError("Failed to generate private key", error: nil, source: .here())
         }
         let epkOceEcka = eskOceEcka.publicKey
         let epkOceEckaData = epkOceEcka.uncompressedPoint
@@ -383,10 +384,10 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
         )
 
         guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: response), tlvs.count == 2 else {
-            throw .responseParseError("Malformed SCP11 response: expected 2 TLV records")
+            throw .responseParseError("Malformed SCP11 response: expected 2 TLV records", source: .here())
         }
         guard tlvs[0].tag == 0x5f49, tlvs[1].tag == 0x86 else {
-            throw .responseParseError("Malformed SCP11 response: unexpected TLV tags")
+            throw .responseParseError("Malformed SCP11 response: unexpected TLV tags", source: .here())
         }
 
         let epkSdEckaEncodedPoint = tlvs[0].value
@@ -395,13 +396,13 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
         let sharedInfo = keyUsage + keyType + keyLen
 
         guard let epkSdEcka = EC.PublicKey(uncompressedPoint: epkSdEckaEncodedPoint, curve: .secp256r1) else {
-            throw .dataProcessingError("Unable to parse EC public key")
+            throw .dataProcessingError("Unable to parse EC public key", source: .here())
         }
 
         guard let keyAgreement1 = eskOceEcka.sharedSecret(with: epkSdEcka),
             let keyAgreement2 = skOceEcka.sharedSecret(with: pkSdEcka)
         else {
-            throw .cryptoError("Unable to generate shared secret", error: nil)
+            throw .cryptoError("Unable to generate shared secret", error: nil, source: .here())
         }
 
         let keyMaterial = keyAgreement1 + keyAgreement2
@@ -418,11 +419,11 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
         do {
             genReceipt = try keyAgreementData.aescmac(key: keys[0])
         } catch {
-            throw .cryptoError("Failed to generate receipt", error: error)
+            throw .cryptoError("Failed to generate receipt", error: error, source: .here())
         }
 
         guard genReceipt.constantTimeCompare(receipt) else {
-            throw .responseParseError("Receipt does not match")
+            throw .responseParseError("Receipt does not match", source: .here())
         }
 
         let sessionKeys = SCPSessionKeys(senc: keys[1], smac: keys[2], srmac: keys[3], dek: keys[4])
@@ -452,7 +453,7 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
                 ).data.dropLast(8)
             )
         } catch {
-            throw .cryptoError("Failed to calculate MAC", error: error)
+            throw .cryptoError("Failed to calculate MAC", error: error, source: .here())
         }
 
         let secureApdu = APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac, type: .extended)
@@ -466,7 +467,7 @@ final actor SmartCardInterface<Error: SmartCardSessionError> {
             do {
                 result = try await scpState.unmac(data: result, sw: 0x9000)
             } catch {
-                throw .scpError(error)
+                throw .scpError(error, source: .here())
             }
         }
 

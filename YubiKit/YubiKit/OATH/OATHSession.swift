@@ -66,21 +66,26 @@ public final actor OATHSession: SmartCardSessionInternal {
 
         // Parse select response
         guard let result = TKBERTLVRecord.dictionaryOfData(from: interface.selectResponse) else {
-            throw .responseParseError("Response data not in expected TLV format")
+            throw .responseParseError("Response data not in expected TLV format", source: .here())
         }
 
         let challenge = result[tagChallenge]
 
         guard let versionData = result[tagVersion],
             let version = Version(withData: versionData)
-        else { throw .responseParseError("Missing version information in OATH application select response") }
+        else {
+            throw .responseParseError(
+                "Missing version information in OATH application select response",
+                source: .here()
+            )
+        }
 
         guard let salt = result[tagName] else {
-            throw .responseParseError("Missing salt in OATH application select response")
+            throw .responseParseError("Missing salt in OATH application select response", source: .here())
         }
 
         let digest = SHA256.hash(data: salt)
-        guard digest.data.count >= 16 else { throw .failedDerivingDeviceId() }
+        guard digest.data.count >= 16 else { throw .failedDerivingDeviceId(source: .here()) }
         let deviceId = digest.data.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
 
         self.selectResponse = SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
@@ -139,13 +144,13 @@ public final actor OATHSession: SmartCardSessionInternal {
     public func addCredential(template: CredentialTemplate) async throws(OATHSessionError) -> Credential {
         /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)") */
         if template.algorithm == .sha512 {
-            guard await self.supports(OATHSessionFeature.sha512) else { throw .featureNotSupported() }
+            guard await self.supports(OATHSessionFeature.sha512) else { throw .featureNotSupported(source: .here()) }
         }
         if template.requiresTouch {
-            guard await self.supports(OATHSessionFeature.touch) else { throw .featureNotSupported() }
+            guard await self.supports(OATHSessionFeature.touch) else { throw .featureNotSupported(source: .here()) }
         }
         guard let nameData = template.identifier.data(using: .utf8) else {
-            throw .illegalArgument("Failed to encode credential name")
+            throw .illegalArgument("Failed to encode credential name", source: .here())
         }
         let nameTlv = TKBERTLVRecord(tag: 0x71, value: nameData)
         var keyData = Data()
@@ -190,7 +195,7 @@ public final actor OATHSession: SmartCardSessionInternal {
         newName: String,
         newIssuer: String?
     ) async throws(OATHSessionError) {
-        guard await supports(OATHSessionFeature.rename) else { throw .featureNotSupported() }
+        guard await supports(OATHSessionFeature.rename) else { throw .featureNotSupported(source: .here()) }
         guard
             let currentId = CredentialIdentifier.identifier(
                 name: credential.name,
@@ -199,7 +204,7 @@ public final actor OATHSession: SmartCardSessionInternal {
             ).data(using: .utf8),
             let renamedId = CredentialIdentifier.identifier(name: newName, issuer: newIssuer, type: credential.type)
                 .data(using: .utf8)
-        else { throw .illegalArgument("Failed to encode renamed credential ID") }
+        else { throw .illegalArgument("Failed to encode renamed credential ID", source: .here()) }
         var data = Data()
         data.append(TKBERTLVRecord(tag: 0x71, value: currentId).data)
         data.append(TKBERTLVRecord(tag: 0x71, value: renamedId).data)
@@ -225,12 +230,14 @@ public final actor OATHSession: SmartCardSessionInternal {
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
         let data = try await process(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else {
-            throw .responseParseError("Failed to parse TLV records from list response")
+            throw .responseParseError("Failed to parse TLV records from list response", source: .here())
         }
         return try result.map { record throws(OATHSessionError) in
-            guard record.tag == 0x72 else { throw .responseParseError("Unexpected TLV tag in credential list") }
+            guard record.tag == 0x72 else {
+                throw .responseParseError("Unexpected TLV tag in credential list", source: .here())
+            }
             guard let credentialId = CredentialIdParser(data: record.value.dropFirst()) else {
-                throw .responseParseError("Failed to parse credential data from TLV")
+                throw .responseParseError("Failed to parse credential data from TLV", source: .here())
             }
             let bytes = record.value.bytes
             let typeCode = bytes[0] & 0xf0
@@ -240,11 +247,11 @@ public final actor OATHSession: SmartCardSessionInternal {
             } else if CredentialType.isHOTP(typeCode) {
                 credentialType = .hotp(counter: 0)
             } else {
-                throw .responseParseError("Unexpected credential type value")
+                throw .responseParseError("Unexpected credential type value", source: .here())
             }
 
             guard let hashAlgorithm = HashAlgorithm(rawValue: bytes[0] & 0x0f) else {
-                throw .responseParseError("Invalid hash algorithm value")
+                throw .responseParseError("Invalid hash algorithm value", source: .here())
             }
 
             return Credential(
@@ -273,7 +280,7 @@ public final actor OATHSession: SmartCardSessionInternal {
         ) */
 
         guard credential.deviceId == selectResponse.deviceId else {
-            throw .credentialNotPresentOnCurrentYubiKey()
+            throw .credentialNotPresentOnCurrentYubiKey(source: .here())
         }
         let challengeTLV: TKBERTLVRecord
 
@@ -292,11 +299,11 @@ public final actor OATHSession: SmartCardSessionInternal {
 
         let data = try await process(apdu: apdu)
         guard let result = TKBERTLVRecord.init(from: data) else {
-            throw .responseParseError("Failed to parse TLV response for code calculation")
+            throw .responseParseError("Failed to parse TLV response for code calculation", source: .here())
         }
 
         guard let digits = result.value.first else {
-            throw .responseParseError("Missing digits value in code response")
+            throw .responseParseError("Missing digits value in code response", source: .here())
         }
         let code = UInt32(bigEndian: result.value.subdata(in: 1..<result.value.count).uint32)
         let stringCode = String(format: "%0\(digits)d", UInt(code))
@@ -325,10 +332,10 @@ public final actor OATHSession: SmartCardSessionInternal {
         let apdu = APDU(cla: 0, ins: 0xa2, p1: 0, p2: 0, command: data)
         let result = try await process(apdu: apdu)
         guard let result = TKBERTLVRecord.init(from: result) else {
-            throw .responseParseError("Failed to parse TLV response for calculation")
+            throw .responseParseError("Failed to parse TLV response for calculation", source: .here())
         }
         guard result.tag == tagResponse || result.data.count > 0 else {
-            throw .responseParseError("Invalid OATH calculation response")
+            throw .responseParseError("Invalid OATH calculation response", source: .here())
         }
         return result.value.dropFirst()
     }
@@ -350,15 +357,17 @@ public final actor OATHSession: SmartCardSessionInternal {
         let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, command: challengeTLV.data)
         let data = try await process(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data)?.tuples() else {
-            throw .responseParseError("Failed to parse TLV records from calculate all response")
+            throw .responseParseError("Failed to parse TLV records from calculate all response", source: .here())
         }
 
         var credentialCodePairs: [(Credential, Code?)] = []
         for (name, response) in result {
-            guard name.tag == 0x71 else { throw .responseParseError("Unexpected TLV tag for credential name") }
+            guard name.tag == 0x71 else {
+                throw .responseParseError("Unexpected TLV tag for credential name", source: .here())
+            }
 
             guard let credentialId = CredentialIdParser(data: name.value) else {
-                throw .responseParseError("Failed to parse credential ID")
+                throw .responseParseError("Failed to parse credential ID", source: .here())
             }
 
             let credentialType: CredentialType
@@ -448,7 +457,7 @@ public final actor OATHSession: SmartCardSessionInternal {
     public func unlock(accessKey: Data) async throws(OATHSessionError) {
         /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)") */
         guard let responseChallenge = self.selectResponse.challenge else {
-            throw .responseParseError("Missing challenge in OATH application select response")
+            throw .responseParseError("Missing challenge in OATH application select response", source: .here())
         }
         let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
         let challenge = Data.random(length: 8)
@@ -461,17 +470,23 @@ public final actor OATHSession: SmartCardSessionInternal {
         } catch {
             guard case let .failedResponse(responseStatus, _) = error else { throw error }
             if responseStatus.status == .incorrectParameters {
-                throw OATHSessionError.invalidPassword()
+                throw OATHSessionError.invalidPassword(source: .here())
             } else {
                 throw error
             }
         }
         guard let resultTlv = TKBERTLVRecord(from: data), resultTlv.tag == tagResponse else {
-            throw .responseParseError("Unexpected tag in validate response")
+            throw .responseParseError(
+                "Unexpected tag in validate response",
+                source: .here()
+            )
         }
         let expectedResult = challenge.hmacSha1(usingKey: accessKey)
         guard resultTlv.value == expectedResult else {
-            throw .responseParseError("Validation failed: response does not match expected result")
+            throw .responseParseError(
+                "Validation failed: response does not match expected result",
+                source: .here()
+            )
         }
     }
 
@@ -520,7 +535,11 @@ extension OATHSession {
             }
         } catch {
             let encryptionError = error as! EncryptionError
-            throw OATHSessionError.cryptoError("Unable to derive access key", error: encryptionError)
+            throw OATHSessionError.cryptoError(
+                "Unable to derive access key",
+                error: encryptionError,
+                source: .here()
+            )
         }
         return derivedKey
     }

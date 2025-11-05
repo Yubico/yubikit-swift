@@ -15,7 +15,7 @@
 /// Errors that occur during FIDO session operations.
 ///
 /// These errors represent both local transport issues and errors returned by the authenticator.
-protocol FIDOSessionError: SessionError {
+public protocol FIDOSessionError: SessionError {
 
     // MARK: - FIDO-Specific Error Factory Methods
 
@@ -29,117 +29,5 @@ protocol FIDOSessionError: SessionError {
     static func hidError(_ error: CTAP.HIDError, source: SourceLocation) -> Self
 
     /// Connection-level error from the underlying transport.
-    static func connectionError(_ error: FIDOConnectionError, source: SourceLocation) -> Self
-}
-
-// MARK: - Internal Convenience Methods
-extension FIDOSessionError {
-
-    @inline(__always)
-    static func cryptoError(
-        _ message: String,
-        error: Error? = nil,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .cryptoError(
-            message,
-            error: error,
-            source: SourceLocation(file: file, function: function, line: line, column: column)
-        )
-    }
-
-    @inline(__always)
-    static func responseParseError(
-        _ message: String,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .responseParseError(message, source: SourceLocation(file: file, function: function, line: line, column: column))
-    }
-
-    @inline(__always)
-    static func dataProcessingError(
-        _ message: String,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .dataProcessingError(
-            message,
-            source: SourceLocation(file: file, function: function, line: line, column: column)
-        )
-    }
-
-    @inline(__always)
-    static func illegalArgument(
-        _ message: String,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .illegalArgument(message, source: SourceLocation(file: file, function: function, line: line, column: column))
-    }
-
-    @inline(__always)
-    static func featureNotSupported(
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .featureNotSupported(source: SourceLocation(file: file, function: function, line: line, column: column))
-    }
-
-    @inline(__always)
-    static func timeout(
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .timeout(source: SourceLocation(file: file, function: function, line: line, column: column))
-    }
-
-    @inline(__always)
-    static func initializationFailed(
-        _ message: String,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .initializationFailed(
-            message,
-            source: SourceLocation(file: file, function: function, line: line, column: column)
-        )
-    }
-
-    @inline(__always)
-    static func hidError(
-        _ error: CTAP.HIDError,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .hidError(error, source: SourceLocation(file: file, function: function, line: line, column: column))
-    }
-
-    @inline(__always)
-    static func connectionError(
-        _ error: FIDOConnectionError,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .connectionError(error, source: SourceLocation(file: file, function: function, line: line, column: column))
-    }
+    static func fidoConnectionError(_ error: FIDOConnectionError, source: SourceLocation) -> Self
 }

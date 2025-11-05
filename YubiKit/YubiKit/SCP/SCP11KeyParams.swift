@@ -52,14 +52,20 @@ public struct SCP11KeyParams: SCPKeyParams, Sendable {
         switch keyRef.kid {
         case .scp11b:
             if oceKeyRef != nil || skOceEcka != nil || !certificates.isEmpty {
-                throw .illegalArgument("Cannot provide oceKeyRef, skOceEcka or certificates for SCP11b")
+                throw .illegalArgument(
+                    "Cannot provide oceKeyRef, skOceEcka or certificates for SCP11b",
+                    source: .here()
+                )
             }
         case .scp11a, .scp11c:
             if oceKeyRef == nil || skOceEcka == nil || certificates.isEmpty {
-                throw .illegalArgument("Must provide oceKeyRef, skOceEcka or certificates for SCP11a/c")
+                throw .illegalArgument(
+                    "Must provide oceKeyRef, skOceEcka or certificates for SCP11a/c",
+                    source: .here()
+                )
             }
         default:
-            throw .illegalArgument("KID must be 0x11, 0x13, or 0x15 for SCP11")
+            throw .illegalArgument("KID must be 0x11, 0x13, or 0x15 for SCP11", source: .here())
         }
         self.keyRef = keyRef
         self.pkSdEcka = pkSdEcka

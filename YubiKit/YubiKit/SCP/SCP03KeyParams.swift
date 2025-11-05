@@ -29,7 +29,7 @@ public struct SCP03KeyParams: SCPKeyParams, Sendable {
     /// - Throws: ``SCPError/illegalArgument(_:source:)`` if the KID is invalid for SCP03.
     public init(keyRef: SCPKeyRef, staticKeys: StaticKeys) throws(SCPError) {
         if 0xFF & keyRef.kid > 3 {
-            throw .illegalArgument("Invalid KID for SCP03")
+            throw .illegalArgument("Invalid KID for SCP03", source: .here())
         }
         self.keyRef = keyRef
         self.staticKeys = staticKeys

@@ -17,14 +17,13 @@ import OSLog
 
 /// FIDO interface for CTAP HID communication
 /// Handles authenticator communication over USB HID transport
-final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
+public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
     // MARK: - Properties
-
-    let connection: FIDOConnection
+    public let connection: FIDOConnection
+    public private(set) var version: Version = Version(withData: Data([0, 0, 0]))!
 
     // Private
-    private(set) var version: Version = Version(withData: Data([0, 0, 0]))!
     private(set) var capabilities: CTAP.Capabilities = []
     private(set) var protocolVersion: UInt8 = 0
 
@@ -55,7 +54,7 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
         let response = try await sendAndReceive(cmd: Self.hidCommand(.ping), payload: payload)
 
         guard response == payload else {
-            throw Error.responseParseError("PING response data mismatch")
+            throw Error.responseParseError("PING response data mismatch", source: .here())
         }
 
         /* Fix trace: trace(message: "PING command completed: \(response.count) bytes echoed") */
@@ -131,13 +130,13 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
         // INIT response format: nonce(8) + cid(4) + proto(1) + version(3) + caps(1)
         guard response.count >= 17 else {
-            throw Error.initializationFailed("INIT response too short: \(response.count) bytes")
+            throw Error.initializationFailed("INIT response too short: \(response.count) bytes", source: .here())
         }
 
         // Check nonce was echoed back
         let responseNonce = response.subdata(in: 0..<8)
         guard responseNonce == nonce else {
-            throw Error.initializationFailed("INIT nonce mismatch")
+            throw Error.initializationFailed("INIT nonce mismatch", source: .here())
         }
 
         // Get our assigned channel ID
@@ -171,7 +170,7 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
         do {
             try await connection.send(initFrame)
         } catch {
-            throw .connectionError(error)
+            throw .fidoConnectionError(error, source: .here())
         }
         /* Fix trace: trace(message: "Sent init frame (\(payloadData.count) total bytes)") */
 
@@ -188,7 +187,7 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
             do {
                 try await connection.send(contFrame)
             } catch {
-                throw .connectionError(error)
+                throw .fidoConnectionError(error, source: .here())
             }
             /* Fix trace: trace(message: "Sent continuation frame \(sequence)") */
 
@@ -196,7 +195,7 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
             sequence += 1
 
             guard sequence < 128 else {
-                throw Error.illegalArgument("Payload too large: exceeds maximum CTAP HID message size")
+                throw Error.illegalArgument("Payload too large: exceeds maximum CTAP HID message size", source: .here())
             }
         }
     }
@@ -211,11 +210,11 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
             do {
                 responseInitFrame = try await withTimeout(frameTimeout) { try await self.connection.receive() }
             } catch {
-                throw .connectionError(error as! FIDOConnectionError)
+                throw .fidoConnectionError(error as! FIDOConnectionError, source: .here())
             }
 
             guard let responseInitFrame = responseInitFrame else {
-                throw .timeout()
+                throw .timeout(source: .here())
             }
 
             let (responseChannelId, responseCommand, payloadLength, initFrameData) = try parseInitFrame(
@@ -224,7 +223,7 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
             // Validate channel ID
             guard responseChannelId == channelId else {
-                throw Error.responseParseError("Invalid channel ID in response")
+                throw Error.responseParseError("Invalid channel ID in response", source: .here())
             }
 
             // Handle KEEPALIVE - continue waiting
@@ -237,17 +236,18 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
             // Check if response is an error from the authenticator
             if responseCommand == Self.hidCommand(.error) {
                 guard !initFrameData.isEmpty else {
-                    throw Error.responseParseError("ERROR frame has no error code")
+                    throw Error.responseParseError("ERROR frame has no error code", source: .here())
                 }
                 let errorCode = initFrameData[0]
                 let hidError = CTAP.HIDError.from(errorCode: errorCode)
-                throw .hidError(hidError)
+                throw .hidError(hidError, source: .here())
             }
 
             // Validate response command matches request
             guard responseCommand == expectedCommand else {
                 throw Error.responseParseError(
-                    "Unexpected response command: expected 0x\(String(format: "%02x", expectedCommand)), received 0x\(String(format: "%02x", responseCommand))"
+                    "Unexpected response command: expected 0x\(String(format: "%02x", expectedCommand)), received 0x\(String(format: "%02x", responseCommand))",
+                    source: .here()
                 )
             }
 
@@ -264,11 +264,11 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
                 do {
                     contFrame = try await withTimeout(frameTimeout) { try await self.connection.receive() }
                 } catch {
-                    throw .connectionError(error as! FIDOConnectionError)
+                    throw .fidoConnectionError(error as! FIDOConnectionError, source: .here())
                 }
 
                 guard let contFrame = contFrame else {
-                    throw .timeout()
+                    throw .timeout(source: .here())
                 }
                 /* Fix trace: trace(message: "Received continuation frame") */
 
@@ -276,13 +276,14 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
                 // Validate channel ID matches
                 guard contChannelId == responseChannelId else {
-                    throw Error.responseParseError("Channel ID mismatch in continuation frame")
+                    throw Error.responseParseError("Channel ID mismatch in continuation frame", source: .here())
                 }
 
                 // Validate sequence number
                 guard sequence == expectedSequence else {
                     throw Error.responseParseError(
-                        "Sequence number mismatch: expected \(expectedSequence), got \(sequence)"
+                        "Sequence number mismatch: expected \(expectedSequence), got \(sequence)",
+                        source: .here()
                     )
                 }
 
@@ -366,7 +367,10 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
         channelId: UInt32, command: UInt8, payloadLength: Int, data: Data
     ) {
         guard frame.count == CTAP.HID_PACKET_SIZE else {
-            throw Error.responseParseError("Expected \(CTAP.HID_PACKET_SIZE) bytes, got \(frame.count)")
+            throw Error.responseParseError(
+                "Expected \(CTAP.HID_PACKET_SIZE) bytes, got \(frame.count)",
+                source: .here()
+            )
         }
 
         // Extract channel ID (bytes 0-3, big-endian)
@@ -401,7 +405,10 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
         channelId: UInt32, sequence: UInt8, data: Data
     ) {
         guard frame.count == CTAP.HID_PACKET_SIZE else {
-            throw Error.responseParseError("Expected \(CTAP.HID_PACKET_SIZE) bytes, got \(frame.count)")
+            throw Error.responseParseError(
+                "Expected \(CTAP.HID_PACKET_SIZE) bytes, got \(frame.count)",
+                source: .here()
+            )
         }
 
         // Extract channel ID (bytes 0-3, big-endian)
@@ -413,7 +420,8 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
         let sequence = frame[4]
         guard sequence < 128 else {
             throw Error.responseParseError(
-                "Invalid continuation frame sequence: \(sequence) (must be 0-127)"
+                "Invalid continuation frame sequence: \(sequence) (must be 0-127)",
+                source: .here()
             )
         }
 
@@ -427,7 +435,6 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
     // MARK: - Utilities
 
     /// Convert CTAP command to HID command byte (with INIT frame bit set)
-    @inlinable
     static func hidCommand(_ command: CTAP.Command) -> UInt8 {
         CTAP.FRAME_INIT | command.rawValue
     }
@@ -439,7 +446,7 @@ final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
             SecRandomCopyBytes(kSecRandomDefault, count, $0.baseAddress!)
         }
         guard result == errSecSuccess else {
-            throw .cryptoError("Failed to generate random bytes for CTAP INIT")
+            throw .cryptoError("Failed to generate random bytes for CTAP INIT", error: nil, source: .here())
         }
         return randomData
     }

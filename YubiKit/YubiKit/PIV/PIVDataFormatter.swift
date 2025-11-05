@@ -38,20 +38,23 @@ internal enum PIVDataFormatter {
         else {
             throw .cryptoError(
                 "Failed to create RSA key pair for signing",
-                error: error?.takeRetainedValue()
+                error: error?.takeRetainedValue(),
+                source: .here()
             )
         }
         guard let signedData = SecKeyCreateSignature(privateKey, algorithm.secKeyAlgorithm, data as CFData, &error)
         else {
             throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue()
+                error: error?.takeRetainedValue(),
+                source: .here()
             )
         }
         guard let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionRaw, signedData, &error) else {
             throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue()
+                error: error?.takeRetainedValue(),
+                source: .here()
             )
         }
         return encryptedData as Data
@@ -132,7 +135,8 @@ internal enum PIVDataFormatter {
         else {
             throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue()
+                error: error?.takeRetainedValue(),
+                source: .here()
             )
         }
         guard
@@ -140,7 +144,8 @@ internal enum PIVDataFormatter {
         else {
             throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue()
+                error: error?.takeRetainedValue(),
+                source: .here()
             )
         }
         return encryptedData as Data
@@ -155,7 +160,7 @@ internal enum PIVDataFormatter {
     ) throws(PIVSessionError) -> Data {
         let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
         guard let keyType = validTypes.first(where: { $0.keysize.byteCount == data.count }) else {
-            throw .invalidDataSize()
+            throw .invalidDataSize(source: .here())
         }
 
         let attributes =
@@ -170,13 +175,15 @@ internal enum PIVDataFormatter {
         else {
             throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue()
+                error: error?.takeRetainedValue(),
+                source: .here()
             )
         }
         guard let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionRaw, data as CFData, &error) else {
             throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue()
+                error: error?.takeRetainedValue(),
+                source: .here()
             )
         }
         guard
@@ -184,7 +191,8 @@ internal enum PIVDataFormatter {
         else {
             throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue()
+                error: error?.takeRetainedValue(),
+                source: .here()
             )
         }
         return decryptedData as Data
@@ -200,7 +208,7 @@ internal enum PIVDataFormatter {
 
         let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
         guard let keyType = validTypes.first(where: { $0.keysize.byteCount == data.count }) else {
-            throw .invalidDataSize()
+            throw .invalidDataSize(source: .here())
         }
 
         let attributes =
@@ -215,13 +223,15 @@ internal enum PIVDataFormatter {
         else {
             throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue()
+                error: error?.takeRetainedValue(),
+                source: .here()
             )
         }
         guard let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionRaw, data as CFData, &error) else {
             throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue()
+                error: error?.takeRetainedValue(),
+                source: .here()
             )
         }
         guard
@@ -229,7 +239,8 @@ internal enum PIVDataFormatter {
         else {
             throw .cryptoError(
                 "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue()
+                error: error?.takeRetainedValue(),
+                source: .here()
             )
         }
         return decryptedData as Data

@@ -15,39 +15,27 @@
 /// Management session errors.
 ///
 /// Handles device configuration, capability detection, and general YubiKey management operations.
-public enum ManagementSessionError: SmartCardSessionError, Sendable {
-    // MARK: - SessionError Protocol Cases
-    case featureNotSupported(source: SourceLocation)
+public enum ManagementSessionError: FIDOSessionError, SmartCardSessionError, Sendable {
     case connectionError(SmartCardConnectionError, source: SourceLocation)
+    case fidoConnectionError(FIDOConnectionError, source: SourceLocation)
+
+    case featureNotSupported(source: SourceLocation)
     case failedResponse(ResponseStatus, source: SourceLocation)
     case scpError(SCPError, source: SourceLocation)
-    case cryptoError(String, error: Error?, source: SourceLocation)
+    case cryptoError(String, error: Swift.Error?, source: SourceLocation)
     case responseParseError(String, source: SourceLocation)
     case dataProcessingError(String, source: SourceLocation)
     case illegalArgument(String, source: SourceLocation)
 
+    case timeout(source: SourceLocation)
+    case initializationFailed(_ message: String, source: SourceLocation)
+    case hidError(_ error: CTAP.HIDError, source: SourceLocation)
+
     public var responseStatus: ResponseStatus? {
-        guard case let .failedResponse(status, _) = self else {
-            return nil
-        }
+        guard case let .failedResponse(status, _) = self else { return nil }
         return status
     }
 
     // MARK: - Management-Specific Cases
     case other(Error, source: SourceLocation)
-}
-
-// MARK: - Internal Convenience Methods
-extension ManagementSessionError {
-
-    @inline(__always)
-    static func other(
-        _ error: Error,
-        file: String = #file,
-        function: String = #function,
-        line: Int = #line,
-        column: Int = #column
-    ) -> Self {
-        .other(error, source: SourceLocation(file: file, function: function, line: line, column: column))
-    }
 }

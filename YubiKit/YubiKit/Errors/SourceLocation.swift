@@ -22,4 +22,36 @@ public struct SourceLocation: Sendable {
     public let line: Int
     /// The column number where the error occurred.
     public let column: Int
+
+    @inline(__always)
+    init(
+        file: String,
+        function: String,
+        line: Int,
+        column: Int
+    ) {
+        self.file = file
+        self.function = function
+        self.line = line
+        self.column = column
+    }
+
+    /// Captures the current source location.
+    ///
+    /// Use this static function to automatically capture the file, function, line, and column
+    /// where an error is thrown.
+    ///
+    /// Example:
+    /// ```swift
+    /// throw Error.featureNotSupported(source: .here())
+    /// ```
+    @inline(__always)
+    public static func here(
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line,
+        column: Int = #column
+    ) -> Self {
+        Self(file: file, function: function, line: line, column: column)
+    }
 }
