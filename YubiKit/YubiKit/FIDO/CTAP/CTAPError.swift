@@ -14,20 +14,9 @@
 
 import Foundation
 
-extension CBOR {
-    public enum Error: Swift.Error, Equatable {
-        case unexpectedEndOfData
-        case extraneousData
-        case invalidUTF8
-        case unsupportedMajorType(UInt8)
-        case unsupportedSimpleValue(UInt8)
-        case invalidAdditionalInfo(UInt8)
-    }
-}
-
-protocol CBORError {
-    static func cborError(
-        _ error: CBOR.Error,
+protocol CTAPError {
+    static func ctapError(
+        _ error: CTAP.Error,
         source: SourceLocation
     ) -> Self
 }

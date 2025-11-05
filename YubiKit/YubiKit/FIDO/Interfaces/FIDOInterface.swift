@@ -103,6 +103,21 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
         capabilities.contains(capability)
     }
 
+    /// Send CBOR-encoded CTAP2 command and receive CBOR response
+    ///
+    /// This is the main entry point for CTAP2 protocol commands like authenticatorGetInfo,
+    /// authenticatorMakeCredential, authenticatorGetAssertion, etc.
+    ///
+    /// - Parameter payload: CBOR-encoded command data (command byte + optional CBOR parameters)
+    /// - Returns: Raw CBOR-encoded response data from the authenticator
+    /// - Throws: ``FIDOSessionError`` if the command fails or CBOR capability is not supported
+    func cbor(payload: Data) async throws(Error) -> Data {
+        guard supports(.cbor) else {
+            throw Error.featureNotSupported(source: .here())
+        }
+        return try await sendAndReceive(cmd: Self.hidCommand(.cbor), payload: payload)
+    }
+
     /// Send CTAP command and wait for response
     /// Supports both single-frame and multi-frame messages.
     func sendAndReceive(cmd: UInt8, payload: Data?) async throws(Error) -> Data {
@@ -435,7 +450,7 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
     // MARK: - Utilities
 
     /// Convert CTAP command to HID command byte (with INIT frame bit set)
-    static func hidCommand(_ command: CTAP.Command) -> UInt8 {
+    static func hidCommand(_ command: CTAP.HID.Command) -> UInt8 {
         CTAP.FRAME_INIT | command.rawValue
     }
 

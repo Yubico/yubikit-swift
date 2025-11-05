@@ -14,7 +14,7 @@
 
 import Foundation
 
-enum CBOR {
+public enum CBOR {
 
     // CBOR major types as defined in RFC 8949
     enum MajorType: UInt8 {
