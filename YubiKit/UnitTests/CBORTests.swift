@@ -215,14 +215,14 @@ struct CBORTests {
     @Test("Decode with extraneous data throws error") func testExtraneousData() throws {
         let data = Data(hexString: "0001")!  // Valid integer 0, followed by extra byte
         #expect(throws: CBOR.Error.extraneousData) {
-            _ = try data.decode()
+            _ = try data.decode() as Int?
         }
     }
 
     @Test("Decode unexpected end of data throws error") func testUnexpectedEndOfData() throws {
         let data = Data(hexString: "18")!  // Integer with 1-byte value but missing value byte
         #expect(throws: CBOR.Error.unexpectedEndOfData) {
-            _ = try data.decode()
+            _ = try data.decode() as Int?
         }
     }
 
@@ -230,7 +230,7 @@ struct CBORTests {
         // CBOR text string with invalid UTF-8 bytes
         let data = Data(hexString: "62ff80")!  // Text string of length 2 with invalid UTF-8
         #expect(throws: CBOR.Error.invalidUTF8) {
-            _ = try data.decode()
+            _ = try data.decode() as String?
         }
     }
 
@@ -318,7 +318,7 @@ struct CBORTests {
         ]
 
         let encoded = try original.encode()
-        let decoded = try encoded.decode()
+        let decoded = try encoded.decode() as CBOR.Value?
 
         #expect(decoded == original)
     }
@@ -428,11 +428,11 @@ struct CBORTests {
 
     private func assertCBORDecode(expectedValue: CBOR.Value, cborHex: String) throws {
         let data = Data(hexString: cborHex)!
-        let decoded = try data.decode()
+        let decoded = try data.decode() as CBOR.Value?
 
         #expect(
             decoded == expectedValue,
-            "Expected to decode into \(expectedValue), but got \(decoded)"
+            "Expected to decode into \(expectedValue), but got \(decoded ?? .null)"
         )
     }
 
