@@ -19,22 +19,43 @@ public enum CTAP {
 
     // MARK: - Commands
 
-    /// CTAP Commands
-    public enum Command: UInt8, Sendable {
-        case ping = 0x01
-        case msg = 0x03
-        case lock = 0x04
-        case `init` = 0x06
-        case wink = 0x08
-        case cbor = 0x10
-        case cancel = 0x11
-        case keepalive = 0x3b
-        case error = 0x3f
+    enum HID {
+        /// CTAPHID command codes
+        enum Command: UInt8, Sendable {
+            case ping = 0x01
+            case msg = 0x03
+            case lock = 0x04
+            case `init` = 0x06
+            case wink = 0x08
+            case cbor = 0x10
+            case cancel = 0x11
+            case keepalive = 0x3b
+            case error = 0x3f
 
-        // Yubico specific commands
-        case yubikeyDeviceConfig = 0x40
-        case readConfig = 0x42
-        case writeConfig = 0x43
+            // Yubico specific commands
+            case yubikeyDeviceConfig = 0x40
+            case readConfig = 0x42
+            case writeConfig = 0x43
+        }
+    }
+
+    /// CTAP2 authenticator command codes (sent inside CTAPHID_CBOR)
+    enum Command: UInt8, Sendable {
+        case makeCredential = 0x01
+        case getAssertion = 0x02
+        case getInfo = 0x04
+        case clientPIN = 0x06
+        case reset = 0x07
+        case getNextAssertion = 0x08
+        case bioEnrollment = 0x09
+        case credentialManagement = 0x0A
+        case selection = 0x0B
+        case largeBlobs = 0x0C
+        case config = 0x0D
+
+        // Prototype/vendor commands
+        case bioEnrollmentPreview = 0x40
+        case credentialManagementPreview = 0x41
     }
 
     // MARK: - HID Frame Structure Constants
@@ -81,109 +102,128 @@ public enum CTAP {
     // MARK: - Error Types
 
     /// CTAP-level errors returned from the Authenticator.
-    enum Error: UInt8, Swift.Error, Sendable {
-        case invalidCommand = 0x01
-        case invalidParameter = 0x02
-        case invalidLength = 0x03
-        case invalidSeq = 0x04
-        case timeout = 0x05
-        case channelBusy = 0x06
-        case lockRequired = 0x0A
-        case invalidChannel = 0x0B
-        case cborUnexpectedType = 0x11
-        case invalidCbor = 0x12
-        case missingParameter = 0x14
-        case limitExceeded = 0x15
-        case unsupportedExtension = 0x16
-        case fpDatabaseFull = 0x17
-        case largeBlobStorageFull = 0x18
-        case credentialExcluded = 0x19
-        case processing = 0x21
-        case invalidCredential = 0x22
-        case userActionPending = 0x23
-        case operationPending = 0x24
-        case noOperations = 0x25
-        case unsupportedAlgorithm = 0x26
-        case operationDenied = 0x27
-        case keyStoreFull = 0x28
-        case notBusy = 0x29
-        case noOperationPending = 0x2A
-        case unsupportedOption = 0x2B
-        case invalidOption = 0x2C
-        case keepaliveCancel = 0x2D
-        case noCredentials = 0x2E
-        case userActionTimeout = 0x2F
-        case notAllowed = 0x30
-        case pinInvalid = 0x31
-        case pinBlocked = 0x32
-        case pinAuthInvalid = 0x33
-        case pinAuthBlocked = 0x34
-        case pinNotSet = 0x35
-        case puatRequired = 0x36
-        case pinPolicyViolation = 0x37
-        case pinTokenExpired = 0x38
-        case requestTooLarge = 0x39
-        case actionTimeout = 0x3A
-        case upRequired = 0x3B
-        case uvBlocked = 0x3C
-        case integrityFailure = 0x3D
-        case invalidSubcommand = 0x3E
-        case uvInvalid = 0x3F
-        case unauthorizedPermission = 0x40
-        case other = 0x7F
-        case specLast = 0xDF
+    public enum Error: Swift.Error, Sendable {
+        case invalidCommand
+        case invalidParameter
+        case invalidLength
+        case invalidSeq
+        case timeout
+        case channelBusy
+        case lockRequired
+        case invalidChannel
+        case cborUnexpectedType
+        case invalidCbor
+        case missingParameter
+        case limitExceeded
+        case unsupportedExtension
+        case fpDatabaseFull
+        case largeBlobStorageFull
+        case credentialExcluded
+        case processing
+        case invalidCredential
+        case userActionPending
+        case operationPending
+        case noOperations
+        case unsupportedAlgorithm
+        case operationDenied
+        case keyStoreFull
+        case notBusy
+        case noOperationPending
+        case unsupportedOption
+        case invalidOption
+        case keepaliveCancel
+        case noCredentials
+        case userActionTimeout
+        case notAllowed
+        case pinInvalid
+        case pinBlocked
+        case pinAuthInvalid
+        case pinAuthBlocked
+        case pinNotSet
+        case puatRequired
+        case pinPolicyViolation
+        case pinTokenExpired
+        case requestTooLarge
+        case actionTimeout
+        case upRequired
+        case uvBlocked
+        case integrityFailure
+        case invalidSubcommand
+        case uvInvalid
+        case unauthorizedPermission
+        case other
+        case specLast
 
         // Extension errors (0xE0-0xEF)
-        case extension0 = 0xE0
-        case extension1 = 0xE1
-        case extension2 = 0xE2
-        case extension3 = 0xE3
-        case extension4 = 0xE4
-        case extension5 = 0xE5
-        case extension6 = 0xE6
-        case extension7 = 0xE7
-        case extension8 = 0xE8
-        case extension9 = 0xE9
-        case extensionA = 0xEA
-        case extensionB = 0xEB
-        case extensionC = 0xEC
-        case extensionD = 0xED
-        case extensionE = 0xEE
-        case extensionF = 0xEF
+        case `extension`(UInt8)
 
         // Vendor errors (0xF0-0xFF)
-        case vendor0 = 0xF0
-        case vendor1 = 0xF1
-        case vendor2 = 0xF2
-        case vendor3 = 0xF3
-        case vendor4 = 0xF4
-        case vendor5 = 0xF5
-        case vendor6 = 0xF6
-        case vendor7 = 0xF7
-        case vendor8 = 0xF8
-        case vendor9 = 0xF9
-        case vendorA = 0xFA
-        case vendorB = 0xFB
-        case vendorC = 0xFC
-        case vendorD = 0xFD
-        case vendorE = 0xFE
-        case vendorF = 0xFF
+        case vendor(UInt8)
 
-        var localizedDescription: String {
-            String(format: "CTAP error: 0x%02x", rawValue)
-        }
-    }
+        case unknown(UInt8)
 
-    /// Unknown CTAP error codes
-    struct UnknownError: Swift.Error, Sendable {
-        let errorCode: UInt8
+        static func from(errorCode: UInt8) -> Error {
+            switch errorCode {
+            case 0x01: return .invalidCommand
+            case 0x02: return .invalidParameter
+            case 0x03: return .invalidLength
+            case 0x04: return .invalidSeq
+            case 0x05: return .timeout
+            case 0x06: return .channelBusy
+            case 0x0A: return .lockRequired
+            case 0x0B: return .invalidChannel
+            case 0x11: return .cborUnexpectedType
+            case 0x12: return .invalidCbor
+            case 0x14: return .missingParameter
+            case 0x15: return .limitExceeded
+            case 0x16: return .unsupportedExtension
+            case 0x17: return .fpDatabaseFull
+            case 0x18: return .largeBlobStorageFull
+            case 0x19: return .credentialExcluded
+            case 0x21: return .processing
+            case 0x22: return .invalidCredential
+            case 0x23: return .userActionPending
+            case 0x24: return .operationPending
+            case 0x25: return .noOperations
+            case 0x26: return .unsupportedAlgorithm
+            case 0x27: return .operationDenied
+            case 0x28: return .keyStoreFull
+            case 0x29: return .notBusy
+            case 0x2A: return .noOperationPending
+            case 0x2B: return .unsupportedOption
+            case 0x2C: return .invalidOption
+            case 0x2D: return .keepaliveCancel
+            case 0x2E: return .noCredentials
+            case 0x2F: return .userActionTimeout
+            case 0x30: return .notAllowed
+            case 0x31: return .pinInvalid
+            case 0x32: return .pinBlocked
+            case 0x33: return .pinAuthInvalid
+            case 0x34: return .pinAuthBlocked
+            case 0x35: return .pinNotSet
+            case 0x36: return .puatRequired
+            case 0x37: return .pinPolicyViolation
+            case 0x38: return .pinTokenExpired
+            case 0x39: return .requestTooLarge
+            case 0x3A: return .actionTimeout
+            case 0x3B: return .upRequired
+            case 0x3C: return .uvBlocked
+            case 0x3D: return .integrityFailure
+            case 0x3E: return .invalidSubcommand
+            case 0x3F: return .uvInvalid
+            case 0x40: return .unauthorizedPermission
+            case 0x7F: return .other
+            case 0xDF: return .specLast
 
-        init(errorCode: UInt8) {
-            self.errorCode = errorCode
-        }
+            // Extension errors (0xE0-0xEF)
+            case 0xE0...0xEF: return .extension(errorCode)
 
-        var localizedDescription: String {
-            "Unknown CTAP error code: 0x\(String(format: "%02x", errorCode))"
+            // Vendor errors (0xF0-0xFF)
+            case 0xF0...0xFF: return .vendor(errorCode)
+
+            // Unknown error code
+            default: return .unknown(errorCode)
+            }
         }
     }
 

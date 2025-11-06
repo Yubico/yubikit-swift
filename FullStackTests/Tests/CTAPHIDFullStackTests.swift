@@ -20,10 +20,10 @@ import Testing
 
 #if os(macOS)
 
-@Suite("FIDO Interface Full Stack Tests", .serialized)
-struct FIDOInterfaceFullStackTests {
+@Suite("CTAPHID Full Stack Tests", .serialized)
+struct CTAPHIDFullStackTests {
 
-    @Test("FIDO Interface Initialization")
+    @Test("CTAPHID Interface Initialization")
     func interfaceInitialization() async throws {
         // First test HID connection enumeration
         let devices = try await HIDFIDOConnection.availableDevices()
@@ -38,10 +38,10 @@ struct FIDOInterfaceFullStackTests {
         print("Successfully opened HID connection")
         print("Connection MTU: \(connection.mtu)")
 
-        // Test FIDO interface initialization
+        // Test CTAPHID interface initialization
         let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
 
-        print("Successfully established FIDO connection")
+        print("Successfully established CTAPHID connection")
         print("FIDO Interface Version: \(await fidoInterface.version)")
         print("FIDO Interface Capabilities: 0x\(String(format: "%02x", await fidoInterface.capabilities.rawValue))")
 
@@ -51,7 +51,7 @@ struct FIDOInterfaceFullStackTests {
         await connection.close(error: nil)
     }
 
-    @Test("FIDO Capability Detection")
+    @Test("CTAPHID Capability Detection")
     func capabilityDetection() async throws {
         let connection = try await HIDFIDOConnection.makeConnection()
         let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
@@ -69,7 +69,7 @@ struct FIDOInterfaceFullStackTests {
         await connection.close(error: nil)
     }
 
-    @Test("FIDO WINK Functionality")
+    @Test("CTAPHID WINK Command")
     func winkFunctionality() async throws {
         let connection = try await HIDFIDOConnection.makeConnection()
         let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
@@ -90,7 +90,7 @@ struct FIDOInterfaceFullStackTests {
         await connection.close(error: nil)
     }
 
-    @Test("FIDO PING Command")
+    @Test("CTAPHID PING Command")
     func pingCommand() async throws {
         let connection = try await HIDFIDOConnection.makeConnection()
         let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
@@ -111,12 +111,12 @@ struct FIDOInterfaceFullStackTests {
         await connection.close(error: nil)
     }
 
-    @Test("FIDO Error Handling")
+    @Test("CTAPHID Error Handling")
     func errorHandling() async throws {
         let connection = try await HIDFIDOConnection.makeConnection()
         let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
 
-        print("Testing FIDO error handling...")
+        print("Testing CTAPHID error handling...")
 
         do {
             // Send an invalid command
@@ -124,7 +124,7 @@ struct FIDOInterfaceFullStackTests {
             _ = try await fidoInterface.sendAndReceive(cmd: 0xFF, payload: emptyPayload)  // Invalid command
             Issue.record("Invalid command should have failed")
         } catch let error {
-            print("Invalid command correctly failed with FIDO error: \(error)")
+            print("Invalid command correctly failed with CTAPHID error: \(error)")
             if case .hidError(let hidError, _) = error {
                 print("HID error details: \(hidError)")
             }
