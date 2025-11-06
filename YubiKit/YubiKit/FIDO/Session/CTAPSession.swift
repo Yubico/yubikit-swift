@@ -20,23 +20,6 @@ typealias FIDO2SessionOverSmartCard = CTAP.Session<SmartCardInterface<FIDO2Sessi
 
 extension CTAP {
 
-    /// FIDO2 session features.
-    enum Feature: SessionFeature, Sendable {
-        /// Support for authenticatorGetInfo command.
-        case getInfo
-        /// Support for authenticatorMakeCredential command.
-        case makeCredential
-        /// Support for authenticatorGetAssertion command.
-        case getAssertion
-
-        public func isSupported(by version: Version) -> Bool {
-            switch self {
-            case .getInfo, .makeCredential, .getAssertion:
-                return version >= Version("5.0.0")!
-            }
-        }
-    }
-
     /// A generic interface to the FIDO2/CTAP2 authenticator on the YubiKey.
     ///
     /// Use the FIDO2 session to interact with the CTAP2 authenticator for WebAuthn/FIDO2
@@ -61,13 +44,6 @@ extension CTAP {
             self.version = await interface.version
         }
 
-        /// Determines whether the session supports the specified feature.
-        /// - Parameter feature: The feature to check for support.
-        /// - Returns: true if the feature is supported, false otherwise.
-        func supports(_ feature: Feature) async -> Bool {
-            feature.isSupported(by: version)
-        }
-
         /// Get authenticator information.
         ///
         /// Returns information about the authenticator including supported versions,
@@ -80,10 +56,6 @@ extension CTAP {
         /// - Returns: The authenticator information structure.
         /// - Throws: ``FIDO2SessionError`` if the operation fails.
         func getInfo() async throws -> AuthenticatorInfo {
-            guard await self.supports(.getInfo) else {
-                throw Error.featureNotSupported(source: .here())
-            }
-
             let info: AuthenticatorInfo? = try await interface.send(command: .getInfo)
 
             guard let info = info else {
