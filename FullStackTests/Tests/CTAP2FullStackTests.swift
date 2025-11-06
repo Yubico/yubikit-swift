@@ -17,13 +17,7 @@ import Testing
 @testable import FullStackTests
 @testable import YubiKit
 
-// MARK: - Test Tags
-
-extension Tag {
-    @Tag static var ctap2: Tag
-}
-
-@Suite("CTAP2 Full Stack Tests", .tags(.ctap2), .serialized)
+@Suite("CTAP2 Full Stack Tests", .serialized)
 struct CTAP2FullStackTests {
 
     @Test("Get Authenticator Info")
@@ -54,6 +48,7 @@ struct CTAP2FullStackTests {
 
     // MARK: - Helper Methods
 
+    #if os(macOS)
     private func withCTAP2Session<T>(
         _ body: (FIDO2Session) async throws -> T
     ) async throws -> T {
@@ -61,13 +56,13 @@ struct CTAP2FullStackTests {
         let session = try await CTAP.Session.makeSession(connection: connection)
         return try await body(session)
     }
-
-    /*
+    #elseif os(iOS)
     private func withCTAP2Session<T>(
         _ body: (FIDO2SessionOverSmartCard) async throws -> T
     ) async throws -> T {
         let connection = try await TestableConnection.shared()
         let session = try await CTAP.Session.makeSession(connection: connection)
         return try await body(session)
-    }*/
+    }
+    #endif
 }
