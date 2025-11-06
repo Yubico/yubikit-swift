@@ -155,40 +155,10 @@ public enum CTAP {
         case specLast
 
         // Extension errors (0xE0-0xEF)
-        case extension0
-        case extension1
-        case extension2
-        case extension3
-        case extension4
-        case extension5
-        case extension6
-        case extension7
-        case extension8
-        case extension9
-        case extensionA
-        case extensionB
-        case extensionC
-        case extensionD
-        case extensionE
-        case extensionF
+        case `extension`(UInt8)
 
         // Vendor errors (0xF0-0xFF)
-        case vendor0
-        case vendor1
-        case vendor2
-        case vendor3
-        case vendor4
-        case vendor5
-        case vendor6
-        case vendor7
-        case vendor8
-        case vendor9
-        case vendorA
-        case vendorB
-        case vendorC
-        case vendorD
-        case vendorE
-        case vendorF
+        case vendor(UInt8)
 
         case unknown(UInt8)
 
@@ -246,41 +216,12 @@ public enum CTAP {
             case 0xDF: return .specLast
 
             // Extension errors (0xE0-0xEF)
-            case 0xE0: return .extension0
-            case 0xE1: return .extension1
-            case 0xE2: return .extension2
-            case 0xE3: return .extension3
-            case 0xE4: return .extension4
-            case 0xE5: return .extension5
-            case 0xE6: return .extension6
-            case 0xE7: return .extension7
-            case 0xE8: return .extension8
-            case 0xE9: return .extension9
-            case 0xEA: return .extensionA
-            case 0xEB: return .extensionB
-            case 0xEC: return .extensionC
-            case 0xED: return .extensionD
-            case 0xEE: return .extensionE
-            case 0xEF: return .extensionF
+            case 0xE0...0xEF: return .extension(errorCode)
 
             // Vendor errors (0xF0-0xFF)
-            case 0xF0: return .vendor0
-            case 0xF1: return .vendor1
-            case 0xF2: return .vendor2
-            case 0xF3: return .vendor3
-            case 0xF4: return .vendor4
-            case 0xF5: return .vendor5
-            case 0xF6: return .vendor6
-            case 0xF7: return .vendor7
-            case 0xF8: return .vendor8
-            case 0xF9: return .vendor9
-            case 0xFA: return .vendorA
-            case 0xFB: return .vendorB
-            case 0xFC: return .vendorC
-            case 0xFD: return .vendorD
-            case 0xFE: return .vendorE
-            case 0xFF: return .vendorF
+            case 0xF0...0xFF: return .vendor(errorCode)
 
+            // Unknown error code
             default: return .unknown(errorCode)
             }
         }
