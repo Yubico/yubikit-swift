@@ -92,13 +92,8 @@ extension FIDOInterface: CBORInterface where Error: CBORError & CTAPError {
         payload: I
     ) async throws(Error) -> O? {
         var requestData = Data([command.rawValue])
-
-        do {
-            let cborData = try payload.cbor().encode()
-            requestData.append(cborData)
-        } catch {
-            throw .cborError(error, source: .here())
-        }
+        let cborData = payload.cbor().encode()
+        requestData.append(cborData)
 
         // TODO: Validate message size against authenticatorInfo.maxMsgSize
 
@@ -122,13 +117,8 @@ extension SmartCardInterface: CBORInterface where Error: CBORError & CTAPError {
         payload: I
     ) async throws(Error) -> O? {
         var requestData = Data([command.rawValue])
-
-        do {
-            let cborData = try payload.cbor().encode()
-            requestData.append(cborData)
-        } catch {
-            throw .cborError(error, source: .here())
-        }
+        let cborData = payload.cbor().encode()
+        requestData.append(cborData)
 
         let apdu = APDU(cla: 0x00, ins: 0x10, p1: 0x00, p2: 0x00, command: requestData)
         let responseData = try await send(apdu: apdu)

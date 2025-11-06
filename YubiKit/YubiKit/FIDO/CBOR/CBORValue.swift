@@ -177,21 +177,14 @@ extension CBOR.Value {
 extension CBOR.Value: Hashable {
     func hash(into hasher: inout Hasher) {
         // Use the canonical CBOR encoding for hashing
-        if let encoded = try? self.encode() {
-            hasher.combine(encoded)
-        }
+        hasher.combine(self.encode())
     }
 }
 
 extension CBOR.Value: Equatable {
     static func == (lhs: CBOR.Value, rhs: CBOR.Value) -> Bool {
         // Two CBOR values are equal if their canonical encodings are equal
-        guard let lhsData = try? lhs.encode(),
-            let rhsData = try? rhs.encode()
-        else {
-            return false
-        }
-        return lhsData == rhsData
+        lhs.encode() == rhs.encode()
     }
 }
 

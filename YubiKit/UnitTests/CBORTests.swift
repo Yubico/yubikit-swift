@@ -317,7 +317,7 @@ struct CBORTests {
             ],
         ]
 
-        let encoded = try original.encode()
+        let encoded = original.encode()
         let decoded = try encoded.decode() as CBOR.Value?
 
         #expect(decoded == original)
@@ -416,8 +416,8 @@ struct CBORTests {
 
     // MARK: - Helper Methods
 
-    private func assertCBOREncode(expectedHex: String, value: CBOR.Value) throws {
-        let encoded = try value.encode()
+    private func assertCBOREncode(expectedHex: String, value: CBOR.Value) {
+        let encoded = value.encode()
         let expectedData = Data(hexString: expectedHex)!
 
         #expect(
@@ -437,7 +437,7 @@ struct CBORTests {
     }
 
     private func assertCBOREncodeAndDecode(expectedHex: String, value: CBOR.Value) throws {
-        try assertCBOREncode(expectedHex: expectedHex, value: value)
+        assertCBOREncode(expectedHex: expectedHex, value: value)
         try assertCBORDecode(expectedValue: value, cborHex: expectedHex)
     }
 }

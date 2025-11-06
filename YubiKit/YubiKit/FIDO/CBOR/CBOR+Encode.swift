@@ -17,38 +17,38 @@ import Foundation
 extension CBOR.Value {
 
     // Encodes a CBOR value into its canonical byte representation
-    func encode() throws(CBOR.Error) -> Data {
+    func encode() -> Data {
         var output = Data()
-        try encodeValue(self, to: &output)
+        encodeValue(self, to: &output)
         return output
     }
 
     // Encodes a CBOR value into an existing data buffer
-    private func encodeValue(_ value: CBOR.Value, to output: inout Data) throws(CBOR.Error) {
+    private func encodeValue(_ value: CBOR.Value, to output: inout Data) {
         switch value {
         case .unsignedInt(let n):
-            try encodeInt(n, majorType: .unsignedInt, to: &output)
+            encodeInt(n, majorType: .unsignedInt, to: &output)
 
         case .negativeInt(let n):
-            try encodeInt(n, majorType: .negativeInt, to: &output)
+            encodeInt(n, majorType: .negativeInt, to: &output)
 
         case .byteString(let data):
-            try encodeInt(UInt64(data.count), majorType: .byteString, to: &output)
+            encodeInt(UInt64(data.count), majorType: .byteString, to: &output)
             output.append(data)
 
         case .textString(let string):
             let utf8 = Data(string.utf8)
-            try encodeInt(UInt64(utf8.count), majorType: .textString, to: &output)
+            encodeInt(UInt64(utf8.count), majorType: .textString, to: &output)
             output.append(utf8)
 
         case .array(let items):
-            try encodeInt(UInt64(items.count), majorType: .array, to: &output)
+            encodeInt(UInt64(items.count), majorType: .array, to: &output)
             for item in items {
-                try encodeValue(item, to: &output)
+                encodeValue(item, to: &output)
             }
 
         case .map(let dict):
-            try encodeMap(dict, to: &output)
+            encodeMap(dict, to: &output)
 
         case .boolean(let bool):
             let simpleValue: CBOR.SimpleValue = bool ? .true : .false
@@ -60,7 +60,7 @@ extension CBOR.Value {
     }
 
     // Encodes an integer with a specific CBOR major type using minimum bytes (canonical encoding)
-    private func encodeInt(_ value: UInt64, majorType: CBOR.MajorType, to output: inout Data) throws(CBOR.Error) {
+    private func encodeInt(_ value: UInt64, majorType: CBOR.MajorType, to output: inout Data) {
         let head = majorType.rawValue << 5
 
         if value <= 23 {
@@ -89,8 +89,8 @@ extension CBOR.Value {
     }
 
     // Encodes a map with canonical key ordering
-    private func encodeMap(_ dict: [CBOR.Value: CBOR.Value], to output: inout Data) throws(CBOR.Error) {
-        try encodeInt(UInt64(dict.count), majorType: .map, to: &output)
+    private func encodeMap(_ dict: [CBOR.Value: CBOR.Value], to output: inout Data) {
+        encodeInt(UInt64(dict.count), majorType: .map, to: &output)
 
         // Encode keys and values separately, then sort by key bytes
         var entries: [(keyBytes: Data, valueBytes: Data)] = []
@@ -98,8 +98,8 @@ extension CBOR.Value {
         for (key, value) in dict {
             var keyData = Data()
             var valueData = Data()
-            try encodeValue(key, to: &keyData)
-            try encodeValue(value, to: &valueData)
+            encodeValue(key, to: &keyData)
+            encodeValue(value, to: &valueData)
             entries.append((keyData, valueData))
         }
 
