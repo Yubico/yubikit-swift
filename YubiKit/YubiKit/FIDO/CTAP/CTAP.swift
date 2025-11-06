@@ -19,9 +19,9 @@ public enum CTAP {
 
     // MARK: - Commands
 
-    public enum HID {
+    enum HID {
         /// CTAPHID command codes
-        public enum Command: UInt8, Sendable {
+        enum Command: UInt8, Sendable {
             case ping = 0x01
             case msg = 0x03
             case lock = 0x04
@@ -40,7 +40,7 @@ public enum CTAP {
     }
 
     /// CTAP2 authenticator command codes (sent inside CTAPHID_CBOR)
-    public enum Command: UInt8, Sendable {
+    enum Command: UInt8, Sendable {
         case makeCredential = 0x01
         case getAssertion = 0x02
         case getInfo = 0x04
