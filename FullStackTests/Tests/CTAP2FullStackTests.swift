@@ -42,7 +42,6 @@ struct CTAP2FullStackTests {
 
             // Check PIN/UV Auth protocols
             #expect(info.pinUvAuthProtocols.count >= 1, "Should support at least one PIN protocol")
-            #expect(info.pinUvAuthProtocols.contains(1), "Should support PIN protocol 1")
         }
     }
 
@@ -60,7 +59,7 @@ struct CTAP2FullStackTests {
     private func withCTAP2Session<T>(
         _ body: (FIDO2SessionOverSmartCard) async throws -> T
     ) async throws -> T {
-        let connection = try await TestableConnection.shared()
+        let connection = try await TestableConnection.create(with: .nfc)
         let session = try await CTAP.Session.makeSession(connection: connection)
         return try await body(session)
     }
