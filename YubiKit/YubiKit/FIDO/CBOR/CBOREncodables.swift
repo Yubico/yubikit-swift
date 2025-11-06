@@ -18,55 +18,55 @@ import Foundation
 
 extension Int: CBOR.Encodable {
     func cbor() -> CBOR.Value {
-        CBOR.Value(self)
+        CBOR.Value(Int64(self))
     }
 }
 
 extension Int8: CBOR.Encodable {
     func cbor() -> CBOR.Value {
-        CBOR.Value(Int(self))
+        CBOR.Value(Int64(self))
     }
 }
 
 extension Int16: CBOR.Encodable {
     func cbor() -> CBOR.Value {
-        CBOR.Value(Int(self))
+        CBOR.Value(Int64(self))
     }
 }
 
 extension Int32: CBOR.Encodable {
     func cbor() -> CBOR.Value {
-        CBOR.Value(self)
+        CBOR.Value(Int64(self))
     }
 }
 
 extension Int64: CBOR.Encodable {
     func cbor() -> CBOR.Value {
-        CBOR.Value(Int(self))
+        CBOR.Value(Int64(self))
     }
 }
 
 extension UInt: CBOR.Encodable {
     func cbor() -> CBOR.Value {
-        CBOR.Value(self)
+        CBOR.Value(UInt64(self))
     }
 }
 
 extension UInt8: CBOR.Encodable {
     func cbor() -> CBOR.Value {
-        CBOR.Value(UInt(self))
+        CBOR.Value(UInt64(self))
     }
 }
 
 extension UInt16: CBOR.Encodable {
     func cbor() -> CBOR.Value {
-        CBOR.Value(UInt(self))
+        CBOR.Value(UInt64(self))
     }
 }
 
 extension UInt32: CBOR.Encodable {
     func cbor() -> CBOR.Value {
-        CBOR.Value(UInt(self))
+        CBOR.Value(UInt64(self))
     }
 }
 

@@ -31,8 +31,8 @@ extension CBOR {
 // MARK: - Convenience Initializers
 
 extension CBOR.Value {
-    // Creates a CBOR value from an Int
-    init(_ value: Int) {
+    // Creates a CBOR value from an Int64
+    init(_ value: Int64) {
         if value >= 0 {
             self = .unsignedInt(UInt64(value))
         } else {
@@ -40,23 +40,9 @@ extension CBOR.Value {
         }
     }
 
-    // Creates a CBOR value from a UInt
-    init(_ value: UInt) {
-        self = .unsignedInt(UInt64(value))
-    }
-
     // Creates a CBOR value from a UInt64
     init(_ value: UInt64) {
         self = .unsignedInt(value)
-    }
-
-    // Creates a CBOR value from an Int32
-    init(_ value: Int32) {
-        if value >= 0 {
-            self = .unsignedInt(UInt64(value))
-        } else {
-            self = .negativeInt(UInt64(-1 - Int64(value)))
-        }
     }
 
     // Creates a CBOR value from a String
@@ -192,7 +178,7 @@ extension CBOR.Value: Equatable {
 
 extension CBOR.Value: ExpressibleByIntegerLiteral {
     init(integerLiteral value: Int) {
-        self.init(value)
+        self.init(Int64(value))
     }
 }
 

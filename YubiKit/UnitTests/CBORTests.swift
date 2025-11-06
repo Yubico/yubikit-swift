@@ -37,14 +37,14 @@ struct CBORTests {
             ("1a000f4240", CBOR.Value(1_000_000)),
             ("19ffff", CBOR.Value(65535)),
             ("1a00010000", CBOR.Value(65536)),
-            ("1a7fffffff", CBOR.Value(Int32.max)),
+            ("1a7fffffff", CBOR.Value(Int64(Int32.max))),
             ("20", CBOR.Value(-1)),
             ("29", CBOR.Value(-10)),
             ("37", CBOR.Value(-24)),
             ("3818", CBOR.Value(-25)),
             ("3863", CBOR.Value(-100)),
             ("3903e7", CBOR.Value(-1000)),
-            ("3a7fffffff", CBOR.Value(Int32.min)),
+            ("3a7fffffff", CBOR.Value(Int64(Int32.min))),
         ]
     )
     func testIntegers(expectedHex: String, value: CBOR.Value) throws {
@@ -113,7 +113,7 @@ struct CBORTests {
     }
 
     @Test("Encode and decode array with 25 elements") func testLargeArray() throws {
-        let items = (1...25).map { CBOR.Value($0) }
+        let items = (1...25).map { CBOR.Value(Int64($0)) }
         let value = CBOR.Value(items)
         try assertCBOREncodeAndDecode(
             expectedHex: "98190102030405060708090a0b0c0d0e0f101112131415161718181819",
@@ -160,7 +160,7 @@ struct CBORTests {
             CBOR.Value(Data("2".utf8)): CBOR.Value(0),
             CBOR.Value(1): CBOR.Value(0),
         ])
-        try assertCBOREncode(expectedHex: "a30100413200613300", value: value)
+        assertCBOREncode(expectedHex: "a30100413200613300", value: value)
     }
 
     @Test("Canonical key ordering - with empty byte string") func testKeyOrderEmptyByteString() throws {
@@ -169,17 +169,17 @@ struct CBORTests {
             CBOR.Value(Data()): CBOR.Value(0),
             CBOR.Value(256): CBOR.Value(0),
         ])
-        try assertCBOREncode(expectedHex: "a3190100004000613300", value: value)
+        assertCBOREncode(expectedHex: "a3190100004000613300", value: value)
     }
 
     @Test("Canonical key ordering - integer keys") func testKeyOrderIntegers() throws {
         let value = CBOR.Value([
-            CBOR.Value(Int32.max): CBOR.Value(0),
+            CBOR.Value(UInt64(Int32.max)): CBOR.Value(0),
             CBOR.Value(255): CBOR.Value(0),
             CBOR.Value(256): CBOR.Value(0),
             CBOR.Value(0): CBOR.Value(0),
         ])
-        try assertCBOREncode(expectedHex: "a4000018ff00190100001a7fffffff00", value: value)
+        assertCBOREncode(expectedHex: "a4000018ff00190100001a7fffffff00", value: value)
     }
 
     @Test("Canonical key ordering - byte string keys different lengths") func testKeyOrderByteStrings() throws {
@@ -188,7 +188,7 @@ struct CBORTests {
             CBOR.Value(Data("3".utf8)): CBOR.Value(0),
             CBOR.Value(Data("111".utf8)): CBOR.Value(0),
         ])
-        try assertCBOREncode(expectedHex: "a3413300423232004331313100", value: value)
+        assertCBOREncode(expectedHex: "a3413300423232004331313100", value: value)
     }
 
     @Test("Canonical key ordering - byte strings with numbers") func testKeyOrderByteStringsNumbers() throws {
@@ -197,17 +197,17 @@ struct CBORTests {
             CBOR.Value(Data("003".utf8)): CBOR.Value(0),
             CBOR.Value(Data("002".utf8)): CBOR.Value(0),
         ])
-        try assertCBOREncode(expectedHex: "a3433030310043303032004330303300", value: value)
+        assertCBOREncode(expectedHex: "a3433030310043303032004330303300", value: value)
     }
 
     @Test("Canonical key ordering - boolean keys") func testKeyOrderBooleans() throws {
         let value: CBOR.Value = [true: 0, false: 0]
-        try assertCBOREncode(expectedHex: "a2f400f500", value: value)
+        assertCBOREncode(expectedHex: "a2f400f500", value: value)
     }
 
     @Test("Canonical key ordering - string keys by length") func testKeyOrderStringsByLength() throws {
         let value: CBOR.Value = ["1": 0, "100": 0, "10": 0]
-        try assertCBOREncode(expectedHex: "a3613100623130006331303000", value: value)
+        assertCBOREncode(expectedHex: "a3613100623130006331303000", value: value)
     }
 
     // MARK: - Error Tests
