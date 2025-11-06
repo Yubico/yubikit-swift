@@ -104,15 +104,7 @@ extension CBOR.Value {
         }
 
         // Canonical ordering: lexicographical comparison of encoded key bytes
-        entries.sort { lhs, rhs in
-            let minLength = min(lhs.keyBytes.count, rhs.keyBytes.count)
-            for i in 0..<minLength {
-                if lhs.keyBytes[i] != rhs.keyBytes[i] {
-                    return lhs.keyBytes[i] < rhs.keyBytes[i]
-                }
-            }
-            return lhs.keyBytes.count < rhs.keyBytes.count
-        }
+        entries.sort { $0.keyBytes.lexicographicallyPrecedes($1.keyBytes) }
 
         // Write sorted entries
         for entry in entries {
