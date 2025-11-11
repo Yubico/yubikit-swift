@@ -93,13 +93,13 @@ extension SmartCardInterface: ManagementInterface {
     /// - Parameter data: The configuration data to write.
     public func writeConfig(data: Data) async throws {
         let apdu = APDU(cla: 0, ins: 0x1c, p1: 0, p2: 0, command: data)
-        try await send(apdu: apdu)
+        let _: Data = try await send(apdu: apdu)
     }
 
     /// Perform a device-wide reset using SmartCard APDUs.
     public func resetDevice() async throws {
         let apdu = APDU(cla: 0, ins: 0x1f, p1: 0, p2: 0)
-        try await send(apdu: apdu)
+        let _: Data = try await send(apdu: apdu)
     }
 
     /// The firmware version of the YubiKey, parsed from the select response.
