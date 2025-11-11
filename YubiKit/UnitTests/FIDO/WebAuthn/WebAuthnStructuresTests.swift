@@ -1,0 +1,232 @@
+// Copyright Yubico AB
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import Foundation
+import Testing
+
+@testable import YubiKit
+
+/// Test parsing and decoding of WebAuthn data structures.
+///
+/// Tests the binary parsing of AuthenticatorData, AttestationStatement decoding,
+/// and ExtensionOutputs parsing from CBOR.
+@Suite("WebAuthn Structures Tests")
+struct WebAuthnStructuresTests {
+
+    // MARK: - AuthenticatorData Tests
+
+    @Test("AuthenticatorData binary parsing - real example")
+    func testAuthenticatorDataParsing() throws {
+        // Real AuthenticatorData from a YubiKey makeCredential response
+        // This is the same base64 example used in Java's SerializationTest.java:283-287
+        let base64 = """
+            5Yaf4EYzO6ALp/K7s+p+BQLPSCYVYcKLZptoXwxqQztFAAAAAhSaICGO9kEzlriB+NW38fUAMA5hR\
+            7Wj16h/z28qvtukB63QcIhzJ/sUkkJPfsU+KzdCFeaF2mZ80gSROEtELSHniKUBAgMmIAEhWCAOYUe1\
+            o9eof89vKr7bLZhH7nLY4wjKx5oxa66Kv0JjXiJYIKyPUlRxXHJjLrACafd/1stM7DyX120jDO7BlwqYsJyJ
+            """
+
+        let data = try #require(Data(base64Encoded: base64), "Failed to decode base64")
+        let authData = try #require(AuthenticatorData(data: data), "Failed to parse AuthenticatorData")
+
+        // Verify basic structure
+        #expect(authData.rpIdHash.count == 32)
+        #expect(authData.signCount == 2)
+        #expect(authData.flags.contains(.userPresent))
+        #expect(authData.flags.contains(.attestedCredentialData))
+
+        // Verify attested credential data is present
+        let attestedData = try #require(authData.attestedCredentialData, "Missing attested credential data")
+
+        #expect(attestedData.aaguid.count == 16)
+        #expect(attestedData.credentialId.count > 0)
+        #expect(attestedData.credentialPublicKey.count > 0)
+
+        // Verify we can extract the algorithm
+        #expect(attestedData.algorithm() == -7)  // ES256
+    }
+
+    @Test("AuthenticatorData binary parsing - minimal")
+    func testAuthenticatorDataMinimal() throws {
+        // Minimal authenticatorData: rpIdHash (32) + flags (1) + signCount (4) = 37 bytes
+        var data = Data()
+        data.append(randomBytes(count: 32))  // rpIdHash
+        data.append(0x01)  // flags: UP only
+        data.append(contentsOf: [0x00, 0x00, 0x00, 0x05])  // signCount = 5 (big-endian)
+
+        let authData = try #require(AuthenticatorData(data: data), "Failed to parse minimal AuthenticatorData")
+
+        #expect(authData.rpIdHash.count == 32)
+        #expect(authData.flags.contains(.userPresent))
+        #expect(authData.signCount == 5)
+        #expect(authData.attestedCredentialData == nil)
+        #expect(authData.extensions == nil)
+    }
+
+    @Test("AuthenticatorData parsing - invalid size")
+    func testAuthenticatorDataInvalidSize() {
+        let tooSmall = Data(count: 36)  // Need at least 37 bytes
+        #expect(AuthenticatorData(data: tooSmall) == nil)
+    }
+
+    @Test("AuthenticatorData parsing - invalid attested credential data")
+    func testAuthenticatorDataInvalidAttestedData() {
+        var data = Data()
+        data.append(randomBytes(count: 32))  // rpIdHash
+        data.append(0x41)  // flags: UP + AT (claims attested data present)
+        data.append(contentsOf: [0x00, 0x00, 0x00, 0x01])  // signCount
+        // But don't include the attested credential data!
+
+        #expect(AuthenticatorData(data: data) == nil)
+    }
+
+    // MARK: - AttestationStatement Tests
+
+    @Test("PackedAttestation CBOR decoding")
+    func testPackedAttestationCBOR() throws {
+        let sig = randomBytes(count: 70)
+        let cert1 = randomBytes(count: 100)
+        let cert2 = randomBytes(count: 100)
+
+        let cborMap: [CBOR.Value: CBOR.Value] = [
+            .textString("sig"): .byteString(sig),
+            .textString("alg"): .negativeInt(6),  // ES256 (-7)
+            .textString("x5c"): .array([.byteString(cert1), .byteString(cert2)]),
+        ]
+
+        let packed = try #require(PackedAttestation(cbor: .map(cborMap)), "Failed to decode PackedAttestation")
+
+        #expect(packed.sig == sig)
+        #expect(packed.alg == -7)
+        #expect(packed.x5c?.count == 2)
+        #expect(packed.x5c?[0] == cert1)
+        #expect(packed.x5c?[1] == cert2)
+        #expect(packed.ecdaaKeyId == nil)
+    }
+
+    @Test("PackedAttestation CBOR decoding - self-attestation")
+    func testPackedAttestationSelfAttestation() throws {
+        let sig = randomBytes(count: 70)
+
+        let cborMap: [CBOR.Value: CBOR.Value] = [
+            .textString("sig"): .byteString(sig),
+            .textString("alg"): .negativeInt(6),  // ES256 (-7)
+        ]
+
+        let packed = try #require(PackedAttestation(cbor: .map(cborMap)), "Failed to decode PackedAttestation")
+
+        #expect(packed.sig == sig)
+        #expect(packed.alg == -7)
+        #expect(packed.x5c == nil)
+        #expect(packed.ecdaaKeyId == nil)
+    }
+
+    @Test("FIDOU2FAttestation CBOR decoding")
+    func testFIDOU2FAttestationCBOR() throws {
+        let sig = randomBytes(count: 70)
+        let cert = randomBytes(count: 100)
+
+        let cborMap: [CBOR.Value: CBOR.Value] = [
+            .textString("sig"): .byteString(sig),
+            .textString("x5c"): .array([.byteString(cert)]),
+        ]
+
+        let fidoU2F = try #require(FIDOU2FAttestation(cbor: .map(cborMap)), "Failed to decode FIDOU2FAttestation")
+
+        #expect(fidoU2F.sig == sig)
+        #expect(fidoU2F.x5c.count == 1)
+        #expect(fidoU2F.x5c[0] == cert)
+    }
+
+    @Test("AppleAttestation CBOR decoding")
+    func testAppleAttestationCBOR() throws {
+        let cert1 = randomBytes(count: 100)
+        let cert2 = randomBytes(count: 100)
+
+        let cborMap: [CBOR.Value: CBOR.Value] = [
+            .textString("x5c"): .array([.byteString(cert1), .byteString(cert2)])
+        ]
+
+        let apple = try #require(AppleAttestation(cbor: .map(cborMap)), "Failed to decode AppleAttestation")
+
+        #expect(apple.x5c.count == 2)
+        #expect(apple.x5c[0] == cert1)
+        #expect(apple.x5c[1] == cert2)
+    }
+
+    @Test("AttestationStatement - unknown format fallback")
+    func testAttestationStatementUnknownFormat() {
+        let statement: [CBOR.Value: CBOR.Value] = [
+            .textString("someProp"): .textString("someValue")
+        ]
+
+        let attestation = AttestationStatement(
+            format: "unknown-format",
+            statement: .map(statement)
+        )
+
+        if case let .other(format, _) = attestation {
+            #expect(format == "unknown-format")
+        } else {
+            Issue.record("Expected .other case for unknown format")
+        }
+    }
+
+    // MARK: - ExtensionOutputs Tests
+
+    @Test("ExtensionOutputs CBOR decoding")
+    func testExtensionOutputsCBOR() throws {
+        let largeBlobKey = randomBytes(count: 32)
+
+        let cborMap: [CBOR.Value: CBOR.Value] = [
+            .textString("credProps"): .map([.textString("rk"): .boolean(true)]),
+            .textString("largeBlobKey"): .byteString(largeBlobKey),
+            .textString("hmac-secret"): .boolean(true),
+            .textString("credProtect"): .unsignedInt(3),
+            .textString("minPINLength"): .unsignedInt(6),
+            .textString("customExtension"): .textString("custom-value"),
+        ]
+
+        let extensions = try #require(ExtensionOutputs(cbor: .map(cborMap)), "Failed to decode ExtensionOutputs")
+
+        #expect(extensions.credProps?.rk == true)
+        #expect(extensions.largeBlobKey == largeBlobKey)
+        #expect(extensions.hmacSecret == true)
+        #expect(extensions.credProtect == .userVerificationRequired)
+        #expect(extensions.minPINLength == 6)
+        #expect(extensions.other["customExtension"]?.stringValue == "custom-value")
+    }
+
+    @Test("ExtensionOutputs CBOR decoding - empty")
+    func testExtensionOutputsEmpty() throws {
+        let cborMap: [CBOR.Value: CBOR.Value] = [:]
+
+        let extensions = try #require(ExtensionOutputs(cbor: .map(cborMap)), "Failed to decode empty ExtensionOutputs")
+
+        #expect(extensions.credProps == nil)
+        #expect(extensions.largeBlobKey == nil)
+        #expect(extensions.hmacSecret == nil)
+        #expect(extensions.credProtect == nil)
+        #expect(extensions.minPINLength == nil)
+        #expect(extensions.thirdPartyPayment == nil)
+        #expect(extensions.other.isEmpty)
+    }
+
+    // MARK: - Test Helpers
+
+    private func randomBytes(count: Int) -> Data {
+        var bytes = [UInt8](repeating: 0, count: count)
+        _ = SecRandomCopyBytes(kSecRandomDefault, count, &bytes)
+        return Data(bytes)
+    }
+}
