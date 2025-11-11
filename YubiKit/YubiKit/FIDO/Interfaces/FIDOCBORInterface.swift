@@ -120,8 +120,7 @@ extension SmartCardInterface: CBORInterface where Error: CBORError & CTAPError {
         let cborData = payload.cbor().encode()
         requestData.append(cborData)
 
-        let apdu = APDU(cla: 0x00, ins: 0x10, p1: 0x00, p2: 0x00, command: requestData)
-        let responseData = try await send(apdu: apdu)
+        let responseData = try await sendCTAPCommand(requestData)
         return try handleCTAP2Response(responseData)
     }
 
@@ -129,8 +128,65 @@ extension SmartCardInterface: CBORInterface where Error: CBORError & CTAPError {
         command: CTAP.Command
     ) async throws(Error) -> O? {
         let requestData = Data([command.rawValue])
-        let apdu = APDU(cla: 0x00, ins: 0x10, p1: 0x00, p2: 0x00, command: requestData)
-        let responseData = try await send(apdu: apdu)
+        let responseData = try await sendCTAPCommand(requestData)
         return try handleCTAP2Response(responseData)
+    }
+
+    // Send CTAP command over CCID with support for keepalive polling and cancellation
+    private func sendCTAPCommand(_ data: Data) async throws(Error) -> Data {
+
+        let CLA: UInt8 = 0x80
+        let NFCCTAP_MSG: UInt8 = 0x10
+        let P1_GET_RESPONSE: UInt8 = 0x80
+        let P2: UInt8 = 0x00
+
+        // Send initial CTAP command (handles 0x61 continuation automatically)
+        let initialApdu = APDU(cla: CLA, ins: NFCCTAP_MSG, p1: P1_GET_RESPONSE, p2: P2, command: data)
+        let response: Response = try await send(apdu: initialApdu)
+
+        // TODO: Test with 5.8 keys
+        // // // // // // // // // //
+
+        // let NFCCTAP_GETRESPONSE: UInt8 = 0x11
+        // let P1_KEEP_ALIVE: UInt8 = 0x00
+        // let P1_CANCEL_KEEP_ALIVE: UInt8 = 0x11
+        // let SW_KEEPALIVE: UInt16 = 0x9100
+        //
+        // var lastKeepAliveStatus: UInt8 = 0
+        // var cancelSent = false
+        //
+        // Poll with GET_RESPONSE while SW is 0x9100 (operation in progress)
+        // while response.responseStatus.rawStatus == SW_KEEPALIVE {
+        //     // Check if the current Task has been cancelled
+        //     let p1: UInt8
+        //     if Task.isCancelled && !cancelSent {
+        //         /* Fix trace: trace(message: "Task cancelled - sending GET_RESPONSE with P1=0x11") */
+        //         p1 = P1_CANCEL_KEEP_ALIVE
+        //         cancelSent = true
+        //     } else {
+        //         p1 = P1_KEEP_ALIVE
+        //     }
+        //
+        //     // Handle keepalive status update
+        //     if !response.data.isEmpty {
+        //         let keepAliveStatus = response.data[0]
+        //         if keepAliveStatus != lastKeepAliveStatus {
+        //             lastKeepAliveStatus = keepAliveStatus
+        //             /* Fix trace: trace(message: "KEEPALIVE status: \(keepAliveStatus) (0x01=processing, 0x02=need touch)") */
+        //         }
+        //     }
+        //
+        //     // Send GET_RESPONSE to poll for completion (handles 0x61 continuation automatically)
+        //     let getResponseApdu = APDU(cla: CLA, ins: NFCCTAP_GETRESPONSE, p1: p1, p2: P2, command: nil)
+        //     response = try await send(apdu: getResponseApdu)
+        // }
+        // // // // // // // // // //
+
+        // Check final response status
+        guard response.responseStatus.status == .ok else {
+            throw .failedResponse(response.responseStatus, source: .here())
+        }
+
+        return response.data
     }
 }
