@@ -429,7 +429,17 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
             return .failure(FIDOConnectionError.connectionLost)
         }
 
-        // Create a new promise for this receive operation
+        // Check if we already have queued frames - deliver the oldest one immediately
+        if !connectionState.receivedFrames.isEmpty {
+            let frame = connectionState.receivedFrames.removeFirst()
+            let promise = Promise<Data>()
+            Task { @Sendable in
+                await promise.fulfill(frame)
+            }
+            return .success(promise)
+        }
+
+        // No queued frames - create a new promise to wait for incoming data
         let promise = Promise<Data>()
         connectionState.pendingReceive = promise
         return .success(promise)
@@ -441,6 +451,9 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
     private class HIDConnectionState {
         let device: IOHIDDevice
         let didClose: Promise<Error?>
+
+        // Queue of received input reports waiting to be consumed
+        var receivedFrames: [Data] = []
 
         // Promise for the next input report
         var pendingReceive: Promise<Data>?
@@ -480,13 +493,16 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         // Find connection by matching the device pointer
         for (_, connectionState) in openConnections {
             if Unmanaged.passUnretained(connectionState.device).toOpaque() == sender {
-                // Fulfill pending receive promise if there is one
+                // If there's a pending receive promise, fulfill it immediately
                 if let promise = connectionState.pendingReceive {
                     connectionState.pendingReceive = nil
                     // Return the full 64-byte HID report
                     Task { @Sendable in
                         await promise.fulfill(data)
                     }
+                } else {
+                    // No pending promise - queue the frame for later
+                    connectionState.receivedFrames.append(data)
                 }
                 return
             }
