@@ -94,8 +94,7 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
     /// Also prevents the authenticator from locking indefinitely if an incomplete multi-packet
     /// transaction has stalled.
     func cancel() async throws(Error) {
-        _ = try await sendAndReceive(cmd: Self.hidCommand(.cancel), payload: nil)
-        /* Fix trace: trace(message: "CANCEL command completed") */
+        _ = try await sendRequest(cmd: Self.hidCommand(.cancel), payload: nil)
     }
 
     /// Check if the authenticator supports a capability

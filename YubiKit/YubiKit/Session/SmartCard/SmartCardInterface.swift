@@ -25,6 +25,9 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
     let scpState: SCPState?
     let selectResponse: Data
 
+    // State for cancelling CTAP keep-alive commands
+    var shouldCancelCTAP = false
+
     // Select application and optionally setup SCP
     init(
         connection: SmartCardConnection,
