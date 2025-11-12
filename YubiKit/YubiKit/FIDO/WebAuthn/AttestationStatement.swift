@@ -35,8 +35,9 @@ enum AttestationStatement: Sendable {
     /// Apple anonymous attestation.
     case apple(AppleAttestation)
 
-    /// Unknown or unsupported format (stores raw CBOR).
-    case other(format: String, statement: CBOR.Value)
+    /// Unknown or unsupported attestation format.
+    /// The format identifier is preserved for future compatibility.
+    case unknown(format: String)
 
     /// The attestation format identifier.
     var format: String {
@@ -45,7 +46,7 @@ enum AttestationStatement: Sendable {
         case .fidoU2F: return "fido-u2f"
         case .none: return "none"
         case .apple: return "apple"
-        case .other(let format, _): return format
+        case .unknown(let format): return format
         }
     }
 }

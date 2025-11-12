@@ -22,7 +22,7 @@ extension ExtensionOutputs: CBOR.Decodable {
             return nil
         }
 
-        // Extract known extensions
+        // Extract known extensions, ignore unknown ones for forward compatibility
         self.credProps = map["credProps"]?.cborDecoded()
         self.largeBlobKey = map["largeBlobKey"]?.cborDecoded()
         self.hmacSecret = map["hmac-secret"]?.cborDecoded()

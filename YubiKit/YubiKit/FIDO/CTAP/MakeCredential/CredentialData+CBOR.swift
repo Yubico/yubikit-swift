@@ -40,7 +40,32 @@ extension CredentialData: CBOR.Decodable {
         guard let attStmtValue = map[.unsignedInt(0x03)] else {
             return nil
         }
-        self.attestationStatement = AttestationStatement(format: fmt, statement: attStmtValue)
+
+        // Decode based on format
+        let attStmt: AttestationStatement
+        switch fmt {
+        case "packed":
+            guard let packed = PackedAttestation(cbor: attStmtValue) else {
+                return nil  // Known format but invalid CBOR structure
+            }
+            attStmt = .packed(packed)
+        case "fido-u2f":
+            guard let fidoU2F = FIDOU2FAttestation(cbor: attStmtValue) else {
+                return nil  // Known format but invalid CBOR structure
+            }
+            attStmt = .fidoU2F(fidoU2F)
+        case "none":
+            attStmt = .none
+        case "apple":
+            guard let apple = AppleAttestation(cbor: attStmtValue) else {
+                return nil  // Known format but invalid CBOR structure
+            }
+            attStmt = .apple(apple)
+        default:
+            // Unknown format - preserve for future compatibility
+            attStmt = .unknown(format: fmt)
+        }
+        self.attestationStatement = attStmt
 
         // Optional: epAtt (0x04) - enterprise attestation
         self.enterpriseAttestation = map[.unsignedInt(0x04)]?.cborDecoded()

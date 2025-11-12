@@ -14,42 +14,6 @@
 
 import Foundation
 
-// MARK: - AttestationStatement + CBOR
-
-extension AttestationStatement {
-    /// Initialize from CBOR format identifier and attestation statement map.
-    ///
-    /// - Parameters:
-    ///   - format: The attestation format identifier string.
-    ///   - statement: The attestation statement CBOR value.
-    init(format: String, statement: CBOR.Value) {
-        switch format {
-        case "packed":
-            if let packed = PackedAttestation(cbor: statement) {
-                self = .packed(packed)
-            } else {
-                self = .other(format: format, statement: statement)
-            }
-        case "fido-u2f":
-            if let fidoU2F = FIDOU2FAttestation(cbor: statement) {
-                self = .fidoU2F(fidoU2F)
-            } else {
-                self = .other(format: format, statement: statement)
-            }
-        case "none":
-            self = .none
-        case "apple":
-            if let apple = AppleAttestation(cbor: statement) {
-                self = .apple(apple)
-            } else {
-                self = .other(format: format, statement: statement)
-            }
-        default:
-            self = .other(format: format, statement: statement)
-        }
-    }
-}
-
 // MARK: - PackedAttestation + CBOR
 
 extension PackedAttestation: CBOR.Decodable {

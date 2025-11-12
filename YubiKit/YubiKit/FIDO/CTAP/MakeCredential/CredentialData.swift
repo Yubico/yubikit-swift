@@ -30,6 +30,7 @@ struct CredentialData: Sendable {
     public let authenticatorData: AuthenticatorData
 
     /// Attestation statement with strongly-typed access based on format.
+    /// Unknown formats are represented as `.unknown(format:)`.
     public let attestationStatement: AttestationStatement
 
     /// Whether enterprise attestation was returned.

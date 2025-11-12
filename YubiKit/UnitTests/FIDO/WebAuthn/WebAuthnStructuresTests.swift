@@ -165,20 +165,31 @@ struct WebAuthnStructuresTests {
     }
 
     @Test("AttestationStatement - unknown format fallback")
-    func testAttestationStatementUnknownFormat() {
+    func testAttestationStatementUnknownFormat() throws {
+        // Create a CredentialData with an unknown attestation format
+        // Build valid authData: rpIdHash (32) + flags (1) + signCount (4)
+        var authData = Data()
+        authData.append(randomBytes(count: 32))  // rpIdHash
+        authData.append(0x01)  // flags: user present
+        authData.append(contentsOf: [0, 0, 0, 0])  // signCount = 0
+
         let statement: [CBOR.Value: CBOR.Value] = [
             .textString("someProp"): .textString("someValue")
         ]
 
-        let attestation = AttestationStatement(
-            format: "unknown-format",
-            statement: .map(statement)
-        )
+        let cborMap: [CBOR.Value: CBOR.Value] = [
+            .unsignedInt(0x01): .textString("unknown-format"),  // fmt
+            .unsignedInt(0x02): .byteString(authData),  // authData
+            .unsignedInt(0x03): .map(statement),  // attStmt
+        ]
 
-        if case let .other(format, _) = attestation {
+        let credData = try #require(CredentialData(cbor: .map(cborMap)), "Failed to decode CredentialData")
+
+        // Verify unknown format is preserved
+        if case let .unknown(format) = credData.attestationStatement {
             #expect(format == "unknown-format")
         } else {
-            Issue.record("Expected .other case for unknown format")
+            Issue.record("Expected .unknown case for unknown format, got \(credData.attestationStatement)")
         }
     }
 

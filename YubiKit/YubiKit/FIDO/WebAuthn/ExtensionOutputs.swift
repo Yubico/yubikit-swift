@@ -49,14 +49,37 @@ struct ExtensionOutputs: Sendable {
     }
 
     /// Credential protection policy levels.
-    enum CredentialProtectionPolicy: Int, Sendable {
+    enum CredentialProtectionPolicy: Sendable, Equatable {
         /// User verification optional.
-        case userVerificationOptional = 1
+        case userVerificationOptional
 
         /// User verification optional with credential ID list.
-        case userVerificationOptionalWithCredentialIDList = 2
+        case userVerificationOptionalWithCredentialIDList
 
         /// User verification required.
-        case userVerificationRequired = 3
+        case userVerificationRequired
+
+        /// Unknown or future credential protection level.
+        case unknown(Int)
+
+        /// The raw integer value.
+        var rawValue: Int {
+            switch self {
+            case .userVerificationOptional: return 1
+            case .userVerificationOptionalWithCredentialIDList: return 2
+            case .userVerificationRequired: return 3
+            case .unknown(let value): return value
+            }
+        }
+
+        /// Initialize from raw integer value.
+        init(rawValue: Int) {
+            switch rawValue {
+            case 1: self = .userVerificationOptional
+            case 2: self = .userVerificationOptionalWithCredentialIDList
+            case 3: self = .userVerificationRequired
+            default: self = .unknown(rawValue)
+            }
+        }
     }
 }
