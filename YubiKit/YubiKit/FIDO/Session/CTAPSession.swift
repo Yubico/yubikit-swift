@@ -78,7 +78,7 @@ extension CTAP {
         ///
         /// - Throws: ``FIDO2SessionError`` if the operation fails.
         func reset() async throws {
-            let _: AuthenticatorInfo? = try await interface.send(command: .reset)
+            try await interface.send(command: .reset)
         }
 
         /// Request user presence check for authenticator selection.
@@ -95,7 +95,7 @@ extension CTAP {
         ///
         /// - Throws: ``FIDO2SessionError`` if the operation fails or times out.
         func selection() async throws {
-            let _: AuthenticatorInfo? = try await interface.send(command: .selection)
+            try await interface.send(command: .selection)
         }
 
         /// Cancel any ongoing CTAP operation waiting for user interaction.

@@ -42,23 +42,20 @@ protocol CBORInterface: Actor {
         payload: I
     ) async throws(Error) -> O?
 
-    /// Send a CTAP2 command without payload.
-    ///
-    /// The request format is: [command_byte]
-    /// The response format is: [status_byte][optional_cbor_response]
-    ///
-    /// - Parameters:
-    ///   - command: The CTAP2 command
-    /// - Returns: Decoded CBOR response, or nil if no response data
-    /// - Throws: CTAP or CBOR error
-    func send<O: CBOR.Decodable>(
-        command: CTAP.Command
-    ) async throws(Error) -> O?
-
     /// Cancel any pending operation on this session.
     ///
     /// Aborts ongoing operations such as waiting for user interaction (touch prompt, PIN entry, etc.).
     func cancel() async throws(Error)
+}
+
+extension CBORInterface {
+    func send<O: CBOR.Decodable>(command: CTAP.Command) async throws(Error) -> O? {
+        try await send(command: command, payload: nil as CBOR.Value?)
+    }
+
+    func send(command: CTAP.Command) async throws(Error) {
+        let _: CBOR.Value? = try await send(command: command, payload: nil as CBOR.Value?)
+    }
 }
 
 // MARK: - Private Helpers
@@ -105,14 +102,6 @@ extension FIDOInterface: CBORInterface where Error: CBORError & CTAPError {
         let responseData = try await self.cbor(payload: requestData)
         return try handleCTAP2Response(responseData)
     }
-
-    func send<O: CBOR.Decodable>(
-        command: CTAP.Command
-    ) async throws(Error) -> O? {
-        let requestData = Data([command.rawValue])
-        let responseData = try await self.cbor(payload: requestData)
-        return try handleCTAP2Response(responseData)
-    }
 }
 
 // MARK: - CBORInterface Conformance (NFC/SmartCard Transport)
@@ -125,14 +114,6 @@ extension SmartCardInterface: CBORInterface where Error: CBORError & CTAPError {
         let cborData = payload.cbor().encode()
         requestData.append(cborData)
 
-        let responseData = try await sendCTAPCommand(requestData)
-        return try handleCTAP2Response(responseData)
-    }
-
-    func send<O: CBOR.Decodable>(
-        command: CTAP.Command
-    ) async throws(Error) -> O? {
-        let requestData = Data([command.rawValue])
         let responseData = try await sendCTAPCommand(requestData)
         return try handleCTAP2Response(responseData)
     }
