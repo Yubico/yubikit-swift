@@ -90,20 +90,6 @@ struct MakeCredentialSerializationTests {
         #expect(decoded.displayName == nil)
     }
 
-    @Test("PublicKeyCredentialParameters CBOR round-trip")
-    func testParametersCBOR() throws {
-        let param = PublicKeyCredentialParameters(type: "public-key", alg: -7)
-
-        let encoded = param.cbor()
-        let decoded = try #require(
-            PublicKeyCredentialParameters(cbor: encoded),
-            "Failed to decode PublicKeyCredentialParameters"
-        )
-
-        #expect(decoded.type == param.type)
-        #expect(decoded.alg == param.alg)
-    }
-
     @Test("PublicKeyCredentialDescriptor CBOR round-trip")
     func testDescriptorCBOR() throws {
         let credentialId = randomBytes(count: 32)
@@ -306,22 +292,6 @@ extension PublicKeyCredentialUserEntity: CBOR.Decodable {
         let name = map["name"]?.stringValue
         let displayName = map["displayName"]?.stringValue
         self.init(id: id, name: name, displayName: displayName)
-    }
-}
-
-extension PublicKeyCredentialParameters: CBOR.Decodable {
-    public init?(cbor: CBOR.Value) {
-        guard let map = cbor.mapValue else {
-            return nil
-        }
-
-        guard let type = map["type"]?.stringValue,
-            let alg = map["alg"]?.intValue
-        else {
-            return nil
-        }
-
-        self.init(type: type, alg: alg)
     }
 }
 
