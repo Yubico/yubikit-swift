@@ -17,52 +17,38 @@ import Foundation
 // MARK: - CredentialData + CBOR
 
 extension CredentialData: CBOR.Decodable {
-    /// CBOR map keys for makeCredential response
-    private enum ResponseKey: UInt64 {
-        case fmt = 0x01
-        case authData = 0x02
-        case attStmt = 0x03
-        case epAtt = 0x04
-        case largeBlobKey = 0x05
-        case unsignedExtensionOutputs = 0x06
-    }
-
     init?(cbor: CBOR.Value) {
-        guard let responseMap = cbor.mapValue else {
+        guard let map = cbor.mapValue else {
             return nil
         }
 
-        // Required: fmt (attestation format)
-        guard let fmt = responseMap[.unsignedInt(ResponseKey.fmt.rawValue)]?.stringValue else {
+        // Required: fmt (0x01) - attestation format
+        guard let fmt: String = map[.unsignedInt(0x01)]?.cborDecoded() else {
             return nil
         }
         self.format = fmt
 
-        // Required: authData (authenticator data)
-        guard let authDataBytes = responseMap[.unsignedInt(ResponseKey.authData.rawValue)]?.dataValue,
+        // Required: authData (0x02) - authenticator data
+        guard let authDataBytes: Data = map[.unsignedInt(0x02)]?.cborDecoded(),
             let authData = AuthenticatorData(data: authDataBytes)
         else {
             return nil
         }
         self.authenticatorData = authData
 
-        // Required: attStmt (attestation statement)
-        guard let attStmtValue = responseMap[.unsignedInt(ResponseKey.attStmt.rawValue)] else {
+        // Required: attStmt (0x03) - attestation statement
+        guard let attStmtValue = map[.unsignedInt(0x03)] else {
             return nil
         }
         self.attestationStatement = AttestationStatement(format: fmt, statement: attStmtValue)
 
-        // Optional: epAtt (enterprise attestation)
-        self.enterpriseAttestation = responseMap[.unsignedInt(ResponseKey.epAtt.rawValue)]?.boolValue
+        // Optional: epAtt (0x04) - enterprise attestation
+        self.enterpriseAttestation = map[.unsignedInt(0x04)]?.cborDecoded()
 
-        // Optional: largeBlobKey
-        self.largeBlobKey = responseMap[.unsignedInt(ResponseKey.largeBlobKey.rawValue)]?.dataValue
+        // Optional: largeBlobKey (0x05)
+        self.largeBlobKey = map[.unsignedInt(0x05)]?.cborDecoded()
 
-        // Optional: unsignedExtensionOutputs
-        if let unsignedExtValue = responseMap[.unsignedInt(ResponseKey.unsignedExtensionOutputs.rawValue)] {
-            self.unsignedExtensionOutputs = ExtensionOutputs(cbor: unsignedExtValue)
-        } else {
-            self.unsignedExtensionOutputs = nil
-        }
+        // Optional: unsignedExtensionOutputs (0x06)
+        self.unsignedExtensionOutputs = map[.unsignedInt(0x06)]?.cborDecoded()
     }
 }

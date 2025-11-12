@@ -19,8 +19,7 @@ import Foundation
 /// Extension outputs from the authenticator.
 ///
 /// WebAuthn/CTAP2 extensions allow RPs to request additional functionality.
-/// This type provides strongly-typed access to common extensions, with a fallback
-/// for unknown extensions.
+/// This type provides strongly-typed access to common extensions.
 ///
 /// - SeeAlso: [WebAuthn Extensions](https://www.w3.org/TR/webauthn/#sctn-extensions)
 /// - SeeAlso: [CTAP2 Extensions](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#sctn-extensions)
@@ -42,9 +41,6 @@ struct ExtensionOutputs: Sendable {
 
     /// Third-party payment extension output.
     let thirdPartyPayment: Bool?
-
-    /// Unknown or unsupported extensions (stores raw CBOR).
-    let other: [String: CBOR.Value]
 
     /// Credential properties extension output.
     struct CredentialPropertiesOutput: Sendable {

@@ -204,7 +204,6 @@ struct WebAuthnStructuresTests {
         #expect(extensions.hmacSecret == true)
         #expect(extensions.credProtect == .userVerificationRequired)
         #expect(extensions.minPINLength == 6)
-        #expect(extensions.other["customExtension"]?.stringValue == "custom-value")
     }
 
     @Test("ExtensionOutputs CBOR decoding - empty")
@@ -219,7 +218,6 @@ struct WebAuthnStructuresTests {
         #expect(extensions.credProtect == nil)
         #expect(extensions.minPINLength == nil)
         #expect(extensions.thirdPartyPayment == nil)
-        #expect(extensions.other.isEmpty)
     }
 
     // MARK: - Test Helpers

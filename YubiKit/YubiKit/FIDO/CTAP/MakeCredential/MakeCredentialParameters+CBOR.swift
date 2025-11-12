@@ -110,7 +110,7 @@ extension PublicKeyCredentialUserEntity: CBOR.Encodable {
 
 extension PublicKeyCredentialParameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
-        .map(["type": type.cbor(), "alg": alg.cbor()])
+        ["type": type.cbor(), "alg": alg.cbor()].cbor()
     }
 }
 

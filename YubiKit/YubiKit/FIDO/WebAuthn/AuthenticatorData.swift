@@ -209,16 +209,7 @@ extension AttestedCredentialData {
             return nil
         }
 
-        // Algorithm is at key 3 in COSE
-        guard let algValue = keyMap[.unsignedInt(3)] else {
-            return nil
-        }
-
-        // Algorithm should be an integer in COSE (usually negative for signing algorithms)
-        if let intVal = algValue.intValue {
-            return intVal
-        }
-
-        return nil
+        // Algorithm is at key 3 in COSE (usually negative for signing algorithms)
+        return keyMap[.unsignedInt(3)]?.cborDecoded()
     }
 }

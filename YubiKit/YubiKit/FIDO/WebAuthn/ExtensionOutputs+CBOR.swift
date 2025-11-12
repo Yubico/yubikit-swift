@@ -23,43 +23,18 @@ extension ExtensionOutputs: CBOR.Decodable {
         }
 
         // Extract known extensions
-        if let credPropsValue = map["credProps"] {
-            self.credProps = CredentialPropertiesOutput(cbor: credPropsValue)
-        } else {
-            self.credProps = nil
-        }
+        self.credProps = map["credProps"]?.cborDecoded()
+        self.largeBlobKey = map["largeBlobKey"]?.cborDecoded()
+        self.hmacSecret = map["hmac-secret"]?.cborDecoded()
 
-        self.largeBlobKey = map["largeBlobKey"]?.dataValue
-        self.hmacSecret = map["hmac-secret"]?.boolValue
-
-        if let credProtectValue = map["credProtect"]?.intValue {
+        if let credProtectValue: Int = map["credProtect"]?.cborDecoded() {
             self.credProtect = CredentialProtectionPolicy(rawValue: credProtectValue)
         } else {
             self.credProtect = nil
         }
 
-        self.minPINLength = map["minPINLength"]?.intValue
-        self.thirdPartyPayment = map["thirdPartyPayment"]?.boolValue
-
-        // Store unknown extensions
-        var other: [String: CBOR.Value] = [:]
-        for (key, value) in map {
-            guard let keyString = key.stringValue else { continue }
-
-            // Skip known extensions
-            if keyString == "credProps"
-                || keyString == "largeBlobKey"
-                || keyString == "hmac-secret"
-                || keyString == "credProtect"
-                || keyString == "minPINLength"
-                || keyString == "thirdPartyPayment"
-            {
-                continue
-            }
-
-            other[keyString] = value
-        }
-        self.other = other
+        self.minPINLength = map["minPINLength"]?.cborDecoded()
+        self.thirdPartyPayment = map["thirdPartyPayment"]?.cborDecoded()
     }
 }
 
@@ -71,6 +46,6 @@ extension ExtensionOutputs.CredentialPropertiesOutput: CBOR.Decodable {
             return nil
         }
 
-        self.rk = map["rk"]?.boolValue
+        self.rk = map["rk"]?.cborDecoded()
     }
 }

@@ -59,26 +59,22 @@ extension PackedAttestation: CBOR.Decodable {
         }
 
         // Required: sig
-        guard let sig = map["sig"]?.dataValue else {
+        guard let sig: Data = map["sig"]?.cborDecoded() else {
             return nil
         }
         self.sig = sig
 
         // Required: alg
-        guard let alg = map["alg"]?.intValue else {
+        guard let alg: Int = map["alg"]?.cborDecoded() else {
             return nil
         }
         self.alg = alg
 
         // Optional: x5c (certificate chain)
-        if let x5cArray = map["x5c"]?.arrayValue {
-            self.x5c = x5cArray.compactMap { $0.dataValue }
-        } else {
-            self.x5c = nil
-        }
+        self.x5c = map["x5c"]?.cborDecoded()
 
         // Optional: ecdaaKeyId (rarely used)
-        self.ecdaaKeyId = map["ecdaaKeyId"]?.dataValue
+        self.ecdaaKeyId = map["ecdaaKeyId"]?.cborDecoded()
     }
 }
 
@@ -91,16 +87,16 @@ extension FIDOU2FAttestation: CBOR.Decodable {
         }
 
         // Required: sig
-        guard let sig = map["sig"]?.dataValue else {
+        guard let sig: Data = map["sig"]?.cborDecoded() else {
             return nil
         }
         self.sig = sig
 
         // Required: x5c (certificate chain)
-        guard let x5cArray = map["x5c"]?.arrayValue else {
+        guard let x5c: [Data] = map["x5c"]?.cborDecoded() else {
             return nil
         }
-        self.x5c = x5cArray.compactMap { $0.dataValue }
+        self.x5c = x5c
     }
 }
 
@@ -113,9 +109,9 @@ extension AppleAttestation: CBOR.Decodable {
         }
 
         // Required: x5c (certificate chain)
-        guard let x5cArray = map["x5c"]?.arrayValue else {
+        guard let x5c: [Data] = map["x5c"]?.cborDecoded() else {
             return nil
         }
-        self.x5c = x5cArray.compactMap { $0.dataValue }
+        self.x5c = x5c
     }
 }

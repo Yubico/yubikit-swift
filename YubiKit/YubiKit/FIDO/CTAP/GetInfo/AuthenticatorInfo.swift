@@ -80,9 +80,13 @@ struct AuthenticatorInfo: Sendable {
     /// User verification modality.
     let uvModality: UInt?
 
-    /// Authenticator certifications.
-    /// Note: Skipped for now due to complexity and rare usage.
-    // let certifications: [String: Any]?
+    /// Authenticator certifications (certification name -> level).
+    ///
+    /// Provides hints about certifications the authenticator has received.
+    /// Examples include FIPS-CMVP, Common Criteria, and FIDO certifications.
+    ///
+    /// - SeeAlso: [CTAP 2.2 Section 7.3](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#sctn-feature-descriptions-certifications)
+    let certifications: [String: UInt]?
 
     /// Remaining discoverable credential slots.
     let remainingDiscoverableCredentials: UInt?
@@ -111,6 +115,7 @@ struct AuthenticatorInfo: Sendable {
         maxRPIDsForSetMinPINLength: UInt? = nil,
         preferredPlatformUvAttempts: UInt? = nil,
         uvModality: UInt? = nil,
+        certifications: [String: UInt]? = nil,
         remainingDiscoverableCredentials: UInt? = nil,
         vendorPrototypeConfigCommands: [UInt]? = nil
     ) {
@@ -132,6 +137,7 @@ struct AuthenticatorInfo: Sendable {
         self.maxRPIDsForSetMinPINLength = maxRPIDsForSetMinPINLength
         self.preferredPlatformUvAttempts = preferredPlatformUvAttempts
         self.uvModality = uvModality
+        self.certifications = certifications
         self.remainingDiscoverableCredentials = remainingDiscoverableCredentials
         self.vendorPrototypeConfigCommands = vendorPrototypeConfigCommands
     }
