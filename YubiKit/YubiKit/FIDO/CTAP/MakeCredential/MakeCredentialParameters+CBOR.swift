@@ -106,9 +106,9 @@ extension PublicKeyCredentialUserEntity: CBOR.Encodable {
     }
 }
 
-// MARK: - COSEAlgorithm + CBOR
+// MARK: - COSE.Algorithm + CBOR
 
-extension COSEAlgorithm: CBOR.Encodable {
+extension COSE.Algorithm: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         ["type": "public-key".cbor(), "alg": rawValue.cbor()].cbor()
     }

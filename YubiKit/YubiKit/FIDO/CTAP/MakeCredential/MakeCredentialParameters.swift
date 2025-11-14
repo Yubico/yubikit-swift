@@ -28,7 +28,7 @@ struct MakeCredentialParameters: Sendable {
     let user: PublicKeyCredentialUserEntity
 
     /// Supported public key algorithms in order of preference.
-    let pubKeyCredParams: [COSEAlgorithm]
+    let pubKeyCredParams: [COSE.Algorithm]
 
     /// Credentials to exclude (already registered).
     let excludeList: [PublicKeyCredentialDescriptor]?
@@ -52,7 +52,7 @@ struct MakeCredentialParameters: Sendable {
         clientDataHash: Data,
         rp: PublicKeyCredentialRPEntity,
         user: PublicKeyCredentialUserEntity,
-        pubKeyCredParams: [COSEAlgorithm],
+        pubKeyCredParams: [COSE.Algorithm],
         excludeList: [PublicKeyCredentialDescriptor]? = nil,
         extensions: Data? = nil,
         options: Options? = nil,
@@ -119,21 +119,6 @@ struct PublicKeyCredentialUserEntity: Sendable {
         self.name = name
         self.displayName = displayName
     }
-}
-
-/// COSE algorithm identifier.
-///
-/// Supported algorithms for credential generation.
-/// Values from the IANA COSE Algorithms registry.
-enum COSEAlgorithm: Int, Sendable {
-    /// ES256 algorithm (ECDSA with P-256 and SHA-256).
-    case es256 = -7
-
-    /// EdDSA algorithm.
-    case edDSA = -8
-
-    /// RS256 algorithm (RSASSA-PKCS1-v1_5 with SHA-256).
-    case rs256 = -257
 }
 
 /// Public key credential descriptor (credential ID and type).

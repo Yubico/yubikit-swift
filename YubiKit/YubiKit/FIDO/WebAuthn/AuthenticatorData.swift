@@ -133,8 +133,18 @@ struct AttestedCredentialData: Sendable {
     /// The credential ID (variable length).
     let credentialId: Data
 
-    /// The credential public key in COSE format (CBOR-encoded).
-    let credentialPublicKey: Data
+    /// The credential public key as a COSE Key.
+    ///
+    /// Structured representation of the COSE key from the authenticator.
+    /// Unknown or unsupported algorithms are preserved in the `.other` case.
+    ///
+    /// Supported algorithms for FIDO2 on YubiKey:
+    /// - ES256 (ECDSA with P-256, alg=-7)
+    /// - EdDSA (Ed25519, alg=-8)
+    /// - RS256 (RSA with SHA-256, alg=-257)
+    ///
+    /// - SeeAlso: [COSE Key Structure](https://www.rfc-editor.org/rfc/rfc8152.html#section-7)
+    let credentialPublicKey: COSE.Key
 }
 
 // MARK: - Attested Credential Data Parsing
@@ -177,39 +187,21 @@ extension AttestedCredentialData {
             return nil
         }
 
-        // Get the encoded size of the CBOR value
+        // Parse the COSE key from the CBOR value
+        guard let coseKey = COSE.Key(cbor: cborValue) else {
+            return nil
+        }
+
+        // Track how many bytes the CBOR value consumed (canonical encoding)
         let encodedCbor = cborValue.encode()
-        let credentialPublicKey = encodedCbor
         currentOffset += encodedCbor.count
 
         let attestedData = AttestedCredentialData(
             aaguid: aaguid,
             credentialId: credentialId,
-            credentialPublicKey: credentialPublicKey
+            credentialPublicKey: coseKey
         )
 
         return (attestedData, currentOffset)
-    }
-}
-
-// MARK: - Attested Credential Data Helpers
-
-extension AttestedCredentialData {
-    /// Extract the COSE algorithm identifier from the credential public key.
-    ///
-    /// - Returns: The COSE algorithm identifier, or nil if not found.
-    func algorithm() -> Int? {
-        // Decode the CBOR public key
-        guard let cborValue: CBOR.Value = try? credentialPublicKey.decode() else {
-            return nil
-        }
-
-        // Public key should be a CBOR map
-        guard let keyMap = cborValue.mapValue else {
-            return nil
-        }
-
-        // Algorithm is at key 3 in COSE (usually negative for signing algorithms)
-        return keyMap[.unsignedInt(3)]?.cborDecoded()
     }
 }

@@ -217,20 +217,21 @@ struct CTAP2FullStackTests {
             print("Touch the YubiKey to test algorithm preference (EdDSA preferred, ES256 fallback)...")
             let credential = try await session.makeCredential(parameters: params)
 
-            guard let attestedData = credential.authenticatorData.attestedCredentialData,
-                let algorithm = attestedData.algorithm()
-            else {
+            guard let attestedData = credential.authenticatorData.attestedCredentialData else {
                 Issue.record("Failed to parse credential")
                 return
             }
 
             // Should use EdDSA if supported, otherwise fall back to ES256
-            if algorithm == -8 {
+            let coseKey = attestedData.credentialPublicKey
+
+            switch coseKey {
+            case .okp(let alg, _, let crv, _) where alg == .edDSA && crv == 6:
                 print("✅ EdDSA was used as preferred algorithm")
-            } else if algorithm == -7 {
+            case .ec2(let alg, _, let crv, _, _) where alg == .es256 && crv == 1:
                 print("✅ EdDSA not supported, ES256 was used as fallback")
-            } else {
-                Issue.record("Unexpected algorithm: \(algorithm)")
+            default:
+                Issue.record("Unexpected key type: \(coseKey)")
             }
         }
     }

@@ -50,10 +50,14 @@ struct WebAuthnStructuresTests {
 
         #expect(attestedData.aaguid.count == 16)
         #expect(attestedData.credentialId.count > 0)
-        #expect(attestedData.credentialPublicKey.count > 0)
 
-        // Verify we can extract the algorithm
-        #expect(attestedData.algorithm() == -7)  // ES256
+        // Verify we got an EC2 COSE key (ES256 uses P-256)
+        guard case .ec2(.es256, _, 1, let x, let y) = attestedData.credentialPublicKey else {
+            Issue.record("Expected EC2 ES256 P-256 key")
+            return
+        }
+        #expect(x.count == 32)
+        #expect(y.count == 32)
     }
 
     @Test("AuthenticatorData binary parsing - minimal")
