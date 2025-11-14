@@ -142,13 +142,20 @@ extension SmartCardInterface: CBORInterface where Error: CBORError & CTAPError {
 
         // TODO: Make sure it works by testing with a 5.8 key over USB
         // Poll with GET_RESPONSE while SW is 0x9100 (operation in progress)
-        while response.responseStatus.rawStatus == SW_KEEPALIVE {
+        while true {
 
             let p1 = shouldCancelCTAP ? P1_CANCEL_KEEP_ALIVE : P1_KEEP_ALIVE
 
             // Send GET_RESPONSE to poll for completion
             let getResponseApdu = APDU(cla: CLA, ins: NFCCTAP_GETRESPONSE, p1: p1, p2: 0x00, command: nil)
             response = try await send(apdu: getResponseApdu)
+
+            // exit loop when done
+            guard response.responseStatus.rawStatus == SW_KEEPALIVE
+            else { break }
+
+            // avoid hammering the authenticator
+            try? await Task.sleep(for: .milliseconds(100))
         }
 
         // Check final response status
