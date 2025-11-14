@@ -25,7 +25,7 @@ struct Response: CustomStringConvertible, Sendable {
         responseStatus = ResponseStatus(data: rawData.subdata(in: rawData.count - 2..<rawData.count))
     }
 
-    internal init(data: Data, sw1: UInt8, sw2: UInt8) {
+    private init(data: Data, sw1: UInt8, sw2: UInt8) {
         self.data = data
         responseStatus = ResponseStatus(sw1: sw1, sw2: sw2)
     }
@@ -67,19 +67,22 @@ public struct ResponseStatus: Equatable, Sendable {
     }
 
     public let status: StatusCode
-    public let rawStatus: UInt16
-    public var sw1: UInt8 { UInt8((rawStatus & 0xff00) >> 8) }
-    public var sw2: UInt8 { UInt8(rawStatus & 0xff00) }
+    public let sw1: UInt8
+    public let sw2: UInt8
+
+    public var rawStatus: UInt16 {
+        (UInt16(sw1) << 8) | UInt16(sw2)
+    }
 
     internal init(sw1: UInt8, sw2: UInt8) {
-        rawStatus = UInt16(sw1) << 8 + UInt16(sw2)
-        status = StatusCode(rawValue: rawStatus) ?? .unknown
+        self.sw1 = sw1
+        self.sw2 = sw2
+        let rawValue = (UInt16(sw1) << 8) | UInt16(sw2)
+        status = StatusCode(rawValue: rawValue) ?? .unknown
     }
 
     internal init(data: Data) {
         let value = data.uint16.bigEndian
-        let sw1 = UInt8((value & 0xff00) >> 8)
-        let sw2 = UInt8(value & 0x00ff)
-        self.init(sw1: sw1, sw2: sw2)
+        self.init(sw1: UInt8((value & 0xff00) >> 8), sw2: UInt8(value & 0x00ff))
     }
 }

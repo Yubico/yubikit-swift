@@ -64,6 +64,87 @@ extension CTAP {
 
             return info
         }
+
+        /// Reset the CTAP2 authenticator.
+        ///
+        /// This command deletes all FIDO credentials, removes the PIN, and resets
+        /// the authenticator to factory settings.
+        ///
+        /// > Warning: Over USB this command must be sent within a few seconds of
+        /// > plugging the YubiKey in, and it requires user presence confirmation (touch).
+        /// > Over NFC, this command requires user presence confirmation.
+        ///
+        /// > Note: This functionality requires support for ``CTAP/Feature/reset``, available on YubiKey 5.0 or later.
+        ///
+        /// - Throws: ``FIDO2SessionError`` if the operation fails.
+        func reset() async throws {
+            try await interface.send(command: .reset)
+        }
+
+        /// Request user presence check for authenticator selection.
+        ///
+        /// This command allows the platform to let a user select a specific authenticator
+        /// by asking for user presence (typically a touch or button press). This is useful
+        /// when multiple authenticators are available and the user needs to indicate which
+        /// one to use.
+        ///
+        /// The command will wait for the user to confirm their presence on the authenticator.
+        /// It completes successfully once user presence is detected.
+        ///
+        /// > Note: This functionality requires support for ``CTAP/Feature/selection``, available on YubiKey 5.0 or later.
+        ///
+        /// - Throws: ``FIDO2SessionError`` if the operation fails or times out.
+        func selection() async throws {
+            try await interface.send(command: .selection)
+        }
+
+        /// Cancel any ongoing CTAP operation waiting for user interaction.
+        ///
+        /// Sends a cancel command to abort operations such as `makeCredential` or `getAssertion`
+        /// that are waiting for user presence (touch) or user verification (PIN/biometric).
+        /// The cancelled operation will throw ``FIDO2SessionError/ctapError(_:source:)``
+        /// with ``CTAP/Error/keepaliveCancel``.
+        ///
+        /// > Note: The session remains usable after cancellation and can be used for subsequent operations.
+        ///
+        /// - Throws: ``FIDO2SessionError`` if the cancel command fails to send.
+        ///
+        /// - SeeAlso: [CTAP 2.2 - CTAPHID_CANCEL](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#usb-hid-cancel)
+        func cancel() async throws {
+            try await interface.cancel()
+        }
+
+        /// Create a new credential on the authenticator.
+        ///
+        /// This command registers a new FIDO2 credential with the authenticator. The authenticator
+        /// will verify user presence (and optionally user verification via PIN/biometric), generate
+        /// a new credential keypair, and return attestation data.
+        ///
+        /// > Important: This operation requires user interaction (touch) and may require PIN entry
+        /// > if user verification is requested.
+        ///
+        /// > Note: This functionality requires support for ``CTAP/Feature/makeCredential``, available on YubiKey 5.0 or later.
+        ///
+        /// - Parameter parameters: The credential creation parameters.
+        /// - Returns: The credential data including attestation information.
+        /// - Throws: ``FIDO2SessionError`` if the operation fails.
+        ///
+        /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorMakeCredential)
+        func makeCredential(parameters: MakeCredentialParameters) async throws -> CredentialData {
+            let credentialData: CredentialData? = try await interface.send(
+                command: .makeCredential,
+                payload: parameters
+            )
+
+            guard let credentialData = credentialData else {
+                throw Error.responseParseError(
+                    "Failed to parse makeCredential response",
+                    source: .here()
+                )
+            }
+
+            return credentialData
+        }
     }
 }
 

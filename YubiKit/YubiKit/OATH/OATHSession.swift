@@ -295,7 +295,7 @@ public final actor OATHSession: SmartCardSessionInternal {
         }
 
         let nameTLV = TKBERTLVRecord(tag: tagName, value: credential.id)
-        let apdu = APDU(cla: 0x00, ins: 0xa2, p1: 0, p2: 1, command: nameTLV.data + challengeTLV.data, type: .extended)
+        let apdu = APDU(cla: 0x00, ins: 0xa2, p1: 0, p2: 1, command: nameTLV.data + challengeTLV.data)
 
         let data = try await process(apdu: apdu)
         guard let result = TKBERTLVRecord.init(from: data) else {

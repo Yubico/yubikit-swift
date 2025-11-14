@@ -500,7 +500,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     public func getCertificate(in slot: PIV.Slot) async throws(PIVSessionError) -> X509Cert {
         /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
         let command = TKBERTLVRecord(tag: tagObjectId, value: slot.objectId).data
-        let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command, type: .extended)
+        let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command)
         let result = try await process(apdu: apdu)
 
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
@@ -591,8 +591,7 @@ public final actor PIVSession: SmartCardSessionInternal {
             ins: insAuthenticate,
             p1: keyType.rawValue,
             p2: UInt8(tagSlotCardManagement),
-            command: command,
-            type: .extended
+            command: command
         )
         let witnessResult = try await process(apdu: witnessApdu)
 
@@ -622,8 +621,7 @@ public final actor PIVSession: SmartCardSessionInternal {
             ins: insAuthenticate,
             p1: keyType.rawValue,
             p2: UInt8(tagSlotCardManagement),
-            command: authRecord.data,
-            type: .extended
+            command: authRecord.data
         )
         let challengeResult = try await process(apdu: challengeApdu)
 
@@ -966,8 +964,7 @@ extension PIVSession {
             ins: insImportKey,
             p1: keyType.rawValue,
             p2: slot.rawValue,
-            command: data,
-            type: .extended
+            command: data
         )
         try await process(apdu: apdu)
     }
@@ -990,8 +987,7 @@ extension PIVSession {
             ins: insAuthenticate,
             p1: keyType.rawValue,
             p2: slot.rawValue,
-            command: command,
-            type: .extended
+            command: command
         )
         let resultData = try await process(apdu: apdu)
         guard let result = TKBERTLVRecord.init(from: resultData), result.tag == tagDynAuth else {
@@ -1010,7 +1006,7 @@ extension PIVSession {
         var command = Data()
         command.append(TKBERTLVRecord(tag: tagObjectId, value: objectId).data)
         command.append(TKBERTLVRecord(tag: tagObjectData, value: data).data)
-        let apdu = APDU(cla: 0, ins: insPutData, p1: 0x3f, p2: 0xff, command: command, type: .extended)
+        let apdu = APDU(cla: 0, ins: insPutData, p1: 0x3f, p2: 0xff, command: command)
         try await process(apdu: apdu)
     }
 

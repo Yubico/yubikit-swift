@@ -17,20 +17,11 @@ import Foundation
 /// Data model for encapsulating an APDU command, as defined by the ISO/IEC 7816-4 standard.
 struct APDU: Sendable, CustomStringConvertible {
 
-    /// The type of APDU command format.
-    enum ApduType: Sendable {
-        /// Short APDU format with data length up to 255 bytes.
-        case short
-        /// Extended APDU format supporting larger data payloads.
-        case extended
-    }
-
     let cla: UInt8
     let ins: UInt8
     let p1: UInt8
     let p2: UInt8
     let command: Data?
-    let type: ApduType
 
     /// Creates an APDU struct.
     /// - Parameters:
@@ -39,21 +30,18 @@ struct APDU: Sendable, CustomStringConvertible {
     ///   - p1: The first instruction parameter byte.
     ///   - p2: The second instruction parameter byte.
     ///   - command: The command data.
-    ///   - type: The type of the APDU, short or extended.
     init(
         cla: UInt8,
         ins: UInt8,
         p1: UInt8,
         p2: UInt8,
-        command: Data? = nil,
-        type: ApduType = .short
+        command: Data? = nil
     ) {
         self.cla = cla
         self.ins = ins
         self.p1 = p1
         self.p2 = p2
         self.command = command
-        self.type = type
     }
 
     /// The raw APDU data bytes ready for transmission to the card.
@@ -63,27 +51,25 @@ struct APDU: Sendable, CustomStringConvertible {
         data.append(ins)
         data.append(p1)
         data.append(p2)
-        switch type {
-        case .short:
-            if let command = command, command.count > 0 {
-                guard command.count < UInt8.max else { fatalError() }
-                let length = UInt8(command.count)
-                data.append(length)
-                data.append(command)
-            }
-        case .extended:
-            if let command = command, command.count > 0 {
-                let lengthHigh: UInt8 = UInt8(command.count / 256)
-                let lengthLow: UInt8 = UInt8(command.count % 256)
-                data.append(0x00)
-                data.append(lengthHigh)
-                data.append(lengthLow)
-                data.append(command)
-            } else {
-                data.append(0x00)
-                data.append(0x00)
-                data.append(0x00)
-            }
+
+        guard let command = command, command.count > 0 else {
+            // 4 bytes: "Case 1" APDU
+            return data
+        }
+
+        let isShort = command.count < UInt8.max
+
+        if isShort {
+            let length = UInt8(command.count)
+            data.append(length)
+            data.append(command)
+        } else {
+            let lengthHigh: UInt8 = UInt8(command.count / 256)
+            let lengthLow: UInt8 = UInt8(command.count % 256)
+            data.append(0x00)
+            data.append(lengthHigh)
+            data.append(lengthLow)
+            data.append(command)
         }
 
         return data
@@ -91,6 +77,6 @@ struct APDU: Sendable, CustomStringConvertible {
 
     /// A string representation of the APDU for debugging purposes.
     var description: String {
-        "APDU(cla: \(cla.hexValue), ins: \(ins.hexValue), p1: \(p1.hexValue), p2: \(p2.hexValue), command: \(command?.hexEncodedString ?? "nil"), type: \(String(describing: type))"
+        "APDU(cla: \(cla.hexValue), ins: \(ins.hexValue), p1: \(p1.hexValue), p2: \(p2.hexValue), command: \(command?.hexEncodedString ?? "nil")"
     }
 }
