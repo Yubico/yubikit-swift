@@ -19,14 +19,6 @@ import Foundation
 extension CTAP.MakeCredential.Extensions: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         let map: [CBOR.Value: CBOR.Value] = [:]
-
-        // Extensions will be added here as they're implemented
-        // Example:
-        // var map: [CBOR.Value: CBOR.Value] = [:]
-        // if let hmacSecret = hmacSecret {
-        //     map["hmac-secret"] = hmacSecret.cbor()
-        // }
-
         return map.cbor()
     }
 }

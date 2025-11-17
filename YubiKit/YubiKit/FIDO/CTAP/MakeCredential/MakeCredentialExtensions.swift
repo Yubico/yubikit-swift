@@ -17,14 +17,8 @@ import Foundation
 extension CTAP.MakeCredential {
     /// Extension inputs for the authenticatorMakeCredential command.
     ///
-    /// Extensions enable applications to request additional processing by the authenticator
-    /// during credential creation. This type will be extended as individual extensions
-    /// are implemented.
-    ///
     /// - SeeAlso: [CTAP2.2 Extensions](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#sctn-defined-extensions)
     struct Extensions: Sendable {
-        init() {
-            // Empty for now - extensions will be added incrementally
-        }
+        init() {}
     }
 }

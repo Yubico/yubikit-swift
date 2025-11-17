@@ -1,0 +1,52 @@
+// Copyright Yubico AB
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import Foundation
+
+// MARK: - MakeCredential
+
+extension CTAP.Session {
+
+    /// Create a new credential on the authenticator.
+    ///
+    /// This command registers a new FIDO2 credential with the authenticator. The authenticator
+    /// will verify user presence (and optionally user verification via PIN/biometric), generate
+    /// a new credential keypair, and return attestation data.
+    ///
+    /// > Important: This operation requires user interaction (touch) and may require PIN entry
+    /// > if user verification is requested.
+    ///
+    /// > Note: This functionality requires support for ``CTAP/Feature/makeCredential``, available on YubiKey 5.0 or later.
+    ///
+    /// - Parameter parameters: The credential creation parameters.
+    /// - Returns: The credential data including attestation information.
+    /// - Throws: ``FIDO2SessionError`` if the operation fails.
+    ///
+    /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorMakeCredential)
+    func makeCredential(parameters: CTAP.MakeCredential.Parameters) async throws -> CTAP.MakeCredential.Response {
+        let credentialData: CTAP.MakeCredential.Response? = try await interface.send(
+            command: .makeCredential,
+            payload: parameters
+        )
+
+        guard let credentialData = credentialData else {
+            throw Error.responseParseError(
+                "Failed to parse makeCredential response",
+                source: .here()
+            )
+        }
+
+        return credentialData
+    }
+}
