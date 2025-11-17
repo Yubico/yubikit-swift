@@ -76,9 +76,9 @@ extension CTAP.MakeCredential.Parameters.Options: CBOR.Encodable {
     }
 }
 
-// MARK: - PublicKeyCredentialRPEntity + CBOR
+// MARK: - PublicKeyCredential.RPEntity + CBOR
 
-extension PublicKeyCredentialRPEntity: CBOR.Encodable {
+extension PublicKeyCredential.RPEntity: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = ["id": id.cbor()]
 
@@ -90,9 +90,9 @@ extension PublicKeyCredentialRPEntity: CBOR.Encodable {
     }
 }
 
-// MARK: - PublicKeyCredentialUserEntity + CBOR
+// MARK: - PublicKeyCredential.UserEntity + CBOR
 
-extension PublicKeyCredentialUserEntity: CBOR.Encodable {
+extension PublicKeyCredential.UserEntity: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = ["id": id.cbor()]
 
@@ -116,9 +116,9 @@ extension COSE.Algorithm: CBOR.Encodable {
     }
 }
 
-// MARK: - PublicKeyCredentialDescriptor + CBOR
+// MARK: - PublicKeyCredential.Descriptor + CBOR
 
-extension PublicKeyCredentialDescriptor: CBOR.Encodable {
+extension PublicKeyCredential.Descriptor: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [
             "type": type.cbor(),

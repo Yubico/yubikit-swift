@@ -23,16 +23,16 @@ extension CTAP.MakeCredential {
         let clientDataHash: Data
 
         /// Relying Party information.
-        let rp: PublicKeyCredentialRPEntity
+        let rp: PublicKeyCredential.RPEntity
 
         /// User account information.
-        let user: PublicKeyCredentialUserEntity
+        let user: PublicKeyCredential.UserEntity
 
         /// Supported public key algorithms in order of preference.
         let pubKeyCredParams: [COSE.Algorithm]
 
         /// Credentials to exclude (already registered).
-        let excludeList: [PublicKeyCredentialDescriptor]?
+        let excludeList: [PublicKeyCredential.Descriptor]?
 
         /// Extension inputs for additional authenticator processing.
         let extensions: Extensions?
@@ -51,10 +51,10 @@ extension CTAP.MakeCredential {
 
         init(
             clientDataHash: Data,
-            rp: PublicKeyCredentialRPEntity,
-            user: PublicKeyCredentialUserEntity,
+            rp: PublicKeyCredential.RPEntity,
+            user: PublicKeyCredential.UserEntity,
             pubKeyCredParams: [COSE.Algorithm],
-            excludeList: [PublicKeyCredentialDescriptor]? = nil,
+            excludeList: [PublicKeyCredential.Descriptor]? = nil,
             extensions: Extensions? = nil,
             options: Options? = nil,
             pinUvAuthParam: Data? = nil,
@@ -86,57 +86,5 @@ extension CTAP.MakeCredential {
                 self.uv = uv
             }
         }
-    }
-}
-
-// MARK: - Supporting Types
-
-/// Relying Party entity information.
-struct PublicKeyCredentialRPEntity: Sendable {
-    /// Relying Party identifier (e.g., "example.com").
-    let id: String
-
-    /// Human-readable relying party name.
-    let name: String?
-
-    init(id: String, name: String? = nil) {
-        self.id = id
-        self.name = name
-    }
-}
-
-/// User account entity information.
-struct PublicKeyCredentialUserEntity: Sendable {
-    /// User handle (opaque byte sequence).
-    let id: Data
-
-    /// User identifier (e.g., "alice@example.com").
-    let name: String?
-
-    /// Display name (e.g., "Alice Smith").
-    let displayName: String?
-
-    init(id: Data, name: String? = nil, displayName: String? = nil) {
-        self.id = id
-        self.name = name
-        self.displayName = displayName
-    }
-}
-
-/// Public key credential descriptor (credential ID and type).
-struct PublicKeyCredentialDescriptor: Sendable {
-    /// Credential type (always "public-key" for FIDO2).
-    let type: String
-
-    /// Credential ID (opaque byte sequence).
-    let id: Data
-
-    /// Optional transports hint.
-    let transports: [String]?
-
-    init(type: String = "public-key", id: Data, transports: [String]? = nil) {
-        self.type = type
-        self.id = id
-        self.transports = transports
     }
 }

@@ -54,8 +54,8 @@ struct CTAP2FullStackTests {
 
             let params = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: userId,
                     name: "nonrk@example.com",
                     displayName: "Non-RK User"
@@ -97,8 +97,8 @@ struct CTAP2FullStackTests {
 
             let params = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: userId,
                     name: "rk@example.com",
                     displayName: "RK User"
@@ -143,8 +143,8 @@ struct CTAP2FullStackTests {
             // First, create a credential
             let params1 = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: userId,
                     name: "exclude@example.com",
                     displayName: "Exclude Test User"
@@ -167,14 +167,14 @@ struct CTAP2FullStackTests {
             // Now try to create another credential with excludeList containing the first
             let params2 = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: userId,
                     name: "exclude@example.com",
                     displayName: "Exclude Test User"
                 ),
                 pubKeyCredParams: [.es256],
-                excludeList: [PublicKeyCredentialDescriptor(id: credentialId)],
+                excludeList: [PublicKeyCredential.Descriptor(id: credentialId)],
                 options: .init(rk: false)
             )
 
@@ -205,8 +205,8 @@ struct CTAP2FullStackTests {
 
             let params = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x40, count: 32),
                     name: "algpref@example.com",
                     displayName: "Algorithm Preference User"
@@ -247,8 +247,8 @@ struct CTAP2FullStackTests {
             // First, create a credential to authenticate with
             let makeCredParams = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: userId,
                     name: "getassertion@example.com",
                     displayName: "Get Assertion User"
@@ -271,7 +271,7 @@ struct CTAP2FullStackTests {
             let getAssertionParams = CTAP.GetAssertion.Parameters(
                 rpId: "example.com",
                 clientDataHash: clientDataHash,
-                allowList: [PublicKeyCredentialDescriptor(id: credentialId)]
+                allowList: [PublicKeyCredential.Descriptor(id: credentialId)]
             )
 
             print("Touch the YubiKey to authenticate...")
@@ -297,8 +297,8 @@ struct CTAP2FullStackTests {
             for i in 1...3 {
                 let makeCredParams = CTAP.MakeCredential.Parameters(
                     clientDataHash: clientDataHash,
-                    rp: PublicKeyCredentialRPEntity(id: rpId, name: "Multi Assert Corp"),
-                    user: PublicKeyCredentialUserEntity(
+                    rp: PublicKeyCredential.RPEntity(id: rpId, name: "Multi Assert Corp"),
+                    user: PublicKeyCredential.UserEntity(
                         id: Data(repeating: UInt8(0x20 + i), count: 32),
                         name: "user\(i)@example.com",
                         displayName: "User \(i)"
@@ -344,8 +344,8 @@ struct CTAP2FullStackTests {
 
             let params = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: userId,
                     name: "cancel-delayed@example.com",
                     displayName: "Cancel Delayed Test User"

@@ -26,7 +26,7 @@ extension CTAP.GetAssertion {
         let clientDataHash: Data
 
         /// List of credentials acceptable to the RP (omit for resident key discovery).
-        let allowList: [PublicKeyCredentialDescriptor]?
+        let allowList: [PublicKeyCredential.Descriptor]?
 
         /// Extension inputs for additional authenticator processing.
         let extensions: Extensions?
@@ -43,7 +43,7 @@ extension CTAP.GetAssertion {
         init(
             rpId: String,
             clientDataHash: Data,
-            allowList: [PublicKeyCredentialDescriptor]? = nil,
+            allowList: [PublicKeyCredential.Descriptor]? = nil,
             extensions: Extensions? = nil,
             options: Options? = nil,
             pinUvAuthParam: Data? = nil,

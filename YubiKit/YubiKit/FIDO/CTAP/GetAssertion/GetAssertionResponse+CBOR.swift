@@ -23,7 +23,7 @@ extension CTAP.GetAssertion.Response: CBOR.Decodable {
         }
 
         // Optional: credential (0x01)
-        let credential: PublicKeyCredentialDescriptor? = map[.unsignedInt(0x01)]?.cborDecoded()
+        let credential: PublicKeyCredential.Descriptor? = map[.unsignedInt(0x01)]?.cborDecoded()
 
         // Required: authData (0x02)
         guard let authDataBytes: Data = map[.unsignedInt(0x02)]?.cborDecoded(),
@@ -38,7 +38,7 @@ extension CTAP.GetAssertion.Response: CBOR.Decodable {
         }
 
         // Optional: user (0x04)
-        let user: PublicKeyCredentialUserEntity? = map[.unsignedInt(0x04)]?.cborDecoded()
+        let user: PublicKeyCredential.UserEntity? = map[.unsignedInt(0x04)]?.cborDecoded()
 
         // Optional: numberOfCredentials (0x05)
         let numberOfCredentials: Int? = map[.unsignedInt(0x05)]?.cborDecoded()
@@ -61,9 +61,9 @@ extension CTAP.GetAssertion.Response: CBOR.Decodable {
     }
 }
 
-// MARK: - PublicKeyCredentialDescriptor + CBOR Decoding
+// MARK: - PublicKeyCredential.Descriptor + CBOR Decoding
 
-extension PublicKeyCredentialDescriptor: CBOR.Decodable {
+extension PublicKeyCredential.Descriptor: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue else {
             return nil
@@ -86,9 +86,9 @@ extension PublicKeyCredentialDescriptor: CBOR.Decodable {
     }
 }
 
-// MARK: - PublicKeyCredentialUserEntity + CBOR Decoding
+// MARK: - PublicKeyCredential.UserEntity + CBOR Decoding
 
-extension PublicKeyCredentialUserEntity: CBOR.Decodable {
+extension PublicKeyCredential.UserEntity: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue else {
             return nil
