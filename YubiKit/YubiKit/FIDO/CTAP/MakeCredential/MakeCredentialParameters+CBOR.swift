@@ -30,8 +30,10 @@ extension MakeCredentialParameters: CBOR.Encodable {
             map[5] = excludeList.cbor()
         }
 
-        if let extensions = extensions, !extensions.isEmpty {
-            if let extensionsValue: CBOR.Value = try? extensions.decode() {
+        if let extensions = extensions {
+            let extensionsValue = extensions.cbor()
+            // Only include if the extensions map is non-empty
+            if case .map(let extensionsMap) = extensionsValue, !extensionsMap.isEmpty {
                 map[6] = extensionsValue
             }
         }

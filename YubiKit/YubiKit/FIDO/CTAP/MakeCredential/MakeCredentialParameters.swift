@@ -33,8 +33,8 @@ struct MakeCredentialParameters: Sendable {
     /// Credentials to exclude (already registered).
     let excludeList: [PublicKeyCredentialDescriptor]?
 
-    /// CTAP extensions (CBOR-encoded map).
-    let extensions: Data?
+    /// Extension inputs for additional authenticator processing.
+    let extensions: MakeCredentialExtensions?
 
     /// Authenticator options.
     let options: Options?
@@ -54,7 +54,7 @@ struct MakeCredentialParameters: Sendable {
         user: PublicKeyCredentialUserEntity,
         pubKeyCredParams: [COSE.Algorithm],
         excludeList: [PublicKeyCredentialDescriptor]? = nil,
-        extensions: Data? = nil,
+        extensions: MakeCredentialExtensions? = nil,
         options: Options? = nil,
         pinUvAuthParam: Data? = nil,
         pinUvAuthProtocol: Int? = nil,

@@ -1,0 +1,28 @@
+// Copyright Yubico AB
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import Foundation
+
+/// Extension inputs for the authenticatorMakeCredential command.
+///
+/// Extensions enable applications to request additional processing by the authenticator
+/// during credential creation. This type will be extended as individual extensions
+/// are implemented.
+///
+/// - SeeAlso: [CTAP2.2 Extensions](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#sctn-defined-extensions)
+struct MakeCredentialExtensions: Sendable {
+    init() {
+        // Empty for now - extensions will be added incrementally
+    }
+}
