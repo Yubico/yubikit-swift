@@ -55,8 +55,8 @@ extension CTAP {
         ///
         /// - Returns: The authenticator information structure.
         /// - Throws: ``FIDO2SessionError`` if the operation fails.
-        func getInfo() async throws -> AuthenticatorInfo {
-            let info: AuthenticatorInfo? = try await interface.send(command: .getInfo)
+        func getInfo() async throws -> CTAP.GetInfo.Response {
+            let info: CTAP.GetInfo.Response? = try await interface.send(command: .getInfo)
 
             guard let info = info else {
                 throw Error.responseParseError("Failed to parse authenticatorGetInfo response", source: .here())
@@ -130,8 +130,8 @@ extension CTAP {
         /// - Throws: ``FIDO2SessionError`` if the operation fails.
         ///
         /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorMakeCredential)
-        func makeCredential(parameters: MakeCredentialParameters) async throws -> CredentialData {
-            let credentialData: CredentialData? = try await interface.send(
+        func makeCredential(parameters: CTAP.MakeCredential.Parameters) async throws -> CTAP.MakeCredential.Response {
+            let credentialData: CTAP.MakeCredential.Response? = try await interface.send(
                 command: .makeCredential,
                 payload: parameters
             )
@@ -163,8 +163,8 @@ extension CTAP {
         /// - Throws: ``FIDO2SessionError`` if the operation fails.
         ///
         /// - SeeAlso: [CTAP2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorGetAssertion)
-        func getAssertion(parameters: GetAssertionParameters) async throws -> AssertionResponse {
-            let assertionResponse: AssertionResponse? = try await interface.send(
+        func getAssertion(parameters: CTAP.GetAssertion.Parameters) async throws -> CTAP.GetAssertion.Response {
+            let assertionResponse: CTAP.GetAssertion.Response? = try await interface.send(
                 command: .getAssertion,
                 payload: parameters
             )
@@ -194,8 +194,8 @@ extension CTAP {
         /// - Throws: ``FIDO2SessionError`` if the operation fails.
         ///
         /// - SeeAlso: [CTAP2 authenticatorGetNextAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorGetNextAssertion)
-        func getNextAssertion() async throws -> AssertionResponse {
-            let assertionResponse: AssertionResponse? = try await interface.send(
+        func getNextAssertion() async throws -> CTAP.GetAssertion.Response {
+            let assertionResponse: CTAP.GetAssertion.Response? = try await interface.send(
                 command: .getNextAssertion
             )
 
@@ -224,7 +224,7 @@ extension CTAP {
         /// - Returns: An async sequence of assertion responses.
         /// - SeeAlso: ``getAssertion(parameters:)`` for low-level access to a single assertion.
         func getAssertions(
-            parameters: GetAssertionParameters
+            parameters: CTAP.GetAssertion.Parameters
         ) -> AssertionSequence<I> {
             AssertionSequence(session: self, parameters: parameters)
         }
@@ -240,12 +240,13 @@ extension CTAP {
 ///
 /// Use ``CTAP/Session/getAssertions(parameters:)`` to create instances of this type.
 struct AssertionSequence<I: CBORInterface>: AsyncSequence where I.Error == FIDO2SessionError {
-    typealias Element = AssertionResponse
+    typealias Element = CTAP.GetAssertion.Response
+    typealias Failure = any Error
 
     let session: CTAP.Session<I>
-    let parameters: GetAssertionParameters
+    let parameters: CTAP.GetAssertion.Parameters
 
-    fileprivate init(session: CTAP.Session<I>, parameters: GetAssertionParameters) {
+    fileprivate init(session: CTAP.Session<I>, parameters: CTAP.GetAssertion.Parameters) {
         self.session = session
         self.parameters = parameters
     }
@@ -256,13 +257,15 @@ struct AssertionSequence<I: CBORInterface>: AsyncSequence where I.Error == FIDO2
 
     /// Iterator for assertion responses.
     struct AsyncIterator: AsyncIteratorProtocol {
+        typealias Element = CTAP.GetAssertion.Response
+
         let session: CTAP.Session<I>
-        let parameters: GetAssertionParameters
+        let parameters: CTAP.GetAssertion.Parameters
 
         var currentIndex = 0
         var totalCredentials = 0
 
-        mutating func next() async throws -> AssertionResponse? {
+        mutating func next() async throws -> CTAP.GetAssertion.Response? {
             if currentIndex == 0 {
                 // Get first assertion
                 let response = try await session.getAssertion(parameters: parameters)

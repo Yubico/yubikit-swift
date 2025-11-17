@@ -52,7 +52,7 @@ struct CTAP2FullStackTests {
             let clientDataHash = Data(repeating: 0xCD, count: 32)
             let userId = Data(repeating: 0x02, count: 32)
 
-            let params = MakeCredentialParameters(
+            let params = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredentialUserEntity(
@@ -95,7 +95,7 @@ struct CTAP2FullStackTests {
             let clientDataHash = Data(repeating: 0xCD, count: 32)
             let userId = Data(repeating: 0x03, count: 32)
 
-            let params = MakeCredentialParameters(
+            let params = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredentialUserEntity(
@@ -141,7 +141,7 @@ struct CTAP2FullStackTests {
             let userId = Data(repeating: 0x04, count: 32)
 
             // First, create a credential
-            let params1 = MakeCredentialParameters(
+            let params1 = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredentialUserEntity(
@@ -165,7 +165,7 @@ struct CTAP2FullStackTests {
             let credentialId = attestedData.credentialId
 
             // Now try to create another credential with excludeList containing the first
-            let params2 = MakeCredentialParameters(
+            let params2 = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredentialUserEntity(
@@ -203,7 +203,7 @@ struct CTAP2FullStackTests {
         try await withCTAP2Session { session in
             let clientDataHash = Data(repeating: 0xCD, count: 32)
 
-            let params = MakeCredentialParameters(
+            let params = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredentialUserEntity(
@@ -245,7 +245,7 @@ struct CTAP2FullStackTests {
             let userId = Data(repeating: 0x10, count: 32)
 
             // First, create a credential to authenticate with
-            let makeCredParams = MakeCredentialParameters(
+            let makeCredParams = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredentialUserEntity(
@@ -268,7 +268,7 @@ struct CTAP2FullStackTests {
             let credentialId = attestedData.credentialId
 
             // Now authenticate with the credential
-            let getAssertionParams = GetAssertionParameters(
+            let getAssertionParams = CTAP.GetAssertion.Parameters(
                 rpId: "example.com",
                 clientDataHash: clientDataHash,
                 allowList: [PublicKeyCredentialDescriptor(id: credentialId)]
@@ -295,7 +295,7 @@ struct CTAP2FullStackTests {
 
             // Create multiple resident keys for the same RP
             for i in 1...3 {
-                let makeCredParams = MakeCredentialParameters(
+                let makeCredParams = CTAP.MakeCredential.Parameters(
                     clientDataHash: clientDataHash,
                     rp: PublicKeyCredentialRPEntity(id: rpId, name: "Multi Assert Corp"),
                     user: PublicKeyCredentialUserEntity(
@@ -311,7 +311,7 @@ struct CTAP2FullStackTests {
                 _ = try await session.makeCredential(parameters: makeCredParams)
             }
 
-            let getAssertionParams = GetAssertionParameters(
+            let getAssertionParams = CTAP.GetAssertion.Parameters(
                 rpId: rpId,
                 clientDataHash: clientDataHash,
                 allowList: nil  // Resident key discovery
@@ -342,7 +342,7 @@ struct CTAP2FullStackTests {
             let clientDataHash = Data(repeating: 0xCD, count: 32)
             let userId = Data(repeating: 0x98, count: 32)
 
-            let params = MakeCredentialParameters(
+            let params = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredentialUserEntity(

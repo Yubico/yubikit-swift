@@ -14,9 +14,9 @@
 
 import Foundation
 
-// MARK: - GetAssertionParameters + CBOR
+// MARK: - CTAP.GetAssertion.Parameters + CBOR
 
-extension GetAssertionParameters: CBOR.Encodable {
+extension CTAP.GetAssertion.Parameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [
             1: rpId.cbor(),
@@ -52,9 +52,9 @@ extension GetAssertionParameters: CBOR.Encodable {
     }
 }
 
-// MARK: - GetAssertionParameters.Options + CBOR
+// MARK: - CTAP.GetAssertion.Parameters.Options + CBOR
 
-extension GetAssertionParameters.Options: CBOR.Encodable {
+extension CTAP.GetAssertion.Parameters.Options: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
 

@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - AssertionResponse + CBOR
 
-extension AssertionResponse: CBOR.Decodable {
+extension CTAP.GetAssertion.Response: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue else {
             return nil

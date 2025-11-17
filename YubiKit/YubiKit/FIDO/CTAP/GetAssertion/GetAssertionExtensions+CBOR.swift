@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - GetAssertionExtensions + CBOR
 
-extension GetAssertionExtensions: CBOR.Encodable {
+extension CTAP.GetAssertion.Extensions: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         let map: [CBOR.Value: CBOR.Value] = [:]
         return map.cbor()

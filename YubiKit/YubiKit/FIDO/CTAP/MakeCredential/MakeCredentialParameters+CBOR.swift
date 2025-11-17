@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - MakeCredentialParameters + CBOR
 
-extension MakeCredentialParameters: CBOR.Encodable {
+extension CTAP.MakeCredential.Parameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [
             1: clientDataHash.cbor(),
@@ -60,7 +60,7 @@ extension MakeCredentialParameters: CBOR.Encodable {
 
 // MARK: - MakeCredentialParameters.Options + CBOR
 
-extension MakeCredentialParameters.Options: CBOR.Encodable {
+extension CTAP.MakeCredential.Parameters.Options: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
 
