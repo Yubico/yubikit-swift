@@ -28,11 +28,11 @@ extension CTAP.MakeCredential {
         public let format: String
 
         /// Parsed authenticator data containing RP ID hash, flags, counter, and credential info.
-        public let authenticatorData: AuthenticatorData
+        public let authenticatorData: WebAuthn.AuthenticatorData
 
         /// Attestation statement with strongly-typed access based on format.
         /// Unknown formats are represented as `.unknown(format:)`.
-        public let attestationStatement: AttestationStatement
+        public let attestationStatement: WebAuthn.AttestationStatement
 
         /// Whether enterprise attestation was returned.
         public let enterpriseAttestation: Bool?
@@ -41,6 +41,6 @@ extension CTAP.MakeCredential {
         public let largeBlobKey: Data?
 
         /// Unsigned extension outputs not included in signed authenticator data.
-        public let unsignedExtensionOutputs: ExtensionOutputs?
+        public let unsignedExtensionOutputs: WebAuthn.ExtensionOutputs?
     }
 }

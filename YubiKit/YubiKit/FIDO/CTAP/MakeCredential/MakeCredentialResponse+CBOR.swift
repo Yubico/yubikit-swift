@@ -30,7 +30,7 @@ extension CTAP.MakeCredential.Response: CBOR.Decodable {
 
         // Required: authData (0x02) - authenticator data
         guard let authDataBytes: Data = map[.unsignedInt(0x02)]?.cborDecoded(),
-            let authData = AuthenticatorData(data: authDataBytes)
+            let authData = WebAuthn.AuthenticatorData(data: authDataBytes)
         else {
             return nil
         }
@@ -42,22 +42,22 @@ extension CTAP.MakeCredential.Response: CBOR.Decodable {
         }
 
         // Decode based on format
-        let attStmt: AttestationStatement
+        let attStmt: WebAuthn.AttestationStatement
         switch fmt {
         case "packed":
-            guard let packed = PackedAttestation(cbor: attStmtValue) else {
+            guard let packed = WebAuthn.AttestationStatement.Packed(cbor: attStmtValue) else {
                 return nil  // Known format but invalid CBOR structure
             }
             attStmt = .packed(packed)
         case "fido-u2f":
-            guard let fidoU2F = FIDOU2FAttestation(cbor: attStmtValue) else {
+            guard let fidoU2F = WebAuthn.AttestationStatement.FIDOU2F(cbor: attStmtValue) else {
                 return nil  // Known format but invalid CBOR structure
             }
             attStmt = .fidoU2F(fidoU2F)
         case "none":
             attStmt = .none
         case "apple":
-            guard let apple = AppleAttestation(cbor: attStmtValue) else {
+            guard let apple = WebAuthn.AttestationStatement.Apple(cbor: attStmtValue) else {
                 return nil  // Known format but invalid CBOR structure
             }
             attStmt = .apple(apple)

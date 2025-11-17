@@ -26,7 +26,7 @@ extension CTAP.GetAssertion {
         let credential: PublicKeyCredentialDescriptor?
 
         /// Authenticator data for this assertion.
-        let authenticatorData: AuthenticatorData
+        let authenticatorData: WebAuthn.AuthenticatorData
 
         /// Signature over authenticatorData and clientDataHash.
         let signature: Data
@@ -48,7 +48,7 @@ extension CTAP.GetAssertion {
 
         init(
             credential: PublicKeyCredentialDescriptor? = nil,
-            authenticatorData: AuthenticatorData,
+            authenticatorData: WebAuthn.AuthenticatorData,
             signature: Data,
             user: PublicKeyCredentialUserEntity? = nil,
             numberOfCredentials: Int? = nil,

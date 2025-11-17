@@ -27,7 +27,7 @@ extension CTAP.GetAssertion.Response: CBOR.Decodable {
 
         // Required: authData (0x02)
         guard let authDataBytes: Data = map[.unsignedInt(0x02)]?.cborDecoded(),
-            let authData = AuthenticatorData(data: authDataBytes)
+            let authData = WebAuthn.AuthenticatorData(data: authDataBytes)
         else {
             return nil
         }
