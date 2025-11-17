@@ -145,6 +145,139 @@ extension CTAP {
 
             return credentialData
         }
+
+        /// Get an authentication assertion from the authenticator.
+        ///
+        /// This command generates an authentication assertion for an existing credential. The authenticator
+        /// will verify user presence (and optionally user verification via PIN/biometric), locate the
+        /// credential, and return an assertion containing a signature over the authenticator data and
+        /// client data hash.
+        ///
+        /// > Important: This operation requires user interaction (touch) unless the `up` option is set to false.
+        /// > It may require PIN entry if user verification is requested.
+        ///
+        /// > Note: This functionality requires support for ``CTAP/Feature/getAssertion``, available on YubiKey 5.0 or later.
+        ///
+        /// - Parameter parameters: The assertion request parameters.
+        /// - Returns: The assertion response including signature and authenticator data.
+        /// - Throws: ``FIDO2SessionError`` if the operation fails.
+        ///
+        /// - SeeAlso: [CTAP2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorGetAssertion)
+        func getAssertion(parameters: GetAssertionParameters) async throws -> AssertionResponse {
+            let assertionResponse: AssertionResponse? = try await interface.send(
+                command: .getAssertion,
+                payload: parameters
+            )
+
+            guard let assertionResponse = assertionResponse else {
+                throw Error.responseParseError(
+                    "Failed to parse getAssertion response",
+                    source: .here()
+                )
+            }
+
+            return assertionResponse
+        }
+
+        /// Get the next assertion when multiple credentials are available.
+        ///
+        /// After calling ``getAssertion(parameters:)``, if the response contains `numberOfCredentials > 1`,
+        /// call this method repeatedly to retrieve the remaining assertions. Each call returns the next
+        /// available assertion until all have been retrieved.
+        ///
+        /// > Important: This command must only be called after a successful ``getAssertion(parameters:)`` call
+        /// > that returned `numberOfCredentials > 1`. Calling it at other times will result in an error.
+        ///
+        /// > Note: This functionality requires support for ``CTAP/Feature/getNextAssertion``, available on YubiKey 5.0 or later.
+        ///
+        /// - Returns: The next assertion response.
+        /// - Throws: ``FIDO2SessionError`` if the operation fails.
+        ///
+        /// - SeeAlso: [CTAP2 authenticatorGetNextAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorGetNextAssertion)
+        func getNextAssertion() async throws -> AssertionResponse {
+            let assertionResponse: AssertionResponse? = try await interface.send(
+                command: .getNextAssertion
+            )
+
+            guard let assertionResponse = assertionResponse else {
+                throw Error.responseParseError(
+                    "Failed to parse getNextAssertion response",
+                    source: .here()
+                )
+            }
+
+            return assertionResponse
+        }
+
+        // MARK: - Multiple Assertions
+
+        /// Get all assertions as an async sequence.
+        ///
+        /// Returns an async sequence that lazily fetches assertions one at a time. This automatically
+        /// handles calling ``getAssertion(parameters:)`` for the first assertion and ``getNextAssertion()``
+        /// for subsequent assertions based on `numberOfCredentials`.
+        ///
+        /// When only one credential matches, the sequence yields a single assertion. When multiple credentials
+        /// are available (resident key discovery with no allowList), the sequence yields all of them.
+        ///
+        /// - Parameter parameters: The assertion request parameters.
+        /// - Returns: An async sequence of assertion responses.
+        /// - SeeAlso: ``getAssertion(parameters:)`` for low-level access to a single assertion.
+        func getAssertions(
+            parameters: GetAssertionParameters
+        ) -> AssertionSequence<I> {
+            AssertionSequence(session: self, parameters: parameters)
+        }
+    }
+}
+
+// MARK: - AssertionSequence
+
+/// An async sequence of assertion responses.
+///
+/// This sequence lazily fetches assertions from the authenticator, calling ``CTAP/Session/getAssertion(parameters:)``
+/// for the first assertion and ``CTAP/Session/getNextAssertion()`` for subsequent assertions.
+///
+/// Use ``CTAP/Session/getAssertions(parameters:)`` to create instances of this type.
+struct AssertionSequence<I: CBORInterface>: AsyncSequence where I.Error == FIDO2SessionError {
+    typealias Element = AssertionResponse
+
+    let session: CTAP.Session<I>
+    let parameters: GetAssertionParameters
+
+    fileprivate init(session: CTAP.Session<I>, parameters: GetAssertionParameters) {
+        self.session = session
+        self.parameters = parameters
+    }
+
+    func makeAsyncIterator() -> AsyncIterator {
+        AsyncIterator(session: session, parameters: parameters)
+    }
+
+    /// Iterator for assertion responses.
+    struct AsyncIterator: AsyncIteratorProtocol {
+        let session: CTAP.Session<I>
+        let parameters: GetAssertionParameters
+
+        var currentIndex = 0
+        var totalCredentials = 0
+
+        mutating func next() async throws -> AssertionResponse? {
+            if currentIndex == 0 {
+                // Get first assertion
+                let response = try await session.getAssertion(parameters: parameters)
+                totalCredentials = response.numberOfCredentials ?? 1
+                currentIndex = 1
+                return response
+            } else if currentIndex < totalCredentials {
+                // Get next assertion
+                currentIndex += 1
+                return try await session.getNextAssertion()
+            } else {
+                // Done iterating
+                return nil
+            }
+        }
     }
 }
 
