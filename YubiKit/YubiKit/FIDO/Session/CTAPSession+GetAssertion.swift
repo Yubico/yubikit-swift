@@ -95,8 +95,8 @@ extension CTAP.Session {
     /// - SeeAlso: ``getAssertion(parameters:)`` for low-level access to a single assertion.
     func getAssertions(
         parameters: CTAP.GetAssertion.Parameters
-    ) -> AssertionSequence<I> {
-        AssertionSequence(session: self, parameters: parameters)
+    ) -> CTAP.GetAssertion.Sequence<I> {
+        .init(session: self, parameters: parameters)
     }
 }
 
@@ -108,24 +108,36 @@ extension CTAP.Session {
 /// for the first assertion and ``CTAP/Session/getNextAssertion()`` for subsequent assertions.
 ///
 /// Use ``CTAP/Session/getAssertions(parameters:)`` to create instances of this type.
-struct AssertionSequence<I: CBORInterface>: AsyncSequence where I.Error == FIDO2SessionError {
-    typealias Element = CTAP.GetAssertion.Response
-    typealias Failure = any Error
+extension CTAP.GetAssertion {
+    struct Sequence<I: CBORInterface>: AsyncSequence where I.Error == FIDO2SessionError {
+        typealias Element = CTAP.GetAssertion.Response
 
-    let session: CTAP.Session<I>
-    let parameters: CTAP.GetAssertion.Parameters
+        let session: CTAP.Session<I>
+        let parameters: CTAP.GetAssertion.Parameters
 
-    fileprivate init(session: CTAP.Session<I>, parameters: CTAP.GetAssertion.Parameters) {
-        self.session = session
-        self.parameters = parameters
+        fileprivate init(session: CTAP.Session<I>, parameters: CTAP.GetAssertion.Parameters) {
+            self.session = session
+            self.parameters = parameters
+        }
+
+        func makeAsyncIterator() -> Iterator<I> {
+            Iterator(session: session, parameters: parameters)
+        }
     }
 
-    func makeAsyncIterator() -> AsyncIterator {
-        AsyncIterator(session: session, parameters: parameters)
+    static func sequence<I: CBORInterface>(
+        session: CTAP.Session<I>,
+        parameters: CTAP.GetAssertion.Parameters
+    ) -> Sequence<I> where I.Error == FIDO2SessionError {
+        Sequence(session: session, parameters: parameters)
     }
+}
 
-    /// Iterator for assertion responses.
-    struct AsyncIterator: AsyncIteratorProtocol {
+extension CTAP.GetAssertion {
+    /// Iterator that fetches assertions one at a time from the authenticator.
+    ///
+    /// Created by ``Sequence/makeAsyncIterator()``. Use ``CTAP/Session/getAssertions(parameters:)`` instead of instantiating directly.
+    actor Iterator<I: CBORInterface>: AsyncIteratorProtocol where I.Error == FIDO2SessionError {
         typealias Element = CTAP.GetAssertion.Response
 
         let session: CTAP.Session<I>
@@ -134,7 +146,12 @@ struct AssertionSequence<I: CBORInterface>: AsyncSequence where I.Error == FIDO2
         var currentIndex = 0
         var totalCredentials = 0
 
-        mutating func next() async throws -> CTAP.GetAssertion.Response? {
+        fileprivate init(session: CTAP.Session<I>, parameters: CTAP.GetAssertion.Parameters) {
+            self.session = session
+            self.parameters = parameters
+        }
+
+        func next() async throws -> CTAP.GetAssertion.Response? {
             if currentIndex == 0 {
                 // Get first assertion
                 let response = try await session.getAssertion(parameters: parameters)
