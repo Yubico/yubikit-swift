@@ -17,7 +17,7 @@ import Foundation
 extension CTAP.MakeCredential {
     /// Parameters for the authenticatorMakeCredential command.
     ///
-    /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorMakeCredential)
+    /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
     struct Parameters: Sendable {
         /// SHA-256 hash of the client data.
         let clientDataHash: Data

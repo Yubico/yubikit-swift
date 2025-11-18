@@ -109,7 +109,7 @@ extension CTAP {
         ///
         /// - Throws: ``FIDO2SessionError`` if the cancel command fails to send.
         ///
-        /// - SeeAlso: [CTAP 2.2 - CTAPHID_CANCEL](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#usb-hid-cancel)
+        /// - SeeAlso: [CTAP 2.3 - CTAPHID_CANCEL](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#usb-hid-cancel)
         func cancel() async throws {
             try await interface.cancel()
         }

@@ -20,7 +20,7 @@ extension CTAP.MakeCredential {
     /// Contains the attestation object with the new credential's public key,
     /// credential ID, and attestation information.
     ///
-    /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorMakeCredential)
+    /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
     /// - SeeAlso: [WebAuthn AuthenticatorData](https://www.w3.org/TR/webauthn/#authenticator-data)
     struct Response: Sendable {
 

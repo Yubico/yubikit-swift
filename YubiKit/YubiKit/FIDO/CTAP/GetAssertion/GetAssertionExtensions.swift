@@ -14,9 +14,11 @@
 
 import Foundation
 
-/// Extension inputs for the authenticatorGetAssertion command.
-///
-/// - SeeAlso: [CTAP2.2 Extensions](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#sctn-defined-extensions)
-struct GetAssertionExtensions: Sendable {
-    init() {}
+extension CTAP.GetAssertion {
+    /// Extension inputs for the authenticatorGetAssertion command.
+    ///
+    /// - SeeAlso: [CTAP2.3 Extensions](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#sctn-defined-extensions)
+    struct Extensions: Sendable {
+        init() {}
+    }
 }

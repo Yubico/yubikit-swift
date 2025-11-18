@@ -33,7 +33,7 @@ extension CTAP.Session {
     /// - Returns: The credential data including attestation information.
     /// - Throws: ``FIDO2SessionError`` if the operation fails.
     ///
-    /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorMakeCredential)
+    /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
     func makeCredential(parameters: CTAP.MakeCredential.Parameters) async throws -> CTAP.MakeCredential.Response {
         let credentialData: CTAP.MakeCredential.Response? = try await interface.send(
             command: .makeCredential,

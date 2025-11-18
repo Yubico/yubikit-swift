@@ -17,7 +17,7 @@ import Foundation
 extension CTAP.GetAssertion {
     /// Parameters for the authenticatorGetAssertion command.
     ///
-    /// - SeeAlso: [CTAP2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorGetAssertion)
+    /// - SeeAlso: [CTAP2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)
     struct Parameters: Sendable {
         /// Relying Party identifier (e.g., "example.com").
         let rpId: String

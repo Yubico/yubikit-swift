@@ -19,7 +19,7 @@ extension CTAP.GetAssertion {
     ///
     /// Contains the authentication assertion including signature and authenticator data.
     ///
-    /// - SeeAlso: [CTAP2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorGetAssertion)
+    /// - SeeAlso: [CTAP2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)
     struct Response: Sendable {
         /// The credential that was used to generate this assertion.
         /// Only present when multiple credentials match or when using resident keys.

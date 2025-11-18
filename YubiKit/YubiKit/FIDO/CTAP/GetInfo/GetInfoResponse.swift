@@ -86,7 +86,7 @@ extension CTAP.GetInfo {
         /// Provides hints about certifications the authenticator has received.
         /// Examples include FIPS-CMVP, Common Criteria, and FIDO certifications.
         ///
-        /// - SeeAlso: [CTAP 2.2 Section 7.3](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#sctn-feature-descriptions-certifications)
+        /// - SeeAlso: [CTAP 2.3 Section 7.3](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#sctn-feature-descriptions-certifications)
         let certifications: [String: UInt]?
 
         /// Remaining discoverable credential slots.
