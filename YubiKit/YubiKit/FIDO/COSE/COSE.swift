@@ -32,9 +32,18 @@ import Foundation
         case es256 = -7
 
         /// EdDSA algorithm (Ed25519).
+        ///
+        /// Supported on YubiKey firmware 5.2.X and above.
         case edDSA = -8
 
+        /// ES384 algorithm (ECDSA with P-384 and SHA-384).
+        ///
+        /// Supported on YubiKey firmware 5.6.X and above.
+        case es384 = -35
+
         /// RS256 algorithm (RSASSA-PKCS1-v1_5 with SHA-256).
+        ///
+        /// Supported on YubiKey firmware 5.1.X and below only.
         case rs256 = -257
     }
 
@@ -52,7 +61,7 @@ import Foundation
         /// - Parameters:
         ///   - alg: Algorithm (COSE label 3: alg)
         ///   - kid: Optional key ID (COSE label 2: kid)
-        ///   - crv: Curve identifier (COSE label -1: crv) - 1: P-256, 2: P-384, 3: P-521
+        ///   - crv: Curve identifier (COSE label -1: crv) - 1: P-256, 2: P-384
         ///   - x: X coordinate (COSE label -2: x)
         ///   - y: Y coordinate (COSE label -3: y)
         case ec2(alg: Algorithm, kid: Data?, crv: Int, x: Data, y: Data)
