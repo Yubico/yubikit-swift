@@ -55,7 +55,7 @@ extension CTAP {
         ///
         /// - Returns: The authenticator information structure.
         /// - Throws: ``FIDO2SessionError`` if the operation fails.
-        func getInfo() async throws -> CTAP.GetInfo.Response {
+        func getInfo() async throws(Error) -> CTAP.GetInfo.Response {
             let info: CTAP.GetInfo.Response? = try await interface.send(command: .getInfo)
 
             guard let info = info else {
@@ -77,7 +77,7 @@ extension CTAP {
         /// > Note: This functionality requires support for ``CTAP/Feature/reset``, available on YubiKey 5.0 or later.
         ///
         /// - Throws: ``FIDO2SessionError`` if the operation fails.
-        func reset() async throws {
+        func reset() async throws(Error) {
             try await interface.send(command: .reset)
         }
 
@@ -94,7 +94,7 @@ extension CTAP {
         /// > Note: This functionality requires support for ``CTAP/Feature/selection``, available on YubiKey 5.0 or later.
         ///
         /// - Throws: ``FIDO2SessionError`` if the operation fails or times out.
-        func selection() async throws {
+        func selection() async throws(Error) {
             try await interface.send(command: .selection)
         }
 
@@ -110,7 +110,7 @@ extension CTAP {
         /// - Throws: ``FIDO2SessionError`` if the cancel command fails to send.
         ///
         /// - SeeAlso: [CTAP 2.3 - CTAPHID_CANCEL](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#usb-hid-cancel)
-        func cancel() async throws {
+        func cancel() async throws(Error) {
             try await interface.cancel()
         }
     }

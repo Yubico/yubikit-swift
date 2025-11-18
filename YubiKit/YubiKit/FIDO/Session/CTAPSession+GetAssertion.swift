@@ -33,7 +33,7 @@ extension CTAP.Session {
     /// - Throws: ``FIDO2SessionError`` if the operation fails.
     ///
     /// - SeeAlso: [CTAP2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)
-    func getAssertion(parameters: CTAP.GetAssertion.Parameters) async throws -> CTAP.GetAssertion.Response {
+    func getAssertion(parameters: CTAP.GetAssertion.Parameters) async throws(Error) -> CTAP.GetAssertion.Response {
         let assertionResponse: CTAP.GetAssertion.Response? = try await interface.send(
             command: .getAssertion,
             payload: parameters
@@ -64,7 +64,7 @@ extension CTAP.Session {
     /// - Throws: ``FIDO2SessionError`` if the operation fails.
     ///
     /// - SeeAlso: [CTAP2 authenticatorGetNextAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetNextAssertion)
-    func getNextAssertion() async throws -> CTAP.GetAssertion.Response {
+    func getNextAssertion() async throws(Error) -> CTAP.GetAssertion.Response {
         let assertionResponse: CTAP.GetAssertion.Response? = try await interface.send(
             command: .getNextAssertion
         )
@@ -151,7 +151,7 @@ extension CTAP.GetAssertion {
             self.parameters = parameters
         }
 
-        func next() async throws -> CTAP.GetAssertion.Response? {
+        func next() async throws(FIDO2SessionError) -> CTAP.GetAssertion.Response? {
             if currentIndex == 0 {
                 // Get first assertion
                 let response = try await session.getAssertion(parameters: parameters)
