@@ -25,6 +25,9 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
     let scpState: SCPState?
     let selectResponse: Data
 
+    // State for cancelling CTAP keep-alive commands
+    var shouldCancelCTAP = false
+
     // Select application and optionally setup SCP
     init(
         connection: SmartCardConnection,
@@ -69,6 +72,15 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
     // Send APDU with optional SCP encryption and automatic continuation handling
     @discardableResult
     func send(apdu: APDU, insSendRemaining: UInt8 = 0xc0) async throws(Error) -> Data {
+        let response: Response = try await send(apdu: apdu, insSendRemaining: insSendRemaining)
+        return response.data
+    }
+
+    // Internal overload that returns full Response (including status codes)
+    internal func send(
+        apdu: APDU,
+        insSendRemaining: UInt8 = 0xc0,
+    ) async throws(Error) -> Response {
         if let scpState {
             return try await sendWithSCP(apdu: apdu, scpState: scpState, insSendRemaining: insSendRemaining)
         } else {
@@ -81,7 +93,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         apdu: APDU,
         scpState: SCPState,
         insSendRemaining: UInt8
-    ) async throws(Error) -> Data {
+    ) async throws(Error) -> Response {
         // Encrypt command data
         let data: Data
         do {
@@ -102,8 +114,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
                     ins: apdu.ins,
                     p1: apdu.p1,
                     p2: apdu.p2,
-                    command: data + Data(count: 8),
-                    type: .extended
+                    command: data + Data(count: 8)
                 ).data.dropLast(8)
             )
         } catch {
@@ -111,8 +122,9 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         }
 
         // Send encrypted APDU with MAC
-        let secureApdu = APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac, type: .extended)
-        var result = try await sendPlain(apdu: secureApdu, insSendRemaining: insSendRemaining)
+        let secureApdu = APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac)
+        let response = try await sendPlain(apdu: secureApdu, insSendRemaining: insSendRemaining)
+        var result = response.data
 
         // Verify and remove MAC from response
         if !result.isEmpty {
@@ -132,11 +144,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
             }
         }
 
-        return result
+        // Return response with decrypted data
+        return Response(rawData: result + Data([response.responseStatus.sw1, response.responseStatus.sw2]))
     }
 
     // Send APDU without SCP encryption
-    private func sendPlain(apdu: APDU, insSendRemaining: UInt8) async throws(Error) -> Data {
+    private func sendPlain(apdu: APDU, insSendRemaining: UInt8) async throws(Error) -> Response {
         try await Self.sendWithContinuationStatic(
             connection: connection,
             apdu: apdu,
@@ -152,13 +165,14 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         apdu: APDU,
         insSendRemaining: UInt8
     ) async throws(Error) -> Data {
-        try await sendWithContinuationStatic(
+        let response = try await sendWithContinuationStatic(
             connection: connection,
             apdu: apdu,
             accumulated: Data(),
             readMoreData: false,
             insSendRemaining: insSendRemaining
         )
+        return response.data
     }
 
     // Send APDU and handle continuation responses (0x61) - static version for use in init
@@ -168,7 +182,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         accumulated: Data,
         readMoreData: Bool,
         insSendRemaining: UInt8
-    ) async throws(Error) -> Data {
+    ) async throws(Error) -> Response {
         // Send APDU or continuation command
         let responseData: Data
         do {
@@ -202,7 +216,8 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
                 insSendRemaining: insSendRemaining
             )
         } else {
-            return newData
+            // Return full response with accumulated data and final status
+            return Response(rawData: newData + Data([response.responseStatus.sw1, response.responseStatus.sw2]))
         }
     }
 
@@ -250,8 +265,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
                 ins: 0x50,  // INITIALIZE UPDATE
                 p1: keyParams.keyRef.kvn,
                 p2: 0x00,
-                command: hostChallenge,
-                type: .extended
+                command: hostChallenge
             ),
             insSendRemaining: insSendRemaining
         )
@@ -288,7 +302,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         let state = SCPState(sessionKeys: sessionKeys, macChain: Data(count: 16))
 
         // Send finalize with SCP MAC (no encryption)
-        let finalizeApdu = APDU(cla: 0x84, ins: 0x82, p1: 0x33, p2: 0, command: hostCryptogram, type: .extended)
+        let finalizeApdu = APDU(cla: 0x84, ins: 0x82, p1: 0x33, p2: 0, command: hostCryptogram)
         _ = try await sendWithSCPNoEncryptStatic(
             connection: connection,
             apdu: finalizeApdu,
@@ -338,8 +352,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
                         ins: 0x2A,  // PERFORM SECURITY OPERATION
                         p1: oceRef.kvn,
                         p2: p2,
-                        command: cert.der,
-                        type: .extended
+                        command: cert.der
                     ),
                     insSendRemaining: insSendRemaining
                 )
@@ -377,8 +390,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
                 ins: ins,
                 p1: keyParams.keyRef.kvn,
                 p2: keyParams.keyRef.kid,
-                command: data,
-                type: .extended
+                command: data
             ),
             insSendRemaining: insSendRemaining
         )
@@ -448,15 +460,14 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
                     ins: apdu.ins,
                     p1: apdu.p1,
                     p2: apdu.p2,
-                    command: data + Data(count: 8),
-                    type: .extended
+                    command: data + Data(count: 8)
                 ).data.dropLast(8)
             )
         } catch {
             throw .cryptoError("Failed to calculate MAC", error: error, source: .here())
         }
 
-        let secureApdu = APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac, type: .extended)
+        let secureApdu = APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac)
         var result = try await sendPlainStatic(
             connection: connection,
             apdu: secureApdu,

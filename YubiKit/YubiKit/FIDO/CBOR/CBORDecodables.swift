@@ -141,23 +141,38 @@ extension Data: CBOR.Decodable {
 
 // MARK: - Array
 
-extension Array: CBOR.Decodable where Element == CBOR.Value {
+extension Array: CBOR.Decodable where Element: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let arrayValue = cbor.arrayValue else {
             return nil
         }
-        self = arrayValue
+        let decoded = arrayValue.map { $0.cborDecoded() as Element? }
+        guard decoded.allSatisfy({ $0 != nil }) else {
+            return nil
+        }
+        self = decoded.compactMap { $0 }
     }
 }
 
 // MARK: - Dictionary
 
-extension Dictionary: CBOR.Decodable where Key == CBOR.Value, Value == CBOR.Value {
+extension Dictionary: CBOR.Decodable where Key: CBOR.Decodable, Value: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let mapValue = cbor.mapValue else {
             return nil
         }
-        self = mapValue
+        let decoded = mapValue.compactMap { (cborKey, cborValue) -> (Key, Value)? in
+            guard let key: Key = cborKey.cborDecoded(),
+                let value: Value = cborValue.cborDecoded()
+            else {
+                return nil
+            }
+            return (key, value)
+        }
+        guard decoded.count == mapValue.count else {
+            return nil
+        }
+        self = Dictionary(uniqueKeysWithValues: decoded)
     }
 }
 

@@ -42,18 +42,20 @@ protocol CBORInterface: Actor {
         payload: I
     ) async throws(Error) -> O?
 
-    /// Send a CTAP2 command without payload.
+    /// Cancel any pending operation on this session.
     ///
-    /// The request format is: [command_byte]
-    /// The response format is: [status_byte][optional_cbor_response]
-    ///
-    /// - Parameters:
-    ///   - command: The CTAP2 command
-    /// - Returns: Decoded CBOR response, or nil if no response data
-    /// - Throws: CTAP or CBOR error
-    func send<O: CBOR.Decodable>(
-        command: CTAP.Command
-    ) async throws(Error) -> O?
+    /// Aborts ongoing operations such as waiting for user interaction (touch prompt, PIN entry, etc.).
+    func cancel() async throws(Error)
+}
+
+extension CBORInterface {
+    func send<O: CBOR.Decodable>(command: CTAP.Command) async throws(Error) -> O? {
+        try await send(command: command, payload: nil as CBOR.Value?)
+    }
+
+    func send(command: CTAP.Command) async throws(Error) {
+        let _: CBOR.Value? = try await send(command: command, payload: nil as CBOR.Value?)
+    }
 }
 
 // MARK: - Private Helpers
@@ -100,14 +102,6 @@ extension FIDOInterface: CBORInterface where Error: CBORError & CTAPError {
         let responseData = try await self.cbor(payload: requestData)
         return try handleCTAP2Response(responseData)
     }
-
-    func send<O: CBOR.Decodable>(
-        command: CTAP.Command
-    ) async throws(Error) -> O? {
-        let requestData = Data([command.rawValue])
-        let responseData = try await self.cbor(payload: requestData)
-        return try handleCTAP2Response(responseData)
-    }
 }
 
 // MARK: - CBORInterface Conformance (NFC/SmartCard Transport)
@@ -120,17 +114,55 @@ extension SmartCardInterface: CBORInterface where Error: CBORError & CTAPError {
         let cborData = payload.cbor().encode()
         requestData.append(cborData)
 
-        let apdu = APDU(cla: 0x00, ins: 0x10, p1: 0x00, p2: 0x00, command: requestData)
-        let responseData = try await send(apdu: apdu)
+        let responseData = try await sendCTAPCommand(requestData)
         return try handleCTAP2Response(responseData)
     }
 
-    func send<O: CBOR.Decodable>(
-        command: CTAP.Command
-    ) async throws(Error) -> O? {
-        let requestData = Data([command.rawValue])
-        let apdu = APDU(cla: 0x00, ins: 0x10, p1: 0x00, p2: 0x00, command: requestData)
-        let responseData = try await send(apdu: apdu)
-        return try handleCTAP2Response(responseData)
+    func cancel() async throws(Error) {
+        shouldCancelCTAP = true
+    }
+
+    // Send CTAP command over CCID with support for keepalive polling and cancellation
+    private func sendCTAPCommand(_ data: Data) async throws(Error) -> Data {
+
+        let CLA: UInt8 = 0x80
+        let NFCCTAP_MSG: UInt8 = 0x10
+        let P1_KEEP_ALIVE: UInt8 = 0x00
+        let P1_CANCEL_KEEP_ALIVE: UInt8 = 0x11
+        let P1_GET_RESPONSE: UInt8 = 0x80
+        let SW_KEEPALIVE: UInt16 = 0x9100
+        let NFCCTAP_GETRESPONSE: UInt8 = 0x11
+
+        // Clear 'shouldSendCancel' in case it has been trued before
+        shouldCancelCTAP = false
+
+        // Send initial CTAP command (handles 0x61 continuation automatically)
+        let initialApdu = APDU(cla: CLA, ins: NFCCTAP_MSG, p1: P1_GET_RESPONSE, p2: 0x00, command: data)
+        var response: Response = try await send(apdu: initialApdu)
+
+        // TODO: Make sure it works by testing with a 5.8 key over USB
+        // Poll with GET_RESPONSE while SW is 0x9100 (operation in progress)
+        while true {
+
+            let p1 = shouldCancelCTAP ? P1_CANCEL_KEEP_ALIVE : P1_KEEP_ALIVE
+
+            // Send GET_RESPONSE to poll for completion
+            let getResponseApdu = APDU(cla: CLA, ins: NFCCTAP_GETRESPONSE, p1: p1, p2: 0x00, command: nil)
+            response = try await send(apdu: getResponseApdu)
+
+            // exit loop when done
+            guard response.responseStatus.rawStatus == SW_KEEPALIVE
+            else { break }
+
+            // avoid hammering the authenticator
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+
+        // Check final response status
+        guard response.responseStatus.status == .ok else {
+            throw .failedResponse(response.responseStatus, source: .here())
+        }
+
+        return response.data
     }
 }

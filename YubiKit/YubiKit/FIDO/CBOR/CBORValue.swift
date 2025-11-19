@@ -156,6 +156,11 @@ extension CBOR.Value {
             return nil
         }
     }
+
+    // Generic decode helper that works with any CBOR.Decodable type
+    func cborDecoded<T: CBOR.Decodable>() -> T? {
+        T(cbor: self)
+    }
 }
 
 // MARK: - Hashable & Equatable
