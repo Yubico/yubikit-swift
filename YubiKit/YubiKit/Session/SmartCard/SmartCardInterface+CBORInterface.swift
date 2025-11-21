@@ -1,0 +1,128 @@
+// Copyright Yubico AB
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import Foundation
+
+// MARK: - CBORInterface Conformance (NFC/SmartCard Transport)
+
+extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
+    func send<I: CBOR.Encodable, O: CBOR.Decodable & Sendable>(
+        command: CTAP.Command,
+        payload: I
+    ) -> CTAP.StatusStream<O> {
+        var requestData = Data([command.rawValue])
+        let cborData = payload.cbor().encode()
+        requestData.append(cborData)
+
+        return sendCTAPCommandStream(requestData)
+    }
+
+    // Send CTAP command over CCID with support for keepalive polling
+    private func sendCTAPCommandStream<O: CBOR.Decodable & Sendable>(
+        _ data: Data
+    ) -> CTAP.StatusStream<O> {
+
+        let stream: CTAP.StatusStream<O> = .init { continuation in
+            Task {
+                do throws(CTAP.SessionError) {
+                    let CLA: UInt8 = 0x80
+                    let NFCCTAP_MSG: UInt8 = 0x10
+                    let P1_KEEP_ALIVE: UInt8 = 0x00
+                    let P1_CANCEL_KEEP_ALIVE: UInt8 = 0x11
+                    let P1_GET_RESPONSE: UInt8 = 0x80
+                    let SW_KEEPALIVE: UInt16 = 0x9100
+                    let NFCCTAP_GETRESPONSE: UInt8 = 0x11
+
+                    // Clear cancellation flag at the start of operation
+                    self.shouldCancelCTAP = false
+
+                    // Create cancel closure that sets the flag
+                    // Any errors during cancellation are yielded to the stream
+                    let cancelClosure: @Sendable () async -> Void = { [weak self] in
+                        do throws(CTAP.SessionError) {
+                            try await self?.cancel()
+                        } catch {
+                            continuation.yield(error: error)
+                        }
+                    }
+
+                    // Send initial CTAP command (handles 0x61 continuation automatically)
+                    let initialApdu = APDU(cla: CLA, ins: NFCCTAP_MSG, p1: P1_GET_RESPONSE, p2: 0x00, command: data)
+
+                    var response: Response
+                    response = try await self.sendAllowingKeepalive(apdu: initialApdu)
+
+                    // Poll with GET_RESPONSE while SW is 0x9100 (operation in progress)
+                    while response.responseStatus.rawStatus == SW_KEEPALIVE {
+
+                        // Parse keepalive status byte from response data
+                        let statusByte = response.data.first ?? 0x01  // Default to processing
+                        if let currentStatus: CTAP.Status<O> = CTAP.Status.fromKeepAlive(
+                            statusByte: statusByte,
+                            cancel: cancelClosure
+                        ) {
+                            continuation.yield(currentStatus)
+                        }
+
+                        // avoid hammering the authenticator
+                        try? await Task.sleep(for: .milliseconds(100))
+
+                        // Use P1_CANCEL_KEEP_ALIVE if cancel() was called
+                        let p1 = self.shouldCancelCTAP ? P1_CANCEL_KEEP_ALIVE : P1_KEEP_ALIVE
+
+                        // Send GET_RESPONSE to poll for completion
+                        let getResponseApdu = APDU(
+                            cla: CLA,
+                            ins: NFCCTAP_GETRESPONSE,
+                            p1: p1,
+                            p2: 0x00,
+                            command: nil
+                        )
+                        response = try await self.sendAllowingKeepalive(apdu: getResponseApdu)
+                    }
+
+                    // Check final response status
+                    guard response.status == .ok else {
+                        throw Error.failedResponse(response, source: .here())
+                    }
+
+                    // Parse and yield final response
+                    let result: O = try self.handleCTAP2Response(response.data)
+                    continuation.yield(.finished(result))
+                    continuation.finish()
+
+                } catch {
+                    continuation.yield(error: error)
+                }
+            }
+        }
+
+        return stream
+    }
+
+    private func sendAllowingKeepalive(
+        apdu: APDU
+    ) async throws(Error) -> Response {
+
+        var response: Response
+        do throws(CTAP.SessionError) {
+            response = try await self.send(apdu: apdu)
+        } catch let CTAP.SessionError.failedResponse(errorResponse, source: _) {
+            // A SW_KEEPALIVE will enter here and we use the response directly
+            response = errorResponse
+        }
+
+        return response
+    }
+}

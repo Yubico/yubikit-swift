@@ -15,23 +15,21 @@
 import Foundation
 
 // Type aliases for convenience
-typealias FIDO2Session = CTAP.Session<FIDOInterface<FIDO2SessionError>>
-typealias FIDO2SessionOverSmartCard = CTAP.Session<SmartCardInterface<FIDO2SessionError>>
+typealias FIDO2Session = CTAP.Session<FIDOInterface<CTAP.SessionError>>
+typealias FIDO2SessionOverSmartCard = CTAP.Session<SmartCardInterface<CTAP.SessionError>>
 
 extension CTAP {
 
-    /// A generic interface to the FIDO2/CTAP2 authenticator on the YubiKey.
+    /// A generic interface to the FIDO2/CTAP authenticator on the YubiKey.
     ///
-    /// Use the FIDO2 session to interact with the CTAP2 authenticator for WebAuthn/FIDO2
+    /// Use the FIDO2 session to interact with the CTAP authenticator for WebAuthn/FIDO2
     /// operations like credential creation, authentication, and device information.
     /// This generic version works with any interface that conforms to ``CBORInterface``,
     /// allowing FIDO2 operations over both USB (HID) and NFC (SmartCard) transports.
     ///
     /// Read more about FIDO2/WebAuthn on the
     /// [FIDO Alliance website](https://fidoalliance.org/fido2/).
-    final actor Session<I: CBORInterface> where I.Error == FIDO2SessionError {
-
-        typealias Error = FIDO2SessionError
+    final actor Session<I: CBORInterface> where I.Error == CTAP.SessionError {
 
         /// The underlying interface for communication (FIDOInterface or SmartCardInterface).
         let interface: I
@@ -54,18 +52,13 @@ extension CTAP {
         /// > Note: This functionality requires support for ``CTAP/Feature/getInfo``, available on YubiKey 5.0 or later.
         ///
         /// - Returns: The authenticator information structure.
-        /// - Throws: ``FIDO2SessionError`` if the operation fails.
-        func getInfo() async throws(Error) -> CTAP.GetInfo.Response {
-            let info: CTAP.GetInfo.Response? = try await interface.send(command: .getInfo)
-
-            guard let info = info else {
-                throw Error.responseParseError("Failed to parse authenticatorGetInfo response", source: .here())
-            }
-
-            return info
+        /// - Throws: ``CTAP.SessionError`` if the operation fails.
+        func getInfo() async throws(CTAP.SessionError) -> CTAP.GetInfo.Response {
+            let stream: CTAP.StatusStream<CTAP.GetInfo.Response> = await interface.send(command: .getInfo)
+            return try await stream.value
         }
 
-        /// Reset the CTAP2 authenticator.
+        /// Reset the CTAP authenticator.
         ///
         /// This command deletes all FIDO credentials, removes the PIN, and resets
         /// the authenticator to factory settings.
@@ -76,9 +69,11 @@ extension CTAP {
         ///
         /// > Note: This functionality requires support for ``CTAP/Feature/reset``, available on YubiKey 5.0 or later.
         ///
-        /// - Throws: ``FIDO2SessionError`` if the operation fails.
-        func reset() async throws(Error) {
-            try await interface.send(command: .reset)
+        /// - Throws: ``CTAP.SessionError`` if the operation fails.
+        func reset() async throws(CTAP.SessionError) {
+            let stream: CTAP.StatusStream<Never?> = await interface.send(command: .reset)
+            let _ = try await stream.value
+            return
         }
 
         /// Request user presence check for authenticator selection.
@@ -93,25 +88,41 @@ extension CTAP {
         ///
         /// > Note: This functionality requires support for ``CTAP/Feature/selection``, available on YubiKey 5.0 or later.
         ///
-        /// - Throws: ``FIDO2SessionError`` if the operation fails or times out.
-        func selection() async throws(Error) {
-            try await interface.send(command: .selection)
+        /// - Throws: ``CTAP.SessionError`` if the operation fails or times out.
+        func selection() async throws(CTAP.SessionError) {
+            let stream: CTAP.StatusStream<Never?> = await interface.send(command: .selection)
+            let _ = try await stream.value
+            return
         }
+    }
+}
 
-        /// Cancel any ongoing CTAP operation waiting for user interaction.
+extension CTAP {
+    /// Status updates for long-running CTAP operations.
+    ///
+    /// These status values are derived from CTAP keep-alive messages sent by the authenticator
+    /// during operations that require user interaction or processing time.
+    ///
+    /// - Note: Operations return an `AsyncStream` of status updates, culminating in a `.finished(Response)` value.
+    public enum Status<Response>: Sendable where Response: Sendable {
+        /// The authenticator is processing the request.
+        case processing
+
+        /// The authenticator is waiting for user presence (touch).
         ///
-        /// Sends a cancel command to abort operations such as `makeCredential` or `getAssertion`
-        /// that are waiting for user presence (touch) or user verification (PIN/biometric).
-        /// The cancelled operation will throw ``FIDO2SessionError/ctapError(_:source:)``
-        /// with ``CTAP/Error/keepaliveCancel``.
+        /// - Parameter cancel: Closure to cancel the operation. Any errors during cancellation
+        ///   will be propagated through the stream.
+        case waitingForUserPresence(cancel: @Sendable () async -> Void)
+
+        /// The authenticator is waiting for user verification (PIN or biometric).
         ///
-        /// > Note: The session remains usable after cancellation and can be used for subsequent operations.
+        /// - Parameter cancel: Closure to cancel the operation. Any errors during cancellation
+        ///   will be propagated through the stream.
+        case waitingForUserVerification(cancel: @Sendable () async -> Void)
+
+        /// The operation completed successfully with a response.
         ///
-        /// - Throws: ``FIDO2SessionError`` if the cancel command fails to send.
-        ///
-        /// - SeeAlso: [CTAP 2.3 - CTAPHID_CANCEL](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#usb-hid-cancel)
-        func cancel() async throws(Error) {
-            try await interface.cancel()
-        }
+        /// - Parameter response: The decoded response from the authenticator.
+        case finished(Response)
     }
 }

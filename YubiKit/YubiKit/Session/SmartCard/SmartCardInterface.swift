@@ -25,8 +25,8 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
     let scpState: SCPState?
     let selectResponse: Data
 
-    // State for cancelling CTAP keep-alive commands
-    var shouldCancelCTAP = false
+    // Flag to signal cancellation for CTAP operations over NFC
+    internal var shouldCancelCTAP: Bool = false
 
     // Select application and optionally setup SCP
     init(
@@ -74,6 +74,16 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
     func send(apdu: APDU, insSendRemaining: UInt8 = 0xc0) async throws(Error) -> Data {
         let response: Response = try await send(apdu: apdu, insSendRemaining: insSendRemaining)
         return response.data
+    }
+
+    /// Cancel any pending CTAP operation
+    ///
+    /// Sets a flag that will cause the next GET_RESPONSE poll to send P1_CANCEL_KEEP_ALIVE
+    /// instead of P1_KEEP_ALIVE, signaling the authenticator to abort the operation.
+    ///
+    /// This is only applicable for CTAP operations over NFC/SmartCard transport.
+    func cancel() async throws(Error) where Error == CTAP.SessionError {
+        shouldCancelCTAP = true
     }
 
     // Internal overload that returns full Response (including status codes)
@@ -199,8 +209,8 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         // Parse response status
         let response = Response(rawData: responseData)
 
-        guard response.responseStatus.status == .ok || response.responseStatus.sw1 == 0x61 else {
-            throw .failedResponse(response.responseStatus, source: .here())
+        guard response.status == .ok || response.responseStatus.sw1 == 0x61 else {
+            throw .failedResponse(response, source: .here())
         }
 
         // Accumulate data

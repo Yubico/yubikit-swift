@@ -39,7 +39,7 @@ struct CTAPHIDFullStackTests {
         print("Connection MTU: \(connection.mtu)")
 
         // Test CTAPHID interface initialization
-        let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
+        let fidoInterface = try await FIDOInterface<CTAP.SessionError>(connection: connection)
 
         print("Successfully established CTAPHID connection")
         print("FIDO Interface Version: \(await fidoInterface.version)")
@@ -54,7 +54,7 @@ struct CTAPHIDFullStackTests {
     @Test("CTAPHID Capability Detection")
     func capabilityDetection() async throws {
         let connection = try await HIDFIDOConnection.makeConnection()
-        let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
+        let fidoInterface = try await FIDOInterface<CTAP.SessionError>(connection: connection)
 
         let supportsWink = await fidoInterface.supports(CTAP.Capabilities.wink)
         let supportsCBOR = await fidoInterface.supports(CTAP.Capabilities.cbor)
@@ -72,7 +72,7 @@ struct CTAPHIDFullStackTests {
     @Test("CTAPHID WINK Command")
     func winkFunctionality() async throws {
         let connection = try await HIDFIDOConnection.makeConnection()
-        let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
+        let fidoInterface = try await FIDOInterface<CTAP.SessionError>(connection: connection)
 
         guard await fidoInterface.supports(CTAP.Capabilities.wink) else {
             print("YubiKey does not support WINK, skipping test")
@@ -93,7 +93,7 @@ struct CTAPHIDFullStackTests {
     @Test("CTAPHID PING Command")
     func pingCommand() async throws {
         let connection = try await HIDFIDOConnection.makeConnection()
-        let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
+        let fidoInterface = try await FIDOInterface<CTAP.SessionError>(connection: connection)
 
         print("Testing basic send/receive with PING command...")
 
@@ -114,7 +114,7 @@ struct CTAPHIDFullStackTests {
     @Test("CTAPHID Error Handling")
     func errorHandling() async throws {
         let connection = try await HIDFIDOConnection.makeConnection()
-        let fidoInterface = try await FIDOInterface<TestFIDOError>(connection: connection)
+        let fidoInterface = try await FIDOInterface<CTAP.SessionError>(connection: connection)
 
         print("Testing CTAPHID error handling...")
 
@@ -132,20 +132,6 @@ struct CTAPHIDFullStackTests {
 
         await connection.close(error: nil)
     }
-}
-
-// MARK: - Test Error Type
-
-private enum TestFIDOError: FIDOSessionError {
-    case timeout(source: YubiKit.SourceLocation)
-    case initializationFailed(String, source: YubiKit.SourceLocation)
-    case hidError(CTAP.HIDError, source: YubiKit.SourceLocation)
-    case fidoConnectionError(FIDOConnectionError, source: YubiKit.SourceLocation)
-    case responseParseError(String, source: YubiKit.SourceLocation)
-    case cryptoError(String, error: Error?, source: YubiKit.SourceLocation)
-    case dataProcessingError(String, source: YubiKit.SourceLocation)
-    case illegalArgument(String, source: YubiKit.SourceLocation)
-    case featureNotSupported(source: YubiKit.SourceLocation)
 }
 
 #endif

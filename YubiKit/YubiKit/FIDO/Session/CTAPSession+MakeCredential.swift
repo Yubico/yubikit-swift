@@ -30,27 +30,15 @@ extension CTAP.Session {
     /// > Note: This functionality requires support for ``CTAP/Feature/makeCredential``, available on YubiKey 5.0 or later.
     ///
     /// - Parameter parameters: The credential creation parameters.
-    /// - Returns: The credential data including attestation information.
-    /// - Throws: ``FIDO2SessionError`` if the operation fails.
+    /// - Returns: AsyncSequence of status updates, ending with `.finished(response)` containing the credential data
     ///
-    /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
+    /// - SeeAlso: [CTAP authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
     func makeCredential(
         parameters: CTAP.MakeCredential.Parameters
-    ) async throws(Error)
-        -> CTAP.MakeCredential.Response
-    {
-        let credentialData: CTAP.MakeCredential.Response? = try await interface.send(
+    ) async -> CTAP.StatusStream<CTAP.MakeCredential.Response> {
+        await interface.send(
             command: .makeCredential,
             payload: parameters
         )
-
-        guard let credentialData = credentialData else {
-            throw Error.responseParseError(
-                "Failed to parse makeCredential response",
-                source: .here()
-            )
-        }
-
-        return credentialData
     }
 }

@@ -176,6 +176,17 @@ extension Dictionary: CBOR.Decodable where Key: CBOR.Decodable, Value: CBOR.Deco
     }
 }
 
+// MARK: - Optional
+
+// Only allow Optional<Never> to represent commands with no response body.
+// This prevents silent error masking for other Optional<T> types.
+extension Optional: CBOR.Decodable where Wrapped == Never {
+    init?(cbor: CBOR.Value) {
+        // Commands with no response body always decode to .none
+        self = .none
+    }
+}
+
 // MARK: - CBOR.Value itself
 
 extension CBOR.Value: CBOR.Decodable {
