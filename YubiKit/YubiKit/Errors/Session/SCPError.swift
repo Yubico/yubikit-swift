@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import Foundation
+
 /// Security Domain (SCP) errors.
 ///
 /// SCP (Secure Channel Protocol) provides encrypted communication with YubiKeys.
@@ -20,7 +22,7 @@ public enum SCPError: SmartCardSessionError, Sendable {
     // MARK: - SessionError Protocol Cases
     case featureNotSupported(source: SourceLocation)
     case connectionError(SmartCardConnectionError, source: SourceLocation)
-    case failedResponse(ResponseStatus, source: SourceLocation)
+    case failedResponse(Response, source: SourceLocation)
     case cryptoError(String, error: Error?, source: SourceLocation)
     case responseParseError(String, source: SourceLocation)
     case dataProcessingError(String, source: SourceLocation)
@@ -34,10 +36,10 @@ public enum SCPError: SmartCardSessionError, Sendable {
     }
 
     public var responseStatus: ResponseStatus? {
-        guard case let .failedResponse(status, _) = self else {
+        guard case let .failedResponse(response, _) = self else {
             return nil
         }
-        return status
+        return response.responseStatus
     }
 
     // MARK: - SCP-Specific Cases

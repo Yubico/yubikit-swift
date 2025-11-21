@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import Foundation
+
 /// PIV session errors.
 ///
 /// Handles smart card operations including certificate management, key generation,
@@ -20,7 +22,7 @@ public enum PIVSessionError: SmartCardSessionError, Sendable {
     // MARK: - SessionError Protocol Cases
     case featureNotSupported(source: SourceLocation)
     case connectionError(SmartCardConnectionError, source: SourceLocation)
-    case failedResponse(ResponseStatus, source: SourceLocation)
+    case failedResponse(Response, source: SourceLocation)
     case scpError(SCPError, source: SourceLocation)
     case cryptoError(String, error: Error?, source: SourceLocation)
     case responseParseError(String, source: SourceLocation)
@@ -28,10 +30,10 @@ public enum PIVSessionError: SmartCardSessionError, Sendable {
     case illegalArgument(String, source: SourceLocation)
 
     public var responseStatus: ResponseStatus? {
-        guard case let .failedResponse(status, _) = self else {
+        guard case let .failedResponse(response, _) = self else {
             return nil
         }
-        return status
+        return response.responseStatus
     }
 
     // MARK: - PIV-Specific Cases

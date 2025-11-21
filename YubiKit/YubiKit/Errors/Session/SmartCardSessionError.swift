@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import Foundation
+
 /// Common protocol for all smart card session error types.
 /// Enforces common error cases that all smart card sessions must handle.
 public protocol SmartCardSessionError: SessionError {
@@ -26,7 +28,7 @@ public protocol SmartCardSessionError: SessionError {
 
     /// Response status error that couldn't be handled specifically by the session.
     static func failedResponse(
-        _ responseStatus: ResponseStatus,
+        _ response: Response,
         source: SourceLocation
     ) -> Self
 

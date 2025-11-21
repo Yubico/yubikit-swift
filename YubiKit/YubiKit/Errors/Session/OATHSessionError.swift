@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import Foundation
+
 /// OATH session errors.
 ///
 /// Handles TOTP/HOTP credential management and authentication operations.
@@ -19,7 +21,7 @@ public enum OATHSessionError: SmartCardSessionError, Sendable {
     // MARK: - SessionError Protocol Cases
     case featureNotSupported(source: SourceLocation)
     case connectionError(SmartCardConnectionError, source: SourceLocation)
-    case failedResponse(ResponseStatus, source: SourceLocation)
+    case failedResponse(Response, source: SourceLocation)
     case scpError(SCPError, source: SourceLocation)
     case cryptoError(String, error: Error?, source: SourceLocation)
     case responseParseError(String, source: SourceLocation)
@@ -27,10 +29,10 @@ public enum OATHSessionError: SmartCardSessionError, Sendable {
     case illegalArgument(String, source: SourceLocation)
 
     public var responseStatus: ResponseStatus? {
-        guard case let .failedResponse(status, _) = self else {
+        guard case let .failedResponse(response, _) = self else {
             return nil
         }
-        return status
+        return response.responseStatus
     }
 
     // MARK: - OATH-Specific Cases

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import Foundation
+
 /// Management session errors.
 ///
 /// Handles device configuration, capability detection, and general YubiKey management operations.
@@ -20,7 +22,7 @@ public enum ManagementSessionError: FIDOSessionError, SmartCardSessionError, Sen
     case fidoConnectionError(FIDOConnectionError, source: SourceLocation)
 
     case featureNotSupported(source: SourceLocation)
-    case failedResponse(ResponseStatus, source: SourceLocation)
+    case failedResponse(Response, source: SourceLocation)
     case scpError(SCPError, source: SourceLocation)
     case cryptoError(String, error: Swift.Error?, source: SourceLocation)
     case responseParseError(String, source: SourceLocation)
@@ -32,8 +34,8 @@ public enum ManagementSessionError: FIDOSessionError, SmartCardSessionError, Sen
     case hidError(_ error: CTAP.HIDError, source: SourceLocation)
 
     public var responseStatus: ResponseStatus? {
-        guard case let .failedResponse(status, _) = self else { return nil }
-        return status
+        guard case let .failedResponse(response, _) = self else { return nil }
+        return response.responseStatus
     }
 
     // MARK: - Management-Specific Cases

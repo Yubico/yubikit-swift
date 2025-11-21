@@ -592,8 +592,8 @@ struct PIVFullStackTests {
             do {
                 _ = try await session.getMetadata(in: .authentication)
                 Issue.record("Got metadata when we should have thrown a referenceDataNotFound exception.")
-            } catch PIVSessionError.failedResponse(let responseStatus, _) {
-                #expect(responseStatus.status == .referencedDataNotFound)
+            } catch PIVSessionError.failedResponse(let response, _) {
+                #expect(response.status == .referencedDataNotFound)
             }
         }
     }
@@ -616,8 +616,8 @@ struct PIVFullStackTests {
             do {
                 _ = try await session.getMetadata(in: .authentication)
                 Issue.record("Got metadata when we should have thrown a referenceDataNotFound exception.")
-            } catch PIVSessionError.failedResponse(let responseStatus, _) {
-                #expect(responseStatus.status == .referencedDataNotFound)
+            } catch PIVSessionError.failedResponse(let response, _) {
+                #expect(response.status == .referencedDataNotFound)
             }
         }
     }
@@ -639,8 +639,8 @@ struct PIVFullStackTests {
             do {
                 _ = try await session.getCertificate(in: .authentication)
                 Issue.record("Deleted certificate still present on YubiKey.")
-            } catch PIVSessionError.failedResponse(let responseStatus, _) {
-                #expect(responseStatus.status == .fileNotFound)
+            } catch PIVSessionError.failedResponse(let response, _) {
+                #expect(response.status == .fileNotFound)
             }
         }
     }
@@ -661,8 +661,8 @@ struct PIVFullStackTests {
             do {
                 try await session.authenticate(with: wrongManagementKey)
                 Issue.record("Successfully authenticated with the wrong management key.")
-            } catch PIVSessionError.failedResponse(let responseStatus, _) {
-                #expect(responseStatus.status == .securityConditionNotSatisfied)
+            } catch PIVSessionError.failedResponse(let response, _) {
+                #expect(response.status == .securityConditionNotSatisfied)
             }
         }
     }
@@ -987,9 +987,9 @@ struct PIVFullStackTests {
                     touchPolicy: .defaultPolicy
                 )
                 Issue.record("Expected error for matchAlways on non-Bio YubiKey")
-            } catch let PIVSessionError.failedResponse(responseStatus, source: _) {
+            } catch let PIVSessionError.failedResponse(response, source: _) {
                 // Expected for .matchAlways on non-Bio YubiKey
-                #expect(responseStatus.status == .referencedDataNotFound)
+                #expect(response.status == .referencedDataNotFound)
             }
             do {
                 _ = try await session.generateKey(
@@ -999,9 +999,9 @@ struct PIVFullStackTests {
                     touchPolicy: .defaultPolicy
                 )
                 Issue.record("Expected error for matchOnce on non-Bio YubiKey")
-            } catch let PIVSessionError.failedResponse(responseStatus, source: _) {
+            } catch let PIVSessionError.failedResponse(response, source: _) {
                 // Expected for .matchOnce on non-Bio YubiKey
-                #expect(responseStatus.status == .referencedDataNotFound)
+                #expect(response.status == .referencedDataNotFound)
             }
         }
     }

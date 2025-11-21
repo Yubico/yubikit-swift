@@ -14,7 +14,7 @@
 
 import Foundation
 
-struct Response: CustomStringConvertible, Sendable {
+public struct Response: Sendable {
 
     init(rawData: Data) {
         if rawData.count > 2 {
@@ -25,7 +25,7 @@ struct Response: CustomStringConvertible, Sendable {
         responseStatus = ResponseStatus(data: rawData.subdata(in: rawData.count - 2..<rawData.count))
     }
 
-    private init(data: Data, sw1: UInt8, sw2: UInt8) {
+    init(data: Data, sw1: UInt8, sw2: UInt8) {
         self.data = data
         responseStatus = ResponseStatus(sw1: sw1, sw2: sw2)
     }
@@ -35,9 +35,16 @@ struct Response: CustomStringConvertible, Sendable {
     let data: Data
 
     /// Status code of the response
-    let responseStatus: ResponseStatus
-    var description: String {
-        "<Response: \(responseStatus.status) \(responseStatus.rawStatus.data.hexEncodedString), length: \(data.count)>"
+    public let responseStatus: ResponseStatus
+
+    /// Convenience property to access the status code directly
+    public var status: ResponseStatus.StatusCode {
+        responseStatus.status
+    }
+
+    /// Convenience property to access the raw status value directly
+    public var rawStatus: UInt16 {
+        responseStatus.rawStatus
     }
 }
 
