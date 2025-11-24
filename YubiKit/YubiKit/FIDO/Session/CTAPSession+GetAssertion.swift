@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - GetAssertion
 
-extension CTAP.Session {
+extension CTAP2.Session {
 
     /// Authenticate with a credential.
     ///
@@ -33,8 +33,8 @@ extension CTAP.Session {
     ///
     /// - SeeAlso: [CTAP authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)
     func getAssertion(
-        parameters: CTAP.GetAssertion.Parameters
-    ) async -> CTAP.StatusStream<CTAP.GetAssertion.Response> {
+        parameters: CTAP2.GetAssertion.Parameters
+    ) async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
         await interface.send(
             command: .getAssertion,
             payload: parameters
@@ -55,7 +55,7 @@ extension CTAP.Session {
     /// - Returns: AsyncStream of status updates, ending with `.finished(response)` containing the next assertion
     ///
     /// - SeeAlso: [CTAP authenticatorGetNextAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetNextAssertion)
-    func getNextAssertion() async -> CTAP.StatusStream<CTAP.GetAssertion.Response> {
+    func getNextAssertion() async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
         await interface.send(command: .getNextAssertion)
     }
 
@@ -74,8 +74,8 @@ extension CTAP.Session {
     /// - Returns: An async sequence of assertion responses.
     /// - SeeAlso: ``getAssertion(parameters:)`` for low-level access to a single assertion.
     func getAssertions(
-        parameters: CTAP.GetAssertion.Parameters
-    ) -> CTAP.GetAssertion.Sequence<I> {
+        parameters: CTAP2.GetAssertion.Parameters
+    ) -> CTAP2.GetAssertion.Sequence<I> {
         .init(session: self, parameters: parameters)
     }
 }
@@ -88,16 +88,16 @@ extension CTAP.Session {
 /// for the first assertion and ``CTAP/Session/getNextAssertion()`` for subsequent assertions.
 ///
 /// Use ``CTAP/Session/getAssertions(parameters:)`` to create instances of this type.
-extension CTAP.GetAssertion {
-    struct Sequence<I: CBORInterface>: AsyncSequence where I.Error == CTAP.SessionError {
-        typealias Element = CTAP.GetAssertion.Response
+extension CTAP2.GetAssertion {
+    struct Sequence<I: CBORInterface>: AsyncSequence where I.Error == CTAP2.SessionError {
+        typealias Element = CTAP2.GetAssertion.Response
 
-        let session: CTAP.Session<I>
-        let parameters: CTAP.GetAssertion.Parameters
+        let session: CTAP2.Session<I>
+        let parameters: CTAP2.GetAssertion.Parameters
 
         fileprivate init(
-            session: CTAP.Session<I>,
-            parameters: CTAP.GetAssertion.Parameters
+            session: CTAP2.Session<I>,
+            parameters: CTAP2.GetAssertion.Parameters
         ) {
             self.session = session
             self.parameters = parameters
@@ -109,28 +109,28 @@ extension CTAP.GetAssertion {
     }
 }
 
-extension CTAP.GetAssertion {
+extension CTAP2.GetAssertion {
     /// Iterator that fetches assertions one at a time from the authenticator.
     ///
     /// Created by ``Sequence/makeAsyncIterator()``. Use ``CTAP/Session/getAssertions(parameters:)`` instead of instantiating directly.
-    actor Iterator<I: CBORInterface>: AsyncIteratorProtocol where I.Error == CTAP.SessionError {
-        typealias Element = CTAP.GetAssertion.Response
+    actor Iterator<I: CBORInterface>: AsyncIteratorProtocol where I.Error == CTAP2.SessionError {
+        typealias Element = CTAP2.GetAssertion.Response
 
-        let session: CTAP.Session<I>
-        let parameters: CTAP.GetAssertion.Parameters
+        let session: CTAP2.Session<I>
+        let parameters: CTAP2.GetAssertion.Parameters
 
         var currentIndex = 0
         var totalCredentials = 0
 
         fileprivate init(
-            session: CTAP.Session<I>,
-            parameters: CTAP.GetAssertion.Parameters
+            session: CTAP2.Session<I>,
+            parameters: CTAP2.GetAssertion.Parameters
         ) {
             self.session = session
             self.parameters = parameters
         }
 
-        func next() async throws(CTAP.SessionError) -> CTAP.GetAssertion.Response? {
+        func next() async throws(CTAP2.SessionError) -> CTAP2.GetAssertion.Response? {
             if currentIndex == 0 {
                 // Get first assertion
                 let stream = await session.getAssertion(parameters: parameters)
@@ -141,7 +141,7 @@ extension CTAP.GetAssertion {
                         return response
                     }
                 }
-                throw CTAP.SessionError.responseParseError("No response from GetAssertion", source: .here())
+                throw CTAP2.SessionError.responseParseError("No response from GetAssertion", source: .here())
             } else if currentIndex < totalCredentials {
                 // Get next assertion
                 let stream = await session.getNextAssertion()
@@ -151,7 +151,7 @@ extension CTAP.GetAssertion {
                         return response
                     }
                 }
-                throw CTAP.SessionError.responseParseError("No response from GetNextAssertion", source: .here())
+                throw CTAP2.SessionError.responseParseError("No response from GetNextAssertion", source: .here())
             } else {
                 // Done iterating
                 return nil

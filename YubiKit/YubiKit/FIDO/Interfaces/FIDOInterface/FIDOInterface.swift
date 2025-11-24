@@ -25,10 +25,10 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
     public private(set) var version: Version = Version(withData: Data([0, 0, 0]))!
 
     // Internal (accessible to extensions)
-    private(set) var capabilities: CTAP.Capabilities = []
+    private(set) var capabilities: CTAP2.Capabilities = []
     private(set) var protocolVersion: UInt8 = 0
 
-    var channelId: UInt32 = CTAP.CID_BROADCAST
+    var channelId: UInt32 = CTAP2.CID_BROADCAST
     let frameTimeout: Duration = .seconds(1.5)
 
     // MARK: - Initialization
@@ -43,7 +43,7 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
     // MARK: - Capabilities
 
     /// Check if the authenticator supports a capability
-    func supports(_ capability: CTAP.Capabilities) -> Bool {
+    func supports(_ capability: CTAP2.Capabilities) -> Bool {
         capabilities.contains(capability)
     }
 
@@ -84,7 +84,7 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
         self.version = Version(withData: versionBytes)!
 
         // Get capability flags
-        self.capabilities = CTAP.Capabilities(rawValue: response[16])
+        self.capabilities = CTAP2.Capabilities(rawValue: response[16])
 
         /* Fix trace: trace(message: "INIT successful") */
         /* Fix trace: trace(message: "Assigned channel ID: 0x\(String(format: "%08x", self.channelId))") */
@@ -96,11 +96,11 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
 // MARK: - KEEPALIVE Status Mapping
 
-extension CTAP.Status {
+extension CTAP2.Status {
     static func fromKeepAlive(
         statusByte: UInt8,
         cancel: @escaping @Sendable () async -> Void
-    ) -> CTAP.Status<Response>? {
+    ) -> CTAP2.Status<Response>? {
         switch statusByte {
         case 0x01:
             return .processing

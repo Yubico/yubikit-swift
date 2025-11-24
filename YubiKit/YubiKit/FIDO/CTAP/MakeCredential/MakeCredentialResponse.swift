@@ -14,7 +14,7 @@
 
 import Foundation
 
-extension CTAP.MakeCredential {
+extension CTAP2.MakeCredential {
     /// Data returned from the authenticator after making a new credential.
     ///
     /// Contains the attestation object with the new credential's public key,

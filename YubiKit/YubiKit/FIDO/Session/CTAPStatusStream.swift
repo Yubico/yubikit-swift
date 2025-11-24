@@ -14,7 +14,7 @@
 
 import Foundation
 
-extension CTAP {
+extension CTAP2 {
     /// An async sequence that yields status updates and can throw typed errors.
     ///
     /// This sequence streams ``CTAP/Status`` updates during long-running CTAP operations,
@@ -43,9 +43,9 @@ extension CTAP {
     /// }
     /// ```
     struct StatusStream<Response: Sendable>: AsyncSequence {
-        typealias Element = CTAP.Status<Response>
+        typealias Element = CTAP2.Status<Response>
 
-        private let stream: AsyncStream<Result<CTAP.Status<Response>, CTAP.SessionError>>
+        private let stream: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>
 
         init(_ build: @escaping (Continuation) -> Void) {
             let baseStream = AsyncStream { continuation in
@@ -76,7 +76,7 @@ extension CTAP {
         /// - Throws: ``CTAP.SessionError`` if the operation fails.
         /// - Returns: The response value from the completed operation.
         public var value: Response {
-            get async throws(CTAP.SessionError) {
+            get async throws(CTAP2.SessionError) {
                 for try await status in self {
                     if case .finished(let response) = status {
                         return response
@@ -91,13 +91,14 @@ extension CTAP {
         }
 
         struct Iterator: AsyncIteratorProtocol {
-            private var iterator: AsyncStream<Result<CTAP.Status<Response>, CTAP.SessionError>>.AsyncIterator
+            private var iterator: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>.AsyncIterator
 
-            fileprivate init(_ iterator: AsyncStream<Result<CTAP.Status<Response>, CTAP.SessionError>>.AsyncIterator) {
+            fileprivate init(_ iterator: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>.AsyncIterator)
+            {
                 self.iterator = iterator
             }
 
-            mutating func next() async throws(CTAP.SessionError) -> CTAP.Status<Response>? {
+            mutating func next() async throws(CTAP2.SessionError) -> CTAP2.Status<Response>? {
                 guard let result = await iterator.next() else {
                     return nil
                 }
@@ -112,20 +113,20 @@ extension CTAP {
     }
 }
 
-extension CTAP.StatusStream {
+extension CTAP2.StatusStream {
     /// Continuation type for building status streams.
     struct Continuation: Sendable {
-        private let continuation: AsyncStream<Result<CTAP.Status<Response>, CTAP.SessionError>>.Continuation
+        private let continuation: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>.Continuation
 
-        fileprivate init(_ continuation: AsyncStream<Result<CTAP.Status<Response>, CTAP.SessionError>>.Continuation) {
+        fileprivate init(_ continuation: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>.Continuation) {
             self.continuation = continuation
         }
 
-        func yield(_ status: CTAP.Status<Response>) {
+        func yield(_ status: CTAP2.Status<Response>) {
             continuation.yield(.success(status))
         }
 
-        func yield(error: CTAP.SessionError) {
+        func yield(error: CTAP2.SessionError) {
             continuation.yield(.failure(error))
         }
 

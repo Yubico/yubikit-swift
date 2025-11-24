@@ -14,7 +14,7 @@
 
 import Foundation
 
-extension CTAP.GetAssertion {
+extension CTAP2.GetAssertion {
     /// Response from the authenticatorGetAssertion command.
     ///
     /// Contains the authentication assertion including signature and authenticator data.

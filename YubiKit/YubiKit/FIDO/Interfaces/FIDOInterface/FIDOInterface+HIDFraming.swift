@@ -34,7 +34,7 @@ extension FIDOInterface {
         /* Fix trace: trace(message: "Sent init frame (\(payloadData.count) total bytes)") */
 
         // If payload is larger than init frame can hold, send continuation frames
-        var remainingData = payloadData.dropFirst(CTAP.INIT_DATA_SIZE)
+        var remainingData = payloadData.dropFirst(CTAP2.INIT_DATA_SIZE)
         var sequence: UInt8 = 0
 
         while !remainingData.isEmpty {
@@ -50,7 +50,7 @@ extension FIDOInterface {
             }
             /* Fix trace: trace(message: "Sent continuation frame \(sequence)") */
 
-            remainingData = remainingData.dropFirst(CTAP.CONT_DATA_SIZE)
+            remainingData = remainingData.dropFirst(CTAP2.CONT_DATA_SIZE)
             sequence += 1
 
             guard sequence < 128 else {
@@ -108,7 +108,7 @@ extension FIDOInterface {
                     throw Error.responseParseError("ERROR frame has no error code", source: .here())
                 }
                 let errorCode = initFrameData[0]
-                let hidError = CTAP.HIDError.from(errorCode: errorCode)
+                let hidError = CTAP2.HIDError.from(errorCode: errorCode)
                 throw .hidError(hidError, source: .here())
             }
 
@@ -183,7 +183,7 @@ extension FIDOInterface {
     /// Init frame structure: CID(4) | CMD(1) | BCNT(2) | DATA(up to 57) | PADDING
     private func buildInitFrame(channelId: UInt32, command: UInt8, payload: Data) -> Data {
         var frame = Data()
-        frame.reserveCapacity(CTAP.HID_PACKET_SIZE)
+        frame.reserveCapacity(CTAP2.HID_PACKET_SIZE)
 
         // Channel ID (4 bytes, big-endian)
         var cidBE = channelId.bigEndian
@@ -197,13 +197,13 @@ extension FIDOInterface {
         frame.append(Data(bytes: &lengthBE, count: 2))
 
         // Payload data (up to 57 bytes for init frame)
-        let dataToInclude = min(payload.count, CTAP.INIT_DATA_SIZE)
+        let dataToInclude = min(payload.count, CTAP2.INIT_DATA_SIZE)
         if dataToInclude > 0 {
             frame.append(payload.prefix(dataToInclude))
         }
 
         // Pad to HID packet size (64 bytes) with zeros
-        while frame.count < CTAP.HID_PACKET_SIZE {
+        while frame.count < CTAP2.HID_PACKET_SIZE {
             frame.append(0)
         }
 
@@ -214,7 +214,7 @@ extension FIDOInterface {
     /// Continuation frame structure: CID(4) | SEQ(1) | DATA(up to 59) | PADDING
     private func buildContinuationFrame(channelId: UInt32, sequence: UInt8, payload: Data) -> Data {
         var frame = Data()
-        frame.reserveCapacity(CTAP.HID_PACKET_SIZE)
+        frame.reserveCapacity(CTAP2.HID_PACKET_SIZE)
 
         // Channel ID (4 bytes, big-endian)
         var cidBE = channelId.bigEndian
@@ -224,13 +224,13 @@ extension FIDOInterface {
         frame.append(sequence)
 
         // Payload data (up to 59 bytes for continuation frame)
-        let dataToInclude = min(payload.count, CTAP.CONT_DATA_SIZE)
+        let dataToInclude = min(payload.count, CTAP2.CONT_DATA_SIZE)
         if dataToInclude > 0 {
             frame.append(payload.prefix(dataToInclude))
         }
 
         // Pad to HID packet size (64 bytes) with zeros
-        while frame.count < CTAP.HID_PACKET_SIZE {
+        while frame.count < CTAP2.HID_PACKET_SIZE {
             frame.append(0)
         }
 
@@ -247,9 +247,9 @@ extension FIDOInterface {
     ) throws(Error) -> (
         channelId: UInt32, command: UInt8, payloadLength: Int, data: Data
     ) {
-        guard frame.count == CTAP.HID_PACKET_SIZE else {
+        guard frame.count == CTAP2.HID_PACKET_SIZE else {
             throw Error.responseParseError(
-                "Expected \(CTAP.HID_PACKET_SIZE) bytes, got \(frame.count)",
+                "Expected \(CTAP2.HID_PACKET_SIZE) bytes, got \(frame.count)",
                 source: .here()
             )
         }
@@ -270,7 +270,7 @@ extension FIDOInterface {
         )
 
         // Extract payload data (bytes 7+, up to payloadLength or end of init frame)
-        let dataStart = CTAP.INIT_HEADER_SIZE
+        let dataStart = CTAP2.INIT_HEADER_SIZE
         let dataEnd = min(dataStart + payloadLength, frame.count)
         let data = frame.subdata(in: dataStart..<dataEnd)
 
@@ -285,9 +285,9 @@ extension FIDOInterface {
     ) throws(Error) -> (
         channelId: UInt32, sequence: UInt8, data: Data
     ) {
-        guard frame.count == CTAP.HID_PACKET_SIZE else {
+        guard frame.count == CTAP2.HID_PACKET_SIZE else {
             throw Error.responseParseError(
-                "Expected \(CTAP.HID_PACKET_SIZE) bytes, got \(frame.count)",
+                "Expected \(CTAP2.HID_PACKET_SIZE) bytes, got \(frame.count)",
                 source: .here()
             )
         }
@@ -307,7 +307,7 @@ extension FIDOInterface {
         }
 
         // Extract payload data (bytes 5+)
-        let dataStart = CTAP.CONT_HEADER_SIZE
+        let dataStart = CTAP2.CONT_HEADER_SIZE
         let data = frame.subdata(in: dataStart..<frame.count)
 
         return (channelId: channelId, sequence: sequence, data: data)
@@ -316,8 +316,8 @@ extension FIDOInterface {
     // MARK: - Utilities
 
     /// Convert CTAP command to HID command byte (with INIT frame bit set)
-    static func hidCommand(_ command: CTAP.HID.Command) -> UInt8 {
-        CTAP.FRAME_INIT | command.rawValue
+    static func hidCommand(_ command: CTAP2.HID.Command) -> UInt8 {
+        CTAP2.FRAME_INIT | command.rawValue
     }
 
     /// Generate cryptographically secure random bytes

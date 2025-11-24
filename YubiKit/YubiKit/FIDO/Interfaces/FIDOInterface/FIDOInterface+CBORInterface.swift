@@ -16,11 +16,11 @@ import Foundation
 
 // MARK: - CBORInterface Conformance (HID/USB Transport)
 
-extension FIDOInterface: CBORInterface where Error == CTAP.SessionError {
+extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
     func send<I: CBOR.Encodable, O: CBOR.Decodable & Sendable>(
-        command: CTAP.Command,
+        command: CTAP2.Command,
         payload: I
-    ) -> CTAP.StatusStream<O> {
+    ) -> CTAP2.StatusStream<O> {
         var requestData = Data([command.rawValue])
         let cborData = payload.cbor().encode()
         requestData.append(cborData)
@@ -30,23 +30,23 @@ extension FIDOInterface: CBORInterface where Error == CTAP.SessionError {
         return execute(requestData)
     }
 
-    func send(command: CTAP.Command) -> CTAP.StatusStream<Void> {
+    func send(command: CTAP2.Command) -> CTAP2.StatusStream<Void> {
         let requestData = Data([command.rawValue])
         return execute(requestData)
     }
 
     private func execute<O: CBOR.Decodable & Sendable>(
         _ data: Data
-    ) -> CTAP.StatusStream<O> where Error == CTAP.SessionError {
-        execute(data) { (data: Data) throws(CTAP.SessionError) -> O in
+    ) -> CTAP2.StatusStream<O> where Error == CTAP2.SessionError {
+        execute(data) { (data: Data) throws(CTAP2.SessionError) -> O in
             try self.handleCTAP2Response(data)
         }
     }
 
     private func execute(
         _ data: Data
-    ) -> CTAP.StatusStream<Void> where Error == CTAP.SessionError {
-        execute(data) { (data: Data) throws(CTAP.SessionError) in
+    ) -> CTAP2.StatusStream<Void> where Error == CTAP2.SessionError {
+        execute(data) { (data: Data) throws(CTAP2.SessionError) in
             try self.handleCTAP2Response(data)
         }
     }
@@ -62,12 +62,12 @@ extension FIDOInterface: CBORInterface where Error == CTAP.SessionError {
     /// - Returns: Async sequence of status updates, ending with `.finished(response)`
     private func execute<O: Sendable>(
         _ data: Data,
-        parse: @escaping (Data) throws(CTAP.SessionError) -> O
-    ) -> CTAP.StatusStream<O> where Error == CTAP.SessionError {
+        parse: @escaping (Data) throws(CTAP2.SessionError) -> O
+    ) -> CTAP2.StatusStream<O> where Error == CTAP2.SessionError {
 
-        CTAP.StatusStream<O> { continuation in
+        CTAP2.StatusStream<O> { continuation in
             Task {
-                do throws(CTAP.SessionError) {
+                do throws(CTAP2.SessionError) {
                     // Check capability support
                     guard self.supports(.cbor) else {
                         throw Error.featureNotSupported(source: .here())
@@ -79,7 +79,7 @@ extension FIDOInterface: CBORInterface where Error == CTAP.SessionError {
                     // Create cancel closure that calls the interface's cancel method
                     // Any errors during cancellation are yielded to the stream
                     let cancelClosure: @Sendable () async -> Void = { [weak self] in
-                        do throws(CTAP.SessionError) {
+                        do throws(CTAP2.SessionError) {
                             try await self?.cancel()
                         } catch {
                             continuation.yield(error: error)
@@ -90,7 +90,7 @@ extension FIDOInterface: CBORInterface where Error == CTAP.SessionError {
                     let responsePayload = try await self.receiveResponse(
                         expectedCommand: Self.hidCommand(.cbor)
                     ) { statusByte in
-                        if let currentStatus: CTAP.Status<O> = CTAP.Status.fromKeepAlive(
+                        if let currentStatus: CTAP2.Status<O> = CTAP2.Status.fromKeepAlive(
                             statusByte: statusByte,
                             cancel: cancelClosure
                         ) {

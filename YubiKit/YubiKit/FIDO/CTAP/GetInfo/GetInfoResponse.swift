@@ -14,7 +14,7 @@
 
 import Foundation
 
-extension CTAP.GetInfo {
+extension CTAP2.GetInfo {
     /// Information about a FIDO2/CTAP2 authenticator.
     ///
     /// This structure contains the response from the `authenticatorGetInfo` command,

@@ -15,7 +15,7 @@
 import Foundation
 
 /// CTAP (Client to Authenticator Protocol) constants and structures
-public enum CTAP {
+public enum CTAP2 {
 
     // MARK: - Commands
 

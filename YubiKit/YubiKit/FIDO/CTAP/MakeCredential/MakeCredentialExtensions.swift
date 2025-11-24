@@ -14,7 +14,7 @@
 
 import Foundation
 
-extension CTAP.MakeCredential {
+extension CTAP2.MakeCredential {
     /// Extension inputs for the authenticatorMakeCredential command.
     ///
     /// > TODO: Extensions not yet implemented (hmac-secret, credProtect, credBlob, largeBlobKey, minPinLength).

@@ -16,7 +16,7 @@ import Foundation
 
 protocol CTAPError {
     static func ctapError(
-        _ error: CTAP.Error,
+        _ error: CTAP2.Error,
         source: SourceLocation
     ) -> Self
 }

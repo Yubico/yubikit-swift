@@ -14,7 +14,7 @@
 
 import Foundation
 
-extension CTAP.GetAssertion {
+extension CTAP2.GetAssertion {
     /// Parameters for the authenticatorGetAssertion command.
     ///
     /// - SeeAlso: [CTAP2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)

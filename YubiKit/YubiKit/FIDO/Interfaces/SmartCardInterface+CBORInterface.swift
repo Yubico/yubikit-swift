@@ -16,11 +16,11 @@ import Foundation
 
 // MARK: - CBORInterface Conformance (NFC/SmartCard Transport)
 
-extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
+extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
     func send<I: CBOR.Encodable, O: CBOR.Decodable & Sendable>(
-        command: CTAP.Command,
+        command: CTAP2.Command,
         payload: I
-    ) -> CTAP.StatusStream<O> {
+    ) -> CTAP2.StatusStream<O> {
         var requestData = Data([command.rawValue])
         let cborData = payload.cbor().encode()
         requestData.append(cborData)
@@ -28,23 +28,23 @@ extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
         return execute(requestData)
     }
 
-    func send(command: CTAP.Command) -> CTAP.StatusStream<Void> {
+    func send(command: CTAP2.Command) -> CTAP2.StatusStream<Void> {
         let requestData = Data([command.rawValue])
         return execute(requestData)
     }
 
     private func execute<O: CBOR.Decodable & Sendable>(
         _ data: Data
-    ) -> CTAP.StatusStream<O> {
-        execute(data) { (data: Data) throws(CTAP.SessionError) -> O in
+    ) -> CTAP2.StatusStream<O> {
+        execute(data) { (data: Data) throws(CTAP2.SessionError) -> O in
             try self.handleCTAP2Response(data)
         }
     }
 
     private func execute(
         _ data: Data
-    ) -> CTAP.StatusStream<Void> {
-        execute(data) { (data: Data) throws(CTAP.SessionError) in
+    ) -> CTAP2.StatusStream<Void> {
+        execute(data) { (data: Data) throws(CTAP2.SessionError) in
             try self.handleCTAP2Response(data)
         }
     }
@@ -57,12 +57,12 @@ extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
     /// - Returns: Async sequence of status updates, ending with `.finished(response)`
     private func execute<O: Sendable>(
         _ data: Data,
-        parse: @escaping (Data) throws(CTAP.SessionError) -> O
-    ) -> CTAP.StatusStream<O> {
+        parse: @escaping (Data) throws(CTAP2.SessionError) -> O
+    ) -> CTAP2.StatusStream<O> {
 
-        CTAP.StatusStream<O> { continuation in
+        CTAP2.StatusStream<O> { continuation in
             Task {
-                do throws(CTAP.SessionError) {
+                do throws(CTAP2.SessionError) {
                     let CLA: UInt8 = 0x80
                     let NFCCTAP_MSG: UInt8 = 0x10
                     let P1_KEEP_ALIVE: UInt8 = 0x00
@@ -77,7 +77,7 @@ extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
                     // Create cancel closure that sets the flag
                     // Any errors during cancellation are yielded to the stream
                     let cancelClosure: @Sendable () async -> Void = { [weak self] in
-                        do throws(CTAP.SessionError) {
+                        do throws(CTAP2.SessionError) {
                             try await self?.cancel()
                         } catch {
                             continuation.yield(error: error)
@@ -94,7 +94,7 @@ extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
                     while response.responseStatus.rawStatus == SW_KEEPALIVE {
                         // Parse keepalive status byte from response data
                         let statusByte = response.data.first ?? 0x01  // Default to processing
-                        if let currentStatus: CTAP.Status<O> = CTAP.Status.fromKeepAlive(
+                        if let currentStatus: CTAP2.Status<O> = CTAP2.Status.fromKeepAlive(
                             statusByte: statusByte,
                             cancel: cancelClosure
                         ) {
@@ -140,9 +140,9 @@ extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
     ) async throws(Error) -> Response {
 
         var response: Response
-        do throws(CTAP.SessionError) {
+        do throws(CTAP2.SessionError) {
             response = try await self.send(apdu: apdu)
-        } catch let CTAP.SessionError.failedResponse(errorResponse, source: _) {
+        } catch let CTAP2.SessionError.failedResponse(errorResponse, source: _) {
             // A SW_KEEPALIVE will enter here and we use the response directly
             response = errorResponse
         }

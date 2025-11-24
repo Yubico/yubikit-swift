@@ -26,7 +26,7 @@ public protocol FIDOSessionError: SessionError {
     static func initializationFailed(_ message: String, source: SourceLocation) -> Self
 
     /// HID transport error returned by the authenticator.
-    static func hidError(_ error: CTAP.HIDError, source: SourceLocation) -> Self
+    static func hidError(_ error: CTAP2.HIDError, source: SourceLocation) -> Self
 
     /// Connection-level error from the underlying transport.
     static func fidoConnectionError(_ error: FIDOConnectionError, source: SourceLocation) -> Self

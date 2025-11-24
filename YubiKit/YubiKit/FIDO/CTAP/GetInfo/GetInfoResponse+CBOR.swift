@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - AuthenticatorInfo + CBOR
 
-extension CTAP.GetInfo.Response: CBOR.Decodable {
+extension CTAP2.GetInfo.Response: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue else {
             return nil

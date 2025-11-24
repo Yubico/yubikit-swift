@@ -66,7 +66,7 @@ struct MakeCredentialSerializationTests {
         let cborData = CBOR.Value.map(response).encode()
         let decoded: CBOR.Value = try #require(try cborData.decode(), "Failed to decode CBOR")
         let credentialData = try #require(
-            CTAP.MakeCredential.Response(cbor: decoded),
+            CTAP2.MakeCredential.Response(cbor: decoded),
             "Failed to decode CTAP.MakeCredential.Response"
         )
 
@@ -104,7 +104,7 @@ struct MakeCredentialSerializationTests {
         let cborData = CBOR.Value.map(response).encode()
         let decoded: CBOR.Value = try #require(try cborData.decode(), "Failed to decode CBOR")
         let credentialData = try #require(
-            CTAP.MakeCredential.Response(cbor: decoded),
+            CTAP2.MakeCredential.Response(cbor: decoded),
             "Failed to decode CTAP.MakeCredential.Response"
         )
 
@@ -135,7 +135,7 @@ struct MakeCredentialSerializationTests {
         let cborData = CBOR.Value.map(response).encode()
         let decoded: CBOR.Value = try #require(try cborData.decode(), "Failed to decode CBOR")
         let credentialData = try #require(
-            CTAP.MakeCredential.Response(cbor: decoded),
+            CTAP2.MakeCredential.Response(cbor: decoded),
             "Failed to decode CTAP.MakeCredential.Response"
         )
 
@@ -153,7 +153,7 @@ struct MakeCredentialSerializationTests {
         let cborData = CBOR.Value.map(response).encode()
         let decoded: CBOR.Value = try #require(try cborData.decode(), "Failed to decode CBOR")
 
-        #expect(CTAP.MakeCredential.Response(cbor: decoded) == nil)
+        #expect(CTAP2.MakeCredential.Response(cbor: decoded) == nil)
     }
 
     // MARK: - Test Helpers

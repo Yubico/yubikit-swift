@@ -52,7 +52,7 @@ struct CTAP2FullStackTests {
             let clientDataHash = Data(repeating: 0xCD, count: 32)
             let userId = Data(repeating: 0x02, count: 32)
 
-            let params = CTAP.MakeCredential.Parameters(
+            let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredential.UserEntity(
@@ -95,7 +95,7 @@ struct CTAP2FullStackTests {
             let clientDataHash = Data(repeating: 0xCD, count: 32)
             let userId = Data(repeating: 0x03, count: 32)
 
-            let params = CTAP.MakeCredential.Parameters(
+            let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredential.UserEntity(
@@ -141,7 +141,7 @@ struct CTAP2FullStackTests {
             let userId = Data(repeating: 0x04, count: 32)
 
             // First, create a credential
-            let params1 = CTAP.MakeCredential.Parameters(
+            let params1 = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredential.UserEntity(
@@ -165,7 +165,7 @@ struct CTAP2FullStackTests {
             let credentialId = attestedData.credentialId
 
             // Now try to create another credential with excludeList containing the first
-            let params2 = CTAP.MakeCredential.Parameters(
+            let params2 = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredential.UserEntity(
@@ -186,7 +186,7 @@ struct CTAP2FullStackTests {
                     }
                 }
                 Issue.record("Expected CREDENTIAL_EXCLUDED error but stream completed without throwing")
-            } catch let error as CTAP.SessionError {
+            } catch let error as CTAP2.SessionError {
                 if case .ctapError(.credentialExcluded, _) = error {
                     print("✅ Got expected CREDENTIAL_EXCLUDED error")
                 } else {
@@ -204,7 +204,7 @@ struct CTAP2FullStackTests {
         try await withCTAP2Session { session in
             let clientDataHash = Data(repeating: 0xCD, count: 32)
 
-            let params = CTAP.MakeCredential.Parameters(
+            let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredential.UserEntity(
@@ -246,7 +246,7 @@ struct CTAP2FullStackTests {
             let userId = Data(repeating: 0x10, count: 32)
 
             // First, create a credential to authenticate with
-            let makeCredParams = CTAP.MakeCredential.Parameters(
+            let makeCredParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredential.UserEntity(
@@ -269,7 +269,7 @@ struct CTAP2FullStackTests {
             let credentialId = attestedData.credentialId
 
             // Now authenticate with the credential
-            let getAssertionParams = CTAP.GetAssertion.Parameters(
+            let getAssertionParams = CTAP2.GetAssertion.Parameters(
                 rpId: "example.com",
                 clientDataHash: clientDataHash,
                 allowList: [PublicKeyCredential.Descriptor(id: credentialId)]
@@ -296,7 +296,7 @@ struct CTAP2FullStackTests {
 
             // Create multiple resident keys for the same RP
             for i in 1...3 {
-                let makeCredParams = CTAP.MakeCredential.Parameters(
+                let makeCredParams = CTAP2.MakeCredential.Parameters(
                     clientDataHash: clientDataHash,
                     rp: PublicKeyCredential.RPEntity(id: rpId, name: "Multi Assert Corp"),
                     user: PublicKeyCredential.UserEntity(
@@ -312,7 +312,7 @@ struct CTAP2FullStackTests {
                 _ = try await session.makeCredential(parameters: makeCredParams).value
             }
 
-            let getAssertionParams = CTAP.GetAssertion.Parameters(
+            let getAssertionParams = CTAP2.GetAssertion.Parameters(
                 rpId: rpId,
                 clientDataHash: clientDataHash,
                 allowList: nil  // Resident key discovery
@@ -343,7 +343,7 @@ struct CTAP2FullStackTests {
             let clientDataHash = Data(repeating: 0xCD, count: 32)
             let userId = Data(repeating: 0x98, count: 32)
 
-            let params = CTAP.MakeCredential.Parameters(
+            let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredential.UserEntity(
@@ -374,7 +374,7 @@ struct CTAP2FullStackTests {
                 }
 
                 Issue.record("makeCredential should have thrown cancellation error")
-            } catch let error as CTAP.SessionError {
+            } catch let error as CTAP2.SessionError {
                 // Verify we got the expected cancellation error
                 guard case .ctapError(.keepaliveCancel, _) = error else {
                     Issue.record("Expected keepaliveCancel error, got: \(error)")
@@ -429,7 +429,7 @@ struct CTAP2FullStackTests {
         _ body: (FIDO2Session) async throws -> T
     ) async throws -> T {
         let connection = try await HIDFIDOConnection.makeConnection()
-        let session = try await CTAP.Session.makeSession(connection: connection)
+        let session = try await CTAP2.Session.makeSession(connection: connection)
         let result = try await body(session)
         await connection.close(error: nil)
         return result

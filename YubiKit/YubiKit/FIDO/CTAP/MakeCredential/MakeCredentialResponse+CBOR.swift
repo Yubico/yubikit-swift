@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - CredentialData + CBOR
 
-extension CTAP.MakeCredential.Response: CBOR.Decodable {
+extension CTAP2.MakeCredential.Response: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue else {
             return nil

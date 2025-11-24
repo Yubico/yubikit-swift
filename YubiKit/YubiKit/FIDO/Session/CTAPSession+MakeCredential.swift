@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - MakeCredential
 
-extension CTAP.Session {
+extension CTAP2.Session {
 
     /// Create a new credential on the authenticator.
     ///
@@ -34,8 +34,8 @@ extension CTAP.Session {
     ///
     /// - SeeAlso: [CTAP authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
     func makeCredential(
-        parameters: CTAP.MakeCredential.Parameters
-    ) async -> CTAP.StatusStream<CTAP.MakeCredential.Response> {
+        parameters: CTAP2.MakeCredential.Parameters
+    ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
         await interface.send(
             command: .makeCredential,
             payload: parameters

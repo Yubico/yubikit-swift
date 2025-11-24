@@ -14,7 +14,7 @@
 
 import Foundation
 
-extension CTAP.GetAssertion {
+extension CTAP2.GetAssertion {
     /// Extension inputs for the authenticatorGetAssertion command.
     ///
     /// > TODO: Extensions not yet implemented (hmac-secret, largeBlobKey, getCredBlob, appId, prf).

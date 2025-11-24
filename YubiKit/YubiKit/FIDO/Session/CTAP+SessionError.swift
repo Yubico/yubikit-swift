@@ -15,7 +15,7 @@
 import Foundation
 
 /// Errors that can occur during FIDO2/CTAP session operations.
-extension CTAP {
+extension CTAP2 {
     enum SessionError: FIDOSessionError, SmartCardSessionError, CBORError, CTAPError, Sendable {
 
         // MARK: - Common Session Errors
@@ -41,7 +41,7 @@ extension CTAP {
         case fidoConnectionError(_ error: FIDOConnectionError, source: SourceLocation)
 
         /// CTAP HID-level error.
-        case hidError(_ error: CTAP.HIDError, source: SourceLocation)
+        case hidError(_ error: CTAP2.HIDError, source: SourceLocation)
 
         /// FIDO initialization failed.
         case initializationFailed(_ message: String, source: SourceLocation)
@@ -50,7 +50,7 @@ extension CTAP {
         case timeout(source: SourceLocation)
 
         /// CTAP protocol-level error.
-        case ctapError(_ error: CTAP.Error, source: SourceLocation)
+        case ctapError(_ error: CTAP2.Error, source: SourceLocation)
 
         /// CBOR encoding/decoding error.
         case cborError(_ error: CBOR.Error, source: SourceLocation)

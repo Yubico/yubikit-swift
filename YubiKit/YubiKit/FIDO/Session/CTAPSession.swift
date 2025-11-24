@@ -15,10 +15,10 @@
 import Foundation
 
 // Type aliases for convenience
-typealias FIDO2Session = CTAP.Session<FIDOInterface<CTAP.SessionError>>
-typealias FIDO2SessionOverSmartCard = CTAP.Session<SmartCardInterface<CTAP.SessionError>>
+typealias FIDO2Session = CTAP2.Session<FIDOInterface<CTAP2.SessionError>>
+typealias FIDO2SessionOverSmartCard = CTAP2.Session<SmartCardInterface<CTAP2.SessionError>>
 
-extension CTAP {
+extension CTAP2 {
 
     /// A generic interface to the FIDO2/CTAP authenticator on the YubiKey.
     ///
@@ -29,7 +29,7 @@ extension CTAP {
     ///
     /// Read more about FIDO2/WebAuthn on the
     /// [FIDO Alliance website](https://fidoalliance.org/fido2/).
-    final actor Session<I: CBORInterface> where I.Error == CTAP.SessionError {
+    final actor Session<I: CBORInterface> where I.Error == CTAP2.SessionError {
 
         /// The underlying interface for communication (FIDOInterface or SmartCardInterface).
         let interface: I
@@ -53,8 +53,8 @@ extension CTAP {
         ///
         /// - Returns: The authenticator information structure.
         /// - Throws: ``CTAP.SessionError`` if the operation fails.
-        func getInfo() async throws(CTAP.SessionError) -> CTAP.GetInfo.Response {
-            let stream: CTAP.StatusStream<CTAP.GetInfo.Response> = await interface.send(command: .getInfo)
+        func getInfo() async throws(CTAP2.SessionError) -> CTAP2.GetInfo.Response {
+            let stream: CTAP2.StatusStream<CTAP2.GetInfo.Response> = await interface.send(command: .getInfo)
             return try await stream.value
         }
 
@@ -69,8 +69,8 @@ extension CTAP {
         ///
         /// > Note: This functionality requires support for ``CTAP/Feature/reset``, available on YubiKey 5.0 or later.
         ///
-        /// - Returns: A ``CTAP/StatusStream`` that yields status updates and completes with `Void`.
-        func reset() async -> CTAP.StatusStream<Void> {
+        /// - Returns: A ``CTAP2/StatusStream`` that yields status updates and completes with `Void`.
+        func reset() async -> CTAP2.StatusStream<Void> {
             await interface.send(command: .reset)
         }
 
@@ -86,14 +86,14 @@ extension CTAP {
         ///
         /// > Note: This functionality requires support for ``CTAP/Feature/selection``, available on YubiKey 5.0 or later.
         ///
-        /// - Returns: A ``CTAP/StatusStream`` that yields status updates and completes with `Void`.
-        func selection() async -> CTAP.StatusStream<Void> {
+        /// - Returns: A ``CTAP2/StatusStream`` that yields status updates and completes with `Void`.
+        func selection() async -> CTAP2.StatusStream<Void> {
             await interface.send(command: .selection)
         }
     }
 }
 
-extension CTAP {
+extension CTAP2 {
     /// Status updates for long-running CTAP operations.
     ///
     /// These status values are derived from CTAP keep-alive messages sent by the authenticator

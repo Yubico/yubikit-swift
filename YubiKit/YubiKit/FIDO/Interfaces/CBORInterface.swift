@@ -37,34 +37,34 @@ protocol CBORInterface: Actor {
     ///   - payload: CBOR-encodable payload (will be CBOR-encoded)
     /// - Returns: Async sequence of status updates, ending with `.finished(response)` or errors
     func send<I: CBOR.Encodable, O: CBOR.Decodable & Sendable>(
-        command: CTAP.Command,
+        command: CTAP2.Command,
         payload: I
-    ) -> CTAP.StatusStream<O>
+    ) -> CTAP2.StatusStream<O>
 
     /// Send a CTAP2 command that has no response body.
     ///
     /// - Parameter command: The CTAP2 command
     /// - Returns: Async sequence of status updates, ending with `.finished(())`
-    func send(command: CTAP.Command) -> CTAP.StatusStream<Void>
+    func send(command: CTAP2.Command) -> CTAP2.StatusStream<Void>
 }
 
 extension CBORInterface {
     func send<O: CBOR.Decodable & Sendable>(
-        command: CTAP.Command
-    ) -> CTAP.StatusStream<O> {
+        command: CTAP2.Command
+    ) -> CTAP2.StatusStream<O> {
         send(command: command, payload: nil as CBOR.Value?)
     }
 
     func send(
-        command: CTAP.Command
-    ) -> CTAP.StatusStream<CBOR.Value> {
+        command: CTAP2.Command
+    ) -> CTAP2.StatusStream<CBOR.Value> {
         send(command: command, payload: nil as CBOR.Value?)
     }
 }
 
 // MARK: - Private Helpers
 
-extension CBORInterface where Error == CTAP.SessionError {
+extension CBORInterface where Error == CTAP2.SessionError {
     /// Handle CTAP2 response for commands with no response body.
     func handleCTAP2Response(_ responseData: Data) throws(Error) {
         guard !responseData.isEmpty else {
@@ -79,7 +79,7 @@ extension CBORInterface where Error == CTAP.SessionError {
                 throw .responseParseError("Expected empty response body for this command", source: .here())
             }
         } else {
-            throw .ctapError(CTAP.Error.from(errorCode: statusByte), source: .here())
+            throw .ctapError(CTAP2.Error.from(errorCode: statusByte), source: .here())
         }
     }
 
@@ -112,7 +112,7 @@ extension CBORInterface where Error == CTAP.SessionError {
 
             return decoded
         } else {
-            throw .ctapError(CTAP.Error.from(errorCode: statusByte), source: .here())
+            throw .ctapError(CTAP2.Error.from(errorCode: statusByte), source: .here())
         }
     }
 }

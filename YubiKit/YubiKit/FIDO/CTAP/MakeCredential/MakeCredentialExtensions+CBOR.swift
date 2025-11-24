@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - MakeCredentialExtensions + CBOR
 
-extension CTAP.MakeCredential.Extensions: CBOR.Encodable {
+extension CTAP2.MakeCredential.Extensions: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         let map: [CBOR.Value: CBOR.Value] = [:]
         return map.cbor()

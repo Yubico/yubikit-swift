@@ -206,7 +206,7 @@ struct WebAuthnStructuresTests {
         ]
 
         let credData = try #require(
-            CTAP.MakeCredential.Response(cbor: .map(cborMap)),
+            CTAP2.MakeCredential.Response(cbor: .map(cborMap)),
             "Failed to decode CTAP.MakeCredential.Response"
         )
 

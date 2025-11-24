@@ -14,7 +14,7 @@
 
 import Foundation
 
-extension CTAP.MakeCredential {
+extension CTAP2.MakeCredential {
     /// Parameters for the authenticatorMakeCredential command.
     ///
     /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
