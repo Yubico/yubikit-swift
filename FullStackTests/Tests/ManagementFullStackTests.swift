@@ -267,7 +267,7 @@ class ManagementFullStackTests: XCTestCase {
                 )
                 do {
                     let newConnection = try await TestableConnection.shared()
-                    let _ = try await ManagementSession.makeSession(connection: newConnection)
+                    _ = try await ManagementSession.makeSession(connection: newConnection)
                     XCTFail("Got connection even if NFC restriced was turned on!")
                 } catch {
                     print("✅ Failed creating Management.Session as expected.")

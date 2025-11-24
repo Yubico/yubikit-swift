@@ -57,13 +57,13 @@ final class SCP03FullStackTests: XCTestCase {
 
             // new session that authenticates with the default keys
             let newSession = try await SecurityDomainSession.makeSession(connection: connection, scpKeyParams: params)
-            let _ = try await newSession.getKeyInformation()
+            _ = try await newSession.getKeyInformation()
             XCTAssertTrue(true)  // reached here
 
             // new session that authenticates with the default keys
             // shouldn't work anymore and must throw an error
             do {
-                let _ = try await SecurityDomainSession.makeSession(
+                _ = try await SecurityDomainSession.makeSession(
                     connection: connection,
                     scpKeyParams: defaultKeyParams
                 )

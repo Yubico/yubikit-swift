@@ -78,7 +78,7 @@ internal enum PIVDataFormatter {
                     if let rawHashPtr = hashPtr.baseAddress {
                         data.withUnsafeBytes { (dataPtr) in
                             if let rawDataPtr = dataPtr.baseAddress {
-                                let _ = CC_SHA1(rawDataPtr, CC_LONG(data.count), rawHashPtr)
+                                _ = CC_SHA1(rawDataPtr, CC_LONG(data.count), rawHashPtr)
                             }
                         }
                     }
@@ -89,7 +89,7 @@ internal enum PIVDataFormatter {
                     if let rawHashPtr = hashPtr.baseAddress {
                         data.withUnsafeBytes { (dataPtr) in
                             if let rawDataPtr = dataPtr.baseAddress {
-                                let _ = CC_SHA224(rawDataPtr, CC_LONG(data.count), rawHashPtr)
+                                _ = CC_SHA224(rawDataPtr, CC_LONG(data.count), rawHashPtr)
                             }
                         }
                     }
