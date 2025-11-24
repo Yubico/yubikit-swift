@@ -169,6 +169,14 @@ extension FIDOInterface {
         }
     }
 
+    // MARK: - Sending + Receiving
+
+    /// Send CTAP command and wait for response (for commands that don't support KEEPALIVE)
+    func sendAndReceive(cmd: UInt8, payload: Data?) async throws(Error) -> Data {
+        try await sendRequest(cmd: cmd, payload: payload)
+        return try await receiveResponse(expectedCommand: cmd)
+    }
+
     // MARK: - Frame Building
 
     /// Build a HID initialization frame

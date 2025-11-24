@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
-
 /// Security Domain (SCP) errors.
 ///
 /// SCP (Secure Channel Protocol) provides encrypted communication with YubiKeys.

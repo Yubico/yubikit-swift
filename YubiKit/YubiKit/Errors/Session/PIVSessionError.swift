@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
-
 /// PIV session errors.
 ///
 /// Handles smart card operations including certificate management, key generation,

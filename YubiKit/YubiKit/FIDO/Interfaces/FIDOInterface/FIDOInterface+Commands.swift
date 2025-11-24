@@ -137,14 +137,3 @@ extension FIDOInterface {
         return stream
     }
 }
-
-// MARK: - Internal
-
-extension FIDOInterface {
-
-    /// Send CTAP command and wait for response (for commands that don't support KEEPALIVE)
-    func sendAndReceive(cmd: UInt8, payload: Data?) async throws(Error) -> Data {
-        try await sendRequest(cmd: cmd, payload: payload)
-        return try await receiveResponse(expectedCommand: cmd)
-    }
-}

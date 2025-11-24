@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Foundation
-
 /// Common protocol for all smart card session error types.
 /// Enforces common error cases that all smart card sessions must handle.
 public protocol SmartCardSessionError: SessionError {
