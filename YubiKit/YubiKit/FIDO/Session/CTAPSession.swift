@@ -49,10 +49,10 @@ extension CTAP2 {
         ///
         /// This command does not require user verification or PIN.
         ///
-        /// > Note: This functionality requires support for ``CTAP/Feature/getInfo``, available on YubiKey 5.0 or later.
+        /// > Note: This functionality requires support for ``CTAP2/Feature/getInfo``, available on YubiKey 5.0 or later.
         ///
         /// - Returns: The authenticator information structure.
-        /// - Throws: ``CTAP.SessionError`` if the operation fails.
+        /// - Throws: ``CTAP2/SessionError`` if the operation fails.
         func getInfo() async throws(CTAP2.SessionError) -> CTAP2.GetInfo.Response {
             let stream: CTAP2.StatusStream<CTAP2.GetInfo.Response> = await interface.send(command: .getInfo)
             return try await stream.value
@@ -67,7 +67,7 @@ extension CTAP2 {
         /// > plugging the YubiKey in, and it requires user presence confirmation (touch).
         /// > Over NFC, this command requires user presence confirmation.
         ///
-        /// > Note: This functionality requires support for ``CTAP/Feature/reset``, available on YubiKey 5.0 or later.
+        /// > Note: This functionality requires support for ``CTAP2/Feature/reset``, available on YubiKey 5.0 or later.
         ///
         /// - Returns: A ``CTAP2/StatusStream`` that yields status updates and completes with `Void`.
         func reset() async -> CTAP2.StatusStream<Void> {
@@ -84,7 +84,7 @@ extension CTAP2 {
         /// The command will wait for the user to confirm their presence on the authenticator.
         /// It completes successfully once user presence is detected.
         ///
-        /// > Note: This functionality requires support for ``CTAP/Feature/selection``, available on YubiKey 5.0 or later.
+        /// > Note: This functionality requires support for ``CTAP2/Feature/selection``, available on YubiKey 5.0 or later.
         ///
         /// - Returns: A ``CTAP2/StatusStream`` that yields status updates and completes with `Void`.
         func selection() async -> CTAP2.StatusStream<Void> {
