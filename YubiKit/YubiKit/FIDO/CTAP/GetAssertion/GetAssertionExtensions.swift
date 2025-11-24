@@ -17,6 +17,8 @@ import Foundation
 extension CTAP.GetAssertion {
     /// Extension inputs for the authenticatorGetAssertion command.
     ///
+    /// > TODO: Extensions not yet implemented (hmac-secret, largeBlobKey, getCredBlob, appId, prf).
+    ///
     /// - SeeAlso: [CTAP2.3 Extensions](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#sctn-defined-extensions)
     struct Extensions: Sendable {
         init() {}

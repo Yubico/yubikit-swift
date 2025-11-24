@@ -17,6 +17,8 @@ import Foundation
 extension CTAP.MakeCredential {
     /// Extension inputs for the authenticatorMakeCredential command.
     ///
+    /// > TODO: Extensions not yet implemented (hmac-secret, credProtect, credBlob, largeBlobKey, minPinLength).
+    ///
     /// - SeeAlso: [CTAP2.3 Extensions](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#sctn-defined-extensions)
     struct Extensions: Sendable {
         init() {}
