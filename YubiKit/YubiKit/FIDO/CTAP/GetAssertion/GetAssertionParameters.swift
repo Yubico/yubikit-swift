@@ -14,25 +14,19 @@
 
 import Foundation
 
-extension CTAP.MakeCredential {
-    /// Parameters for the authenticatorMakeCredential command.
+extension CTAP.GetAssertion {
+    /// Parameters for the authenticatorGetAssertion command.
     ///
-    /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
+    /// - SeeAlso: [CTAP2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)
     struct Parameters: Sendable {
+        /// Relying Party identifier (e.g., "example.com").
+        let rpId: String
+
         /// SHA-256 hash of the client data.
         let clientDataHash: Data
 
-        /// Relying Party information.
-        let rp: PublicKeyCredential.RPEntity
-
-        /// User account information.
-        let user: PublicKeyCredential.UserEntity
-
-        /// Supported public key algorithms in order of preference.
-        let pubKeyCredParams: [COSE.Algorithm]
-
-        /// Credentials to exclude (already registered).
-        let excludeList: [PublicKeyCredential.Descriptor]?
+        /// List of credentials acceptable to the RP (omit for resident key discovery).
+        let allowList: [PublicKeyCredential.Descriptor]?
 
         /// Extension inputs for additional authenticator processing.
         let extensions: Extensions?
@@ -46,43 +40,34 @@ extension CTAP.MakeCredential {
         /// PIN/UV protocol version (1 or 2).
         let pinUvAuthProtocol: Int?
 
-        /// Enterprise attestation level (1 or 2).
-        let enterpriseAttestation: Int?
-
         init(
+            rpId: String,
             clientDataHash: Data,
-            rp: PublicKeyCredential.RPEntity,
-            user: PublicKeyCredential.UserEntity,
-            pubKeyCredParams: [COSE.Algorithm],
-            excludeList: [PublicKeyCredential.Descriptor]? = nil,
+            allowList: [PublicKeyCredential.Descriptor]? = nil,
             extensions: Extensions? = nil,
             options: Options? = nil,
             pinUvAuthParam: Data? = nil,
-            pinUvAuthProtocol: Int? = nil,
-            enterpriseAttestation: Int? = nil
+            pinUvAuthProtocol: Int? = nil
         ) {
+            self.rpId = rpId
             self.clientDataHash = clientDataHash
-            self.rp = rp
-            self.user = user
-            self.pubKeyCredParams = pubKeyCredParams
-            self.excludeList = excludeList
+            self.allowList = allowList
             self.extensions = extensions
             self.options = options
             self.pinUvAuthParam = pinUvAuthParam
             self.pinUvAuthProtocol = pinUvAuthProtocol
-            self.enterpriseAttestation = enterpriseAttestation
         }
 
-        /// Authenticator options for makeCredential.
+        /// Authenticator options for getAssertion.
         struct Options: Sendable {
-            /// Require resident key (discoverable credential).
-            let rk: Bool?
+            /// Require user presence (default: true).
+            let up: Bool?
 
             /// Require user verification.
             let uv: Bool?
 
-            init(rk: Bool? = nil, uv: Bool? = nil) {
-                self.rk = rk
+            init(up: Bool? = nil, uv: Bool? = nil) {
+                self.up = up
                 self.uv = uv
             }
         }

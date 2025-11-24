@@ -52,10 +52,10 @@ struct CTAP2FullStackTests {
             let clientDataHash = Data(repeating: 0xCD, count: 32)
             let userId = Data(repeating: 0x02, count: 32)
 
-            let params = MakeCredentialParameters(
+            let params = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: userId,
                     name: "nonrk@example.com",
                     displayName: "Non-RK User"
@@ -95,10 +95,10 @@ struct CTAP2FullStackTests {
             let clientDataHash = Data(repeating: 0xCD, count: 32)
             let userId = Data(repeating: 0x03, count: 32)
 
-            let params = MakeCredentialParameters(
+            let params = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: userId,
                     name: "rk@example.com",
                     displayName: "RK User"
@@ -141,10 +141,10 @@ struct CTAP2FullStackTests {
             let userId = Data(repeating: 0x04, count: 32)
 
             // First, create a credential
-            let params1 = MakeCredentialParameters(
+            let params1 = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: userId,
                     name: "exclude@example.com",
                     displayName: "Exclude Test User"
@@ -165,16 +165,16 @@ struct CTAP2FullStackTests {
             let credentialId = attestedData.credentialId
 
             // Now try to create another credential with excludeList containing the first
-            let params2 = MakeCredentialParameters(
+            let params2 = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: userId,
                     name: "exclude@example.com",
                     displayName: "Exclude Test User"
                 ),
                 pubKeyCredParams: [.es256],
-                excludeList: [PublicKeyCredentialDescriptor(id: credentialId)],
+                excludeList: [PublicKeyCredential.Descriptor(id: credentialId)],
                 options: .init(rk: false)
             )
 
@@ -203,10 +203,10 @@ struct CTAP2FullStackTests {
         try await withCTAP2Session { session in
             let clientDataHash = Data(repeating: 0xCD, count: 32)
 
-            let params = MakeCredentialParameters(
+            let params = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x40, count: 32),
                     name: "algpref@example.com",
                     displayName: "Algorithm Preference User"
@@ -236,6 +236,103 @@ struct CTAP2FullStackTests {
         }
     }
 
+    // MARK: - GetAssertion Tests
+
+    @Test("Get Assertion - Basic Flow")
+    func testGetAssertionBasic() async throws {
+        try await withCTAP2Session { session in
+            let clientDataHash = Data(repeating: 0xCD, count: 32)
+            let userId = Data(repeating: 0x10, count: 32)
+
+            // First, create a credential to authenticate with
+            let makeCredParams = CTAP.MakeCredential.Parameters(
+                clientDataHash: clientDataHash,
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
+                    id: userId,
+                    name: "getassertion@example.com",
+                    displayName: "Get Assertion User"
+                ),
+                pubKeyCredParams: [.es256],
+                options: .init(rk: false)
+            )
+
+            print("Touch the YubiKey to create a credential...")
+            let credential = try await session.makeCredential(parameters: makeCredParams)
+
+            guard let attestedData = credential.authenticatorData.attestedCredentialData else {
+                Issue.record("No attested credential data in response")
+                return
+            }
+
+            let credentialId = attestedData.credentialId
+
+            // Now authenticate with the credential
+            let getAssertionParams = CTAP.GetAssertion.Parameters(
+                rpId: "example.com",
+                clientDataHash: clientDataHash,
+                allowList: [PublicKeyCredential.Descriptor(id: credentialId)]
+            )
+
+            print("Touch the YubiKey to authenticate...")
+            let assertion = try await session.getAssertion(parameters: getAssertionParams)
+
+            // Verify response structure
+            #expect(assertion.authenticatorData.rpIdHash.count == 32)
+            #expect(assertion.authenticatorData.flags.contains(.userPresent), "User presence flag should be set")
+            #expect(assertion.signature.count > 0, "Signature should be present")
+            #expect(assertion.credential?.id == credentialId, "Credential ID should match")
+
+            print("✅ Get assertion successful! Signature length: \(assertion.signature.count) bytes")
+        }
+    }
+
+    @Test("Get Assertions - AsyncSequence")
+    func testGetAssertions() async throws {
+        try await withCTAP2Session { session in
+            let clientDataHash = Data(repeating: 0xCD, count: 32)
+            let rpId = "multiassert.example.com"
+
+            // Create multiple resident keys for the same RP
+            for i in 1...3 {
+                let makeCredParams = CTAP.MakeCredential.Parameters(
+                    clientDataHash: clientDataHash,
+                    rp: PublicKeyCredential.RPEntity(id: rpId, name: "Multi Assert Corp"),
+                    user: PublicKeyCredential.UserEntity(
+                        id: Data(repeating: UInt8(0x20 + i), count: 32),
+                        name: "user\(i)@example.com",
+                        displayName: "User \(i)"
+                    ),
+                    pubKeyCredParams: [.es256],
+                    options: .init(rk: true)
+                )
+
+                print("Touch the YubiKey to create credential \(i)/3...")
+                _ = try await session.makeCredential(parameters: makeCredParams)
+            }
+
+            let getAssertionParams = CTAP.GetAssertion.Parameters(
+                rpId: rpId,
+                clientDataHash: clientDataHash,
+                allowList: nil  // Resident key discovery
+            )
+
+            print("Touch the YubiKey to iterate through assertions...")
+
+            // Iterate through all assertions
+            let sequence = await session.getAssertions(parameters: getAssertionParams)
+            var count = 0
+            for try await assertion in sequence {
+                count += 1
+                #expect(assertion.signature.count > 0)
+                print("  Assertion \(count): signature length \(assertion.signature.count) bytes")
+            }
+
+            print("✅ Iterated through \(count) assertions")
+            #expect(count >= 1)
+        }
+    }
+
     // MARK: - Cancellation Tests
 
     #if os(macOS)
@@ -245,10 +342,10 @@ struct CTAP2FullStackTests {
             let clientDataHash = Data(repeating: 0xCD, count: 32)
             let userId = Data(repeating: 0x98, count: 32)
 
-            let params = MakeCredentialParameters(
+            let params = CTAP.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredentialRPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredentialUserEntity(
+                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: PublicKeyCredential.UserEntity(
                     id: userId,
                     name: "cancel-delayed@example.com",
                     displayName: "Cancel Delayed Test User"

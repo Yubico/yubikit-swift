@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - ExtensionOutputs + CBOR
 
-extension ExtensionOutputs: CBOR.Decodable {
+extension WebAuthn.ExtensionOutputs: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue else {
             return nil
@@ -40,7 +40,7 @@ extension ExtensionOutputs: CBOR.Decodable {
 
 // MARK: - CredentialPropertiesOutput + CBOR
 
-extension ExtensionOutputs.CredentialPropertiesOutput: CBOR.Decodable {
+extension WebAuthn.ExtensionOutputs.CredentialPropertiesOutput: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue else {
             return nil

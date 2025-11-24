@@ -267,4 +267,15 @@ public enum CTAP {
             }
         }
     }
+
+    // MARK: - Command Namespaces
+
+    /// Namespace for GetAssertion command types.
+    enum GetAssertion {}
+
+    /// Namespace for MakeCredential command types.
+    enum MakeCredential {}
+
+    /// Namespace for GetInfo command types.
+    enum GetInfo {}
 }

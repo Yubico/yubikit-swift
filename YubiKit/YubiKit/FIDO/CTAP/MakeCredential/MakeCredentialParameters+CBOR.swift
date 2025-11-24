@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - MakeCredentialParameters + CBOR
 
-extension MakeCredentialParameters: CBOR.Encodable {
+extension CTAP.MakeCredential.Parameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [
             1: clientDataHash.cbor(),
@@ -30,8 +30,10 @@ extension MakeCredentialParameters: CBOR.Encodable {
             map[5] = excludeList.cbor()
         }
 
-        if let extensions = extensions, !extensions.isEmpty {
-            if let extensionsValue: CBOR.Value = try? extensions.decode() {
+        if let extensions = extensions {
+            let extensionsValue = extensions.cbor()
+            // Only include if the extensions map is non-empty
+            if case .map(let extensionsMap) = extensionsValue, !extensionsMap.isEmpty {
                 map[6] = extensionsValue
             }
         }
@@ -58,7 +60,7 @@ extension MakeCredentialParameters: CBOR.Encodable {
 
 // MARK: - MakeCredentialParameters.Options + CBOR
 
-extension MakeCredentialParameters.Options: CBOR.Encodable {
+extension CTAP.MakeCredential.Parameters.Options: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
 
@@ -74,9 +76,9 @@ extension MakeCredentialParameters.Options: CBOR.Encodable {
     }
 }
 
-// MARK: - PublicKeyCredentialRPEntity + CBOR
+// MARK: - PublicKeyCredential.RPEntity + CBOR
 
-extension PublicKeyCredentialRPEntity: CBOR.Encodable {
+extension PublicKeyCredential.RPEntity: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = ["id": id.cbor()]
 
@@ -88,9 +90,9 @@ extension PublicKeyCredentialRPEntity: CBOR.Encodable {
     }
 }
 
-// MARK: - PublicKeyCredentialUserEntity + CBOR
+// MARK: - PublicKeyCredential.UserEntity + CBOR
 
-extension PublicKeyCredentialUserEntity: CBOR.Encodable {
+extension PublicKeyCredential.UserEntity: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = ["id": id.cbor()]
 
@@ -114,9 +116,9 @@ extension COSE.Algorithm: CBOR.Encodable {
     }
 }
 
-// MARK: - PublicKeyCredentialDescriptor + CBOR
+// MARK: - PublicKeyCredential.Descriptor + CBOR
 
-extension PublicKeyCredentialDescriptor: CBOR.Encodable {
+extension PublicKeyCredential.Descriptor: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [
             "type": type.cbor(),

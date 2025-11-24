@@ -55,8 +55,8 @@ extension CTAP {
         ///
         /// - Returns: The authenticator information structure.
         /// - Throws: ``FIDO2SessionError`` if the operation fails.
-        func getInfo() async throws -> AuthenticatorInfo {
-            let info: AuthenticatorInfo? = try await interface.send(command: .getInfo)
+        func getInfo() async throws(Error) -> CTAP.GetInfo.Response {
+            let info: CTAP.GetInfo.Response? = try await interface.send(command: .getInfo)
 
             guard let info = info else {
                 throw Error.responseParseError("Failed to parse authenticatorGetInfo response", source: .here())
@@ -77,7 +77,7 @@ extension CTAP {
         /// > Note: This functionality requires support for ``CTAP/Feature/reset``, available on YubiKey 5.0 or later.
         ///
         /// - Throws: ``FIDO2SessionError`` if the operation fails.
-        func reset() async throws {
+        func reset() async throws(Error) {
             try await interface.send(command: .reset)
         }
 
@@ -94,7 +94,7 @@ extension CTAP {
         /// > Note: This functionality requires support for ``CTAP/Feature/selection``, available on YubiKey 5.0 or later.
         ///
         /// - Throws: ``FIDO2SessionError`` if the operation fails or times out.
-        func selection() async throws {
+        func selection() async throws(Error) {
             try await interface.send(command: .selection)
         }
 
@@ -109,75 +109,9 @@ extension CTAP {
         ///
         /// - Throws: ``FIDO2SessionError`` if the cancel command fails to send.
         ///
-        /// - SeeAlso: [CTAP 2.2 - CTAPHID_CANCEL](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#usb-hid-cancel)
-        func cancel() async throws {
+        /// - SeeAlso: [CTAP 2.3 - CTAPHID_CANCEL](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#usb-hid-cancel)
+        func cancel() async throws(Error) {
             try await interface.cancel()
         }
-
-        /// Create a new credential on the authenticator.
-        ///
-        /// This command registers a new FIDO2 credential with the authenticator. The authenticator
-        /// will verify user presence (and optionally user verification via PIN/biometric), generate
-        /// a new credential keypair, and return attestation data.
-        ///
-        /// > Important: This operation requires user interaction (touch) and may require PIN entry
-        /// > if user verification is requested.
-        ///
-        /// > Note: This functionality requires support for ``CTAP/Feature/makeCredential``, available on YubiKey 5.0 or later.
-        ///
-        /// - Parameter parameters: The credential creation parameters.
-        /// - Returns: The credential data including attestation information.
-        /// - Throws: ``FIDO2SessionError`` if the operation fails.
-        ///
-        /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorMakeCredential)
-        func makeCredential(parameters: MakeCredentialParameters) async throws -> CredentialData {
-            let credentialData: CredentialData? = try await interface.send(
-                command: .makeCredential,
-                payload: parameters
-            )
-
-            guard let credentialData = credentialData else {
-                throw Error.responseParseError(
-                    "Failed to parse makeCredential response",
-                    source: .here()
-                )
-            }
-
-            return credentialData
-        }
-    }
-}
-
-// MARK: - Session Creation
-
-extension CTAP.Session where I == FIDOInterface<FIDO2SessionError> {
-    /// Create a FIDO2 session over USB/HID connection.
-    ///
-    /// - Parameter connection: A FIDO (USB HID) connection to the YubiKey.
-    /// - Returns: A new FIDO2 session.
-    /// - Throws: ``FIDO2SessionError`` if session creation fails.
-    static func makeSession(connection: FIDOConnection) async throws -> FIDO2Session {
-        let interface = try await FIDOInterface<FIDO2SessionError>(connection: connection)
-        return await CTAP.Session(interface: interface)
-    }
-}
-
-extension CTAP.Session where I == SmartCardInterface<FIDO2SessionError> {
-    /// Create a FIDO2 session over NFC/SmartCard connection.
-    ///
-    /// - Parameters:
-    ///   - connection: A SmartCard (NFC) connection to the YubiKey.
-    ///   - application: The FIDO2 application to select (defaults to .fido2).
-    /// - Returns: A new FIDO2 session over NFC.
-    /// - Throws: ``FIDO2SessionError`` if session creation fails.
-    static func makeSession(
-        connection: SmartCardConnection,
-        application: Application = .fido2
-    ) async throws -> FIDO2SessionOverSmartCard {
-        let interface = try await SmartCardInterface<FIDO2SessionError>(
-            connection: connection,
-            application: application
-        )
-        return await CTAP.Session(interface: interface)
     }
 }

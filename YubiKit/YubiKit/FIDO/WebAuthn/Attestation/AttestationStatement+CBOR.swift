@@ -14,9 +14,9 @@
 
 import Foundation
 
-// MARK: - PackedAttestation + CBOR
+// MARK: - Packed + CBOR
 
-extension PackedAttestation: CBOR.Decodable {
+extension WebAuthn.AttestationStatement.Packed: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue else {
             return nil
@@ -42,9 +42,9 @@ extension PackedAttestation: CBOR.Decodable {
     }
 }
 
-// MARK: - FIDOU2FAttestation + CBOR
+// MARK: - FIDOU2F + CBOR
 
-extension FIDOU2FAttestation: CBOR.Decodable {
+extension WebAuthn.AttestationStatement.FIDOU2F: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue else {
             return nil
@@ -64,9 +64,9 @@ extension FIDOU2FAttestation: CBOR.Decodable {
     }
 }
 
-// MARK: - AppleAttestation + CBOR
+// MARK: - Apple + CBOR
 
-extension AppleAttestation: CBOR.Decodable {
+extension WebAuthn.AttestationStatement.Apple: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue else {
             return nil
