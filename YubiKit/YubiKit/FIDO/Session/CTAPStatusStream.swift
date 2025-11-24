@@ -20,9 +20,6 @@ extension CTAP {
     /// This sequence streams ``CTAP/Status`` updates during long-running CTAP operations,
     /// and can throw ``CTAP.SessionError``.
     ///
-    /// Unlike `AsyncThrowingStream<Element, any Error>`, this type preserves the specific
-    /// error type, allowing for typed `throws(CTAP.SessionError)` error handling.
-    ///
     /// ## Usage
     ///
     /// For simple cases where you don't need status updates, use the ``value`` property:

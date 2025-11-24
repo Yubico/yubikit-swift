@@ -14,9 +14,9 @@
 
 import Foundation
 
-/// Protocol for interfaces that can perform CBOR-encoded CTAP operations.
+/// Protocol for interfaces that can perform CBOR-encoded CTAP2 operations.
 ///
-/// This protocol abstracts the communication layer for CTAP/CBOR commands,
+/// This protocol abstracts the communication layer for CTAP2/CBOR commands,
 /// allowing them to work over different transports that support CBOR messaging.
 /// Currently implemented by ``FIDOInterface`` for HID/USB communication and
 /// ``SmartCardInterface`` for NFC communication.
@@ -27,13 +27,13 @@ protocol CBORInterface: Actor {
 
     var version: Version { get async }
 
-    /// Send a CTAP command with CBOR payload.
+    /// Send a CTAP2 command with CBOR payload.
     ///
     /// The request format is: [command_byte][cbor_payload]
     /// The response format is: [status_byte][optional_cbor_response]
     ///
     /// - Parameters:
-    ///   - command: The CTAP command
+    ///   - command: The CTAP2 command
     ///   - payload: CBOR-encodable payload (will be CBOR-encoded)
     /// - Returns: Async sequence of status updates, ending with `.finished(response)` or errors
     func send<I: CBOR.Encodable, O: CBOR.Decodable & Sendable>(

@@ -309,7 +309,7 @@ struct CTAP2FullStackTests {
                 )
 
                 print("Touch the YubiKey to create credential \(i)/3...")
-                let _ = try await session.makeCredential(parameters: makeCredParams).value
+                _ = try await session.makeCredential(parameters: makeCredParams).value
             }
 
             let getAssertionParams = CTAP.GetAssertion.Parameters(
