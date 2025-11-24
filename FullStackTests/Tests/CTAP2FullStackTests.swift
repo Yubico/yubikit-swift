@@ -65,17 +65,7 @@ struct CTAP2FullStackTests {
             )
 
             print("Touch the YubiKey to create a non-resident credential...")
-            var credential: CTAP.MakeCredential.Response?
-            for try await status in await session.makeCredential(parameters: params) {
-                if case .finished(let response) = status {
-                    credential = response
-                }
-            }
-
-            guard let credential else {
-                Issue.record("No response from makeCredential")
-                return
-            }
+            let credential = try await session.makeCredential(parameters: params).value
 
             // Verify response structure
             #expect(["packed", "none"].contains(credential.format), "Expected packed or none format")
@@ -118,17 +108,7 @@ struct CTAP2FullStackTests {
             )
 
             print("Touch the YubiKey to create a resident credential...")
-            var credential: CTAP.MakeCredential.Response?
-            for try await status in await session.makeCredential(parameters: params) {
-                if case .finished(let response) = status {
-                    credential = response
-                }
-            }
-
-            guard let credential else {
-                Issue.record("No response from makeCredential")
-                return
-            }
+            let credential = try await session.makeCredential(parameters: params).value
 
             // Verify response structure
             #expect(["packed", "none"].contains(credential.format), "Expected packed or none format")
@@ -174,17 +154,7 @@ struct CTAP2FullStackTests {
             )
 
             print("Touch the YubiKey to create the first credential...")
-            var credential1: CTAP.MakeCredential.Response?
-            for try await status in await session.makeCredential(parameters: params1) {
-                if case .finished(let response) = status {
-                    credential1 = response
-                }
-            }
-
-            guard let credential1 else {
-                Issue.record("No response from makeCredential")
-                return
-            }
+            let credential1 = try await session.makeCredential(parameters: params1).value
 
             // Extract credential ID from authenticatorData
             guard let attestedData = credential1.authenticatorData.attestedCredentialData else {
@@ -246,17 +216,7 @@ struct CTAP2FullStackTests {
             )
 
             print("Touch the YubiKey to test algorithm preference (EdDSA preferred, ES256 fallback)...")
-            var credential: CTAP.MakeCredential.Response?
-            for try await status in await session.makeCredential(parameters: params) {
-                if case .finished(let response) = status {
-                    credential = response
-                }
-            }
-
-            guard let credential else {
-                Issue.record("No response from makeCredential")
-                return
-            }
+            let credential = try await session.makeCredential(parameters: params).value
 
             guard let attestedData = credential.authenticatorData.attestedCredentialData else {
                 Issue.record("Failed to parse credential")
@@ -299,17 +259,7 @@ struct CTAP2FullStackTests {
             )
 
             print("Touch the YubiKey to create a credential...")
-            var credential: CTAP.MakeCredential.Response?
-            for try await status in await session.makeCredential(parameters: makeCredParams) {
-                if case .finished(let response) = status {
-                    credential = response
-                }
-            }
-
-            guard let credential else {
-                Issue.record("No response from makeCredential")
-                return
-            }
+            let credential = try await session.makeCredential(parameters: makeCredParams).value
 
             guard let attestedData = credential.authenticatorData.attestedCredentialData else {
                 Issue.record("No attested credential data in response")
@@ -326,17 +276,7 @@ struct CTAP2FullStackTests {
             )
 
             print("Touch the YubiKey to authenticate...")
-            var assertion: CTAP.GetAssertion.Response?
-            for try await status in await session.getAssertion(parameters: getAssertionParams) {
-                if case .finished(let response) = status {
-                    assertion = response
-                }
-            }
-
-            guard let assertion else {
-                Issue.record("No response from getAssertion")
-                return
-            }
+            let assertion = try await session.getAssertion(parameters: getAssertionParams).value
 
             // Verify response structure
             #expect(assertion.authenticatorData.rpIdHash.count == 32)
