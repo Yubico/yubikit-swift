@@ -178,11 +178,11 @@ extension Dictionary: CBOR.Decodable where Key: CBOR.Decodable, Value: CBOR.Deco
 
 // MARK: - Optional
 
-// Only allow Optional<Never> to represent commands with no response body.
-// This prevents silent error masking for other Optional<T> types.
+// `Optional<Never>` represents commands where success is indicated by status code alone.
+// The `Never` constraint prevents accidentally using `Optional<T>` which would silently
+// return nil on decode failures instead of throwing errors.
 extension Optional: CBOR.Decodable where Wrapped == Never {
     init?(cbor: CBOR.Value) {
-        // Commands with no response body always decode to .none
         self = .none
     }
 }

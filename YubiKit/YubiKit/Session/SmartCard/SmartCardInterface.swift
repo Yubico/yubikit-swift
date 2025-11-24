@@ -76,12 +76,8 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         return response.data
     }
 
-    /// Cancel any pending CTAP operation
-    ///
-    /// Sets a flag that will cause the next GET_RESPONSE poll to send P1_CANCEL_KEEP_ALIVE
-    /// instead of P1_KEEP_ALIVE, signaling the authenticator to abort the operation.
-    ///
-    /// This is only applicable for CTAP operations over NFC/SmartCard transport.
+    // Sets a flag that will cause the next GET_RESPONSE poll to send P1_CANCEL_KEEP_ALIVE
+    // instead of P1_KEEP_ALIVE, signaling the authenticator to abort the operation.
     func cancel() async throws(Error) where Error == CTAP.SessionError {
         shouldCancelCTAP = true
     }

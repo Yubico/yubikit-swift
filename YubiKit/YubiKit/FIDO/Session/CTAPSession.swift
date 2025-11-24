@@ -72,7 +72,7 @@ extension CTAP {
         /// - Throws: ``CTAP.SessionError`` if the operation fails.
         func reset() async throws(CTAP.SessionError) {
             let stream: CTAP.StatusStream<Never?> = await interface.send(command: .reset)
-            let _ = try await stream.value
+            _ = try await stream.value
             return
         }
 
@@ -91,7 +91,7 @@ extension CTAP {
         /// - Throws: ``CTAP.SessionError`` if the operation fails or times out.
         func selection() async throws(CTAP.SessionError) {
             let stream: CTAP.StatusStream<Never?> = await interface.send(command: .selection)
-            let _ = try await stream.value
+            _ = try await stream.value
             return
         }
     }
