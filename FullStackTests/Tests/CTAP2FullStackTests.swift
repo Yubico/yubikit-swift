@@ -422,6 +422,185 @@ struct CTAP2FullStackTests {
         }
     }
 
+    // MARK: - ClientPIN Tests
+
+    @Test("ClientPIN - Setup: Ensure PIN is Set")
+    func testClientPinSetup() async throws {
+        try await withCTAP2Session { session in
+            let testPin = "11234567"
+
+            let info = try await session.getInfo()
+            let pinIsSet = info.options["clientPin"]!
+
+            if !pinIsSet {
+                print("PIN not set, setting default PIN: \(testPin)")
+                try await session.setPIN(pin: testPin)
+                print("✅ PIN set to default: \(testPin)")
+            } else {
+                print("PIN already set")
+            }
+
+            // Verify retries are at 8
+            let (retries, _) = try await session.getPinRetries()
+            #expect(retries == 8, "Should have 8 PIN retries")
+            print("PIN retries: \(retries)")
+        }
+    }
+
+    @Test("ClientPIN - Change PIN and Verify Retry Counter", arguments: [PinAuth.v1(), PinAuth.v2()])
+    func testClientPinChangePin(pinAuth: PinAuth) async throws {
+        try await withCTAP2Session { session in
+            let testPin = "11234567"
+            let otherPin = "76543211"
+
+            // Assert precondition: PIN must be set to testPin (by testClientPinSetup)
+            let info = try await session.getInfo()
+            let pinIsSet = info.options["clientPin"]!
+            #expect(pinIsSet, "PIN must be set before running this test (run testClientPinSetup first)")
+
+            // Verify initial state
+            let (initialRetries, _) = try await session.getPinRetries()
+            #expect(initialRetries == 8, "Should start with 8 PIN retries")
+            print("Initial PIN retries: \(initialRetries) (protocol v\(pinAuth.version))")
+
+            // Change PIN from testPin to otherPin
+            print("Changing PIN with protocol v\(pinAuth.version)...")
+            try await session.changePIN(currentPin: testPin, newPin: otherPin, pinAuth: pinAuth)
+            print("✅ PIN changed successfully")
+
+            // Try to get PIN token with old PIN - should fail
+            print("Attempting to use old PIN (should fail)...")
+            do {
+                _ = try await session.getPinToken(
+                    pin: testPin,
+                    permissions: [.makeCredential, .getAssertion],
+                    rpId: "localhost",
+                    pinAuth: pinAuth
+                )
+                Issue.record("Old PIN should have been rejected")
+            } catch let error as CTAP2.SessionError {
+                guard case .ctapError(.pinInvalid, _) = error else {
+                    Issue.record("Expected PIN_INVALID error, got: \(error)")
+                    return
+                }
+                print("✅ Old PIN correctly rejected with PIN_INVALID")
+            }
+
+            // Check retries decremented
+            let (retriesAfterWrongPin, _) = try await session.getPinRetries()
+            #expect(retriesAfterWrongPin == 7, "Retries should decrement to 7 after wrong PIN")
+            print("Retries after wrong PIN: \(retriesAfterWrongPin)")
+
+            // Use new PIN - should succeed and reset retries
+            print("Using new PIN (should succeed)...")
+            let pinToken = try await session.getPinToken(
+                pin: otherPin,
+                permissions: [.makeCredential, .getAssertion],
+                rpId: "localhost",
+                pinAuth: pinAuth
+            )
+            #expect(pinToken.count > 0, "Should get valid PIN token")
+            print("✅ New PIN accepted")
+
+            // Check retries reset to 8
+            let (retriesAfterCorrectPin, _) = try await session.getPinRetries()
+            #expect(retriesAfterCorrectPin == 8, "Retries should reset to 8 after correct PIN")
+            print("Retries after correct PIN: \(retriesAfterCorrectPin)")
+
+            // Change PIN back to original
+            print("Changing PIN back to original...")
+            try await session.changePIN(currentPin: otherPin, newPin: testPin, pinAuth: pinAuth)
+            print("✅ PIN restored (protocol v\(pinAuth.version))")
+        }
+    }
+
+    @Test(
+        "ClientPIN - Retry Exhaustion and Soft-Lock",
+        .disabled("Leaves YubiKey soft-locked - requires power cycle to unlock")
+    )
+    func testClientPinRetryExhaustion() async throws {
+        let pinAuth: PinAuth = .v2()
+
+        try await withCTAP2Session { session in
+            let testPin = "11234567"
+            let wrongPin = "99999999"
+
+            // Reset to 8 retries
+            _ = try await session.getPinToken(
+                pin: testPin,
+                permissions: [.makeCredential, .getAssertion],
+                rpId: "localhost",
+                pinAuth: pinAuth
+            )
+            var (retries, _) = try await session.getPinRetries()
+            #expect(retries == 8)
+
+            // Make 3 wrong attempts: 8 → 7 → 6 → 5 (third attempt may soft-lock)
+            for expectedRetries in [7, 6, 5] {
+                do {
+                    _ = try await session.getPinToken(
+                        pin: wrongPin,
+                        permissions: [.makeCredential, .getAssertion],
+                        rpId: "localhost",
+                        pinAuth: pinAuth
+                    )
+                    Issue.record("Wrong PIN should have been rejected")
+                } catch let error as CTAP2.SessionError {
+                    if case .ctapError(.pinInvalid, _) = error {
+                        // Expected
+                    } else if case .ctapError(.pinAuthBlocked, _) = error {
+                        // Expected (soft-lock)
+                    } else {
+                        Issue.record("Expected PIN_INVALID or PIN_AUTH_BLOCKED, got: \(error)")
+                    }
+                }
+                (retries, _) = try await session.getPinRetries()
+                #expect(retries == expectedRetries)
+            }
+
+            // Now soft-locked at 5 retries - counter should freeze
+            let frozenRetries = retries
+
+            // Try wrong PIN - should get PIN_AUTH_BLOCKED and counter stays frozen
+            do {
+                _ = try await session.getPinToken(
+                    pin: wrongPin,
+                    permissions: [.makeCredential, .getAssertion],
+                    rpId: "localhost",
+                    pinAuth: pinAuth
+                )
+                Issue.record("Wrong PIN should be blocked")
+            } catch let error as CTAP2.SessionError {
+                guard case .ctapError(.pinAuthBlocked, _) = error else {
+                    Issue.record("Expected PIN_AUTH_BLOCKED, got: \(error)")
+                    return
+                }
+            }
+            (retries, _) = try await session.getPinRetries()
+            #expect(retries == frozenRetries)
+
+            // Try correct PIN - should also get PIN_AUTH_BLOCKED and counter stays frozen
+            do {
+                _ = try await session.getPinToken(
+                    pin: testPin,
+                    permissions: [.makeCredential, .getAssertion],
+                    rpId: "localhost",
+                    pinAuth: pinAuth
+                )
+                Issue.record("Correct PIN should be blocked")
+            } catch let error as CTAP2.SessionError {
+                guard case .ctapError(.pinAuthBlocked, _) = error else {
+                    Issue.record("Expected PIN_AUTH_BLOCKED, got: \(error)")
+                    return
+                }
+            }
+            (retries, _) = try await session.getPinRetries()
+            #expect(retries == frozenRetries)
+
+            print("⚠️  YubiKey soft-locked. Power cycle to unlock.")
+        }
+    }
+
     // MARK: - Helper Methods
 
     #if os(macOS)

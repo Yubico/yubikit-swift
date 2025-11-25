@@ -278,4 +278,7 @@ public enum CTAP2 {
 
     /// Namespace for GetInfo command types.
     enum GetInfo {}
+
+    /// Namespace for ClientPIN command types.
+    enum ClientPIN {}
 }

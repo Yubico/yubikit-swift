@@ -41,6 +41,41 @@ extension CTAP2.Session {
         )
     }
 
+    /// Authenticate with a credential using PIN.
+    func getAssertion(
+        parameters: CTAP2.GetAssertion.Parameters,
+        pin: String,
+        pinAuth: PinAuth = .default
+    ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
+
+        let pinToken = try await getPinToken(
+            pin: pin,
+            permissions: .getAssertion,
+            rpId: parameters.rpId,
+            pinAuth: pinAuth
+        )
+
+        let pinUvAuthParam = pinAuth.authenticate(
+            key: pinToken,
+            message: parameters.clientDataHash
+        )
+
+        let authenticatedParams = CTAP2.GetAssertion.Parameters(
+            rpId: parameters.rpId,
+            clientDataHash: parameters.clientDataHash,
+            allowList: parameters.allowList,
+            extensions: parameters.extensions,
+            options: parameters.options,
+            pinUvAuthParam: pinUvAuthParam,
+            pinUvAuthProtocol: pinAuth.version
+        )
+
+        return await interface.send(
+            command: .getAssertion,
+            payload: authenticatedParams
+        )
+    }
+
     /// Get the next assertion when multiple credentials are available.
     ///
     /// After calling ``getAssertion(parameters:)``, if the response contains `numberOfCredentials > 1`,

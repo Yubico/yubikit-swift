@@ -41,4 +41,47 @@ extension CTAP2.Session {
             payload: parameters
         )
     }
+
+    /// Create a new credential with PIN authentication.
+    func makeCredential(
+        parameters: CTAP2.MakeCredential.Parameters,
+        pin: String,
+        pinAuth: PinAuth = .default
+    ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
+
+        var permissions: CTAP2.ClientPIN.Permission = .makeCredential
+        if let excludeList = parameters.excludeList, !excludeList.isEmpty {
+            permissions.insert(.getAssertion)
+        }
+
+        let pinToken = try await getPinToken(
+            pin: pin,
+            permissions: permissions,
+            rpId: parameters.rp.id,
+            pinAuth: pinAuth
+        )
+
+        let pinUvAuthParam = pinAuth.authenticate(
+            key: pinToken,
+            message: parameters.clientDataHash
+        )
+
+        let authenticatedParams = CTAP2.MakeCredential.Parameters(
+            clientDataHash: parameters.clientDataHash,
+            rp: parameters.rp,
+            user: parameters.user,
+            pubKeyCredParams: parameters.pubKeyCredParams,
+            excludeList: parameters.excludeList,
+            extensions: parameters.extensions,
+            options: parameters.options,
+            pinUvAuthParam: pinUvAuthParam,
+            pinUvAuthProtocol: pinAuth.version,
+            enterpriseAttestation: parameters.enterpriseAttestation
+        )
+
+        return await interface.send(
+            command: .makeCredential,
+            payload: authenticatedParams
+        )
+    }
 }

@@ -37,8 +37,8 @@ extension CTAP2.GetAssertion {
         /// PIN/UV auth parameter.
         let pinUvAuthParam: Data?
 
-        /// PIN/UV protocol version (1 or 2).
-        let pinUvAuthProtocol: Int?
+        /// PIN/UV protocol version.
+        let pinUvAuthProtocol: PinAuth.Version?
 
         init(
             rpId: String,
@@ -47,7 +47,7 @@ extension CTAP2.GetAssertion {
             extensions: Extensions? = nil,
             options: Options? = nil,
             pinUvAuthParam: Data? = nil,
-            pinUvAuthProtocol: Int? = nil
+            pinUvAuthProtocol: PinAuth.Version? = nil
         ) {
             self.rpId = rpId
             self.clientDataHash = clientDataHash

@@ -43,8 +43,8 @@ extension CTAP2.MakeCredential {
         /// PIN/UV auth parameter.
         let pinUvAuthParam: Data?
 
-        /// PIN/UV protocol version (1 or 2).
-        let pinUvAuthProtocol: Int?
+        /// PIN/UV protocol version.
+        let pinUvAuthProtocol: PinAuth.Version?
 
         /// Enterprise attestation level (1 or 2).
         let enterpriseAttestation: Int?
@@ -58,7 +58,7 @@ extension CTAP2.MakeCredential {
             extensions: Extensions? = nil,
             options: Options? = nil,
             pinUvAuthParam: Data? = nil,
-            pinUvAuthProtocol: Int? = nil,
+            pinUvAuthProtocol: PinAuth.Version? = nil,
             enterpriseAttestation: Int? = nil
         ) {
             self.clientDataHash = clientDataHash
