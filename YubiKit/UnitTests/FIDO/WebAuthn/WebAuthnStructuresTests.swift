@@ -110,7 +110,7 @@ struct WebAuthnStructuresTests {
 
         let cborMap: [CBOR.Value: CBOR.Value] = [
             .textString("sig"): .byteString(sig),
-            .textString("alg"): .negativeInt(6),  // ES256 (-7)
+            .textString("alg"): .int(-7),  // ES256
             .textString("x5c"): .array([.byteString(cert1), .byteString(cert2)]),
         ]
 
@@ -133,7 +133,7 @@ struct WebAuthnStructuresTests {
 
         let cborMap: [CBOR.Value: CBOR.Value] = [
             .textString("sig"): .byteString(sig),
-            .textString("alg"): .negativeInt(6),  // ES256 (-7)
+            .textString("alg"): .int(-7),  // ES256
         ]
 
         let packed = try #require(
@@ -200,9 +200,9 @@ struct WebAuthnStructuresTests {
         ]
 
         let cborMap: [CBOR.Value: CBOR.Value] = [
-            .unsignedInt(0x01): .textString("unknown-format"),  // fmt
-            .unsignedInt(0x02): .byteString(authData),  // authData
-            .unsignedInt(0x03): .map(statement),  // attStmt
+            .int(0x01): .textString("unknown-format"),  // fmt
+            .int(0x02): .byteString(authData),  // authData
+            .int(0x03): .map(statement),  // attStmt
         ]
 
         let credData = try #require(
@@ -228,8 +228,8 @@ struct WebAuthnStructuresTests {
             .textString("credProps"): .map([.textString("rk"): .boolean(true)]),
             .textString("largeBlobKey"): .byteString(largeBlobKey),
             .textString("hmac-secret"): .boolean(true),
-            .textString("credProtect"): .unsignedInt(3),
-            .textString("minPINLength"): .unsignedInt(6),
+            .textString("credProtect"): .int(3),
+            .textString("minPINLength"): .int(6),
             .textString("customExtension"): .textString("custom-value"),
         ]
 

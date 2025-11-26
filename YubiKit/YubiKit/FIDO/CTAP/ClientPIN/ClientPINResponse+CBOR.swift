@@ -24,25 +24,25 @@ extension CTAP2.ClientPIN.Response: CBOR.Decodable {
 
         // All fields are optional - different subcommands return different fields
         let keyAgreement: COSE.Key?
-        if let keyAgreementValue = map[.unsignedInt(0x01)] {
+        if let keyAgreementValue = map[.int(0x01)] {
             keyAgreement = COSE.Key(cbor: keyAgreementValue)
         } else {
             keyAgreement = nil
         }
 
-        let pinUvAuthToken = map[.unsignedInt(0x02)]?.dataValue
+        let pinUvAuthToken = map[.int(0x02)]?.dataValue
 
         let pinRetries: Int?
-        if let value = map[.unsignedInt(0x03)]?.intValue {
+        if let value = map[.int(0x03)]?.intValue {
             pinRetries = value
         } else {
             pinRetries = nil
         }
 
-        let powerCycleState = map[.unsignedInt(0x04)]?.boolValue
+        let powerCycleState = map[.int(0x04)]?.boolValue
 
         let uvRetries: Int?
-        if let value = map[.unsignedInt(0x05)]?.intValue {
+        if let value = map[.int(0x05)]?.intValue {
             uvRetries = value
         } else {
             uvRetries = nil

@@ -23,14 +23,14 @@ extension CTAP2.GetInfo.Response: CBOR.Decodable {
         }
 
         // Required: versions (0x01) - array of strings
-        guard let versions: [String] = map[.unsignedInt(0x01)]?.cborDecoded(),
+        guard let versions: [String] = map[.int(0x01)]?.cborDecoded(),
             !versions.isEmpty
         else {
             return nil
         }
 
         // Required: aaguid (0x03) - 16-byte byte string
-        guard let aaguid: Data = map[.unsignedInt(0x03)]?.cborDecoded(),
+        guard let aaguid: Data = map[.int(0x03)]?.cborDecoded(),
             aaguid.count == 16
         else {
             return nil
@@ -39,25 +39,25 @@ extension CTAP2.GetInfo.Response: CBOR.Decodable {
         self.init(
             versions: versions,
             aaguid: aaguid,
-            extensions: map[.unsignedInt(0x02)]?.cborDecoded() ?? [],
-            options: map[.unsignedInt(0x04)]?.cborDecoded() ?? [:],
-            maxMsgSize: map[.unsignedInt(0x05)]?.cborDecoded() ?? 1024,
-            pinUvAuthProtocols: map[.unsignedInt(0x06)]?.cborDecoded() ?? [],
-            maxCredentialCountInList: map[.unsignedInt(0x07)]?.cborDecoded(),
-            maxCredentialIdLength: map[.unsignedInt(0x08)]?.cborDecoded(),
-            transports: map[.unsignedInt(0x09)]?.cborDecoded(),
-            algorithms: map[.unsignedInt(0x0A)]?.cborDecoded(),
-            maxSerializedLargeBlobArray: map[.unsignedInt(0x0B)]?.cborDecoded(),
-            forcePINChange: map[.unsignedInt(0x0C)]?.cborDecoded(),
-            minPINLength: map[.unsignedInt(0x0D)]?.cborDecoded(),
-            firmwareVersion: map[.unsignedInt(0x0E)]?.cborDecoded(),
-            maxCredBlobLength: map[.unsignedInt(0x0F)]?.cborDecoded(),
-            maxRPIDsForSetMinPINLength: map[.unsignedInt(0x10)]?.cborDecoded(),
-            preferredPlatformUvAttempts: map[.unsignedInt(0x11)]?.cborDecoded(),
-            uvModality: map[.unsignedInt(0x12)]?.cborDecoded(),
-            certifications: map[.unsignedInt(0x13)]?.cborDecoded(),
-            remainingDiscoverableCredentials: map[.unsignedInt(0x14)]?.cborDecoded(),
-            vendorPrototypeConfigCommands: map[.unsignedInt(0x15)]?.cborDecoded()
+            extensions: map[.int(0x02)]?.cborDecoded() ?? [],
+            options: map[.int(0x04)]?.cborDecoded() ?? [:],
+            maxMsgSize: map[.int(0x05)]?.cborDecoded() ?? 1024,
+            pinUvAuthProtocols: map[.int(0x06)]?.cborDecoded() ?? [],
+            maxCredentialCountInList: map[.int(0x07)]?.cborDecoded(),
+            maxCredentialIdLength: map[.int(0x08)]?.cborDecoded(),
+            transports: map[.int(0x09)]?.cborDecoded(),
+            algorithms: map[.int(0x0A)]?.cborDecoded(),
+            maxSerializedLargeBlobArray: map[.int(0x0B)]?.cborDecoded(),
+            forcePINChange: map[.int(0x0C)]?.cborDecoded(),
+            minPINLength: map[.int(0x0D)]?.cborDecoded(),
+            firmwareVersion: map[.int(0x0E)]?.cborDecoded(),
+            maxCredBlobLength: map[.int(0x0F)]?.cborDecoded(),
+            maxRPIDsForSetMinPINLength: map[.int(0x10)]?.cborDecoded(),
+            preferredPlatformUvAttempts: map[.int(0x11)]?.cborDecoded(),
+            uvModality: map[.int(0x12)]?.cborDecoded(),
+            certifications: map[.int(0x13)]?.cborDecoded(),
+            remainingDiscoverableCredentials: map[.int(0x14)]?.cborDecoded(),
+            vendorPrototypeConfigCommands: map[.int(0x15)]?.cborDecoded()
         )
     }
 }

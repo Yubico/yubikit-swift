@@ -23,13 +23,13 @@ extension CTAP2.MakeCredential.Response: CBOR.Decodable {
         }
 
         // Required: fmt (0x01) - attestation format
-        guard let fmt: String = map[.unsignedInt(0x01)]?.cborDecoded() else {
+        guard let fmt: String = map[.int(0x01)]?.cborDecoded() else {
             return nil
         }
         self.format = fmt
 
         // Required: authData (0x02) - authenticator data
-        guard let authDataBytes: Data = map[.unsignedInt(0x02)]?.cborDecoded(),
+        guard let authDataBytes: Data = map[.int(0x02)]?.cborDecoded(),
             let authData = WebAuthn.AuthenticatorData(data: authDataBytes)
         else {
             return nil
@@ -37,7 +37,7 @@ extension CTAP2.MakeCredential.Response: CBOR.Decodable {
         self.authenticatorData = authData
 
         // Required: attStmt (0x03) - attestation statement
-        guard let attStmtValue = map[.unsignedInt(0x03)] else {
+        guard let attStmtValue = map[.int(0x03)] else {
             return nil
         }
 
@@ -68,12 +68,12 @@ extension CTAP2.MakeCredential.Response: CBOR.Decodable {
         self.attestationStatement = attStmt
 
         // Optional: epAtt (0x04) - enterprise attestation
-        self.enterpriseAttestation = map[.unsignedInt(0x04)]?.cborDecoded()
+        self.enterpriseAttestation = map[.int(0x04)]?.cborDecoded()
 
         // Optional: largeBlobKey (0x05)
-        self.largeBlobKey = map[.unsignedInt(0x05)]?.cborDecoded()
+        self.largeBlobKey = map[.int(0x05)]?.cborDecoded()
 
         // Optional: unsignedExtensionOutputs (0x06)
-        self.unsignedExtensionOutputs = map[.unsignedInt(0x06)]?.cborDecoded()
+        self.unsignedExtensionOutputs = map[.int(0x06)]?.cborDecoded()
     }
 }
