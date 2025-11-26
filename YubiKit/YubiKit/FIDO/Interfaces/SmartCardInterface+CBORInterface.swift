@@ -25,15 +25,42 @@ extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
         let cborData = payload.cbor().encode()
         requestData.append(cborData)
 
-        return sendCTAPCommandStream(requestData)
+        return execute(requestData)
     }
 
-    // Send CTAP command over CCID with support for keepalive polling
-    private func sendCTAPCommandStream<O: CBOR.Decodable & Sendable>(
+    func send(command: CTAP.Command) -> CTAP.StatusStream<Void> {
+        let requestData = Data([command.rawValue])
+        return execute(requestData)
+    }
+
+    private func execute<O: CBOR.Decodable & Sendable>(
         _ data: Data
     ) -> CTAP.StatusStream<O> {
+        execute(data) { (data: Data) throws(CTAP.SessionError) -> O in
+            try self.handleCTAP2Response(data)
+        }
+    }
 
-        let stream: CTAP.StatusStream<O> = .init { continuation in
+    private func execute(
+        _ data: Data
+    ) -> CTAP.StatusStream<Void> {
+        execute(data) { (data: Data) throws(CTAP.SessionError) in
+            try self.handleCTAP2Response(data)
+        }
+    }
+
+    /// Execute a CTAP command over CCID with support for keepalive polling.
+    ///
+    /// - Parameters:
+    ///   - data: CBOR-encoded command data (command byte + optional CBOR parameters)
+    ///   - parse: Closure to parse the response data
+    /// - Returns: Async sequence of status updates, ending with `.finished(response)`
+    private func execute<O: Sendable>(
+        _ data: Data,
+        parse: @escaping (Data) throws(CTAP.SessionError) -> O
+    ) -> CTAP.StatusStream<O> {
+
+        CTAP.StatusStream<O> { continuation in
             Task {
                 do throws(CTAP.SessionError) {
                     let CLA: UInt8 = 0x80
@@ -57,7 +84,7 @@ extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
                         }
                     }
 
-                    // Send initial CTAP command (handles 0x61 continuation automatically)
+                    // Send initial CTAP command
                     let initialApdu = APDU(cla: CLA, ins: NFCCTAP_MSG, p1: P1_GET_RESPONSE, p2: 0x00, command: data)
 
                     var response: Response
@@ -65,7 +92,6 @@ extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
 
                     // Poll with GET_RESPONSE while SW is 0x9100 (operation in progress)
                     while response.responseStatus.rawStatus == SW_KEEPALIVE {
-
                         // Parse keepalive status byte from response data
                         let statusByte = response.data.first ?? 0x01  // Default to processing
                         if let currentStatus: CTAP.Status<O> = CTAP.Status.fromKeepAlive(
@@ -75,7 +101,7 @@ extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
                             continuation.yield(currentStatus)
                         }
 
-                        // avoid hammering the authenticator
+                        // Avoid hammering the authenticator
                         try? await Task.sleep(for: .milliseconds(100))
 
                         // Use P1_CANCEL_KEEP_ALIVE if cancel() was called
@@ -98,7 +124,7 @@ extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
                     }
 
                     // Parse and yield final response
-                    let result: O = try self.handleCTAP2Response(response.data)
+                    let result: O = try parse(response.data)
                     continuation.yield(.finished(result))
                     continuation.finish()
 
@@ -107,8 +133,6 @@ extension SmartCardInterface: CBORInterface where Error == CTAP.SessionError {
                 }
             }
         }
-
-        return stream
     }
 
     private func sendAllowingKeepalive(

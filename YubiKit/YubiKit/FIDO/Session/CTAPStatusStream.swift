@@ -35,10 +35,8 @@ extension CTAP {
     ///     switch status {
     ///     case .processing:
     ///         print("Processing...")
-    ///     case .waitingForUserPresence:
+    ///     case .waitingForUser:
     ///         showMessage("Touch your YubiKey")
-    ///     case .waitingForUserVerification:
-    ///         showMessage("Enter PIN or use biometric")
     ///     case .finished(let response):
     ///         return response
     ///     }
@@ -59,7 +57,7 @@ extension CTAP {
         ///
         /// This property iterates through all status updates and returns the response
         /// from the `.finished` case. Intermediate status updates (`.processing`,
-        /// `.waitingForUserPresence`, `.waitingForUserVerification`) are ignored.
+        /// `.waitingForUser`) are ignored.
         ///
         /// Use this when you don't need to react to status updates and just want the result.
         ///

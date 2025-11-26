@@ -40,6 +40,12 @@ protocol CBORInterface: Actor {
         command: CTAP.Command,
         payload: I
     ) -> CTAP.StatusStream<O>
+
+    /// Send a CTAP2 command that has no response body.
+    ///
+    /// - Parameter command: The CTAP2 command
+    /// - Returns: Async sequence of status updates, ending with `.finished(())`
+    func send(command: CTAP.Command) -> CTAP.StatusStream<Void>
 }
 
 extension CBORInterface {
@@ -59,6 +65,25 @@ extension CBORInterface {
 // MARK: - Private Helpers
 
 extension CBORInterface where Error == CTAP.SessionError {
+    /// Handle CTAP2 response for commands with no response body.
+    func handleCTAP2Response(_ responseData: Data) throws(Error) {
+        guard !responseData.isEmpty else {
+            throw .cborError(CBOR.Error.unexpectedEndOfData, source: .here())
+        }
+
+        let statusByte = responseData[0]
+
+        if statusByte == 0x00 {
+            let cborData = Data(responseData.dropFirst())
+            guard cborData.isEmpty else {
+                throw .responseParseError("Expected empty response body for this command", source: .here())
+            }
+        } else {
+            throw .ctapError(CTAP.Error.from(errorCode: statusByte), source: .here())
+        }
+    }
+
+    /// Handle CTAP2 response with CBOR-decodable body.
     func handleCTAP2Response<O: CBOR.Decodable>(_ responseData: Data) throws(Error) -> O {
         guard !responseData.isEmpty else {
             throw .cborError(CBOR.Error.unexpectedEndOfData, source: .here())
@@ -70,15 +95,6 @@ extension CBORInterface where Error == CTAP.SessionError {
             // Convert to Data to reset indices to 0 (dropFirst returns Slice<Data>)
             let cborData = Data(responseData.dropFirst())
 
-            // Special case: O is Optional<Never> (command with no response body)
-            if O.self == Optional<Never>.self {
-                guard cborData.isEmpty else {
-                    throw .responseParseError("Expected empty response body for this command", source: .here())
-                }
-                return Optional<Never>.none as! O
-            }
-
-            // Normal case: decode CBOR response
             guard !cborData.isEmpty else {
                 throw .cborError(CBOR.Error.unexpectedEndOfData, source: .here())
             }

@@ -105,9 +105,7 @@ extension CTAP.Status {
         case 0x01:
             return .processing
         case 0x02:
-            return .waitingForUserPresence(cancel: cancel)
-        case 0x03:
-            return .waitingForUserVerification(cancel: cancel)
+            return .waitingForUser(cancel: cancel)
         default:
             return nil  // Unknown status - caller should continue waiting
         }

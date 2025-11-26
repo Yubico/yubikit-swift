@@ -69,11 +69,9 @@ extension CTAP {
         ///
         /// > Note: This functionality requires support for ``CTAP/Feature/reset``, available on YubiKey 5.0 or later.
         ///
-        /// - Throws: ``CTAP.SessionError`` if the operation fails.
-        func reset() async throws(CTAP.SessionError) {
-            let stream: CTAP.StatusStream<Never?> = await interface.send(command: .reset)
-            _ = try await stream.value
-            return
+        /// - Returns: A ``CTAP/StatusStream`` that yields status updates and completes with `Void`.
+        func reset() async -> CTAP.StatusStream<Void> {
+            await interface.send(command: .reset)
         }
 
         /// Request user presence check for authenticator selection.
@@ -88,11 +86,9 @@ extension CTAP {
         ///
         /// > Note: This functionality requires support for ``CTAP/Feature/selection``, available on YubiKey 5.0 or later.
         ///
-        /// - Throws: ``CTAP.SessionError`` if the operation fails or times out.
-        func selection() async throws(CTAP.SessionError) {
-            let stream: CTAP.StatusStream<Never?> = await interface.send(command: .selection)
-            _ = try await stream.value
-            return
+        /// - Returns: A ``CTAP/StatusStream`` that yields status updates and completes with `Void`.
+        func selection() async -> CTAP.StatusStream<Void> {
+            await interface.send(command: .selection)
         }
     }
 }
@@ -108,17 +104,11 @@ extension CTAP {
         /// The authenticator is processing the request.
         case processing
 
-        /// The authenticator is waiting for user presence (touch).
+        /// The authenticator is waiting for user interaction.
         ///
         /// - Parameter cancel: Closure to cancel the operation. Any errors during cancellation
         ///   will be propagated through the stream.
-        case waitingForUserPresence(cancel: @Sendable () async -> Void)
-
-        /// The authenticator is waiting for user verification (PIN or biometric).
-        ///
-        /// - Parameter cancel: Closure to cancel the operation. Any errors during cancellation
-        ///   will be propagated through the stream.
-        case waitingForUserVerification(cancel: @Sendable () async -> Void)
+        case waitingForUser(cancel: @Sendable () async -> Void)
 
         /// The operation completed successfully with a response.
         ///

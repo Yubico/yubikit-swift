@@ -176,17 +176,6 @@ extension Dictionary: CBOR.Decodable where Key: CBOR.Decodable, Value: CBOR.Deco
     }
 }
 
-// MARK: - Optional
-
-// `Optional<Never>` represents commands where success is indicated by status code alone.
-// The `Never` constraint prevents accidentally using `Optional<T>` which would silently
-// return nil on decode failures instead of throwing errors.
-extension Optional: CBOR.Decodable where Wrapped == Never {
-    init?(cbor: CBOR.Value) {
-        self = .none
-    }
-}
-
 // MARK: - CBOR.Value itself
 
 extension CBOR.Value: CBOR.Decodable {

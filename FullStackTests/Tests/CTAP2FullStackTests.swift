@@ -363,11 +363,8 @@ struct CTAP2FullStackTests {
                     switch status {
                     case .processing:
                         print("Processing...")
-                    case .waitingForUserPresence(let cancel):
-                        print("Waiting for user presence - cancelling now!")
-                        await cancel()
-                    case .waitingForUserVerification(let cancel):
-                        print("Waiting for user verification - cancelling now!")
+                    case .waitingForUser(let cancel):
+                        print("Waiting for user - cancelling now!")
                         await cancel()
                     case .finished(let response):
                         Issue.record(
@@ -408,7 +405,14 @@ struct CTAP2FullStackTests {
             // The reset command must be called within a few seconds of plugging in the YubiKey
             // and requires user presence confirmation otherwise it will fail
             print("Touch the YubiKey to confirm reset...")
-            try await session.reset()
+            var receivedWaitingForUser = false
+            for try await status in await session.reset() {
+                print("Status: \(status)")
+                if case .waitingForUser = status {
+                    receivedWaitingForUser = true
+                }
+            }
+            #expect(receivedWaitingForUser, "Should receive waitingForUser status during reset")
             print("Reset successful!")
 
             // Verify the authenticator was reset by checking info

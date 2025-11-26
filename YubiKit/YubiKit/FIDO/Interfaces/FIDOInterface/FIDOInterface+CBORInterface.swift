@@ -27,21 +27,45 @@ extension FIDOInterface: CBORInterface where Error == CTAP.SessionError {
 
         // TODO: Validate message size against authenticatorInfo.maxMsgSize
 
-        return sendCTAPCommandStream(payload: requestData)
+        return execute(requestData)
     }
 
-    /// Send CBOR-encoded CTAP2 command and receive CBOR response
+    func send(command: CTAP.Command) -> CTAP.StatusStream<Void> {
+        let requestData = Data([command.rawValue])
+        return execute(requestData)
+    }
+
+    private func execute<O: CBOR.Decodable & Sendable>(
+        _ data: Data
+    ) -> CTAP.StatusStream<O> where Error == CTAP.SessionError {
+        execute(data) { (data: Data) throws(CTAP.SessionError) -> O in
+            try self.handleCTAP2Response(data)
+        }
+    }
+
+    private func execute(
+        _ data: Data
+    ) -> CTAP.StatusStream<Void> where Error == CTAP.SessionError {
+        execute(data) { (data: Data) throws(CTAP.SessionError) in
+            try self.handleCTAP2Response(data)
+        }
+    }
+
+    /// Execute a CBOR-encoded CTAP2 command and receive response.
     ///
     /// This is the main entry point for CTAP2 protocol commands like authenticatorGetInfo,
     /// authenticatorMakeCredential, authenticatorGetAssertion, etc.
     ///
-    /// - Parameter payload: CBOR-encoded command data (command byte + optional CBOR parameters)
+    /// - Parameters:
+    ///   - data: CBOR-encoded command data (command byte + optional CBOR parameters)
+    ///   - parse: Closure to parse the response data
     /// - Returns: Async sequence of status updates, ending with `.finished(response)`
-    private func sendCTAPCommandStream<O: CBOR.Decodable & Sendable>(
-        payload: Data
+    private func execute<O: Sendable>(
+        _ data: Data,
+        parse: @escaping (Data) throws(CTAP.SessionError) -> O
     ) -> CTAP.StatusStream<O> where Error == CTAP.SessionError {
 
-        let stream: CTAP.StatusStream<O> = .init { continuation in
+        CTAP.StatusStream<O> { continuation in
             Task {
                 do throws(CTAP.SessionError) {
                     // Check capability support
@@ -50,7 +74,7 @@ extension FIDOInterface: CBORInterface where Error == CTAP.SessionError {
                     }
 
                     // Send the request
-                    try await self.sendRequest(cmd: Self.hidCommand(.cbor), payload: payload)
+                    try await self.sendRequest(cmd: Self.hidCommand(.cbor), payload: data)
 
                     // Create cancel closure that calls the interface's cancel method
                     // Any errors during cancellation are yielded to the stream
@@ -75,7 +99,7 @@ extension FIDOInterface: CBORInterface where Error == CTAP.SessionError {
                     }
 
                     // Parse CTAP response and yield final result
-                    let result: O = try self.handleCTAP2Response(responsePayload)
+                    let result: O = try parse(responsePayload)
                     continuation.yield(.finished(result))
                     continuation.finish()
                 } catch {
@@ -83,7 +107,5 @@ extension FIDOInterface: CBORInterface where Error == CTAP.SessionError {
                 }
             }
         }
-
-        return stream
     }
 }
