@@ -48,8 +48,20 @@ extension CTAP {
         private let stream: AsyncStream<Result<CTAP.Status<Response>, CTAP.SessionError>>
 
         init(_ build: @escaping (Continuation) -> Void) {
-            self.stream = AsyncStream { continuation in
+            let baseStream = AsyncStream { continuation in
                 build(Continuation(continuation))
+            }
+            self.stream = baseStream.removeDuplicates { lhs, rhs in
+                switch (lhs, rhs) {
+                case (.success(.processing), .success(.processing)):
+                    return true
+                case (.success(.waitingForUser), .success(.waitingForUser)):
+                    return true
+                case (.success(.finished), .success(.finished)):
+                    return true
+                default:
+                    return false
+                }
             }
         }
 
