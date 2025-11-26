@@ -16,31 +16,31 @@ import Foundation
 
 // MARK: - Session Creation
 
-extension CTAP.Session where I == FIDOInterface<FIDO2SessionError> {
+extension CTAP.Session where I == FIDOInterface<CTAP.SessionError> {
     /// Create a FIDO2 session over USB/HID connection.
     ///
     /// - Parameter connection: A FIDO (USB HID) connection to the YubiKey.
     /// - Returns: A new FIDO2 session.
-    /// - Throws: ``FIDO2SessionError`` if session creation fails.
+    /// - Throws: ``CTAP.SessionError`` if session creation fails.
     static func makeSession(connection: FIDOConnection) async throws -> FIDO2Session {
-        let interface = try await FIDOInterface<FIDO2SessionError>(connection: connection)
+        let interface = try await FIDOInterface<CTAP.SessionError>(connection: connection)
         return await CTAP.Session(interface: interface)
     }
 }
 
-extension CTAP.Session where I == SmartCardInterface<FIDO2SessionError> {
+extension CTAP.Session where I == SmartCardInterface<CTAP.SessionError> {
     /// Create a FIDO2 session over NFC/SmartCard connection.
     ///
     /// - Parameters:
     ///   - connection: A SmartCard (NFC) connection to the YubiKey.
     ///   - application: The FIDO2 application to select (defaults to .fido2).
     /// - Returns: A new FIDO2 session over NFC.
-    /// - Throws: ``FIDO2SessionError`` if session creation fails.
+    /// - Throws: ``CTAP.SessionError`` if session creation fails.
     static func makeSession(
         connection: SmartCardConnection,
         application: Application = .fido2
     ) async throws -> FIDO2SessionOverSmartCard {
-        let interface = try await SmartCardInterface<FIDO2SessionError>(
+        let interface = try await SmartCardInterface<CTAP.SessionError>(
             connection: connection,
             application: application
         )

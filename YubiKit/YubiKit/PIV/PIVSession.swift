@@ -739,14 +739,14 @@ public final actor PIVSession: SmartCardSessionInternal {
             try await process(apdu: apdu)
             return .success
         } catch {
-            guard case let .failedResponse(status, source: _) = error else { throw error }
-            let retriesLeft = retriesFrom(status)
+            guard case let .failedResponse(response, source: _) = error else { throw error }
+            let retriesLeft = retriesFrom(response.responseStatus)
             if retriesLeft > 0 {
                 return .fail(retriesLeft)
             } else if retriesLeft == 0 {
                 return .pinLocked
             } else {
-                throw .failedResponse(status, source: .here())
+                throw .failedResponse(response, source: .here())
             }
         }
     }
@@ -896,17 +896,17 @@ public final actor PIVSession: SmartCardSessionInternal {
             let response = try await process(apdu: apdu)
             return requestTemporaryPin ? response : nil
         } catch {
-            guard case let .failedResponse(responseStatus, _) = error
+            guard case let .failedResponse(response, _) = error
             else { throw error }
 
-            guard responseStatus.status != .referencedDataNotFound
+            guard response.status != .referencedDataNotFound
             else { throw PIVSessionError.featureNotSupported(source: .here()) }
 
-            let retries = retriesFrom(responseStatus)
+            let retries = retriesFrom(response.responseStatus)
             if retries >= 0 {
                 throw PIVSessionError.invalidPin(retries, source: .here())
             } else {
-                throw PIVSessionError.failedResponse(responseStatus, source: .here())
+                throw PIVSessionError.failedResponse(response, source: .here())
             }
         }
     }
@@ -930,12 +930,12 @@ public final actor PIVSession: SmartCardSessionInternal {
             let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: UInt8(tagSlotOCCAuth), command: data)
             try await process(apdu: apdu)
         } catch {
-            guard case let .failedResponse(responseStatus, _) = error
+            guard case let .failedResponse(response, _) = error
             else { throw error }
-            guard responseStatus.status != .referencedDataNotFound else {
+            guard response.status != .referencedDataNotFound else {
                 throw .featureNotSupported(source: .here())
             }
-            throw .failedResponse(responseStatus, source: .here())
+            throw .failedResponse(response, source: .here())
         }
     }
 }
@@ -1024,14 +1024,14 @@ extension PIVSession {
         do {
             try await process(apdu: apdu)
         } catch {
-            guard case let .failedResponse(responseStatus, _) = error else {
+            guard case let .failedResponse(response, _) = error else {
                 throw error
             }
-            let retries = retriesFrom(responseStatus)
+            let retries = retriesFrom(response.responseStatus)
             if retries >= 0 {
                 throw .invalidPin(retries, source: .here())
             } else {
-                throw .failedResponse(responseStatus, source: .here())
+                throw .failedResponse(response, source: .here())
             }
         }
     }

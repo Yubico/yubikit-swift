@@ -26,7 +26,7 @@ public protocol SmartCardSessionError: SessionError {
 
     /// Response status error that couldn't be handled specifically by the session.
     static func failedResponse(
-        _ responseStatus: ResponseStatus,
+        _ response: Response,
         source: SourceLocation
     ) -> Self
 

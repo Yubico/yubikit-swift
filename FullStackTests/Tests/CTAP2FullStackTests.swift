@@ -65,7 +65,7 @@ struct CTAP2FullStackTests {
             )
 
             print("Touch the YubiKey to create a non-resident credential...")
-            let credential = try await session.makeCredential(parameters: params)
+            let credential = try await session.makeCredential(parameters: params).value
 
             // Verify response structure
             #expect(["packed", "none"].contains(credential.format), "Expected packed or none format")
@@ -108,7 +108,7 @@ struct CTAP2FullStackTests {
             )
 
             print("Touch the YubiKey to create a resident credential...")
-            let credential = try await session.makeCredential(parameters: params)
+            let credential = try await session.makeCredential(parameters: params).value
 
             // Verify response structure
             #expect(["packed", "none"].contains(credential.format), "Expected packed or none format")
@@ -154,7 +154,7 @@ struct CTAP2FullStackTests {
             )
 
             print("Touch the YubiKey to create the first credential...")
-            let credential1 = try await session.makeCredential(parameters: params1)
+            let credential1 = try await session.makeCredential(parameters: params1).value
 
             // Extract credential ID from authenticatorData
             guard let attestedData = credential1.authenticatorData.attestedCredentialData else {
@@ -180,13 +180,14 @@ struct CTAP2FullStackTests {
 
             print("Touch the YubiKey - this should fail with CREDENTIAL_EXCLUDED...")
             do {
-                _ = try await session.makeCredential(parameters: params2)
-                Issue.record("Expected CREDENTIAL_EXCLUDED error but makeCredential succeeded")
-            } catch let error as FIDO2SessionError {
-                // Verify it's specifically the credentialExcluded error
-                if case .ctapError(let ctapError, _) = error,
-                    case .credentialExcluded = ctapError
-                {
+                for try await status in await session.makeCredential(parameters: params2) {
+                    if case .finished = status {
+                        Issue.record("Expected CREDENTIAL_EXCLUDED error but makeCredential succeeded")
+                    }
+                }
+                Issue.record("Expected CREDENTIAL_EXCLUDED error but stream completed without throwing")
+            } catch let error as CTAP.SessionError {
+                if case .ctapError(.credentialExcluded, _) = error {
                     print("✅ Got expected CREDENTIAL_EXCLUDED error")
                 } else {
                     Issue.record("Expected CREDENTIAL_EXCLUDED but got: \(error)")
@@ -215,7 +216,7 @@ struct CTAP2FullStackTests {
             )
 
             print("Touch the YubiKey to test algorithm preference (EdDSA preferred, ES256 fallback)...")
-            let credential = try await session.makeCredential(parameters: params)
+            let credential = try await session.makeCredential(parameters: params).value
 
             guard let attestedData = credential.authenticatorData.attestedCredentialData else {
                 Issue.record("Failed to parse credential")
@@ -258,7 +259,7 @@ struct CTAP2FullStackTests {
             )
 
             print("Touch the YubiKey to create a credential...")
-            let credential = try await session.makeCredential(parameters: makeCredParams)
+            let credential = try await session.makeCredential(parameters: makeCredParams).value
 
             guard let attestedData = credential.authenticatorData.attestedCredentialData else {
                 Issue.record("No attested credential data in response")
@@ -275,7 +276,7 @@ struct CTAP2FullStackTests {
             )
 
             print("Touch the YubiKey to authenticate...")
-            let assertion = try await session.getAssertion(parameters: getAssertionParams)
+            let assertion = try await session.getAssertion(parameters: getAssertionParams).value
 
             // Verify response structure
             #expect(assertion.authenticatorData.rpIdHash.count == 32)
@@ -308,7 +309,7 @@ struct CTAP2FullStackTests {
                 )
 
                 print("Touch the YubiKey to create credential \(i)/3...")
-                _ = try await session.makeCredential(parameters: makeCredParams)
+                _ = try await session.makeCredential(parameters: makeCredParams).value
             }
 
             let getAssertionParams = CTAP.GetAssertion.Parameters(
@@ -347,35 +348,39 @@ struct CTAP2FullStackTests {
                 rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredential.UserEntity(
                     id: userId,
-                    name: "cancel-delayed@example.com",
-                    displayName: "Cancel Delayed Test User"
+                    name: "cancel-test@example.com",
+                    displayName: "Cancel Test User"
                 ),
                 pubKeyCredParams: [.es256]
             )
 
-            print("Starting makeCredential - will cancel after 500ms...")
+            print("Starting makeCredential - will cancel when waiting for user presence...")
             print("DO NOT touch the YubiKey - operation will be cancelled")
 
-            // Create a task for the makeCredential operation
-            let makeCredential = Task {
-                try await session.makeCredential(parameters: params)
-            }
-
-            // Schedule cancellation after 500ms delay
-            try await Task.sleep(for: .milliseconds(500))
-            print("Sending cancellation...")
-            try await session.cancel()
-
+            // Run makeCredential and cancel when we get waiting status
             do {
-                _ = try await makeCredential.value
-                Issue.record("makeCredential should have been cancelled")
-            } catch let error as FIDO2SessionError {
+                for try await status in await session.makeCredential(parameters: params) {
+                    switch status {
+                    case .processing:
+                        print("Processing...")
+                    case .waitingForUser(let cancel):
+                        print("Waiting for user - cancelling now!")
+                        await cancel()
+                    case .finished(let response):
+                        Issue.record(
+                            "makeCredential should have been cancelled but got response: \(String(describing: response))"
+                        )
+                    }
+                }
+
+                Issue.record("makeCredential should have thrown cancellation error")
+            } catch let error as CTAP.SessionError {
                 // Verify we got the expected cancellation error
                 guard case .ctapError(.keepaliveCancel, _) = error else {
                     Issue.record("Expected keepaliveCancel error, got: \(error)")
                     return
                 }
-                print("✅ Delayed cancellation successful - received keepaliveCancel error")
+                print("✅ Cancellation successful - received keepaliveCancel error")
             } catch {
                 Issue.record("Unexpected error type: \(error)")
             }
@@ -400,7 +405,14 @@ struct CTAP2FullStackTests {
             // The reset command must be called within a few seconds of plugging in the YubiKey
             // and requires user presence confirmation otherwise it will fail
             print("Touch the YubiKey to confirm reset...")
-            try await session.reset()
+            var receivedWaitingForUser = false
+            for try await status in await session.reset() {
+                print("Status: \(status)")
+                if case .waitingForUser = status {
+                    receivedWaitingForUser = true
+                }
+            }
+            #expect(receivedWaitingForUser, "Should receive waitingForUser status during reset")
             print("Reset successful!")
 
             // Verify the authenticator was reset by checking info

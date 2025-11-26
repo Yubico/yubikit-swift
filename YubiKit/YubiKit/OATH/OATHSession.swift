@@ -468,8 +468,8 @@ public final actor OATHSession: SmartCardSessionInternal {
         do {
             data = try await process(apdu: apdu)
         } catch {
-            guard case let .failedResponse(responseStatus, _) = error else { throw error }
-            if responseStatus.status == .incorrectParameters {
+            guard case let .failedResponse(response, _) = error else { throw error }
+            if response.status == .incorrectParameters {
                 throw OATHSessionError.invalidPassword(source: .here())
             } else {
                 throw error
