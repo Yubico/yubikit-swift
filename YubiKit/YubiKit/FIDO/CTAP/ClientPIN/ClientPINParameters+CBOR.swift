@@ -22,32 +22,12 @@ extension CTAP2.ClientPIN.Parameters: CBOR.Encodable {
             0x01: pinUvAuthProtocol.cbor(),
             0x02: subCommand.rawValue.cbor(),
         ]
-
-        // Optional parameters
-        if let keyAgreement = keyAgreement {
-            map[0x03] = keyAgreement.cbor()
-        }
-
-        if let pinUvAuthParam = pinUvAuthParam {
-            map[0x04] = pinUvAuthParam.cbor()
-        }
-
-        if let newPinEnc = newPinEnc {
-            map[0x05] = newPinEnc.cbor()
-        }
-
-        if let pinHashEnc = pinHashEnc {
-            map[0x06] = pinHashEnc.cbor()
-        }
-
-        if let permissions = permissions {
-            map[0x09] = permissions.cbor()
-        }
-
-        if let rpId = rpId {
-            map[0x0A] = rpId.cbor()
-        }
-
+        map[0x03] = keyAgreement?.cbor()
+        map[0x04] = pinUvAuthParam?.cbor()
+        map[0x05] = newPinEnc?.cbor()
+        map[0x06] = pinHashEnc?.cbor()
+        map[0x09] = permissions?.cbor()
+        map[0x0A] = rpId?.cbor()
         return map.cbor()
     }
 }

@@ -24,36 +24,19 @@ extension CTAP2.MakeCredential.Parameters: CBOR.Encodable {
             3: user.cbor(),
             4: pubKeyCredParams.cbor(),
         ]
-
-        // Optional parameters
         if let excludeList = excludeList, !excludeList.isEmpty {
             map[5] = excludeList.cbor()
         }
-
         if let extensions = extensions {
             let extensionsValue = extensions.cbor()
-            // Only include if the extensions map is non-empty
             if case .map(let extensionsMap) = extensionsValue, !extensionsMap.isEmpty {
                 map[6] = extensionsValue
             }
         }
-
-        if let options = options {
-            map[7] = options.cbor()
-        }
-
-        if let pinUvAuthParam = pinUvAuthParam {
-            map[8] = pinUvAuthParam.cbor()
-        }
-
-        if let pinUvAuthProtocol = pinUvAuthProtocol {
-            map[9] = pinUvAuthProtocol.cbor()
-        }
-
-        if let enterpriseAttestation = enterpriseAttestation {
-            map[10] = enterpriseAttestation.cbor()
-        }
-
+        map[7] = options?.cbor()
+        map[8] = pinUvAuthParam?.cbor()
+        map[9] = pinUvAuthProtocol?.cbor()
+        map[10] = enterpriseAttestation?.cbor()
         return map.cbor()
     }
 }
@@ -63,15 +46,8 @@ extension CTAP2.MakeCredential.Parameters: CBOR.Encodable {
 extension CTAP2.MakeCredential.Parameters.Options: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
-
-        if let rk = rk {
-            map["rk"] = rk.cbor()
-        }
-
-        if let uv = uv {
-            map["uv"] = uv.cbor()
-        }
-
+        map["rk"] = rk?.cbor()
+        map["uv"] = uv?.cbor()
         return map.cbor()
     }
 }
@@ -81,11 +57,7 @@ extension CTAP2.MakeCredential.Parameters.Options: CBOR.Encodable {
 extension PublicKeyCredential.RPEntity: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = ["id": id.cbor()]
-
-        if let name = name {
-            map["name"] = name.cbor()
-        }
-
+        map["name"] = name?.cbor()
         return map.cbor()
     }
 }
@@ -95,15 +67,8 @@ extension PublicKeyCredential.RPEntity: CBOR.Encodable {
 extension PublicKeyCredential.UserEntity: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = ["id": id.cbor()]
-
-        if let name = name {
-            map["name"] = name.cbor()
-        }
-
-        if let displayName = displayName {
-            map["displayName"] = displayName.cbor()
-        }
-
+        map["name"] = name?.cbor()
+        map["displayName"] = displayName?.cbor()
         return map.cbor()
     }
 }
