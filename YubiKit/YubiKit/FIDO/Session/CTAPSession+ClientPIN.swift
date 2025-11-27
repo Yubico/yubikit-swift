@@ -39,6 +39,26 @@ extension CTAP2.Session {
         return (retries: pinRetries, powerCycleRequired: response.powerCycleState ?? false)
     }
 
+    /// Get the number of UV (user verification) retries remaining.
+    func getUvRetries() async throws(CTAP2.SessionError) -> Int {
+        let parameters = CTAP2.ClientPIN.Parameters(
+            pinUvAuthProtocol: .v1,
+            subCommand: .getUVRetries
+        )
+
+        let stream: CTAP2.StatusStream<CTAP2.ClientPIN.Response> = await interface.send(
+            command: .clientPIN,
+            payload: parameters
+        )
+        let response = try await stream.value
+
+        guard let uvRetries = response.uvRetries else {
+            throw CTAP2.SessionError.ctapError(.missingParameter, source: .here())
+        }
+
+        return uvRetries
+    }
+
     /// Get the authenticator's public key for ECDH key agreement.
     func getKeyAgreement(protocol: PinAuth.Version = .v1) async throws(CTAP2.SessionError) -> COSE.Key {
         let parameters = CTAP2.ClientPIN.Parameters(
