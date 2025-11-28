@@ -21,9 +21,12 @@ extension CTAP2.Session {
 
     /// Get the number of PIN retries remaining.
     ///
+    /// - Parameter pinProtocol: The PIN/UV auth protocol version (default: v1).
     /// - Returns: The number of retries remaining and whether a power cycle is required.
-    func getPinRetries() async throws(CTAP2.SessionError) -> CTAP2.ClientPin.GetRetries.Response {
-        let params = CTAP2.ClientPin.GetRetries.Parameters()
+    func getPinRetries(
+        pinProtocol: PinAuth.ProtocolVersion = .v1
+    ) async throws(CTAP2.SessionError) -> CTAP2.ClientPin.GetRetries.Response {
+        let params = CTAP2.ClientPin.GetRetries.Parameters(pinUVAuthProtocol: pinProtocol)
         let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetRetries.Response> = await interface.send(
             command: .clientPin,
             payload: params
@@ -33,9 +36,12 @@ extension CTAP2.Session {
 
     /// Get the number of UV (user verification) retries remaining.
     ///
+    /// - Parameter pinProtocol: The PIN/UV auth protocol version (default: v1).
     /// - Returns: The number of UV retries remaining.
-    func getUVRetries() async throws(CTAP2.SessionError) -> Int {
-        let params = CTAP2.ClientPin.GetUVRetries.Parameters()
+    func getUVRetries(
+        pinProtocol: PinAuth.ProtocolVersion = .v1
+    ) async throws(CTAP2.SessionError) -> Int {
+        let params = CTAP2.ClientPin.GetUVRetries.Parameters(pinUVAuthProtocol: pinProtocol)
         let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetUVRetries.Response> = await interface.send(
             command: .clientPin,
             payload: params
@@ -45,12 +51,12 @@ extension CTAP2.Session {
 
     /// Get the authenticator's public key for ECDH key agreement.
     ///
-    /// - Parameter protocolVersion: The PIN/UV auth protocol version (default: v1).
+    /// - Parameter pinProtocol: The PIN/UV auth protocol version (default: v1).
     /// - Returns: The authenticator's COSE key for key agreement.
     func getKeyAgreement(
-        protocolVersion: PinAuth.Version = .v1
+        pinProtocol: PinAuth.ProtocolVersion = .v1
     ) async throws(CTAP2.SessionError) -> COSE.Key {
-        let params = CTAP2.ClientPin.GetKeyAgreement.Parameters(pinUVAuthProtocol: protocolVersion)
+        let params = CTAP2.ClientPin.GetKeyAgreement.Parameters(pinUVAuthProtocol: pinProtocol)
         let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetKeyAgreement.Response> = await interface.send(
             command: .clientPin,
             payload: params
@@ -64,41 +70,43 @@ extension CTAP2.Session {
     ///   - pin: The PIN string.
     ///   - permissions: Optional permissions for the token (uses 0x09 subcommand if provided).
     ///   - rpId: Optional relying party ID (required for mc/ga permissions).
-    ///   - pinAuth: The PIN auth protocol instance (default: v1).
+    ///   - pinProtocol: The PIN/UV auth protocol version (default: v1).
     /// - Returns: The decrypted PIN token.
     func getPinToken(
         pin: String,
         permissions: CTAP2.ClientPin.Permission? = nil,
         rpId: String? = nil,
-        pinAuth: PinAuth = .default
+        pinProtocol: PinAuth.ProtocolVersion = .v1
     ) async throws(CTAP2.SessionError) -> Data {
-        let authenticatorKeyAgreement = try await getKeyAgreement(protocolVersion: pinAuth.version)
+        let authenticatorKey = try await getKeyAgreement(pinProtocol: pinProtocol)
 
-        let keyAgreementResult: KeyAgreementResult
+        // Generate ephemeral key pair and derive shared secret
+        let keyPair = P256.KeyAgreement.PrivateKey()
+        let sharedSecret: Data
         do {
-            keyAgreementResult = try pinAuth.keyAgreement(peerKey: authenticatorKeyAgreement)
+            sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
         } catch {
-            throw CTAP2.SessionError.ctapError(.invalidParameter, source: .here())
+            throw CTAP2.SessionError.pinError(error, source: .here())
         }
 
         // Hash and encrypt PIN
-        let pinUtf8 = Data(pin.utf8)
-        let pinHash = Data(SHA256.hash(data: pinUtf8).prefix(16))
+        let normalizedPin = pin.precomposedStringWithCanonicalMapping
+        let pinHash = Data(SHA256.hash(data: Data(normalizedPin.utf8)).prefix(16))
 
         let pinHashEnc: Data
         do {
-            pinHashEnc = try pinAuth.encrypt(key: keyAgreementResult.sharedSecret, plaintext: pinHash)
+            pinHashEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: pinHash)
         } catch {
-            throw CTAP2.SessionError.ctapError(.invalidParameter, source: .here())
+            throw CTAP2.SessionError.pinError(error, source: .here())
         }
 
-        let platformKey = pinAuth.platformKeyAgreementKey()
+        let platformKey = pinProtocol.coseKey(from: keyPair)
 
         // Use typed command based on whether permissions are provided
         let response: CTAP2.ClientPin.GetToken.Response
         if let permissions {
             let params = CTAP2.ClientPin.GetTokenWithPermissions.Parameters(
-                pinUVAuthProtocol: pinAuth.version,
+                pinUVAuthProtocol: pinProtocol,
                 keyAgreement: platformKey,
                 pinHashEnc: pinHashEnc,
                 permissions: permissions,
@@ -111,7 +119,7 @@ extension CTAP2.Session {
             response = try await stream.value
         } else {
             let params = CTAP2.ClientPin.GetToken.Parameters(
-                pinUVAuthProtocol: pinAuth.version,
+                pinUVAuthProtocol: pinProtocol,
                 keyAgreement: platformKey,
                 pinHashEnc: pinHashEnc
             )
@@ -124,12 +132,15 @@ extension CTAP2.Session {
 
         let pinToken: Data
         do {
-            pinToken = try pinAuth.decrypt(
-                key: keyAgreementResult.sharedSecret,
-                ciphertext: response.pinUVAuthToken
-            )
+            pinToken = try pinProtocol.decrypt(key: sharedSecret, ciphertext: response.pinUVAuthToken)
         } catch {
-            throw CTAP2.SessionError.ctapError(.invalidParameter, source: .here())
+            throw CTAP2.SessionError.pinError(error, source: .here())
+        }
+
+        // Validate token size: V1 allows 16 or 32 bytes, V2 requires exactly 32 bytes
+        let validSize = pinProtocol == .v1 ? (pinToken.count == 16 || pinToken.count == 32) : pinToken.count == 32
+        guard validSize else {
+            throw CTAP2.SessionError.pinError(PinAuth.Error.invalidTokenSize, source: .here())
         }
 
         return pinToken
@@ -139,30 +150,38 @@ extension CTAP2.Session {
     ///
     /// - Parameters:
     ///   - pin: The PIN to set.
-    ///   - pinAuth: The PIN auth protocol instance (default: v1).
-    func setPin(pin: String, pinAuth: PinAuth = .default) async throws(CTAP2.SessionError) {
-        let authenticatorKeyAgreement = try await getKeyAgreement(protocolVersion: pinAuth.version)
+    ///   - pinProtocol: The PIN/UV auth protocol version (default: v1).
+    func setPin(to pin: String, pinProtocol: PinAuth.ProtocolVersion = .v1) async throws(CTAP2.SessionError) {
+        let authenticatorKey = try await getKeyAgreement(pinProtocol: pinProtocol)
 
-        let keyAgreementResult: KeyAgreementResult
+        // Generate ephemeral key pair and derive shared secret
+        let keyPair = P256.KeyAgreement.PrivateKey()
+        let sharedSecret: Data
         do {
-            keyAgreementResult = try pinAuth.keyAgreement(peerKey: authenticatorKeyAgreement)
+            sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
         } catch {
-            throw CTAP2.SessionError.ctapError(.invalidParameter, source: .here())
+            throw CTAP2.SessionError.pinError(error, source: .here())
         }
 
-        let paddedPin = pinAuth.padPin(pin)
+        let paddedPin: Data
+        do {
+            paddedPin = try pinProtocol.padPin(pin)
+        } catch {
+            throw CTAP2.SessionError.pinError(error, source: .here())
+        }
+
         let newPinEnc: Data
         do {
-            newPinEnc = try pinAuth.encrypt(key: keyAgreementResult.sharedSecret, plaintext: paddedPin)
+            newPinEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: paddedPin)
         } catch {
-            throw CTAP2.SessionError.ctapError(.invalidParameter, source: .here())
+            throw CTAP2.SessionError.pinError(error, source: .here())
         }
 
-        let pinUVAuthParam = pinAuth.authenticate(key: keyAgreementResult.sharedSecret, message: newPinEnc)
+        let pinUVAuthParam = pinProtocol.authenticate(key: sharedSecret, message: newPinEnc)
 
         let params = CTAP2.ClientPin.SetPin.Parameters(
-            pinUVAuthProtocol: pinAuth.version,
-            keyAgreement: pinAuth.platformKeyAgreementKey(),
+            pinUVAuthProtocol: pinProtocol,
+            keyAgreement: pinProtocol.coseKey(from: keyPair),
             newPinEnc: newPinEnc,
             pinUVAuthParam: pinUVAuthParam
         )
@@ -179,47 +198,55 @@ extension CTAP2.Session {
     /// - Parameters:
     ///   - currentPin: The current PIN.
     ///   - newPin: The new PIN to set.
-    ///   - pinAuth: The PIN auth protocol instance (default: v1).
+    ///   - pinProtocol: The PIN/UV auth protocol version (default: v1).
     func changePin(
-        currentPin: String,
-        newPin: String,
-        pinAuth: PinAuth = .default
+        from currentPin: String,
+        to newPin: String,
+        pinProtocol: PinAuth.ProtocolVersion = .v1
     ) async throws(CTAP2.SessionError) {
-        let authenticatorKeyAgreement = try await getKeyAgreement(protocolVersion: pinAuth.version)
+        let authenticatorKey = try await getKeyAgreement(pinProtocol: pinProtocol)
 
-        let keyAgreementResult: KeyAgreementResult
+        // Generate ephemeral key pair and derive shared secret
+        let keyPair = P256.KeyAgreement.PrivateKey()
+        let sharedSecret: Data
         do {
-            keyAgreementResult = try pinAuth.keyAgreement(peerKey: authenticatorKeyAgreement)
+            sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
         } catch {
-            throw CTAP2.SessionError.ctapError(.invalidParameter, source: .here())
+            throw CTAP2.SessionError.pinError(error, source: .here())
         }
 
-        let paddedNewPin = pinAuth.padPin(newPin)
+        let paddedNewPin: Data
+        do {
+            paddedNewPin = try pinProtocol.padPin(newPin)
+        } catch {
+            throw CTAP2.SessionError.pinError(error, source: .here())
+        }
+
         let newPinEnc: Data
         do {
-            newPinEnc = try pinAuth.encrypt(key: keyAgreementResult.sharedSecret, plaintext: paddedNewPin)
+            newPinEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: paddedNewPin)
         } catch {
-            throw CTAP2.SessionError.ctapError(.invalidParameter, source: .here())
+            throw CTAP2.SessionError.pinError(error, source: .here())
         }
 
         // Hash and encrypt current PIN
-        let currentPinUtf8 = Data(currentPin.utf8)
-        let pinHash = Data(SHA256.hash(data: currentPinUtf8).prefix(16))
+        let normalizedCurrentPin = currentPin.precomposedStringWithCanonicalMapping
+        let pinHash = Data(SHA256.hash(data: Data(normalizedCurrentPin.utf8)).prefix(16))
         let pinHashEnc: Data
         do {
-            pinHashEnc = try pinAuth.encrypt(key: keyAgreementResult.sharedSecret, plaintext: pinHash)
+            pinHashEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: pinHash)
         } catch {
-            throw CTAP2.SessionError.ctapError(.invalidParameter, source: .here())
+            throw CTAP2.SessionError.pinError(error, source: .here())
         }
 
-        // pinUvAuthParam = HMAC(sharedSecret, newPinEnc || pinHashEnc)
+        // pinUVAuthParam = HMAC(sharedSecret, newPinEnc || pinHashEnc)
         var hmacData = newPinEnc
         hmacData.append(pinHashEnc)
-        let pinUVAuthParam = pinAuth.authenticate(key: keyAgreementResult.sharedSecret, message: hmacData)
+        let pinUVAuthParam = pinProtocol.authenticate(key: sharedSecret, message: hmacData)
 
         let params = CTAP2.ClientPin.ChangePin.Parameters(
-            pinUVAuthProtocol: pinAuth.version,
-            keyAgreement: pinAuth.platformKeyAgreementKey(),
+            pinUVAuthProtocol: pinProtocol,
+            keyAgreement: pinProtocol.coseKey(from: keyPair),
             newPinEnc: newPinEnc,
             pinHashEnc: pinHashEnc,
             pinUVAuthParam: pinUVAuthParam

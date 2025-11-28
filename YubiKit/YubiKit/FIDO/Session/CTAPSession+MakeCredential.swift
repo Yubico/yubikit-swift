@@ -46,7 +46,7 @@ extension CTAP2.Session {
     func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
         pin: String,
-        pinAuth: PinAuth = .default
+        pinProtocol: PinAuth.ProtocolVersion = .default
     ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
 
         var permissions: CTAP2.ClientPin.Permission = .makeCredential
@@ -58,10 +58,10 @@ extension CTAP2.Session {
             pin: pin,
             permissions: permissions,
             rpId: parameters.rp.id,
-            pinAuth: pinAuth
+            pinProtocol: pinProtocol
         )
 
-        let pinUVAuthParam = pinAuth.authenticate(
+        let pinUVAuthParam = pinProtocol.authenticate(
             key: pinToken,
             message: parameters.clientDataHash
         )
@@ -75,7 +75,7 @@ extension CTAP2.Session {
             extensions: parameters.extensions,
             options: parameters.options,
             pinUVAuthParam: pinUVAuthParam,
-            pinUVAuthProtocol: pinAuth.version,
+            pinUVAuthProtocol: pinProtocol,
             enterpriseAttestation: parameters.enterpriseAttestation
         )
 

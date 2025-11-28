@@ -22,7 +22,12 @@ extension CTAP2.ClientPin.GetRetries {
         typealias Response = CTAP2.ClientPin.GetRetries.Response
         static let commandCode = CTAP2.ClientPin.GetRetries.commandCode
 
-        init() {}
+        /// PIN/UV auth protocol version.
+        let pinUVAuthProtocol: PinAuth.ProtocolVersion
+
+        init(pinUVAuthProtocol: PinAuth.ProtocolVersion) {
+            self.pinUVAuthProtocol = pinUVAuthProtocol
+        }
     }
 }
 
@@ -35,9 +40,9 @@ extension CTAP2.ClientPin.GetKeyAgreement {
         static let commandCode = CTAP2.ClientPin.GetKeyAgreement.commandCode
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinAuth.Version
+        let pinUVAuthProtocol: PinAuth.ProtocolVersion
 
-        init(pinUVAuthProtocol: PinAuth.Version) {
+        init(pinUVAuthProtocol: PinAuth.ProtocolVersion) {
             self.pinUVAuthProtocol = pinUVAuthProtocol
         }
     }
@@ -52,7 +57,7 @@ extension CTAP2.ClientPin.SetPin {
         static let commandCode = CTAP2.ClientPin.SetPin.commandCode
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinAuth.Version
+        let pinUVAuthProtocol: PinAuth.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -64,7 +69,7 @@ extension CTAP2.ClientPin.SetPin {
         let pinUVAuthParam: Data
 
         init(
-            pinUVAuthProtocol: PinAuth.Version,
+            pinUVAuthProtocol: PinAuth.ProtocolVersion,
             keyAgreement: COSE.Key,
             newPinEnc: Data,
             pinUVAuthParam: Data
@@ -86,7 +91,7 @@ extension CTAP2.ClientPin.ChangePin {
         static let commandCode = CTAP2.ClientPin.ChangePin.commandCode
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinAuth.Version
+        let pinUVAuthProtocol: PinAuth.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -101,7 +106,7 @@ extension CTAP2.ClientPin.ChangePin {
         let pinUVAuthParam: Data
 
         init(
-            pinUVAuthProtocol: PinAuth.Version,
+            pinUVAuthProtocol: PinAuth.ProtocolVersion,
             keyAgreement: COSE.Key,
             newPinEnc: Data,
             pinHashEnc: Data,
@@ -127,7 +132,7 @@ extension CTAP2.ClientPin.GetToken {
         static let commandCode = CTAP2.ClientPin.GetToken.commandCode
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinAuth.Version
+        let pinUVAuthProtocol: PinAuth.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -136,7 +141,7 @@ extension CTAP2.ClientPin.GetToken {
         let pinHashEnc: Data
 
         init(
-            pinUVAuthProtocol: PinAuth.Version,
+            pinUVAuthProtocol: PinAuth.ProtocolVersion,
             keyAgreement: COSE.Key,
             pinHashEnc: Data
         ) {
@@ -155,7 +160,12 @@ extension CTAP2.ClientPin.GetUVRetries {
         typealias Response = CTAP2.ClientPin.GetUVRetries.Response
         static let commandCode = CTAP2.ClientPin.GetUVRetries.commandCode
 
-        init() {}
+        /// PIN/UV auth protocol version.
+        let pinUVAuthProtocol: PinAuth.ProtocolVersion
+
+        init(pinUVAuthProtocol: PinAuth.ProtocolVersion) {
+            self.pinUVAuthProtocol = pinUVAuthProtocol
+        }
     }
 }
 
@@ -170,7 +180,7 @@ extension CTAP2.ClientPin.GetTokenWithPermissions {
         static let commandCode = CTAP2.ClientPin.GetTokenWithPermissions.commandCode
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinAuth.Version
+        let pinUVAuthProtocol: PinAuth.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -185,7 +195,7 @@ extension CTAP2.ClientPin.GetTokenWithPermissions {
         let rpId: String?
 
         init(
-            pinUVAuthProtocol: PinAuth.Version,
+            pinUVAuthProtocol: PinAuth.ProtocolVersion,
             keyAgreement: COSE.Key,
             pinHashEnc: Data,
             permissions: CTAP2.ClientPin.Permission,

@@ -202,7 +202,7 @@ struct CTAP2FullStackTests {
 
             if !pinIsSet {
                 print("PIN not set, setting default PIN: \(testPin)")
-                try await session.setPIN(pin: testPin)
+                try await session.setPin(to: testPin)
                 print("✅ PIN set to default: \(testPin)")
             } else {
                 print("PIN already set")
@@ -215,8 +215,11 @@ struct CTAP2FullStackTests {
         }
     }
 
-    @Test("ClientPIN - Change PIN and Verify Retry Counter", arguments: [PinAuth.v1(), PinAuth.v2()])
-    func testClientPinChangePin(pinAuth: PinAuth) async throws {
+    @Test(
+        "ClientPIN - Change PIN and Verify Retry Counter",
+        arguments: [PinAuth.ProtocolVersion.v1, PinAuth.ProtocolVersion.v2]
+    )
+    func testClientPinChangePin(pinProtocol: PinAuth.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
             let testPin = "11234567"
             let otherPin = "76543211"
@@ -226,10 +229,10 @@ struct CTAP2FullStackTests {
 
             let initialRetriesResponse = try await session.getPinRetries()
             #expect(initialRetriesResponse.retries == 8, "Should start with 8 PIN retries")
-            print("Protocol v\(pinAuth.version), retries: \(initialRetriesResponse.retries)")
+            print("Protocol v\(pinProtocol.rawValue), retries: \(initialRetriesResponse.retries)")
 
             // Change PIN
-            try await session.changePIN(currentPin: testPin, newPin: otherPin, pinAuth: pinAuth)
+            try await session.changePin(from: testPin, to: otherPin, pinProtocol: pinProtocol)
             print("✅ PIN changed")
 
             // Old PIN should fail
@@ -238,7 +241,7 @@ struct CTAP2FullStackTests {
                     pin: testPin,
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost",
-                    pinAuth: pinAuth
+                    pinProtocol: pinProtocol
                 )
                 Issue.record("Old PIN should have been rejected")
             } catch let error as CTAP2.SessionError {
@@ -257,7 +260,7 @@ struct CTAP2FullStackTests {
                 pin: otherPin,
                 permissions: [.makeCredential, .getAssertion],
                 rpId: "localhost",
-                pinAuth: pinAuth
+                pinProtocol: pinProtocol
             )
             #expect(pinToken.count > 0)
             print("✅ New PIN accepted")
@@ -266,7 +269,7 @@ struct CTAP2FullStackTests {
             #expect(retriesAfterCorrectPin.retries == 8, "Retries should reset after correct PIN")
 
             // Restore original PIN
-            try await session.changePIN(currentPin: otherPin, newPin: testPin, pinAuth: pinAuth)
+            try await session.changePin(from: otherPin, to: testPin, pinProtocol: pinProtocol)
             print("✅ PIN restored")
         }
     }
@@ -288,7 +291,7 @@ struct CTAP2FullStackTests {
 
             // Try weak PIN (repeated chars)
             do {
-                try await session.changePIN(currentPin: testPin, newPin: "33333333")
+                try await session.changePin(from: testPin, to: "33333333")
                 Issue.record("Weak PIN should have been rejected")
             } catch let error as CTAP2.SessionError {
                 guard case .ctapError(.pinPolicyViolation, _) = error else {
@@ -312,7 +315,7 @@ struct CTAP2FullStackTests {
         .disabled("Leaves YubiKey soft-locked - requires power cycle to unlock")
     )
     func testClientPinRetryExhaustion() async throws {
-        let pinAuth: PinAuth = .v2()
+        let pinProtocol: PinAuth.ProtocolVersion = .v2
 
         try await withCTAP2Session { session in
             let testPin = "11234567"
@@ -323,7 +326,7 @@ struct CTAP2FullStackTests {
                 pin: testPin,
                 permissions: [.makeCredential, .getAssertion],
                 rpId: "localhost",
-                pinAuth: pinAuth
+                pinProtocol: pinProtocol
             )
             var retriesResponse = try await session.getPinRetries()
             #expect(retriesResponse.retries == 8)
@@ -335,7 +338,7 @@ struct CTAP2FullStackTests {
                         pin: wrongPin,
                         permissions: [.makeCredential, .getAssertion],
                         rpId: "localhost",
-                        pinAuth: pinAuth
+                        pinProtocol: pinProtocol
                     )
                     Issue.record("Wrong PIN should have been rejected")
                 } catch let error as CTAP2.SessionError {
@@ -358,7 +361,7 @@ struct CTAP2FullStackTests {
                     pin: wrongPin,
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost",
-                    pinAuth: pinAuth
+                    pinProtocol: pinProtocol
                 )
                 Issue.record("Wrong PIN should be blocked")
             } catch let error as CTAP2.SessionError {
@@ -376,7 +379,7 @@ struct CTAP2FullStackTests {
                     pin: testPin,
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost",
-                    pinAuth: pinAuth
+                    pinProtocol: pinProtocol
                 )
                 Issue.record("Correct PIN should be blocked")
             } catch let error as CTAP2.SessionError {

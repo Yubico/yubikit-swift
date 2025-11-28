@@ -45,17 +45,17 @@ extension CTAP2.Session {
     func getAssertion(
         parameters: CTAP2.GetAssertion.Parameters,
         pin: String,
-        pinAuth: PinAuth = .default
+        pinProtocol: PinAuth.ProtocolVersion = .default
     ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
 
         let pinToken = try await getPinToken(
             pin: pin,
             permissions: .getAssertion,
             rpId: parameters.rpId,
-            pinAuth: pinAuth
+            pinProtocol: pinProtocol
         )
 
-        let pinUVAuthParam = pinAuth.authenticate(
+        let pinUVAuthParam = pinProtocol.authenticate(
             key: pinToken,
             message: parameters.clientDataHash
         )
@@ -67,7 +67,7 @@ extension CTAP2.Session {
             extensions: parameters.extensions,
             options: parameters.options,
             pinUVAuthParam: pinUVAuthParam,
-            pinUVAuthProtocol: pinAuth.version
+            pinUVAuthProtocol: pinProtocol
         )
 
         return await interface.send(
