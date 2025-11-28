@@ -16,11 +16,11 @@ import Foundation
 
 // MARK: - GetRetries Parameters
 
-extension CTAP2.ClientPIN.GetRetries {
+extension CTAP2.ClientPin.GetRetries {
     /// Parameters for getPinRetries.
-    struct Parameters: CTAP2.ClientPIN.Command {
-        typealias Response = CTAP2.ClientPIN.GetRetries.Response
-        static let commandCode = CTAP2.ClientPIN.GetRetries.commandCode
+    struct Parameters: CTAP2.ClientPin.Command {
+        typealias Response = CTAP2.ClientPin.GetRetries.Response
+        static let commandCode = CTAP2.ClientPin.GetRetries.commandCode
 
         init() {}
     }
@@ -28,31 +28,31 @@ extension CTAP2.ClientPIN.GetRetries {
 
 // MARK: - GetKeyAgreement Parameters
 
-extension CTAP2.ClientPIN.GetKeyAgreement {
+extension CTAP2.ClientPin.GetKeyAgreement {
     /// Parameters for getKeyAgreement.
-    struct Parameters: CTAP2.ClientPIN.Command {
-        typealias Response = CTAP2.ClientPIN.GetKeyAgreement.Response
-        static let commandCode = CTAP2.ClientPIN.GetKeyAgreement.commandCode
+    struct Parameters: CTAP2.ClientPin.Command {
+        typealias Response = CTAP2.ClientPin.GetKeyAgreement.Response
+        static let commandCode = CTAP2.ClientPin.GetKeyAgreement.commandCode
 
         /// PIN/UV auth protocol version.
-        let pinUvAuthProtocol: PinAuth.Version
+        let pinUVAuthProtocol: PinAuth.Version
 
-        init(pinUvAuthProtocol: PinAuth.Version) {
-            self.pinUvAuthProtocol = pinUvAuthProtocol
+        init(pinUVAuthProtocol: PinAuth.Version) {
+            self.pinUVAuthProtocol = pinUVAuthProtocol
         }
     }
 }
 
 // MARK: - SetPIN Parameters
 
-extension CTAP2.ClientPIN.SetPIN {
+extension CTAP2.ClientPin.SetPin {
     /// Parameters for setPIN.
-    struct Parameters: CTAP2.ClientPIN.Command {
+    struct Parameters: CTAP2.ClientPin.Command {
         typealias Response = Void
-        static let commandCode = CTAP2.ClientPIN.SetPIN.commandCode
+        static let commandCode = CTAP2.ClientPin.SetPin.commandCode
 
         /// PIN/UV auth protocol version.
-        let pinUvAuthProtocol: PinAuth.Version
+        let pinUVAuthProtocol: PinAuth.Version
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -61,32 +61,32 @@ extension CTAP2.ClientPIN.SetPIN {
         let newPinEnc: Data
 
         /// HMAC of newPinEnc using shared secret.
-        let pinUvAuthParam: Data
+        let pinUVAuthParam: Data
 
         init(
-            pinUvAuthProtocol: PinAuth.Version,
+            pinUVAuthProtocol: PinAuth.Version,
             keyAgreement: COSE.Key,
             newPinEnc: Data,
-            pinUvAuthParam: Data
+            pinUVAuthParam: Data
         ) {
-            self.pinUvAuthProtocol = pinUvAuthProtocol
+            self.pinUVAuthProtocol = pinUVAuthProtocol
             self.keyAgreement = keyAgreement
             self.newPinEnc = newPinEnc
-            self.pinUvAuthParam = pinUvAuthParam
+            self.pinUVAuthParam = pinUVAuthParam
         }
     }
 }
 
 // MARK: - ChangePIN Parameters
 
-extension CTAP2.ClientPIN.ChangePIN {
+extension CTAP2.ClientPin.ChangePin {
     /// Parameters for changePIN.
-    struct Parameters: CTAP2.ClientPIN.Command {
+    struct Parameters: CTAP2.ClientPin.Command {
         typealias Response = Void
-        static let commandCode = CTAP2.ClientPIN.ChangePIN.commandCode
+        static let commandCode = CTAP2.ClientPin.ChangePin.commandCode
 
         /// PIN/UV auth protocol version.
-        let pinUvAuthProtocol: PinAuth.Version
+        let pinUVAuthProtocol: PinAuth.Version
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -98,36 +98,36 @@ extension CTAP2.ClientPIN.ChangePIN {
         let pinHashEnc: Data
 
         /// HMAC of (newPinEnc || pinHashEnc) using shared secret.
-        let pinUvAuthParam: Data
+        let pinUVAuthParam: Data
 
         init(
-            pinUvAuthProtocol: PinAuth.Version,
+            pinUVAuthProtocol: PinAuth.Version,
             keyAgreement: COSE.Key,
             newPinEnc: Data,
             pinHashEnc: Data,
-            pinUvAuthParam: Data
+            pinUVAuthParam: Data
         ) {
-            self.pinUvAuthProtocol = pinUvAuthProtocol
+            self.pinUVAuthProtocol = pinUVAuthProtocol
             self.keyAgreement = keyAgreement
             self.newPinEnc = newPinEnc
             self.pinHashEnc = pinHashEnc
-            self.pinUvAuthParam = pinUvAuthParam
+            self.pinUVAuthParam = pinUVAuthParam
         }
     }
 }
 
 // MARK: - GetToken Parameters
 
-extension CTAP2.ClientPIN.GetToken {
+extension CTAP2.ClientPin.GetToken {
     /// Parameters for getPinToken.
     ///
     /// Gets a PIN token using PIN. Superseded by `GetTokenWithPermissions` in CTAP 2.1+.
-    struct Parameters: CTAP2.ClientPIN.Command {
-        typealias Response = CTAP2.ClientPIN.GetToken.Response
-        static let commandCode = CTAP2.ClientPIN.GetToken.commandCode
+    struct Parameters: CTAP2.ClientPin.Command {
+        typealias Response = CTAP2.ClientPin.GetToken.Response
+        static let commandCode = CTAP2.ClientPin.GetToken.commandCode
 
         /// PIN/UV auth protocol version.
-        let pinUvAuthProtocol: PinAuth.Version
+        let pinUVAuthProtocol: PinAuth.Version
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -136,24 +136,24 @@ extension CTAP2.ClientPIN.GetToken {
         let pinHashEnc: Data
 
         init(
-            pinUvAuthProtocol: PinAuth.Version,
+            pinUVAuthProtocol: PinAuth.Version,
             keyAgreement: COSE.Key,
             pinHashEnc: Data
         ) {
-            self.pinUvAuthProtocol = pinUvAuthProtocol
+            self.pinUVAuthProtocol = pinUVAuthProtocol
             self.keyAgreement = keyAgreement
             self.pinHashEnc = pinHashEnc
         }
     }
 }
 
-// MARK: - GetUvRetries Parameters
+// MARK: - GetUVRetries Parameters
 
-extension CTAP2.ClientPIN.GetUvRetries {
+extension CTAP2.ClientPin.GetUVRetries {
     /// Parameters for getUVRetries.
-    struct Parameters: CTAP2.ClientPIN.Command {
-        typealias Response = CTAP2.ClientPIN.GetUvRetries.Response
-        static let commandCode = CTAP2.ClientPIN.GetUvRetries.commandCode
+    struct Parameters: CTAP2.ClientPin.Command {
+        typealias Response = CTAP2.ClientPin.GetUVRetries.Response
+        static let commandCode = CTAP2.ClientPin.GetUVRetries.commandCode
 
         init() {}
     }
@@ -161,16 +161,16 @@ extension CTAP2.ClientPIN.GetUvRetries {
 
 // MARK: - GetTokenWithPermissions Parameters
 
-extension CTAP2.ClientPIN.GetTokenWithPermissions {
+extension CTAP2.ClientPin.GetTokenWithPermissions {
     /// Parameters for getPinUvAuthTokenUsingPinWithPermissions.
     ///
     /// Gets a PIN/UV auth token using PIN with specific permissions (CTAP 2.1+).
-    struct Parameters: CTAP2.ClientPIN.Command {
-        typealias Response = CTAP2.ClientPIN.GetToken.Response  // Same response type as GetToken
-        static let commandCode = CTAP2.ClientPIN.GetTokenWithPermissions.commandCode
+    struct Parameters: CTAP2.ClientPin.Command {
+        typealias Response = CTAP2.ClientPin.GetToken.Response  // Same response type as GetToken
+        static let commandCode = CTAP2.ClientPin.GetTokenWithPermissions.commandCode
 
         /// PIN/UV auth protocol version.
-        let pinUvAuthProtocol: PinAuth.Version
+        let pinUVAuthProtocol: PinAuth.Version
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -179,19 +179,19 @@ extension CTAP2.ClientPIN.GetTokenWithPermissions {
         let pinHashEnc: Data
 
         /// Permissions to associate with the token.
-        let permissions: CTAP2.ClientPIN.Permission
+        let permissions: CTAP2.ClientPin.Permission
 
         /// Relying Party ID (required for mc/ga permissions, optional for cm).
         let rpId: String?
 
         init(
-            pinUvAuthProtocol: PinAuth.Version,
+            pinUVAuthProtocol: PinAuth.Version,
             keyAgreement: COSE.Key,
             pinHashEnc: Data,
-            permissions: CTAP2.ClientPIN.Permission,
+            permissions: CTAP2.ClientPin.Permission,
             rpId: String? = nil
         ) {
-            self.pinUvAuthProtocol = pinUvAuthProtocol
+            self.pinUVAuthProtocol = pinUVAuthProtocol
             self.keyAgreement = keyAgreement
             self.pinHashEnc = pinHashEnc
             self.permissions = permissions

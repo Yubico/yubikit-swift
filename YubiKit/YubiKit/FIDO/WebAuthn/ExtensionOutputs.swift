@@ -36,7 +36,7 @@ extension WebAuthn {
         let credProtect: CredentialProtectionPolicy?
 
         /// Minimum PIN length enforced by the authenticator.
-        let minPINLength: Int?
+        let minPinLength: Int?
 
         /// Third-party payment extension output.
         let thirdPartyPayment: Bool?

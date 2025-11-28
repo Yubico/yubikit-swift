@@ -32,8 +32,8 @@ extension CTAP2.GetAssertion.Parameters: CBOR.Encodable {
             }
         }
         map[5] = options?.cbor()
-        map[6] = pinUvAuthParam?.cbor()
-        map[7] = pinUvAuthProtocol?.cbor()
+        map[6] = pinUVAuthParam?.cbor()
+        map[7] = pinUVAuthProtocol?.cbor()
         return map.cbor()
     }
 }

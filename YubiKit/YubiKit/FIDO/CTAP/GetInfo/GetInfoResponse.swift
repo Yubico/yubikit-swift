@@ -41,7 +41,7 @@ extension CTAP2.GetInfo {
         let maxMsgSize: UInt
 
         /// List of supported PIN/UV authentication protocol versions.
-        let pinUvAuthProtocols: [UInt]
+        let pinUVAuthProtocols: [UInt]
 
         // MARK: - Optional Fields
 
@@ -61,10 +61,10 @@ extension CTAP2.GetInfo {
         let maxSerializedLargeBlobArray: UInt?
 
         /// Indicates if PIN change is required before further operations.
-        let forcePINChange: Bool?
+        let forcePinChange: Bool?
 
         /// Minimum PIN length required by the authenticator.
-        let minPINLength: UInt?
+        let minPinLength: UInt?
 
         /// Firmware version number.
         let firmwareVersion: UInt?
@@ -73,10 +73,10 @@ extension CTAP2.GetInfo {
         let maxCredBlobLength: UInt?
 
         /// Maximum number of RP IDs for setMinPINLength.
-        let maxRPIDsForSetMinPINLength: UInt?
+        let maxRPIDsForSetMinPinLength: UInt?
 
         /// Preferred number of platform UV attempts.
-        let preferredPlatformUvAttempts: UInt?
+        let preferredPlatformUVAttempts: UInt?
 
         /// User verification modality.
         let uvModality: UInt?
@@ -103,18 +103,18 @@ extension CTAP2.GetInfo {
             extensions: [String] = [],
             options: [String: Bool] = [:],
             maxMsgSize: UInt = 1024,
-            pinUvAuthProtocols: [UInt] = [],
+            pinUVAuthProtocols: [UInt] = [],
             maxCredentialCountInList: UInt? = nil,
             maxCredentialIdLength: UInt? = nil,
             transports: [String]? = nil,
             algorithms: [Int]? = nil,
             maxSerializedLargeBlobArray: UInt? = nil,
-            forcePINChange: Bool? = nil,
-            minPINLength: UInt? = nil,
+            forcePinChange: Bool? = nil,
+            minPinLength: UInt? = nil,
             firmwareVersion: UInt? = nil,
             maxCredBlobLength: UInt? = nil,
-            maxRPIDsForSetMinPINLength: UInt? = nil,
-            preferredPlatformUvAttempts: UInt? = nil,
+            maxRPIDsForSetMinPinLength: UInt? = nil,
+            preferredPlatformUVAttempts: UInt? = nil,
             uvModality: UInt? = nil,
             certifications: [String: UInt]? = nil,
             remainingDiscoverableCredentials: UInt? = nil,
@@ -125,18 +125,18 @@ extension CTAP2.GetInfo {
             self.extensions = extensions
             self.options = options
             self.maxMsgSize = maxMsgSize
-            self.pinUvAuthProtocols = pinUvAuthProtocols
+            self.pinUVAuthProtocols = pinUVAuthProtocols
             self.maxCredentialCountInList = maxCredentialCountInList
             self.maxCredentialIdLength = maxCredentialIdLength
             self.transports = transports
             self.algorithms = algorithms
             self.maxSerializedLargeBlobArray = maxSerializedLargeBlobArray
-            self.forcePINChange = forcePINChange
-            self.minPINLength = minPINLength
+            self.forcePinChange = forcePinChange
+            self.minPinLength = minPinLength
             self.firmwareVersion = firmwareVersion
             self.maxCredBlobLength = maxCredBlobLength
-            self.maxRPIDsForSetMinPINLength = maxRPIDsForSetMinPINLength
-            self.preferredPlatformUvAttempts = preferredPlatformUvAttempts
+            self.maxRPIDsForSetMinPinLength = maxRPIDsForSetMinPinLength
+            self.preferredPlatformUVAttempts = preferredPlatformUVAttempts
             self.uvModality = uvModality
             self.certifications = certifications
             self.remainingDiscoverableCredentials = remainingDiscoverableCredentials

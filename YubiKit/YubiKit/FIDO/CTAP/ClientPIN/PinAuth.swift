@@ -200,7 +200,7 @@ extension PinAuth {
     public static let maxPinLengthBytes = 63
 
     /// Pad a PIN to 64 bytes as required by CTAP2.
-    func padPIN(_ pin: String) -> Data {
+    func padPin(_ pin: String) -> Data {
         var data = Data(pin.utf8)
         if data.count < 64 {
             data.append(Data(count: 64 - data.count))

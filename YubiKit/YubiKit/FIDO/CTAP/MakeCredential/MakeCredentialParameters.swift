@@ -41,10 +41,10 @@ extension CTAP2.MakeCredential {
         let options: Options?
 
         /// PIN/UV auth parameter.
-        let pinUvAuthParam: Data?
+        let pinUVAuthParam: Data?
 
         /// PIN/UV protocol version.
-        let pinUvAuthProtocol: PinAuth.Version?
+        let pinUVAuthProtocol: PinAuth.Version?
 
         /// Enterprise attestation level (1 or 2).
         let enterpriseAttestation: Int?
@@ -57,8 +57,8 @@ extension CTAP2.MakeCredential {
             excludeList: [PublicKeyCredential.Descriptor]? = nil,
             extensions: Extensions? = nil,
             options: Options? = nil,
-            pinUvAuthParam: Data? = nil,
-            pinUvAuthProtocol: PinAuth.Version? = nil,
+            pinUVAuthParam: Data? = nil,
+            pinUVAuthProtocol: PinAuth.Version? = nil,
             enterpriseAttestation: Int? = nil
         ) {
             self.clientDataHash = clientDataHash
@@ -68,8 +68,8 @@ extension CTAP2.MakeCredential {
             self.excludeList = excludeList
             self.extensions = extensions
             self.options = options
-            self.pinUvAuthParam = pinUvAuthParam
-            self.pinUvAuthProtocol = pinUvAuthProtocol
+            self.pinUVAuthParam = pinUVAuthParam
+            self.pinUVAuthProtocol = pinUVAuthProtocol
             self.enterpriseAttestation = enterpriseAttestation
         }
 

@@ -33,7 +33,7 @@ extension WebAuthn.ExtensionOutputs: CBOR.Decodable {
             self.credProtect = nil
         }
 
-        self.minPINLength = map["minPINLength"]?.cborDecoded()
+        self.minPinLength = map["minPinLength"]?.cborDecoded()
         self.thirdPartyPayment = map["thirdPartyPayment"]?.cborDecoded()
     }
 }

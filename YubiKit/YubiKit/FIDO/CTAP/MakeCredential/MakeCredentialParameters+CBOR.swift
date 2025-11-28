@@ -34,8 +34,8 @@ extension CTAP2.MakeCredential.Parameters: CBOR.Encodable {
             }
         }
         map[7] = options?.cbor()
-        map[8] = pinUvAuthParam?.cbor()
-        map[9] = pinUvAuthProtocol?.cbor()
+        map[8] = pinUVAuthParam?.cbor()
+        map[9] = pinUVAuthProtocol?.cbor()
         map[10] = enterpriseAttestation?.cbor()
         return map.cbor()
     }

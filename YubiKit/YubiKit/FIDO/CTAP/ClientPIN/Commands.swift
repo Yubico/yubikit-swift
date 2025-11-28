@@ -16,8 +16,8 @@ import Foundation
 
 // MARK: - Command Protocol
 
-extension CTAP2.ClientPIN {
-    /// Protocol for type-safe ClientPIN subcommand parameters.
+extension CTAP2.ClientPin {
+    /// Protocol for type-safe ClientPin subcommand parameters.
     ///
     /// Each subcommand has a specific parameter type that conforms to this protocol,
     /// ensuring only valid parameter combinations can be constructed.
@@ -32,7 +32,7 @@ extension CTAP2.ClientPIN {
 
 // MARK: - Command Namespaces
 
-extension CTAP2.ClientPIN {
+extension CTAP2.ClientPin {
 
     /// Namespace for the getPinRetries subcommand (0x01).
     enum GetRetries {
@@ -44,13 +44,13 @@ extension CTAP2.ClientPIN {
         static let commandCode: UInt8 = 0x02
     }
 
-    /// Namespace for the setPIN subcommand (0x03).
-    enum SetPIN {
+    /// Namespace for the setPin subcommand (0x03).
+    enum SetPin {
         static let commandCode: UInt8 = 0x03
     }
 
-    /// Namespace for the changePIN subcommand (0x04).
-    enum ChangePIN {
+    /// Namespace for the changePin subcommand (0x04).
+    enum ChangePin {
         static let commandCode: UInt8 = 0x04
     }
 
@@ -60,7 +60,7 @@ extension CTAP2.ClientPIN {
     }
 
     /// Namespace for the getUVRetries subcommand (0x07).
-    enum GetUvRetries {
+    enum GetUVRetries {
         static let commandCode: UInt8 = 0x07
     }
 

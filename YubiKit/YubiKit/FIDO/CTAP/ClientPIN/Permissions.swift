@@ -14,7 +14,7 @@
 
 import Foundation
 
-extension CTAP2.ClientPIN {
+extension CTAP2.ClientPin {
     /// Permissions for PIN/UV auth tokens.
     ///
     /// These permissions scope what operations can be performed with a PIN token.

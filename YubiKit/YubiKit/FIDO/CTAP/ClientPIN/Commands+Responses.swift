@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - GetRetries Response
 
-extension CTAP2.ClientPIN.GetRetries {
+extension CTAP2.ClientPin.GetRetries {
     /// Response from getPinRetries.
     struct Response: Sendable {
         /// Number of PIN retries remaining before lockout.
@@ -34,7 +34,7 @@ extension CTAP2.ClientPIN.GetRetries {
 
 // MARK: - GetKeyAgreement Response
 
-extension CTAP2.ClientPIN.GetKeyAgreement {
+extension CTAP2.ClientPin.GetKeyAgreement {
     /// Response from getKeyAgreement.
     struct Response: Sendable {
         /// Authenticator's public key for ECDH key agreement.
@@ -48,21 +48,21 @@ extension CTAP2.ClientPIN.GetKeyAgreement {
 
 // MARK: - GetToken Response
 
-extension CTAP2.ClientPIN.GetToken {
+extension CTAP2.ClientPin.GetToken {
     /// Response from getPinToken.
     struct Response: Sendable {
         /// Encrypted PIN/UV auth token.
-        let pinUvAuthToken: Data
+        let pinUVAuthToken: Data
 
-        init(pinUvAuthToken: Data) {
-            self.pinUvAuthToken = pinUvAuthToken
+        init(pinUVAuthToken: Data) {
+            self.pinUVAuthToken = pinUVAuthToken
         }
     }
 }
 
-// MARK: - GetUvRetries Response
+// MARK: - GetUVRetries Response
 
-extension CTAP2.ClientPIN.GetUvRetries {
+extension CTAP2.ClientPin.GetUVRetries {
     /// Response from getUVRetries.
     struct Response: Sendable {
         /// Number of UV retries remaining before UV is disabled.

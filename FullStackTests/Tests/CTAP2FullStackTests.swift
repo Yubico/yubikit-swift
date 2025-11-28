@@ -44,7 +44,7 @@ struct CTAP2FullStackTests {
             #expect(info.options.keys.contains("clientPin"), "Options should contain 'clientPin'")
 
             // Check PIN/UV Auth protocols
-            #expect(info.pinUvAuthProtocols.count >= 1, "Should support at least one PIN protocol")
+            #expect(info.pinUVAuthProtocols.count >= 1, "Should support at least one PIN protocol")
         }
     }
 

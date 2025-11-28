@@ -229,7 +229,7 @@ struct WebAuthnStructuresTests {
             .textString("largeBlobKey"): .byteString(largeBlobKey),
             .textString("hmac-secret"): .boolean(true),
             .textString("credProtect"): .int(3),
-            .textString("minPINLength"): .int(6),
+            .textString("minPinLength"): .int(6),
             .textString("customExtension"): .textString("custom-value"),
         ]
 
@@ -242,7 +242,7 @@ struct WebAuthnStructuresTests {
         #expect(extensions.largeBlobKey == largeBlobKey)
         #expect(extensions.hmacSecret == true)
         #expect(extensions.credProtect == .userVerificationRequired)
-        #expect(extensions.minPINLength == 6)
+        #expect(extensions.minPinLength == 6)
     }
 
     @Test("WebAuthn.ExtensionOutputs CBOR decoding - empty")
@@ -258,7 +258,7 @@ struct WebAuthnStructuresTests {
         #expect(extensions.largeBlobKey == nil)
         #expect(extensions.hmacSecret == nil)
         #expect(extensions.credProtect == nil)
-        #expect(extensions.minPINLength == nil)
+        #expect(extensions.minPinLength == nil)
         #expect(extensions.thirdPartyPayment == nil)
     }
 

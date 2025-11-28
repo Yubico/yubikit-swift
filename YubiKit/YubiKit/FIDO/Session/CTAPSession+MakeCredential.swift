@@ -49,7 +49,7 @@ extension CTAP2.Session {
         pinAuth: PinAuth = .default
     ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
 
-        var permissions: CTAP2.ClientPIN.Permission = .makeCredential
+        var permissions: CTAP2.ClientPin.Permission = .makeCredential
         if let excludeList = parameters.excludeList, !excludeList.isEmpty {
             permissions.insert(.getAssertion)
         }
@@ -61,7 +61,7 @@ extension CTAP2.Session {
             pinAuth: pinAuth
         )
 
-        let pinUvAuthParam = pinAuth.authenticate(
+        let pinUVAuthParam = pinAuth.authenticate(
             key: pinToken,
             message: parameters.clientDataHash
         )
@@ -74,8 +74,8 @@ extension CTAP2.Session {
             excludeList: parameters.excludeList,
             extensions: parameters.extensions,
             options: parameters.options,
-            pinUvAuthParam: pinUvAuthParam,
-            pinUvAuthProtocol: pinAuth.version,
+            pinUVAuthParam: pinUVAuthParam,
+            pinUVAuthProtocol: pinAuth.version,
             enterpriseAttestation: parameters.enterpriseAttestation
         )
 

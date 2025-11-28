@@ -55,7 +55,7 @@ extension CTAP2.Session {
             pinAuth: pinAuth
         )
 
-        let pinUvAuthParam = pinAuth.authenticate(
+        let pinUVAuthParam = pinAuth.authenticate(
             key: pinToken,
             message: parameters.clientDataHash
         )
@@ -66,8 +66,8 @@ extension CTAP2.Session {
             allowList: parameters.allowList,
             extensions: parameters.extensions,
             options: parameters.options,
-            pinUvAuthParam: pinUvAuthParam,
-            pinUvAuthProtocol: pinAuth.version
+            pinUVAuthParam: pinUVAuthParam,
+            pinUVAuthProtocol: pinAuth.version
         )
 
         return await interface.send(

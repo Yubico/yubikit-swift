@@ -35,10 +35,10 @@ extension CTAP2.GetAssertion {
         let options: Options?
 
         /// PIN/UV auth parameter.
-        let pinUvAuthParam: Data?
+        let pinUVAuthParam: Data?
 
         /// PIN/UV protocol version.
-        let pinUvAuthProtocol: PinAuth.Version?
+        let pinUVAuthProtocol: PinAuth.Version?
 
         init(
             rpId: String,
@@ -46,16 +46,16 @@ extension CTAP2.GetAssertion {
             allowList: [PublicKeyCredential.Descriptor]? = nil,
             extensions: Extensions? = nil,
             options: Options? = nil,
-            pinUvAuthParam: Data? = nil,
-            pinUvAuthProtocol: PinAuth.Version? = nil
+            pinUVAuthParam: Data? = nil,
+            pinUVAuthProtocol: PinAuth.Version? = nil
         ) {
             self.rpId = rpId
             self.clientDataHash = clientDataHash
             self.allowList = allowList
             self.extensions = extensions
             self.options = options
-            self.pinUvAuthParam = pinUvAuthParam
-            self.pinUvAuthProtocol = pinUvAuthProtocol
+            self.pinUVAuthParam = pinUVAuthParam
+            self.pinUVAuthProtocol = pinUVAuthProtocol
         }
 
         /// Authenticator options for getAssertion.

@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - CBOR Encoding for Parameters
 
-extension CTAP2.ClientPIN.GetRetries.Parameters: CBOR.Encodable {
+extension CTAP2.ClientPin.GetRetries.Parameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
         map[0x01] = PinAuth.Version.v1.cbor()
@@ -25,44 +25,44 @@ extension CTAP2.ClientPIN.GetRetries.Parameters: CBOR.Encodable {
     }
 }
 
-extension CTAP2.ClientPIN.GetKeyAgreement.Parameters: CBOR.Encodable {
+extension CTAP2.ClientPin.GetKeyAgreement.Parameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
-        map[0x01] = pinUvAuthProtocol.cbor()
+        map[0x01] = pinUVAuthProtocol.cbor()
         map[0x02] = CBOR.Value.int(Int(Self.commandCode))
         return map.cbor()
     }
 }
 
-extension CTAP2.ClientPIN.SetPIN.Parameters: CBOR.Encodable {
+extension CTAP2.ClientPin.SetPin.Parameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
-        map[0x01] = pinUvAuthProtocol.cbor()
+        map[0x01] = pinUVAuthProtocol.cbor()
         map[0x02] = CBOR.Value.int(Int(Self.commandCode))
         map[0x03] = keyAgreement.cbor()
-        map[0x04] = pinUvAuthParam.cbor()
+        map[0x04] = pinUVAuthParam.cbor()
         map[0x05] = newPinEnc.cbor()
         return map.cbor()
     }
 }
 
-extension CTAP2.ClientPIN.ChangePIN.Parameters: CBOR.Encodable {
+extension CTAP2.ClientPin.ChangePin.Parameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
-        map[0x01] = pinUvAuthProtocol.cbor()
+        map[0x01] = pinUVAuthProtocol.cbor()
         map[0x02] = CBOR.Value.int(Int(Self.commandCode))
         map[0x03] = keyAgreement.cbor()
-        map[0x04] = pinUvAuthParam.cbor()
+        map[0x04] = pinUVAuthParam.cbor()
         map[0x05] = newPinEnc.cbor()
         map[0x06] = pinHashEnc.cbor()
         return map.cbor()
     }
 }
 
-extension CTAP2.ClientPIN.GetToken.Parameters: CBOR.Encodable {
+extension CTAP2.ClientPin.GetToken.Parameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
-        map[0x01] = pinUvAuthProtocol.cbor()
+        map[0x01] = pinUVAuthProtocol.cbor()
         map[0x02] = CBOR.Value.int(Int(Self.commandCode))
         map[0x03] = keyAgreement.cbor()
         map[0x06] = pinHashEnc.cbor()
@@ -70,7 +70,7 @@ extension CTAP2.ClientPIN.GetToken.Parameters: CBOR.Encodable {
     }
 }
 
-extension CTAP2.ClientPIN.GetUvRetries.Parameters: CBOR.Encodable {
+extension CTAP2.ClientPin.GetUVRetries.Parameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
         map[0x01] = PinAuth.Version.v1.cbor()
@@ -79,10 +79,10 @@ extension CTAP2.ClientPIN.GetUvRetries.Parameters: CBOR.Encodable {
     }
 }
 
-extension CTAP2.ClientPIN.GetTokenWithPermissions.Parameters: CBOR.Encodable {
+extension CTAP2.ClientPin.GetTokenWithPermissions.Parameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
-        map[0x01] = pinUvAuthProtocol.cbor()
+        map[0x01] = pinUVAuthProtocol.cbor()
         map[0x02] = CBOR.Value.int(Int(Self.commandCode))
         map[0x03] = keyAgreement.cbor()
         map[0x06] = pinHashEnc.cbor()
@@ -94,7 +94,7 @@ extension CTAP2.ClientPIN.GetTokenWithPermissions.Parameters: CBOR.Encodable {
 
 // MARK: - CBOR Decoding for Responses
 
-extension CTAP2.ClientPIN.GetRetries.Response: CBOR.Decodable {
+extension CTAP2.ClientPin.GetRetries.Response: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue,
             let retries = map[.int(0x03)]?.intValue
@@ -106,7 +106,7 @@ extension CTAP2.ClientPIN.GetRetries.Response: CBOR.Decodable {
     }
 }
 
-extension CTAP2.ClientPIN.GetKeyAgreement.Response: CBOR.Decodable {
+extension CTAP2.ClientPin.GetKeyAgreement.Response: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue,
             let keyAgreementCbor = map[.int(0x01)],
@@ -118,18 +118,18 @@ extension CTAP2.ClientPIN.GetKeyAgreement.Response: CBOR.Decodable {
     }
 }
 
-extension CTAP2.ClientPIN.GetToken.Response: CBOR.Decodable {
+extension CTAP2.ClientPin.GetToken.Response: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue,
             let token = map[.int(0x02)]?.dataValue
         else {
             return nil
         }
-        self.pinUvAuthToken = token
+        self.pinUVAuthToken = token
     }
 }
 
-extension CTAP2.ClientPIN.GetUvRetries.Response: CBOR.Decodable {
+extension CTAP2.ClientPin.GetUVRetries.Response: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue,
             let retries = map[.int(0x05)]?.intValue

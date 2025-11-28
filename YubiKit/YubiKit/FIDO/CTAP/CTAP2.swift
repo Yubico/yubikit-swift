@@ -44,7 +44,7 @@ public enum CTAP2 {
         case makeCredential = 0x01
         case getAssertion = 0x02
         case getInfo = 0x04
-        case clientPIN = 0x06
+        case clientPin = 0x06
         case reset = 0x07
         case getNextAssertion = 0x08
         case bioEnrollment = 0x09
@@ -279,6 +279,6 @@ public enum CTAP2 {
     /// Namespace for GetInfo command types.
     enum GetInfo {}
 
-    /// Namespace for ClientPIN command types.
-    enum ClientPIN {}
+    /// Namespace for ClientPin command types.
+    enum ClientPin {}
 }
