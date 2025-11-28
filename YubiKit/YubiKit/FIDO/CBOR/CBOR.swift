@@ -55,3 +55,11 @@ public enum CBOR {
     }
 
 }
+
+// MARK: - Default Implementations
+
+extension CBOR.Encodable where Self: RawRepresentable, RawValue: CBOR.Encodable {
+    func cbor() -> CBOR.Value {
+        rawValue.cbor()
+    }
+}

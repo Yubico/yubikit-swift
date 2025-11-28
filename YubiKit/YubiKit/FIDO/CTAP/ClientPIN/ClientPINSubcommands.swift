@@ -18,7 +18,7 @@ extension CTAP2.ClientPIN {
     /// ClientPIN subcommand codes.
     ///
     /// - SeeAlso: [CTAP2.3 authenticatorClientPIN](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorClientPIN)
-    enum Subcommand: Int, Sendable {
+    enum Subcommand: Int, Sendable, CBOR.Encodable {
         /// Get the number of PIN retries remaining.
         case getPinRetries = 0x01
 

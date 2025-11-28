@@ -20,7 +20,7 @@ extension CTAP2.ClientPIN.Parameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [
             0x01: pinUvAuthProtocol.cbor(),
-            0x02: subCommand.rawValue.cbor(),
+            0x02: subCommand.cbor(),
         ]
         map[0x03] = keyAgreement?.cbor()
         map[0x04] = pinUvAuthParam?.cbor()

@@ -56,11 +56,7 @@ public struct PinAuth: Sendable {
 
 // MARK: - CBOR Encoding
 
-extension PinAuth.Version: CBOR.Encodable {
-    func cbor() -> CBOR.Value {
-        rawValue.cbor()
-    }
-}
+extension PinAuth.Version: CBOR.Encodable {}
 
 // MARK: - Key Agreement
 

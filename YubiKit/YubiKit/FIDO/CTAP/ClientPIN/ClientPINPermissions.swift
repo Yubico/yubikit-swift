@@ -46,9 +46,5 @@ extension CTAP2.ClientPIN {
         ///
         /// Available on YubiKey firmware 5.7+.
         static let persistentCredentialManagement = Permission(rawValue: 0x40)
-
-        func cbor() -> CBOR.Value {
-            rawValue.cbor()
-        }
     }
 }
