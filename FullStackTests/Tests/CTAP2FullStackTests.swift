@@ -209,9 +209,9 @@ struct CTAP2FullStackTests {
             }
 
             // Verify retries are at 8
-            let (retries, _) = try await session.getPinRetries()
-            #expect(retries == 8, "Should have 8 PIN retries")
-            print("PIN retries: \(retries)")
+            let pinRetriesResponse = try await session.getPinRetries()
+            #expect(pinRetriesResponse.retries == 8, "Should have 8 PIN retries")
+            print("PIN retries: \(pinRetriesResponse.retries)")
         }
     }
 
@@ -224,9 +224,9 @@ struct CTAP2FullStackTests {
             let info = try await session.getInfo()
             #expect(info.options["clientPin"] == true, "PIN must be set (run testClientPinSetup first)")
 
-            let (initialRetries, _) = try await session.getPinRetries()
-            #expect(initialRetries == 8, "Should start with 8 PIN retries")
-            print("Protocol v\(pinAuth.version), retries: \(initialRetries)")
+            let initialRetriesResponse = try await session.getPinRetries()
+            #expect(initialRetriesResponse.retries == 8, "Should start with 8 PIN retries")
+            print("Protocol v\(pinAuth.version), retries: \(initialRetriesResponse.retries)")
 
             // Change PIN
             try await session.changePIN(currentPin: testPin, newPin: otherPin, pinAuth: pinAuth)
@@ -249,8 +249,8 @@ struct CTAP2FullStackTests {
                 print("✅ Old PIN rejected")
             }
 
-            let (retriesAfterWrongPin, _) = try await session.getPinRetries()
-            #expect(retriesAfterWrongPin == 7, "Retries should decrement after wrong PIN")
+            let retriesAfterWrongPin = try await session.getPinRetries()
+            #expect(retriesAfterWrongPin.retries == 7, "Retries should decrement after wrong PIN")
 
             // New PIN should succeed and reset retries
             let pinToken = try await session.getPinToken(
@@ -262,8 +262,8 @@ struct CTAP2FullStackTests {
             #expect(pinToken.count > 0)
             print("✅ New PIN accepted")
 
-            let (retriesAfterCorrectPin, _) = try await session.getPinRetries()
-            #expect(retriesAfterCorrectPin == 8, "Retries should reset after correct PIN")
+            let retriesAfterCorrectPin = try await session.getPinRetries()
+            #expect(retriesAfterCorrectPin.retries == 8, "Retries should reset after correct PIN")
 
             // Restore original PIN
             try await session.changePIN(currentPin: otherPin, newPin: testPin, pinAuth: pinAuth)
@@ -299,8 +299,8 @@ struct CTAP2FullStackTests {
             }
 
             // Policy violation doesn't decrement retries
-            let (retries, _) = try await session.getPinRetries()
-            #expect(retries == 8)
+            let pinRetriesResponse = try await session.getPinRetries()
+            #expect(pinRetriesResponse.retries == 8)
             print("✅ PIN complexity enforced")
         }
     }
@@ -325,8 +325,8 @@ struct CTAP2FullStackTests {
                 rpId: "localhost",
                 pinAuth: pinAuth
             )
-            var (retries, _) = try await session.getPinRetries()
-            #expect(retries == 8)
+            var retriesResponse = try await session.getPinRetries()
+            #expect(retriesResponse.retries == 8)
 
             // Make 3 wrong attempts: 8 → 7 → 6 → 5 (third attempt may soft-lock)
             for expectedRetries in [7, 6, 5] {
@@ -347,12 +347,12 @@ struct CTAP2FullStackTests {
                         Issue.record("Expected PIN_INVALID or PIN_AUTH_BLOCKED, got: \(error)")
                     }
                 }
-                (retries, _) = try await session.getPinRetries()
-                #expect(retries == expectedRetries)
+                retriesResponse = try await session.getPinRetries()
+                #expect(retriesResponse.retries == expectedRetries)
             }
 
             // Soft-locked - counter should freeze
-            let frozenRetries = retries
+            let frozenRetries = retriesResponse.retries
             do {
                 _ = try await session.getPinToken(
                     pin: wrongPin,
@@ -367,8 +367,8 @@ struct CTAP2FullStackTests {
                     return
                 }
             }
-            (retries, _) = try await session.getPinRetries()
-            #expect(retries == frozenRetries)
+            retriesResponse = try await session.getPinRetries()
+            #expect(retriesResponse.retries == frozenRetries)
 
             // Even correct PIN is blocked
             do {
@@ -385,8 +385,8 @@ struct CTAP2FullStackTests {
                     return
                 }
             }
-            (retries, _) = try await session.getPinRetries()
-            #expect(retries == frozenRetries)
+            retriesResponse = try await session.getPinRetries()
+            #expect(retriesResponse.retries == frozenRetries)
             print("⚠️ YubiKey soft-locked. Power cycle to unlock.")
         }
     }
