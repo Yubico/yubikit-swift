@@ -49,10 +49,10 @@ extension CTAP2.MakeCredential {
         /// PIN/UV protocol version (populated automatically when using PIN authentication).
         private(set) var pinUVAuthProtocol: PinAuth.ProtocolVersion?
 
-        /// Sets the PIN/UV authentication parameters.
-        mutating func setAuthentication(param: Data, protocol: PinAuth.ProtocolVersion) {
-            self.pinUVAuthParam = param
-            self.pinUVAuthProtocol = `protocol`
+        /// Sets the PIN/UV authentication parameters using a PIN token.
+        mutating func setAuthentication(pinToken: CTAP2.PinToken) {
+            self.pinUVAuthParam = pinToken.authenticate(message: clientDataHash)
+            self.pinUVAuthProtocol = pinToken.protocolVersion
         }
 
         init(

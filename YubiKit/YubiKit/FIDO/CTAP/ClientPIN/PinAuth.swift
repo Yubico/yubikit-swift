@@ -31,9 +31,6 @@ enum PinAuth {
 
         /// Protocol version 2 (CTAP 2.1+).
         case v2 = 2
-
-        /// Default protocol version.
-        static let `default`: ProtocolVersion = .v1
     }
 
     /// Errors that can occur during PIN/UV authentication operations.

@@ -31,42 +31,25 @@ extension CTAP2.Session {
     ///
     /// - Parameters:
     ///   - parameters: The credential creation parameters.
-    ///   - pin: Optional PIN for user verification. If provided, `pinProtocol` must also be specified.
-    ///   - pinProtocol: The PIN/UV auth protocol version. Required when `pin` is provided.
+    ///   - pinToken: Optional PIN token for user verification. Obtain via ``getPinToken(pin:permissions:rpId:pinProtocol:)``.
     /// - Returns: AsyncSequence of status updates, ending with `.finished(response)` containing the credential data
     ///
     /// - SeeAlso: [CTAP authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
     func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
-        pin: String? = nil,
-        pinProtocol: PinAuth.ProtocolVersion = .default
-    ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
+        pinToken: CTAP2.PinToken? = nil
+    ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
 
-        // If no PIN provided, send parameters as-is
-        guard let pin else {
+        // If no PIN token provided, send parameters as-is
+        guard let pinToken else {
             return await interface.send(
                 command: .makeCredential,
                 payload: parameters
             )
         }
 
-        var permissions: CTAP2.ClientPin.Permission = .makeCredential
-        if let excludeList = parameters.excludeList, !excludeList.isEmpty {
-            permissions.insert(.getAssertion)
-        }
-
-        let pinToken = try await getPinToken(
-            pin: pin,
-            permissions: permissions,
-            rpId: parameters.rp.id,
-            pinProtocol: pinProtocol
-        )
-
         var authenticatedParams = parameters
-        authenticatedParams.setAuthentication(
-            param: pinProtocol.authenticate(key: pinToken, message: parameters.clientDataHash),
-            protocol: pinProtocol
-        )
+        authenticatedParams.setAuthentication(pinToken: pinToken)
 
         return await interface.send(
             command: .makeCredential,

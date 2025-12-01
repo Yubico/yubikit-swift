@@ -256,13 +256,12 @@ struct CTAP2FullStackTests {
             #expect(retriesAfterWrongPin.retries == 7, "Retries should decrement after wrong PIN")
 
             // New PIN should succeed and reset retries
-            let pinToken = try await session.getPinToken(
+            _ = try await session.getPinToken(
                 pin: otherPin,
                 permissions: [.makeCredential, .getAssertion],
                 rpId: "localhost",
                 pinProtocol: pinProtocol
             )
-            #expect(pinToken.count > 0)
             print("✅ New PIN accepted")
 
             let retriesAfterCorrectPin = try await session.getPinRetries()
