@@ -35,37 +35,23 @@ extension CTAP2.ClientPin {
 extension CTAP2.ClientPin {
 
     /// Namespace for the getPinRetries subcommand (0x01).
-    enum GetRetries {
-        static let commandCode: UInt8 = 0x01
-    }
+    enum GetRetries {}
 
     /// Namespace for the getKeyAgreement subcommand (0x02).
-    enum GetKeyAgreement {
-        static let commandCode: UInt8 = 0x02
-    }
+    enum GetKeyAgreement {}
 
     /// Namespace for the setPin subcommand (0x03).
-    enum SetPin {
-        static let commandCode: UInt8 = 0x03
-    }
+    enum SetPin {}
 
     /// Namespace for the changePin subcommand (0x04).
-    enum ChangePin {
-        static let commandCode: UInt8 = 0x04
-    }
+    enum ChangePin {}
 
     /// Namespace for the getPinToken subcommand (0x05, legacy CTAP 2.0).
-    enum GetToken {
-        static let commandCode: UInt8 = 0x05
-    }
+    enum GetToken {}
 
     /// Namespace for the getUVRetries subcommand (0x07).
-    enum GetUVRetries {
-        static let commandCode: UInt8 = 0x07
-    }
+    enum GetUVRetries {}
 
     /// Namespace for the getPinUvAuthTokenUsingPinWithPermissions subcommand (0x09).
-    enum GetTokenWithPermissions {
-        static let commandCode: UInt8 = 0x09
-    }
+    enum GetTokenWithPermissions {}
 }

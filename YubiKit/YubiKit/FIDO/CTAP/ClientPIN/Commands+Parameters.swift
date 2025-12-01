@@ -20,7 +20,7 @@ extension CTAP2.ClientPin.GetRetries {
     /// Parameters for getPinRetries.
     struct Parameters: CTAP2.ClientPin.Command {
         typealias Response = CTAP2.ClientPin.GetRetries.Response
-        static let commandCode = CTAP2.ClientPin.GetRetries.commandCode
+        static let commandCode: UInt8 = 0x01
 
         /// PIN/UV auth protocol version.
         let pinUVAuthProtocol: PinAuth.ProtocolVersion
@@ -37,7 +37,7 @@ extension CTAP2.ClientPin.GetKeyAgreement {
     /// Parameters for getKeyAgreement.
     struct Parameters: CTAP2.ClientPin.Command {
         typealias Response = CTAP2.ClientPin.GetKeyAgreement.Response
-        static let commandCode = CTAP2.ClientPin.GetKeyAgreement.commandCode
+        static let commandCode: UInt8 = 0x02
 
         /// PIN/UV auth protocol version.
         let pinUVAuthProtocol: PinAuth.ProtocolVersion
@@ -54,7 +54,7 @@ extension CTAP2.ClientPin.SetPin {
     /// Parameters for setPIN.
     struct Parameters: CTAP2.ClientPin.Command {
         typealias Response = Void
-        static let commandCode = CTAP2.ClientPin.SetPin.commandCode
+        static let commandCode: UInt8 = 0x03
 
         /// PIN/UV auth protocol version.
         let pinUVAuthProtocol: PinAuth.ProtocolVersion
@@ -88,7 +88,7 @@ extension CTAP2.ClientPin.ChangePin {
     /// Parameters for changePIN.
     struct Parameters: CTAP2.ClientPin.Command {
         typealias Response = Void
-        static let commandCode = CTAP2.ClientPin.ChangePin.commandCode
+        static let commandCode: UInt8 = 0x04
 
         /// PIN/UV auth protocol version.
         let pinUVAuthProtocol: PinAuth.ProtocolVersion
@@ -129,7 +129,7 @@ extension CTAP2.ClientPin.GetToken {
     /// Gets a PIN token using PIN. Superseded by `GetTokenWithPermissions` in CTAP 2.1+.
     struct Parameters: CTAP2.ClientPin.Command {
         typealias Response = CTAP2.ClientPin.GetToken.Response
-        static let commandCode = CTAP2.ClientPin.GetToken.commandCode
+        static let commandCode: UInt8 = 0x05
 
         /// PIN/UV auth protocol version.
         let pinUVAuthProtocol: PinAuth.ProtocolVersion
@@ -158,7 +158,7 @@ extension CTAP2.ClientPin.GetUVRetries {
     /// Parameters for getUVRetries.
     struct Parameters: CTAP2.ClientPin.Command {
         typealias Response = CTAP2.ClientPin.GetUVRetries.Response
-        static let commandCode = CTAP2.ClientPin.GetUVRetries.commandCode
+        static let commandCode: UInt8 = 0x07
 
         /// PIN/UV auth protocol version.
         let pinUVAuthProtocol: PinAuth.ProtocolVersion
@@ -177,7 +177,7 @@ extension CTAP2.ClientPin.GetTokenWithPermissions {
     /// Gets a PIN/UV auth token using PIN with specific permissions (CTAP 2.1+).
     struct Parameters: CTAP2.ClientPin.Command {
         typealias Response = CTAP2.ClientPin.GetToken.Response  // Same response type as GetToken
-        static let commandCode = CTAP2.ClientPin.GetTokenWithPermissions.commandCode
+        static let commandCode: UInt8 = 0x09
 
         /// PIN/UV auth protocol version.
         let pinUVAuthProtocol: PinAuth.ProtocolVersion
