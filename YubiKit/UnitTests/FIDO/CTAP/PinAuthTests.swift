@@ -239,65 +239,50 @@ struct PinAuthTests {
 
     // MARK: - PIN Preparation and Validation
 
-    @Test("preparePin without padding returns UTF-8 bytes")
-    func testPreparePinWithoutPadding() throws {
-        let prepared4 = try PinAuth.preparePin("1234", padded: false)
-        #expect(prepared4 == Data([0x31, 0x32, 0x33, 0x34]))
+    @Test("padPin returns 64 bytes with PIN followed by zeros")
+    func testPadPin() throws {
+        let pinProtocol = PinAuth.ProtocolVersion.v1
 
-        let prepared6 = try PinAuth.preparePin("foobar", padded: false)
-        #expect(prepared6 == Data([0x66, 0x6f, 0x6f, 0x62, 0x61, 0x72]))
+        let padded4 = try pinProtocol.padPin("1234")
+        #expect(padded4.count == 64)
+        #expect(padded4.prefix(4) == Data([0x31, 0x32, 0x33, 0x34]))
+        #expect(padded4.suffix(60).allSatisfy { $0 == 0 })
 
-        let pin63 = "123456789012345678901234567890123456789012345678901234567890123"
-        let prepared63 = try PinAuth.preparePin(pin63, padded: false)
-        #expect(prepared63.count == 63)
-    }
-
-    @Test("preparePin with padding returns 64 bytes")
-    func testPreparePinWithPadding() throws {
-        let prepared4 = try PinAuth.preparePin("1234", padded: true)
-        #expect(prepared4.count == 64)
-        #expect(prepared4.prefix(4) == Data([0x31, 0x32, 0x33, 0x34]))
-        #expect(prepared4.suffix(60).allSatisfy { $0 == 0 })
-
-        let prepared6 = try PinAuth.preparePin("foobar", padded: true)
-        #expect(prepared6.count == 64)
-        #expect(prepared6.prefix(6) == Data([0x66, 0x6f, 0x6f, 0x62, 0x61, 0x72]))
+        let padded6 = try pinProtocol.padPin("foobar")
+        #expect(padded6.count == 64)
+        #expect(padded6.prefix(6) == Data([0x66, 0x6f, 0x6f, 0x62, 0x61, 0x72]))
 
         let pin63 = "123456789012345678901234567890123456789012345678901234567890123"
-        let prepared63 = try PinAuth.preparePin(pin63, padded: true)
-        #expect(prepared63.count == 64)
-        #expect(prepared63[63] == 0)
+        let padded63 = try pinProtocol.padPin(pin63)
+        #expect(padded63.count == 64)
+        #expect(padded63[63] == 0)
     }
 
-    @Test("preparePin rejects PIN shorter than 4 code points")
+    @Test("padPin rejects PIN shorter than 4 code points")
     func testPinTooShort() {
+        let pinProtocol = PinAuth.ProtocolVersion.v1
         #expect(throws: PinAuth.Error.pinTooShort) {
-            _ = try PinAuth.preparePin("123", padded: false)
-        }
-
-        #expect(throws: PinAuth.Error.pinTooShort) {
-            _ = try PinAuth.preparePin("123", padded: true)
+            _ = try pinProtocol.padPin("123")
         }
     }
 
-    @Test("preparePin rejects PIN longer than 63 bytes")
+    @Test("padPin rejects PIN longer than 63 bytes")
     func testPinTooLong() {
+        let pinProtocol = PinAuth.ProtocolVersion.v1
         let pin64 = "1234567890123456789012345678901234567890123456789012345678901234"
         #expect(pin64.count == 64)
 
         #expect(throws: PinAuth.Error.pinTooLong) {
-            _ = try PinAuth.preparePin(pin64, padded: false)
-        }
-
-        #expect(throws: PinAuth.Error.pinTooLong) {
-            _ = try PinAuth.preparePin(pin64, padded: true)
+            _ = try pinProtocol.padPin(pin64)
         }
     }
 
     // MARK: - NFC Normalization
 
-    @Test("preparePin normalizes to NFC - NFD input produces same bytes as NFC")
+    @Test("padPin normalizes to NFC - NFD input produces same bytes as NFC")
     func testNFCNormalization() throws {
+        let pinProtocol = PinAuth.ProtocolVersion.v1
+
         // "café" in NFC (precomposed): c a f é (4 code points)
         let nfc = "caf\u{00E9}"  // U+00E9 = é
 
@@ -308,34 +293,39 @@ struct PinAuthTests {
         #expect(nfc.unicodeScalars.count == 4)
         #expect(nfd.unicodeScalars.count == 5)
 
-        // After NFC normalization, both should produce identical bytes
-        let preparedNFC = try PinAuth.preparePin(nfc, padded: false)
-        let preparedNFD = try PinAuth.preparePin(nfd, padded: false)
+        // After NFC normalization, both should produce identical padded bytes
+        let paddedNFC = try pinProtocol.padPin(nfc)
+        let paddedNFD = try pinProtocol.padPin(nfd)
 
-        #expect(preparedNFC == preparedNFD)
-        #expect(preparedNFC == Data([0x63, 0x61, 0x66, 0xc3, 0xa9]))  // UTF-8 for "café" in NFC
+        #expect(paddedNFC == paddedNFD)
+        #expect(paddedNFC.prefix(5) == Data([0x63, 0x61, 0x66, 0xc3, 0xa9]))  // UTF-8 for "café" in NFC
     }
 
-    @Test("preparePin counts code points after NFC normalization")
+    @Test("padPin counts code points after NFC normalization")
     func testCodePointCountAfterNormalization() throws {
+        let pinProtocol = PinAuth.ProtocolVersion.v1
+
         // NFD "café" has 5 code points but NFC has 4
         let nfd = "cafe\u{0301}"
         #expect(nfd.unicodeScalars.count == 5)
 
         // Should still be valid (4 code points after normalization)
-        let prepared = try PinAuth.preparePin(nfd, padded: false)
-        #expect(prepared.count == 5)  // 5 UTF-8 bytes for "café"
+        let padded = try pinProtocol.padPin(nfd)
+        #expect(padded.count == 64)
+        #expect(padded.prefix(5) == Data([0x63, 0x61, 0x66, 0xc3, 0xa9]))  // 5 UTF-8 bytes for "café"
     }
 
-    @Test("preparePin rejects short PIN even with combining marks")
+    @Test("padPin rejects short PIN even with combining marks")
     func testShortPinWithCombiningMarks() {
+        let pinProtocol = PinAuth.ProtocolVersion.v1
+
         // "aé" in NFD: a e ́ (3 code points, but only 2 after NFC normalization)
         let nfd = "ae\u{0301}"
         #expect(nfd.unicodeScalars.count == 3)
 
         // After NFC normalization: "aé" = 2 code points, too short
         #expect(throws: PinAuth.Error.pinTooShort) {
-            _ = try PinAuth.preparePin(nfd, padded: false)
+            _ = try pinProtocol.padPin(nfd)
         }
     }
 

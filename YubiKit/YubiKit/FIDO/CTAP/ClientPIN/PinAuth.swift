@@ -20,12 +20,12 @@ import Foundation
 ///
 /// - SeeAlso: [CTAP2 PIN/UV Auth Protocol One](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#pinProto1)
 /// - SeeAlso: [CTAP2 PIN/UV Auth Protocol Two](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#pinProto2)
-public enum PinAuth {
+enum PinAuth {
     /// PIN/UV Auth Protocol version.
     ///
     /// Defines the cryptographic algorithms used for PIN/UV authentication.
     /// Protocol v1 is supported by all CTAP2 authenticators, v2 adds improved security.
-    public enum ProtocolVersion: Int, Sendable, CBOR.Encodable {
+    enum ProtocolVersion: Int, Sendable, CBOR.Encodable {
         /// Protocol version 1 (CTAP 2.0).
         case v1 = 1
 
@@ -33,11 +33,11 @@ public enum PinAuth {
         case v2 = 2
 
         /// Default protocol version.
-        public static let `default`: ProtocolVersion = .v1
+        static let `default`: ProtocolVersion = .v1
     }
 
     /// Errors that can occur during PIN/UV authentication operations.
-    public enum Error: Swift.Error {
+    enum Error: Swift.Error {
         case invalidPeerKey
         case keyAgreementFailed
         case encryptionFailed
@@ -45,34 +45,6 @@ public enum PinAuth {
         case pinTooShort
         case pinTooLong
         case invalidTokenSize
-    }
-
-    /// Minimum PIN length (4 Unicode code points per CTAP2 spec).
-    public static let minPinLength = 4
-
-    /// Maximum PIN length (63 bytes UTF-8 per CTAP2 spec).
-    public static let maxPinLengthBytes = 63
-
-    /// Prepare and validate a PIN for CTAP2 operations.
-    public static func preparePin(_ pin: String, padded: Bool) throws(Error) -> Data {
-        // Normalize to NFC per CTAP2 spec §6.5.1
-        let normalizedPin = pin.precomposedStringWithCanonicalMapping
-        guard normalizedPin.unicodeScalars.count >= minPinLength else {
-            throw Error.pinTooShort
-        }
-
-        let pinData = Data(normalizedPin.utf8)
-        guard pinData.count <= maxPinLengthBytes else {
-            throw Error.pinTooLong
-        }
-
-        if padded {
-            var data = pinData
-            data.append(Data(count: 64 - data.count))
-            return data
-        } else {
-            return pinData
-        }
     }
 }
 
@@ -164,7 +136,7 @@ extension PinAuth.ProtocolVersion {
 
 extension PinAuth.ProtocolVersion {
     /// Encrypt data using the shared secret.
-    public func encrypt(key: Data, plaintext: Data) throws(PinAuth.Error) -> Data {
+    func encrypt(key: Data, plaintext: Data) throws(PinAuth.Error) -> Data {
         do {
             switch self {
             case .v1:
@@ -188,7 +160,7 @@ extension PinAuth.ProtocolVersion {
     }
 
     /// Decrypt data using the shared secret.
-    public func decrypt(key: Data, ciphertext: Data) throws(PinAuth.Error) -> Data {
+    func decrypt(key: Data, ciphertext: Data) throws(PinAuth.Error) -> Data {
         do {
             switch self {
             case .v1:
@@ -216,7 +188,7 @@ extension PinAuth.ProtocolVersion {
 
 extension PinAuth.ProtocolVersion {
     /// Compute authentication parameter for PIN/UV operations.
-    public func authenticate(key: Data, message: Data) -> Data {
+    func authenticate(key: Data, message: Data) -> Data {
         // V1 uses full key, V2 uses first 32 bytes (HMAC key)
         let hmacKey = self == .v1 ? key : key.prefix(32)
 
@@ -235,7 +207,20 @@ extension PinAuth.ProtocolVersion {
     /// - Returns: The PIN padded to 64 bytes.
     /// - Throws: `PinAuth.Error.pinTooShort` if PIN has fewer than 4 Unicode code points,
     ///           `PinAuth.Error.pinTooLong` if PIN exceeds 63 bytes UTF-8.
-    public func padPin(_ pin: String) throws(PinAuth.Error) -> Data {
-        try PinAuth.preparePin(pin, padded: true)
+    func padPin(_ pin: String) throws(PinAuth.Error) -> Data {
+        // Normalize to NFC per CTAP2 spec §6.5.1
+        let normalizedPin = pin.precomposedStringWithCanonicalMapping
+        guard normalizedPin.unicodeScalars.count >= 4 else {  // min 4 Unicode code points
+            throw .pinTooShort
+        }
+
+        let pinData = Data(normalizedPin.utf8)
+        guard pinData.count <= 63 else {  // max 63 UTF-8 bytes
+            throw .pinTooLong
+        }
+
+        var padded = pinData
+        padded.append(Data(count: 64 - pinData.count))
+        return padded
     }
 }
