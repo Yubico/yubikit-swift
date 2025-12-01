@@ -156,7 +156,7 @@ struct CTAP2FullStackTests {
             print("DO NOT touch the YubiKey - operation will be cancelled...")
 
             do {
-                for try await status in await session.makeCredential(parameters: params) {
+                for try await status in try await session.makeCredential(parameters: params) {
                     switch status {
                     case .processing:
                         print("Processing...")

@@ -137,10 +137,10 @@ struct COSEKeyTests {
         #expect(decoded == key)
     }
 
-    @Test("COSE.Key with unsupported algorithm (PS256)")
-    func testCOSEKeyUnsupportedAlgorithm() throws {
-        // Uses PS256 (RSASSA-PSS, algorithm -37) which we it's unsupported
-        // This should be stored as .other(...) to preserve future compatibility
+    @Test("COSE.Key with non-enumerated algorithm (PS256)")
+    func testCOSEKeyNonEnumeratedAlgorithm() throws {
+        // Uses PS256 (RSASSA-PSS, algorithm -37) which is not in the Algorithm enum
+        // This should be stored as .other(-37) to preserve forward compatibility
         let n = Data([
             0xbc, 0x7e, 0x29, 0xd0, 0xdf, 0x7e, 0x20, 0xcc, 0x9d, 0xc8, 0xd5, 0x09,
             0xe0, 0xf6, 0x88, 0x95, 0x92, 0x2a, 0xf0, 0xef, 0x45, 0x21, 0x90, 0xd4,
@@ -175,7 +175,6 @@ struct COSEKeyTests {
             .int(-2): .byteString(e),  // e: exponent
         ]
 
-        let originalCBOR = CBOR.Value.map(coseKeyMap).encode()
         let key = try #require(COSE.Key(cbor: .map(coseKeyMap)))
 
         // PS256 is parsed as RSA key with alg: .other(-37)

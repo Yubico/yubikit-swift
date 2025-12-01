@@ -91,19 +91,39 @@ extension CTAP2.Session {
     /// Get all assertions as an async sequence.
     ///
     /// Returns an async sequence that lazily fetches assertions one at a time. This automatically
-    /// handles calling ``getAssertion(parameters:)`` for the first assertion and ``getNextAssertion()``
-    /// for subsequent assertions based on `numberOfCredentials`.
+    /// handles calling ``getAssertion(parameters:pin:pinProtocol:)`` for the first assertion and
+    /// ``getNextAssertion()`` for subsequent assertions based on `numberOfCredentials`.
     ///
     /// When only one credential matches, the sequence yields a single assertion. When multiple credentials
     /// are available (resident key discovery with no allowList), the sequence yields all of them.
     ///
-    /// - Parameter parameters: The assertion request parameters.
+    /// - Parameters:
+    ///   - parameters: The assertion request parameters.
+    ///   - pin: Optional PIN for user verification.
+    ///   - pinProtocol: The PIN/UV auth protocol version (default: v1).
     /// - Returns: An async sequence of assertion responses.
-    /// - SeeAlso: ``getAssertion(parameters:)`` for low-level access to a single assertion.
+    /// - SeeAlso: ``getAssertion(parameters:pin:pinProtocol:)`` for low-level access to a single assertion.
     func getAssertions(
-        parameters: CTAP2.GetAssertion.Parameters
-    ) -> CTAP2.GetAssertion.Sequence<I> {
-        .init(session: self, parameters: parameters)
+        parameters: CTAP2.GetAssertion.Parameters,
+        pin: String? = nil,
+        pinProtocol: PinAuth.ProtocolVersion = .default
+    ) async throws(CTAP2.SessionError) -> CTAP2.GetAssertion.Sequence<I> {
+        var authenticatedParams = parameters
+
+        if let pin {
+            let pinToken = try await getPinToken(
+                pin: pin,
+                permissions: .getAssertion,
+                rpId: parameters.rpId,
+                pinProtocol: pinProtocol
+            )
+            authenticatedParams.setAuthentication(
+                param: pinProtocol.authenticate(key: pinToken, message: parameters.clientDataHash),
+                protocol: pinProtocol
+            )
+        }
+
+        return .init(session: self, parameters: authenticatedParams)
     }
 }
 
@@ -111,10 +131,10 @@ extension CTAP2.Session {
 
 /// An async sequence of assertion responses.
 ///
-/// This sequence lazily fetches assertions from the authenticator, calling ``CTAP/Session/getAssertion(parameters:)``
+/// This sequence lazily fetches assertions from the authenticator, calling ``CTAP/Session/getAssertion(parameters:pin:pinProtocol:)``
 /// for the first assertion and ``CTAP/Session/getNextAssertion()`` for subsequent assertions.
 ///
-/// Use ``CTAP/Session/getAssertions(parameters:)`` to create instances of this type.
+/// Use ``CTAP/Session/getAssertions(parameters:pin:pinProtocol:)`` to create instances of this type.
 extension CTAP2.GetAssertion {
     struct Sequence<I: CBORInterface>: AsyncSequence where I.Error == CTAP2.SessionError {
         typealias Element = CTAP2.GetAssertion.Response
@@ -139,7 +159,7 @@ extension CTAP2.GetAssertion {
 extension CTAP2.GetAssertion {
     /// Iterator that fetches assertions one at a time from the authenticator.
     ///
-    /// Created by ``Sequence/makeAsyncIterator()``. Use ``CTAP/Session/getAssertions(parameters:)`` instead of instantiating directly.
+    /// Created by ``Sequence/makeAsyncIterator()``. Use ``CTAP/Session/getAssertions(parameters:pin:pinProtocol:)`` instead of instantiating directly.
     actor Iterator<I: CBORInterface>: AsyncIteratorProtocol where I.Error == CTAP2.SessionError {
         typealias Element = CTAP2.GetAssertion.Response
 
@@ -159,7 +179,7 @@ extension CTAP2.GetAssertion {
 
         func next() async throws(CTAP2.SessionError) -> CTAP2.GetAssertion.Response? {
             if currentIndex == 0 {
-                // Get first assertion
+                // Get first assertion (parameters already authenticated if PIN was provided)
                 let stream = try await session.getAssertion(parameters: parameters)
                 for try await status in stream {
                     if case .finished(let response) = status {
