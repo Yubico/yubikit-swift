@@ -32,7 +32,7 @@ public enum PinAuth {
         /// Protocol version 2 (CTAP 2.1+).
         case v2 = 2
 
-        /// Default protocol version (v1).
+        /// Default protocol version.
         public static let `default`: ProtocolVersion = .v1
     }
 

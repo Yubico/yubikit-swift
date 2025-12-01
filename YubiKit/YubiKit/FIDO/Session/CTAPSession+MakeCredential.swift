@@ -29,25 +29,26 @@ extension CTAP2.Session {
     ///
     /// > Note: This functionality requires support for ``CTAP/Feature/makeCredential``, available on YubiKey 5.0 or later.
     ///
-    /// - Parameter parameters: The credential creation parameters.
+    /// - Parameters:
+    ///   - parameters: The credential creation parameters.
+    ///   - pin: Optional PIN for user verification. If provided, `pinProtocol` must also be specified.
+    ///   - pinProtocol: The PIN/UV auth protocol version. Required when `pin` is provided.
     /// - Returns: AsyncSequence of status updates, ending with `.finished(response)` containing the credential data
     ///
     /// - SeeAlso: [CTAP authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
     func makeCredential(
-        parameters: CTAP2.MakeCredential.Parameters
-    ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
-        await interface.send(
-            command: .makeCredential,
-            payload: parameters
-        )
-    }
-
-    /// Create a new credential with PIN authentication.
-    func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
-        pin: String,
+        pin: String? = nil,
         pinProtocol: PinAuth.ProtocolVersion = .default
     ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
+
+        // If no PIN provided, send parameters as-is
+        guard let pin else {
+            return await interface.send(
+                command: .makeCredential,
+                payload: parameters
+            )
+        }
 
         var permissions: CTAP2.ClientPin.Permission = .makeCredential
         if let excludeList = parameters.excludeList, !excludeList.isEmpty {
@@ -61,22 +62,10 @@ extension CTAP2.Session {
             pinProtocol: pinProtocol
         )
 
-        let pinUVAuthParam = pinProtocol.authenticate(
-            key: pinToken,
-            message: parameters.clientDataHash
-        )
-
-        let authenticatedParams = CTAP2.MakeCredential.Parameters(
-            clientDataHash: parameters.clientDataHash,
-            rp: parameters.rp,
-            user: parameters.user,
-            pubKeyCredParams: parameters.pubKeyCredParams,
-            excludeList: parameters.excludeList,
-            extensions: parameters.extensions,
-            options: parameters.options,
-            pinUVAuthParam: pinUVAuthParam,
-            pinUVAuthProtocol: pinProtocol,
-            enterpriseAttestation: parameters.enterpriseAttestation
+        var authenticatedParams = parameters
+        authenticatedParams.setAuthentication(
+            param: pinProtocol.authenticate(key: pinToken, message: parameters.clientDataHash),
+            protocol: pinProtocol
         )
 
         return await interface.send(

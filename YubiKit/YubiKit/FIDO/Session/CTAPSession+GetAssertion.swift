@@ -28,25 +28,26 @@ extension CTAP2.Session {
     ///
     /// > Note: This functionality requires support for ``CTAP/Feature/getAssertion``, available on YubiKey 5.0 or later.
     ///
-    /// - Parameter parameters: The assertion request parameters.
+    /// - Parameters:
+    ///   - parameters: The assertion request parameters.
+    ///   - pin: Optional PIN for user verification.
+    ///   - pinProtocol: The PIN/UV auth protocol version (default: v1).
     /// - Returns: AsyncStream of status updates, ending with `.finished(response)` containing the assertion data
     ///
     /// - SeeAlso: [CTAP authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)
     func getAssertion(
-        parameters: CTAP2.GetAssertion.Parameters
-    ) async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
-        await interface.send(
-            command: .getAssertion,
-            payload: parameters
-        )
-    }
-
-    /// Authenticate with a credential using PIN.
-    func getAssertion(
         parameters: CTAP2.GetAssertion.Parameters,
-        pin: String,
+        pin: String? = nil,
         pinProtocol: PinAuth.ProtocolVersion = .default
     ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
+
+        // If no PIN provided, send parameters as-is
+        guard let pin else {
+            return await interface.send(
+                command: .getAssertion,
+                payload: parameters
+            )
+        }
 
         let pinToken = try await getPinToken(
             pin: pin,
@@ -55,19 +56,10 @@ extension CTAP2.Session {
             pinProtocol: pinProtocol
         )
 
-        let pinUVAuthParam = pinProtocol.authenticate(
-            key: pinToken,
-            message: parameters.clientDataHash
-        )
-
-        let authenticatedParams = CTAP2.GetAssertion.Parameters(
-            rpId: parameters.rpId,
-            clientDataHash: parameters.clientDataHash,
-            allowList: parameters.allowList,
-            extensions: parameters.extensions,
-            options: parameters.options,
-            pinUVAuthParam: pinUVAuthParam,
-            pinUVAuthProtocol: pinProtocol
+        var authenticatedParams = parameters
+        authenticatedParams.setAuthentication(
+            param: pinProtocol.authenticate(key: pinToken, message: parameters.clientDataHash),
+            protocol: pinProtocol
         )
 
         return await interface.send(
@@ -168,7 +160,7 @@ extension CTAP2.GetAssertion {
         func next() async throws(CTAP2.SessionError) -> CTAP2.GetAssertion.Response? {
             if currentIndex == 0 {
                 // Get first assertion
-                let stream = await session.getAssertion(parameters: parameters)
+                let stream = try await session.getAssertion(parameters: parameters)
                 for try await status in stream {
                     if case .finished(let response) = status {
                         totalCredentials = response.numberOfCredentials ?? 1
