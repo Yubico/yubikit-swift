@@ -14,7 +14,7 @@
 
 import Foundation
 
-// MARK: - AuthenticatorInfo + CBOR
+// MARK: - CTAP2.GetInfo.Response + CBOR
 
 extension CTAP2.GetInfo.Response: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
@@ -23,30 +23,29 @@ extension CTAP2.GetInfo.Response: CBOR.Decodable {
         }
 
         // Required: versions (0x01) - array of strings
-        guard let versions: [String] = map[.int(0x01)]?.cborDecoded(),
-            !versions.isEmpty
-        else {
+        guard let versionStrings: [String] = map[.int(0x01)]?.cborDecoded() else {
+            return nil
+        }
+        let versions = versionStrings.map { CTAP2.GetInfo.AuthenticatorVersion($0) }
+
+        // Required: aaguid (0x03) - 16-byte byte string
+        guard let aaguid: UUID = map[.int(0x03)]?.cborDecoded() else {
             return nil
         }
 
-        // Required: aaguid (0x03) - 16-byte byte string
-        guard let aaguid: Data = map[.int(0x03)]?.cborDecoded(),
-            aaguid.count == 16
-        else {
-            return nil
-        }
+        let options: CTAP2.GetInfo.Options = map[.int(0x04)]?.cborDecoded() ?? .default
 
         self.init(
             versions: versions,
             aaguid: aaguid,
             extensions: map[.int(0x02)]?.cborDecoded() ?? [],
-            options: map[.int(0x04)]?.cborDecoded() ?? [:],
+            options: options,
             maxMsgSize: map[.int(0x05)]?.cborDecoded() ?? 1024,
             pinUVAuthProtocols: map[.int(0x06)]?.cborDecoded() ?? [],
             maxCredentialCountInList: map[.int(0x07)]?.cborDecoded(),
             maxCredentialIdLength: map[.int(0x08)]?.cborDecoded(),
-            transports: map[.int(0x09)]?.cborDecoded(),
-            algorithms: map[.int(0x0A)]?.cborDecoded(),
+            transports: map[.int(0x09)]?.cborDecoded() ?? [],
+            algorithms: map[.int(0x0A)]?.cborDecoded() ?? [],
             maxSerializedLargeBlobArray: map[.int(0x0B)]?.cborDecoded(),
             forcePinChange: map[.int(0x0C)]?.cborDecoded(),
             minPinLength: map[.int(0x0D)]?.cborDecoded(),
@@ -55,9 +54,46 @@ extension CTAP2.GetInfo.Response: CBOR.Decodable {
             maxRPIDsForSetMinPinLength: map[.int(0x10)]?.cborDecoded(),
             preferredPlatformUVAttempts: map[.int(0x11)]?.cborDecoded(),
             uvModality: map[.int(0x12)]?.cborDecoded(),
-            certifications: map[.int(0x13)]?.cborDecoded(),
+            certifications: map[.int(0x13)]?.cborDecoded() ?? [:],
             remainingDiscoverableCredentials: map[.int(0x14)]?.cborDecoded(),
-            vendorPrototypeConfigCommands: map[.int(0x15)]?.cborDecoded()
+            vendorPrototypeConfigCommands: map[.int(0x15)]?.cborDecoded(),
+            attestationFormats: map[.int(0x16)]?.cborDecoded() ?? [],
+            uvCountSinceLastPinEntry: map[.int(0x17)]?.cborDecoded(),
+            longTouchForReset: map[.int(0x18)]?.cborDecoded(),
+            encIdentifier: map[.int(0x19)]?.cborDecoded(),
+            transportsForReset: map[.int(0x1A)]?.cborDecoded() ?? [],
+            pinComplexityPolicy: map[.int(0x1B)]?.cborDecoded(),
+            pinComplexityPolicyURL: map[.int(0x1C)]?.cborDecoded(),
+            maxPINLength: map[.int(0x1D)]?.cborDecoded()
         )
+    }
+}
+
+extension PinUVAuth.ProtocolVersion: CBOR.Decodable {}
+
+extension UUID: CBOR.Decodable {
+    init?(cbor: CBOR.Value) {
+        guard let data = cbor.dataValue, data.count == 16 else { return nil }
+        self = data.withUnsafeBytes { UUID(uuid: $0.load(as: uuid_t.self)) }
+    }
+}
+
+extension CTAP2.GetInfo.UVModality: CBOR.Decodable {
+    init?(cbor: CBOR.Value) {
+        guard let rawValue: UInt32 = cbor.cborDecoded() else { return nil }
+        self.init(rawValue: rawValue)
+    }
+}
+
+extension URL: CBOR.Decodable {
+    init?(cbor: CBOR.Value) {
+        // CTAP spec encodes URLs as byte strings containing UTF-8
+        guard let data = cbor.dataValue,
+            let string = String(data: data, encoding: .utf8),
+            let url = URL(string: string)
+        else {
+            return nil
+        }
+        self = url
     }
 }

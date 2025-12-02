@@ -28,7 +28,7 @@ extension CTAP2 {
         let token: Data
 
         /// The PIN/UV auth protocol version used to obtain this token.
-        let protocolVersion: PinAuth.ProtocolVersion
+        let protocolVersion: PinUVAuth.ProtocolVersion
 
         /// Compute the pinUVAuthParam for a given message.
         ///
@@ -46,9 +46,17 @@ extension CTAP2.Session {
     /// Creates a ClientPIN accessor for PIN-related operations.
     ///
     /// - Parameter pinProtocol: The PIN/UV auth protocol version to use.
-    /// - Returns: A ClientPIN accessor bound to this session and protocol.
-    func clientPIN(protocol pinProtocol: PinAuth.ProtocolVersion) -> CTAP2.ClientPIN<I> {
-        CTAP2.ClientPIN(interface: interface, pinProtocol: pinProtocol)
+    ///   If nil, automatically selects the best protocol from device capabilities.
+    /// - Returns: A ClientPIN accessor with device capabilities and selected protocol.
+    func clientPIN(
+        protocol pinProtocol: PinUVAuth.ProtocolVersion? = nil
+    ) async throws(CTAP2.SessionError) -> CTAP2.ClientPIN<I> {
+        let preferredClientPinProtocol = try await preferredClientPinProtocol
+        return CTAP2.ClientPIN(
+            interface: interface,
+            pinProtocol: pinProtocol ?? preferredClientPinProtocol,
+            supportsTokenPermissions: try await supportsTokenPermissions
+        )
     }
 }
 
@@ -65,8 +73,9 @@ extension CTAP2 {
     /// let token = try await pin.getToken(pin: "1234", permissions: .makeCredential, rpId: "example.com")
     /// ```
     struct ClientPIN<I: CBORInterface>: Sendable where I.Error == CTAP2.SessionError {
-        let interface: I
-        let pinProtocol: PinAuth.ProtocolVersion
+        fileprivate let interface: I
+        fileprivate let pinProtocol: PinUVAuth.ProtocolVersion
+        fileprivate let supportsTokenPermissions: Bool
 
         /// Get the number of PIN retries remaining.
         ///
@@ -109,9 +118,14 @@ extension CTAP2 {
         /// The returned token can be used to authenticate subsequent CTAP operations
         /// like ``Session/makeCredential(parameters:pinToken:)`` and ``Session/getAssertion(parameters:pinToken:)``.
         ///
+        /// This method automatically selects the appropriate CTAP command based on authenticator
+        /// capabilities: uses `getPinUVAuthTokenUsingPinWithPermissions` (0x09) if the authenticator
+        /// supports `pinUVAuthToken` and permissions are provided, otherwise falls back to
+        /// `getPinToken` (0x05).
+        ///
         /// - Parameters:
         ///   - pin: The PIN string.
-        ///   - permissions: Optional permissions for the token (uses 0x09 subcommand if provided).
+        ///   - permissions: Optional permissions for the token.
         ///   - rpId: Optional relying party ID (required for mc/ga permissions).
         /// - Returns: A PIN token that can be used to authenticate CTAP operations.
         func getToken(
@@ -143,33 +157,30 @@ extension CTAP2 {
 
             let platformKey = pinProtocol.coseKey(from: keyPair)
 
-            // Use typed command based on whether permissions are provided
+            // Use 0x09 if supported and permissions provided, otherwise fall back to 0x05
             let response: CTAP2.ClientPin.GetToken.Response
-            if let permissions {
-                let params = CTAP2.ClientPin.GetTokenWithPermissions.Parameters(
+            var params: CBOR.Encodable
+            if supportsTokenPermissions, let permissions {
+                params = CTAP2.ClientPin.GetTokenWithPermissions.Parameters(
                     pinUVAuthProtocol: pinProtocol,
                     keyAgreement: platformKey,
                     pinHashEnc: pinHashEnc,
                     permissions: permissions,
                     rpId: rpId
                 )
-                let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
-                    command: .clientPin,
-                    payload: params
-                )
-                response = try await stream.value
             } else {
-                let params = CTAP2.ClientPin.GetToken.Parameters(
+                params = CTAP2.ClientPin.GetToken.Parameters(
                     pinUVAuthProtocol: pinProtocol,
                     keyAgreement: platformKey,
                     pinHashEnc: pinHashEnc
                 )
-                let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
-                    command: .clientPin,
-                    payload: params
-                )
-                response = try await stream.value
             }
+
+            let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
+                command: .clientPin,
+                payload: params
+            )
+            response = try await stream.value
 
             let pinToken: Data
             do {

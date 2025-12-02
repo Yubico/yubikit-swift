@@ -172,7 +172,7 @@ extension CTAP2.ClientPin.GetUVRetries {
 // MARK: - GetTokenWithPermissions Parameters
 
 extension CTAP2.ClientPin.GetTokenWithPermissions {
-    /// Parameters for getPinUvAuthTokenUsingPinWithPermissions.
+    /// Parameters for getPinUVAuthTokenUsingPinWithPermissions.
     ///
     /// Gets a PIN/UV auth token using PIN with specific permissions (CTAP 2.1+).
     struct Parameters: CTAP2.ClientPin.Command {

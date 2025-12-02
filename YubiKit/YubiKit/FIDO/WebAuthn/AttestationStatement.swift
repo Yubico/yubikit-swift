@@ -39,13 +39,13 @@ extension WebAuthn {
         case unknown(format: String)
 
         /// The attestation format identifier.
-        var format: String {
+        var format: AttestationFormat {
             switch self {
-            case .packed: return "packed"
-            case .fidoU2F: return "fido-u2f"
-            case .none: return "none"
-            case .apple: return "apple"
-            case .unknown(let format): return format
+            case .packed: return .packed
+            case .fidoU2F: return .fidoU2F
+            case .none: return .none
+            case .apple: return .apple
+            case .unknown(let format): return .unknown(format)
             }
         }
     }

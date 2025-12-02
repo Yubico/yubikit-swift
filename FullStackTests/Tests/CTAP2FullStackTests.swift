@@ -30,18 +30,17 @@ struct CTAP2FullStackTests {
 
             // Check versions contain a recognized FIDO version
             let hasRecognizedVersion = info.versions.contains { version in
-                version == "U2F_V2" || version == "FIDO_2_0" || version == "FIDO_2_1_PRE" || version == "FIDO_2_1"
+                switch version {
+                case .u2fV2, .fido2_0, .fido2_1Pre, .fido2_1: return true
+                case .unknown: return false
+                }
             }
             #expect(hasRecognizedVersion, "Should support a recognized FIDO version")
 
-            // Check AAGUID is 16 bytes
-            #expect(info.aaguid.count == 16, "AAGUID should be 16 bytes")
-
             // Check options
-            #expect(info.options["plat"] == false, "Option 'plat' should be false")
-            #expect(info.options["rk"] == true, "Option 'rk' should be true")
-            #expect(info.options["up"] == true, "Option 'up' should be true")
-            #expect(info.options.keys.contains("clientPin"), "Options should contain 'clientPin'")
+            #expect(info.options.platformDevice == false, "Option 'plat' should be false")
+            #expect(info.options.residentKey == true, "Option 'rk' should be true")
+            #expect(info.options.userPresence == true, "Option 'up' should be true")
 
             // Check PIN/UV Auth protocols
             #expect(info.pinUVAuthProtocols.count >= 1, "Should support at least one PIN protocol")
@@ -201,9 +200,9 @@ struct CTAP2FullStackTests {
             let testPin = "11234567"
 
             let info = try await session.getInfo()
-            let pinIsSet = info.options["clientPin"]!
+            let pinIsSet = info.options.clientPin == true
 
-            let pin = await session.clientPIN(protocol: pinProtocol)
+            let pin = session.clientPIN(protocol: pinProtocol)
             if !pinIsSet {
                 print("PIN not set, setting default PIN: \(testPin)")
                 try await pin.set(testPin)
@@ -229,9 +228,9 @@ struct CTAP2FullStackTests {
             let otherPin = "76543211"
 
             let info = try await session.getInfo()
-            #expect(info.options["clientPin"] == true, "PIN must be set (run testClientPinSetup first)")
+            #expect(info.options.clientPin == true, "PIN must be set (run testClientPinSetup first)")
 
-            let pin = await session.clientPIN(protocol: pinProtocol)
+            let pin = session.clientPIN(protocol: pinProtocol)
             let initialRetriesResponse = try await pin.getRetries()
             #expect(initialRetriesResponse.retries == 8, "Should start with 8 PIN retries")
             print("Protocol v\(pinProtocol.rawValue), retries: \(initialRetriesResponse.retries)")
@@ -288,13 +287,13 @@ struct CTAP2FullStackTests {
 
             let info = try await session.getInfo()
 
-            // Skip if device doesn't require PIN complexity
-            guard info.options["pinComplexity"] == true else {
+            // Skip if device doesn't enforce PIN complexity
+            guard info.pinComplexityPolicy == true else {
                 print("Device doesn't enforce PIN complexity - skipping")
                 return
             }
 
-            let pin = await session.clientPIN(protocol: pinProtocol)
+            let pin = session.clientPIN(protocol: pinProtocol)
 
             // Try weak PIN (repeated chars)
             do {
@@ -327,7 +326,7 @@ struct CTAP2FullStackTests {
             let testPin = "11234567"
             let wrongPin = "99999999"
 
-            let pin = await session.clientPIN(protocol: pinProtocol)
+            let pin = session.clientPIN(protocol: pinProtocol)
 
             // Ensure retries are at 8
             _ = try await pin.getToken(
@@ -416,7 +415,7 @@ struct CTAP2FullStackTests {
             print("✅ Reset successful")
 
             let info = try await session.getInfo()
-            #expect(info.options["clientPin"] == false, "PIN should be cleared after reset")
+            #expect(info.options.clientPin != true, "PIN should be cleared after reset")
         }
     }
 

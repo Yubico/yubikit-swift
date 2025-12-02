@@ -52,6 +52,6 @@ extension CTAP2.ClientPin {
     /// Namespace for the getUVRetries subcommand (0x07).
     enum GetUVRetries {}
 
-    /// Namespace for the getPinUvAuthTokenUsingPinWithPermissions subcommand (0x09).
+    /// Namespace for the getPinUVAuthTokenUsingPinWithPermissions subcommand (0x09).
     enum GetTokenWithPermissions {}
 }

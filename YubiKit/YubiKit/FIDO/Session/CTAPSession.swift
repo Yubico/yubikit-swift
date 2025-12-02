@@ -37,6 +37,9 @@ extension CTAP2 {
         /// The firmware version of the YubiKey.
         let version: Version
 
+        // Cached GetInfo.Response, populated after first getInfo() call.
+        fileprivate var cachedInfo: CTAP2.GetInfo.Response?
+
         init(interface: I) async {
             self.interface = interface
             self.version = await interface.version
@@ -55,7 +58,13 @@ extension CTAP2 {
         /// - Throws: ``CTAP2/SessionError`` if the operation fails.
         func getInfo() async throws(CTAP2.SessionError) -> CTAP2.GetInfo.Response {
             let stream: CTAP2.StatusStream<CTAP2.GetInfo.Response> = await interface.send(command: .getInfo)
-            return try await stream.value
+            let response = try await stream.value
+
+            // This is the single-point where we update cachedInfo
+            cachedInfo = response
+            await interface.setMaxMsgSize(Int(response.maxMsgSize))
+
+            return response
         }
 
         /// Reset the CTAP authenticator.
@@ -114,5 +123,37 @@ extension CTAP2 {
         ///
         /// - Parameter response: The decoded response from the authenticator.
         case finished(Response)
+    }
+}
+
+// MARK: - Internal helpers for ClientPin decision-making
+extension CTAP2.Session {
+
+    private var getInfoResponse: CTAP2.GetInfo.Response {
+        get async throws(CTAP2.SessionError) {
+            if let cachedInfo {
+                return cachedInfo
+            } else {
+                return try await getInfo()
+            }
+        }
+    }
+
+    // Prefer v2 when available
+    var preferredClientPinProtocol: PinUVAuth.ProtocolVersion {
+        get async throws(CTAP2.SessionError) {
+            if try await getInfoResponse.pinUVAuthProtocols.contains(.v2) {
+                return .v2
+            } else {
+                return .v1
+            }
+        }
+    }
+
+    // Check if authenticator supports pinUVAuthToken (CTAP 2.1+)
+    var supportsTokenPermissions: Bool {
+        get async throws(CTAP2.SessionError) {
+            try await getInfoResponse.options.pinUvAuthToken == true
+        }
     }
 }

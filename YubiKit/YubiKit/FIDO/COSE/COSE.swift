@@ -137,6 +137,29 @@ import Foundation
     }
 }
 
+// MARK: - COSE.Algorithm + CBOR
+
+extension COSE.Algorithm: CBOR.Decodable {
+    init?(cbor: CBOR.Value) {
+        // Handle direct integer (e.g., from credential public key)
+        if let value = cbor.intValue {
+            self.init(rawValue: value)
+            return
+        }
+
+        // Handle PublicKeyCredentialParameters format: {"alg": Int, "type": "public-key"}
+        // Used in GetInfo algorithms field (0x0A)
+        if let map = cbor.mapValue,
+            let algValue = map[.textString("alg")]?.intValue
+        {
+            self.init(rawValue: algValue)
+            return
+        }
+
+        return nil
+    }
+}
+
 // MARK: - COSE.Key + CBOR
 
 extension COSE.Key: CBOR.Decodable {
