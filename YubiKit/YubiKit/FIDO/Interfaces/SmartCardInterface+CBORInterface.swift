@@ -80,6 +80,11 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
                     // Clear cancellation flag at the start of operation
                     self.shouldCancelCTAP = false
 
+                    // Check message size
+                    if data.count > self.maxMsgSize {
+                        throw Error.ctapError(.requestTooLarge, source: .here())
+                    }
+
                     // Create cancel closure that sets the flag
                     // Any errors during cancellation are yielded to the stream
                     let cancelClosure: @Sendable () async -> Void = { [weak self] in

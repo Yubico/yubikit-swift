@@ -27,6 +27,13 @@ protocol CBORInterface: Actor {
 
     var version: Version { get async }
 
+    /// Maximum message size supported by the authenticator.
+    /// Defaults to 1024 bytes until getInfo() returns the actual limit.
+    var maxMsgSize: Int { get }
+
+    /// Update the maximum message size after getInfo() returns.
+    func setMaxMsgSize(_ size: Int)
+
     /// Send a CTAP2 command with CBOR payload.
     ///
     /// The request format is: [command_byte][cbor_payload]

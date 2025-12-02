@@ -25,8 +25,6 @@ extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
         let cborData = payload.cbor().encode()
         requestData.append(cborData)
 
-        // TODO: Validate message size against authenticatorInfo.maxMsgSize
-
         return execute(requestData)
     }
 
@@ -77,6 +75,11 @@ extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
                     // Check capability support
                     guard self.supports(.cbor) else {
                         throw Error.featureNotSupported(source: .here())
+                    }
+
+                    // Check message size
+                    if data.count > self.maxMsgSize {
+                        throw Error.ctapError(.requestTooLarge, source: .here())
                     }
 
                     // Send the request

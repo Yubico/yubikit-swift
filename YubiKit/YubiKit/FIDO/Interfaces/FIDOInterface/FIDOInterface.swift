@@ -27,8 +27,13 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
     // Internal (accessible to extensions)
     private(set) var capabilities: CTAP2.Capabilities = []
     private(set) var protocolVersion: UInt8 = 0
+    private(set) var maxMsgSize: Int = 1024
 
     var channelId: UInt32 = CTAP2.CID_BROADCAST
+
+    func setMaxMsgSize(_ size: Int) {
+        maxMsgSize = size
+    }
     let frameTimeout: Duration = .seconds(1.5)
 
     // MARK: - Initialization
