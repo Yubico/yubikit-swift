@@ -23,9 +23,9 @@ extension CTAP2.ClientPin.GetRetries {
         static let commandCode: UInt8 = 0x01
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinAuth.ProtocolVersion
+        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
 
-        init(pinUVAuthProtocol: PinAuth.ProtocolVersion) {
+        init(pinUVAuthProtocol: PinUVAuth.ProtocolVersion) {
             self.pinUVAuthProtocol = pinUVAuthProtocol
         }
     }
@@ -40,9 +40,9 @@ extension CTAP2.ClientPin.GetKeyAgreement {
         static let commandCode: UInt8 = 0x02
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinAuth.ProtocolVersion
+        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
 
-        init(pinUVAuthProtocol: PinAuth.ProtocolVersion) {
+        init(pinUVAuthProtocol: PinUVAuth.ProtocolVersion) {
             self.pinUVAuthProtocol = pinUVAuthProtocol
         }
     }
@@ -57,7 +57,7 @@ extension CTAP2.ClientPin.SetPin {
         static let commandCode: UInt8 = 0x03
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinAuth.ProtocolVersion
+        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -69,7 +69,7 @@ extension CTAP2.ClientPin.SetPin {
         let pinUVAuthParam: Data
 
         init(
-            pinUVAuthProtocol: PinAuth.ProtocolVersion,
+            pinUVAuthProtocol: PinUVAuth.ProtocolVersion,
             keyAgreement: COSE.Key,
             newPinEnc: Data,
             pinUVAuthParam: Data
@@ -91,7 +91,7 @@ extension CTAP2.ClientPin.ChangePin {
         static let commandCode: UInt8 = 0x04
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinAuth.ProtocolVersion
+        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -106,7 +106,7 @@ extension CTAP2.ClientPin.ChangePin {
         let pinUVAuthParam: Data
 
         init(
-            pinUVAuthProtocol: PinAuth.ProtocolVersion,
+            pinUVAuthProtocol: PinUVAuth.ProtocolVersion,
             keyAgreement: COSE.Key,
             newPinEnc: Data,
             pinHashEnc: Data,
@@ -132,7 +132,7 @@ extension CTAP2.ClientPin.GetToken {
         static let commandCode: UInt8 = 0x05
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinAuth.ProtocolVersion
+        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -141,7 +141,7 @@ extension CTAP2.ClientPin.GetToken {
         let pinHashEnc: Data
 
         init(
-            pinUVAuthProtocol: PinAuth.ProtocolVersion,
+            pinUVAuthProtocol: PinUVAuth.ProtocolVersion,
             keyAgreement: COSE.Key,
             pinHashEnc: Data
         ) {
@@ -161,9 +161,9 @@ extension CTAP2.ClientPin.GetUVRetries {
         static let commandCode: UInt8 = 0x07
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinAuth.ProtocolVersion
+        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
 
-        init(pinUVAuthProtocol: PinAuth.ProtocolVersion) {
+        init(pinUVAuthProtocol: PinUVAuth.ProtocolVersion) {
             self.pinUVAuthProtocol = pinUVAuthProtocol
         }
     }
@@ -180,7 +180,7 @@ extension CTAP2.ClientPin.GetTokenWithPermissions {
         static let commandCode: UInt8 = 0x09
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinAuth.ProtocolVersion
+        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -195,7 +195,7 @@ extension CTAP2.ClientPin.GetTokenWithPermissions {
         let rpId: String?
 
         init(
-            pinUVAuthProtocol: PinAuth.ProtocolVersion,
+            pinUVAuthProtocol: PinUVAuth.ProtocolVersion,
             keyAgreement: COSE.Key,
             pinHashEnc: Data,
             permissions: CTAP2.ClientPin.Permission,

@@ -193,9 +193,9 @@ struct CTAP2FullStackTests {
 
     @Test(
         "ClientPIN - Setup: Ensure PIN is Set",
-        arguments: [PinAuth.ProtocolVersion.v1, PinAuth.ProtocolVersion.v2]
+        arguments: [PinUVAuth.ProtocolVersion.v1, PinUVAuth.ProtocolVersion.v2]
     )
-    func testClientPinSetup(pinProtocol: PinAuth.ProtocolVersion) async throws {
+    func testClientPinSetup(pinProtocol: PinUVAuth.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
             let testPin = "11234567"
 
@@ -220,9 +220,9 @@ struct CTAP2FullStackTests {
 
     @Test(
         "ClientPIN - Change PIN and Verify Retry Counter",
-        arguments: [PinAuth.ProtocolVersion.v1, PinAuth.ProtocolVersion.v2]
+        arguments: [PinUVAuth.ProtocolVersion.v1, PinUVAuth.ProtocolVersion.v2]
     )
-    func testClientPinChangePin(pinProtocol: PinAuth.ProtocolVersion) async throws {
+    func testClientPinChangePin(pinProtocol: PinUVAuth.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
             let testPin = "11234567"
             let otherPin = "76543211"
@@ -279,9 +279,9 @@ struct CTAP2FullStackTests {
 
     @Test(
         "ClientPIN - PIN Complexity Enforcement",
-        arguments: [PinAuth.ProtocolVersion.v1, PinAuth.ProtocolVersion.v2]
+        arguments: [PinUVAuth.ProtocolVersion.v1, PinUVAuth.ProtocolVersion.v2]
     )
-    func testPinComplexity(pinProtocol: PinAuth.ProtocolVersion) async throws {
+    func testPinComplexity(pinProtocol: PinUVAuth.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
             let testPin = "11234567"
 
@@ -319,9 +319,9 @@ struct CTAP2FullStackTests {
     @Test(
         "ClientPIN - Retry Exhaustion and Soft-Lock",
         .disabled("Leaves YubiKey soft-locked - requires power cycle to unlock"),
-        arguments: [PinAuth.ProtocolVersion.v1, PinAuth.ProtocolVersion.v2]
+        arguments: [PinUVAuth.ProtocolVersion.v1, PinUVAuth.ProtocolVersion.v2]
     )
-    func testClientPinRetryExhaustion(pinProtocol: PinAuth.ProtocolVersion) async throws {
+    func testClientPinRetryExhaustion(pinProtocol: PinUVAuth.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
             let testPin = "11234567"
             let wrongPin = "99999999"

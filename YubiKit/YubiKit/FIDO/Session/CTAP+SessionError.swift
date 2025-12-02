@@ -56,7 +56,7 @@ extension CTAP2 {
         case cborError(_ error: CBOR.Error, source: SourceLocation)
 
         /// PIN/UV auth protocol error.
-        case authError(_ error: PinAuth.Error, source: SourceLocation)
+        case authError(_ error: PinUVAuth.Error, source: SourceLocation)
 
         // MARK: - SmartCard-Specific Errors
 

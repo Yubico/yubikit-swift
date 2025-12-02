@@ -38,7 +38,7 @@ extension CTAP2.GetAssertion {
         private(set) var pinUVAuthParam: Data?
 
         /// PIN/UV protocol version (populated automatically when using PIN authentication).
-        private(set) var pinUVAuthProtocol: PinAuth.ProtocolVersion?
+        private(set) var pinUVAuthProtocol: PinUVAuth.ProtocolVersion?
 
         /// Sets the PIN/UV authentication parameters using a PIN token.
         mutating func setAuthentication(pinToken: CTAP2.PinToken) {
