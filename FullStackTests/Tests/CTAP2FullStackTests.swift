@@ -202,7 +202,7 @@ struct CTAP2FullStackTests {
             let info = try await session.getInfo()
             let pinIsSet = info.options.clientPin == true
 
-            let pin = session.clientPIN(protocol: pinProtocol)
+            let pin = try await session.clientPIN(protocol: pinProtocol)
             if !pinIsSet {
                 print("PIN not set, setting default PIN: \(testPin)")
                 try await pin.set(testPin)
@@ -230,7 +230,7 @@ struct CTAP2FullStackTests {
             let info = try await session.getInfo()
             #expect(info.options.clientPin == true, "PIN must be set (run testClientPinSetup first)")
 
-            let pin = session.clientPIN(protocol: pinProtocol)
+            let pin = try await session.clientPIN(protocol: pinProtocol)
             let initialRetriesResponse = try await pin.getRetries()
             #expect(initialRetriesResponse.retries == 8, "Should start with 8 PIN retries")
             print("Protocol v\(pinProtocol.rawValue), retries: \(initialRetriesResponse.retries)")
@@ -293,7 +293,7 @@ struct CTAP2FullStackTests {
                 return
             }
 
-            let pin = session.clientPIN(protocol: pinProtocol)
+            let pin = try await session.clientPIN(protocol: pinProtocol)
 
             // Try weak PIN (repeated chars)
             do {
@@ -326,7 +326,7 @@ struct CTAP2FullStackTests {
             let testPin = "11234567"
             let wrongPin = "99999999"
 
-            let pin = session.clientPIN(protocol: pinProtocol)
+            let pin = try await session.clientPIN(protocol: pinProtocol)
 
             // Ensure retries are at 8
             _ = try await pin.getToken(

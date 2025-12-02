@@ -69,7 +69,7 @@ extension CTAP2 {
     ///
     /// Example:
     /// ```swift
-    /// let pin = session.clientPIN(protocol: .v2)
+    /// let pin = try await session.clientPIN()
     /// let token = try await pin.getToken(pin: "1234", permissions: .makeCredential, rpId: "example.com")
     /// ```
     struct ClientPIN<I: CBORInterface>: Sendable where I.Error == CTAP2.SessionError {
