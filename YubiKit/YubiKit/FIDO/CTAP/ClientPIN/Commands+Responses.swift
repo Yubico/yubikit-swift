@@ -24,11 +24,6 @@ extension CTAP2.ClientPin.GetRetries {
 
         /// Whether a power cycle is required before PIN operations can continue.
         let powerCycleState: Bool
-
-        init(retries: Int, powerCycleState: Bool = false) {
-            self.retries = retries
-            self.powerCycleState = powerCycleState
-        }
     }
 }
 
@@ -39,10 +34,6 @@ extension CTAP2.ClientPin.GetKeyAgreement {
     struct Response: Sendable {
         /// Authenticator's public key for ECDH key agreement.
         let keyAgreement: COSE.Key
-
-        init(keyAgreement: COSE.Key) {
-            self.keyAgreement = keyAgreement
-        }
     }
 }
 
@@ -53,10 +44,6 @@ extension CTAP2.ClientPin.GetToken {
     struct Response: Sendable {
         /// Encrypted PIN/UV auth token.
         let pinUVAuthToken: Data
-
-        init(pinUVAuthToken: Data) {
-            self.pinUVAuthToken = pinUVAuthToken
-        }
     }
 }
 
@@ -67,9 +54,5 @@ extension CTAP2.ClientPin.GetUVRetries {
     struct Response: Sendable {
         /// Number of UV retries remaining before UV is disabled.
         let retries: Int
-
-        init(retries: Int) {
-            self.retries = retries
-        }
     }
 }

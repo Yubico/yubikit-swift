@@ -24,10 +24,6 @@ extension CTAP2.ClientPin.GetRetries {
 
         /// PIN/UV auth protocol version.
         let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
-
-        init(pinUVAuthProtocol: PinUVAuth.ProtocolVersion) {
-            self.pinUVAuthProtocol = pinUVAuthProtocol
-        }
     }
 }
 
@@ -41,10 +37,6 @@ extension CTAP2.ClientPin.GetKeyAgreement {
 
         /// PIN/UV auth protocol version.
         let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
-
-        init(pinUVAuthProtocol: PinUVAuth.ProtocolVersion) {
-            self.pinUVAuthProtocol = pinUVAuthProtocol
-        }
     }
 }
 
@@ -67,18 +59,6 @@ extension CTAP2.ClientPin.SetPin {
 
         /// HMAC of newPinEnc using shared secret.
         let pinUVAuthParam: Data
-
-        init(
-            pinUVAuthProtocol: PinUVAuth.ProtocolVersion,
-            keyAgreement: COSE.Key,
-            newPinEnc: Data,
-            pinUVAuthParam: Data
-        ) {
-            self.pinUVAuthProtocol = pinUVAuthProtocol
-            self.keyAgreement = keyAgreement
-            self.newPinEnc = newPinEnc
-            self.pinUVAuthParam = pinUVAuthParam
-        }
     }
 }
 
@@ -104,20 +84,6 @@ extension CTAP2.ClientPin.ChangePin {
 
         /// HMAC of (newPinEnc || pinHashEnc) using shared secret.
         let pinUVAuthParam: Data
-
-        init(
-            pinUVAuthProtocol: PinUVAuth.ProtocolVersion,
-            keyAgreement: COSE.Key,
-            newPinEnc: Data,
-            pinHashEnc: Data,
-            pinUVAuthParam: Data
-        ) {
-            self.pinUVAuthProtocol = pinUVAuthProtocol
-            self.keyAgreement = keyAgreement
-            self.newPinEnc = newPinEnc
-            self.pinHashEnc = pinHashEnc
-            self.pinUVAuthParam = pinUVAuthParam
-        }
     }
 }
 
@@ -139,16 +105,6 @@ extension CTAP2.ClientPin.GetToken {
 
         /// PIN hash (first 16 bytes of SHA-256) encrypted with shared secret.
         let pinHashEnc: Data
-
-        init(
-            pinUVAuthProtocol: PinUVAuth.ProtocolVersion,
-            keyAgreement: COSE.Key,
-            pinHashEnc: Data
-        ) {
-            self.pinUVAuthProtocol = pinUVAuthProtocol
-            self.keyAgreement = keyAgreement
-            self.pinHashEnc = pinHashEnc
-        }
     }
 }
 
@@ -162,10 +118,6 @@ extension CTAP2.ClientPin.GetUVRetries {
 
         /// PIN/UV auth protocol version.
         let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
-
-        init(pinUVAuthProtocol: PinUVAuth.ProtocolVersion) {
-            self.pinUVAuthProtocol = pinUVAuthProtocol
-        }
     }
 }
 
@@ -193,19 +145,5 @@ extension CTAP2.ClientPin.GetTokenWithPermissions {
 
         /// Relying Party ID (required for mc/ga permissions, optional for cm).
         let rpId: String?
-
-        init(
-            pinUVAuthProtocol: PinUVAuth.ProtocolVersion,
-            keyAgreement: COSE.Key,
-            pinHashEnc: Data,
-            permissions: CTAP2.ClientPin.Permission,
-            rpId: String? = nil
-        ) {
-            self.pinUVAuthProtocol = pinUVAuthProtocol
-            self.keyAgreement = keyAgreement
-            self.pinHashEnc = pinHashEnc
-            self.permissions = permissions
-            self.rpId = rpId
-        }
     }
 }

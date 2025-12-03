@@ -22,8 +22,6 @@ extension CTAP2.GetInfo {
     /// or `nil` (not supported).
     struct Options: Sendable, Equatable {
 
-        // MARK: - CTAP 2.0 Options
-
         /// Indicates the device is attached to the client and cannot be removed.
         ///
         /// If `true`, the authenticator is a platform authenticator (built into the client device).
@@ -132,75 +130,6 @@ extension CTAP2.GetInfo {
 
         /// Prototype credential management support (FIDO_2_1_PRE).
         let credentialMgmtPreview: Bool?
-
-        // MARK: - Default
-
-        /// Default options matching CTAP2 spec defaults.
-        static let `default` = Options(
-            platformDevice: false,
-            residentKey: false,
-            userPresence: true,
-            clientPin: nil,
-            userVerification: nil,
-            pinUvAuthToken: nil,
-            noMcGaPermissionsWithClientPin: nil,
-            largeBlobs: nil,
-            enterpriseAttestation: nil,
-            bioEnroll: nil,
-            uvBioEnroll: nil,
-            authenticatorConfig: nil,
-            uvAuthenticatorConfig: nil,
-            credentialManagement: nil,
-            setMinPINLength: nil,
-            makeCredUvNotRequired: nil,
-            alwaysUv: nil,
-            userVerificationMgmtPreview: nil,
-            credentialMgmtPreview: nil
-        )
-
-        // MARK: - Initialization
-
-        init(
-            platformDevice: Bool,
-            residentKey: Bool,
-            userPresence: Bool,
-            clientPin: Bool?,
-            userVerification: Bool?,
-            pinUvAuthToken: Bool?,
-            noMcGaPermissionsWithClientPin: Bool?,
-            largeBlobs: Bool?,
-            enterpriseAttestation: Bool?,
-            bioEnroll: Bool?,
-            uvBioEnroll: Bool?,
-            authenticatorConfig: Bool?,
-            uvAuthenticatorConfig: Bool?,
-            credentialManagement: Bool?,
-            setMinPINLength: Bool?,
-            makeCredUvNotRequired: Bool?,
-            alwaysUv: Bool?,
-            userVerificationMgmtPreview: Bool?,
-            credentialMgmtPreview: Bool?
-        ) {
-            self.platformDevice = platformDevice
-            self.residentKey = residentKey
-            self.userPresence = userPresence
-            self.clientPin = clientPin
-            self.userVerification = userVerification
-            self.pinUvAuthToken = pinUvAuthToken
-            self.noMcGaPermissionsWithClientPin = noMcGaPermissionsWithClientPin
-            self.largeBlobs = largeBlobs
-            self.enterpriseAttestation = enterpriseAttestation
-            self.bioEnroll = bioEnroll
-            self.uvBioEnroll = uvBioEnroll
-            self.authenticatorConfig = authenticatorConfig
-            self.uvAuthenticatorConfig = uvAuthenticatorConfig
-            self.credentialManagement = credentialManagement
-            self.setMinPINLength = setMinPINLength
-            self.makeCredUvNotRequired = makeCredUvNotRequired
-            self.alwaysUv = alwaysUv
-            self.userVerificationMgmtPreview = userVerificationMgmtPreview
-            self.credentialMgmtPreview = credentialMgmtPreview
-        }
     }
 }
 
@@ -208,9 +137,7 @@ extension CTAP2.GetInfo {
 
 extension CTAP2.GetInfo.Options: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
-        guard let map = cbor.mapValue else {
-            return nil
-        }
+        let map = cbor.mapValue ?? [:]
 
         self.init(
             platformDevice: map[.textString("plat")]?.boolValue ?? false,

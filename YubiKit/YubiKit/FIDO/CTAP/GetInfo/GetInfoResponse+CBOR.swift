@@ -33,7 +33,10 @@ extension CTAP2.GetInfo.Response: CBOR.Decodable {
             return nil
         }
 
-        let options: CTAP2.GetInfo.Options = map[.int(0x04)]?.cborDecoded() ?? .default
+        // options decoding can't really fail
+        guard let options: CTAP2.GetInfo.Options = map[.int(0x04)]?.cborDecoded() else {
+            return nil
+        }
 
         self.init(
             versions: versions,
