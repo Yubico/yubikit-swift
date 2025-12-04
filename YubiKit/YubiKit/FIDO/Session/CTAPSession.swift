@@ -140,7 +140,7 @@ extension CTAP2.Session {
     }
 
     // Prefer v2 when available
-    var preferredClientPinProtocol: PinUVAuth.ProtocolVersion {
+    var preferredClientPinProtocol: CTAP2.ClientPin.ProtocolVersion {
         get async throws(CTAP2.SessionError) {
             if try await getInfoResponse.pinUVAuthProtocols.contains(.v2) {
                 return .v2

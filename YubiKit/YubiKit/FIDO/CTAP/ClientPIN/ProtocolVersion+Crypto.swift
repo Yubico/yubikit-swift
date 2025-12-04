@@ -16,49 +16,20 @@ import CommonCrypto
 import CryptoKit
 import Foundation
 
-/// Namespace for PIN/UV Auth Protocol types and operations.
-///
-/// - SeeAlso: [CTAP2 PIN/UV Auth Protocol One](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#pinProto1)
-/// - SeeAlso: [CTAP2 PIN/UV Auth Protocol Two](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#pinProto2)
-enum PinUVAuth {
-    /// PIN/UV Auth Protocol version.
-    ///
-    /// Defines the cryptographic algorithms used for PIN/UV authentication.
-    /// Protocol v1 is supported by all CTAP2 authenticators, v2 adds improved security.
-    enum ProtocolVersion: Int, Sendable, CBOR.Encodable {
-        /// Protocol version 1 (CTAP 2.0).
-        case v1 = 1
-
-        /// Protocol version 2 (CTAP 2.1+).
-        case v2 = 2
-    }
-
-    /// Errors that can occur during PIN/UV authentication operations.
-    enum Error: Swift.Error {
-        case invalidPeerKey
-        case keyAgreementFailed
-        case encryptionFailed
-        case decryptionFailed
-        case pinTooShort
-        case pinTooLong
-        case invalidTokenSize
-    }
-}
-
 // MARK: - Key Agreement
 
-extension PinUVAuth.ProtocolVersion {
+extension CTAP2.ClientPin.ProtocolVersion {
     /// Perform ECDH key agreement and derive shared secret.
     ///
     /// - Parameters:
     ///   - keyPair: The platform's ephemeral P-256 key pair.
     ///   - peerKey: The authenticator's public key in COSE format.
     /// - Returns: The derived shared secret (32 bytes for v1, 64 bytes for v2).
-    /// - Throws: `PinAuth.Error.invalidPeerKey` if the peer key is invalid.
+    /// - Throws: `CTAP2.ClientPin.Error.invalidPeerKey` if the peer key is invalid.
     func sharedSecret(
         keyPair: P256.KeyAgreement.PrivateKey,
         peerKey: COSE.Key
-    ) throws(PinUVAuth.Error) -> Data {
+    ) throws(CTAP2.ClientPin.Error) -> Data {
         guard case .ec2(_, _, let crv, let x, let y) = peerKey, crv == 1 else {
             throw .invalidPeerKey
         }
@@ -131,9 +102,9 @@ extension PinUVAuth.ProtocolVersion {
 
 // MARK: - Encryption/Decryption
 
-extension PinUVAuth.ProtocolVersion {
+extension CTAP2.ClientPin.ProtocolVersion {
     /// Encrypt data using the shared secret.
-    func encrypt(key: Data, plaintext: Data) throws(PinUVAuth.Error) -> Data {
+    func encrypt(key: Data, plaintext: Data) throws(CTAP2.ClientPin.Error) -> Data {
         do {
             switch self {
             case .v1:
@@ -157,7 +128,7 @@ extension PinUVAuth.ProtocolVersion {
     }
 
     /// Decrypt data using the shared secret.
-    func decrypt(key: Data, ciphertext: Data) throws(PinUVAuth.Error) -> Data {
+    func decrypt(key: Data, ciphertext: Data) throws(CTAP2.ClientPin.Error) -> Data {
         do {
             switch self {
             case .v1:
@@ -168,7 +139,7 @@ extension PinUVAuth.ProtocolVersion {
             case .v2:
                 // V2: Extract IV from ciphertext, use AES key (last 32 bytes)
                 guard ciphertext.count > 16 else {
-                    throw PinUVAuth.Error.decryptionFailed
+                    throw CTAP2.ClientPin.Error.decryptionFailed
                 }
                 let aesKey = key.suffix(32)
                 let iv = ciphertext.prefix(16)
@@ -183,7 +154,7 @@ extension PinUVAuth.ProtocolVersion {
 
 // MARK: - Authentication
 
-extension PinUVAuth.ProtocolVersion {
+extension CTAP2.ClientPin.ProtocolVersion {
     /// Compute authentication parameter for PIN/UV operations.
     func authenticate(key: Data, message: Data) -> Data {
         // V1 uses full key, V2 uses first 32 bytes (HMAC key)
@@ -197,14 +168,14 @@ extension PinUVAuth.ProtocolVersion {
 
 // MARK: - PIN Preparation
 
-extension PinUVAuth.ProtocolVersion {
+extension CTAP2.ClientPin.ProtocolVersion {
     /// Validate and pad a PIN to 64 bytes as required by CTAP2.
     ///
     /// - Parameter pin: The PIN string to validate and pad.
     /// - Returns: The PIN padded to 64 bytes.
-    /// - Throws: `PinAuth.Error.pinTooShort` if PIN has fewer than 4 Unicode code points,
-    ///           `PinAuth.Error.pinTooLong` if PIN exceeds 63 bytes UTF-8.
-    func padPin(_ pin: String) throws(PinUVAuth.Error) -> Data {
+    /// - Throws: `CTAP2.ClientPin.Error.pinTooShort` if PIN has fewer than 4 Unicode code points,
+    ///           `CTAP2.ClientPin.Error.pinTooLong` if PIN exceeds 63 bytes UTF-8.
+    func padPin(_ pin: String) throws(CTAP2.ClientPin.Error) -> Data {
         // Normalize to NFC per CTAP2 spec §6.5.1
         let normalizedPin = pin.precomposedStringWithCanonicalMapping
         guard normalizedPin.unicodeScalars.count >= 4 else {  // min 4 Unicode code points

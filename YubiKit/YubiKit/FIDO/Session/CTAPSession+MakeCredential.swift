@@ -37,7 +37,7 @@ extension CTAP2.Session {
     /// - SeeAlso: [CTAP authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
     func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
-        pinToken: CTAP2.PinToken? = nil
+        pinToken: CTAP2.ClientPin.Token? = nil
     ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
 
         // If no PIN token provided, send parameters as-is

@@ -72,7 +72,7 @@ extension CTAP2.GetInfo.Response: CBOR.Decodable {
     }
 }
 
-extension PinUVAuth.ProtocolVersion: CBOR.Decodable {}
+extension CTAP2.ClientPin.ProtocolVersion: CBOR.Decodable {}
 
 extension UUID: CBOR.Decodable {
     init?(cbor: CBOR.Value) {

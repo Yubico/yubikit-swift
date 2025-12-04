@@ -28,7 +28,7 @@ struct PinAuthTests {
 
     @Test("PinAuth V1: Encrypt - sequential bytes")
     func testV1EncryptSequential() throws {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
         let key = Data([
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
             0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
@@ -48,7 +48,7 @@ struct PinAuthTests {
 
     @Test("PinAuth V1: Encrypt - zero bytes")
     func testV1EncryptZeros() throws {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
         let key = Data([
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
             0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
@@ -65,7 +65,7 @@ struct PinAuthTests {
 
     @Test("PinAuth V1: Decrypt - sequential bytes")
     func testV1DecryptSequential() throws {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
         let key = Data([
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
             0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
@@ -85,7 +85,7 @@ struct PinAuthTests {
 
     @Test("PinAuth V1: Decrypt - zero bytes")
     func testV1DecryptZeros() throws {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
         let key = Data([
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
             0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
@@ -102,7 +102,7 @@ struct PinAuthTests {
 
     @Test("PinAuth V1: Authenticate - sequential bytes (16-byte truncated HMAC)")
     func testV1AuthenticateSequential() {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
         let key = Data([
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
             0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
@@ -123,7 +123,7 @@ struct PinAuthTests {
 
     @Test("PinAuth V1: Authenticate - zero bytes")
     func testV1AuthenticateZeros() {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
         let key = Data([
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
             0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
@@ -143,7 +143,7 @@ struct PinAuthTests {
 
     @Test("PinAuth V2: Authenticate - sequential bytes (full 32-byte HMAC)")
     func testV2AuthenticateSequential() {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v2
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v2
         let hmacKey = Data([
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
             0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
@@ -169,7 +169,7 @@ struct PinAuthTests {
 
     @Test("PinAuth V2: Authenticate - zero bytes")
     func testV2AuthenticateZeros() {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v2
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v2
         let hmacKey = Data([
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
             0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
@@ -192,7 +192,7 @@ struct PinAuthTests {
 
     @Test("PinAuth V2: Encrypt/Decrypt roundtrip - sequential bytes")
     func testV2EncryptDecryptSequential() throws {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v2
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v2
         let key = Data([
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -217,7 +217,7 @@ struct PinAuthTests {
 
     @Test("PinAuth V2: Encrypt/Decrypt roundtrip - zero bytes")
     func testV2EncryptDecryptZeros() throws {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v2
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v2
         let key = Data([
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -241,7 +241,7 @@ struct PinAuthTests {
 
     @Test("padPin returns 64 bytes with PIN followed by zeros")
     func testPadPin() throws {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
 
         let padded4 = try pinProtocol.padPin("1234")
         #expect(padded4.count == 64)
@@ -260,19 +260,19 @@ struct PinAuthTests {
 
     @Test("padPin rejects PIN shorter than 4 code points")
     func testPinTooShort() {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
-        #expect(throws: PinUVAuth.Error.pinTooShort) {
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
+        #expect(throws: CTAP2.ClientPin.Error.pinTooShort) {
             _ = try pinProtocol.padPin("123")
         }
     }
 
     @Test("padPin rejects PIN longer than 63 bytes")
     func testPinTooLong() {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
         let pin64 = "1234567890123456789012345678901234567890123456789012345678901234"
         #expect(pin64.count == 64)
 
-        #expect(throws: PinUVAuth.Error.pinTooLong) {
+        #expect(throws: CTAP2.ClientPin.Error.pinTooLong) {
             _ = try pinProtocol.padPin(pin64)
         }
     }
@@ -281,7 +281,7 @@ struct PinAuthTests {
 
     @Test("padPin normalizes to NFC - NFD input produces same bytes as NFC")
     func testNFCNormalization() throws {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
 
         // "café" in NFC (precomposed): c a f é (4 code points)
         let nfc = "caf\u{00E9}"  // U+00E9 = é
@@ -303,7 +303,7 @@ struct PinAuthTests {
 
     @Test("padPin counts code points after NFC normalization")
     func testCodePointCountAfterNormalization() throws {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
 
         // NFD "café" has 5 code points but NFC has 4
         let nfd = "cafe\u{0301}"
@@ -317,14 +317,14 @@ struct PinAuthTests {
 
     @Test("padPin rejects short PIN even with combining marks")
     func testShortPinWithCombiningMarks() {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
 
         // "aé" in NFD: a e ́ (3 code points, but only 2 after NFC normalization)
         let nfd = "ae\u{0301}"
         #expect(nfd.unicodeScalars.count == 3)
 
         // After NFC normalization: "aé" = 2 code points, too short
-        #expect(throws: PinUVAuth.Error.pinTooShort) {
+        #expect(throws: CTAP2.ClientPin.Error.pinTooShort) {
             _ = try pinProtocol.padPin(nfd)
         }
     }
@@ -333,7 +333,7 @@ struct PinAuthTests {
 
     @Test("coseKey produces valid P-256 COSE key from key pair")
     func testCoseKeyFromKeyPair() {
-        let pinProtocol = PinUVAuth.ProtocolVersion.v1
+        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
         let keyPair = P256.KeyAgreement.PrivateKey()
         let coseKey = pinProtocol.coseKey(from: keyPair)
 

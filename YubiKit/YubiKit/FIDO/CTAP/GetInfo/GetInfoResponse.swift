@@ -111,7 +111,7 @@ extension CTAP2.GetInfo {
         let maxMsgSize: UInt
 
         /// List of supported PIN/UV authentication protocol versions.
-        let pinUVAuthProtocols: [PinUVAuth.ProtocolVersion]
+        let pinUVAuthProtocols: [CTAP2.ClientPin.ProtocolVersion]
 
         // MARK: - Optional Fields
 

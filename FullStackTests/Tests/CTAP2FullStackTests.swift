@@ -193,9 +193,9 @@ struct CTAP2FullStackTests {
 
     @Test(
         "ClientPIN - Setup: Ensure PIN is Set",
-        arguments: [PinUVAuth.ProtocolVersion.v1, PinUVAuth.ProtocolVersion.v2]
+        arguments: [CTAP2.ClientPin.ProtocolVersion.v1, CTAP2.ClientPin.ProtocolVersion.v2]
     )
-    func testClientPinSetup(pinProtocol: PinUVAuth.ProtocolVersion) async throws {
+    func testClientPinSetup(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
             let testPin = "11234567"
 
@@ -208,24 +208,24 @@ struct CTAP2FullStackTests {
             }
 
             let pinIsSet = info.options.clientPin == true
-            let pin = try await session.clientPIN(protocol: pinProtocol)
             if !pinIsSet {
                 print("PIN not set, setting default PIN: \(testPin)")
-                try await pin.set(testPin)
+                try await session.setPin(testPin, protocol: pinProtocol)
                 print("✅ PIN set to default: \(testPin)")
             } else {
                 print("PIN already set")
             }
 
             // Reset retry counter via successful PIN auth
-            _ = try await pin.getToken(
+            _ = try await session.getPinToken(
                 using: .pin(testPin),
                 permissions: [.makeCredential],
-                rpId: "localhost"
+                rpId: "localhost",
+                protocol: pinProtocol
             )
 
             // Verify retries are reset to 8
-            let pinRetriesResponse = try await pin.getRetries()
+            let pinRetriesResponse = try await session.getPinRetries(protocol: pinProtocol)
             #expect(pinRetriesResponse.retries == 8, "Should have 8 PIN retries after successful auth")
             print("✅ PIN retries: \(pinRetriesResponse.retries)")
         }
@@ -233,9 +233,9 @@ struct CTAP2FullStackTests {
 
     @Test(
         "ClientPIN - Change PIN and Verify Retry Counter",
-        arguments: [PinUVAuth.ProtocolVersion.v1, PinUVAuth.ProtocolVersion.v2]
+        arguments: [CTAP2.ClientPin.ProtocolVersion.v1, CTAP2.ClientPin.ProtocolVersion.v2]
     )
-    func testClientPinChangePin(pinProtocol: PinUVAuth.ProtocolVersion) async throws {
+    func testClientPinChangePin(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
             let testPin = "11234567"
             let otherPin = "76543211"
@@ -248,29 +248,29 @@ struct CTAP2FullStackTests {
                 return
             }
 
-            let pin = try await session.clientPIN(protocol: pinProtocol)
-
             // Reset retries before testing
-            _ = try await pin.getToken(
+            _ = try await session.getPinToken(
                 using: .pin(testPin),
                 permissions: [.makeCredential],
-                rpId: "localhost"
+                rpId: "localhost",
+                protocol: pinProtocol
             )
 
-            let initialRetriesResponse = try await pin.getRetries()
+            let initialRetriesResponse = try await session.getPinRetries(protocol: pinProtocol)
             #expect(initialRetriesResponse.retries == 8, "Should start with 8 PIN retries")
             print("Protocol v\(pinProtocol.rawValue), retries: \(initialRetriesResponse.retries)")
 
             // Change PIN
-            try await pin.change(from: testPin, to: otherPin)
+            try await session.changePin(from: testPin, to: otherPin, protocol: pinProtocol)
             print("✅ PIN changed")
 
             // Old PIN should fail
             do {
-                _ = try await pin.getToken(
+                _ = try await session.getPinToken(
                     using: .pin(testPin),
                     permissions: [.makeCredential, .getAssertion],
-                    rpId: "localhost"
+                    rpId: "localhost",
+                    protocol: pinProtocol
                 )
                 Issue.record("Old PIN should have been rejected")
             } catch let error as CTAP2.SessionError {
@@ -281,42 +281,43 @@ struct CTAP2FullStackTests {
                 print("✅ Old PIN rejected")
             }
 
-            let retriesAfterWrongPin = try await pin.getRetries()
+            let retriesAfterWrongPin = try await session.getPinRetries(protocol: pinProtocol)
             #expect(retriesAfterWrongPin.retries == 7, "Retries should decrement after wrong PIN")
 
             // New PIN should succeed and reset retries
-            _ = try await pin.getToken(
+            _ = try await session.getPinToken(
                 using: .pin(otherPin),
                 permissions: [.makeCredential, .getAssertion],
-                rpId: "localhost"
+                rpId: "localhost",
+                protocol: pinProtocol
             )
             print("✅ New PIN accepted")
 
-            let retriesAfterCorrectPin = try await pin.getRetries()
+            let retriesAfterCorrectPin = try await session.getPinRetries(protocol: pinProtocol)
             #expect(retriesAfterCorrectPin.retries == 8, "Retries should reset after correct PIN")
 
             // Restore original PIN
-            try await pin.change(from: otherPin, to: testPin)
+            try await session.changePin(from: otherPin, to: testPin, protocol: pinProtocol)
             print("✅ PIN restored")
         }
     }
 
     @Test(
         "ClientPIN - Get Token Using UV (Biometrics)",
-        arguments: [PinUVAuth.ProtocolVersion.v1, PinUVAuth.ProtocolVersion.v2]
+        arguments: [CTAP2.ClientPin.ProtocolVersion.v1, CTAP2.ClientPin.ProtocolVersion.v2]
     )
-    func testClientPinGetTokenUsingUV(pinProtocol: PinUVAuth.ProtocolVersion) async throws {
+    func testClientPinGetTokenUsingUV(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
             let info = try await session.getInfo()
-            let pin = try await session.clientPIN(protocol: pinProtocol)
 
             // If device doesn't support pinUvAuthToken, verify it throws featureNotSupported
             guard info.options.pinUVAuthToken == true else {
                 do {
-                    _ = try await pin.getToken(
+                    _ = try await session.getPinToken(
                         using: .uv,
                         permissions: [.makeCredential, .getAssertion],
-                        rpId: "example.com"
+                        rpId: "example.com",
+                        protocol: pinProtocol
                     )
                     Issue.record("Should have thrown featureNotSupported")
                 } catch let error as CTAP2.SessionError {
@@ -336,10 +337,11 @@ struct CTAP2FullStackTests {
             }
 
             print("👆 Touch the fingerprint sensor on YubiKey Bio...")
-            let token = try await pin.getToken(
+            let token = try await session.getPinToken(
                 using: .uv,
                 permissions: [.makeCredential, .getAssertion],
-                rpId: "example.com"
+                rpId: "example.com",
+                protocol: pinProtocol
             )
 
             #expect(token.token.count > 0, "Token should not be empty")
@@ -352,9 +354,9 @@ struct CTAP2FullStackTests {
 
     @Test(
         "ClientPIN - PIN Complexity Enforcement",
-        arguments: [PinUVAuth.ProtocolVersion.v1, PinUVAuth.ProtocolVersion.v2]
+        arguments: [CTAP2.ClientPin.ProtocolVersion.v1, CTAP2.ClientPin.ProtocolVersion.v2]
     )
-    func testPinComplexity(pinProtocol: PinUVAuth.ProtocolVersion) async throws {
+    func testPinComplexity(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
             let testPin = "11234567"
 
@@ -366,11 +368,9 @@ struct CTAP2FullStackTests {
                 return
             }
 
-            let pin = try await session.clientPIN(protocol: pinProtocol)
-
             // Try weak PIN (repeated chars)
             do {
-                try await pin.change(from: testPin, to: "33333333")
+                try await session.changePin(from: testPin, to: "33333333", protocol: pinProtocol)
                 Issue.record("Weak PIN should have been rejected")
             } catch let error as CTAP2.SessionError {
                 guard case .ctapError(.pinPolicyViolation, _) = error else {
@@ -381,7 +381,7 @@ struct CTAP2FullStackTests {
             }
 
             // Policy violation doesn't decrement retries
-            let pinRetriesResponse = try await pin.getRetries()
+            let pinRetriesResponse = try await session.getPinRetries(protocol: pinProtocol)
             #expect(pinRetriesResponse.retries == 8)
             print("✅ PIN complexity enforced")
         }
@@ -392,9 +392,9 @@ struct CTAP2FullStackTests {
     @Test(
         "ClientPIN - Retry Exhaustion and Soft-Lock",
         .disabled("Leaves YubiKey soft-locked - requires power cycle to unlock"),
-        arguments: [PinUVAuth.ProtocolVersion.v1, PinUVAuth.ProtocolVersion.v2]
+        arguments: [CTAP2.ClientPin.ProtocolVersion.v1, CTAP2.ClientPin.ProtocolVersion.v2]
     )
-    func testClientPinRetryExhaustion(pinProtocol: PinUVAuth.ProtocolVersion) async throws {
+    func testClientPinRetryExhaustion(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
             let testPin = "11234567"
             let wrongPin = "99999999"
@@ -407,24 +407,24 @@ struct CTAP2FullStackTests {
                 return
             }
 
-            let pin = try await session.clientPIN(protocol: pinProtocol)
-
             // Reset retries before testing
-            _ = try await pin.getToken(
+            _ = try await session.getPinToken(
                 using: .pin(testPin),
                 permissions: [.makeCredential, .getAssertion],
-                rpId: "localhost"
+                rpId: "localhost",
+                protocol: pinProtocol
             )
-            var retriesResponse = try await pin.getRetries()
+            var retriesResponse = try await session.getPinRetries(protocol: pinProtocol)
             #expect(retriesResponse.retries == 8)
 
             // Make 3 wrong attempts: 8 → 7 → 6 → 5 (third attempt may soft-lock)
             for expectedRetries in [7, 6, 5] {
                 do {
-                    _ = try await pin.getToken(
+                    _ = try await session.getPinToken(
                         using: .pin(wrongPin),
                         permissions: [.makeCredential, .getAssertion],
-                        rpId: "localhost"
+                        rpId: "localhost",
+                        protocol: pinProtocol
                     )
                     Issue.record("Wrong PIN should have been rejected")
                 } catch let error as CTAP2.SessionError {
@@ -436,17 +436,18 @@ struct CTAP2FullStackTests {
                         Issue.record("Expected PIN_INVALID or PIN_AUTH_BLOCKED, got: \(error)")
                     }
                 }
-                retriesResponse = try await pin.getRetries()
+                retriesResponse = try await session.getPinRetries(protocol: pinProtocol)
                 #expect(retriesResponse.retries == expectedRetries)
             }
 
             // Soft-locked - counter should freeze
             let frozenRetries = retriesResponse.retries
             do {
-                _ = try await pin.getToken(
+                _ = try await session.getPinToken(
                     using: .pin(wrongPin),
                     permissions: [.makeCredential, .getAssertion],
-                    rpId: "localhost"
+                    rpId: "localhost",
+                    protocol: pinProtocol
                 )
                 Issue.record("Wrong PIN should be blocked")
             } catch let error as CTAP2.SessionError {
@@ -455,15 +456,16 @@ struct CTAP2FullStackTests {
                     return
                 }
             }
-            retriesResponse = try await pin.getRetries()
+            retriesResponse = try await session.getPinRetries(protocol: pinProtocol)
             #expect(retriesResponse.retries == frozenRetries)
 
             // Even correct PIN is blocked
             do {
-                _ = try await pin.getToken(
+                _ = try await session.getPinToken(
                     using: .pin(testPin),
                     permissions: [.makeCredential, .getAssertion],
-                    rpId: "localhost"
+                    rpId: "localhost",
+                    protocol: pinProtocol
                 )
                 Issue.record("Correct PIN should be blocked")
             } catch let error as CTAP2.SessionError {
@@ -472,7 +474,7 @@ struct CTAP2FullStackTests {
                     return
                 }
             }
-            retriesResponse = try await pin.getRetries()
+            retriesResponse = try await session.getPinRetries(protocol: pinProtocol)
             #expect(retriesResponse.retries == frozenRetries)
             print("⚠️ YubiKey soft-locked. Power cycle to unlock.")
         }

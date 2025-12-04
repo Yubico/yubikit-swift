@@ -23,7 +23,7 @@ extension CTAP2.ClientPin.GetRetries {
         static let commandCode: UInt8 = 0x01
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
+        let pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion
     }
 }
 
@@ -36,7 +36,7 @@ extension CTAP2.ClientPin.GetKeyAgreement {
         static let commandCode: UInt8 = 0x02
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
+        let pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion
     }
 }
 
@@ -49,7 +49,7 @@ extension CTAP2.ClientPin.SetPin {
         static let commandCode: UInt8 = 0x03
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
+        let pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -71,7 +71,7 @@ extension CTAP2.ClientPin.ChangePin {
         static let commandCode: UInt8 = 0x04
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
+        let pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -98,7 +98,7 @@ extension CTAP2.ClientPin.GetToken {
         static let commandCode: UInt8 = 0x05
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
+        let pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -119,7 +119,7 @@ extension CTAP2.ClientPin.GetTokenUsingUV {
         static let commandCode: UInt8 = 0x06
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
+        let pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
@@ -141,7 +141,7 @@ extension CTAP2.ClientPin.GetUVRetries {
         static let commandCode: UInt8 = 0x07
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
+        let pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion
     }
 }
 
@@ -156,7 +156,7 @@ extension CTAP2.ClientPin.GetTokenWithPermissions {
         static let commandCode: UInt8 = 0x09
 
         /// PIN/UV auth protocol version.
-        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
+        let pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion
 
         /// Platform's public key for key agreement (COSE_Key format).
         let keyAgreement: COSE.Key
