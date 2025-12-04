@@ -70,6 +70,18 @@ extension CTAP2.ClientPin.GetToken.Parameters: CBOR.Encodable {
     }
 }
 
+extension CTAP2.ClientPin.GetTokenUsingUV.Parameters: CBOR.Encodable {
+    func cbor() -> CBOR.Value {
+        var map: [CBOR.Value: CBOR.Value] = [:]
+        map[0x01] = pinUVAuthProtocol.cbor()
+        map[0x02] = CBOR.Value.int(Int(Self.commandCode))
+        map[0x03] = keyAgreement.cbor()
+        map[0x09] = permissions.cbor()
+        map[0x0A] = rpId?.cbor()
+        return map.cbor()
+    }
+}
+
 extension CTAP2.ClientPin.GetUVRetries.Parameters: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]

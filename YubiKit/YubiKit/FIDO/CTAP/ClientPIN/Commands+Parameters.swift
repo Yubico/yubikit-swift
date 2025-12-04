@@ -108,6 +108,30 @@ extension CTAP2.ClientPin.GetToken {
     }
 }
 
+// MARK: - GetTokenUsingUV Parameters
+
+extension CTAP2.ClientPin.GetTokenUsingUV {
+    /// Parameters for getPinUVAuthTokenUsingUVWithPermissions.
+    ///
+    /// Gets a PIN/UV auth token using built-in user verification (CTAP 2.1+).
+    struct Parameters: CTAP2.ClientPin.Command {
+        typealias Response = CTAP2.ClientPin.GetToken.Response
+        static let commandCode: UInt8 = 0x06
+
+        /// PIN/UV auth protocol version.
+        let pinUVAuthProtocol: PinUVAuth.ProtocolVersion
+
+        /// Platform's public key for key agreement (COSE_Key format).
+        let keyAgreement: COSE.Key
+
+        /// Permissions to associate with the token.
+        let permissions: CTAP2.ClientPin.Permission
+
+        /// Relying Party ID (required for mc/ga permissions, optional for cm).
+        let rpId: String?
+    }
+}
+
 // MARK: - GetUVRetries Parameters
 
 extension CTAP2.ClientPin.GetUVRetries {
