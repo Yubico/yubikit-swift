@@ -49,6 +49,11 @@ extension CBOR.Value {
         }
     }
 
+    // Creates a CBOR integer from an UInt8 with command / subcommand semantics
+    static func command(_ value: UInt8) -> CBOR.Value {
+        .unsignedInt(UInt64(value))
+    }
+
     // Creates a CBOR value from a UInt64
     init(_ value: UInt64) {
         self = .unsignedInt(value)
