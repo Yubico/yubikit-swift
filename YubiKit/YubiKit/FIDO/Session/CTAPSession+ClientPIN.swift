@@ -56,12 +56,12 @@ extension CTAP2.Session {
     /// Example:
     /// ```swift
     /// // Using PIN
-    /// let token = try await session.getPinToken(using: .pin("1234"), permissions: .makeCredential, rpId: "example.com")
+    /// let token = try await session.getPinUVToken(using: .pin("1234"), permissions: .makeCredential, rpId: "example.com")
     ///
     /// // Using biometrics (YubiKey Bio)
-    /// let token = try await session.getPinToken(using: .uv, permissions: .makeCredential, rpId: "example.com")
+    /// let token = try await session.getPinUVToken(using: .uv, permissions: .makeCredential, rpId: "example.com")
     /// ```
-    public func getPinToken(
+    public func getPinUVToken(
         using method: CTAP2.ClientPin.Method,
         permissions: CTAP2.ClientPin.Permission,
         rpId: String? = nil,

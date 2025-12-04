@@ -30,7 +30,7 @@ extension CTAP2.Session {
     ///
     /// - Parameters:
     ///   - parameters: The assertion request parameters.
-    ///   - pinToken: Optional PIN token for user verification. Obtain via ``getPinToken(pin:permissions:rpId:pinProtocol:)``.
+    ///   - pinToken: Optional PIN token for user verification. Obtain via ``getPinUVToken(using:permissions:rpId:protocol:)``.
     /// - Returns: AsyncStream of status updates, ending with `.finished(response)` containing the assertion data
     ///
     /// - SeeAlso: [CTAP authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)
@@ -87,8 +87,9 @@ extension CTAP2.Session {
     ///
     /// - Parameters:
     ///   - parameters: The assertion request parameters.
-    ///   - pinToken: Optional PIN token for user verification. Obtain via ``getPinToken(pin:permissions:rpId:pinProtocol:)``.
+    ///   - pinToken: Optional PIN token for user verification. Obtain via ``getPinUVToken(using:permissions:rpId:protocol:)``.
     /// - Returns: An async sequence of assertion responses.
+    ///
     /// - SeeAlso: ``getAssertion(parameters:pinToken:)`` for low-level access to a single assertion.
     func getAssertions(
         parameters: CTAP2.GetAssertion.Parameters,

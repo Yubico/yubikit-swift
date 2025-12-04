@@ -43,7 +43,7 @@ extension CTAP2.ClientPin {
 
     /// A PIN/UV auth token obtained from the authenticator for authenticating CTAP operations.
     ///
-    /// Use ``CTAP2/Session/getPinToken(using:permissions:rpId:protocol:)`` to obtain a token,
+    /// Use ``CTAP2/Session/getPinUVToken(using:permissions:rpId:protocol:)`` to obtain a token,
     /// then pass it to operations like ``CTAP2/Session/makeCredential(parameters:pinToken:)``
     /// and ``CTAP2/Session/getAssertion(parameters:pinToken:)``.
     struct Token: Sendable {
