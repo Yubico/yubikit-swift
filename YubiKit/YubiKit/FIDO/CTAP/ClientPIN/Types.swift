@@ -32,17 +32,6 @@ extension CTAP2.ClientPin {
         case v2 = 2
     }
 
-    /// Errors that can occur during PIN/UV authentication operations.
-    enum Error: Swift.Error {
-        case invalidPeerKey
-        case keyAgreementFailed
-        case encryptionFailed
-        case decryptionFailed
-        case pinTooShort
-        case pinTooLong
-        case invalidTokenSize
-    }
-
     /// Method for PIN/UV user verification.
     enum Method: Sendable {
         /// Verify using a PIN.

@@ -261,8 +261,14 @@ struct PinAuthTests {
     @Test("padPin rejects PIN shorter than 4 code points")
     func testPinTooShort() {
         let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
-        #expect(throws: CTAP2.ClientPin.Error.pinTooShort) {
+        do {
             _ = try pinProtocol.padPin("123")
+            Issue.record("Expected error to be thrown")
+        } catch {
+            guard case .illegalArgument = error else {
+                Issue.record("Expected illegalArgument, got \(error)")
+                return
+            }
         }
     }
 
@@ -272,8 +278,14 @@ struct PinAuthTests {
         let pin64 = "1234567890123456789012345678901234567890123456789012345678901234"
         #expect(pin64.count == 64)
 
-        #expect(throws: CTAP2.ClientPin.Error.pinTooLong) {
+        do {
             _ = try pinProtocol.padPin(pin64)
+            Issue.record("Expected error to be thrown")
+        } catch {
+            guard case .illegalArgument = error else {
+                Issue.record("Expected illegalArgument, got \(error)")
+                return
+            }
         }
     }
 
@@ -324,8 +336,14 @@ struct PinAuthTests {
         #expect(nfd.unicodeScalars.count == 3)
 
         // After NFC normalization: "aé" = 2 code points, too short
-        #expect(throws: CTAP2.ClientPin.Error.pinTooShort) {
+        do {
             _ = try pinProtocol.padPin(nfd)
+            Issue.record("Expected error to be thrown")
+        } catch {
+            guard case .illegalArgument = error else {
+                Issue.record("Expected illegalArgument, got \(error)")
+                return
+            }
         }
     }
 

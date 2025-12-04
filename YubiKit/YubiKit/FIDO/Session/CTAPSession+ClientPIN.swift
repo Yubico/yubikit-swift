@@ -167,13 +167,7 @@ private struct ClientPinHandler<I: CBORInterface>: Sendable where I.Error == CTA
 
         // Generate ephemeral key pair and derive shared secret
         let keyPair = P256.KeyAgreement.PrivateKey()
-        let sharedSecret: Data
-        do {
-            sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
-        } catch {
-            throw CTAP2.SessionError.authError(error, source: .here())
-        }
-
+        let sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
         let platformKey = pinProtocol.coseKey(from: keyPair)
 
         // Build command parameters based on auth method
@@ -183,13 +177,7 @@ private struct ClientPinHandler<I: CBORInterface>: Sendable where I.Error == CTA
             // Hash and encrypt PIN
             let normalizedPin = pin.precomposedStringWithCanonicalMapping
             let pinHash = Data(SHA256.hash(data: Data(normalizedPin.utf8)).prefix(16))
-
-            let pinHashEnc: Data
-            do {
-                pinHashEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: pinHash)
-            } catch {
-                throw CTAP2.SessionError.authError(error, source: .here())
-            }
+            let pinHashEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: pinHash)
 
             if supportsTokenPermissions {
                 // Use 0x09 (getPinUvAuthTokenUsingPinWithPermissions)
@@ -224,19 +212,16 @@ private struct ClientPinHandler<I: CBORInterface>: Sendable where I.Error == CTA
             payload: params
         )
         let response = try await stream.value
-
-        let pinToken: Data
-        do {
-            pinToken = try pinProtocol.decrypt(key: sharedSecret, ciphertext: response.pinUVAuthToken)
-        } catch {
-            throw CTAP2.SessionError.authError(error, source: .here())
-        }
+        let pinToken = try pinProtocol.decrypt(key: sharedSecret, ciphertext: response.pinUVAuthToken)
 
         // Validate token size: V1 allows 16 or 32 bytes, V2 requires exactly 32 bytes
         let validSize =
             pinProtocol == .v1 ? (pinToken.count == 16 || pinToken.count == 32) : pinToken.count == 32
         guard validSize else {
-            throw CTAP2.SessionError.authError(.invalidTokenSize, source: .here())
+            throw CTAP2.SessionError.responseParseError(
+                "Invalid PIN token size: expected \(pinProtocol == .v1 ? "16 or 32" : "32") bytes, got \(pinToken.count)",
+                source: .here()
+            )
         }
 
         return CTAP2.ClientPin.Token(token: pinToken, protocolVersion: pinProtocol)
@@ -247,27 +232,9 @@ private struct ClientPinHandler<I: CBORInterface>: Sendable where I.Error == CTA
 
         // Generate ephemeral key pair and derive shared secret
         let keyPair = P256.KeyAgreement.PrivateKey()
-        let sharedSecret: Data
-        do {
-            sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
-        } catch {
-            throw CTAP2.SessionError.authError(error, source: .here())
-        }
-
-        let paddedPin: Data
-        do {
-            paddedPin = try pinProtocol.padPin(pin)
-        } catch {
-            throw CTAP2.SessionError.authError(error, source: .here())
-        }
-
-        let newPinEnc: Data
-        do {
-            newPinEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: paddedPin)
-        } catch {
-            throw CTAP2.SessionError.authError(error, source: .here())
-        }
-
+        let sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
+        let paddedPin = try pinProtocol.padPin(pin)
+        let newPinEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: paddedPin)
         let pinUVAuthParam = pinProtocol.authenticate(key: sharedSecret, message: newPinEnc)
 
         let params = CTAP2.ClientPin.SetPin.Parameters(
@@ -289,36 +256,14 @@ private struct ClientPinHandler<I: CBORInterface>: Sendable where I.Error == CTA
 
         // Generate ephemeral key pair and derive shared secret
         let keyPair = P256.KeyAgreement.PrivateKey()
-        let sharedSecret: Data
-        do {
-            sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
-        } catch {
-            throw CTAP2.SessionError.authError(error, source: .here())
-        }
-
-        let paddedNewPin: Data
-        do {
-            paddedNewPin = try pinProtocol.padPin(newPin)
-        } catch {
-            throw CTAP2.SessionError.authError(error, source: .here())
-        }
-
-        let newPinEnc: Data
-        do {
-            newPinEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: paddedNewPin)
-        } catch {
-            throw CTAP2.SessionError.authError(error, source: .here())
-        }
+        let sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
+        let paddedNewPin = try pinProtocol.padPin(newPin)
+        let newPinEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: paddedNewPin)
 
         // Hash and encrypt current PIN
         let normalizedCurrentPin = currentPin.precomposedStringWithCanonicalMapping
         let pinHash = Data(SHA256.hash(data: Data(normalizedCurrentPin.utf8)).prefix(16))
-        let pinHashEnc: Data
-        do {
-            pinHashEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: pinHash)
-        } catch {
-            throw CTAP2.SessionError.authError(error, source: .here())
-        }
+        let pinHashEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: pinHash)
 
         // pinUVAuthParam = HMAC(sharedSecret, newPinEnc || pinHashEnc)
         var hmacData = newPinEnc

@@ -55,9 +55,6 @@ extension CTAP2 {
         /// CBOR encoding/decoding error.
         case cborError(_ error: CBOR.Error, source: SourceLocation)
 
-        /// PIN/UV auth protocol error.
-        case authError(_ error: CTAP2.ClientPin.Error, source: SourceLocation)
-
         // MARK: - SmartCard-Specific Errors
 
         /// SmartCard APDU response indicated an error.

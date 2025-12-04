@@ -25,13 +25,13 @@ extension CTAP2.ClientPin.ProtocolVersion {
     ///   - keyPair: The platform's ephemeral P-256 key pair.
     ///   - peerKey: The authenticator's public key in COSE format.
     /// - Returns: The derived shared secret (32 bytes for v1, 64 bytes for v2).
-    /// - Throws: `CTAP2.ClientPin.Error.invalidPeerKey` if the peer key is invalid.
+    /// - Throws: `CTAP2.SessionError.cryptoError` if the peer key is invalid or key agreement fails.
     func sharedSecret(
         keyPair: P256.KeyAgreement.PrivateKey,
         peerKey: COSE.Key
-    ) throws(CTAP2.ClientPin.Error) -> Data {
+    ) throws(CTAP2.SessionError) -> Data {
         guard case .ec2(_, _, let crv, let x, let y) = peerKey, crv == 1 else {
-            throw .invalidPeerKey
+            throw .cryptoError("Invalid authenticator COSE key: expected EC2 P-256", error: nil, source: .here())
         }
 
         // Parse peer's public key
@@ -40,12 +40,12 @@ extension CTAP2.ClientPin.ProtocolVersion {
         uncompressedPoint.append(y)
 
         guard let peerPublicKey = try? P256.KeyAgreement.PublicKey(x963Representation: uncompressedPoint) else {
-            throw .invalidPeerKey
+            throw .cryptoError("Invalid authenticator public key format", error: nil, source: .here())
         }
 
         // Perform ECDH
         guard let sharedSecret = try? keyPair.sharedSecretFromKeyAgreement(with: peerPublicKey) else {
-            throw .keyAgreementFailed
+            throw .cryptoError("ECDH key agreement failed", error: nil, source: .here())
         }
 
         let sharedSecretData = sharedSecret.withUnsafeBytes { Data($0) }
@@ -104,7 +104,7 @@ extension CTAP2.ClientPin.ProtocolVersion {
 
 extension CTAP2.ClientPin.ProtocolVersion {
     /// Encrypt data using the shared secret.
-    func encrypt(key: Data, plaintext: Data) throws(CTAP2.ClientPin.Error) -> Data {
+    func encrypt(key: Data, plaintext: Data) throws(CTAP2.SessionError) -> Data {
         do {
             switch self {
             case .v1:
@@ -123,12 +123,12 @@ extension CTAP2.ClientPin.ProtocolVersion {
                 return iv + ciphertext
             }
         } catch {
-            throw .encryptionFailed
+            throw .cryptoError("PIN protocol encryption failed", error: error, source: .here())
         }
     }
 
     /// Decrypt data using the shared secret.
-    func decrypt(key: Data, ciphertext: Data) throws(CTAP2.ClientPin.Error) -> Data {
+    func decrypt(key: Data, ciphertext: Data) throws(CTAP2.SessionError) -> Data {
         do {
             switch self {
             case .v1:
@@ -139,15 +139,21 @@ extension CTAP2.ClientPin.ProtocolVersion {
             case .v2:
                 // V2: Extract IV from ciphertext, use AES key (last 32 bytes)
                 guard ciphertext.count > 16 else {
-                    throw CTAP2.ClientPin.Error.decryptionFailed
+                    throw CTAP2.SessionError.cryptoError(
+                        "PIN protocol decryption failed: ciphertext too short",
+                        error: nil,
+                        source: .here()
+                    )
                 }
                 let aesKey = key.suffix(32)
                 let iv = ciphertext.prefix(16)
                 let actualCiphertext = ciphertext.dropFirst(16)
                 return try actualCiphertext.decrypt(algorithm: CCAlgorithm(kCCAlgorithmAES), key: aesKey, iv: iv)
             }
+        } catch let error as CTAP2.SessionError {
+            throw error
         } catch {
-            throw .decryptionFailed
+            throw .cryptoError("PIN protocol decryption failed", error: error, source: .here())
         }
     }
 }
@@ -173,18 +179,18 @@ extension CTAP2.ClientPin.ProtocolVersion {
     ///
     /// - Parameter pin: The PIN string to validate and pad.
     /// - Returns: The PIN padded to 64 bytes.
-    /// - Throws: `CTAP2.ClientPin.Error.pinTooShort` if PIN has fewer than 4 Unicode code points,
-    ///           `CTAP2.ClientPin.Error.pinTooLong` if PIN exceeds 63 bytes UTF-8.
-    func padPin(_ pin: String) throws(CTAP2.ClientPin.Error) -> Data {
+    /// - Throws: `CTAP2.SessionError.illegalArgument` if PIN has fewer than 4 Unicode code points
+    ///           or exceeds 63 bytes UTF-8.
+    func padPin(_ pin: String) throws(CTAP2.SessionError) -> Data {
         // Normalize to NFC per CTAP2 spec §6.5.1
         let normalizedPin = pin.precomposedStringWithCanonicalMapping
         guard normalizedPin.unicodeScalars.count >= 4 else {  // min 4 Unicode code points
-            throw .pinTooShort
+            throw .illegalArgument("PIN must have at least 4 Unicode code points", source: .here())
         }
 
         let pinData = Data(normalizedPin.utf8)
         guard pinData.count <= 63 else {  // max 63 UTF-8 bytes
-            throw .pinTooLong
+            throw .illegalArgument("PIN must be at most 63 UTF-8 bytes", source: .here())
         }
 
         var padded = pinData
