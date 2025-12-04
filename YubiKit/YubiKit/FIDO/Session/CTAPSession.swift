@@ -153,7 +153,7 @@ extension CTAP2.Session {
     // Check if authenticator supports pinUVAuthToken (CTAP 2.1+)
     var supportsTokenPermissions: Bool {
         get async throws(CTAP2.SessionError) {
-            try await getInfoResponse.options.pinUvAuthToken == true
+            try await getInfoResponse.options.pinUVAuthToken == true
         }
     }
 }

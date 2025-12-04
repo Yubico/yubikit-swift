@@ -311,7 +311,7 @@ struct CTAP2FullStackTests {
             let pin = try await session.clientPIN(protocol: pinProtocol)
 
             // If device doesn't support pinUvAuthToken, verify it throws featureNotSupported
-            guard info.options.pinUvAuthToken == true else {
+            guard info.options.pinUVAuthToken == true else {
                 do {
                     _ = try await pin.getToken(
                         using: .uv,
