@@ -200,8 +200,14 @@ struct CTAP2FullStackTests {
             let testPin = "11234567"
 
             let info = try await session.getInfo()
-            let pinIsSet = info.options.clientPin == true
 
+            // Skip if device doesn't support clientPin
+            guard info.options.clientPin != nil else {
+                print("Device doesn't support clientPin - skipping")
+                return
+            }
+
+            let pinIsSet = info.options.clientPin == true
             let pin = try await session.clientPIN(protocol: pinProtocol)
             if !pinIsSet {
                 print("PIN not set, setting default PIN: \(testPin)")
@@ -211,10 +217,17 @@ struct CTAP2FullStackTests {
                 print("PIN already set")
             }
 
-            // Verify retries are at 8
+            // Reset retry counter via successful PIN auth
+            _ = try await pin.getToken(
+                using: .pin(testPin),
+                permissions: [.makeCredential],
+                rpId: "localhost"
+            )
+
+            // Verify retries are reset to 8
             let pinRetriesResponse = try await pin.getRetries()
-            #expect(pinRetriesResponse.retries == 8, "Should have 8 PIN retries")
-            print("PIN retries: \(pinRetriesResponse.retries)")
+            #expect(pinRetriesResponse.retries == 8, "Should have 8 PIN retries after successful auth")
+            print("✅ PIN retries: \(pinRetriesResponse.retries)")
         }
     }
 
@@ -228,9 +241,22 @@ struct CTAP2FullStackTests {
             let otherPin = "76543211"
 
             let info = try await session.getInfo()
-            #expect(info.options.clientPin == true, "PIN must be set (run testClientPinSetup first)")
+
+            // Skip if PIN is not set
+            guard info.options.clientPin == true else {
+                print("PIN not set - run testClientPinSetup first - skipping")
+                return
+            }
 
             let pin = try await session.clientPIN(protocol: pinProtocol)
+
+            // Reset retries before testing
+            _ = try await pin.getToken(
+                using: .pin(testPin),
+                permissions: [.makeCredential],
+                rpId: "localhost"
+            )
+
             let initialRetriesResponse = try await pin.getRetries()
             #expect(initialRetriesResponse.retries == 8, "Should start with 8 PIN retries")
             print("Protocol v\(pinProtocol.rawValue), retries: \(initialRetriesResponse.retries)")
@@ -242,7 +268,7 @@ struct CTAP2FullStackTests {
             // Old PIN should fail
             do {
                 _ = try await pin.getToken(
-                    pin: testPin,
+                    using: .pin(testPin),
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost"
                 )
@@ -260,7 +286,7 @@ struct CTAP2FullStackTests {
 
             // New PIN should succeed and reset retries
             _ = try await pin.getToken(
-                pin: otherPin,
+                using: .pin(otherPin),
                 permissions: [.makeCredential, .getAssertion],
                 rpId: "localhost"
             )
@@ -272,6 +298,53 @@ struct CTAP2FullStackTests {
             // Restore original PIN
             try await pin.change(from: otherPin, to: testPin)
             print("✅ PIN restored")
+        }
+    }
+
+    @Test(
+        "ClientPIN - Get Token Using UV (Biometrics)",
+        arguments: [PinUVAuth.ProtocolVersion.v1, PinUVAuth.ProtocolVersion.v2]
+    )
+    func testClientPinGetTokenUsingUV(pinProtocol: PinUVAuth.ProtocolVersion) async throws {
+        try await withCTAP2Session { session in
+            let info = try await session.getInfo()
+            let pin = try await session.clientPIN(protocol: pinProtocol)
+
+            // If device doesn't support pinUvAuthToken, verify it throws featureNotSupported
+            guard info.options.pinUvAuthToken == true else {
+                do {
+                    _ = try await pin.getToken(
+                        using: .uv,
+                        permissions: [.makeCredential, .getAssertion],
+                        rpId: "example.com"
+                    )
+                    Issue.record("Should have thrown featureNotSupported")
+                } catch let error as CTAP2.SessionError {
+                    guard case .featureNotSupported = error else {
+                        Issue.record("Expected featureNotSupported, got: \(error)")
+                        return
+                    }
+                    print("✅ Correctly threw featureNotSupported on non-UV device")
+                }
+                return
+            }
+
+            // Skip if UV is not configured (no fingerprints enrolled)
+            guard info.options.userVerification == true else {
+                print("UV supported but not configured (no fingerprints enrolled) - skipping")
+                return
+            }
+
+            print("👆 Touch the fingerprint sensor on YubiKey Bio...")
+            let token = try await pin.getToken(
+                using: .uv,
+                permissions: [.makeCredential, .getAssertion],
+                rpId: "example.com"
+            )
+
+            #expect(token.token.count > 0, "Token should not be empty")
+            #expect(token.protocolVersion == pinProtocol, "Token protocol should match requested")
+            print("✅ Got UV token, length: \(token.token.count) bytes")
         }
     }
 
@@ -326,11 +399,19 @@ struct CTAP2FullStackTests {
             let testPin = "11234567"
             let wrongPin = "99999999"
 
+            let info = try await session.getInfo()
+
+            // Skip if PIN is not set
+            guard info.options.clientPin == true else {
+                print("PIN not set - skipping")
+                return
+            }
+
             let pin = try await session.clientPIN(protocol: pinProtocol)
 
-            // Ensure retries are at 8
+            // Reset retries before testing
             _ = try await pin.getToken(
-                pin: testPin,
+                using: .pin(testPin),
                 permissions: [.makeCredential, .getAssertion],
                 rpId: "localhost"
             )
@@ -341,7 +422,7 @@ struct CTAP2FullStackTests {
             for expectedRetries in [7, 6, 5] {
                 do {
                     _ = try await pin.getToken(
-                        pin: wrongPin,
+                        using: .pin(wrongPin),
                         permissions: [.makeCredential, .getAssertion],
                         rpId: "localhost"
                     )
@@ -363,7 +444,7 @@ struct CTAP2FullStackTests {
             let frozenRetries = retriesResponse.retries
             do {
                 _ = try await pin.getToken(
-                    pin: wrongPin,
+                    using: .pin(wrongPin),
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost"
                 )
@@ -380,7 +461,7 @@ struct CTAP2FullStackTests {
             // Even correct PIN is blocked
             do {
                 _ = try await pin.getToken(
-                    pin: testPin,
+                    using: .pin(testPin),
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost"
                 )
