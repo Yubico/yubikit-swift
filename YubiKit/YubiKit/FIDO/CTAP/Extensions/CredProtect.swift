@@ -39,8 +39,18 @@ extension CTAP2.Extension {
     struct CredProtect: CTAP2.Extension.MakeCredential.Parameters,
         CTAP2.Extension.MakeCredential.Response
     {
-
         static let name = "credProtect"
+
+        /// Checks if the authenticator supports credProtect.
+        ///
+        /// - Parameter session: The CTAP2 session to check.
+        /// - Returns: `true` if the authenticator supports credProtect.
+        static func isSupported<I: CBORInterface>(
+            by session: CTAP2.Session<I>
+        ) async throws(CTAP2.SessionError) -> Bool where I.Error == CTAP2.SessionError {
+            let info = try await session.getInfo()
+            return info.extensions.contains(name)
+        }
 
         /// The credential protection level.
         let level: Level
@@ -50,9 +60,8 @@ extension CTAP2.Extension {
             self.level = level
         }
 
-        /// Encodes to CBOR for the request.
-        func cbor() -> CBOR.Value {
-            .int(level.rawValue)
+        func asExtensionInputs() -> [String: CBOR.Value] {
+            [Self.name: .int(level.rawValue)]
         }
 
         /// Decodes from CBOR response.

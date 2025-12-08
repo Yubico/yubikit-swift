@@ -197,5 +197,6 @@ extension CTAP2.GetInfo {
 
         /// Maximum PIN length supported by the authenticator.
         let maxPINLength: UInt?
+
     }
 }

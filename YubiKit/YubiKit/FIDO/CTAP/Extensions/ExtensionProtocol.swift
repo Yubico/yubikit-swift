@@ -28,9 +28,16 @@ extension CTAP2.Extension {
 
 extension CTAP2.Extension.MakeCredential {
     /// Protocol for extension parameters sent with authenticatorMakeCredential.
-    protocol Parameters: CBOR.Encodable, Sendable {
-        /// The extension identifier.
+    ///
+    /// Extensions return a dictionary of extension inputs to include in the CBOR map.
+    /// Most extensions return a single entry, but some (like hmac-secret with
+    /// hmac-secret-mc) require multiple entries.
+    protocol Parameters: Sendable {
+        /// The CTAP2 extension identifier string (e.g., "credProtect", "hmac-secret").
         static var name: String { get }
+
+        /// Returns the extension inputs as a dictionary of extension name to CBOR value.
+        func asExtensionInputs() -> [String: CBOR.Value]
     }
 
     /// Protocol for extracting typed results from MakeCredential responses.
@@ -61,11 +68,13 @@ extension CTAP2.Extension.MakeCredential {
 }
 
 extension Array where Element == any CTAP2.Extension.MakeCredential.Parameters {
-    /// Encodes the extension parameters array as a CBOR map keyed by extension name.
+    /// Encodes the extension parameters array as a CBOR map.
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
         for ext in self {
-            map[.textString(type(of: ext).name)] = ext.cbor()
+            for (name, value) in ext.asExtensionInputs() {
+                map[.textString(name)] = value
+            }
         }
         return .map(map)
     }
@@ -75,9 +84,14 @@ extension Array where Element == any CTAP2.Extension.MakeCredential.Parameters {
 
 extension CTAP2.Extension.GetAssertion {
     /// Protocol for extension parameters sent with authenticatorGetAssertion.
-    protocol Parameters: CBOR.Encodable, Sendable {
-        /// The extension identifier.
+    ///
+    /// Extensions return a dictionary of extension inputs to include in the CBOR map.
+    protocol Parameters: Sendable {
+        /// The CTAP2 extension identifier string (e.g., "credProtect", "hmac-secret").
         static var name: String { get }
+
+        /// Returns the extension inputs as a dictionary of extension name to CBOR value.
+        func asExtensionInputs() -> [String: CBOR.Value]
     }
 
     /// Protocol for extracting typed results from GetAssertion responses.
@@ -87,7 +101,10 @@ extension CTAP2.Extension.GetAssertion {
     ///
     /// Example:
     /// ```swift
-    /// let hmacSecret = try await CTAP2.Extension.HmacSecret.encrypt(salt1: salt, session: session)
+    /// let hmacSecret = try await CTAP2.Extension.HmacSecret.GetAssertion.create(
+    ///     salt1: salt,
+    ///     session: session
+    /// )
     /// let params = CTAP2.GetAssertion.Parameters(..., extensions: [hmacSecret])
     /// let response = try await session.getAssertion(params)
     ///
@@ -108,11 +125,13 @@ extension CTAP2.Extension.GetAssertion {
 }
 
 extension Array where Element == any CTAP2.Extension.GetAssertion.Parameters {
-    /// Encodes the extension parameters array as a CBOR map keyed by extension name.
+    /// Encodes the extension parameters array as a CBOR map.
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
         for ext in self {
-            map[.textString(type(of: ext).name)] = ext.cbor()
+            for (name, value) in ext.asExtensionInputs() {
+                map[.textString(name)] = value
+            }
         }
         return .map(map)
     }
