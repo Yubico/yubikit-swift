@@ -27,11 +27,8 @@ extension CTAP2.MakeCredential.Parameters: CBOR.Encodable {
         if let excludeList = excludeList, !excludeList.isEmpty {
             map[5] = excludeList.cbor()
         }
-        if let extensions = extensions {
-            let extensionsValue = extensions.cbor()
-            if case .map(let extensionsMap) = extensionsValue, !extensionsMap.isEmpty {
-                map[6] = extensionsValue
-            }
+        if !extensions.isEmpty {
+            map[6] = extensions.cbor()
         }
         map[7] = options?.cbor()
         map[8] = pinUVAuthParam?.cbor()

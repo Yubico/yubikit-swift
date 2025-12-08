@@ -35,10 +35,10 @@ extension WebAuthn {
         /// Attested credential data (present when AT flag is set).
         let attestedCredentialData: AttestedCredentialData?
 
-        /// Extensions data (present when ED flag is set).
+        /// Raw extension outputs map (present when ED flag is set).
         ///
-        /// Provides strongly-typed access to common extensions.
-        let extensions: ExtensionOutputs?
+        /// Use extension-specific `result(from:)` methods for typed access to extension outputs.
+        internal let extensions: [String: CBOR.Value]?
 
         /// Authenticator data flags.
         struct Flags: OptionSet, Sendable {
@@ -108,12 +108,20 @@ extension WebAuthn.AuthenticatorData {
 
         // MARK: Parse Extensions (optional)
         if flags.contains(.extensionData) {
-            // Extensions are CBOR-encoded
+            // Extensions are CBOR-encoded as a map with string keys
             let extensionsData = data.subdata(in: offset..<data.count)
             guard let extensionsValue: CBOR.Value = try? extensionsData.decode(),
-                let extensions = WebAuthn.ExtensionOutputs(cbor: extensionsValue)
+                let map = extensionsValue.mapValue
             else {
                 return nil
+            }
+            // Convert CBOR map to [String: CBOR.Value]
+            var extensions: [String: CBOR.Value] = [:]
+            for (key, value) in map {
+                guard let name = key.stringValue else {
+                    return nil  // Extension keys must be strings
+                }
+                extensions[name] = value
             }
             self.extensions = extensions
         } else {

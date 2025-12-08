@@ -281,4 +281,7 @@ public enum CTAP2 {
 
     /// Namespace for ClientPin command types.
     enum ClientPin {}
+
+    /// Namespace for CTAP2 extension types.
+    enum Extension {}
 }

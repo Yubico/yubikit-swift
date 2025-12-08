@@ -25,11 +25,8 @@ extension CTAP2.GetAssertion.Parameters: CBOR.Encodable {
         if let allowList = allowList, !allowList.isEmpty {
             map[3] = allowList.cbor()
         }
-        if let extensions = extensions {
-            let extensionsValue = extensions.cbor()
-            if case .map(let extensionsMap) = extensionsValue, !extensionsMap.isEmpty {
-                map[4] = extensionsValue
-            }
+        if !extensions.isEmpty {
+            map[4] = extensions.cbor()
         }
         map[5] = options?.cbor()
         map[6] = pinUVAuthParam?.cbor()

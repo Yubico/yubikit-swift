@@ -41,6 +41,8 @@ extension CTAP2.MakeCredential {
         public let largeBlobKey: Data?
 
         /// Unsigned extension outputs not included in signed authenticator data.
-        public let unsignedExtensionOutputs: WebAuthn.ExtensionOutputs?
+        ///
+        /// Use extension-specific `result(from:)` methods for typed access to extension outputs.
+        internal let unsignedExtensionOutputs: [String: CBOR.Value]?
     }
 }
