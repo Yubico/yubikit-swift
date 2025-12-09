@@ -23,31 +23,31 @@ extension CTAP2.GetAssertion.Response: CBOR.Decodable {
         }
 
         // Optional: credential (0x01)
-        let credential: PublicKeyCredential.Descriptor? = map[.unsignedInt(0x01)]?.cborDecoded()
+        let credential: PublicKeyCredential.Descriptor? = map[.int(0x01)]?.cborDecoded()
 
         // Required: authData (0x02)
-        guard let authDataBytes: Data = map[.unsignedInt(0x02)]?.cborDecoded(),
+        guard let authDataBytes: Data = map[.int(0x02)]?.cborDecoded(),
             let authData = WebAuthn.AuthenticatorData(data: authDataBytes)
         else {
             return nil
         }
 
         // Required: signature (0x03)
-        guard let signature: Data = map[.unsignedInt(0x03)]?.cborDecoded() else {
+        guard let signature: Data = map[.int(0x03)]?.cborDecoded() else {
             return nil
         }
 
         // Optional: user (0x04)
-        let user: PublicKeyCredential.UserEntity? = map[.unsignedInt(0x04)]?.cborDecoded()
+        let user: PublicKeyCredential.UserEntity? = map[.int(0x04)]?.cborDecoded()
 
         // Optional: numberOfCredentials (0x05)
-        let numberOfCredentials: Int? = map[.unsignedInt(0x05)]?.cborDecoded()
+        let numberOfCredentials: Int? = map[.int(0x05)]?.cborDecoded()
 
         // Optional: userSelected (0x06)
-        let userSelected: Bool? = map[.unsignedInt(0x06)]?.cborDecoded()
+        let userSelected: Bool? = map[.int(0x06)]?.cborDecoded()
 
         // Optional: largeBlobKey (0x07)
-        let largeBlobKey: Data? = map[.unsignedInt(0x07)]?.cborDecoded()
+        let largeBlobKey: Data? = map[.int(0x07)]?.cborDecoded()
 
         self.init(
             credential: credential,

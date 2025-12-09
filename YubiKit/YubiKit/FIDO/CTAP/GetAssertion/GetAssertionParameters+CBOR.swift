@@ -22,32 +22,18 @@ extension CTAP2.GetAssertion.Parameters: CBOR.Encodable {
             1: rpId.cbor(),
             2: clientDataHash.cbor(),
         ]
-
-        // Optional parameters
         if let allowList = allowList, !allowList.isEmpty {
             map[3] = allowList.cbor()
         }
-
         if let extensions = extensions {
             let extensionsValue = extensions.cbor()
-            // Only include if the extensions map is non-empty
             if case .map(let extensionsMap) = extensionsValue, !extensionsMap.isEmpty {
                 map[4] = extensionsValue
             }
         }
-
-        if let options = options {
-            map[5] = options.cbor()
-        }
-
-        if let pinUvAuthParam = pinUvAuthParam {
-            map[6] = pinUvAuthParam.cbor()
-        }
-
-        if let pinUvAuthProtocol = pinUvAuthProtocol {
-            map[7] = pinUvAuthProtocol.cbor()
-        }
-
+        map[5] = options?.cbor()
+        map[6] = pinUVAuthParam?.cbor()
+        map[7] = pinUVAuthProtocol?.cbor()
         return map.cbor()
     }
 }
@@ -57,15 +43,8 @@ extension CTAP2.GetAssertion.Parameters: CBOR.Encodable {
 extension CTAP2.GetAssertion.Parameters.Options: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
-
-        if let up = up {
-            map["up"] = up.cbor()
-        }
-
-        if let uv = uv {
-            map["uv"] = uv.cbor()
-        }
-
+        map["up"] = up?.cbor()
+        map["uv"] = uv?.cbor()
         return map.cbor()
     }
 }

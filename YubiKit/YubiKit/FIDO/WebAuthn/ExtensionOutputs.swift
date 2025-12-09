@@ -21,7 +21,7 @@ extension WebAuthn {
     /// This type provides strongly-typed access to common extensions.
     ///
     /// - SeeAlso: [WebAuthn Extensions](https://www.w3.org/TR/webauthn/#sctn-extensions)
-    /// - SeeAlso: [CTAP2 Extensions](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#sctn-extensions)
+    /// - SeeAlso: [CTAP2 Extensions](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#sctn-defined-extensions)
     struct ExtensionOutputs: Sendable {
         /// Credential properties extension output.
         let credProps: CredentialPropertiesOutput?
@@ -36,7 +36,7 @@ extension WebAuthn {
         let credProtect: CredentialProtectionPolicy?
 
         /// Minimum PIN length enforced by the authenticator.
-        let minPINLength: Int?
+        let minPinLength: Int?
 
         /// Third-party payment extension output.
         let thirdPartyPayment: Bool?

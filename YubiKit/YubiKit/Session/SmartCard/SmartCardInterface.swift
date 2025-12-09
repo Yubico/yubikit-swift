@@ -28,6 +28,13 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
     // Flag to signal cancellation for CTAP operations over NFC
     internal var shouldCancelCTAP: Bool = false
 
+    // Maximum message size for CTAP operations (CBORInterface)
+    private(set) var maxMsgSize: Int = 1024
+
+    func setMaxMsgSize(_ size: Int) {
+        maxMsgSize = size
+    }
+
     // Select application and optionally setup SCP
     init(
         connection: SmartCardConnection,

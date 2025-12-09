@@ -28,8 +28,14 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
         return execute(requestData)
     }
 
-    func send(command: CTAP2.Command) -> CTAP2.StatusStream<Void> {
-        let requestData = Data([command.rawValue])
+    func send<I: CBOR.Encodable>(
+        command: CTAP2.Command,
+        payload: I
+    ) -> CTAP2.StatusStream<Void> {
+        var requestData = Data([command.rawValue])
+        let cborData = payload.cbor().encode()
+        requestData.append(cborData)
+
         return execute(requestData)
     }
 
@@ -73,6 +79,11 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
 
                     // Clear cancellation flag at the start of operation
                     self.shouldCancelCTAP = false
+
+                    // Check message size
+                    if data.count > self.maxMsgSize {
+                        throw Error.ctapError(.requestTooLarge, source: .here())
+                    }
 
                     // Create cancel closure that sets the flag
                     // Any errors during cancellation are yielded to the stream

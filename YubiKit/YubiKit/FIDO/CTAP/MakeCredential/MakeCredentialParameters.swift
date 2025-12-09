@@ -40,14 +40,20 @@ extension CTAP2.MakeCredential {
         /// Authenticator options.
         let options: Options?
 
-        /// PIN/UV auth parameter.
-        let pinUvAuthParam: Data?
-
-        /// PIN/UV protocol version (1 or 2).
-        let pinUvAuthProtocol: Int?
-
         /// Enterprise attestation level (1 or 2).
         let enterpriseAttestation: Int?
+
+        /// PIN/UV auth parameter (populated automatically when using PIN authentication).
+        private(set) var pinUVAuthParam: Data?
+
+        /// PIN/UV protocol version (populated automatically when using PIN authentication).
+        private(set) var pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion?
+
+        /// Sets the PIN/UV authentication parameters using a PIN token.
+        mutating func setAuthentication(pinToken: CTAP2.ClientPin.Token) {
+            self.pinUVAuthParam = pinToken.authenticate(message: clientDataHash)
+            self.pinUVAuthProtocol = pinToken.protocolVersion
+        }
 
         init(
             clientDataHash: Data,
@@ -57,8 +63,6 @@ extension CTAP2.MakeCredential {
             excludeList: [PublicKeyCredential.Descriptor]? = nil,
             extensions: Extensions? = nil,
             options: Options? = nil,
-            pinUvAuthParam: Data? = nil,
-            pinUvAuthProtocol: Int? = nil,
             enterpriseAttestation: Int? = nil
         ) {
             self.clientDataHash = clientDataHash
@@ -68,8 +72,6 @@ extension CTAP2.MakeCredential {
             self.excludeList = excludeList
             self.extensions = extensions
             self.options = options
-            self.pinUvAuthParam = pinUvAuthParam
-            self.pinUvAuthProtocol = pinUvAuthProtocol
             self.enterpriseAttestation = enterpriseAttestation
         }
 

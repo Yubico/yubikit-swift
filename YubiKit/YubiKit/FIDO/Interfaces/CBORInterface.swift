@@ -27,6 +27,13 @@ protocol CBORInterface: Actor {
 
     var version: Version { get async }
 
+    /// Maximum message size supported by the authenticator.
+    /// Defaults to 1024 bytes until getInfo() returns the actual limit.
+    var maxMsgSize: Int { get }
+
+    /// Update the maximum message size after getInfo() returns.
+    func setMaxMsgSize(_ size: Int)
+
     /// Send a CTAP2 command with CBOR payload.
     ///
     /// The request format is: [command_byte][cbor_payload]
@@ -41,20 +48,34 @@ protocol CBORInterface: Actor {
         payload: I
     ) -> CTAP2.StatusStream<O>
 
-    /// Send a CTAP2 command that has no response body.
+    /// Send a CTAP2 command with CBOR payload that has no response body.
     ///
-    /// - Parameter command: The CTAP2 command
+    /// - Parameters:
+    ///   - command: The CTAP2 command
+    ///   - payload: CBOR-encodable payload (will be CBOR-encoded)
     /// - Returns: Async sequence of status updates, ending with `.finished(())`
-    func send(command: CTAP2.Command) -> CTAP2.StatusStream<Void>
+    func send<I: CBOR.Encodable>(
+        command: CTAP2.Command,
+        payload: I
+    ) -> CTAP2.StatusStream<Void>
 }
 
 extension CBORInterface {
+    /// Send a CTAP2 command with no payload and a CBOR-decodable response.
     func send<O: CBOR.Decodable & Sendable>(
         command: CTAP2.Command
     ) -> CTAP2.StatusStream<O> {
         send(command: command, payload: nil as CBOR.Value?)
     }
 
+    /// Send a CTAP2 command with no payload and no response body.
+    func send(
+        command: CTAP2.Command
+    ) -> CTAP2.StatusStream<Void> {
+        send(command: command, payload: nil as CBOR.Value?)
+    }
+
+    /// Send a CTAP2 command with no payload, returning raw CBOR.
     func send(
         command: CTAP2.Command
     ) -> CTAP2.StatusStream<CBOR.Value> {

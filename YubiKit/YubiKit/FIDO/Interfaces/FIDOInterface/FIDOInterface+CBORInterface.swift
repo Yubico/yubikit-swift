@@ -25,13 +25,17 @@ extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
         let cborData = payload.cbor().encode()
         requestData.append(cborData)
 
-        // TODO: Validate message size against authenticatorInfo.maxMsgSize
-
         return execute(requestData)
     }
 
-    func send(command: CTAP2.Command) -> CTAP2.StatusStream<Void> {
-        let requestData = Data([command.rawValue])
+    func send<I: CBOR.Encodable>(
+        command: CTAP2.Command,
+        payload: I
+    ) -> CTAP2.StatusStream<Void> {
+        var requestData = Data([command.rawValue])
+        let cborData = payload.cbor().encode()
+        requestData.append(cborData)
+
         return execute(requestData)
     }
 
@@ -71,6 +75,11 @@ extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
                     // Check capability support
                     guard self.supports(.cbor) else {
                         throw Error.featureNotSupported(source: .here())
+                    }
+
+                    // Check message size
+                    if data.count > self.maxMsgSize {
+                        throw Error.ctapError(.requestTooLarge, source: .here())
                     }
 
                     // Send the request

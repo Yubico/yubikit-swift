@@ -27,24 +27,53 @@ import Foundation
     /// Values from the IANA COSE Algorithms registry.
     ///
     /// - SeeAlso: [IANA COSE Algorithms Registry](https://www.iana.org/assignments/cose/cose.xhtml#algorithms)
-    /* public */ enum Algorithm: Int, Sendable, Equatable {
+    /* public */ enum Algorithm: Sendable, Equatable {
         /// ES256 algorithm (ECDSA with P-256 and SHA-256).
-        case es256 = -7
+        case es256
 
         /// EdDSA algorithm (Ed25519).
         ///
         /// Supported on YubiKey firmware 5.2.X and above.
-        case edDSA = -8
+        case edDSA
 
         /// ES384 algorithm (ECDSA with P-384 and SHA-384).
         ///
         /// Supported on YubiKey firmware 5.6.X and above.
-        case es384 = -35
+        case es384
 
         /// RS256 algorithm (RSASSA-PKCS1-v1_5 with SHA-256).
         ///
         /// Supported on YubiKey firmware 5.1.X and below only.
-        case rs256 = -257
+        case rs256
+
+        /// Other algorithm not explicitly defined.
+        ///
+        /// Used for algorithms like ECDH-ES+HKDF-256 (-25) used in key agreement.
+        case other(Int)
+
+        /// The raw COSE algorithm identifier value.
+        public var rawValue: Int {
+            switch self {
+            case .es256: return -7
+            case .edDSA: return -8
+            case .es384: return -35
+            case .rs256: return -257
+            case .other(let value): return value
+            }
+        }
+
+        /// Initialize from a raw COSE algorithm identifier.
+        ///
+        /// - Parameter rawValue: COSE algorithm identifier from IANA registry
+        public init(rawValue: Int) {
+            switch rawValue {
+            case -7: self = .es256
+            case -8: self = .edDSA
+            case -35: self = .es384
+            case -257: self = .rs256
+            default: self = .other(rawValue)
+            }
+        }
     }
 
     /// COSE Key representation with type-safe access to key parameters.
@@ -108,6 +137,29 @@ import Foundation
     }
 }
 
+// MARK: - COSE.Algorithm + CBOR
+
+extension COSE.Algorithm: CBOR.Decodable {
+    init?(cbor: CBOR.Value) {
+        // Handle direct integer (e.g., from credential public key)
+        if let value = cbor.intValue {
+            self.init(rawValue: value)
+            return
+        }
+
+        // Handle PublicKeyCredentialParameters format: {"alg": Int, "type": "public-key"}
+        // Used in GetInfo algorithms field (0x0A)
+        if let map = cbor.mapValue,
+            let algValue = map[.textString("alg")]?.intValue
+        {
+            self.init(rawValue: algValue)
+            return
+        }
+
+        return nil
+    }
+}
+
 // MARK: - COSE.Key + CBOR
 
 extension COSE.Key: CBOR.Decodable {
@@ -123,43 +175,43 @@ extension COSE.Key: CBOR.Decodable {
         }
 
         // Label 1: kty (key type)
-        guard let kty = map[.unsignedInt(1)]?.intValue else {
+        guard let kty = map[.int(1)]?.intValue else {
             return nil
         }
 
         // Label 3: alg (algorithm)
-        guard let algValue = map[.unsignedInt(3)]?.intValue,
-            let alg = COSE.Algorithm(rawValue: algValue)
-        else {
-            // Unknown algorithm - store as .other
+        guard let algValue = map[.int(3)]?.intValue else {
+            // Missing algorithm - store as .other
             self = .other(Unsupported(cborData: cbor.encode()))
             return
         }
 
+        let alg = COSE.Algorithm(rawValue: algValue)
+
         // Label 2: kid (key ID, optional)
-        let kid = map[.unsignedInt(2)]?.dataValue
+        let kid = map[.int(2)]?.dataValue
 
         switch kty {
         case 2:  // EC2
-            guard let crv = map[.negativeInt(0)]?.intValue,
-                let x = map[.negativeInt(1)]?.dataValue,
-                let y = map[.negativeInt(2)]?.dataValue
+            guard let crv = map[.int(-1)]?.intValue,
+                let x = map[.int(-2)]?.dataValue,
+                let y = map[.int(-3)]?.dataValue
             else {
                 return nil
             }
             self = .ec2(alg: alg, kid: kid, crv: crv, x: x, y: y)
 
         case 1:  // OKP
-            guard let crv = map[.negativeInt(0)]?.intValue,
-                let x = map[.negativeInt(1)]?.dataValue
+            guard let crv = map[.int(-1)]?.intValue,
+                let x = map[.int(-2)]?.dataValue
             else {
                 return nil
             }
             self = .okp(alg: alg, kid: kid, crv: crv, x: x)
 
         case 3:  // RSA
-            guard let n = map[.negativeInt(0)]?.dataValue,
-                let e = map[.negativeInt(1)]?.dataValue
+            guard let n = map[.int(-1)]?.dataValue,
+                let e = map[.int(-2)]?.dataValue
             else {
                 return nil
             }
@@ -182,38 +234,38 @@ extension COSE.Key: CBOR.Encodable {
         switch self {
         case .ec2(let alg, let kid, let crv, let x, let y):
             var map: [CBOR.Value: CBOR.Value] = [
-                .unsignedInt(1): .unsignedInt(2),  // Label 1: kty = EC2
-                .unsignedInt(3): CBOR.Value(Int64(alg.rawValue)),  // Label 3: alg
-                .negativeInt(0): CBOR.Value(Int64(crv)),  // Label -1: crv
-                .negativeInt(1): .byteString(x),  // Label -2: x
-                .negativeInt(2): .byteString(y),  // Label -3: y
+                .int(1): .int(2),  // Label 1: kty = EC2
+                .int(3): CBOR.Value(Int64(alg.rawValue)),  // Label 3: alg
+                .int(-1): CBOR.Value(Int64(crv)),  // crv
+                .int(-2): .byteString(x),  // x
+                .int(-3): .byteString(y),  // y
             ]
             if let kid = kid {
-                map[.unsignedInt(2)] = .byteString(kid)  // Label 2: kid
+                map[.int(2)] = .byteString(kid)  // Label 2: kid
             }
             return .map(map)
 
         case .okp(let alg, let kid, let crv, let x):
             var map: [CBOR.Value: CBOR.Value] = [
-                .unsignedInt(1): .unsignedInt(1),  // Label 1: kty = OKP
-                .unsignedInt(3): CBOR.Value(Int64(alg.rawValue)),  // Label 3: alg
-                .negativeInt(0): CBOR.Value(Int64(crv)),  // Label -1: crv
-                .negativeInt(1): .byteString(x),  // Label -2: x
+                .int(1): .int(1),  // Label 1: kty = OKP
+                .int(3): CBOR.Value(Int64(alg.rawValue)),  // Label 3: alg
+                .int(-1): CBOR.Value(Int64(crv)),  // crv
+                .int(-2): .byteString(x),  // x
             ]
             if let kid = kid {
-                map[.unsignedInt(2)] = .byteString(kid)  // Label 2: kid
+                map[.int(2)] = .byteString(kid)  // Label 2: kid
             }
             return .map(map)
 
         case .rsa(let alg, let kid, let n, let e):
             var map: [CBOR.Value: CBOR.Value] = [
-                .unsignedInt(1): .unsignedInt(3),  // Label 1: kty = RSA
-                .unsignedInt(3): CBOR.Value(Int64(alg.rawValue)),  // Label 3: alg
-                .negativeInt(0): .byteString(n),  // Label -1: n
-                .negativeInt(1): .byteString(e),  // Label -2: e
+                .int(1): .int(3),  // Label 1: kty = RSA
+                .int(3): CBOR.Value(Int64(alg.rawValue)),  // Label 3: alg
+                .int(-1): .byteString(n),  // n
+                .int(-2): .byteString(e),  // e
             ]
             if let kid = kid {
-                map[.unsignedInt(2)] = .byteString(kid)  // Label 2: kid
+                map[.int(2)] = .byteString(kid)  // Label 2: kid
             }
             return .map(map)
 

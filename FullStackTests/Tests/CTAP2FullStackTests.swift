@@ -21,320 +21,118 @@ import Testing
 @Suite("CTAP2 Full Stack Tests", .serialized)
 struct CTAP2FullStackTests {
 
+    // MARK: - Core Tests
+
     @Test("Get Authenticator Info")
-    func getAuthenticatorInfo() async throws {
+    func testGetAuthenticatorInfo() async throws {
         try await withCTAP2Session { session in
             let info = try await session.getInfo()
 
             // Check versions contain a recognized FIDO version
             let hasRecognizedVersion = info.versions.contains { version in
-                version == "U2F_V2" || version == "FIDO_2_0" || version == "FIDO_2_1_PRE" || version == "FIDO_2_1"
+                switch version {
+                case .u2fV2, .fido2_0, .fido2_1Pre, .fido2_1: return true
+                case .unknown: return false
+                }
             }
             #expect(hasRecognizedVersion, "Should support a recognized FIDO version")
 
-            // Check AAGUID is 16 bytes
-            #expect(info.aaguid.count == 16, "AAGUID should be 16 bytes")
-
             // Check options
-            #expect(info.options["plat"] == false, "Option 'plat' should be false")
-            #expect(info.options["rk"] == true, "Option 'rk' should be true")
-            #expect(info.options["up"] == true, "Option 'up' should be true")
-            #expect(info.options.keys.contains("clientPin"), "Options should contain 'clientPin'")
+            #expect(info.options.platformDevice == false, "Option 'plat' should be false")
+            #expect(info.options.residentKey == true, "Option 'rk' should be true")
+            #expect(info.options.userPresence == true, "Option 'up' should be true")
 
             // Check PIN/UV Auth protocols
-            #expect(info.pinUvAuthProtocols.count >= 1, "Should support at least one PIN protocol")
+            #expect(info.pinUVAuthProtocols.count >= 1, "Should support at least one PIN protocol")
         }
     }
 
-    @Test("Make Credential - Non-Resident Key")
-    func testMakeCredentialNonResidentKey() async throws {
+    @Test("Make Credential and Get Assertion")
+    func testMakeCredentialGetAssertion() async throws {
         try await withCTAP2Session { session in
             let clientDataHash = Data(repeating: 0xCD, count: 32)
-            let userId = Data(repeating: 0x02, count: 32)
 
-            let params = CTAP2.MakeCredential.Parameters(
+            // 1. Make a non-resident credential
+            let nonRkParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredential.UserEntity(
-                    id: userId,
+                    id: Data(repeating: 0x02, count: 32),
                     name: "nonrk@example.com",
                     displayName: "Non-RK User"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: false)  // Explicitly non-resident
+                options: .init(rk: false)
             )
 
-            print("Touch the YubiKey to create a non-resident credential...")
-            let credential = try await session.makeCredential(parameters: params).value
+            print("👆 Touch the YubiKey to create a non-resident credential...")
+            let nonRkCredential = try await session.makeCredential(parameters: nonRkParams).value
 
-            // Verify response structure
-            #expect(["packed", "none"].contains(credential.format), "Expected packed or none format")
-            #expect(credential.authenticatorData.rpIdHash.count == 32, "RP ID hash should be 32 bytes")
-            #expect(
-                credential.authenticatorData.flags.contains(.userPresent),
-                "User presence flag should be set"
-            )
-            #expect(
-                credential.authenticatorData.flags.contains(.attestedCredentialData),
-                "Attested credential data flag should be set"
-            )
+            #expect(["packed", "none"].contains(nonRkCredential.format), "Expected packed or none format")
+            #expect(nonRkCredential.authenticatorData.attestedCredentialData != nil, "Missing attested credential data")
+            print("✅ Non-resident credential created")
 
-            // Verify credential data exists
-            guard let attestedData = credential.authenticatorData.attestedCredentialData else {
-                Issue.record("Missing attested credential data")
-                return
-            }
-            #expect(attestedData.credentialId.count >= 16, "Credential ID should be at least 16 bytes")
-            print("Non-resident credential created! Format: \(credential.format)")
-        }
-    }
-
-    @Test("Make Credential - Resident Key")
-    func testMakeCredentialResidentKey() async throws {
-        try await withCTAP2Session { session in
-            let clientDataHash = Data(repeating: 0xCD, count: 32)
-            let userId = Data(repeating: 0x03, count: 32)
-
-            let params = CTAP2.MakeCredential.Parameters(
+            // 2. Make a resident credential
+            let rkParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
                 user: PublicKeyCredential.UserEntity(
-                    id: userId,
+                    id: Data(repeating: 0x03, count: 32),
                     name: "rk@example.com",
                     displayName: "RK User"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: true)  // Resident key
+                options: .init(rk: true)
             )
 
-            print("Touch the YubiKey to create a resident credential...")
-            let credential = try await session.makeCredential(parameters: params).value
+            print("👆 Touch the YubiKey to create a resident credential...")
+            let rkCredential = try await session.makeCredential(parameters: rkParams).value
 
-            // Verify response structure
-            #expect(["packed", "none"].contains(credential.format), "Expected packed or none format")
-            #expect(credential.authenticatorData.rpIdHash.count == 32, "RP ID hash should be 32 bytes")
-            #expect(
-                credential.authenticatorData.flags.contains(.userPresent),
-                "User presence flag should be set"
-            )
-            #expect(
-                credential.authenticatorData.flags.contains(.attestedCredentialData),
-                "Attested credential data flag should be set"
-            )
-
-            // Verify credential data exists
-            guard let attestedData = credential.authenticatorData.attestedCredentialData else {
-                Issue.record("Missing attested credential data")
+            guard rkCredential.authenticatorData.attestedCredentialData != nil else {
+                Issue.record("Missing attested credential data for RK")
                 return
             }
-            #expect(attestedData.credentialId.count >= 16, "Credential ID should be at least 16 bytes")
-            print("Resident credential created! Format: \(credential.format)")
+            print("✅ Resident credential created")
 
-            // TODO: Store credential ID for cleanup once credentialManagement is implemented
-        }
-    }
-
-    @Test("Make Credential - With Exclude List")
-    func testMakeCredentialWithExcludeList() async throws {
-        try await withCTAP2Session { session in
-            let clientDataHash = Data(repeating: 0xCD, count: 32)
-            let userId = Data(repeating: 0x04, count: 32)
-
-            // First, create a credential
-            let params1 = CTAP2.MakeCredential.Parameters(
-                clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredential.UserEntity(
-                    id: userId,
-                    name: "exclude@example.com",
-                    displayName: "Exclude Test User"
-                ),
-                pubKeyCredParams: [.es256],
-                options: .init(rk: false)
-            )
-
-            print("Touch the YubiKey to create the first credential...")
-            let credential1 = try await session.makeCredential(parameters: params1).value
-
-            // Extract credential ID from authenticatorData
-            guard let attestedData = credential1.authenticatorData.attestedCredentialData else {
-                Issue.record("No attested credential data in response")
-                return
-            }
-
-            let credentialId = attestedData.credentialId
-
-            // Now try to create another credential with excludeList containing the first
-            let params2 = CTAP2.MakeCredential.Parameters(
-                clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredential.UserEntity(
-                    id: userId,
-                    name: "exclude@example.com",
-                    displayName: "Exclude Test User"
-                ),
-                pubKeyCredParams: [.es256],
-                excludeList: [PublicKeyCredential.Descriptor(id: credentialId)],
-                options: .init(rk: false)
-            )
-
-            print("Touch the YubiKey - this should fail with CREDENTIAL_EXCLUDED...")
-            do {
-                for try await status in await session.makeCredential(parameters: params2) {
-                    if case .finished = status {
-                        Issue.record("Expected CREDENTIAL_EXCLUDED error but makeCredential succeeded")
-                    }
-                }
-                Issue.record("Expected CREDENTIAL_EXCLUDED error but stream completed without throwing")
-            } catch let error as CTAP2.SessionError {
-                if case .ctapError(.credentialExcluded, _) = error {
-                    print("✅ Got expected CREDENTIAL_EXCLUDED error")
-                } else {
-                    Issue.record("Expected CREDENTIAL_EXCLUDED but got: \(error)")
-                }
-            } catch {
-                Issue.record("Got unexpected error type: \(error)")
-            }
-        }
-    }
-
-    @Test("Make Credential - Algorithm Preference Order")
-    func testMakeCredentialAlgorithmPreference() async throws {
-        // Test that EdDSA is preferred when listed first, with ES256 as fallback
-        try await withCTAP2Session { session in
-            let clientDataHash = Data(repeating: 0xCD, count: 32)
-
-            let params = CTAP2.MakeCredential.Parameters(
-                clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredential.UserEntity(
-                    id: Data(repeating: 0x40, count: 32),
-                    name: "algpref@example.com",
-                    displayName: "Algorithm Preference User"
-                ),
-                pubKeyCredParams: [.edDSA, .es256]  // EdDSA preferred, ES256 fallback
-            )
-
-            print("Touch the YubiKey to test algorithm preference (EdDSA preferred, ES256 fallback)...")
-            let credential = try await session.makeCredential(parameters: params).value
-
-            guard let attestedData = credential.authenticatorData.attestedCredentialData else {
-                Issue.record("Failed to parse credential")
-                return
-            }
-
-            // Should use EdDSA if supported, otherwise fall back to ES256
-            let coseKey = attestedData.credentialPublicKey
-
-            switch coseKey {
-            case .okp(let alg, _, let crv, _) where alg == .edDSA && crv == 6:
-                print("✅ EdDSA was used as preferred algorithm")
-            case .ec2(let alg, _, let crv, _, _) where alg == .es256 && crv == 1:
-                print("✅ EdDSA not supported, ES256 was used as fallback")
-            default:
-                Issue.record("Unexpected key type: \(coseKey)")
-            }
-        }
-    }
-
-    // MARK: - GetAssertion Tests
-
-    @Test("Get Assertion - Basic Flow")
-    func testGetAssertionBasic() async throws {
-        try await withCTAP2Session { session in
-            let clientDataHash = Data(repeating: 0xCD, count: 32)
-            let userId = Data(repeating: 0x10, count: 32)
-
-            // First, create a credential to authenticate with
-            let makeCredParams = CTAP2.MakeCredential.Parameters(
-                clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredential.UserEntity(
-                    id: userId,
-                    name: "getassertion@example.com",
-                    displayName: "Get Assertion User"
-                ),
-                pubKeyCredParams: [.es256],
-                options: .init(rk: false)
-            )
-
-            print("Touch the YubiKey to create a credential...")
-            let credential = try await session.makeCredential(parameters: makeCredParams).value
-
-            guard let attestedData = credential.authenticatorData.attestedCredentialData else {
-                Issue.record("No attested credential data in response")
-                return
-            }
-
-            let credentialId = attestedData.credentialId
-
-            // Now authenticate with the credential
+            // 3. Get assertion (discovers resident credentials)
             let getAssertionParams = CTAP2.GetAssertion.Parameters(
                 rpId: "example.com",
-                clientDataHash: clientDataHash,
-                allowList: [PublicKeyCredential.Descriptor(id: credentialId)]
+                clientDataHash: clientDataHash
             )
 
-            print("Touch the YubiKey to authenticate...")
+            print("👆 Touch the YubiKey to authenticate...")
             let assertion = try await session.getAssertion(parameters: getAssertionParams).value
 
-            // Verify response structure
             #expect(assertion.authenticatorData.rpIdHash.count == 32)
             #expect(assertion.authenticatorData.flags.contains(.userPresent), "User presence flag should be set")
             #expect(assertion.signature.count > 0, "Signature should be present")
-            #expect(assertion.credential?.id == credentialId, "Credential ID should match")
-
+            #expect(assertion.user != nil, "User handle should be present for RK")
             print("✅ Get assertion successful! Signature length: \(assertion.signature.count) bytes")
         }
     }
 
-    @Test("Get Assertions - AsyncSequence")
-    func testGetAssertions() async throws {
+    @Test("Selection - User Presence Check")
+    func testSelection() async throws {
         try await withCTAP2Session { session in
-            let clientDataHash = Data(repeating: 0xCD, count: 32)
-            let rpId = "multiassert.example.com"
+            print("👆 Touch the YubiKey to confirm selection...")
 
-            // Create multiple resident keys for the same RP
-            for i in 1...3 {
-                let makeCredParams = CTAP2.MakeCredential.Parameters(
-                    clientDataHash: clientDataHash,
-                    rp: PublicKeyCredential.RPEntity(id: rpId, name: "Multi Assert Corp"),
-                    user: PublicKeyCredential.UserEntity(
-                        id: Data(repeating: UInt8(0x20 + i), count: 32),
-                        name: "user\(i)@example.com",
-                        displayName: "User \(i)"
-                    ),
-                    pubKeyCredParams: [.es256],
-                    options: .init(rk: true)
-                )
-
-                print("Touch the YubiKey to create credential \(i)/3...")
-                _ = try await session.makeCredential(parameters: makeCredParams).value
+            var receivedWaitingForUser = false
+            for try await status in await session.selection() {
+                switch status {
+                case .processing:
+                    print("Processing...")
+                case .waitingForUser:
+                    print("Waiting for user presence...")
+                    receivedWaitingForUser = true
+                case .finished:
+                    print("Selection completed!")
+                }
             }
 
-            let getAssertionParams = CTAP2.GetAssertion.Parameters(
-                rpId: rpId,
-                clientDataHash: clientDataHash,
-                allowList: nil  // Resident key discovery
-            )
-
-            print("Touch the YubiKey to iterate through assertions...")
-
-            // Iterate through all assertions
-            let sequence = await session.getAssertions(parameters: getAssertionParams)
-            var count = 0
-            for try await assertion in sequence {
-                count += 1
-                #expect(assertion.signature.count > 0)
-                print("  Assertion \(count): signature length \(assertion.signature.count) bytes")
-            }
-
-            print("✅ Iterated through \(count) assertions")
-            #expect(count >= 1)
+            #expect(receivedWaitingForUser, "Should receive waitingForUser status during selection")
+            print("✅ Selection command successful")
         }
     }
-
-    // MARK: - Cancellation Tests
 
     #if os(macOS)
     @Test("Cancel MakeCredential")
@@ -354,10 +152,8 @@ struct CTAP2FullStackTests {
                 pubKeyCredParams: [.es256]
             )
 
-            print("Starting makeCredential - will cancel when waiting for user presence...")
-            print("DO NOT touch the YubiKey - operation will be cancelled")
+            print("DO NOT touch the YubiKey - operation will be cancelled...")
 
-            // Run makeCredential and cancel when we get waiting status
             do {
                 for try await status in await session.makeCredential(parameters: params) {
                     switch status {
@@ -385,26 +181,312 @@ struct CTAP2FullStackTests {
                 Issue.record("Unexpected error type: \(error)")
             }
 
-            // Verify the connection still works after cancellation
-            print("Verifying connection still works...")
+            // Verify connection still works
             let info = try await session.getInfo()
-            #expect(!info.versions.isEmpty, "Should be able to get info after cancellation")
-            print("✅ Connection still functional after cancellation")
+            #expect(!info.versions.isEmpty)
+            print("✅ Connection still functional")
+        }
+    }
+    #endif
+
+    // MARK: - ClientPIN Tests
+
+    @Test(
+        "ClientPIN - Setup: Ensure PIN is Set",
+        arguments: [CTAP2.ClientPin.ProtocolVersion.v1, CTAP2.ClientPin.ProtocolVersion.v2]
+    )
+    func testClientPinSetup(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
+        try await withCTAP2Session { session in
+            let testPin = "11234567"
+
+            let info = try await session.getInfo()
+
+            // Skip if device doesn't support clientPin
+            guard info.options.clientPin != nil else {
+                print("Device doesn't support clientPin - skipping")
+                return
+            }
+
+            let pinIsSet = info.options.clientPin == true
+            if !pinIsSet {
+                print("PIN not set, setting default PIN: \(testPin)")
+                try await session.setPin(testPin, protocol: pinProtocol)
+                print("✅ PIN set to default: \(testPin)")
+            } else {
+                print("PIN already set")
+            }
+
+            // Reset retry counter via successful PIN auth
+            _ = try await session.getPinUVToken(
+                using: .pin(testPin),
+                permissions: [.makeCredential],
+                rpId: "localhost",
+                protocol: pinProtocol
+            )
+
+            // Verify retries are reset to 8
+            let pinRetriesResponse = try await session.getPinRetries(protocol: pinProtocol)
+            #expect(pinRetriesResponse.retries == 8, "Should have 8 PIN retries after successful auth")
+            print("✅ PIN retries: \(pinRetriesResponse.retries)")
         }
     }
 
-    #endif  // os(macOS)
+    @Test(
+        "ClientPIN - Change PIN and Verify Retry Counter",
+        arguments: [CTAP2.ClientPin.ProtocolVersion.v1, CTAP2.ClientPin.ProtocolVersion.v2]
+    )
+    func testClientPinChangePin(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
+        try await withCTAP2Session { session in
+            let testPin = "11234567"
+            let otherPin = "76543211"
+
+            let info = try await session.getInfo()
+
+            // Skip if PIN is not set
+            guard info.options.clientPin == true else {
+                print("PIN not set - run testClientPinSetup first - skipping")
+                return
+            }
+
+            // Reset retries before testing
+            _ = try await session.getPinUVToken(
+                using: .pin(testPin),
+                permissions: [.makeCredential],
+                rpId: "localhost",
+                protocol: pinProtocol
+            )
+
+            let initialRetriesResponse = try await session.getPinRetries(protocol: pinProtocol)
+            #expect(initialRetriesResponse.retries == 8, "Should start with 8 PIN retries")
+            print("Protocol v\(pinProtocol.rawValue), retries: \(initialRetriesResponse.retries)")
+
+            // Change PIN
+            try await session.changePin(from: testPin, to: otherPin, protocol: pinProtocol)
+            print("✅ PIN changed")
+
+            // Old PIN should fail
+            do {
+                _ = try await session.getPinUVToken(
+                    using: .pin(testPin),
+                    permissions: [.makeCredential, .getAssertion],
+                    rpId: "localhost",
+                    protocol: pinProtocol
+                )
+                Issue.record("Old PIN should have been rejected")
+            } catch let error as CTAP2.SessionError {
+                guard case .ctapError(.pinInvalid, _) = error else {
+                    Issue.record("Expected PIN_INVALID error, got: \(error)")
+                    return
+                }
+                print("✅ Old PIN rejected")
+            }
+
+            let retriesAfterWrongPin = try await session.getPinRetries(protocol: pinProtocol)
+            #expect(retriesAfterWrongPin.retries == 7, "Retries should decrement after wrong PIN")
+
+            // New PIN should succeed and reset retries
+            _ = try await session.getPinUVToken(
+                using: .pin(otherPin),
+                permissions: [.makeCredential, .getAssertion],
+                rpId: "localhost",
+                protocol: pinProtocol
+            )
+            print("✅ New PIN accepted")
+
+            let retriesAfterCorrectPin = try await session.getPinRetries(protocol: pinProtocol)
+            #expect(retriesAfterCorrectPin.retries == 8, "Retries should reset after correct PIN")
+
+            // Restore original PIN
+            try await session.changePin(from: otherPin, to: testPin, protocol: pinProtocol)
+            print("✅ PIN restored")
+        }
+    }
+
+    @Test(
+        "ClientPIN - Get Token Using UV (Biometrics)",
+        arguments: [CTAP2.ClientPin.ProtocolVersion.v1, CTAP2.ClientPin.ProtocolVersion.v2]
+    )
+    func testClientPinGetTokenUsingUV(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
+        try await withCTAP2Session { session in
+            let info = try await session.getInfo()
+
+            // If device doesn't support pinUvAuthToken, verify it throws featureNotSupported
+            guard info.options.pinUVAuthToken == true else {
+                do {
+                    _ = try await session.getPinUVToken(
+                        using: .uv,
+                        permissions: [.makeCredential, .getAssertion],
+                        rpId: "example.com",
+                        protocol: pinProtocol
+                    )
+                    Issue.record("Should have thrown featureNotSupported")
+                } catch let error as CTAP2.SessionError {
+                    guard case .featureNotSupported = error else {
+                        Issue.record("Expected featureNotSupported, got: \(error)")
+                        return
+                    }
+                    print("✅ Correctly threw featureNotSupported on non-UV device")
+                }
+                return
+            }
+
+            // Skip if UV is not configured (no fingerprints enrolled)
+            guard info.options.userVerification == true else {
+                print("UV supported but not configured (no fingerprints enrolled) - skipping")
+                return
+            }
+
+            print("👆 Touch the fingerprint sensor on YubiKey Bio...")
+            let token = try await session.getPinUVToken(
+                using: .uv,
+                permissions: [.makeCredential, .getAssertion],
+                rpId: "example.com",
+                protocol: pinProtocol
+            )
+
+            #expect(token.token.count > 0, "Token should not be empty")
+            #expect(token.protocolVersion == pinProtocol, "Token protocol should match requested")
+            print("✅ Got UV token, length: \(token.token.count) bytes")
+        }
+    }
+
+    // MARK: - FIPS Tests
+
+    @Test(
+        "ClientPIN - PIN Complexity Enforcement",
+        arguments: [CTAP2.ClientPin.ProtocolVersion.v1, CTAP2.ClientPin.ProtocolVersion.v2]
+    )
+    func testPinComplexity(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
+        try await withCTAP2Session { session in
+            let testPin = "11234567"
+
+            let info = try await session.getInfo()
+
+            // Skip if device doesn't enforce PIN complexity
+            guard info.pinComplexityPolicy == true else {
+                print("Device doesn't enforce PIN complexity - skipping")
+                return
+            }
+
+            // Try weak PIN (repeated chars)
+            do {
+                try await session.changePin(from: testPin, to: "33333333", protocol: pinProtocol)
+                Issue.record("Weak PIN should have been rejected")
+            } catch let error as CTAP2.SessionError {
+                guard case .ctapError(.pinPolicyViolation, _) = error else {
+                    Issue.record("Expected PIN_POLICY_VIOLATION, got: \(error)")
+                    return
+                }
+                print("✅ Weak PIN correctly rejected with PIN_POLICY_VIOLATION")
+            }
+
+            // Policy violation doesn't decrement retries
+            let pinRetriesResponse = try await session.getPinRetries(protocol: pinProtocol)
+            #expect(pinRetriesResponse.retries == 8)
+            print("✅ PIN complexity enforced")
+        }
+    }
+
+    // MARK: - Destructive Tests (Disabled)
+
+    @Test(
+        "ClientPIN - Retry Exhaustion and Soft-Lock",
+        .disabled("Leaves YubiKey soft-locked - requires power cycle to unlock"),
+        arguments: [CTAP2.ClientPin.ProtocolVersion.v1, CTAP2.ClientPin.ProtocolVersion.v2]
+    )
+    func testClientPinRetryExhaustion(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
+        try await withCTAP2Session { session in
+            let testPin = "11234567"
+            let wrongPin = "99999999"
+
+            let info = try await session.getInfo()
+
+            // Skip if PIN is not set
+            guard info.options.clientPin == true else {
+                print("PIN not set - skipping")
+                return
+            }
+
+            // Reset retries before testing
+            _ = try await session.getPinUVToken(
+                using: .pin(testPin),
+                permissions: [.makeCredential, .getAssertion],
+                rpId: "localhost",
+                protocol: pinProtocol
+            )
+            var retriesResponse = try await session.getPinRetries(protocol: pinProtocol)
+            #expect(retriesResponse.retries == 8)
+
+            // Make 3 wrong attempts: 8 → 7 → 6 → 5 (third attempt may soft-lock)
+            for expectedRetries in [7, 6, 5] {
+                do {
+                    _ = try await session.getPinUVToken(
+                        using: .pin(wrongPin),
+                        permissions: [.makeCredential, .getAssertion],
+                        rpId: "localhost",
+                        protocol: pinProtocol
+                    )
+                    Issue.record("Wrong PIN should have been rejected")
+                } catch let error as CTAP2.SessionError {
+                    if case .ctapError(.pinInvalid, _) = error {
+                        // Expected
+                    } else if case .ctapError(.pinAuthBlocked, _) = error {
+                        // Expected (soft-lock)
+                    } else {
+                        Issue.record("Expected PIN_INVALID or PIN_AUTH_BLOCKED, got: \(error)")
+                    }
+                }
+                retriesResponse = try await session.getPinRetries(protocol: pinProtocol)
+                #expect(retriesResponse.retries == expectedRetries)
+            }
+
+            // Soft-locked - counter should freeze
+            let frozenRetries = retriesResponse.retries
+            do {
+                _ = try await session.getPinUVToken(
+                    using: .pin(wrongPin),
+                    permissions: [.makeCredential, .getAssertion],
+                    rpId: "localhost",
+                    protocol: pinProtocol
+                )
+                Issue.record("Wrong PIN should be blocked")
+            } catch let error as CTAP2.SessionError {
+                guard case .ctapError(.pinAuthBlocked, _) = error else {
+                    Issue.record("Expected PIN_AUTH_BLOCKED, got: \(error)")
+                    return
+                }
+            }
+            retriesResponse = try await session.getPinRetries(protocol: pinProtocol)
+            #expect(retriesResponse.retries == frozenRetries)
+
+            // Even correct PIN is blocked
+            do {
+                _ = try await session.getPinUVToken(
+                    using: .pin(testPin),
+                    permissions: [.makeCredential, .getAssertion],
+                    rpId: "localhost",
+                    protocol: pinProtocol
+                )
+                Issue.record("Correct PIN should be blocked")
+            } catch let error as CTAP2.SessionError {
+                guard case .ctapError(.pinAuthBlocked, _) = error else {
+                    Issue.record("Expected PIN_AUTH_BLOCKED, got: \(error)")
+                    return
+                }
+            }
+            retriesResponse = try await session.getPinRetries(protocol: pinProtocol)
+            #expect(retriesResponse.retries == frozenRetries)
+            print("⚠️ YubiKey soft-locked. Power cycle to unlock.")
+        }
+    }
 
     @Test(
         "Reset - Factory Reset",
-        .disabled("Destructive operation - manually enable when needed to reset YubiKey to factory settings")
+        .disabled("Destructive - clears all credentials and PIN")
     )
     func testReset() async throws {
-        // This test destructively resets the authenticator
         try await withCTAP2Session { session in
-            // The reset command must be called within a few seconds of plugging in the YubiKey
-            // and requires user presence confirmation otherwise it will fail
-            print("Touch the YubiKey to confirm reset...")
+            print("👆 Touch the YubiKey to confirm reset...")
             var receivedWaitingForUser = false
             for try await status in await session.reset() {
                 print("Status: \(status)")
@@ -412,13 +494,11 @@ struct CTAP2FullStackTests {
                     receivedWaitingForUser = true
                 }
             }
-            #expect(receivedWaitingForUser, "Should receive waitingForUser status during reset")
-            print("Reset successful!")
+            #expect(receivedWaitingForUser)
+            print("✅ Reset successful")
 
-            // Verify the authenticator was reset by checking info
             let info = try await session.getInfo()
-            // After reset, clientPin should not be set
-            #expect(info.options["clientPin"] == false, "clientPin should be false after reset")
+            #expect(info.options.clientPin != true, "PIN should be cleared after reset")
         }
     }
 

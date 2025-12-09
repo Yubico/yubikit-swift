@@ -45,21 +45,21 @@ struct MakeCredentialSerializationTests {
         // Add credential public key (minimal COSE key for ES256)
         // Note: negativeInt(6) encodes as -7 in CBOR (n = -1 - 6 = -7)
         let coseKey: [CBOR.Value: CBOR.Value] = [
-            .unsignedInt(1): .unsignedInt(2),  // kty: EC2
-            .unsignedInt(3): .negativeInt(6),  // alg: ES256 (-7)
-            .negativeInt(0): .unsignedInt(1),  // crv: P-256
-            .negativeInt(1): .byteString(randomBytes(count: 32)),  // x
-            .negativeInt(2): .byteString(randomBytes(count: 32)),  // y
+            .int(1): .int(2),  // kty: EC2
+            .int(3): .int(-7),  // alg: ES256
+            .int(-1): .int(1),  // crv: P-256
+            .int(-2): .byteString(randomBytes(count: 32)),  // x
+            .int(-3): .byteString(randomBytes(count: 32)),  // y
         ]
         authDataBytes.append(CBOR.Value.map(coseKey).encode())
 
         // Build CBOR response
         let response: [CBOR.Value: CBOR.Value] = [
-            .unsignedInt(0x01): .textString("packed"),  // fmt
-            .unsignedInt(0x02): .byteString(authDataBytes),  // authData
-            .unsignedInt(0x03): .map([  // attStmt
+            .int(0x01): .textString("packed"),  // fmt
+            .int(0x02): .byteString(authDataBytes),  // authData
+            .int(0x03): .map([  // attStmt
                 .textString("sig"): .byteString(randomBytes(count: 70)),
-                .textString("alg"): .negativeInt(6),  // ES256 (-7)
+                .textString("alg"): .int(-7),  // ES256
             ]),
         ]
 
@@ -96,9 +96,9 @@ struct MakeCredentialSerializationTests {
         authDataBytes.append(contentsOf: [0x00, 0x00, 0x00, 0x01])
 
         let response: [CBOR.Value: CBOR.Value] = [
-            .unsignedInt(0x01): .textString("none"),
-            .unsignedInt(0x02): .byteString(authDataBytes),
-            .unsignedInt(0x03): .map([:]),  // empty attStmt for "none"
+            .int(0x01): .textString("none"),
+            .int(0x02): .byteString(authDataBytes),
+            .int(0x03): .map([:]),  // empty attStmt for "none"
         ]
 
         let cborData = CBOR.Value.map(response).encode()
@@ -126,10 +126,10 @@ struct MakeCredentialSerializationTests {
         authDataBytes.append(contentsOf: [0x00, 0x00, 0x00, 0x01])
 
         let response: [CBOR.Value: CBOR.Value] = [
-            .unsignedInt(0x01): .textString("none"),
-            .unsignedInt(0x02): .byteString(authDataBytes),
-            .unsignedInt(0x03): .map([:]),
-            .unsignedInt(0x05): .byteString(largeBlobKey),  // largeBlobKey
+            .int(0x01): .textString("none"),
+            .int(0x02): .byteString(authDataBytes),
+            .int(0x03): .map([:]),
+            .int(0x05): .byteString(largeBlobKey),  // largeBlobKey
         ]
 
         let cborData = CBOR.Value.map(response).encode()
@@ -146,8 +146,8 @@ struct MakeCredentialSerializationTests {
     func testCredentialDataMissingField() throws {
         // Missing authData field
         let response: [CBOR.Value: CBOR.Value] = [
-            .unsignedInt(0x01): .textString("none"),
-            .unsignedInt(0x03): .map([:]),
+            .int(0x01): .textString("none"),
+            .int(0x03): .map([:]),
         ]
 
         let cborData = CBOR.Value.map(response).encode()

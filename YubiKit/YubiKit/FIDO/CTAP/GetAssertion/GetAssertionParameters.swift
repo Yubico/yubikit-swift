@@ -34,28 +34,30 @@ extension CTAP2.GetAssertion {
         /// Authenticator options.
         let options: Options?
 
-        /// PIN/UV auth parameter.
-        let pinUvAuthParam: Data?
+        /// PIN/UV auth parameter (populated automatically when using PIN authentication).
+        private(set) var pinUVAuthParam: Data?
 
-        /// PIN/UV protocol version (1 or 2).
-        let pinUvAuthProtocol: Int?
+        /// PIN/UV protocol version (populated automatically when using PIN authentication).
+        private(set) var pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion?
+
+        /// Sets the PIN/UV authentication parameters using a PIN token.
+        mutating func setAuthentication(pinToken: CTAP2.ClientPin.Token) {
+            self.pinUVAuthParam = pinToken.authenticate(message: clientDataHash)
+            self.pinUVAuthProtocol = pinToken.protocolVersion
+        }
 
         init(
             rpId: String,
             clientDataHash: Data,
             allowList: [PublicKeyCredential.Descriptor]? = nil,
             extensions: Extensions? = nil,
-            options: Options? = nil,
-            pinUvAuthParam: Data? = nil,
-            pinUvAuthProtocol: Int? = nil
+            options: Options? = nil
         ) {
             self.rpId = rpId
             self.clientDataHash = clientDataHash
             self.allowList = allowList
             self.extensions = extensions
             self.options = options
-            self.pinUvAuthParam = pinUvAuthParam
-            self.pinUvAuthProtocol = pinUvAuthProtocol
         }
 
         /// Authenticator options for getAssertion.
