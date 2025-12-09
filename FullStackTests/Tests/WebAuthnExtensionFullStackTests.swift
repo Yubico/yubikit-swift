@@ -1,0 +1,275 @@
+// Copyright Yubico AB
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import Foundation
+import Testing
+
+@testable import FullStackTests
+@testable import YubiKit
+
+/// WebAuthn Extension Full Stack Tests
+///
+/// These tests mirror Python's `test_prf` and `test_prf_mc` from
+/// `tests/device/test_prf.py` in the python-fido2 library.
+@Suite("WebAuthn Extension Full Stack Tests", .serialized)
+struct WebAuthnExtensionFullStackTests {
+
+    private let testPin = "11234567"
+
+    // MARK: - PRF Extension Tests (mirrors Python's test_prf)
+
+    @Test("PRF - Enable at MakeCredential and Derive Secrets at GetAssertion")
+    func testPRF() async throws {
+        try await withCTAP2Session { session in
+            guard try await CTAP2.Extension.HmacSecret.isSupported(by: session) else {
+                print("Device doesn't support hmac-secret - skipping PRF test")
+                return
+            }
+
+            let info = try await session.getInfo()
+            guard info.options.clientPin == true else {
+                print("PIN not set - skipping PRF test")
+                return
+            }
+
+            let rpId = "prf-test.example.com"
+            let clientDataHash = Data(repeating: 0xCD, count: 32)
+
+            // 1. Create a credential with PRF enabled (via hmac-secret)
+            let makeCredParams = CTAP2.MakeCredential.Parameters(
+                clientDataHash: clientDataHash,
+                rp: PublicKeyCredential.RPEntity(id: rpId, name: "PRF Test"),
+                user: PublicKeyCredential.UserEntity(
+                    id: Data(repeating: 0x60, count: 32),
+                    name: "prf@test.com",
+                    displayName: "PRF User"
+                ),
+                pubKeyCredParams: [.es256],
+                options: .init(rk: true),
+                extensions: [CTAP2.Extension.HmacSecret.makeCredential()]
+            )
+
+            print("👆 Touch the YubiKey to create credential with PRF support...")
+            let makeCredResponse = try await session.makeCredential(parameters: makeCredParams).value
+
+            // Verify hmac-secret is enabled (PRF enabled = hmac-secret enabled)
+            let hmacResult = try CTAP2.Extension.HmacSecret.makeCredential().result(from: makeCredResponse)
+            if case .enabled(let enabled) = hmacResult {
+                #expect(enabled == true, "PRF should be enabled")
+                print("✅ PRF enabled: \(enabled)")
+            }
+
+            guard let attestedData = makeCredResponse.authenticatorData.attestedCredentialData else {
+                Issue.record("Missing attested credential data")
+                return
+            }
+            let credentialId = attestedData.credentialId
+            print("✅ Credential created")
+
+            // 2. Get PIN token for assertions
+            let pinToken = try await session.getPinUVToken(
+                using: .pin(testPin),
+                permissions: [.getAssertion],
+                rpId: rpId
+            )
+
+            // 3. Authenticate with PRF using one secret
+            let secret1 = Data(repeating: 0xAA, count: 32)
+
+            let prfExt1 = try await WebAuthn.Extension.PRF.getAssertion(
+                first: secret1,
+                session: session
+            )
+
+            let getAssertionParams1 = CTAP2.GetAssertion.Parameters(
+                rpId: rpId,
+                clientDataHash: clientDataHash,
+                allowList: [PublicKeyCredential.Descriptor(type: .publicKey, id: credentialId)],
+                extensions: [prfExt1],
+                options: .init(up: true, uv: true)
+            )
+
+            print("👆 Touch the YubiKey for PRF assertion (one secret)...")
+            let assertionResponse1 = try await session.getAssertion(parameters: getAssertionParams1, pinToken: pinToken)
+                .value
+
+            guard let (output1First, _) = try prfExt1.result(from: assertionResponse1) else {
+                Issue.record("Expected PRF output in first assertion")
+                return
+            }
+            #expect(output1First.count == 32)
+            print("✅ PRF output1.first: \(output1First.prefix(8).hexEncodedString)...")
+
+            // 4. Authenticate again with two secrets using evalByCredential
+            let secret2 = Data(repeating: 0xBB, count: 32)
+
+            let prfProcessor = try await WebAuthn.Extension.PRF.processor(
+                first: secret1,
+                second: secret2,
+                evalByCredential: [credentialId: (first: secret1, second: secret2)],
+                session: session
+            )
+
+            let prfExt2 = try prfProcessor.makeExtension(for: credentialId)
+
+            let getAssertionParams2 = CTAP2.GetAssertion.Parameters(
+                rpId: rpId,
+                clientDataHash: clientDataHash,
+                allowList: [PublicKeyCredential.Descriptor(type: .publicKey, id: credentialId)],
+                extensions: [prfExt2],
+                options: .init(up: true, uv: true)
+            )
+
+            print("👆 Touch the YubiKey for PRF assertion (two secrets, evalByCredential)...")
+            let assertionResponse2 = try await session.getAssertion(parameters: getAssertionParams2, pinToken: pinToken)
+                .value
+
+            guard let (output2First, output2Second) = try prfProcessor.result(from: assertionResponse2) else {
+                Issue.record("Expected PRF output in second assertion")
+                return
+            }
+
+            // Same secret1 should produce same output
+            #expect(output2First == output1First, "Same secret should produce same output")
+            // Second output should be different
+            #expect(output2Second != nil, "Should have second output")
+            #expect(output2Second != output2First, "Different secrets should produce different outputs")
+
+            print("✅ PRF evalByCredential results:")
+            print("   first:  \(output2First.prefix(8).hexEncodedString)... (matches previous)")
+            print("   second: \(output2Second?.prefix(8).hexEncodedString ?? "nil")...")
+        }
+    }
+
+    // MARK: - PRF MC Extension Tests (mirrors Python's test_prf_mc)
+
+    @Test("PRF MC - Derive Secrets at MakeCredential (CTAP2.2)")
+    func testPRFMakeCredential() async throws {
+        try await withCTAP2Session { session in
+            let info = try await session.getInfo()
+
+            // hmac-secret-mc requires CTAP 2.2
+            guard info.extensions.contains(CTAP2.Extension.HmacSecret.mcIdentifier) else {
+                print("Device doesn't support hmac-secret-mc (CTAP2.2) - skipping PRF MC test")
+                return
+            }
+
+            guard info.options.clientPin == true else {
+                print("PIN not set - skipping PRF MC test")
+                return
+            }
+
+            let rpId = "prf-mc-test.example.com"
+            let clientDataHash = Data(repeating: 0xCD, count: 32)
+
+            // Generate PRF secrets
+            let secret1 = Data(repeating: 0xCC, count: 32)
+            let secret2 = Data(repeating: 0xDD, count: 32)
+
+            // Get PIN token for MakeCredential and GetAssertion
+            let pinToken = try await session.getPinUVToken(
+                using: .pin(testPin),
+                permissions: [.makeCredential, .getAssertion],
+                rpId: rpId
+            )
+
+            // Create hmac-secret-mc extension with PRF salt transformation
+            let salt1 = WebAuthn.Extension.PRF.prfSalt(secret1)
+            let salt2 = WebAuthn.Extension.PRF.prfSalt(secret2)
+
+            let hmacSecretMC = try await CTAP2.Extension.HmacSecret.makeCredential(
+                salt1: salt1,
+                salt2: salt2,
+                session: session
+            )
+
+            let makeCredParams = CTAP2.MakeCredential.Parameters(
+                clientDataHash: clientDataHash,
+                rp: PublicKeyCredential.RPEntity(id: rpId, name: "PRF MC Test"),
+                user: PublicKeyCredential.UserEntity(
+                    id: Data(repeating: 0x70, count: 32),
+                    name: "prf-mc@test.com",
+                    displayName: "PRF MC User"
+                ),
+                pubKeyCredParams: [.es256],
+                options: .init(rk: true, uv: true),
+                extensions: [hmacSecretMC]
+            )
+
+            print("👆 Touch the YubiKey to create credential with PRF secrets...")
+            let makeCredResponse = try await session.makeCredential(parameters: makeCredParams, pinToken: pinToken)
+                .value
+
+            // Verify we got secrets back at registration
+            guard let result = try hmacSecretMC.result(from: makeCredResponse) else {
+                Issue.record("Expected hmac-secret-mc response")
+                return
+            }
+
+            guard case .secrets(let mcOutput1, let mcOutput2) = result else {
+                Issue.record("Expected .secrets result from hmac-secret-mc")
+                return
+            }
+
+            #expect(mcOutput1.count == 32)
+            #expect(mcOutput2?.count == 32)
+            print("✅ PRF MakeCredential derived secrets:")
+            print("   first:  \(mcOutput1.prefix(8).hexEncodedString)...")
+            print("   second: \(mcOutput2?.prefix(8).hexEncodedString ?? "nil")...")
+
+            guard let attestedData = makeCredResponse.authenticatorData.attestedCredentialData else {
+                Issue.record("Missing attested credential data")
+                return
+            }
+            let credentialId = attestedData.credentialId
+
+            // Now authenticate with the same secrets via evalByCredential
+            // and verify we get the same outputs (determinism)
+            let prfProcessor = try await WebAuthn.Extension.PRF.processor(
+                first: secret1,
+                second: secret2,
+                evalByCredential: [credentialId: (first: secret1, second: secret2)],
+                session: session
+            )
+
+            let prfExt = try prfProcessor.makeExtension(for: credentialId)
+
+            let getAssertionParams = CTAP2.GetAssertion.Parameters(
+                rpId: rpId,
+                clientDataHash: clientDataHash,
+                allowList: [PublicKeyCredential.Descriptor(type: .publicKey, id: credentialId)],
+                extensions: [prfExt],
+                options: .init(up: true, uv: true)
+            )
+
+            print("👆 Touch the YubiKey for PRF assertion (verifying determinism)...")
+            let assertionResponse = try await session.getAssertion(parameters: getAssertionParams, pinToken: pinToken)
+                .value
+
+            guard let (gaOutput1, gaOutput2) = try prfProcessor.result(from: assertionResponse) else {
+                Issue.record("Expected PRF output in assertion")
+                return
+            }
+
+            // Outputs should match what we got at MakeCredential
+            #expect(gaOutput1 == mcOutput1, "GetAssertion output1 should match MakeCredential output1")
+            #expect(gaOutput2 == mcOutput2, "GetAssertion output2 should match MakeCredential output2")
+
+            print("✅ PRF outputs are deterministic:")
+            print("   MakeCredential first:  \(mcOutput1.prefix(8).hexEncodedString)...")
+            print("   GetAssertion first:    \(gaOutput1.prefix(8).hexEncodedString)...")
+            print("   Match: \(gaOutput1 == mcOutput1)")
+        }
+    }
+}

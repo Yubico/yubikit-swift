@@ -55,6 +55,9 @@ extension CTAP2 {
         /// CBOR encoding/decoding error.
         case cborError(_ error: CBOR.Error, source: SourceLocation)
 
+        /// A CTAP2 extension is not supported by the authenticator.
+        case extensionNotSupported(_ extension: CTAP2.Extension.Identifier, source: SourceLocation)
+
         // MARK: - SmartCard-Specific Errors
 
         /// SmartCard APDU response indicated an error.

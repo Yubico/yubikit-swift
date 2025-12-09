@@ -505,7 +505,7 @@ struct CTAP2FullStackTests {
     // MARK: - Helper Methods
 
     #if os(macOS)
-    private func withCTAP2Session<T>(
+    func withCTAP2Session<T>(
         _ body: (FIDO2Session) async throws -> T
     ) async throws -> T {
         let connection = try await HIDFIDOConnection.makeConnection()
@@ -516,7 +516,7 @@ struct CTAP2FullStackTests {
     }
 
     #elseif os(iOS)
-    private func withCTAP2Session<T>(
+    func withCTAP2Session<T>(
         _ body: (FIDO2SessionOverSmartCard) async throws -> T
     ) async throws -> T {
         let connection = try await TestableConnection.create(with: .nfc)

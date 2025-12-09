@@ -97,6 +97,8 @@ extension WebAuthn.Extension {
         ///   - evalByCredential: Per-credential PRF secrets keyed by credential ID.
         ///   - session: The CTAP2 session to use for key agreement.
         /// - Returns: A processor that can generate extensions for any credential.
+        // TODO: Per WebAuthn spec, evalByCredential keys must be a subset of allowList.
+        // Validation requires a WebAuthn client layer that has access to the full request.
         static func processor<I: CBORInterface>(
             first: Data,
             second: Data? = nil,
@@ -150,6 +152,9 @@ extension WebAuthn.Extension.PRF {
             evalByCredential: [Data: (first: Data, second: Data?)] = [:],
             session: CTAP2.Session<I>
         ) async throws(CTAP2.SessionError) -> Processor where I.Error == CTAP2.SessionError {
+            guard try await CTAP2.Extension.HmacSecret.isSupported(by: session) else {
+                throw .extensionNotSupported(CTAP2.Extension.HmacSecret.identifier, source: .here())
+            }
             let sharedSecret = try await CTAP2.Extension.HmacSecret.SharedSecret.create(
                 session: session
             )
@@ -174,10 +179,10 @@ extension WebAuthn.Extension.PRF {
             let salt1 = WebAuthn.Extension.PRF.prfSalt(secrets.first)
             let salt2 = secrets.second.map { WebAuthn.Extension.PRF.prfSalt($0) }
 
-            return try CTAP2.Extension.HmacSecret.getAssertion(
+            return try CTAP2.Extension.HmacSecret.GetAssertion(
+                sharedSecret: sharedSecret,
                 salt1: salt1,
-                salt2: salt2,
-                sharedSecret: sharedSecret
+                salt2: salt2
             )
         }
 
@@ -191,40 +196,37 @@ extension WebAuthn.Extension.PRF {
         ) throws(CTAP2.SessionError) -> (output1: Data, output2: Data?)? {
             guard
                 let ciphertext = response.authenticatorData.extensions?[
-                    CTAP2.Extension.HmacSecret.name
+                    CTAP2.Extension.HmacSecret.identifier
                 ]?.dataValue
             else {
                 return nil
             }
-            return try CTAP2.Extension.HmacSecret.decryptOutputs(
-                ciphertext: ciphertext,
-                using: sharedSecret
-            )
+            return try decryptOutputs(ciphertext: ciphertext)
         }
-    }
-}
 
-// MARK: - HmacSecret Extension for PRF
+        /// Decrypts hmac-secret outputs from authenticator response.
+        private func decryptOutputs(
+            ciphertext: Data
+        ) throws(CTAP2.SessionError) -> (output1: Data, output2: Data?) {
+            let decrypted = try sharedSecret.decrypt(ciphertext: ciphertext)
+            let saltLength = CTAP2.Extension.HmacSecret.saltLength
 
-extension CTAP2.Extension.HmacSecret {
-    /// Creates a GetAssertion extension using an existing shared secret.
-    ///
-    /// Used by WebAuthn PRF for evalByCredential where key agreement
-    /// happens once but salts are selected per-credential.
-    ///
-    /// - Parameters:
-    ///   - salt1: First salt (must be exactly 32 bytes).
-    ///   - salt2: Optional second salt (must be exactly 32 bytes if provided).
-    ///   - sharedSecret: Pre-established shared secret from key agreement.
-    /// - Returns: A GetAssertion extension ready to be included in the request.
-    static func getAssertion(
-        salt1: Data,
-        salt2: Data? = nil,
-        sharedSecret: SharedSecret
-    ) throws(CTAP2.SessionError) -> GetAssertion {
-        try validateSalts(salt1: salt1, salt2: salt2)
-        let saltsData = salt2.map { salt1 + $0 } ?? salt1
-        let (saltEnc, saltAuth) = try sharedSecret.encrypt(salts: saltsData)
-        return GetAssertion(sharedSecret: sharedSecret, saltEnc: saltEnc, saltAuth: saltAuth)
+            guard decrypted.count >= saltLength else {
+                throw .responseParseError(
+                    "hmac-secret output too short: expected at least \(saltLength) bytes",
+                    source: .here()
+                )
+            }
+
+            let output1 = Data(decrypted.prefix(saltLength))
+            let output2: Data? =
+                if decrypted.count >= saltLength * 2 {
+                    Data(decrypted.dropFirst(saltLength).prefix(saltLength))
+                } else {
+                    nil
+                }
+
+            return (output1, output2)
+        }
     }
 }

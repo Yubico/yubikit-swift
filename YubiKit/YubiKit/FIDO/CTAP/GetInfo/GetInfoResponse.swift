@@ -101,8 +101,8 @@ extension CTAP2.GetInfo {
         /// This is a 128-bit identifier that indicates the type/model of authenticator.
         let aaguid: AAGUID
 
-        /// List of supported extensions (e.g., "hmac-secret", "credProtect").
-        let extensions: [String]
+        /// List of supported extensions (e.g., `.hmacSecret`, `.credProtect`).
+        let extensions: [CTAP2.Extension.Identifier]
 
         /// Supported authenticator options with their current values.
         let options: Options

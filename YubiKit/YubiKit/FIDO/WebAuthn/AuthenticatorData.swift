@@ -38,7 +38,7 @@ extension WebAuthn {
         /// Raw extension outputs map (present when ED flag is set).
         ///
         /// Use extension-specific `result(from:)` methods for typed access to extension outputs.
-        internal let extensions: [String: CBOR.Value]?
+        internal let extensions: [CTAP2.Extension.Identifier: CBOR.Value]?
 
         /// Authenticator data flags.
         struct Flags: OptionSet, Sendable {
@@ -115,13 +115,13 @@ extension WebAuthn.AuthenticatorData {
             else {
                 return nil
             }
-            // Convert CBOR map to [String: CBOR.Value]
-            var extensions: [String: CBOR.Value] = [:]
+            // Convert CBOR map to [Identifier: CBOR.Value]
+            var extensions: [CTAP2.Extension.Identifier: CBOR.Value] = [:]
             for (key, value) in map {
-                guard let name = key.stringValue else {
+                guard let identifier: CTAP2.Extension.Identifier = key.cborDecoded() else {
                     return nil  // Extension keys must be strings
                 }
-                extensions[name] = value
+                extensions[identifier] = value
             }
             self.extensions = extensions
         } else {
