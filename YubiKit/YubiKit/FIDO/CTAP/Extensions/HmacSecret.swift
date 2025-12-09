@@ -121,7 +121,10 @@ extension CTAP2.Extension {
         /// Derive secrets during authentication.
         ///
         /// This method performs ECDH key agreement with the authenticator and encrypts
-        /// the provided salts.
+        /// the provided salts. Use this for simple single-credential scenarios.
+        ///
+        /// For multi-credential scenarios with per-credential salts, use
+        /// ``processor(salt1:salt2:saltsByCredential:session:)`` instead.
         ///
         /// - Parameters:
         ///   - salt1: First salt (must be exactly 32 bytes).
@@ -135,6 +138,7 @@ extension CTAP2.Extension {
         ) async throws(CTAP2.SessionError) -> GetAssertion where I.Error == CTAP2.SessionError {
             try await GetAssertion.create(salt1: salt1, salt2: salt2, session: session)
         }
+
     }
 }
 
@@ -345,50 +349,28 @@ extension CTAP2.Extension.HmacSecret.MakeCredential {
     }
 }
 
-// MARK: - GetAssertion Extension
+// MARK: - Shared Secret State
 
 extension CTAP2.Extension.HmacSecret {
-    /// hmac-secret extension for GetAssertion.
+    /// Shared cryptographic state for hmac-secret operations.
     ///
-    /// Create instances using ``CTAP2/Extension/HmacSecret/getAssertion(salt1:salt2:session:)``.
-    struct GetAssertion: CTAP2.Extension.GetAssertion.Parameters,
-        CTAP2.Extension.GetAssertion.Response
-    {
-        static let name = CTAP2.Extension.HmacSecret.name
-
+    /// This holds the ECDH key agreement result and provides encryption/decryption
+    /// for hmac-secret salt exchange.
+    ///
+    /// - Note: Internal for use by ``WebAuthn/Extension/PRF``.
+    internal struct SharedSecret: Sendable {
         /// Client's COSE public key for ECDH.
-        private let keyAgreement: COSE.Key
+        let keyAgreement: COSE.Key
 
-        /// Encrypted salts (AES-CBC).
-        private let saltEnc: Data
-
-        /// HMAC authentication tag over encrypted salts.
-        private let saltAuth: Data
+        /// The derived shared secret.
+        private let secret: Data
 
         /// PIN/UV auth protocol version.
-        private let pinUvAuthProtocol: CTAP2.ClientPin.ProtocolVersion
+        let protocolVersion: CTAP2.ClientPin.ProtocolVersion
 
-        /// Shared secret for decrypting the response.
-        private let sharedSecret: Data
-
-        fileprivate static func create<I: CBORInterface>(
-            salt1: Data,
-            salt2: Data? = nil,
+        static func create<I: CBORInterface>(
             session: CTAP2.Session<I>
-        ) async throws(CTAP2.SessionError) -> GetAssertion where I.Error == CTAP2.SessionError {
-            guard salt1.count == CTAP2.Extension.HmacSecret.saltLength else {
-                throw .illegalArgument(
-                    "salt1 must be exactly \(CTAP2.Extension.HmacSecret.saltLength) bytes",
-                    source: .here()
-                )
-            }
-            if let salt2, salt2.count != CTAP2.Extension.HmacSecret.saltLength {
-                throw .illegalArgument(
-                    "salt2 must be exactly \(CTAP2.Extension.HmacSecret.saltLength) bytes",
-                    source: .here()
-                )
-            }
-
+        ) async throws(CTAP2.SessionError) -> SharedSecret where I.Error == CTAP2.SessionError {
             let pinProtocol = try await session.preferredClientPinProtocol
             let authenticatorKey = try await getKeyAgreement(session: session, protocol: pinProtocol)
 
@@ -396,26 +378,92 @@ extension CTAP2.Extension.HmacSecret {
             let sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
             let clientKey = pinProtocol.coseKey(from: keyPair)
 
+            return SharedSecret(
+                keyAgreement: clientKey,
+                secret: sharedSecret,
+                protocolVersion: pinProtocol
+            )
+        }
+
+        func encrypt(salts: Data) throws(CTAP2.SessionError) -> (saltEnc: Data, saltAuth: Data) {
+            let saltEnc = try protocolVersion.encrypt(key: secret, plaintext: salts)
+            let saltAuth = protocolVersion.authenticate(key: secret, message: saltEnc)
+            return (saltEnc, saltAuth)
+        }
+
+        func decrypt(ciphertext: Data) throws(CTAP2.SessionError) -> Data {
+            try protocolVersion.decrypt(key: secret, ciphertext: ciphertext)
+        }
+
+        private static func getKeyAgreement<I: CBORInterface>(
+            session: CTAP2.Session<I>,
+            protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion
+        ) async throws(CTAP2.SessionError) -> COSE.Key where I.Error == CTAP2.SessionError {
+            let params = CTAP2.ClientPin.GetKeyAgreement.Parameters(pinUVAuthProtocol: pinProtocol)
+            let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetKeyAgreement.Response> =
+                await session.interface.send(
+                    command: .clientPin,
+                    payload: params
+                )
+            return try await stream.value.keyAgreement
+        }
+    }
+}
+
+// MARK: - GetAssertion Extension
+
+extension CTAP2.Extension.HmacSecret {
+    /// hmac-secret extension for GetAssertion.
+    ///
+    /// Create instances using ``CTAP2/Extension/HmacSecret/getAssertion(salt1:salt2:session:)``.
+    ///
+    /// For multi-credential scenarios with per-credential salts (WebAuthn PRF evalByCredential),
+    /// use ``WebAuthn/Extension/PRF/Processor`` instead.
+    struct GetAssertion: CTAP2.Extension.GetAssertion.Parameters,
+        CTAP2.Extension.GetAssertion.Response
+    {
+        static let name = CTAP2.Extension.HmacSecret.name
+
+        /// Shared secret state for encryption/decryption.
+        private let sharedSecret: SharedSecret
+
+        /// Encrypted salts (AES-CBC).
+        private let saltEnc: Data
+
+        /// HMAC authentication tag over encrypted salts.
+        private let saltAuth: Data
+
+        init(sharedSecret: SharedSecret, saltEnc: Data, saltAuth: Data) {
+            self.sharedSecret = sharedSecret
+            self.saltEnc = saltEnc
+            self.saltAuth = saltAuth
+        }
+
+        fileprivate static func create<I: CBORInterface>(
+            salt1: Data,
+            salt2: Data? = nil,
+            session: CTAP2.Session<I>
+        ) async throws(CTAP2.SessionError) -> GetAssertion where I.Error == CTAP2.SessionError {
+            try validateSalts(salt1: salt1, salt2: salt2)
+
+            let sharedSecret = try await SharedSecret.create(session: session)
             let saltsData = salt2.map { salt1 + $0 } ?? salt1
-            let saltEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: saltsData)
-            let saltAuth = pinProtocol.authenticate(key: sharedSecret, message: saltEnc)
+            let (saltEnc, saltAuth) = try sharedSecret.encrypt(salts: saltsData)
 
             return GetAssertion(
-                keyAgreement: clientKey,
+                sharedSecret: sharedSecret,
                 saltEnc: saltEnc,
-                saltAuth: saltAuth,
-                pinUvAuthProtocol: pinProtocol,
-                sharedSecret: sharedSecret
+                saltAuth: saltAuth
             )
         }
 
         func asExtensionInputs() -> [String: CBOR.Value] {
             [
                 CTAP2.Extension.HmacSecret.name: .map([
-                    .int(1): keyAgreement.cbor(),
+                    .int(1): sharedSecret.keyAgreement.cbor(),
                     .int(2): .byteString(saltEnc),
                     .int(3): .byteString(saltAuth),
-                    .int(4): .int(pinUvAuthProtocol.rawValue),
+                    .int(4): .int(sharedSecret.protocolVersion.rawValue),
                 ])
             ]
         }
@@ -435,48 +483,55 @@ extension CTAP2.Extension.HmacSecret {
             else {
                 return nil
             }
-            return try decrypt(ciphertext: ciphertext)
+            return try decryptOutputs(ciphertext: ciphertext, using: sharedSecret)
+        }
+    }
+}
+
+// MARK: - Helpers
+
+extension CTAP2.Extension.HmacSecret {
+    /// Validates salt lengths.
+    static func validateSalts(
+        salt1: Data,
+        salt2: Data?
+    ) throws(CTAP2.SessionError) {
+        guard salt1.count == saltLength else {
+            throw .illegalArgument(
+                "salt1 must be exactly \(saltLength) bytes",
+                source: .here()
+            )
+        }
+        if let salt2, salt2.count != saltLength {
+            throw .illegalArgument(
+                "salt2 must be exactly \(saltLength) bytes",
+                source: .here()
+            )
+        }
+    }
+
+    /// Decrypts hmac-secret outputs from authenticator response.
+    static func decryptOutputs(
+        ciphertext: Data,
+        using sharedSecret: SharedSecret
+    ) throws(CTAP2.SessionError) -> (output1: Data, output2: Data?) {
+        let decrypted = try sharedSecret.decrypt(ciphertext: ciphertext)
+
+        guard decrypted.count >= saltLength else {
+            throw .responseParseError(
+                "hmac-secret output too short: expected at least \(saltLength) bytes",
+                source: .here()
+            )
         }
 
-        private func decrypt(ciphertext: Data) throws(CTAP2.SessionError) -> (output1: Data, output2: Data?) {
-            let decrypted = try pinUvAuthProtocol.decrypt(
-                key: sharedSecret,
-                ciphertext: ciphertext
-            )
-
-            guard decrypted.count >= CTAP2.Extension.HmacSecret.saltLength else {
-                throw .responseParseError(
-                    "hmac-secret output too short: expected at least \(CTAP2.Extension.HmacSecret.saltLength) bytes",
-                    source: .here()
-                )
+        let output1 = Data(decrypted.prefix(saltLength))
+        let output2: Data? =
+            if decrypted.count >= saltLength * 2 {
+                Data(decrypted.dropFirst(saltLength).prefix(saltLength))
+            } else {
+                nil
             }
 
-            let output1 = Data(decrypted.prefix(CTAP2.Extension.HmacSecret.saltLength))
-            let output2: Data? =
-                if decrypted.count >= CTAP2.Extension.HmacSecret.saltLength * 2 {
-                    Data(
-                        decrypted.dropFirst(CTAP2.Extension.HmacSecret.saltLength).prefix(
-                            CTAP2.Extension.HmacSecret.saltLength
-                        )
-                    )
-                } else {
-                    nil
-                }
-
-            return (output1, output2)
-        }
-
-        private static func getKeyAgreement<I: CBORInterface>(
-            session: CTAP2.Session<I>,
-            protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion
-        ) async throws(CTAP2.SessionError) -> COSE.Key where I.Error == CTAP2.SessionError {
-            let params = CTAP2.ClientPin.GetKeyAgreement.Parameters(pinUVAuthProtocol: pinProtocol)
-            let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetKeyAgreement.Response> =
-                await session.interface.send(
-                    command: .clientPin,
-                    payload: params
-                )
-            return try await stream.value.keyAgreement
-        }
+        return (output1, output2)
     }
 }
