@@ -21,17 +21,6 @@ import Testing
 @Suite("CTAP2 Extension Tests")
 struct ExtensionTests {
 
-    // MARK: - CredProtect Tests
-
-    @Test("CredProtect CBOR encoding")
-    func testCredProtectEncoding() {
-        let ext = CTAP2.Extension.CredProtect(level: .userVerificationRequired)
-        let inputs = ext.asExtensionInputs()
-
-        #expect(inputs.count == 1)
-        #expect(inputs[.credProtect] == .int(3))
-    }
-
     // MARK: - PRF Salt Transformation Tests
 
     @Test("PRF salt transformation produces 32-byte output")

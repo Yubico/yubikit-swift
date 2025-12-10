@@ -18,9 +18,11 @@
 		6C2B14532DC8CF4C00B5C482 /* SCP03FullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2B144C2DC8CF4C00B5C482 /* SCP03FullStackTests.swift */; };
 		6C2B14542DC8CF4C00B5C482 /* SCPFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2B144F2DC8CF4C00B5C482 /* SCPFullStackTests.swift */; };
 		6C2B14552DC8CF4C00B5C482 /* XCTestCase+SCP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2B14502DC8CF4C00B5C482 /* XCTestCase+SCP.swift */; };
+		6C734BAC2EE860AF00972E2A /* CTAPHIDFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BAA2EE860AF00972E2A /* CTAPHIDFullStackTests.swift */; };
+		6C734BB62EE860E100972E2A /* CTAP2FullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BB42EE860E100972E2A /* CTAP2FullStackTests.swift */; };
+		6C734BB72EE860E100972E2A /* CTAP2ExtensionFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BB32EE860E100972E2A /* CTAP2ExtensionFullStackTests.swift */; };
+		6C734BB92EE861EE00972E2A /* Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BB82EE861EE00972E2A /* Helpers.swift */; };
 		6C8465362DADB1C600788FB7 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8465352DADB1C600788FB7 /* YubiKit */; };
-		6CA1C2312EBB839B00321DF9 /* CTAP2FullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CA1C22F2EBB839B00321DF9 /* CTAP2FullStackTests.swift */; };
-		6CA1C2322EBB839B00321DF9 /* CTAPHIDFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CA1C2302EBB839B00321DF9 /* CTAPHIDFullStackTests.swift */; };
 		B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */; };
 		B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */; };
 		B481051F2AAB6029006664AE /* ConnectionFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */; };
@@ -52,8 +54,10 @@
 		6C2B144E2DC8CF4C00B5C482 /* SCP11TestData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCP11TestData.swift; sourceTree = "<group>"; };
 		6C2B144F2DC8CF4C00B5C482 /* SCPFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPFullStackTests.swift; sourceTree = "<group>"; };
 		6C2B14502DC8CF4C00B5C482 /* XCTestCase+SCP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCTestCase+SCP.swift"; sourceTree = "<group>"; };
-		6CA1C22F2EBB839B00321DF9 /* CTAP2FullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CTAP2FullStackTests.swift; sourceTree = "<group>"; };
-		6CA1C2302EBB839B00321DF9 /* CTAPHIDFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CTAPHIDFullStackTests.swift; sourceTree = "<group>"; };
+		6C734BAA2EE860AF00972E2A /* CTAPHIDFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CTAPHIDFullStackTests.swift; sourceTree = "<group>"; };
+		6C734BB32EE860E100972E2A /* CTAP2ExtensionFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CTAP2ExtensionFullStackTests.swift; sourceTree = "<group>"; };
+		6C734BB42EE860E100972E2A /* CTAP2FullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CTAP2FullStackTests.swift; sourceTree = "<group>"; };
+		6C734BB82EE861EE00972E2A /* Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Helpers.swift; sourceTree = "<group>"; };
 		B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCTestCase+Extensions.swift"; sourceTree = "<group>"; };
 		B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementFullStackTests.swift; sourceTree = "<group>"; };
 		B45C0B6928FEE1250077EE2A /* FullStackTests.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FullStackTests.entitlements; sourceTree = "<group>"; };
@@ -136,15 +140,25 @@
 		51BBE41C273D1AA400DA47CC /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				6C734BB52EE860E100972E2A /* CTAP2 */,
 				6CD9DCC52DC2160B00D4DAA5 /* SCP */,
 				51BBE41D273D1AA400DA47CC /* OATHFullStackTests.swift */,
 				B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */,
+				6C734BAA2EE860AF00972E2A /* CTAPHIDFullStackTests.swift */,
 				B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */,
 				B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */,
-				6CA1C22F2EBB839B00321DF9 /* CTAP2FullStackTests.swift */,
-				6CA1C2302EBB839B00321DF9 /* CTAPHIDFullStackTests.swift */,
 			);
 			path = Tests;
+			sourceTree = "<group>";
+		};
+		6C734BB52EE860E100972E2A /* CTAP2 */ = {
+			isa = PBXGroup;
+			children = (
+				6C734BB82EE861EE00972E2A /* Helpers.swift */,
+				6C734BB32EE860E100972E2A /* CTAP2ExtensionFullStackTests.swift */,
+				6C734BB42EE860E100972E2A /* CTAP2FullStackTests.swift */,
+			);
+			path = CTAP2;
 			sourceTree = "<group>";
 		};
 		6CD9DCC52DC2160B00D4DAA5 /* SCP */ = {
@@ -286,13 +300,15 @@
 				B4F9375F2B519D940007D394 /* Logger+Extensions.swift in Sources */,
 				51BBE41E273D1AA400DA47CC /* OATHFullStackTests.swift in Sources */,
 				B4F937642B51A7DD0007D394 /* PIVFullStackTests.swift in Sources */,
+				6C734BB62EE860E100972E2A /* CTAP2FullStackTests.swift in Sources */,
+				6C734BB72EE860E100972E2A /* CTAP2ExtensionFullStackTests.swift in Sources */,
 				B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */,
-				6CA1C2312EBB839B00321DF9 /* CTAP2FullStackTests.swift in Sources */,
-				6CA1C2322EBB839B00321DF9 /* CTAPHIDFullStackTests.swift in Sources */,
 				6C2B14512DC8CF4C00B5C482 /* SCP11FullStackTests.swift in Sources */,
 				6C2B14522DC8CF4C00B5C482 /* SCP11TestData.swift in Sources */,
+				6C734BB92EE861EE00972E2A /* Helpers.swift in Sources */,
 				6C2B14532DC8CF4C00B5C482 /* SCP03FullStackTests.swift in Sources */,
 				6C2B14542DC8CF4C00B5C482 /* SCPFullStackTests.swift in Sources */,
+				6C734BAC2EE860AF00972E2A /* CTAPHIDFullStackTests.swift in Sources */,
 				6C2B14552DC8CF4C00B5C482 /* XCTestCase+SCP.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

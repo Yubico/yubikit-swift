@@ -76,7 +76,9 @@ extension CTAP2.ClientPin.ProtocolVersion: CBOR.Decodable {}
 
 extension CTAP2.Extension.Identifier: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
-        guard let string = cbor.stringValue else { return nil }
+        guard let string = cbor.stringValue else {
+            return nil
+        }
         self.init(string)
     }
 }

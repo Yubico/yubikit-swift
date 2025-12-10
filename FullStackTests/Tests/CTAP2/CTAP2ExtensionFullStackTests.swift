@@ -21,118 +21,113 @@ import Testing
 @Suite("CTAP2 Extension Full Stack Tests", .serialized)
 struct CTAP2ExtensionFullStackTests {
 
-    private let testPin = "11234567"
-
     // MARK: - CredProtect Extension Tests
 
-    @Test("CredProtect - Level 1 (User Verification Optional)")
-    func testCredProtectLevel1() async throws {
+    @Test("CredProtect Extension")
+    func testCredProtect() async throws {
         try await withCTAP2Session { session in
-            // Check if credProtect is supported
             guard try await CTAP2.Extension.CredProtect.isSupported(by: session) else {
                 print("Device doesn't support credProtect - skipping")
                 return
             }
 
             let clientDataHash = Data(repeating: 0xCD, count: 32)
-            let credProtect = CTAP2.Extension.CredProtect(level: .userVerificationOptional)
+            let rpId = "credprotect-test.com"
 
-            let params = CTAP2.MakeCredential.Parameters(
+            // Test 1: No extension - should not return credProtect
+            print("👆 Touch YubiKey: credential without credProtect extension...")
+            let noExtParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "credprotect-test.com", name: "CredProtect Test"),
+                rp: PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
+                user: PublicKeyCredential.UserEntity(
+                    id: Data(repeating: 0x00, count: 32),
+                    name: "noext@test.com",
+                    displayName: "No Extension User"
+                ),
+                pubKeyCredParams: [.es256],
+                options: .init(rk: false)
+            )
+            let noExtResponse = try await session.makeCredential(parameters: noExtParams).value
+            #expect(noExtResponse.authenticatorData.extensions?[.credProtect] == nil)
+            print("✅ No credProtect in response when not requested")
+
+            // Test 2: Level 1 (userVerificationOptional)
+            let credProtect1 = try await CTAP2.Extension.CredProtect(
+                level: .userVerificationOptional,
+                session: session
+            )
+            print("👆 Touch YubiKey: credProtect level 1...")
+            let level1Params = CTAP2.MakeCredential.Parameters(
+                clientDataHash: clientDataHash,
+                rp: PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
                 user: PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x01, count: 32),
                     name: "level1@test.com",
                     displayName: "Level 1 User"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: false),
-                extensions: [credProtect]
+                extensions: [credProtect1.input()],
+                options: .init(rk: false)
             )
+            let level1Response = try await session.makeCredential(parameters: level1Params).value
+            #expect(credProtect1.output(from: level1Response) == .userVerificationOptional)
+            print("✅ CredProtect level 1 confirmed")
 
-            print("👆 Touch the YubiKey to create credential with credProtect level 1...")
-            let response = try await session.makeCredential(parameters: params).value
-
-            // Check credProtect result
-            if let result = credProtect.result(from: response) {
-                #expect(result.level == .userVerificationOptional)
-                print("✅ CredProtect level 1 confirmed: \(result.level)")
-            } else {
-                // Some authenticators may not echo back the extension if it's the default
-                print("✅ Credential created (authenticator didn't echo credProtect - level 1 is default)")
-            }
-        }
-    }
-
-    @Test("CredProtect - Level 2 (UV Optional with Credential ID List)")
-    func testCredProtectLevel2() async throws {
-        try await withCTAP2Session { session in
-            guard try await CTAP2.Extension.CredProtect.isSupported(by: session) else {
-                print("Device doesn't support credProtect - skipping")
-                return
-            }
-
-            let clientDataHash = Data(repeating: 0xCD, count: 32)
-            let credProtect = CTAP2.Extension.CredProtect(level: .userVerificationOptionalWithCredentialIDList)
-
-            let params = CTAP2.MakeCredential.Parameters(
+            // Test 3: Level 2 (userVerificationOptionalWithCredentialIDList)
+            let credProtect2 = try await CTAP2.Extension.CredProtect(
+                level: .userVerificationOptionalWithCredentialIDList,
+                session: session
+            )
+            print("👆 Touch YubiKey: credProtect level 2...")
+            let level2Params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "credprotect-test.com", name: "CredProtect Test"),
+                rp: PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
                 user: PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x02, count: 32),
                     name: "level2@test.com",
                     displayName: "Level 2 User"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: true),  // Discoverable credential
-                extensions: [credProtect]
+                extensions: [credProtect2.input()],
+                options: .init(rk: false)
             )
+            let level2Response = try await session.makeCredential(parameters: level2Params).value
+            #expect(credProtect2.output(from: level2Response) == .userVerificationOptionalWithCredentialIDList)
+            print("✅ CredProtect level 2 confirmed")
 
-            print("👆 Touch the YubiKey to create credential with credProtect level 2...")
-            let response = try await session.makeCredential(parameters: params).value
-
-            if let result = credProtect.result(from: response) {
-                #expect(result.level == .userVerificationOptionalWithCredentialIDList)
-                print("✅ CredProtect level 2 confirmed: \(result.level)")
-            } else {
-                Issue.record("Expected credProtect level 2 in response")
-            }
-        }
-    }
-
-    @Test("CredProtect - Level 3 (UV Required)")
-    func testCredProtectLevel3() async throws {
-        try await withCTAP2Session { session in
-            guard try await CTAP2.Extension.CredProtect.isSupported(by: session) else {
-                print("Device doesn't support credProtect - skipping")
+            // Test 4: Level 3 (userVerificationRequired) with resident key
+            let info = try await session.getInfo()
+            guard info.options.clientPin == true else {
+                print("PIN not set - skipping level 3 test (requires PIN for rk: true)")
                 return
             }
 
-            let clientDataHash = Data(repeating: 0xCD, count: 32)
-            let credProtect = CTAP2.Extension.CredProtect(level: .userVerificationRequired)
+            let pinToken = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.makeCredential, .credentialManagement],
+                rpId: rpId
+            )
 
-            let params = CTAP2.MakeCredential.Parameters(
+            let credProtect3 = try await CTAP2.Extension.CredProtect(
+                level: .userVerificationRequired,
+                session: session
+            )
+            print("👆 Touch YubiKey: credProtect level 3 with resident key...")
+            let level3Params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "credprotect-test.com", name: "CredProtect Test"),
+                rp: PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
                 user: PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x03, count: 32),
                     name: "level3@test.com",
                     displayName: "Level 3 User"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: true),  // Discoverable credential
-                extensions: [credProtect]
+                extensions: [credProtect3.input()],
+                options: .init(rk: true, uv: true)
             )
-
-            print("👆 Touch the YubiKey to create credential with credProtect level 3...")
-            let response = try await session.makeCredential(parameters: params).value
-
-            if let result = credProtect.result(from: response) {
-                #expect(result.level == .userVerificationRequired)
-                print("✅ CredProtect level 3 confirmed: \(result.level)")
-            } else {
-                Issue.record("Expected credProtect level 3 in response")
-            }
+            let level3Response = try await session.makeCredential(parameters: level3Params, pinToken: pinToken).value
+            #expect(credProtect3.output(from: level3Response) == .userVerificationRequired)
+            print("✅ CredProtect level 3 confirmed")
         }
     }
 
@@ -147,7 +142,8 @@ struct CTAP2ExtensionFullStackTests {
             }
 
             let clientDataHash = Data(repeating: 0xCD, count: 32)
-            let hmacSecret = CTAP2.Extension.HmacSecret.makeCredential()
+            let hmacSecret = CTAP2.Extension.HmacSecret()
+            let hmacSecretInput = hmacSecret.makeCredential.input()
 
             let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
@@ -158,18 +154,17 @@ struct CTAP2ExtensionFullStackTests {
                     displayName: "HmacSecret User"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: true),
-                extensions: [hmacSecret]
+                extensions: [hmacSecretInput],
+                options: .init(rk: false)
             )
 
             print("👆 Touch the YubiKey to create credential with hmac-secret...")
             let response = try await session.makeCredential(parameters: params).value
 
-            if let result = try hmacSecret.result(from: response) {
+            if let result = try hmacSecret.makeCredential.output(from: response) {
                 switch result {
-                case .enabled(let enabled):
-                    #expect(enabled == true)
-                    print("✅ HmacSecret enabled: \(enabled)")
+                case .enabled:
+                    print("✅ HmacSecret enabled")
                 case .secrets:
                     Issue.record("Expected .enabled result, got .secrets")
                 }
@@ -184,9 +179,9 @@ struct CTAP2ExtensionFullStackTests {
         try await withCTAP2Session { session in
             let info = try await session.getInfo()
 
-            // hmac-secret-mc requires CTAP 2.2
+            // hmac-secret-mc requires a device that supports CTAP 2.3+
             guard info.extensions.contains(CTAP2.Extension.HmacSecret.mcIdentifier) else {
-                print("Device doesn't support hmac-secret-mc (CTAP2.2) - skipping")
+                print("Device doesn't support hmac-secret-mc - skipping")
                 return
             }
 
@@ -198,7 +193,7 @@ struct CTAP2ExtensionFullStackTests {
 
             // Get PIN token
             let pinToken = try await session.getPinUVToken(
-                using: .pin(testPin),
+                using: .pin(defaultTestPin),
                 permissions: [.makeCredential],
                 rpId: "hmac-secret-mc-test.com"
             )
@@ -207,11 +202,8 @@ struct CTAP2ExtensionFullStackTests {
             let salt1 = Data(repeating: 0xAA, count: 32)
             let salt2 = Data(repeating: 0xBB, count: 32)
 
-            let hmacSecretMC = try await CTAP2.Extension.HmacSecret.makeCredential(
-                salt1: salt1,
-                salt2: salt2,
-                session: session
-            )
+            let hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
+            let hmacSecretInput = try hmacSecret.makeCredential.input(salt1: salt1, salt2: salt2)
 
             let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
@@ -222,23 +214,25 @@ struct CTAP2ExtensionFullStackTests {
                     displayName: "HmacSecretMC User"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: true, uv: true),
-                extensions: [hmacSecretMC]
+                extensions: [hmacSecretInput],
+                options: .init(rk: true, uv: true)
             )
 
             print("👆 Touch the YubiKey to create credential with hmac-secret-mc...")
             let response = try await session.makeCredential(parameters: params, pinToken: pinToken).value
 
-            if let result = try hmacSecretMC.result(from: response) {
+            if let result = try hmacSecret.makeCredential.output(from: response) {
                 switch result {
                 case .enabled:
                     Issue.record("Expected .secrets result, got .enabled")
-                case .secrets(let output1, let output2):
-                    #expect(output1.count == 32)
-                    #expect(output2?.count == 32)
+                case .secrets(let secrets):
+                    #expect(secrets.first.count == 32)
+                    #expect(secrets.second?.count == 32)
                     print("✅ HmacSecretMC derived secrets:")
-                    print("   output1: \(output1.prefix(8).map { String(format: "%02x", $0) }.joined())...")
-                    print("   output2: \(output2?.prefix(8).map { String(format: "%02x", $0) }.joined() ?? "nil")...")
+                    let first = secrets.first.prefix(8).map { String(format: "%02x", $0) }.joined()
+                    let second = secrets.second?.prefix(8).map { String(format: "%02x", $0) }.joined()
+                    print("   first: \(first)...")
+                    print("   second: \(second ?? "nil")...")
                 }
             } else {
                 Issue.record("Expected hmac-secret-mc response")

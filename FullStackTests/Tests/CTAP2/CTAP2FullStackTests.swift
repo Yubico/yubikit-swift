@@ -197,8 +197,6 @@ struct CTAP2FullStackTests {
     )
     func testClientPinSetup(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
-            let testPin = "11234567"
-
             let info = try await session.getInfo()
 
             // Skip if device doesn't support clientPin
@@ -209,16 +207,16 @@ struct CTAP2FullStackTests {
 
             let pinIsSet = info.options.clientPin == true
             if !pinIsSet {
-                print("PIN not set, setting default PIN: \(testPin)")
-                try await session.setPin(testPin, protocol: pinProtocol)
-                print("✅ PIN set to default: \(testPin)")
+                print("PIN not set, setting default PIN: \(defaultTestPin)")
+                try await session.setPin(defaultTestPin, protocol: pinProtocol)
+                print("✅ PIN set to default: \(defaultTestPin)")
             } else {
                 print("PIN already set")
             }
 
             // Reset retry counter via successful PIN auth
             _ = try await session.getPinUVToken(
-                using: .pin(testPin),
+                using: .pin(defaultTestPin),
                 permissions: [.makeCredential],
                 rpId: "localhost",
                 protocol: pinProtocol
@@ -237,7 +235,6 @@ struct CTAP2FullStackTests {
     )
     func testClientPinChangePin(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
-            let testPin = "11234567"
             let otherPin = "76543211"
 
             let info = try await session.getInfo()
@@ -250,7 +247,7 @@ struct CTAP2FullStackTests {
 
             // Reset retries before testing
             _ = try await session.getPinUVToken(
-                using: .pin(testPin),
+                using: .pin(defaultTestPin),
                 permissions: [.makeCredential],
                 rpId: "localhost",
                 protocol: pinProtocol
@@ -261,13 +258,13 @@ struct CTAP2FullStackTests {
             print("Protocol v\(pinProtocol.rawValue), retries: \(initialRetriesResponse.retries)")
 
             // Change PIN
-            try await session.changePin(from: testPin, to: otherPin, protocol: pinProtocol)
+            try await session.changePin(from: defaultTestPin, to: otherPin, protocol: pinProtocol)
             print("✅ PIN changed")
 
             // Old PIN should fail
             do {
                 _ = try await session.getPinUVToken(
-                    using: .pin(testPin),
+                    using: .pin(defaultTestPin),
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost",
                     protocol: pinProtocol
@@ -297,7 +294,7 @@ struct CTAP2FullStackTests {
             #expect(retriesAfterCorrectPin.retries == 8, "Retries should reset after correct PIN")
 
             // Restore original PIN
-            try await session.changePin(from: otherPin, to: testPin, protocol: pinProtocol)
+            try await session.changePin(from: otherPin, to: defaultTestPin, protocol: pinProtocol)
             print("✅ PIN restored")
         }
     }
@@ -358,8 +355,6 @@ struct CTAP2FullStackTests {
     )
     func testPinComplexity(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
-            let testPin = "11234567"
-
             let info = try await session.getInfo()
 
             // Skip if device doesn't enforce PIN complexity
@@ -370,7 +365,7 @@ struct CTAP2FullStackTests {
 
             // Try weak PIN (repeated chars)
             do {
-                try await session.changePin(from: testPin, to: "33333333", protocol: pinProtocol)
+                try await session.changePin(from: defaultTestPin, to: "33333333", protocol: pinProtocol)
                 Issue.record("Weak PIN should have been rejected")
             } catch let error as CTAP2.SessionError {
                 guard case .ctapError(.pinPolicyViolation, _) = error else {
@@ -396,7 +391,6 @@ struct CTAP2FullStackTests {
     )
     func testClientPinRetryExhaustion(pinProtocol: CTAP2.ClientPin.ProtocolVersion) async throws {
         try await withCTAP2Session { session in
-            let testPin = "11234567"
             let wrongPin = "99999999"
 
             let info = try await session.getInfo()
@@ -409,7 +403,7 @@ struct CTAP2FullStackTests {
 
             // Reset retries before testing
             _ = try await session.getPinUVToken(
-                using: .pin(testPin),
+                using: .pin(defaultTestPin),
                 permissions: [.makeCredential, .getAssertion],
                 rpId: "localhost",
                 protocol: pinProtocol
@@ -462,7 +456,7 @@ struct CTAP2FullStackTests {
             // Even correct PIN is blocked
             do {
                 _ = try await session.getPinUVToken(
-                    using: .pin(testPin),
+                    using: .pin(defaultTestPin),
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost",
                     protocol: pinProtocol
@@ -501,29 +495,4 @@ struct CTAP2FullStackTests {
             #expect(info.options.clientPin != true, "PIN should be cleared after reset")
         }
     }
-
-    // MARK: - Helper Methods
-
-    #if os(macOS)
-    func withCTAP2Session<T>(
-        _ body: (FIDO2Session) async throws -> T
-    ) async throws -> T {
-        let connection = try await HIDFIDOConnection.makeConnection()
-        let session = try await CTAP2.Session.makeSession(connection: connection)
-        let result = try await body(session)
-        await connection.close(error: nil)
-        return result
-    }
-
-    #elseif os(iOS)
-    func withCTAP2Session<T>(
-        _ body: (FIDO2SessionOverSmartCard) async throws -> T
-    ) async throws -> T {
-        let connection = try await TestableConnection.create(with: .nfc)
-        let session = try await CTAP.Session.makeSession(connection: connection)
-        let result = try await body(session)
-        await connection.close(error: nil)
-        return result
-    }
-    #endif
 }

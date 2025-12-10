@@ -194,20 +194,12 @@ extension WebAuthn.AttestedCredentialData {
         currentOffset += credIdLength
 
         // MARK: Parse Credential Public Key (CBOR)
-        // We need to decode the CBOR to know how many bytes it consumes
-        let remainingData = data.subdata(in: currentOffset..<data.count)
-        guard let cborValue: CBOR.Value = try? remainingData.decode() else {
+        let cborData = data.subdata(in: currentOffset..<data.count)
+        var remaining = Data()
+        guard let coseKey: COSE.Key = try? cborData.decode(remaining: &remaining) else {
             return nil
         }
-
-        // Parse the COSE key from the CBOR value
-        guard let coseKey = COSE.Key(cbor: cborValue) else {
-            return nil
-        }
-
-        // Track how many bytes the CBOR value consumed (canonical encoding)
-        let encodedCbor = cborValue.encode()
-        currentOffset += encodedCbor.count
+        currentOffset = data.count - remaining.count
 
         let attestedData = WebAuthn.AttestedCredentialData(
             aaguid: aaguid,

@@ -26,7 +26,13 @@ extension CTAP2.GetAssertion.Parameters: CBOR.Encodable {
             map[3] = allowList.cbor()
         }
         if !extensions.isEmpty {
-            map[4] = extensions.cbor()
+            var extMap: [CBOR.Value: CBOR.Value] = [:]
+            for ext in extensions {
+                for (id, value) in ext.encode() {
+                    extMap[id.cbor()] = value
+                }
+            }
+            map[4] = .map(extMap)
         }
         map[5] = options?.cbor()
         map[6] = pinUVAuthParam?.cbor()
