@@ -144,7 +144,6 @@
 				6CD9DCC52DC2160B00D4DAA5 /* SCP */,
 				51BBE41D273D1AA400DA47CC /* OATHFullStackTests.swift */,
 				B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */,
-				6C734BAA2EE860AF00972E2A /* CTAPHIDFullStackTests.swift */,
 				B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */,
 				B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */,
 			);
@@ -154,6 +153,7 @@
 		6C734BB52EE860E100972E2A /* CTAP2 */ = {
 			isa = PBXGroup;
 			children = (
+				6C734BAA2EE860AF00972E2A /* CTAPHIDFullStackTests.swift */,
 				6C734BB82EE861EE00972E2A /* Helpers.swift */,
 				6C734BB32EE860E100972E2A /* CTAP2ExtensionFullStackTests.swift */,
 				6C734BB42EE860E100972E2A /* CTAP2FullStackTests.swift */,

@@ -35,7 +35,7 @@ func withCTAP2Session<T>(
     _ body: (FIDO2SessionOverSmartCard) async throws -> T
 ) async throws -> T {
     let connection = try await TestableConnection.create(with: .nfc)
-    let session = try await CTAP.Session.makeSession(connection: connection)
+    let session = try await CTAP2.Session.makeSession(connection: connection)
     let result = try await body(session)
     await connection.close(error: nil)
     return result
