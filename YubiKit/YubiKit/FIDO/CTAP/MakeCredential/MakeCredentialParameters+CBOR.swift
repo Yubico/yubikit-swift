@@ -14,6 +14,14 @@
 
 import Foundation
 
+// MARK: - Extension Identifier + CBOR
+
+extension CTAP2.Extension.Identifier: CBOR.Encodable {
+    func cbor() -> CBOR.Value {
+        .textString(value)
+    }
+}
+
 // MARK: - MakeCredentialParameters + CBOR
 
 extension CTAP2.MakeCredential.Parameters: CBOR.Encodable {

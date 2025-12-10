@@ -25,8 +25,6 @@ import Testing
 @Suite("WebAuthn Extension Full Stack Tests", .serialized)
 struct WebAuthnExtensionFullStackTests {
 
-    private let testPin = "11234567"
-
     // MARK: - PRF Extension Tests (mirrors Python's test_prf)
 
     @Test("PRF - Enable at MakeCredential and Derive Secrets at GetAssertion")
@@ -80,7 +78,7 @@ struct WebAuthnExtensionFullStackTests {
 
             // 2. Get PIN token for assertions
             let pinToken = try await session.getPinUVToken(
-                using: .pin(testPin),
+                using: .pin(defaultTestPin),
                 permissions: [.getAssertion],
                 rpId: rpId
             )
@@ -182,7 +180,7 @@ struct WebAuthnExtensionFullStackTests {
 
             // Get PIN token for MakeCredential and GetAssertion
             let pinToken = try await session.getPinUVToken(
-                using: .pin(testPin),
+                using: .pin(defaultTestPin),
                 permissions: [.makeCredential, .getAssertion],
                 rpId: rpId
             )

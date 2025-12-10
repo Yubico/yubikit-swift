@@ -66,8 +66,8 @@ extension CTAP2.Extension {
     /// }
     /// ```
     ///
-    /// - SeeAlso: [CTAP2 hmac-secret Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#sctn-hmac-secret-extension)
-    /// - SeeAlso: [CTAP2.2 hmac-secret-mc Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#sctn-hmac-secret-make-cred-extension)
+    /// - SeeAlso: [CTAP2 hmac-secret Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#sctn-hmac-secret-extension)
+    /// - SeeAlso: [CTAP2.2 hmac-secret-mc Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#sctn-hmac-secret-make-cred-extension)
     struct HmacSecret: Sendable {
         /// Salt length required by hmac-secret (32 bytes).
         static let saltLength = 32
@@ -312,13 +312,13 @@ extension CTAP2.Extension.HmacSecret {
     /// Shared cryptographic state for hmac-secret operations.
     struct SharedSecret: Sendable {
         /// Client's COSE public key for ECDH.
-        let keyAgreement: COSE.Key
+        fileprivate let keyAgreement: COSE.Key
 
         /// The derived shared secret.
         private let secret: Data
 
         /// PIN/UV auth protocol version.
-        let protocolVersion: CTAP2.ClientPin.ProtocolVersion
+        fileprivate let protocolVersion: CTAP2.ClientPin.ProtocolVersion
 
         static func create<I: CBORInterface>(
             session: CTAP2.Session<I>

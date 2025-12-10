@@ -58,12 +58,6 @@ extension CTAP2.Extension {
     }
 }
 
-extension CTAP2.Extension.Identifier: CBOR.Encodable {
-    func cbor() -> CBOR.Value {
-        .textString(value)
-    }
-}
-
 // MARK: - Extension Namespaces
 
 extension CTAP2.Extension {

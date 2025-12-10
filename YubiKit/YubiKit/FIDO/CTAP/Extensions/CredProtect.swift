@@ -50,7 +50,7 @@ extension CTAP2.Extension {
     /// }
     /// ```
     ///
-    /// - SeeAlso: [CTAP2.3 credProtect Extension](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#sctn-credProtect-extension)
+    /// - SeeAlso: [CTAP2 credProtect Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#sctn-credProtect-extension)
     struct CredProtect: Sendable {
         /// The extension identifier for credProtect.
         static let identifier: Identifier = .credProtect
