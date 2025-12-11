@@ -152,8 +152,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
 
     /// Retrieves the certificate chain for a given key.
     ///
-    /// - Parameter scpKeyRef: The key reference whose certificate chain is requested.
-    ///
+    /// - Parameter keyRef: The key reference whose certificate chain is requested.
     /// - Throws: ``SCPError`` if the command fails or the response format is invalid.
     /// - Returns: An array of ``X509Cert`` objects representing the certificate chain.
     // @TraceScope

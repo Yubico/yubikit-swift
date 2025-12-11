@@ -79,7 +79,7 @@ public enum Management {
 
         /// Returns the DeviceInfo for the connected YubiKey.
         ///
-        /// > Note: This functionality requires support for ``ManagementFeature/deviceInfo``, available on YubiKey 4.1 or later.
+        /// > Note: This functionality requires support for ``Management/Feature/deviceInfo``, available on YubiKey 4.1 or later.
         public func getDeviceInfo() async throws -> DeviceInfo {
             guard await self.supports(ManagementFeature.deviceInfo) else {
                 throw Error.featureNotSupported(source: .here())
@@ -107,7 +107,7 @@ public enum Management {
 
         /// Write device config to a YubiKey 5 or later.
         ///
-        /// > Note: This functionality requires support for ``ManagementFeature/deviceConfig``, available on YubiKey 5 or later.
+        /// > Note: This functionality requires support for ``Management/Feature/deviceConfig``, available on YubiKey 5 or later.
         ///
         /// - Parameters:
         ///   - config: The device configuration to write.
@@ -134,7 +134,7 @@ public enum Management {
 
         /// Perform a device-wide reset in Bio Multi-protocol Edition devices.
         ///
-        /// > Note: This functionality requires support for ``ManagementFeature/deviceReset``, available on YubiKey 5.6 or later.
+        /// > Note: This functionality requires support for ``Management/Feature/deviceReset``, available on YubiKey 5.6 or later.
         /// > Note: Device reset is only supported over SmartCard connections, not over FIDO/CTAP.
         public func resetDevice() async throws {
             guard await self.supports(.deviceReset) else {
@@ -155,7 +155,7 @@ extension Management.Session where I == SmartCardInterface<ManagementSessionErro
     ///   - connection: The smart card connection to use for this session.
     ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
     /// - Returns: A new Management instance using SmartCard transport.
-    /// - Throws: ``SmartCardManagementError`` if session creation fails.
+    /// - Throws: ``ManagementSessionError`` if session creation fails.
     public static func makeSession(
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
@@ -179,7 +179,7 @@ extension Management.Session where I == FIDOInterface<ManagementSessionError> {
     ///
     /// - Parameter connection: The FIDO connection to use for this session.
     /// - Returns: A new Management instance using FIDO/CTAP transport.
-    /// - Throws: ``FIDOManagementError`` if session creation fails.
+    /// - Throws: ``ManagementSessionError`` if session creation fails.
     public static func makeSession(
         connection: FIDOConnection
     ) async throws -> Management.Session<FIDOInterface<ManagementSessionError>> {

@@ -1,67 +1,62 @@
 # ``YubiKit/PIVSession``
 
-@Metadata {
-    @DocumentationExtension(mergeBehavior: append)
-}
-
 ## Topics
 
-### Managing the PIVSession
+### Session Management
 
-- ``session(connection:scpKeyParams:)``
-- ``end()``
 - ``reset()``
+- ``supports(_:)``
 
-### Running commands in the PIV application
+### Cryptographic Operations
 
-- ``hasSupport(for:)``
-- ``signWithKeyInSlot(_:keyType:algorithm:message:)``
-- ``decrypt(in:algorithm:encrypted:)``
+- ``sign(_:in:keyType:using:)``
+- ``decrypt(_:in:using:)``
 - ``deriveSharedSecret(in:with:)``
-- ``attestKey(in:)``
+
+### Key Management
+
 - ``generateKey(in:type:pinPolicy:touchPolicy:)``
-- ``put(privateKey:in:pinPolicy:touchPolicy:)``
-- ``put(certificate:in:compress:)``
+- ``attestKey(in:)``
+- ``moveKey(from:to:)``
+- ``deleteKey(in:)``
+- ``getMetadata(in:)``
+
+### Certificate Operations
+
+- ``putCertificate(_:in:compressed:)``
 - ``getCertificate(in:)``
-- ``deleteCertificateInSlot(slot:)``
+- ``deleteCertificate(in:)``
+
+### Authentication
+
+- ``authenticate(with:)``
 - ``setManagementKey(_:type:requiresTouch:)``
-- ``authenticateWith(managementKey:)``
-- ``getSlotMetadata(_:)``
 - ``getManagementKeyMetadata()``
-- ``reset()``
-- ``getSerialNumber()``
 - ``verifyPin(_:)``
-- ``setPin(_:oldPin:)``
-- ``setPuk(_:oldPuk:)``
-- ``unblockPinWithPuk(_:newPin:)``
+- ``changePin(from:to:)``
+- ``changePuk(from:to:)``
+- ``unblockPin(with:newPin:)``
+- ``setRetries(pin:puk:)``
+- ``blockPin()``
+- ``blockPuk()``
 - ``getPinMetadata()``
 - ``getPukMetadata()``
-- ``set(pinAttempts:pukAttempts:)``
-- ``blockPin(counter:)``
-- ``blockPuk(counter:)``
+
+### Biometric Operations
+
 - ``getBioMetadata()``
 - ``verifyUV(requestTemporaryPin:checkOnly:)``
 - ``verify(temporaryPin:)``
 
-### Return types
+### Device Information
 
-- ``PIVTouchPolicy``
-- ``PIVPinPolicy``
-- ``PIVSlot``
-- ``PIVKeyType``
-- ``PIVVerifyPinResult``
-- ``PIVManagementKeyMetadata``
-- ``PIVSlotMetadata``
-- ``PIVPinPukMetadata``
-- ``PIVManagementKeyType``
-- ``PIVBioMetadata``
+- ``getSerialNumber()``
 
-### PIV Session features
+### Features
 
 - ``PIVSessionFeature``
 
 ### Errors
 
 - ``PIVSessionError``
-- ``PIVPaddingError``
 
