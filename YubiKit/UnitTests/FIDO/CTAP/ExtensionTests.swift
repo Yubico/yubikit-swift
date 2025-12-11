@@ -26,15 +26,15 @@ struct ExtensionTests {
     @Test("PRF salt transformation produces 32-byte output")
     func testPRFSaltLength() {
         let secret = Data("test secret".utf8)
-        let salt = WebAuthn.Extension.PRF.prfSalt(secret)
+        let salt = WebAuthn.Extension.PRF.salt(secret)
         #expect(salt.count == 32)
     }
 
     @Test("PRF salt transformation is deterministic")
     func testPRFSaltDeterministic() {
         let secret = Data("test secret".utf8)
-        let salt1 = WebAuthn.Extension.PRF.prfSalt(secret)
-        let salt2 = WebAuthn.Extension.PRF.prfSalt(secret)
+        let salt1 = WebAuthn.Extension.PRF.salt(secret)
+        let salt2 = WebAuthn.Extension.PRF.salt(secret)
         #expect(salt1 == salt2)
     }
 
@@ -42,8 +42,8 @@ struct ExtensionTests {
     func testPRFSaltDifferentInputs() {
         let secret1 = Data("secret one".utf8)
         let secret2 = Data("secret two".utf8)
-        let salt1 = WebAuthn.Extension.PRF.prfSalt(secret1)
-        let salt2 = WebAuthn.Extension.PRF.prfSalt(secret2)
+        let salt1 = WebAuthn.Extension.PRF.salt(secret1)
+        let salt2 = WebAuthn.Extension.PRF.salt(secret2)
         #expect(salt1 != salt2)
     }
 }

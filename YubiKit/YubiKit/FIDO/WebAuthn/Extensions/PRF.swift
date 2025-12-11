@@ -19,7 +19,10 @@ import Foundation
 
 extension WebAuthn {
     /// Namespace for WebAuthn extensions.
-    enum Extension {}
+    enum Extension {
+        /// Extension identifier type (shared with CTAP2).
+        typealias Identifier = CTAP2.Extension.Identifier
+    }
 }
 
 // MARK: - PRF Extension
@@ -132,7 +135,7 @@ extension WebAuthn.Extension {
         ///
         /// - Parameter secret: The PRF secret (any length).
         /// - Returns: A 32-byte salt for hmac-secret.
-        static func prfSalt(_ secret: Data) -> Data {
+        static func salt(_ secret: Data) -> Data {
             var sha = SHA256()
             sha.update(data: Data("WebAuthn PRF".utf8))
             sha.update(data: [0x00])
@@ -174,8 +177,8 @@ extension WebAuthn.Extension.PRF {
             second: Data? = nil
         ) throws(CTAP2.SessionError) -> CTAP2.Extension.HmacSecret.MakeCredentialOperations.Input {
             try parent.hmacSecret.makeCredential.input(
-                salt1: WebAuthn.Extension.PRF.prfSalt(first),
-                salt2: second.map { WebAuthn.Extension.PRF.prfSalt($0) }
+                salt1: WebAuthn.Extension.PRF.salt(first),
+                salt2: second.map { WebAuthn.Extension.PRF.salt($0) }
             )
         }
 
@@ -221,8 +224,8 @@ extension WebAuthn.Extension.PRF {
             second: Data? = nil
         ) throws(CTAP2.SessionError) -> CTAP2.Extension.HmacSecret.GetAssertionOperations.Input {
             try parent.hmacSecret.getAssertion.input(
-                salt1: WebAuthn.Extension.PRF.prfSalt(first),
-                salt2: second.map { WebAuthn.Extension.PRF.prfSalt($0) }
+                salt1: WebAuthn.Extension.PRF.salt(first),
+                salt2: second.map { WebAuthn.Extension.PRF.salt($0) }
             )
         }
 

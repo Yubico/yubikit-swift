@@ -186,8 +186,8 @@ struct WebAuthnExtensionFullStackTests {
             )
 
             // Create hmac-secret-mc extension with PRF salt transformation
-            let salt1 = WebAuthn.Extension.PRF.prfSalt(secret1)
-            let salt2 = WebAuthn.Extension.PRF.prfSalt(secret2)
+            let salt1 = WebAuthn.Extension.PRF.salt(secret1)
+            let salt2 = WebAuthn.Extension.PRF.salt(secret2)
 
             let hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
             let hmacSecretInput = try hmacSecret.makeCredential.input(salt1: salt1, salt2: salt2)
