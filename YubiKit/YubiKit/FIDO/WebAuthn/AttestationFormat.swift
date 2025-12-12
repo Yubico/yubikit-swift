@@ -21,7 +21,7 @@ extension WebAuthn {
     /// `MakeCredential` response or as a supported format in `GetInfo`.
     ///
     /// - SeeAlso: [WebAuthn Attestation Statement Formats](https://www.w3.org/TR/webauthn/#sctn-attestation-formats)
-    enum AttestationFormat: Sendable, Hashable {
+    public enum AttestationFormat: Sendable, Hashable {
         /// Packed attestation format - WebAuthn-optimized, compact encoding.
         case packed
 
@@ -47,7 +47,7 @@ extension WebAuthn {
         case unknown(String)
 
         /// The string representation of the format.
-        var rawValue: String {
+        public var rawValue: String {
             switch self {
             case .packed: return "packed"
             case .tpm: return "tpm"
@@ -61,7 +61,7 @@ extension WebAuthn {
         }
 
         /// Initialize from a string value.
-        init(rawValue: String) {
+        public init(rawValue: String) {
             switch rawValue {
             case "packed": self = .packed
             case "tpm": self = .tpm

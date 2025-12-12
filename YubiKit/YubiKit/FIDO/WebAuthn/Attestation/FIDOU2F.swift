@@ -18,11 +18,11 @@ extension WebAuthn.AttestationStatement {
     /// FIDO U2F attestation statement.
     ///
     /// - SeeAlso: [FIDO U2F Attestation Statement Format](https://www.w3.org/TR/webauthn/#sctn-fido-u2f-attestation)
-    struct FIDOU2F: Sendable {
+    public struct FIDOU2F: Sendable {
         /// Attestation signature.
-        let sig: Data
+        public let sig: Data
 
         /// Attestation certificate chain.
-        let x5c: [Data]
+        public let x5c: [Data]
     }
 }

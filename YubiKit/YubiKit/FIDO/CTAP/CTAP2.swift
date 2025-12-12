@@ -271,17 +271,17 @@ public enum CTAP2 {
     // MARK: - Command Namespaces
 
     /// Namespace for GetAssertion command types.
-    enum GetAssertion {}
+    public enum GetAssertion {}
 
     /// Namespace for MakeCredential command types.
-    enum MakeCredential {}
+    public enum MakeCredential {}
 
     /// Namespace for GetInfo command types.
-    enum GetInfo {}
+    public enum GetInfo {}
 
     /// Namespace for ClientPin command types.
-    enum ClientPin {}
+    public enum ClientPin {}
 
     /// Namespace for CTAP2 extension types.
-    enum Extension {}
+    public enum Extension {}
 }

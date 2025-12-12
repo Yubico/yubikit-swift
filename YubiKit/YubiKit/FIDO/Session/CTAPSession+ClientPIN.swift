@@ -23,7 +23,7 @@ extension CTAP2.Session {
     ///
     /// - Parameter pinProtocol: The PIN/UV auth protocol version to use. If nil, auto-selects.
     /// - Returns: The number of retries remaining and whether a power cycle is required.
-    public func getPinRetries(
+    func getPinRetries(
         protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion? = nil
     ) async throws(CTAP2.SessionError) -> CTAP2.ClientPin.GetRetries.Response {
         let handler = try await clientPinHandler(protocol: pinProtocol)
@@ -34,7 +34,7 @@ extension CTAP2.Session {
     ///
     /// - Parameter pinProtocol: The PIN/UV auth protocol version to use. If nil, auto-selects.
     /// - Returns: The number of UV retries remaining.
-    public func getUVRetries(
+    func getUVRetries(
         protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion? = nil
     ) async throws(CTAP2.SessionError) -> Int {
         let handler = try await clientPinHandler(protocol: pinProtocol)

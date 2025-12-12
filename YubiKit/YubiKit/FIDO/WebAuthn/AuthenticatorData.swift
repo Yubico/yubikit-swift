@@ -22,18 +22,18 @@ extension WebAuthn {
     /// attested credential data.
     ///
     /// - SeeAlso: [WebAuthn Authenticator Data](https://www.w3.org/TR/webauthn/#authenticator-data)
-    struct AuthenticatorData: Sendable {
+    public struct AuthenticatorData: Sendable {
         /// SHA-256 hash of the RP ID (32 bytes).
-        let rpIdHash: Data
+        public let rpIdHash: Data
 
         /// Flags indicating various states.
-        let flags: Flags
+        public let flags: Flags
 
         /// Signature counter value (32-bit unsigned big-endian integer).
-        let signCount: UInt32
+        public let signCount: UInt32
 
         /// Attested credential data (present when AT flag is set).
-        let attestedCredentialData: AttestedCredentialData?
+        public let attestedCredentialData: AttestedCredentialData?
 
         /// Raw extension outputs map (present when ED flag is set).
         ///
@@ -41,26 +41,30 @@ extension WebAuthn {
         internal let extensions: [WebAuthn.Extension.Identifier: CBOR.Value]?
 
         /// Authenticator data flags.
-        struct Flags: OptionSet, Sendable {
-            let rawValue: UInt8
+        public struct Flags: OptionSet, Sendable {
+            public let rawValue: UInt8
+
+            public init(rawValue: UInt8) {
+                self.rawValue = rawValue
+            }
 
             /// User Present (UP): User was present during the operation.
-            static let userPresent = Flags(rawValue: 1 << 0)
+            public static let userPresent = Flags(rawValue: 1 << 0)
 
             /// User Verified (UV): User was verified (PIN, biometric, etc.).
-            static let userVerified = Flags(rawValue: 1 << 2)
+            public static let userVerified = Flags(rawValue: 1 << 2)
 
             /// Backup Eligibility (BE): Credential can be backed up.
-            static let backupEligibility = Flags(rawValue: 1 << 3)
+            public static let backupEligibility = Flags(rawValue: 1 << 3)
 
             /// Backup State (BS): Credential is currently backed up.
-            static let backupState = Flags(rawValue: 1 << 4)
+            public static let backupState = Flags(rawValue: 1 << 4)
 
             /// Attested Credential Data (AT): Includes attested credential data.
-            static let attestedCredentialData = Flags(rawValue: 1 << 6)
+            public static let attestedCredentialData = Flags(rawValue: 1 << 6)
 
             /// Extension Data (ED): Includes extension data.
-            static let extensionData = Flags(rawValue: 1 << 7)
+            public static let extensionData = Flags(rawValue: 1 << 7)
         }
     }
 }
@@ -138,12 +142,12 @@ extension WebAuthn {
     /// Contains the AAGUID, credential ID, and credential public key.
     ///
     /// - SeeAlso: [WebAuthn Attested Credential Data](https://www.w3.org/TR/webauthn/#sctn-attested-credential-data)
-    struct AttestedCredentialData: Sendable {
+    public struct AttestedCredentialData: Sendable {
         /// Authenticator Attestation GUID (16 bytes).
-        let aaguid: Data
+        public let aaguid: Data
 
         /// The credential ID (variable length).
-        let credentialId: Data
+        public let credentialId: Data
 
         /// The credential public key as a COSE Key.
         ///
@@ -156,7 +160,7 @@ extension WebAuthn {
         /// - RS256 (RSA with SHA-256, alg=-257)
         ///
         /// - SeeAlso: [COSE Key Structure](https://www.rfc-editor.org/rfc/rfc8152.html#section-7)
-        let credentialPublicKey: COSE.Key
+        public let credentialPublicKey: COSE.Key
     }
 }
 

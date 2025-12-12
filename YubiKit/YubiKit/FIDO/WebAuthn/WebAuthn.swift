@@ -20,4 +20,4 @@ import Foundation
 /// attestation statements, and extension outputs.
 ///
 /// - SeeAlso: [Web Authentication: An API for accessing Public Key Credentials](https://www.w3.org/TR/webauthn/)
-enum WebAuthn {}
+public enum WebAuthn {}
