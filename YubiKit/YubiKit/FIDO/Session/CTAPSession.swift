@@ -15,8 +15,8 @@
 import Foundation
 
 // Type aliases for convenience
-typealias FIDO2Session = CTAP2.Session<FIDOInterface<CTAP2.SessionError>>
-typealias FIDO2SessionOverSmartCard = CTAP2.Session<SmartCardInterface<CTAP2.SessionError>>
+public typealias FIDO2Session = CTAP2.Session<FIDOInterface<CTAP2.SessionError>>
+public typealias FIDO2SessionOverSmartCard = CTAP2.Session<SmartCardInterface<CTAP2.SessionError>>
 
 extension CTAP2 {
 
@@ -29,13 +29,13 @@ extension CTAP2 {
     ///
     /// Read more about FIDO2/WebAuthn on the
     /// [FIDO Alliance website](https://fidoalliance.org/fido2/).
-    final actor Session<I: CBORInterface> where I.Error == CTAP2.SessionError {
+    public final actor Session<I: CBORInterface> where I.Error == CTAP2.SessionError {
 
         /// The underlying interface for communication (FIDOInterface or SmartCardInterface).
-        let interface: I
+        public let interface: I
 
         /// The firmware version of the YubiKey.
-        let version: Version
+        public let version: Version
 
         // Cached GetInfo.Response, populated after first getInfo() call.
         fileprivate var cachedInfo: CTAP2.GetInfo.Response?
@@ -52,11 +52,11 @@ extension CTAP2 {
         ///
         /// This command does not require user verification or PIN.
         ///
-        /// > Note: This functionality requires support for ``CTAP2/Feature/getInfo``, available on YubiKey 5.0 or later.
+        /// > Note: This functionality is available on YubiKey 5.0 or later.
         ///
         /// - Returns: The authenticator information structure.
         /// - Throws: ``CTAP2/SessionError`` if the operation fails.
-        func getInfo() async throws(CTAP2.SessionError) -> CTAP2.GetInfo.Response {
+        public func getInfo() async throws(CTAP2.SessionError) -> CTAP2.GetInfo.Response {
             let stream: CTAP2.StatusStream<CTAP2.GetInfo.Response> = await interface.send(command: .getInfo)
             let response = try await stream.value
 
@@ -76,10 +76,10 @@ extension CTAP2 {
         /// > plugging the YubiKey in, and it requires user presence confirmation (touch).
         /// > Over NFC, this command requires user presence confirmation.
         ///
-        /// > Note: This functionality requires support for ``CTAP2/Feature/reset``, available on YubiKey 5.0 or later.
+        /// > Note: This functionality is available on YubiKey 5.0 or later.
         ///
         /// - Returns: A ``CTAP2/StatusStream`` that yields status updates and completes with `Void`.
-        func reset() async -> CTAP2.StatusStream<Void> {
+        public func reset() async -> CTAP2.StatusStream<Void> {
             await interface.send(command: .reset)
         }
 
@@ -93,10 +93,10 @@ extension CTAP2 {
         /// The command will wait for the user to confirm their presence on the authenticator.
         /// It completes successfully once user presence is detected.
         ///
-        /// > Note: This functionality requires support for ``CTAP2/Feature/selection``, available on YubiKey 5.0 or later.
+        /// > Note: This functionality is available on YubiKey 5.0 or later.
         ///
         /// - Returns: A ``CTAP2/StatusStream`` that yields status updates and completes with `Void`.
-        func selection() async -> CTAP2.StatusStream<Void> {
+        public func selection() async -> CTAP2.StatusStream<Void> {
             await interface.send(command: .selection)
         }
     }

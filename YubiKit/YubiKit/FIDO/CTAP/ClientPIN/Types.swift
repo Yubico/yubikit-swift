@@ -24,7 +24,7 @@ extension CTAP2.ClientPin {
     ///
     /// - SeeAlso: [CTAP2 PIN/UV Auth Protocol One](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#pinProto1)
     /// - SeeAlso: [CTAP2 PIN/UV Auth Protocol Two](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#pinProto2)
-    enum ProtocolVersion: Int, Sendable, CBOR.Encodable {
+    public enum ProtocolVersion: Int, Sendable, CBOR.Encodable {
         /// Protocol version 1 (CTAP 2.0).
         case v1 = 1
 
@@ -33,7 +33,7 @@ extension CTAP2.ClientPin {
     }
 
     /// Method for PIN/UV user verification.
-    enum Method: Sendable {
+    public enum Method: Sendable {
         /// Verify using a PIN.
         case pin(String)
 
@@ -46,7 +46,7 @@ extension CTAP2.ClientPin {
     /// Use ``CTAP2/Session/getPinUVToken(using:permissions:rpId:protocol:)`` to obtain a token,
     /// then pass it to operations like ``CTAP2/Session/makeCredential(parameters:pinToken:)``
     /// and ``CTAP2/Session/getAssertion(parameters:pinToken:)``.
-    struct Token: Sendable {
+    public struct Token: Sendable {
         /// The decrypted PIN token.
         let token: Data
 

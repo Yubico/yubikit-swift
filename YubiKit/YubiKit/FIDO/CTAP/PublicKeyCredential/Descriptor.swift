@@ -16,17 +16,17 @@ import Foundation
 
 extension PublicKeyCredential {
     /// Public key credential descriptor (credential ID and type).
-    struct Descriptor: Sendable {
+    public struct Descriptor: Sendable {
         /// Credential type (always "public-key" for FIDO2).
-        let type: String
+        public let type: String
 
         /// Credential ID (opaque byte sequence).
-        let id: Data
+        public let id: Data
 
         /// Optional transports hint.
-        let transports: [String]?
+        public let transports: [String]?
 
-        init(type: String = "public-key", id: Data, transports: [String]? = nil) {
+        public init(type: String = "public-key", id: Data, transports: [String]? = nil) {
             self.type = type
             self.id = id
             self.transports = transports

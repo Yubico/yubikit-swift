@@ -26,14 +26,14 @@ extension CTAP2.GetInfo {
     /// let pinSet = options.clientPin      // Typed access
     /// let custom = options["customOption"] // String subscript
     /// ```
-    struct Options: Sendable, Equatable {
+    public struct Options: Sendable, Equatable {
 
         private let values: [String: Bool]
 
         /// Access any option by its CTAP string key.
         ///
         /// Returns `nil` if the option is not present in the authenticator's response.
-        subscript(key: String) -> Bool? {
+        public subscript(key: String) -> Bool? {
             values[key]
         }
 
@@ -43,31 +43,31 @@ extension CTAP2.GetInfo {
         ///
         /// If `true`, the authenticator is a platform authenticator (built into the client device).
         /// If `false` or absent, it's a roaming authenticator.
-        var platformDevice: Bool { self["plat"] ?? false }
+        public var platformDevice: Bool { self["plat"] ?? false }
 
         /// Indicates the device supports resident keys (discoverable credentials).
         ///
         /// If `true`, the authenticator can store credentials on-device.
-        var residentKey: Bool { self["rk"] ?? false }
+        public var residentKey: Bool { self["rk"] ?? false }
 
         /// Indicates the device is capable of testing user presence.
         ///
         /// Defaults to `true` if absent.
-        var userPresence: Bool { self["up"] ?? true }
+        public var userPresence: Bool { self["up"] ?? true }
 
         /// Client PIN support status.
         ///
         /// - `true`: PIN is supported and has been set
         /// - `false`: PIN is supported but not yet set
         /// - `nil`: PIN is not supported
-        var clientPin: Bool? { self["clientPin"] }
+        public var clientPin: Bool? { self["clientPin"] }
 
         /// Built-in user verification support status.
         ///
         /// - `true`: UV is supported and configured (e.g., biometric enrolled)
         /// - `false`: UV is supported but not yet configured
         /// - `nil`: UV is not supported (device can only do Client PIN)
-        var userVerification: Bool? { self["uv"] }
+        public var userVerification: Bool? { self["uv"] }
 
         // MARK: - CTAP 2.1 Options
 
@@ -79,57 +79,57 @@ extension CTAP2.GetInfo {
         /// - If `userVerification` is `true`, supports `getPinUVAuthTokenUsingUVWithPermissions`
         ///
         /// When `false` or absent, only legacy `getPinToken` is supported.
-        var pinUVAuthToken: Bool? { self["pinUvAuthToken"] }
+        public var pinUVAuthToken: Bool? { self["pinUvAuthToken"] }
 
         /// Indicates that tokens obtained via PIN cannot be used for MakeCredential/GetAssertion.
         ///
         /// When `true`, platforms should not attempt `getPinUVAuthTokenUsingPinWithPermissions`
         /// if `getPinUVAuthTokenUsingUVWithPermissions` fails.
-        var noMcGaPermissionsWithClientPin: Bool? { self["noMcGaPermissionsWithClientPin"] }
+        public var noMcGaPermissionsWithClientPin: Bool? { self["noMcGaPermissionsWithClientPin"] }
 
         /// Indicates support for the `authenticatorLargeBlobs` command.
-        var largeBlobs: Bool? { self["largeBlobs"] }
+        public var largeBlobs: Bool? { self["largeBlobs"] }
 
         /// Enterprise Attestation support status.
         ///
         /// - `true`: Supported and enabled
         /// - `false`: Supported but disabled
         /// - `nil`: Not supported
-        var enterpriseAttestation: Bool? { self["ep"] }
+        public var enterpriseAttestation: Bool? { self["ep"] }
 
         /// Biometric enrollment support status.
         ///
         /// - `true`: Supported with at least one enrollment provisioned
         /// - `false`: Supported but no enrollments yet
         /// - `nil`: Not supported
-        var bioEnroll: Bool? { self["bioEnroll"] }
+        public var bioEnroll: Bool? { self["bioEnroll"] }
 
         /// Indicates support for requesting `be` permission via UV.
         ///
         /// Only present if `bioEnroll` is also present.
-        var uvBioEnroll: Bool? { self["uvBioEnroll"] }
+        public var uvBioEnroll: Bool? { self["uvBioEnroll"] }
 
         /// Indicates support for the `authenticatorConfig` command.
-        var authenticatorConfig: Bool? { self["authnrCfg"] }
+        public var authenticatorConfig: Bool? { self["authnrCfg"] }
 
         /// Indicates support for requesting `acfg` permission via UV.
         ///
         /// Only present if `authenticatorConfig` is also present.
-        var uvAuthenticatorConfig: Bool? { self["uvAcfg"] }
+        public var uvAuthenticatorConfig: Bool? { self["uvAcfg"] }
 
         /// Indicates support for the `authenticatorCredentialManagement` command.
-        var credentialManagement: Bool? { self["credMgmt"] }
+        public var credentialManagement: Bool? { self["credMgmt"] }
 
         /// Indicates support for the `setMinPINLength` subcommand.
         ///
         /// Only present if `clientPin` is also present.
-        var setMinPINLength: Bool? { self["setMinPINLength"] }
+        public var setMinPINLength: Bool? { self["setMinPINLength"] }
 
         /// Indicates non-discoverable credentials can be created without user verification.
         ///
         /// When `true`, the authenticator allows creating non-discoverable credentials
         /// without requiring any form of user verification if the platform requests it.
-        var makeCredUVNotRequired: Bool? { self["makeCredUvNotRqd"] }
+        public var makeCredUVNotRequired: Bool? { self["makeCredUvNotRqd"] }
 
         /// Always Require User Verification feature status.
         ///
@@ -138,15 +138,15 @@ extension CTAP2.GetInfo {
         /// - `nil`: Not supported
         ///
         /// If `true`, `makeCredUVNotRequired` must be `false`.
-        var alwaysUV: Bool? { self["alwaysUv"] }
+        public var alwaysUV: Bool? { self["alwaysUv"] }
 
         // MARK: - Preview/Prototype Options
 
         /// Prototype biometric enrollment support (FIDO_2_1_PRE).
-        var userVerificationMgmtPreview: Bool? { self["userVerificationMgmtPreview"] }
+        public var userVerificationMgmtPreview: Bool? { self["userVerificationMgmtPreview"] }
 
         /// Prototype credential management support (FIDO_2_1_PRE).
-        var credentialMgmtPreview: Bool? { self["credentialMgmtPreview"] }
+        public var credentialMgmtPreview: Bool? { self["credentialMgmtPreview"] }
     }
 }
 

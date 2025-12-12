@@ -19,9 +19,9 @@ import Foundation
 
 extension WebAuthn {
     /// Namespace for WebAuthn extensions.
-    enum Extension {
+    public enum Extension {
         /// Extension identifier type (shared with CTAP2).
-        typealias Identifier = CTAP2.Extension.Identifier
+        public typealias Identifier = CTAP2.Extension.Identifier
     }
 }
 

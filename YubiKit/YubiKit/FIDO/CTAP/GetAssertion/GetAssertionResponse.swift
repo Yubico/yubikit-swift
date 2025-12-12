@@ -20,31 +20,31 @@ extension CTAP2.GetAssertion {
     /// Contains the authentication assertion including signature and authenticator data.
     ///
     /// - SeeAlso: [CTAP2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)
-    struct Response: Sendable {
+    public struct Response: Sendable {
         /// The credential that was used to generate this assertion.
         /// Only present when multiple credentials match or when using resident keys.
-        let credential: PublicKeyCredential.Descriptor?
+        public let credential: PublicKeyCredential.Descriptor?
 
         /// Authenticator data for this assertion.
-        let authenticatorData: WebAuthn.AuthenticatorData
+        public let authenticatorData: WebAuthn.AuthenticatorData
 
         /// Signature over authenticatorData and clientDataHash.
-        let signature: Data
+        public let signature: Data
 
         /// User information associated with this credential.
         /// Only present when the credential is a resident key.
-        let user: PublicKeyCredential.UserEntity?
+        public let user: PublicKeyCredential.UserEntity?
 
         /// Total number of credentials available for this RP.
         /// When present and > 1, use getNextAssertion to retrieve additional assertions.
-        let numberOfCredentials: Int?
+        public let numberOfCredentials: Int?
 
         /// Indicates if the user explicitly selected this credential (CTAP 2.2+).
         /// When true, the authenticator presented multiple credentials and the user selected this one.
-        let userSelected: Bool?
+        public let userSelected: Bool?
 
         /// Large blob key associated with this credential (CTAP 2.1+).
-        let largeBlobKey: Data?
+        public let largeBlobKey: Data?
 
         init(
             credential: PublicKeyCredential.Descriptor? = nil,

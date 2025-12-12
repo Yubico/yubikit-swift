@@ -18,30 +18,30 @@ extension CTAP2.MakeCredential {
     /// Parameters for the authenticatorMakeCredential command.
     ///
     /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
-    struct Parameters: Sendable {
+    public struct Parameters: Sendable {
         /// SHA-256 hash of the client data.
-        let clientDataHash: Data
+        public let clientDataHash: Data
 
         /// Relying Party information.
-        let rp: PublicKeyCredential.RPEntity
+        public let rp: PublicKeyCredential.RPEntity
 
         /// User account information.
-        let user: PublicKeyCredential.UserEntity
+        public let user: PublicKeyCredential.UserEntity
 
         /// Supported public key algorithms in order of preference.
-        let pubKeyCredParams: [COSE.Algorithm]
+        public let pubKeyCredParams: [COSE.Algorithm]
 
         /// Credentials to exclude (already registered).
-        let excludeList: [PublicKeyCredential.Descriptor]?
+        public let excludeList: [PublicKeyCredential.Descriptor]?
 
         /// Extension inputs for additional authenticator processing.
         let extensions: [any CTAP2.Extension.MakeCredential.Input]
 
         /// Authenticator options.
-        let options: Options?
+        public let options: Options?
 
         /// Enterprise attestation level (1 or 2).
-        let enterpriseAttestation: Int?
+        public let enterpriseAttestation: Int?
 
         /// PIN/UV auth parameter (populated automatically when using PIN authentication).
         private(set) var pinUVAuthParam: Data?
@@ -55,13 +55,32 @@ extension CTAP2.MakeCredential {
             self.pinUVAuthProtocol = pinToken.protocolVersion
         }
 
+        public init(
+            clientDataHash: Data,
+            rp: PublicKeyCredential.RPEntity,
+            user: PublicKeyCredential.UserEntity,
+            pubKeyCredParams: [COSE.Algorithm],
+            excludeList: [PublicKeyCredential.Descriptor]? = nil,
+            options: Options? = nil,
+            enterpriseAttestation: Int? = nil
+        ) {
+            self.clientDataHash = clientDataHash
+            self.rp = rp
+            self.user = user
+            self.pubKeyCredParams = pubKeyCredParams
+            self.excludeList = excludeList
+            self.extensions = []
+            self.options = options
+            self.enterpriseAttestation = enterpriseAttestation
+        }
+
         init(
             clientDataHash: Data,
             rp: PublicKeyCredential.RPEntity,
             user: PublicKeyCredential.UserEntity,
             pubKeyCredParams: [COSE.Algorithm],
             excludeList: [PublicKeyCredential.Descriptor]? = nil,
-            extensions: [any CTAP2.Extension.MakeCredential.Input] = [],
+            extensions: [any CTAP2.Extension.MakeCredential.Input],
             options: Options? = nil,
             enterpriseAttestation: Int? = nil
         ) {
@@ -76,14 +95,14 @@ extension CTAP2.MakeCredential {
         }
 
         /// Authenticator options for makeCredential.
-        struct Options: Sendable {
+        public struct Options: Sendable {
             /// Require resident key (discoverable credential).
-            let rk: Bool?
+            public let rk: Bool?
 
             /// Require user verification.
-            let uv: Bool?
+            public let uv: Bool?
 
-            init(rk: Bool? = nil, uv: Bool? = nil) {
+            public init(rk: Bool? = nil, uv: Bool? = nil) {
                 self.rk = rk
                 self.uv = uv
             }

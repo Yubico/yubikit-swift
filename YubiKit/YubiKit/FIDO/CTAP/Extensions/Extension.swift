@@ -21,7 +21,7 @@ extension CTAP2.Extension {
     ///
     /// Extension identifiers are strings that identify specific CTAP2 extensions
     /// reported in the authenticator's GetInfo response.
-    enum Identifier: Hashable, Sendable {
+    public enum Identifier: Hashable, Sendable {
         /// The hmac-secret extension for deriving secrets at GetAssertion.
         case hmacSecret
 
@@ -35,7 +35,7 @@ extension CTAP2.Extension {
         case other(String)
 
         /// The raw extension identifier string.
-        var value: String {
+        public var value: String {
             switch self {
             case .hmacSecret: return "hmac-secret"
             case .hmacSecretMC: return "hmac-secret-mc"
@@ -47,7 +47,7 @@ extension CTAP2.Extension {
         /// Initialize from a raw extension identifier string.
         ///
         /// - Parameter value: Extension identifier string
-        init(_ value: String) {
+        public init(_ value: String) {
             switch value {
             case "hmac-secret": self = .hmacSecret
             case "hmac-secret-mc": self = .hmacSecretMC
@@ -62,10 +62,10 @@ extension CTAP2.Extension {
 
 extension CTAP2.Extension {
     /// Namespace for MakeCredential extension input protocol.
-    enum MakeCredential {}
+    public enum MakeCredential {}
 
     /// Namespace for GetAssertion extension input protocol.
-    enum GetAssertion {}
+    public enum GetAssertion {}
 }
 
 // MARK: - MakeCredential Extension Input

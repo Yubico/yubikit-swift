@@ -21,30 +21,34 @@ extension CTAP2.ClientPin {
     /// Protocol v2 (CTAP 2.1+) requires permissions to be specified when obtaining tokens.
     ///
     /// - SeeAlso: [CTAP2.3 Section 6.5.5.7](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#getPinUvAuthTokenUsingPinWithPermissions)
-    struct Permission: OptionSet, Sendable, CBOR.Encodable {
-        let rawValue: UInt8
+    public struct Permission: OptionSet, Sendable, CBOR.Encodable {
+        public let rawValue: UInt8
+
+        public init(rawValue: UInt8) {
+            self.rawValue = rawValue
+        }
 
         /// Permission to create credentials (makeCredential command).
-        static let makeCredential = Permission(rawValue: 0x01)
+        public static let makeCredential = Permission(rawValue: 0x01)
 
         /// Permission to get assertions (getAssertion command).
-        static let getAssertion = Permission(rawValue: 0x02)
+        public static let getAssertion = Permission(rawValue: 0x02)
 
         /// Permission to manage credentials (credentialManagement command).
-        static let credentialManagement = Permission(rawValue: 0x04)
+        public static let credentialManagement = Permission(rawValue: 0x04)
 
         /// Permission to enroll biometrics (bioEnrollment command).
-        static let bioEnrollment = Permission(rawValue: 0x08)
+        public static let bioEnrollment = Permission(rawValue: 0x08)
 
         /// Permission to write large blobs (largeBlobs write operation).
-        static let largeBlobWrite = Permission(rawValue: 0x10)
+        public static let largeBlobWrite = Permission(rawValue: 0x10)
 
         /// Permission to configure authenticator (authenticatorConfig command).
-        static let authenticatorConfig = Permission(rawValue: 0x20)
+        public static let authenticatorConfig = Permission(rawValue: 0x20)
 
         /// Permission for persistent credential management.
         ///
         /// Available on YubiKey firmware 5.7+.
-        static let persistentCredentialManagement = Permission(rawValue: 0x40)
+        public static let persistentCredentialManagement = Permission(rawValue: 0x40)
     }
 }

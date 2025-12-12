@@ -26,7 +26,7 @@ extension CTAP2.Session {
     /// The authenticator validates the request, locates the credential, and generates a signature
     /// over the authenticator data and client data hash using the credential's private key.
     ///
-    /// > Note: This functionality requires support for ``CTAP/Feature/getAssertion``, available on YubiKey 5.0 or later.
+    /// > Note: This functionality is available on YubiKey 5.0 or later.
     ///
     /// - Parameters:
     ///   - parameters: The assertion request parameters.
@@ -34,7 +34,7 @@ extension CTAP2.Session {
     /// - Returns: AsyncStream of status updates, ending with `.finished(response)` containing the assertion data
     ///
     /// - SeeAlso: [CTAP authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)
-    func getAssertion(
+    public func getAssertion(
         parameters: CTAP2.GetAssertion.Parameters,
         pinToken: CTAP2.ClientPin.Token? = nil
     ) async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
@@ -58,19 +58,19 @@ extension CTAP2.Session {
 
     /// Get the next assertion when multiple credentials are available.
     ///
-    /// After calling ``getAssertion(parameters:)``, if the response contains `numberOfCredentials > 1`,
+    /// After calling ``getAssertion(parameters:pinToken:)``, if the response contains `numberOfCredentials > 1`,
     /// call this method repeatedly to retrieve the remaining assertions. Each call returns the next
     /// available assertion until all have been retrieved.
     ///
-    /// > Important: This command must only be called after a successful ``getAssertion(parameters:)`` call
+    /// > Important: This command must only be called after a successful ``getAssertion(parameters:pinToken:)`` call
     /// > that returned `numberOfCredentials > 1`. Calling it at other times will result in an error.
     ///
-    /// > Note: This functionality requires support for ``CTAP/Feature/getNextAssertion``, available on YubiKey 5.0 or later.
+    /// > Note: This functionality is available on YubiKey 5.0 or later.
     ///
     /// - Returns: AsyncStream of status updates, ending with `.finished(response)` containing the next assertion
     ///
     /// - SeeAlso: [CTAP authenticatorGetNextAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetNextAssertion)
-    func getNextAssertion() async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
+    public func getNextAssertion() async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
         await interface.send(command: .getNextAssertion)
     }
 

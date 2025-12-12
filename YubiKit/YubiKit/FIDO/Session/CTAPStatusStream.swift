@@ -17,8 +17,8 @@ import Foundation
 extension CTAP2 {
     /// An async sequence that yields status updates and can throw typed errors.
     ///
-    /// This sequence streams ``CTAP/Status`` updates during long-running CTAP operations,
-    /// and can throw ``CTAP.SessionError``.
+    /// This sequence streams ``CTAP2/Status`` updates during long-running CTAP operations,
+    /// and can throw ``CTAP2/SessionError``.
     ///
     /// ## Usage
     ///
@@ -42,8 +42,8 @@ extension CTAP2 {
     ///     }
     /// }
     /// ```
-    struct StatusStream<Response: Sendable>: AsyncSequence {
-        typealias Element = CTAP2.Status<Response>
+    public struct StatusStream<Response: Sendable>: AsyncSequence, @unchecked Sendable {
+        public typealias Element = CTAP2.Status<Response>
 
         private let stream: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>
 
@@ -73,7 +73,7 @@ extension CTAP2 {
         ///
         /// Use this when you don't need to react to status updates and just want the result.
         ///
-        /// - Throws: ``CTAP.SessionError`` if the operation fails.
+        /// - Throws: ``CTAP2/SessionError`` if the operation fails.
         /// - Returns: The response value from the completed operation.
         public var value: Response {
             get async throws(CTAP2.SessionError) {
@@ -86,11 +86,11 @@ extension CTAP2 {
             }
         }
 
-        func makeAsyncIterator() -> Iterator {
+        public func makeAsyncIterator() -> Iterator {
             Iterator(stream.makeAsyncIterator())
         }
 
-        struct Iterator: AsyncIteratorProtocol {
+        public struct Iterator: AsyncIteratorProtocol {
             private var iterator: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>.AsyncIterator
 
             fileprivate init(_ iterator: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>.AsyncIterator)
@@ -98,7 +98,7 @@ extension CTAP2 {
                 self.iterator = iterator
             }
 
-            mutating func next() async throws(CTAP2.SessionError) -> CTAP2.Status<Response>? {
+            public mutating func next() async throws(CTAP2.SessionError) -> CTAP2.Status<Response>? {
                 guard let result = await iterator.next() else {
                     return nil
                 }

@@ -16,7 +16,7 @@ import Foundation
 
 /// Errors that can occur during FIDO2/CTAP session operations.
 extension CTAP2 {
-    enum SessionError: FIDOSessionError, SmartCardSessionError, CBORError, CTAPError, Sendable {
+    public enum SessionError: FIDOSessionError, SmartCardSessionError, CBORError, CTAPError, Sendable {
 
         // MARK: - Common Session Errors
 

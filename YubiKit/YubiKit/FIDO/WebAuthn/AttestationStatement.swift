@@ -21,7 +21,7 @@ extension WebAuthn {
     /// access to common formats, with a fallback for unknown formats.
     ///
     /// - SeeAlso: [WebAuthn Attestation Statement Formats](https://www.w3.org/TR/webauthn/#sctn-attestation-formats)
-    enum AttestationStatement: Sendable {
+    public enum AttestationStatement: Sendable {
         /// Packed attestation format (FIDO2).
         case packed(Packed)
 
@@ -39,7 +39,7 @@ extension WebAuthn {
         case unknown(format: String)
 
         /// The attestation format identifier.
-        var format: AttestationFormat {
+        public var format: AttestationFormat {
             switch self {
             case .packed: return .packed
             case .fidoU2F: return .fidoU2F

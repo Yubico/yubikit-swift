@@ -16,17 +16,17 @@ import Foundation
 
 extension PublicKeyCredential {
     /// User account entity information.
-    struct UserEntity: Sendable {
+    public struct UserEntity: Sendable {
         /// User handle (opaque byte sequence).
-        let id: Data
+        public let id: Data
 
         /// User identifier (e.g., "alice@example.com").
-        let name: String?
+        public let name: String?
 
         /// Display name (e.g., "Alice Smith").
-        let displayName: String?
+        public let displayName: String?
 
-        init(id: Data, name: String? = nil, displayName: String? = nil) {
+        public init(id: Data, name: String? = nil, displayName: String? = nil) {
             self.id = id
             self.name = name
             self.displayName = displayName

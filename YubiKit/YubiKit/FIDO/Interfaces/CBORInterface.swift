@@ -20,44 +20,42 @@ import Foundation
 /// allowing them to work over different transports that support CBOR messaging.
 /// Currently implemented by ``FIDOInterface`` for HID/USB communication and
 /// ``SmartCardInterface`` for NFC communication.
-protocol CBORInterface: Actor {
+///
+/// - Note: This protocol is public to allow use in generic constraints, but conformance
+///   is restricted to internal SDK types. External code cannot create new conforming types.
+public protocol CBORInterface: Actor {
 
     /// The error type thrown by this interface.
     associatedtype Error: SessionError
 
+    /// The firmware version of the connected device.
     var version: Version { get async }
 
     /// Maximum message size supported by the authenticator.
-    /// Defaults to 1024 bytes until getInfo() returns the actual limit.
     var maxMsgSize: Int { get }
 
     /// Update the maximum message size after getInfo() returns.
     func setMaxMsgSize(_ size: Int)
+}
 
+/// Internal extension for CBOR-specific send methods.
+/// These methods use internal CBOR types and are not exposed publicly.
+extension CBORInterface {
     /// Send a CTAP2 command with CBOR payload.
-    ///
-    /// The request format is: [command_byte][cbor_payload]
-    /// The response format is: [status_byte][optional_cbor_response]
-    ///
-    /// - Parameters:
-    ///   - command: The CTAP2 command
-    ///   - payload: CBOR-encodable payload (will be CBOR-encoded)
-    /// - Returns: Async sequence of status updates, ending with `.finished(response)` or errors
     func send<I: CBOR.Encodable, O: CBOR.Decodable & Sendable>(
         command: CTAP2.Command,
         payload: I
-    ) -> CTAP2.StatusStream<O>
+    ) -> CTAP2.StatusStream<O> {
+        fatalError("Must be implemented by conforming types")
+    }
 
     /// Send a CTAP2 command with CBOR payload that has no response body.
-    ///
-    /// - Parameters:
-    ///   - command: The CTAP2 command
-    ///   - payload: CBOR-encodable payload (will be CBOR-encoded)
-    /// - Returns: Async sequence of status updates, ending with `.finished(())`
     func send<I: CBOR.Encodable>(
         command: CTAP2.Command,
         payload: I
-    ) -> CTAP2.StatusStream<Void>
+    ) -> CTAP2.StatusStream<Void> {
+        fatalError("Must be implemented by conforming types")
+    }
 }
 
 extension CBORInterface {

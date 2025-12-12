@@ -18,17 +18,17 @@ extension WebAuthn.AttestationStatement {
     /// Packed attestation statement.
     ///
     /// - SeeAlso: [Packed Attestation Statement Format](https://www.w3.org/TR/webauthn/#sctn-packed-attestation)
-    struct Packed: Sendable {
+    public struct Packed: Sendable {
         /// Attestation signature.
-        let sig: Data
+        public let sig: Data
 
         /// Signature algorithm (COSE algorithm identifier).
-        let alg: Int
+        public let alg: Int
 
         /// Attestation certificate chain (optional for self-attestation).
-        let x5c: [Data]?
+        public let x5c: [Data]?
 
         /// ECDAA-Issuer public key (optional, rarely used).
-        let ecdaaKeyId: Data?
+        public let ecdaaKeyId: Data?
     }
 }

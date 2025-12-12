@@ -20,4 +20,4 @@ import Foundation
 /// relying parties, users, and credential descriptors.
 ///
 /// - SeeAlso: [WebAuthn Public Key Credential](https://www.w3.org/TR/webauthn/#public-key-credential)
-enum PublicKeyCredential {}
+public enum PublicKeyCredential {}

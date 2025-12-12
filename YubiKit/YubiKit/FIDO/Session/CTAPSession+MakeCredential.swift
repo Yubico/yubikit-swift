@@ -27,7 +27,7 @@ extension CTAP2.Session {
     /// > Important: This operation requires user interaction (touch) and may require PIN entry
     /// > if user verification is requested.
     ///
-    /// > Note: This functionality requires support for ``CTAP/Feature/makeCredential``, available on YubiKey 5.0 or later.
+    /// > Note: This functionality is available on YubiKey 5.0 or later.
     ///
     /// - Parameters:
     ///   - parameters: The credential creation parameters.
@@ -35,7 +35,7 @@ extension CTAP2.Session {
     /// - Returns: AsyncSequence of status updates, ending with `.finished(response)` containing the credential data
     ///
     /// - SeeAlso: [CTAP authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
-    func makeCredential(
+    public func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
         pinToken: CTAP2.ClientPin.Token? = nil
     ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {

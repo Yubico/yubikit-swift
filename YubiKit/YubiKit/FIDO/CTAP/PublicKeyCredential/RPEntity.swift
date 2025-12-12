@@ -16,14 +16,14 @@ import Foundation
 
 extension PublicKeyCredential {
     /// Relying Party entity information.
-    struct RPEntity: Sendable {
+    public struct RPEntity: Sendable {
         /// Relying Party identifier (e.g., "example.com").
-        let id: String
+        public let id: String
 
         /// Human-readable relying party name.
-        let name: String?
+        public let name: String?
 
-        init(id: String, name: String? = nil) {
+        public init(id: String, name: String? = nil) {
             self.id = id
             self.name = name
         }
