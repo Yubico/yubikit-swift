@@ -123,7 +123,7 @@ struct CTAP2ExtensionFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [credProtect3.input()],
-                options: .init(rk: true, uv: true)
+                options: .init(rk: true)
             )
             let level3Response = try await session.makeCredential(parameters: level3Params, pinToken: pinToken).value
             #expect(credProtect3.output(from: level3Response) == .userVerificationRequired)
@@ -191,19 +191,18 @@ struct CTAP2ExtensionFullStackTests {
                 return
             }
 
-            // Get PIN token
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.makeCredential],
-                rpId: "hmac-secret-mc-test.com"
-            )
-
             let clientDataHash = Data(repeating: 0xCD, count: 32)
             let salt1 = Data(repeating: 0xAA, count: 32)
             let salt2 = Data(repeating: 0xBB, count: 32)
 
             let hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
             let hmacSecretInput = try hmacSecret.makeCredential.input(salt1: salt1, salt2: salt2)
+
+            let pinToken = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.makeCredential],
+                rpId: "hmac-secret-mc-test.com"
+            )
 
             let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
@@ -215,7 +214,7 @@ struct CTAP2ExtensionFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [hmacSecretInput],
-                options: .init(rk: true, uv: true)
+                options: .init(rk: true)
             )
 
             print("👆 Touch the YubiKey to create credential with hmac-secret-mc...")

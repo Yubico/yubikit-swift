@@ -44,9 +44,16 @@ struct WebAuthnExtensionFullStackTests {
             let rpId = "prf-test.example.com"
             let clientDataHash = Data(repeating: 0xCD, count: 32)
 
+            let pinToken = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.makeCredential],
+                rpId: rpId
+            )
+
             // 1. Create a credential with PRF enabled (via hmac-secret)
             let hmacSecret = CTAP2.Extension.HmacSecret()
             let hmacSecretInput = hmacSecret.makeCredential.input()
+
             let makeCredParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: PublicKeyCredential.RPEntity(id: rpId, name: "PRF Test"),
@@ -61,7 +68,10 @@ struct WebAuthnExtensionFullStackTests {
             )
 
             print("👆 Touch the YubiKey to create credential with PRF support...")
-            let makeCredResponse = try await session.makeCredential(parameters: makeCredParams).value
+            let makeCredResponse = try await session.makeCredential(
+                parameters: makeCredParams,
+                pinToken: pinToken
+            ).value
 
             // Verify hmac-secret is enabled (PRF enabled = hmac-secret enabled)
             let hmacResult = try hmacSecret.makeCredential.output(from: makeCredResponse)
@@ -76,31 +86,30 @@ struct WebAuthnExtensionFullStackTests {
             let credentialId = attestedData.credentialId
             print("✅ Credential created")
 
-            // 2. Get PIN token for assertions
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.getAssertion],
-                rpId: rpId
-            )
-
-            // 3. Authenticate with PRF using one secret
+            // 2. Authenticate with PRF using one secret
             let secret1 = Data(repeating: 0xAA, count: 32)
 
             let prf = try await WebAuthn.Extension.PRF(session: session)
             let prfInput1 = try prf.getAssertion.input(first: secret1)
 
+            let pinToken2 = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.getAssertion],
+                rpId: rpId
+            )
+
             let getAssertionParams1 = CTAP2.GetAssertion.Parameters(
                 rpId: rpId,
                 clientDataHash: clientDataHash,
-                allowList: [PublicKeyCredential.Descriptor(type: .publicKey, id: credentialId)],
+                allowList: [.init(id: credentialId)],
                 extensions: [prfInput1],
-                options: .init(up: true, uv: true)
+                options: .init(up: true)
             )
 
             print("👆 Touch the YubiKey for PRF assertion (one secret)...")
             let assertionResponse1 = try await session.getAssertion(
                 parameters: getAssertionParams1,
-                pinToken: pinToken
+                pinToken: pinToken2
             ).value
 
             guard let secrets1 = try prf.getAssertion.output(from: assertionResponse1) else {
@@ -110,7 +119,7 @@ struct WebAuthnExtensionFullStackTests {
             #expect(secrets1.first.count == 32)
             print("✅ PRF secrets.first: \(secrets1.first.prefix(8).hexEncodedString)...")
 
-            // 4. Authenticate again with two secrets using evalByCredential
+            // 3. Authenticate again with two secrets using evalByCredential
             let secret2 = Data(repeating: 0xBB, count: 32)
 
             let prf2 = try await WebAuthn.Extension.PRF(
@@ -122,18 +131,24 @@ struct WebAuthnExtensionFullStackTests {
 
             let prfInput2 = try prf2.getAssertion.input(for: credentialId)
 
+            let pinToken3 = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.getAssertion],
+                rpId: rpId
+            )
+
             let getAssertionParams2 = CTAP2.GetAssertion.Parameters(
                 rpId: rpId,
                 clientDataHash: clientDataHash,
-                allowList: [PublicKeyCredential.Descriptor(type: .publicKey, id: credentialId)],
+                allowList: [.init(id: credentialId)],
                 extensions: [prfInput2],
-                options: .init(up: true, uv: true)
+                options: .init(up: true)
             )
 
             print("👆 Touch the YubiKey for PRF assertion (two secrets, evalByCredential)...")
             let assertionResponse2 = try await session.getAssertion(
                 parameters: getAssertionParams2,
-                pinToken: pinToken
+                pinToken: pinToken3
             ).value
 
             guard let secrets2 = try prf2.getAssertion.output(from: assertionResponse2) else {
@@ -178,19 +193,14 @@ struct WebAuthnExtensionFullStackTests {
             let secret1 = Data(repeating: 0xCC, count: 32)
             let secret2 = Data(repeating: 0xDD, count: 32)
 
-            // Get PIN token for MakeCredential and GetAssertion
+            let prf = try await WebAuthn.Extension.PRF(session: session)
+            let prfMcInput = try prf.makeCredential.input(first: secret1, second: secret2)
+
             let pinToken = try await session.getPinUVToken(
                 using: .pin(defaultTestPin),
-                permissions: [.makeCredential, .getAssertion],
+                permissions: [.makeCredential],
                 rpId: rpId
             )
-
-            // Create hmac-secret-mc extension with PRF salt transformation
-            let salt1 = WebAuthn.Extension.PRF.salt(secret1)
-            let salt2 = WebAuthn.Extension.PRF.salt(secret2)
-
-            let hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
-            let hmacSecretInput = try hmacSecret.makeCredential.input(salt1: salt1, salt2: salt2)
 
             let makeCredParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
@@ -201,8 +211,8 @@ struct WebAuthnExtensionFullStackTests {
                     displayName: "PRF MC User"
                 ),
                 pubKeyCredParams: [.es256],
-                extensions: [hmacSecretInput],
-                options: .init(rk: true, uv: true)
+                extensions: [prfMcInput],
+                options: .init(rk: true)
             )
 
             print("👆 Touch the YubiKey to create credential with PRF secrets...")
@@ -212,13 +222,13 @@ struct WebAuthnExtensionFullStackTests {
             ).value
 
             // Verify we got secrets back at registration
-            guard let result = try hmacSecret.makeCredential.output(from: makeCredResponse) else {
-                Issue.record("Expected hmac-secret-mc response")
+            guard let result = try prf.makeCredential.output(from: makeCredResponse) else {
+                Issue.record("Expected PRF response")
                 return
             }
 
             guard case .secrets(let mcSecrets) = result else {
-                Issue.record("Expected .secrets result from hmac-secret-mc")
+                Issue.record("Expected .secrets result from PRF at MakeCredential")
                 return
             }
 
@@ -234,32 +244,31 @@ struct WebAuthnExtensionFullStackTests {
             }
             let credentialId = attestedData.credentialId
 
-            // Now authenticate with the same secrets via evalByCredential
-            // and verify we get the same outputs (determinism)
-            let prf = try await WebAuthn.Extension.PRF(
-                first: secret1,
-                second: secret2,
-                evalByCredential: [credentialId: (first: secret1, second: secret2)],
-                session: session
-            )
+            // Authenticate with the same secrets and verify we get the same outputs (determinism)
+            let prfGa = try await WebAuthn.Extension.PRF(session: session)
+            let prfGaInput = try prfGa.getAssertion.input(first: secret1, second: secret2)
 
-            let prfInput = try prf.getAssertion.input(for: credentialId)
+            let pinToken2 = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.getAssertion],
+                rpId: rpId
+            )
 
             let getAssertionParams = CTAP2.GetAssertion.Parameters(
                 rpId: rpId,
                 clientDataHash: clientDataHash,
-                allowList: [PublicKeyCredential.Descriptor(type: .publicKey, id: credentialId)],
-                extensions: [prfInput],
-                options: .init(up: true, uv: true)
+                allowList: [.init(id: credentialId)],
+                extensions: [prfGaInput],
+                options: .init(up: true)
             )
 
             print("👆 Touch the YubiKey for PRF assertion (verifying determinism)...")
             let assertionResponse = try await session.getAssertion(
                 parameters: getAssertionParams,
-                pinToken: pinToken
+                pinToken: pinToken2
             ).value
 
-            guard let gaSecrets = try prf.getAssertion.output(from: assertionResponse) else {
+            guard let gaSecrets = try prfGa.getAssertion.output(from: assertionResponse) else {
                 Issue.record("Expected PRF output in assertion")
                 return
             }
