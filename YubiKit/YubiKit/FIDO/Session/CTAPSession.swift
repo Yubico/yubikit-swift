@@ -87,13 +87,8 @@ extension CTAP2 {
         // Cached GetInfo.Response, populated after first getInfo() call.
         fileprivate var cachedInfo: CTAP2.GetInfo.Response?
 
-        internal init(interface: SmartCardInterface<CTAP2.SessionError>) async {
-            self.interface = .init(interface: interface)
-            self.version = await interface.version
-        }
-
-        internal init(interface: FIDOInterface<CTAP2.SessionError>) async {
-            self.interface = .init(interface: interface)
+        internal init(interface: Interface) async {
+            self.interface = interface
             self.version = await interface.version
         }
 

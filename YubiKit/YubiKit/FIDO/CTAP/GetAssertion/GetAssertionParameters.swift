@@ -50,20 +50,7 @@ extension CTAP2.GetAssertion {
             rpId: String,
             clientDataHash: Data,
             allowList: [PublicKeyCredential.Descriptor]? = nil,
-            options: Options? = nil
-        ) {
-            self.rpId = rpId
-            self.clientDataHash = clientDataHash
-            self.allowList = allowList
-            self.extensions = []
-            self.options = options
-        }
-
-        public init(
-            rpId: String,
-            clientDataHash: Data,
-            allowList: [PublicKeyCredential.Descriptor]? = nil,
-            extensions: [CTAP2.Extension.GetAssertion.Input],
+            extensions: [CTAP2.Extension.GetAssertion.Input] = [],
             options: Options? = nil
         ) {
             self.rpId = rpId
