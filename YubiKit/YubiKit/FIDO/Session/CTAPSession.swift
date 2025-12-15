@@ -14,36 +14,19 @@
 
 import Foundation
 
-// Type aliases for convenience
-public typealias FIDO2Session = CTAP2.Session<FIDOInterface<CTAP2.SessionError>>
-public typealias FIDO2SessionOverSmartCard = CTAP2.Session<SmartCardInterface<CTAP2.SessionError>>
-
 extension CTAP2 {
 
-    /// A generic interface to the FIDO2/CTAP authenticator on the YubiKey.
+    /// Interface to the FIDO2/CTAP authenticator on the YubiKey.
     ///
     /// Use the FIDO2 session to interact with the CTAP authenticator for WebAuthn/FIDO2
     /// operations like credential creation, authentication, and device information.
-    /// This generic version works with any interface that conforms to ``CBORInterface``,
-    /// allowing FIDO2 operations over both USB (HID) and NFC (SmartCard) transports.
+    /// Supports both USB (HID) and NFC (SmartCard) transports.
     ///
     /// Read more about FIDO2/WebAuthn on the
     /// [FIDO Alliance website](https://fidoalliance.org/fido2/).
-    public final actor Session<I: CBORInterface> where I.Error == CTAP2.SessionError {
-
-        /// The underlying interface for communication (FIDOInterface or SmartCardInterface).
-        public let interface: I
-
+    public actor Session {
         /// The firmware version of the YubiKey.
         public let version: Version
-
-        // Cached GetInfo.Response, populated after first getInfo() call.
-        fileprivate var cachedInfo: CTAP2.GetInfo.Response?
-
-        init(interface: I) async {
-            self.interface = interface
-            self.version = await interface.version
-        }
 
         /// Get authenticator information.
         ///
@@ -59,28 +42,9 @@ extension CTAP2 {
         public func getInfo() async throws(CTAP2.SessionError) -> CTAP2.GetInfo.Response {
             let stream: CTAP2.StatusStream<CTAP2.GetInfo.Response> = await interface.send(command: .getInfo)
             let response = try await stream.value
-
-            // This is the single-point where we update cachedInfo
             cachedInfo = response
             await interface.setMaxMsgSize(Int(response.maxMsgSize))
-
             return response
-        }
-
-        /// Reset the CTAP authenticator.
-        ///
-        /// This command deletes all FIDO credentials, removes the PIN, and resets
-        /// the authenticator to factory settings.
-        ///
-        /// > Warning: Over USB this command must be sent within a few seconds of
-        /// > plugging the YubiKey in, and it requires user presence confirmation (touch).
-        /// > Over NFC, this command requires user presence confirmation.
-        ///
-        /// > Note: This functionality is available on YubiKey 5.0 or later.
-        ///
-        /// - Returns: A ``CTAP2/StatusStream`` that yields status updates and completes with `Void`.
-        public func reset() async -> CTAP2.StatusStream<Void> {
-            await interface.send(command: .reset)
         }
 
         /// Request user presence check for authenticator selection.
@@ -99,6 +63,40 @@ extension CTAP2 {
         public func selection() async -> CTAP2.StatusStream<Void> {
             await interface.send(command: .selection)
         }
+
+        /// Reset the CTAP authenticator.
+        ///
+        /// This command deletes all FIDO credentials, removes the PIN, and resets
+        /// the authenticator to factory settings.
+        ///
+        /// > Warning: Over USB this command must be sent within a few seconds of
+        /// > plugging the YubiKey in, and it requires user presence confirmation (touch).
+        /// > Over NFC, this command requires user presence confirmation.
+        ///
+        /// > Note: This functionality is available on YubiKey 5.0 or later.
+        ///
+        /// - Returns: A ``CTAP2/StatusStream`` that yields status updates and completes with `Void`.
+        public func reset() async -> CTAP2.StatusStream<Void> {
+            await interface.send(command: .reset)
+        }
+
+        // MARK: - Internal
+
+        internal let interface: Interface
+
+        // Cached GetInfo.Response, populated after first getInfo() call.
+        fileprivate var cachedInfo: CTAP2.GetInfo.Response?
+
+        internal init(interface: SmartCardInterface<CTAP2.SessionError>) async {
+            self.interface = .init(interface: interface)
+            self.version = await interface.version
+        }
+
+        internal init(interface: FIDOInterface<CTAP2.SessionError>) async {
+            self.interface = .init(interface: interface)
+            self.version = await interface.version
+        }
+
     }
 }
 

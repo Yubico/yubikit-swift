@@ -94,7 +94,7 @@ extension CTAP2.Session {
     func getAssertions(
         parameters: CTAP2.GetAssertion.Parameters,
         pinToken: CTAP2.ClientPin.Token? = nil
-    ) async -> CTAP2.GetAssertion.Sequence<I> {
+    ) async -> CTAP2.GetAssertion.Sequence {
         var authenticatedParams = parameters
 
         if let pinToken {
@@ -114,22 +114,22 @@ extension CTAP2.Session {
 ///
 /// Use ``CTAP2/Session/getAssertions(parameters:pinToken:)`` to create instances of this type.
 extension CTAP2.GetAssertion {
-    struct Sequence<I: CBORInterface>: AsyncSequence where I.Error == CTAP2.SessionError {
+    struct Sequence: AsyncSequence {
         typealias Element = CTAP2.GetAssertion.Response
 
-        let session: CTAP2.Session<I>
+        let session: CTAP2.Session
         let parameters: CTAP2.GetAssertion.Parameters
 
         fileprivate init(
-            session: CTAP2.Session<I>,
+            session: CTAP2.Session,
             parameters: CTAP2.GetAssertion.Parameters
         ) {
             self.session = session
             self.parameters = parameters
         }
 
-        func makeAsyncIterator() -> Iterator<I> {
-            Iterator<I>(session: session, parameters: parameters)
+        func makeAsyncIterator() -> Iterator {
+            Iterator(session: session, parameters: parameters)
         }
     }
 }
@@ -138,17 +138,17 @@ extension CTAP2.GetAssertion {
     /// Iterator that fetches assertions one at a time from the authenticator.
     ///
     /// Created by ``Sequence/makeAsyncIterator()``. Use ``CTAP2/Session/getAssertions(parameters:pinToken:)`` instead of instantiating directly.
-    actor Iterator<I: CBORInterface>: AsyncIteratorProtocol where I.Error == CTAP2.SessionError {
+    actor Iterator: AsyncIteratorProtocol {
         typealias Element = CTAP2.GetAssertion.Response
 
-        let session: CTAP2.Session<I>
+        let session: CTAP2.Session
         let parameters: CTAP2.GetAssertion.Parameters
 
         var currentIndex = 0
         var totalCredentials = 0
 
         fileprivate init(
-            session: CTAP2.Session<I>,
+            session: CTAP2.Session,
             parameters: CTAP2.GetAssertion.Parameters
         ) {
             self.session = session

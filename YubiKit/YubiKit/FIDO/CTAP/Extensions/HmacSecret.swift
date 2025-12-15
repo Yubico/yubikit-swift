@@ -101,9 +101,9 @@ extension CTAP2.Extension {
         /// hmac-secret-mc, or at GetAssertion).
         ///
         /// - Parameter session: The CTAP2 session to use for key agreement.
-        init<I: CBORInterface>(
-            session: CTAP2.Session<I>
-        ) async throws(CTAP2.SessionError) where I.Error == CTAP2.SessionError {
+        init(
+            session: CTAP2.Session
+        ) async throws(CTAP2.SessionError) {
             guard try await Self.isSupported(by: session) else {
                 throw .extensionNotSupported(Self.identifier, source: .here())
             }
@@ -113,9 +113,9 @@ extension CTAP2.Extension {
         }
 
         /// Checks if the authenticator supports hmac-secret.
-        static func isSupported<I: CBORInterface>(
-            by session: CTAP2.Session<I>
-        ) async throws(CTAP2.SessionError) -> Bool where I.Error == CTAP2.SessionError {
+        static func isSupported(
+            by session: CTAP2.Session
+        ) async throws(CTAP2.SessionError) -> Bool {
             let info = try await session.getInfo()
             return info.extensions.contains(identifier)
         }
@@ -320,9 +320,9 @@ extension CTAP2.Extension.HmacSecret {
         /// PIN/UV auth protocol version.
         fileprivate let protocolVersion: CTAP2.ClientPin.ProtocolVersion
 
-        static func create<I: CBORInterface>(
-            session: CTAP2.Session<I>
-        ) async throws(CTAP2.SessionError) -> SharedSecret where I.Error == CTAP2.SessionError {
+        static func create(
+            session: CTAP2.Session
+        ) async throws(CTAP2.SessionError) -> SharedSecret {
             let pinProtocol = try await session.preferredClientPinProtocol
             let authenticatorKey = try await getKeyAgreement(session: session, protocol: pinProtocol)
 
@@ -337,10 +337,10 @@ extension CTAP2.Extension.HmacSecret {
             )
         }
 
-        private static func getKeyAgreement<I: CBORInterface>(
-            session: CTAP2.Session<I>,
+        private static func getKeyAgreement(
+            session: CTAP2.Session,
             protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion
-        ) async throws(CTAP2.SessionError) -> COSE.Key where I.Error == CTAP2.SessionError {
+        ) async throws(CTAP2.SessionError) -> COSE.Key {
             let params = CTAP2.ClientPin.GetKeyAgreement.Parameters(pinUVAuthProtocol: pinProtocol)
             let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetKeyAgreement.Response> =
                 await session.interface.send(
