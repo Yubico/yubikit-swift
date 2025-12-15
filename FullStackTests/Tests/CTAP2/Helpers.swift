@@ -21,7 +21,7 @@ let defaultTestPin = "11234567"
 
 #if os(macOS)
 func withCTAP2Session<T>(
-    _ body: (FIDO2Session) async throws -> T
+    _ body: (CTAP2.Session) async throws -> T
 ) async throws -> T {
     let connection = try await HIDFIDOConnection.makeConnection()
     let session = try await CTAP2.Session.makeSession(connection: connection)
@@ -32,7 +32,7 @@ func withCTAP2Session<T>(
 
 #elseif os(iOS)
 func withCTAP2Session<T>(
-    _ body: (FIDO2SessionOverSmartCard) async throws -> T
+    _ body: (CTAP2.Session) async throws -> T
 ) async throws -> T {
     let connection = try await TestableConnection.create(with: .nfc)
     let session = try await CTAP2.Session.makeSession(connection: connection)

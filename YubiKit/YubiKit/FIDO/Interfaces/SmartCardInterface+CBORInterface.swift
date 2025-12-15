@@ -17,7 +17,8 @@ import Foundation
 // MARK: - CBORInterface Conformance (NFC/SmartCard Transport)
 
 extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
-    func send<I: CBOR.Encodable, O: CBOR.Decodable & Sendable>(
+
+    func send<I: In, O: Out>(
         command: CTAP2.Command,
         payload: I
     ) -> CTAP2.StatusStream<O> {
@@ -28,7 +29,7 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
         return execute(requestData)
     }
 
-    func send<I: CBOR.Encodable>(
+    func send<I: In>(
         command: CTAP2.Command,
         payload: I
     ) -> CTAP2.StatusStream<Void> {
@@ -39,7 +40,7 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
         return execute(requestData)
     }
 
-    private func execute<O: CBOR.Decodable & Sendable>(
+    private func execute<O: Out>(
         _ data: Data
     ) -> CTAP2.StatusStream<O> {
         execute(data) { (data: Data) throws(CTAP2.SessionError) -> O in

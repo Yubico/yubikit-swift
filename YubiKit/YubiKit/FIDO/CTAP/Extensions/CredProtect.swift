@@ -72,11 +72,11 @@ extension CTAP2.Extension {
         ///   - enforce: If `true`, throws when the authenticator doesn't support
         ///              credProtect and level > `.userVerificationOptional`.
         /// - Throws: `CTAP2.SessionError.extensionNotSupported` if enforcement fails.
-        init<I: CBORInterface>(
+        init(
             level: Level,
-            session: CTAP2.Session<I>,
+            session: CTAP2.Session,
             enforce: Bool = false
-        ) async throws(CTAP2.SessionError) where I.Error == CTAP2.SessionError {
+        ) async throws(CTAP2.SessionError) {
             self.level = level
             let isSupported = try await Self.isSupported(by: session)
             if enforce && !isSupported && level != .userVerificationOptional {
@@ -88,9 +88,9 @@ extension CTAP2.Extension {
         ///
         /// - Parameter session: The CTAP2 session to check.
         /// - Returns: `true` if the authenticator supports credProtect.
-        static func isSupported<I: CBORInterface>(
-            by session: CTAP2.Session<I>
-        ) async throws(CTAP2.SessionError) -> Bool where I.Error == CTAP2.SessionError {
+        static func isSupported(
+            by session: CTAP2.Session
+        ) async throws(CTAP2.SessionError) -> Bool {
             let info = try await session.getInfo()
             return info.extensions.contains(identifier)
         }

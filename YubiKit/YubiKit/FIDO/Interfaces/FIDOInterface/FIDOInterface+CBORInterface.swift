@@ -17,10 +17,11 @@ import Foundation
 // MARK: - CBORInterface Conformance (HID/USB Transport)
 
 extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
-    func send<I: CBOR.Encodable, O: CBOR.Decodable & Sendable>(
+
+    func send<I: In, O: Out>(
         command: CTAP2.Command,
         payload: I
-    ) -> CTAP2.StatusStream<O> {
+    ) async -> CTAP2.StatusStream<O> {
         var requestData = Data([command.rawValue])
         let cborData = payload.cbor().encode()
         requestData.append(cborData)
@@ -28,10 +29,10 @@ extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
         return execute(requestData)
     }
 
-    func send<I: CBOR.Encodable>(
+    func send<I: In>(
         command: CTAP2.Command,
         payload: I
-    ) -> CTAP2.StatusStream<Void> {
+    ) async -> CTAP2.StatusStream<Void> {
         var requestData = Data([command.rawValue])
         let cborData = payload.cbor().encode()
         requestData.append(cborData)
@@ -39,7 +40,7 @@ extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
         return execute(requestData)
     }
 
-    private func execute<O: CBOR.Decodable & Sendable>(
+    private func execute<O: Out>(
         _ data: Data
     ) -> CTAP2.StatusStream<O> where Error == CTAP2.SessionError {
         execute(data) { (data: Data) throws(CTAP2.SessionError) -> O in

@@ -79,9 +79,9 @@ extension WebAuthn.Extension {
         /// Creates a PRF extension for simple single-credential usage.
         ///
         /// - Parameter session: The CTAP2 session to use for key agreement.
-        init<I: CBORInterface>(
-            session: CTAP2.Session<I>
-        ) async throws(CTAP2.SessionError) where I.Error == CTAP2.SessionError {
+        init(
+            session: CTAP2.Session
+        ) async throws(CTAP2.SessionError) {
             self.hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
             self.defaultSecrets = nil
             self.evalByCredential = [:]
@@ -99,12 +99,12 @@ extension WebAuthn.Extension {
         ///   - session: The CTAP2 session to use for key agreement.
         // TODO: Per WebAuthn spec, evalByCredential keys must be a subset of allowList.
         // Validation requires a WebAuthn client layer that has access to the full request.
-        init<I: CBORInterface>(
+        init(
             first: Data,
             second: Data? = nil,
             evalByCredential: [Data: (first: Data, second: Data?)] = [:],
-            session: CTAP2.Session<I>
-        ) async throws(CTAP2.SessionError) where I.Error == CTAP2.SessionError {
+            session: CTAP2.Session
+        ) async throws(CTAP2.SessionError) {
             self.hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
             self.defaultSecrets = (first, second)
             self.evalByCredential = evalByCredential
