@@ -158,7 +158,7 @@ extension WebAuthn.Extension.PRF {
         /// deriving secrets immediately.
         ///
         /// - Returns: A MakeCredential extension input.
-        public func input() -> CTAP2.Extension.HmacSecret.MakeCredentialOperations.Input {
+        public func input() -> CTAP2.Extension.MakeCredential.Input {
             parent.hmacSecret.makeCredential.input()
         }
 
@@ -175,7 +175,7 @@ extension WebAuthn.Extension.PRF {
         public func input(
             first: Data,
             second: Data? = nil
-        ) throws(CTAP2.SessionError) -> CTAP2.Extension.HmacSecret.MakeCredentialOperations.Input {
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.MakeCredential.Input {
             try parent.hmacSecret.makeCredential.input(
                 salt1: WebAuthn.Extension.PRF.salt(first),
                 salt2: second.map { WebAuthn.Extension.PRF.salt($0) }
@@ -222,7 +222,7 @@ extension WebAuthn.Extension.PRF {
         public func input(
             first: Data,
             second: Data? = nil
-        ) throws(CTAP2.SessionError) -> CTAP2.Extension.HmacSecret.GetAssertionOperations.Input {
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.GetAssertion.Input {
             try parent.hmacSecret.getAssertion.input(
                 salt1: WebAuthn.Extension.PRF.salt(first),
                 salt2: second.map { WebAuthn.Extension.PRF.salt($0) }
@@ -239,7 +239,7 @@ extension WebAuthn.Extension.PRF {
         /// - Returns: A GetAssertion extension input.
         public func input(
             for credentialId: Data?
-        ) throws(CTAP2.SessionError) -> CTAP2.Extension.HmacSecret.GetAssertionOperations.Input {
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.GetAssertion.Input {
             let secrets = credentialId.flatMap { parent.evalByCredential[$0] } ?? parent.defaultSecrets
 
             guard let secrets else {

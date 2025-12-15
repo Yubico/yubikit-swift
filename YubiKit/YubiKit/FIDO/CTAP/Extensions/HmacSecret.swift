@@ -144,8 +144,8 @@ extension CTAP2.Extension.HmacSecret {
         /// Creates a MakeCredential input to enable hmac-secret.
         ///
         /// - Returns: An extension input for MakeCredential.
-        public func input() -> Input {
-            Input(encoded: [CTAP2.Extension.HmacSecret.identifier: .boolean(true)])
+        public func input() -> CTAP2.Extension.MakeCredential.Input {
+            CTAP2.Extension.MakeCredential.Input(encoded: [CTAP2.Extension.HmacSecret.identifier: .boolean(true)])
         }
 
         /// Creates a MakeCredential input with salts for hmac-secret-mc.
@@ -157,7 +157,10 @@ extension CTAP2.Extension.HmacSecret {
         ///   - salt1: First salt (must be exactly 32 bytes).
         ///   - salt2: Optional second salt (must be exactly 32 bytes if provided).
         /// - Returns: An extension input for MakeCredential.
-        public func input(salt1: Data, salt2: Data? = nil) throws(CTAP2.SessionError) -> Input {
+        public func input(
+            salt1: Data,
+            salt2: Data? = nil
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.MakeCredential.Input {
             guard let sharedSecret = parent.sharedSecret, parent.supportsMC else {
                 // Fall back to simple enable
                 return input()
@@ -177,7 +180,7 @@ extension CTAP2.Extension.HmacSecret {
                 ]),
             ]
 
-            return Input(encoded: encoded)
+            return CTAP2.Extension.MakeCredential.Input(encoded: encoded)
         }
 
         /// Extracts the hmac-secret output from a MakeCredential response.
@@ -213,21 +216,6 @@ extension CTAP2.Extension.HmacSecret {
             /// Derived secrets from hmac-secret-mc.
             case secrets(Secrets)
         }
-
-        /// Extension input for MakeCredential.
-        public struct Input: CTAP2.Extension.MakeCredential.Input {
-            internal static let identifier = CTAP2.Extension.HmacSecret.identifier
-
-            private let encoded: [CTAP2.Extension.Identifier: CBOR.Value]
-
-            fileprivate init(encoded: [CTAP2.Extension.Identifier: CBOR.Value]) {
-                self.encoded = encoded
-            }
-
-            internal func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
-                encoded
-            }
-        }
     }
 }
 
@@ -244,7 +232,10 @@ extension CTAP2.Extension.HmacSecret {
         ///   - salt1: First salt (must be exactly 32 bytes).
         ///   - salt2: Optional second salt (must be exactly 32 bytes if provided).
         /// - Returns: An extension input for GetAssertion.
-        public func input(salt1: Data, salt2: Data? = nil) throws(CTAP2.SessionError) -> Input {
+        public func input(
+            salt1: Data,
+            salt2: Data? = nil
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.GetAssertion.Input {
             guard let sharedSecret = parent.sharedSecret else {
                 throw .illegalArgument(
                     "HmacSecret must be initialized with session for GetAssertion",
@@ -265,7 +256,7 @@ extension CTAP2.Extension.HmacSecret {
                 ])
             ]
 
-            return Input(encoded: encoded)
+            return CTAP2.Extension.GetAssertion.Input(encoded: encoded)
         }
 
         /// Extracts and decrypts the hmac-secret output from a GetAssertion response.
@@ -287,21 +278,6 @@ extension CTAP2.Extension.HmacSecret {
 
             let decrypted = try sharedSecret.decrypt(ciphertext: ciphertext)
             return try Secrets.parse(from: decrypted)
-        }
-
-        /// Extension input for GetAssertion.
-        public struct Input: CTAP2.Extension.GetAssertion.Input {
-            internal static let identifier = CTAP2.Extension.HmacSecret.identifier
-
-            private let encoded: [CTAP2.Extension.Identifier: CBOR.Value]
-
-            fileprivate init(encoded: [CTAP2.Extension.Identifier: CBOR.Value]) {
-                self.encoded = encoded
-            }
-
-            internal func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
-                encoded
-            }
         }
     }
 }
