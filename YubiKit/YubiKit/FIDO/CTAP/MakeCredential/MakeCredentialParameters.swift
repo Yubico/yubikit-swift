@@ -61,26 +61,7 @@ extension CTAP2.MakeCredential {
             user: PublicKeyCredential.UserEntity,
             pubKeyCredParams: [COSE.Algorithm],
             excludeList: [PublicKeyCredential.Descriptor]? = nil,
-            options: Options? = nil,
-            enterpriseAttestation: Int? = nil
-        ) {
-            self.clientDataHash = clientDataHash
-            self.rp = rp
-            self.user = user
-            self.pubKeyCredParams = pubKeyCredParams
-            self.excludeList = excludeList
-            self.extensions = []
-            self.options = options
-            self.enterpriseAttestation = enterpriseAttestation
-        }
-
-        public init(
-            clientDataHash: Data,
-            rp: PublicKeyCredential.RPEntity,
-            user: PublicKeyCredential.UserEntity,
-            pubKeyCredParams: [COSE.Algorithm],
-            excludeList: [PublicKeyCredential.Descriptor]? = nil,
-            extensions: [CTAP2.Extension.MakeCredential.Input],
+            extensions: [CTAP2.Extension.MakeCredential.Input] = [],
             options: Options? = nil,
             enterpriseAttestation: Int? = nil
         ) {

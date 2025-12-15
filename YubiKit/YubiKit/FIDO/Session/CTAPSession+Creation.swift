@@ -23,8 +23,8 @@ extension CTAP2.Session {
     /// - Returns: A new FIDO2 session.
     /// - Throws: ``CTAP2/SessionError`` if session creation fails.
     public static func makeSession(connection: FIDOConnection) async throws -> CTAP2.Session {
-        let interface = try await FIDOInterface<CTAP2.SessionError>(connection: connection)
-        return await CTAP2.Session(interface: interface)
+        let fidoInterface = try await FIDOInterface<CTAP2.SessionError>(connection: connection)
+        return await CTAP2.Session(interface: Interface(interface: fidoInterface))
     }
 }
 
@@ -40,10 +40,10 @@ extension CTAP2.Session {
         connection: SmartCardConnection,
         application: Application = .fido2
     ) async throws -> CTAP2.Session {
-        let interface = try await SmartCardInterface<CTAP2.SessionError>(
+        let smartCardInterface = try await SmartCardInterface<CTAP2.SessionError>(
             connection: connection,
             application: application
         )
-        return await CTAP2.Session(interface: interface)
+        return await CTAP2.Session(interface: Interface(interface: smartCardInterface))
     }
 }
