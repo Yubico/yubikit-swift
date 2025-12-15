@@ -22,7 +22,7 @@ extension CTAP2.Session {
     /// - Parameter connection: A FIDO (USB HID) connection to the YubiKey.
     /// - Returns: A new FIDO2 session.
     /// - Throws: ``CTAP2/SessionError`` if session creation fails.
-    static func makeSession(connection: FIDOConnection) async throws -> CTAP2.Session {
+    public static func makeSession(connection: FIDOConnection) async throws -> CTAP2.Session {
         let interface = try await FIDOInterface<CTAP2.SessionError>(connection: connection)
         return await CTAP2.Session(interface: interface)
     }
@@ -36,7 +36,7 @@ extension CTAP2.Session {
     ///   - application: The FIDO2 application to select (defaults to .fido2).
     /// - Returns: A new FIDO2 session over NFC.
     /// - Throws: ``CTAP2/SessionError`` if session creation fails.
-    static func makeSession(
+    public static func makeSession(
         connection: SmartCardConnection,
         application: Application = .fido2
     ) async throws -> CTAP2.Session {

@@ -51,7 +51,7 @@ extension CTAP2.Extension {
     /// ```
     ///
     /// - SeeAlso: [CTAP2 credProtect Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#sctn-credProtect-extension)
-    struct CredProtect: Sendable {
+    public struct CredProtect: Sendable {
         /// The extension identifier for credProtect.
         static let identifier: Identifier = .credProtect
 
@@ -72,7 +72,7 @@ extension CTAP2.Extension {
         ///   - enforce: If `true`, throws when the authenticator doesn't support
         ///              credProtect and level > `.userVerificationOptional`.
         /// - Throws: `CTAP2.SessionError.extensionNotSupported` if enforcement fails.
-        init(
+        public init(
             level: Level,
             session: CTAP2.Session,
             enforce: Bool = false
@@ -88,7 +88,7 @@ extension CTAP2.Extension {
         ///
         /// - Parameter session: The CTAP2 session to check.
         /// - Returns: `true` if the authenticator supports credProtect.
-        static func isSupported(
+        public static func isSupported(
             by session: CTAP2.Session
         ) async throws(CTAP2.SessionError) -> Bool {
             let info = try await session.getInfo()
@@ -100,7 +100,7 @@ extension CTAP2.Extension {
         /// Creates a MakeCredential input for the configured protection level.
         ///
         /// - Returns: An extension input for MakeCredential.
-        func input() -> Input {
+        public func input() -> Input {
             Input(encoded: [Self.identifier: level.cbor()])
         }
 
@@ -110,7 +110,7 @@ extension CTAP2.Extension {
         ///
         /// - Parameter response: The MakeCredential response from the authenticator.
         /// - Returns: The credProtect level, or nil if not present.
-        func output(from response: CTAP2.MakeCredential.Response) -> Level? {
+        public func output(from response: CTAP2.MakeCredential.Response) -> Level? {
             guard let value = response.authenticatorData.extensions?[Self.identifier] else {
                 return nil
             }
@@ -123,8 +123,8 @@ extension CTAP2.Extension {
 
 extension CTAP2.Extension.CredProtect {
     /// Extension input for MakeCredential.
-    struct Input: CTAP2.Extension.MakeCredential.Input {
-        static let identifier = CTAP2.Extension.CredProtect.identifier
+    public struct Input: CTAP2.Extension.MakeCredential.Input {
+        internal static let identifier = CTAP2.Extension.CredProtect.identifier
 
         private let encoded: [CTAP2.Extension.Identifier: CBOR.Value]
 
@@ -132,7 +132,7 @@ extension CTAP2.Extension.CredProtect {
             self.encoded = encoded
         }
 
-        func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
+        internal func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
             encoded
         }
     }
@@ -142,7 +142,7 @@ extension CTAP2.Extension.CredProtect {
 
 extension CTAP2.Extension.CredProtect {
     /// Credential protection levels.
-    enum Level: Int, Sendable, CBOR.Encodable, CBOR.Decodable {
+    public enum Level: Int, Sendable, CBOR.Encodable, CBOR.Decodable {
         /// User verification is optional.
         ///
         /// The credential can be used with or without user verification.
