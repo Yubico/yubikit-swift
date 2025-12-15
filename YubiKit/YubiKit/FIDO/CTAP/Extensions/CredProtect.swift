@@ -100,8 +100,8 @@ extension CTAP2.Extension {
         /// Creates a MakeCredential input for the configured protection level.
         ///
         /// - Returns: An extension input for MakeCredential.
-        public func input() -> Input {
-            Input(encoded: [Self.identifier: level.cbor()])
+        public func input() -> CTAP2.Extension.MakeCredential.Input {
+            CTAP2.Extension.MakeCredential.Input(encoded: [Self.identifier: level.cbor()])
         }
 
         // MARK: - Output
@@ -115,25 +115,6 @@ extension CTAP2.Extension {
                 return nil
             }
             return Level(cbor: value)
-        }
-    }
-}
-
-// MARK: - Input Type
-
-extension CTAP2.Extension.CredProtect {
-    /// Extension input for MakeCredential.
-    public struct Input: CTAP2.Extension.MakeCredential.Input {
-        internal static let identifier = CTAP2.Extension.CredProtect.identifier
-
-        private let encoded: [CTAP2.Extension.Identifier: CBOR.Value]
-
-        fileprivate init(encoded: [CTAP2.Extension.Identifier: CBOR.Value]) {
-            self.encoded = encoded
-        }
-
-        internal func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
-            encoded
         }
     }
 }

@@ -35,7 +35,7 @@ extension CTAP2.MakeCredential {
         public let excludeList: [PublicKeyCredential.Descriptor]?
 
         /// Extension inputs for additional authenticator processing.
-        public let extensions: [any CTAP2.Extension.MakeCredential.Input]
+        public let extensions: [CTAP2.Extension.MakeCredential.Input]
 
         /// Authenticator options.
         public let options: Options?
@@ -80,7 +80,7 @@ extension CTAP2.MakeCredential {
             user: PublicKeyCredential.UserEntity,
             pubKeyCredParams: [COSE.Algorithm],
             excludeList: [PublicKeyCredential.Descriptor]? = nil,
-            extensions: [any CTAP2.Extension.MakeCredential.Input],
+            extensions: [CTAP2.Extension.MakeCredential.Input],
             options: Options? = nil,
             enterpriseAttestation: Int? = nil
         ) {
