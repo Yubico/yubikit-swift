@@ -13,10 +13,9 @@
 // limitations under the License.
 
 import Foundation
+import FullStackTests
 import Testing
-
-@testable import FullStackTests
-@testable import YubiKit
+import YubiKit
 
 @Suite("CTAP2 Extension Full Stack Tests", .serialized)
 struct CTAP2ExtensionFullStackTests {

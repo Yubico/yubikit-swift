@@ -35,7 +35,7 @@ extension CTAP2.MakeCredential {
         public let excludeList: [PublicKeyCredential.Descriptor]?
 
         /// Extension inputs for additional authenticator processing.
-        let extensions: [any CTAP2.Extension.MakeCredential.Input]
+        public let extensions: [any CTAP2.Extension.MakeCredential.Input]
 
         /// Authenticator options.
         public let options: Options?
@@ -74,7 +74,7 @@ extension CTAP2.MakeCredential {
             self.enterpriseAttestation = enterpriseAttestation
         }
 
-        init(
+        public init(
             clientDataHash: Data,
             rp: PublicKeyCredential.RPEntity,
             user: PublicKeyCredential.UserEntity,

@@ -91,7 +91,7 @@ extension CTAP2.Session {
     /// - Returns: An async sequence of assertion responses.
     ///
     /// - SeeAlso: ``getAssertion(parameters:pinToken:)`` for low-level access to a single assertion.
-    func getAssertions(
+    public func getAssertions(
         parameters: CTAP2.GetAssertion.Parameters,
         pinToken: CTAP2.ClientPin.Token? = nil
     ) async -> CTAP2.GetAssertion.Sequence {
@@ -114,8 +114,8 @@ extension CTAP2.Session {
 ///
 /// Use ``CTAP2/Session/getAssertions(parameters:pinToken:)`` to create instances of this type.
 extension CTAP2.GetAssertion {
-    struct Sequence: AsyncSequence {
-        typealias Element = CTAP2.GetAssertion.Response
+    public struct Sequence: AsyncSequence {
+        public typealias Element = CTAP2.GetAssertion.Response
 
         let session: CTAP2.Session
         let parameters: CTAP2.GetAssertion.Parameters
@@ -128,7 +128,7 @@ extension CTAP2.GetAssertion {
             self.parameters = parameters
         }
 
-        func makeAsyncIterator() -> Iterator {
+        public func makeAsyncIterator() -> Iterator {
             Iterator(session: session, parameters: parameters)
         }
     }
@@ -138,8 +138,8 @@ extension CTAP2.GetAssertion {
     /// Iterator that fetches assertions one at a time from the authenticator.
     ///
     /// Created by ``Sequence/makeAsyncIterator()``. Use ``CTAP2/Session/getAssertions(parameters:pinToken:)`` instead of instantiating directly.
-    actor Iterator: AsyncIteratorProtocol {
-        typealias Element = CTAP2.GetAssertion.Response
+    public actor Iterator: AsyncIteratorProtocol {
+        public typealias Element = CTAP2.GetAssertion.Response
 
         let session: CTAP2.Session
         let parameters: CTAP2.GetAssertion.Parameters
@@ -155,7 +155,7 @@ extension CTAP2.GetAssertion {
             self.parameters = parameters
         }
 
-        func next() async throws(CTAP2.SessionError) -> CTAP2.GetAssertion.Response? {
+        public func next() async throws(CTAP2.SessionError) -> CTAP2.GetAssertion.Response? {
             if currentIndex == 0 {
                 // Get first assertion (parameters already authenticated if PIN token was provided)
                 let stream = await session.getAssertion(parameters: parameters)

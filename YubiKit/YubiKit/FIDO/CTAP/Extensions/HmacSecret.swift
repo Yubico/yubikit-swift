@@ -68,7 +68,7 @@ extension CTAP2.Extension {
     ///
     /// - SeeAlso: [CTAP2 hmac-secret Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#sctn-hmac-secret-extension)
     /// - SeeAlso: [CTAP2.2 hmac-secret-mc Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#sctn-hmac-secret-make-cred-extension)
-    struct HmacSecret: Sendable {
+    public struct HmacSecret: Sendable {
         /// Salt length required by hmac-secret (32 bytes).
         static let saltLength = 32
 
@@ -90,7 +90,7 @@ extension CTAP2.Extension {
         ///
         /// Use this when you only need to enable hmac-secret at registration
         /// without deriving secrets.
-        init() {
+        public init() {
             self.sharedSecret = nil
             self.supportsMC = false
         }
@@ -101,7 +101,7 @@ extension CTAP2.Extension {
         /// hmac-secret-mc, or at GetAssertion).
         ///
         /// - Parameter session: The CTAP2 session to use for key agreement.
-        init(
+        public init(
             session: CTAP2.Session
         ) async throws(CTAP2.SessionError) {
             guard try await Self.isSupported(by: session) else {
@@ -113,7 +113,7 @@ extension CTAP2.Extension {
         }
 
         /// Checks if the authenticator supports hmac-secret.
-        static func isSupported(
+        public static func isSupported(
             by session: CTAP2.Session
         ) async throws(CTAP2.SessionError) -> Bool {
             let info = try await session.getInfo()
@@ -123,12 +123,12 @@ extension CTAP2.Extension {
         // MARK: - Operations
 
         /// Operations for MakeCredential.
-        var makeCredential: MakeCredentialOperations {
+        public var makeCredential: MakeCredentialOperations {
             MakeCredentialOperations(parent: self)
         }
 
         /// Operations for GetAssertion.
-        var getAssertion: GetAssertionOperations {
+        public var getAssertion: GetAssertionOperations {
             GetAssertionOperations(parent: self)
         }
     }
@@ -138,13 +138,13 @@ extension CTAP2.Extension {
 
 extension CTAP2.Extension.HmacSecret {
     /// MakeCredential operations for hmac-secret.
-    struct MakeCredentialOperations: Sendable {
+    public struct MakeCredentialOperations: Sendable {
         fileprivate let parent: CTAP2.Extension.HmacSecret
 
         /// Creates a MakeCredential input to enable hmac-secret.
         ///
         /// - Returns: An extension input for MakeCredential.
-        func input() -> Input {
+        public func input() -> Input {
             Input(encoded: [CTAP2.Extension.HmacSecret.identifier: .boolean(true)])
         }
 
@@ -157,7 +157,7 @@ extension CTAP2.Extension.HmacSecret {
         ///   - salt1: First salt (must be exactly 32 bytes).
         ///   - salt2: Optional second salt (must be exactly 32 bytes if provided).
         /// - Returns: An extension input for MakeCredential.
-        func input(salt1: Data, salt2: Data? = nil) throws(CTAP2.SessionError) -> Input {
+        public func input(salt1: Data, salt2: Data? = nil) throws(CTAP2.SessionError) -> Input {
             guard let sharedSecret = parent.sharedSecret, parent.supportsMC else {
                 // Fall back to simple enable
                 return input()
@@ -185,7 +185,7 @@ extension CTAP2.Extension.HmacSecret {
         /// - Parameter response: The MakeCredential response from the authenticator.
         /// - Returns: `.enabled` if hmac-secret is supported, `.secrets` if hmac-secret-mc
         ///            returned derived secrets, or `nil` if the extension output is not present.
-        func output(from response: CTAP2.MakeCredential.Response) throws(CTAP2.SessionError) -> Result? {
+        public func output(from response: CTAP2.MakeCredential.Response) throws(CTAP2.SessionError) -> Result? {
             // Try hmac-secret-mc first if we have shared secret
             if let sharedSecret = parent.sharedSecret {
                 let mcIdentifier = CTAP2.Extension.HmacSecret.mcIdentifier
@@ -206,7 +206,7 @@ extension CTAP2.Extension.HmacSecret {
         }
 
         /// Result type for hmac-secret MakeCredential extension.
-        enum Result: Sendable {
+        public enum Result: Sendable {
             /// hmac-secret is enabled for this credential.
             case enabled
 
@@ -215,8 +215,8 @@ extension CTAP2.Extension.HmacSecret {
         }
 
         /// Extension input for MakeCredential.
-        struct Input: CTAP2.Extension.MakeCredential.Input {
-            static let identifier = CTAP2.Extension.HmacSecret.identifier
+        public struct Input: CTAP2.Extension.MakeCredential.Input {
+            internal static let identifier = CTAP2.Extension.HmacSecret.identifier
 
             private let encoded: [CTAP2.Extension.Identifier: CBOR.Value]
 
@@ -224,7 +224,7 @@ extension CTAP2.Extension.HmacSecret {
                 self.encoded = encoded
             }
 
-            func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
+            internal func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
                 encoded
             }
         }
@@ -235,7 +235,7 @@ extension CTAP2.Extension.HmacSecret {
 
 extension CTAP2.Extension.HmacSecret {
     /// GetAssertion operations for hmac-secret.
-    struct GetAssertionOperations: Sendable {
+    public struct GetAssertionOperations: Sendable {
         fileprivate let parent: CTAP2.Extension.HmacSecret
 
         /// Creates a GetAssertion input with salts for hmac-secret.
@@ -244,7 +244,7 @@ extension CTAP2.Extension.HmacSecret {
         ///   - salt1: First salt (must be exactly 32 bytes).
         ///   - salt2: Optional second salt (must be exactly 32 bytes if provided).
         /// - Returns: An extension input for GetAssertion.
-        func input(salt1: Data, salt2: Data? = nil) throws(CTAP2.SessionError) -> Input {
+        public func input(salt1: Data, salt2: Data? = nil) throws(CTAP2.SessionError) -> Input {
             guard let sharedSecret = parent.sharedSecret else {
                 throw .illegalArgument(
                     "HmacSecret must be initialized with session for GetAssertion",
@@ -272,7 +272,7 @@ extension CTAP2.Extension.HmacSecret {
         ///
         /// - Parameter response: The GetAssertion response from the authenticator.
         /// - Returns: The derived secrets, or nil if the extension output is not present.
-        func output(from response: CTAP2.GetAssertion.Response) throws(CTAP2.SessionError) -> Secrets? {
+        public func output(from response: CTAP2.GetAssertion.Response) throws(CTAP2.SessionError) -> Secrets? {
             guard let sharedSecret = parent.sharedSecret else {
                 throw .illegalArgument(
                     "HmacSecret must be initialized with session for GetAssertion",
@@ -290,8 +290,8 @@ extension CTAP2.Extension.HmacSecret {
         }
 
         /// Extension input for GetAssertion.
-        struct Input: CTAP2.Extension.GetAssertion.Input {
-            static let identifier = CTAP2.Extension.HmacSecret.identifier
+        public struct Input: CTAP2.Extension.GetAssertion.Input {
+            internal static let identifier = CTAP2.Extension.HmacSecret.identifier
 
             private let encoded: [CTAP2.Extension.Identifier: CBOR.Value]
 
@@ -299,7 +299,7 @@ extension CTAP2.Extension.HmacSecret {
                 self.encoded = encoded
             }
 
-            func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
+            internal func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
                 encoded
             }
         }
@@ -366,12 +366,12 @@ extension CTAP2.Extension.HmacSecret {
 
 extension CTAP2.Extension.HmacSecret {
     /// Derived secrets from hmac-secret.
-    struct Secrets: Sendable, Equatable {
+    public struct Secrets: Sendable, Equatable {
         /// First derived secret (32 bytes).
-        let first: Data
+        public let first: Data
 
         /// Second derived secret (32 bytes), if salt2 was provided.
-        let second: Data?
+        public let second: Data?
     }
 }
 

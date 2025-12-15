@@ -13,9 +13,9 @@
 // limitations under the License.
 
 import Foundation
+import FullStackTests
 import Testing
 
-@testable import FullStackTests
 @testable import YubiKit
 
 #if os(macOS)
