@@ -1,27 +1,22 @@
 # ``YubiKit/NFCSmartCardConnection``
 
-@Metadata {
-    @DocumentationExtension(mergeBehavior: append)
-}
-
 ## Topics
 
-### Creating a NFCSmartCardConnection
+### Creating a Connection
 
-- ``connection()``
-- ``connection(alertMessage:)``
+- ``makeConnection()``
+- ``makeConnection(alertMessage:)``
 - ``setAlertMessage(_:)``
 
-### Managing the NFCSmartCardConnection
+### Connection Lifecycle
 
 - ``close(error:)``
 - ``close(message:)``
 - ``waitUntilClosed()``
-- ``nfcConnection``
 
-### Sending data to the YubiKey
+### Sending Data
 
-- ``SmartCardConnection/send(apdu:)``
+- ``send(data:)``
 
 ### Errors
 

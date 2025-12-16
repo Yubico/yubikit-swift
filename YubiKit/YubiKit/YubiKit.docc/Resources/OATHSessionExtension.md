@@ -1,33 +1,32 @@
 # ``YubiKit/OATHSession``
 
-@Metadata {
-    @DocumentationExtension(mergeBehavior: append)
-}
-
 ## Topics
 
-### Managing the OATHSession
+### Session Management
 
-- ``session(connection:scpKeyParams:)``
-- ``end()``
 - ``reset()``
+- ``supports(_:)``
 
-### Running commands in the OATH application
+### Credential Operations
 
 - ``addCredential(template:)``
 - ``renameCredential(_:newName:newIssuer:)``
 - ``deleteCredential(_:)``
 - ``listCredentials()``
-- ``calculateCode(credential:timestamp:)``
-- ``calculateCodes(timestamp:)``
-- ``calculateResponse(credentialId:challenge:)``
-- ``deriveAccessKey(from:)``
-- ``setAccessKey(_:)``
-- ``setPassword(_:)``
-- ``unlockWithAccessKey(_:)``
-- ``unlockWithPassword(_:)``
+- ``calculateCredentialCode(for:timestamp:)``
+- ``calculateCredentialCodes(timestamp:)``
+- ``calculateCredentialResponse(for:challenge:)``
 
-### Return types
+### Access Protection
+
+- ``setPassword(_:)``
+- ``unlock(password:)``
+- ``setAccessKey(_:)``
+- ``unlock(accessKey:)``
+- ``deleteAccessKey()``
+- ``deriveAccessKey(from:)``
+
+### Return Types
 
 - ``Credential``
 - ``Code``
@@ -36,5 +35,4 @@
 
 - ``OATHSessionError``
 - ``CredentialTemplateError``
-- ``DeriveAccessKeyError``
 
