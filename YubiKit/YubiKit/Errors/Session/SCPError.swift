@@ -33,7 +33,7 @@ public enum SCPError: SmartCardSessionError, Sendable {
         error
     }
 
-    public var responseStatus: ResponseStatus? {
+    public var responseStatus: Response.Status? {
         guard case let .failedResponse(response, _) = self else {
             return nil
         }
