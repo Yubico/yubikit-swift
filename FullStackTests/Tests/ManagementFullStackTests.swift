@@ -21,11 +21,9 @@ private let lockCode = Data(hexEncodedString: "01020304050607080102030405060708"
 private let clearLockCode = Data(hexEncodedString: "00000000000000000000000000000000")!
 
 #if MANAGEMENT_OVER_FIDO && os(macOS)
-private typealias TestManagementSession = YubiKit.ManagementSessionOverFIDO
-private typealias TestConnection = YubiKit.FIDOConnection
+private typealias TestConnection = FIDOConnection
 #else
-private typealias TestManagementSession = YubiKit.ManagementSessionOverSmartCard
-private typealias TestConnection = YubiKit.SmartCardConnection
+private typealias TestConnection = SmartCardConnection
 #endif
 
 class ManagementFullStackTests: XCTestCase {
@@ -143,7 +141,7 @@ class ManagementFullStackTests: XCTestCase {
             XCTAssert(oathSession == nil)
 
             // Re-enable OATH application
-            let managementSession = try await TestManagementSession.makeSession(connection: testConnection)
+            let managementSession = try await Management.Session.makeSession(connection: testConnection)
             let enabledConfig = initialConfig.enable(application: .oath, over: transport)
             try await managementSession.updateDeviceConfig(enabledConfig, reboot: false)
             let updatedInfo = try await managementSession.getDeviceInfo()
@@ -295,7 +293,7 @@ class ManagementFullStackTests: XCTestCase {
             try await pivSession.changePin(from: "123456", to: "654321")
             pinMetadata = try await pivSession.getPinMetadata()
             XCTAssertFalse(pinMetadata.isDefault)
-            let managementSession: TestManagementSession =
+            let managementSession: Management.Session =
                 try await .makeSession(connection: testConnection)
             try await managementSession.resetDevice()
             pivSession = try await PIVSession.makeSession(connection: connection)
@@ -312,7 +310,7 @@ extension XCTestCase {
         at line: UInt = #line,
         withTimeout timeout: TimeInterval = 20,
         test:
-            @escaping (SmartCardConnection, TestConnection, TestManagementSession, DeviceTransport) async throws -> Void
+            @escaping (SmartCardConnection, TestConnection, Management.Session, DeviceTransport) async throws -> Void
     ) {
         runAsyncTest(named: testName, in: file, at: line, withTimeout: timeout) {
             #if MANAGEMENT_OVER_FIDO && os(macOS)
@@ -334,7 +332,7 @@ extension XCTestCase {
             transport = .usb
             #endif
 
-            let session = try await TestManagementSession.makeSession(connection: testConnection)
+            let session = try await Management.Session.makeSession(connection: testConnection)
             let config = try await session.getDeviceInfo().config
             // Try removing the lock code.
             try? await session.updateDeviceConfig(config, reboot: false, lockCode: lockCode, newLockCode: clearLockCode)

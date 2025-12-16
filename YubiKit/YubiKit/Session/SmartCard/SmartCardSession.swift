@@ -27,6 +27,11 @@ public enum Application: Sendable {
 ///
 /// SmartCardSession extends ``Session`` to provide session creation with SmartCard connections,
 /// supporting communication over NFC, Lightning, and USB interfaces with optional secure channel encryption.
+@available(
+    *,
+    deprecated,
+    message: "Do not use SmartCardSession as a generic constraint. Use concrete session types directly."
+)
 public protocol SmartCardSession: Session {
 
     associatedtype Error: SmartCardSessionError
@@ -50,6 +55,7 @@ public protocol SmartCardSession: Session {
     ) async throws(Self.Error) -> Self
 }
 
+// NEXTMAJOR: Remove this protocol when SmartCardSession is removed
 protocol SmartCardSessionInternal: SmartCardSession {
     var interface: SmartCardInterface<Error> { get }
 }
@@ -69,4 +75,40 @@ extension SmartCardSessionInternal {
 
         return try await interface.send(apdu: apdu, insSendRemaining: isOATH ? 0xa5 : 0xc0)
     }
+}
+
+// MARK: - Deprecated SmartCardSession conformances
+// NEXTMAJOR: Remove these extensions when SmartCardSession is removed
+
+@available(*, deprecated, message: "SmartCardSession conformance is deprecated.")
+extension OATHSession: SmartCardSession {
+    /// The SmartCard connection used for this session.
+    @available(*, deprecated, message: "Avoid accessing the underlying connection directly.")
+    nonisolated public var connection: SmartCardConnection { interface.connection }
+
+    /// The SCP state for secure channel communication, if established.
+    @available(*, deprecated, message: "Avoid accessing SCP state directly.")
+    nonisolated public var scpState: SCPState? { interface.scpState }
+}
+
+@available(*, deprecated, message: "SmartCardSession conformance is deprecated.")
+extension PIVSession: SmartCardSession {
+    /// The SmartCard connection used for this session.
+    @available(*, deprecated, message: "Avoid accessing the underlying connection directly.")
+    nonisolated public var connection: SmartCardConnection { interface.connection }
+
+    /// The SCP state for secure channel communication, if established.
+    @available(*, deprecated, message: "Avoid accessing SCP state directly.")
+    nonisolated public var scpState: SCPState? { interface.scpState }
+}
+
+@available(*, deprecated, message: "SmartCardSession conformance is deprecated.")
+extension SecurityDomainSession: SmartCardSession {
+    /// The SmartCard connection used for this session.
+    @available(*, deprecated, message: "Avoid accessing the underlying connection directly.")
+    nonisolated public var connection: SmartCardConnection { interface.connection }
+
+    /// The SCP state for secure channel communication, if established.
+    @available(*, deprecated, message: "Avoid accessing SCP state directly.")
+    nonisolated public var scpState: SCPState? { interface.scpState }
 }

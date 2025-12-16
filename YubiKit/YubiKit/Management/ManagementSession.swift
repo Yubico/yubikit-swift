@@ -16,12 +16,12 @@ import CryptoTokenKit
 import Foundation
 import OSLog
 
-// NEXTMAJOR: We could remove these
-public typealias ManagementSession = ManagementSessionOverSmartCard
-public typealias ManagementFeature = Management.Feature
+// NEXTMAJOR: Remove these typealiases
+@available(*, deprecated, renamed: "Management.Session")
+public typealias ManagementSession = Management.Session
 
-public typealias ManagementSessionOverSmartCard = Management.Session<SmartCardInterface<ManagementSessionError>>
-public typealias ManagementSessionOverFIDO = Management.Session<FIDOInterface<ManagementSessionError>>
+@available(*, deprecated, renamed: "Management.Feature")
+public typealias ManagementFeature = Management.Feature
 
 public enum Management {
 
@@ -47,28 +47,23 @@ public enum Management {
         }
     }
 
-    /// A generic interface to the Management application on the YubiKey.
+    /// An interface to the Management application on the YubiKey.
     ///
     /// Use the Management application to get information and configure a YubiKey.
-    /// This generic version works with any interface that conforms to ``ManagementInterface``,
-    /// allowing management operations over both SmartCard (APDU) and FIDO (CTAP) transports.
+    /// Supports management operations over both SmartCard (APDU) and FIDO (CTAP) transports.
     ///
     /// Read more about the Management application on the
     /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
-    public final actor Session<I: ManagementInterface> where I.Error == ManagementSessionError {
+    // NEXTMAJOR: Remove SmartCardSession conformance
+    public final actor Session: SmartCardSession {
 
         public typealias Error = ManagementSessionError
 
         /// The underlying interface for communication (SmartCard or FIDO).
-        let interface: I
+        private let interface: Interface
 
         /// The firmware version of the YubiKey.
         public let version: Version
-
-        private init(interface: I) async {
-            self.interface = interface
-            self.version = await interface.version
-        }
 
         /// Determines whether the session supports the specified feature.
         /// - Parameter feature: The feature to check for support.
@@ -81,7 +76,7 @@ public enum Management {
         ///
         /// > Note: This functionality requires support for ``Management/Feature/deviceInfo``, available on YubiKey 4.1 or later.
         public func getDeviceInfo() async throws -> DeviceInfo {
-            guard await self.supports(ManagementFeature.deviceInfo) else {
+            guard await self.supports(.deviceInfo) else {
                 throw Error.featureNotSupported(source: .here())
             }
 
@@ -121,7 +116,7 @@ public enum Management {
             lockCode: Data? = nil,
             newLockCode: Data? = nil
         ) async throws {
-            guard await self.supports(ManagementFeature.deviceConfig) else {
+            guard await self.supports(.deviceConfig) else {
                 throw Error.featureNotSupported(source: .here())
             }
 
@@ -142,49 +137,142 @@ public enum Management {
             }
             try await interface.resetDevice()
         }
+
+        /// Creates a new Management session with the provided SmartCard connection.
+        ///
+        /// - Parameters:
+        ///   - connection: The smart card connection to use for this session.
+        ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
+        /// - Returns: A new Management.Session instance.
+        /// - Throws: ``ManagementSessionError`` if session creation fails.
+        public static func makeSession(
+            connection: SmartCardConnection,
+            scpKeyParams: SCPKeyParams? = nil
+        ) async throws(ManagementSessionError) -> Self {
+            let smartCardInterface = try await SmartCardInterface<Error>(
+                connection: connection,
+                application: .management,
+                keyParams: scpKeyParams
+            )
+            return await .init(interface: Interface(interface: smartCardInterface))
+        }
+
+        /// Creates a new Management session with the provided FIDO connection.
+        ///
+        /// - Parameter connection: The FIDO connection to use for this session.
+        /// - Returns: A new Management.Session instance.
+        /// - Throws: ``ManagementSessionError`` if session creation fails.
+        public static func makeSession(
+            connection: FIDOConnection
+        ) async throws(ManagementSessionError) -> Self {
+            let fidoInterface = try await FIDOInterface<Error>(connection: connection)
+            return await .init(interface: Interface(interface: fidoInterface))
+        }
+
+        private init(interface: Interface) async {
+            self.interface = interface
+            self.version = await interface.version
+            self.scpState = await interface.scpState
+            self.smartCardConnection = await interface.smartCardConnection
+        }
+
+        // MARK: - SmartCardSession conformance (NEXTMAJOR: Remove)
+        // These properties exist only for backwards compatibility with the deprecated
+        // SmartCardSession protocol. They use `nonisolated` to satisfy the protocol's sync requirements.
+        // The `connection` property will crash if the session was created with a FIDO connection.
+
+        public static let application: Application = .management
+
+        public nonisolated let scpState: SCPState?
+
+        private nonisolated let smartCardConnection: SmartCardConnection?
+
+        /// The SmartCard connection used to create this session.
+        ///
+        /// - Important: This property will crash if the session was created with a FIDO connection.
+        @available(*, deprecated, message: "Avoid accessing the underlying connection directly")
+        public nonisolated var connection: SmartCardConnection {
+            smartCardConnection!
+        }
     }
 }
 
-extension Management.Session where I == SmartCardInterface<ManagementSessionError> {
+// MARK: - Interface (Internal Transport Abstraction)
 
-    public var connection: SmartCardConnection { interface.connection }
-
-    /// Creates a new Management session with the provided SmartCard interface.
+extension Management.Session {
+    /// Internal actor that abstracts over the underlying transport (SmartCard or FIDO).
     ///
-    /// - Parameters:
-    ///   - connection: The smart card connection to use for this session.
-    ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
-    /// - Returns: A new Management instance using SmartCard transport.
-    /// - Throws: ``ManagementSessionError`` if session creation fails.
-    public static func makeSession(
-        connection: SmartCardConnection,
-        scpKeyParams: SCPKeyParams? = nil
-    ) async throws -> Management.Session<SmartCardInterface<ManagementSessionError>> {
-        // Create interface with application selection and optional SCP
-        let interface = try await SmartCardInterface<Error>(
-            connection: connection,
-            application: .management,
-            keyParams: scpKeyParams
-        )
+    /// This allows `Management.Session` to be a concrete type while supporting multiple transports.
+    internal actor Interface {
+        private enum Kind {
+            case smartCard(SmartCardInterface<ManagementSessionError>)
+            case fido(FIDOInterface<ManagementSessionError>)
+        }
 
-        return await .init(interface: interface)
-    }
-}
+        private let kind: Kind
 
-extension Management.Session where I == FIDOInterface<ManagementSessionError> {
+        init(interface: SmartCardInterface<ManagementSessionError>) {
+            self.kind = .smartCard(interface)
+        }
 
-    public var connection: FIDOConnection { interface.connection }
+        init(interface: FIDOInterface<ManagementSessionError>) {
+            self.kind = .fido(interface)
+        }
 
-    /// Creates a new Management session with the provided FIDO interface.
-    ///
-    /// - Parameter connection: The FIDO connection to use for this session.
-    /// - Returns: A new Management instance using FIDO/CTAP transport.
-    /// - Throws: ``ManagementSessionError`` if session creation fails.
-    public static func makeSession(
-        connection: FIDOConnection
-    ) async throws -> Management.Session<FIDOInterface<ManagementSessionError>> {
-        // Create FIDO interface
-        let interface = try await FIDOInterface<Error>(connection: connection)
-        return await .init(interface: interface)
+        var version: Version {
+            get async {
+                switch kind {
+                case let .smartCard(i):
+                    return await i.version
+                case let .fido(i):
+                    return await i.version
+                }
+            }
+        }
+
+        func readConfig(page: UInt8) async throws -> Data {
+            switch kind {
+            case let .smartCard(i):
+                return try await i.readConfig(page: page)
+            case let .fido(i):
+                return try await i.readConfig(page: page)
+            }
+        }
+
+        func writeConfig(data: Data) async throws {
+            switch kind {
+            case let .smartCard(i):
+                try await i.writeConfig(data: data)
+            case let .fido(i):
+                try await i.writeConfig(data: data)
+            }
+        }
+
+        func resetDevice() async throws {
+            switch kind {
+            case let .smartCard(i):
+                try await i.resetDevice()
+            case let .fido(i):
+                try await i.resetDevice()
+            }
+        }
+
+        var smartCardConnection: SmartCardConnection? {
+            switch kind {
+            case let .smartCard(i):
+                return i.connection
+            case .fido:
+                return nil
+            }
+        }
+
+        var scpState: SCPState? {
+            switch kind {
+            case let .smartCard(i):
+                return i.scpState
+            case .fido:
+                return nil
+            }
+        }
     }
 }
