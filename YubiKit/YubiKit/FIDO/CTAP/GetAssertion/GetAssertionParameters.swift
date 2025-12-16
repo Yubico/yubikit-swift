@@ -29,7 +29,7 @@ extension CTAP2.GetAssertion {
         let allowList: [PublicKeyCredential.Descriptor]?
 
         /// Extension inputs for additional authenticator processing.
-        let extensions: Extensions?
+        let extensions: [any CTAP2.Extension.GetAssertion.Input]
 
         /// Authenticator options.
         let options: Options?
@@ -50,7 +50,7 @@ extension CTAP2.GetAssertion {
             rpId: String,
             clientDataHash: Data,
             allowList: [PublicKeyCredential.Descriptor]? = nil,
-            extensions: Extensions? = nil,
+            extensions: [any CTAP2.Extension.GetAssertion.Input] = [],
             options: Options? = nil
         ) {
             self.rpId = rpId

@@ -14,6 +14,14 @@
 
 import Foundation
 
+// MARK: - Extension Identifier + CBOR
+
+extension CTAP2.Extension.Identifier: CBOR.Encodable {
+    func cbor() -> CBOR.Value {
+        .textString(value)
+    }
+}
+
 // MARK: - MakeCredentialParameters + CBOR
 
 extension CTAP2.MakeCredential.Parameters: CBOR.Encodable {
@@ -27,11 +35,14 @@ extension CTAP2.MakeCredential.Parameters: CBOR.Encodable {
         if let excludeList = excludeList, !excludeList.isEmpty {
             map[5] = excludeList.cbor()
         }
-        if let extensions = extensions {
-            let extensionsValue = extensions.cbor()
-            if case .map(let extensionsMap) = extensionsValue, !extensionsMap.isEmpty {
-                map[6] = extensionsValue
+        if !extensions.isEmpty {
+            var extMap: [CBOR.Value: CBOR.Value] = [:]
+            for ext in extensions {
+                for (id, value) in ext.encode() {
+                    extMap[id.cbor()] = value
+                }
             }
+            map[6] = .map(extMap)
         }
         map[7] = options?.cbor()
         map[8] = pinUVAuthParam?.cbor()

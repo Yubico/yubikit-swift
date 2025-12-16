@@ -17,15 +17,21 @@ import Foundation
 extension Data {
 
     // Decodes CBOR data into a CBOR.Value
-    func decode<V: CBOR.Decodable>() throws(CBOR.Error) -> V? {
+    func decode<V: CBOR.Decodable>(remaining: inout Data) throws(CBOR.Error) -> V? {
         var offset = 0
         let value = try decodeValue(from: self, offset: &offset)
+        remaining = self.subdata(in: offset..<self.count)
+        return V(cbor: value)
+    }
 
-        guard offset == self.count else {
+    // Decodes CBOR data into a CBOR.Value, requiring exact consumption
+    func decode<V: CBOR.Decodable>() throws(CBOR.Error) -> V? {
+        var remaining = Data()
+        let result: V? = try decode(remaining: &remaining)
+        guard remaining.isEmpty else {
             throw CBOR.Error.extraneousData
         }
-
-        return V(cbor: value)
+        return result
     }
 
     // Decodes a single CBOR value from data at a specific offset

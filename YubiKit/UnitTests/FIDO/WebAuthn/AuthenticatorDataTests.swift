@@ -17,12 +17,9 @@ import Testing
 
 @testable import YubiKit
 
-/// Test parsing and decoding of WebAuthn data structures.
-///
-/// Tests the binary parsing of WebAuthn.AuthenticatorData, AttestationStatement decoding,
-/// and WebAuthn.ExtensionOutputs parsing from CBOR.
-@Suite("WebAuthn Structures Tests")
-struct WebAuthnStructuresTests {
+/// Test parsing of WebAuthn.AuthenticatorData and AttestationStatement decoding.
+@Suite("AuthenticatorData Tests")
+struct AuthenticatorDataTests {
 
     // MARK: - WebAuthn.AuthenticatorData Tests
 
@@ -216,50 +213,6 @@ struct WebAuthnStructuresTests {
         } else {
             Issue.record("Expected .unknown case for unknown format")
         }
-    }
-
-    // MARK: - WebAuthn.ExtensionOutputs Tests
-
-    @Test("WebAuthn.ExtensionOutputs CBOR decoding")
-    func testExtensionOutputsCBOR() throws {
-        let largeBlobKey = randomBytes(count: 32)
-
-        let cborMap: [CBOR.Value: CBOR.Value] = [
-            .textString("credProps"): .map([.textString("rk"): .boolean(true)]),
-            .textString("largeBlobKey"): .byteString(largeBlobKey),
-            .textString("hmac-secret"): .boolean(true),
-            .textString("credProtect"): .int(3),
-            .textString("minPinLength"): .int(6),
-            .textString("customExtension"): .textString("custom-value"),
-        ]
-
-        let extensions = try #require(
-            WebAuthn.ExtensionOutputs(cbor: .map(cborMap)),
-            "Failed to decode WebAuthn.ExtensionOutputs"
-        )
-
-        #expect(extensions.credProps?.rk == true)
-        #expect(extensions.largeBlobKey == largeBlobKey)
-        #expect(extensions.hmacSecret == true)
-        #expect(extensions.credProtect == .userVerificationRequired)
-        #expect(extensions.minPinLength == 6)
-    }
-
-    @Test("WebAuthn.ExtensionOutputs CBOR decoding - empty")
-    func testExtensionOutputsEmpty() throws {
-        let cborMap: [CBOR.Value: CBOR.Value] = [:]
-
-        let extensions = try #require(
-            WebAuthn.ExtensionOutputs(cbor: .map(cborMap)),
-            "Failed to decode empty WebAuthn.ExtensionOutputs"
-        )
-
-        #expect(extensions.credProps == nil)
-        #expect(extensions.largeBlobKey == nil)
-        #expect(extensions.hmacSecret == nil)
-        #expect(extensions.credProtect == nil)
-        #expect(extensions.minPinLength == nil)
-        #expect(extensions.thirdPartyPayment == nil)
     }
 
     // MARK: - Test Helpers

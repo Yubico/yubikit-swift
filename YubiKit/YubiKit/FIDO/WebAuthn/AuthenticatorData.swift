@@ -35,10 +35,10 @@ extension WebAuthn {
         /// Attested credential data (present when AT flag is set).
         let attestedCredentialData: AttestedCredentialData?
 
-        /// Extensions data (present when ED flag is set).
+        /// Raw extension outputs map (present when ED flag is set).
         ///
-        /// Provides strongly-typed access to common extensions.
-        let extensions: ExtensionOutputs?
+        /// Use extension-specific `result(from:)` methods for typed access to extension outputs.
+        internal let extensions: [WebAuthn.Extension.Identifier: CBOR.Value]?
 
         /// Authenticator data flags.
         struct Flags: OptionSet, Sendable {
@@ -108,12 +108,20 @@ extension WebAuthn.AuthenticatorData {
 
         // MARK: Parse Extensions (optional)
         if flags.contains(.extensionData) {
-            // Extensions are CBOR-encoded
+            // Extensions are CBOR-encoded as a map with string keys
             let extensionsData = data.subdata(in: offset..<data.count)
             guard let extensionsValue: CBOR.Value = try? extensionsData.decode(),
-                let extensions = WebAuthn.ExtensionOutputs(cbor: extensionsValue)
+                let map = extensionsValue.mapValue
             else {
                 return nil
+            }
+            // Convert CBOR map to [Identifier: CBOR.Value]
+            var extensions: [WebAuthn.Extension.Identifier: CBOR.Value] = [:]
+            for (key, value) in map {
+                guard let identifier: WebAuthn.Extension.Identifier = key.cborDecoded() else {
+                    return nil  // Extension keys must be strings
+                }
+                extensions[identifier] = value
             }
             self.extensions = extensions
         } else {
@@ -186,20 +194,12 @@ extension WebAuthn.AttestedCredentialData {
         currentOffset += credIdLength
 
         // MARK: Parse Credential Public Key (CBOR)
-        // We need to decode the CBOR to know how many bytes it consumes
-        let remainingData = data.subdata(in: currentOffset..<data.count)
-        guard let cborValue: CBOR.Value = try? remainingData.decode() else {
+        let cborData = data.subdata(in: currentOffset..<data.count)
+        var remaining = Data()
+        guard let coseKey: COSE.Key = try? cborData.decode(remaining: &remaining) else {
             return nil
         }
-
-        // Parse the COSE key from the CBOR value
-        guard let coseKey = COSE.Key(cbor: cborValue) else {
-            return nil
-        }
-
-        // Track how many bytes the CBOR value consumed (canonical encoding)
-        let encodedCbor = cborValue.encode()
-        currentOffset += encodedCbor.count
+        currentOffset = data.count - remaining.count
 
         let attestedData = WebAuthn.AttestedCredentialData(
             aaguid: aaguid,

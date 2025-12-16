@@ -74,6 +74,17 @@ extension CTAP2.MakeCredential.Response: CBOR.Decodable {
         self.largeBlobKey = map[.int(0x05)]?.cborDecoded()
 
         // Optional: unsignedExtensionOutputs (0x06)
-        self.unsignedExtensionOutputs = map[.int(0x06)]?.cborDecoded()
+        if let extMap = map[.int(0x06)]?.mapValue {
+            var unsignedOutputs: [String: CBOR.Value] = [:]
+            for (key, value) in extMap {
+                guard let name = key.stringValue else {
+                    return nil  // Extension keys must be strings
+                }
+                unsignedOutputs[name] = value
+            }
+            self.unsignedExtensionOutputs = unsignedOutputs
+        } else {
+            self.unsignedExtensionOutputs = nil
+        }
     }
 }
