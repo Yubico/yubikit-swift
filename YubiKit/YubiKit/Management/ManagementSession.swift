@@ -192,7 +192,10 @@ public enum Management {
         /// - Important: This property will crash if the session was created with a FIDO connection.
         @available(*, deprecated, message: "Avoid accessing the underlying connection directly")
         public nonisolated var connection: SmartCardConnection {
-            smartCardConnection!
+            guard let connection = smartCardConnection else {
+                fatalError("Cannot access SmartCard connection when session was created with FIDO connection.")
+            }
+            return connection
         }
     }
 }
