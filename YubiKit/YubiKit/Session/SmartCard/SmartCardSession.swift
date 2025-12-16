@@ -80,7 +80,7 @@ extension SmartCardSessionInternal {
 // MARK: - Deprecated SmartCardSession conformances
 // NEXTMAJOR: Remove these extensions when SmartCardSession is removed
 
-@available(*, deprecated, message: "SmartCardSession conformance is deprecated.")
+@available(*, deprecated, message: "Use concrete session types directly instead of SmartCardSession protocol.")
 extension OATHSession: SmartCardSession {
     /// The SmartCard connection used for this session.
     @available(*, deprecated, message: "Avoid accessing the underlying connection directly.")
@@ -91,7 +91,7 @@ extension OATHSession: SmartCardSession {
     nonisolated public var scpState: SCPState? { interface.scpState }
 }
 
-@available(*, deprecated, message: "SmartCardSession conformance is deprecated.")
+@available(*, deprecated, message: "Use concrete session types directly instead of SmartCardSession protocol.")
 extension PIVSession: SmartCardSession {
     /// The SmartCard connection used for this session.
     @available(*, deprecated, message: "Avoid accessing the underlying connection directly.")
@@ -102,7 +102,7 @@ extension PIVSession: SmartCardSession {
     nonisolated public var scpState: SCPState? { interface.scpState }
 }
 
-@available(*, deprecated, message: "SmartCardSession conformance is deprecated.")
+@available(*, deprecated, message: "Use concrete session types directly instead of SmartCardSession protocol.")
 extension SecurityDomainSession: SmartCardSession {
     /// The SmartCard connection used for this session.
     @available(*, deprecated, message: "Avoid accessing the underlying connection directly.")
