@@ -78,7 +78,7 @@ class ManagementFullStackTests: XCTestCase {
             if transport == .usb {
                 XCTAssert(oathSession == nil)
             }
-            let managementSession = try await ManagementSession.makeSession(connection: connection)
+            let managementSession: Management.Session = try await .makeSession(connection: connection)
             let enableConfig = deviceInfo.config
                 .enable(application: .oath, over: .usb)
                 .enable(application: .piv, over: .usb)
@@ -112,7 +112,7 @@ class ManagementFullStackTests: XCTestCase {
             if transport == .nfc {
                 XCTAssert(oathSession == nil)
             }
-            let managementSession = try await ManagementSession.makeSession(connection: connection)
+            let managementSession: Management.Session = try await .makeSession(connection: connection)
             let enableConfig = deviceInfo.config
                 .enable(application: .oath, over: .nfc)
                 .enable(application: .piv, over: .nfc)
@@ -141,7 +141,7 @@ class ManagementFullStackTests: XCTestCase {
             XCTAssert(oathSession == nil)
 
             // Re-enable OATH application
-            let managementSession = try await Management.Session.makeSession(connection: testConnection)
+            let managementSession: Management.Session = try await .makeSession(connection: testConnection)
             let enabledConfig = initialConfig.enable(application: .oath, over: transport)
             try await managementSession.updateDeviceConfig(enabledConfig, reboot: false)
             let updatedInfo = try await managementSession.getDeviceInfo()
@@ -265,7 +265,7 @@ class ManagementFullStackTests: XCTestCase {
                 )
                 do {
                     let newConnection = try await TestableConnection.shared()
-                    _ = try await ManagementSession.makeSession(connection: newConnection)
+                    _ = try await Management.Session.makeSession(connection: newConnection)
                     XCTFail("Got connection even if NFC restriced was turned on!")
                 } catch {
                     print("✅ Failed creating Management.Session as expected.")
@@ -332,7 +332,7 @@ extension XCTestCase {
             transport = .usb
             #endif
 
-            let session = try await Management.Session.makeSession(connection: testConnection)
+            let session: Management.Session = try await .makeSession(connection: testConnection)
             let config = try await session.getDeviceInfo().config
             // Try removing the lock code.
             try? await session.updateDeviceConfig(config, reboot: false, lockCode: lockCode, newLockCode: clearLockCode)

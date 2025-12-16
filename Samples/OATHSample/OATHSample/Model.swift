@@ -45,7 +45,7 @@ class Model: ObservableObject {
 
     private func getKeyVersion(using connection: SmartCardConnection) async {
         do {
-            let session = try await ManagementSession.makeSession(connection: connection)
+            let session: Management.Session = try await .makeSession(connection: connection)
             self.keyVersion = await session.version.description
         } catch {
             self.error = error

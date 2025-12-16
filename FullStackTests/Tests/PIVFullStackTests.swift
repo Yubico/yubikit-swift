@@ -932,7 +932,7 @@ struct PIVFullStackTests {
     func bioAuthentication() async throws {
         // First check if it's a bio device
         let connection = try await TestableConnection.shared()
-        let managementSession = try await ManagementSession.makeSession(connection: connection)
+        let managementSession: Management.Session = try await .makeSession(connection: connection)
         let deviceInfo = try await managementSession.getDeviceInfo()
         guard deviceInfo.formFactor == .usbCBio || deviceInfo.formFactor == .usbABio else {
             print("⚠️ Skipping bio test: Not a YubiKey Bio device")
@@ -970,7 +970,7 @@ struct PIVFullStackTests {
     func bioPinPolicyErrorOnNonBioKey() async throws {
         // First check if it's NOT a bio device
         let connection = try await TestableConnection.shared()
-        let managementSession = try await ManagementSession.makeSession(connection: connection)
+        let managementSession: Management.Session = try await .makeSession(connection: connection)
         let deviceInfo = try await managementSession.getDeviceInfo()
         guard deviceInfo.formFactor != .usbCBio && deviceInfo.formFactor != .usbABio else {
             print("⚠️ Skipping test: This is a YubiKey Bio device")

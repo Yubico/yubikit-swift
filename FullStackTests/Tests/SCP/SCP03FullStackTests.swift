@@ -22,7 +22,7 @@ final class SCP03FullStackTests: XCTestCase {
     func testDefaultKeys() throws {
         runSCPTest { [self] in
 
-            let managementSession = try await ManagementSession.makeSession(
+            let managementSession: Management.Session = try await .makeSession(
                 connection: connection,
                 scpKeyParams: defaultKeyParams
             )
