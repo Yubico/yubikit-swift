@@ -31,7 +31,7 @@ public struct Response: Sendable {
     }
 
     /// The data returned in the response.
-    /// > Note: The data does not contain the response code. It is stored in the ``ResponseStatus``.
+    /// > Note: The data does not contain the response code. It is stored in the ``Response/Status``.
     let data: Data
 
     /// Status code of the response

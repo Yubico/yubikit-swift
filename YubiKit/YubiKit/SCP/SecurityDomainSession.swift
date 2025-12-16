@@ -379,7 +379,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
         guard let dek = keys.dek else {
             throw .illegalArgument("New DEK must be set in static keys", source: .here())
         }
-        guard let scpState else {
+        guard let scpState = interface.scpState else {
             throw SCPError.secureChannelRequired(source: .here())
         }
 
@@ -468,7 +468,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw .illegalArgument("Expected SECP256R1 private key", source: .here())
         }
 
-        guard let scpState else {
+        guard let scpState = interface.scpState else {
             throw .secureChannelRequired(source: .here())
         }
 

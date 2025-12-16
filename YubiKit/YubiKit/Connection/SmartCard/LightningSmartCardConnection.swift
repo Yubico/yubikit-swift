@@ -342,10 +342,10 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
                     "got \(result.count) bytes, SW: \(String(format:"%02X%02X", result.bytes[result.count-2], result.bytes[result.count-1]))"
             ) */
             guard result.count >= 2 else { throw SmartCardConnectionError.connectionLost }
-            let status = ResponseStatus(data: result.subdata(in: result.count - 2..<result.count))
+            let status = Response.Status(data: result.subdata(in: result.count - 2..<result.count))
 
             // BUG #62 - Workaround for WTX == 0x01 while status is 0x9000 (success).
-            if (status.status == ResponseStatus.StatusCode.ok) || result.bytes[0] != 0x01 {
+            if (status.status == Response.Status.Code.ok) || result.bytes[0] != 0x01 {
                 if result.bytes[0] == 0x00 {  // Remove the YLP key protocol header
                     return result.subdata(in: 1..<result.count)
                 } else if result.bytes[0] == 0x01 {  // Remove the YLP key protocol header and the WTX
