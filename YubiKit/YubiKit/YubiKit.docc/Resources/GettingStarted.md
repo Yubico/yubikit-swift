@@ -221,7 +221,7 @@ print("Found certificate: \(certificate.subject)")
 ### Management Session (Device information)
 
 ```swift
-let session = try await ManagementSession.makeSession(connection: connection)
+let session: Management.Session = try await .makeSession(connection: connection)
 print("YubiKey version: \(await session.version)")
 
 let deviceInfo = try await session.getDeviceInfo()

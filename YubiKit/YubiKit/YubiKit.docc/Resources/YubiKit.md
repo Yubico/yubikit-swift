@@ -40,7 +40,7 @@ let codes = try await session.calculateCredentialCodes()
 
 The implementations of the SmartCardConnection protocol handle the connection to the YubiKey and can be used to send
 data to the YubiKey. In most cases it is advised to use one of the supplied Sessions
-(``OATHSession``, ``ManagementSession``) instead of sending raw data to the YubiKey.
+(``OATHSession``, ``Management/Session``) instead of sending raw data to the YubiKey.
 
 
 - ``SmartCardConnection``
@@ -64,6 +64,6 @@ A Session is created by calling the `makeSession(connection:)` method on the ses
 
 - ``Session``
 - ``OATHSession``
-- ``ManagementSession``
+- ``Management/Session``
 - ``PIVSession``
 - ``SecurityDomainSession``
