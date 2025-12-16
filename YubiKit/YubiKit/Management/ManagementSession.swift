@@ -55,6 +55,7 @@ public enum Management {
     /// Read more about the Management application on the
     /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
     // NEXTMAJOR: Remove SmartCardSession conformance
+    // NEXTMAJOR: Consider if this needs to be an actor - it has no mutable state
     public final actor Session: SmartCardSession {
 
         public typealias Error = ManagementSessionError
