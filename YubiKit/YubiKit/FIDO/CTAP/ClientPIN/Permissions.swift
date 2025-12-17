@@ -20,7 +20,7 @@ extension CTAP2.ClientPin {
     /// These permissions scope what operations can be performed with a PIN token.
     /// Protocol v2 (CTAP 2.1+) requires permissions to be specified when obtaining tokens.
     ///
-    /// - SeeAlso: [CTAP2.3 Section 6.5.5.7](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#getPinUvAuthTokenUsingPinWithPermissions)
+    /// - SeeAlso: [CTAP 2.2 Section 6.5.5.7](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#getPinUvAuthTokenUsingPinWithPermissions)
     public struct Permission: OptionSet, Sendable, CBOR.Encodable {
         public let rawValue: UInt8
 

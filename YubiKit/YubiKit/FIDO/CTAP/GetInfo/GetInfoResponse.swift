@@ -19,11 +19,19 @@ extension CTAP2.GetInfo {
     public typealias AAGUID = UUID
 
     /// CTAP/FIDO protocol version supported by an authenticator.
+    ///
+    /// Authenticators report the protocol versions they support in the GetInfo response.
+    /// Higher versions indicate more capabilities and newer features.
     public enum AuthenticatorVersion: Sendable, Equatable {
+        /// FIDO U2F version 2.
         case u2fV2
+        /// FIDO2/CTAP 2.0.
         case fido2_0
+        /// FIDO2/CTAP 2.1 pre-release.
         case fido2_1Pre
+        /// FIDO2/CTAP 2.1.
         case fido2_1
+        /// Unknown or future protocol version.
         case unknown(String)
 
         public init(_ string: String) {
@@ -160,7 +168,7 @@ extension CTAP2.GetInfo {
         /// Provides hints about certifications the authenticator has received.
         /// Examples include FIPS-CMVP, Common Criteria, and FIDO certifications.
         ///
-        /// - SeeAlso: [CTAP 2.3 Section 7.3](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#sctn-feature-descriptions-certifications)
+        /// - SeeAlso: [CTAP 2.2 Section 6.4](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorGetInfo)
         public let certifications: [String: UInt]
 
         /// Remaining discoverable credential slots.

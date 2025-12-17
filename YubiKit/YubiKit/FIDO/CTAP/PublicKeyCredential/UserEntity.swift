@@ -16,6 +16,11 @@ import Foundation
 
 extension PublicKeyCredential {
     /// User account entity information.
+    ///
+    /// Identifies the user account for which a credential is being registered
+    /// or that owns an existing credential.
+    ///
+    /// - SeeAlso: [WebAuthn PublicKeyCredentialUserEntity](https://www.w3.org/TR/webauthn/#dictdef-publickeycredentialuserentity)
     public struct UserEntity: Sendable {
         /// User handle (opaque byte sequence).
         public let id: Data

@@ -18,8 +18,8 @@ extension CTAP2 {
     /// CTAP authenticator transport identifiers.
     ///
     /// These indicate the transports an authenticator supports for communication.
+    /// Values are defined by the WebAuthn AuthenticatorTransport enum.
     ///
-    /// - SeeAlso: [CTAP 2.2 Section 6.4](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorGetInfo)
     /// - SeeAlso: [WebAuthn AuthenticatorTransport](https://www.w3.org/TR/webauthn/#enumdef-authenticatortransport)
     public enum Transport: Sendable, Hashable {
         /// USB transport.

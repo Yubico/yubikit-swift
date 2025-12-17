@@ -16,6 +16,14 @@ import Foundation
 
 /// Errors that can occur during FIDO2/CTAP session operations.
 extension CTAP2 {
+    /// Errors thrown by ``CTAP2/Session`` operations.
+    ///
+    /// This error type encompasses all possible failures during CTAP2 operations,
+    /// including protocol errors from the authenticator, transport errors, and
+    /// local processing errors.
+    ///
+    /// For authenticator-returned protocol errors, inspect the ``ctapError(_:source:)`` case
+    /// which contains a ``CTAP2/Error`` with the specific error code.
     public enum SessionError: FIDOSessionError, SmartCardSessionError, CBORError, CTAPError, Sendable {
 
         // MARK: - Common Session Errors

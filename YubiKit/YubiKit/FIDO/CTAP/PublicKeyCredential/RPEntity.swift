@@ -16,6 +16,11 @@ import Foundation
 
 extension PublicKeyCredential {
     /// Relying Party entity information.
+    ///
+    /// Identifies the relying party (website or service) that is requesting
+    /// credential registration or authentication.
+    ///
+    /// - SeeAlso: [WebAuthn PublicKeyCredentialRpEntity](https://www.w3.org/TR/webauthn/#dictdef-publickeycredentialrpentity)
     public struct RPEntity: Sendable {
         /// Relying Party identifier (e.g., "example.com").
         public let id: String

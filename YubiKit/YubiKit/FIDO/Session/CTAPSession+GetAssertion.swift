@@ -33,7 +33,7 @@ extension CTAP2.Session {
     ///   - pinToken: Optional PIN token for user verification. Obtain via ``getPinUVToken(using:permissions:rpId:protocol:)``.
     /// - Returns: AsyncStream of status updates, ending with `.finished(response)` containing the assertion data
     ///
-    /// - SeeAlso: [CTAP authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)
+    /// - SeeAlso: [CTAP 2.2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorGetAssertion)
     public func getAssertion(
         parameters: CTAP2.GetAssertion.Parameters,
         pinToken: CTAP2.ClientPin.Token? = nil
@@ -69,7 +69,7 @@ extension CTAP2.Session {
     ///
     /// - Returns: AsyncStream of status updates, ending with `.finished(response)` containing the next assertion
     ///
-    /// - SeeAlso: [CTAP authenticatorGetNextAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetNextAssertion)
+    /// - SeeAlso: [CTAP 2.2 authenticatorGetNextAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorGetNextAssertion)
     public func getNextAssertion() async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
         await interface.send(command: .getNextAssertion)
     }

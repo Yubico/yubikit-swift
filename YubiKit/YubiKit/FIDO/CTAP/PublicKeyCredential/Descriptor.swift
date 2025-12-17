@@ -15,7 +15,12 @@
 import Foundation
 
 extension PublicKeyCredential {
-    /// Public key credential descriptor (credential ID and type).
+    /// Public key credential descriptor identifying a specific credential.
+    ///
+    /// Used in `allowList` and `excludeList` parameters to identify credentials
+    /// for authentication or exclusion during registration.
+    ///
+    /// - SeeAlso: [WebAuthn PublicKeyCredentialDescriptor](https://www.w3.org/TR/webauthn/#dictdef-publickeycredentialdescriptor)
     public struct Descriptor: Sendable {
         /// Credential type (always "public-key" for FIDO2).
         public let type: String

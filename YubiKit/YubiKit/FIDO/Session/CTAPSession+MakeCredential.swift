@@ -34,7 +34,7 @@ extension CTAP2.Session {
     ///   - pinToken: Optional PIN token for user verification. Obtain via ``getPinUVToken(using:permissions:rpId:protocol:)``.
     /// - Returns: AsyncSequence of status updates, ending with `.finished(response)` containing the credential data
     ///
-    /// - SeeAlso: [CTAP authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
+    /// - SeeAlso: [CTAP 2.2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorMakeCredential)
     public func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
         pinToken: CTAP2.ClientPin.Token? = nil
