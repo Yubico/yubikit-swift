@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import Foundation
-import FullStackTests
 import Testing
 
 @testable import YubiKit

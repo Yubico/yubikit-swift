@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import Foundation
-import FullStackTests
 import Testing
 import YubiKit
 
@@ -340,9 +339,8 @@ struct CTAP2FullStackTests {
                 protocol: pinProtocol
             )
 
-            #expect(token.token.count > 0, "Token should not be empty")
             #expect(token.protocolVersion == pinProtocol, "Token protocol should match requested")
-            print("✅ Got UV token, length: \(token.token.count) bytes")
+            print("✅ Got UV token with protocol version: \(token.protocolVersion)")
         }
     }
 

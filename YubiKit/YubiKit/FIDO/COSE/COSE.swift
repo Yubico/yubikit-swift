@@ -128,7 +128,8 @@ public enum COSE {
         /// Preserves the original CBOR structure for unknown algorithms or key types.
         /// Cannot be instantiated from outside YubiKit to prevent invalid data.
         public struct Unsupported: Sendable, Equatable {
-            let cborData: Data
+            /// The raw CBOR-encoded key data.
+            public let cborData: Data
 
             internal init(cborData: Data) {
                 self.cborData = cborData

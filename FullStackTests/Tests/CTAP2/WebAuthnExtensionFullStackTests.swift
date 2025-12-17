@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import Foundation
-import FullStackTests
 import Testing
 import YubiKit
 
@@ -175,7 +174,7 @@ struct WebAuthnExtensionFullStackTests {
             let info = try await session.getInfo()
 
             // hmac-secret-mc requires CTAP 2.2
-            guard info.extensions.contains(CTAP2.Extension.HmacSecret.mcIdentifier) else {
+            guard info.extensions.contains(.hmacSecretMC) else {
                 print("Device doesn't support hmac-secret-mc (CTAP2.2) - skipping PRF MC test")
                 return
             }
