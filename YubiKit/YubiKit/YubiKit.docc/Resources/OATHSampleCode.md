@@ -1,6 +1,6 @@
 # OATHSample: Basic OATH app showcasing how to integrate the SDK
 
-This sample shows how to build an iOS and macOS app that reads TOTP codes from YubiKeys. The app demonstrates establishing connections, managing connection lifecycle, using ``OATHSession`` to retrieve authentication codes, and ``ManagementSession`` to get device information.
+This sample shows how to build an iOS and macOS app that reads TOTP codes from YubiKeys. The app demonstrates establishing connections, managing connection lifecycle, using ``OATHSession`` to retrieve authentication codes, and ``Management/Session`` to get device information.
 
 @Metadata {
     @CallToAction(
@@ -98,12 +98,12 @@ The `calculateCredentialCodes()` method returns a dictionary mapping credentials
 
 ### Getting Device Information
 
-Use `ManagementSession` to get YubiKey information:
+Use `Management.Session` to get YubiKey information:
 
 ```swift
 private func getKeyVersion(using connection: SmartCardConnection) async {
     do {
-        let session = try await ManagementSession.makeSession(connection: connection)
+        let session: Management.Session = try await .makeSession(connection: connection)
         self.keyVersion = await session.version.description
     } catch {
         self.error = error

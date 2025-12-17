@@ -315,7 +315,7 @@ class OATHFullStackTests: XCTestCase {
                 try await session.unlock(password: "password")
                 try await session.deleteAccessKey()
                 let connection = try await TestableConnection.shared()
-                _ = try await ManagementSession.makeSession(connection: connection)
+                _ = try await Management.Session.makeSession(connection: connection)
                 let session = try await OATHSession.makeSession(connection: connection)
                 let credentials = try await session.listCredentials()
                 XCTAssertEqual(credentials.count, 5)
@@ -397,7 +397,7 @@ extension XCTestCase {
 
             if let password {
                 try await session.setPassword(password)
-                _ = try await ManagementSession.makeSession(connection: connection)
+                _ = try await Management.Session.makeSession(connection: connection)
                 session = try await OATHSession.makeSession(connection: connection)
             }
 

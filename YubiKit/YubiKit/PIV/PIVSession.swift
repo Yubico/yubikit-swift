@@ -1090,7 +1090,7 @@ extension PIVSession {
         )
     }
 
-    private func retriesFrom(_ responseStatus: ResponseStatus) -> Int {
+    private func retriesFrom(_ responseStatus: Response.Status) -> Int {
 
         if responseStatus.rawStatus == 0x6983 {
             return 0

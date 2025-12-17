@@ -71,7 +71,7 @@ extension CTAP2 {
 
         // MARK: - Protocol Conformance
 
-        public var responseStatus: ResponseStatus? {
+        public var responseStatus: Response.Status? {
             guard case let .failedResponse(response, _) = self else { return nil }
             return response.responseStatus
         }

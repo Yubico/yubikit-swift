@@ -18,3 +18,4 @@
 ### Errors
 
 - ``SmartCardConnectionError``
+- ``Response/Status/Code``

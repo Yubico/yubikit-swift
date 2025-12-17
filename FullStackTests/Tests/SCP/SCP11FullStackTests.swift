@@ -205,7 +205,7 @@ final class SCP11bFullStackTests: XCTestCase {
             let params = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
 
             do {
-                _ = try await ManagementSession.makeSession(connection: connection, scpKeyParams: params)
+                _ = try await Management.Session.makeSession(connection: connection, scpKeyParams: params)
             } catch ManagementSessionError.responseParseError(let message, _) {
                 XCTAssert(true, "Expected: \(String(describing: message))")
                 return
@@ -234,7 +234,7 @@ final class SCP11bFullStackTests: XCTestCase {
             try await securityDomainSession.putPrivateKey(privateKey, for: scpKeyRef, replacing: 0)
 
             let params = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
-            _ = try await ManagementSession.makeSession(connection: connection, scpKeyParams: params)
+            _ = try await Management.Session.makeSession(connection: connection, scpKeyParams: params)
 
             XCTAssert(true, "Successfully imported key pair and authenticated")
         }

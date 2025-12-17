@@ -38,5 +38,5 @@ public protocol SmartCardSessionError: SessionError {
 
     /// The response status code from the YubiKey, if this error was caused by a failed response.
     /// Returns `nil` for errors that don't originate from a response status (connection errors, crypto errors).
-    var responseStatus: ResponseStatus? { get }
+    var responseStatus: Response.Status? { get }
 }

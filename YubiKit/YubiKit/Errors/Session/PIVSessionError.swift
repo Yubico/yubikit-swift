@@ -27,7 +27,7 @@ public enum PIVSessionError: SmartCardSessionError, Sendable {
     case dataProcessingError(String, source: SourceLocation)
     case illegalArgument(String, source: SourceLocation)
 
-    public var responseStatus: ResponseStatus? {
+    public var responseStatus: Response.Status? {
         guard case let .failedResponse(response, _) = self else {
             return nil
         }

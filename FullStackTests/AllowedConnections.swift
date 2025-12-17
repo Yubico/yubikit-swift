@@ -123,7 +123,7 @@ extension USBSmartCardConnection {
 extension SmartCardConnection {
     fileprivate var isAllowed: Bool {
         get async throws {
-            let session = try await ManagementSession.makeSession(connection: self)
+            let session: Management.Session = try await .makeSession(connection: self)
             let deviceInfo = try await session.getDeviceInfo()
             return allowedSerialNumbers.contains(deviceInfo.serialNumber)
         }

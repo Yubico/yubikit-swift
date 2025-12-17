@@ -31,7 +31,7 @@ public enum ManagementSessionError: FIDOSessionError, SmartCardSessionError, Sen
     case initializationFailed(_ message: String, source: SourceLocation)
     case hidError(_ error: CTAP2.HIDError, source: SourceLocation)
 
-    public var responseStatus: ResponseStatus? {
+    public var responseStatus: Response.Status? {
         guard case let .failedResponse(response, _) = self else { return nil }
         return response.responseStatus
     }
