@@ -63,9 +63,9 @@ extension CTAP2.MakeCredential.Parameters.Options: CBOR.Encodable {
     }
 }
 
-// MARK: - PublicKeyCredential.RPEntity + CBOR
+// MARK: - WebAuthn.PublicKeyCredential.RPEntity + CBOR
 
-extension PublicKeyCredential.RPEntity: CBOR.Encodable {
+extension WebAuthn.PublicKeyCredential.RPEntity: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = ["id": id.cbor()]
         map["name"] = name?.cbor()
@@ -73,9 +73,9 @@ extension PublicKeyCredential.RPEntity: CBOR.Encodable {
     }
 }
 
-// MARK: - PublicKeyCredential.UserEntity + CBOR
+// MARK: - WebAuthn.PublicKeyCredential.UserEntity + CBOR
 
-extension PublicKeyCredential.UserEntity: CBOR.Encodable {
+extension WebAuthn.PublicKeyCredential.UserEntity: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = ["id": id.cbor()]
         map["name"] = name?.cbor()
@@ -92,9 +92,9 @@ extension COSE.Algorithm: CBOR.Encodable {
     }
 }
 
-// MARK: - PublicKeyCredential.Descriptor + CBOR
+// MARK: - WebAuthn.PublicKeyCredential.Descriptor + CBOR
 
-extension PublicKeyCredential.Descriptor: CBOR.Encodable {
+extension WebAuthn.PublicKeyCredential.Descriptor: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [
             "type": type.cbor(),

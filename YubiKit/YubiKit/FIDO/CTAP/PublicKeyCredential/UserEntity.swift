@@ -14,7 +14,7 @@
 
 import Foundation
 
-extension PublicKeyCredential {
+extension WebAuthn.PublicKeyCredential {
     /// User account entity information.
     ///
     /// Identifies the user account for which a credential is being registered

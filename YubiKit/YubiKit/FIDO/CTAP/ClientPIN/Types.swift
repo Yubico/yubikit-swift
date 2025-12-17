@@ -53,6 +53,11 @@ extension CTAP2.ClientPin {
         /// The PIN/UV auth protocol version used to obtain this token.
         let protocolVersion: ProtocolVersion
 
+        internal init(token: Data, protocolVersion: ProtocolVersion) {
+            self.token = token
+            self.protocolVersion = protocolVersion
+        }
+
         /// Compute the pinUVAuthParam for a given message.
         ///
         /// - Parameter message: The data to authenticate (typically clientDataHash).

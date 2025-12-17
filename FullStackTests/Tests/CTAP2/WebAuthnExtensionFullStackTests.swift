@@ -55,8 +55,8 @@ struct WebAuthnExtensionFullStackTests {
 
             let makeCredParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: rpId, name: "PRF Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: "PRF Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x60, count: 32),
                     name: "prf@test.com",
                     displayName: "PRF User"
@@ -203,8 +203,8 @@ struct WebAuthnExtensionFullStackTests {
 
             let makeCredParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: rpId, name: "PRF MC Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: "PRF MC Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x70, count: 32),
                     name: "prf-mc@test.com",
                     displayName: "PRF MC User"

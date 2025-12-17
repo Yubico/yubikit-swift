@@ -14,7 +14,7 @@
 
 import Foundation
 
-extension PublicKeyCredential {
+extension WebAuthn.PublicKeyCredential {
     /// Relying Party entity information.
     ///
     /// Identifies the relying party (website or service) that is requesting

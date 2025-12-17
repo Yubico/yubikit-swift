@@ -134,7 +134,7 @@ extension CTAP2.GetInfo {
         public let maxCredentialIdLength: UInt?
 
         /// Supported transports (e.g., usb, nfc, ble).
-        public let transports: [CTAP2.Transport]
+        public let transports: [WebAuthn.Transport]
 
         /// List of supported cryptographic algorithms.
         public let algorithms: [COSE.Algorithm]
@@ -196,7 +196,7 @@ extension CTAP2.GetInfo {
         public let encIdentifier: Data?
 
         /// Transports that support the reset command.
-        public let transportsForReset: [CTAP2.Transport]
+        public let transportsForReset: [WebAuthn.Transport]
 
         /// Whether PIN complexity policy is enforced.
         ///

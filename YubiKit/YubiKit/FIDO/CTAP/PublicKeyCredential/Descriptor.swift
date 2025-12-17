@@ -14,7 +14,7 @@
 
 import Foundation
 
-extension PublicKeyCredential {
+extension WebAuthn.PublicKeyCredential {
     /// Public key credential descriptor identifying a specific credential.
     ///
     /// Used in `allowList` and `excludeList` parameters to identify credentials

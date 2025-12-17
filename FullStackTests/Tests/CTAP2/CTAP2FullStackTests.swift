@@ -54,8 +54,8 @@ struct CTAP2FullStackTests {
             // 1. Make a non-resident credential
             let nonRkParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x02, count: 32),
                     name: "nonrk@example.com",
                     displayName: "Non-RK User"
@@ -74,8 +74,8 @@ struct CTAP2FullStackTests {
             // 2. Make a resident credential
             let rkParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x03, count: 32),
                     name: "rk@example.com",
                     displayName: "RK User"
@@ -142,8 +142,8 @@ struct CTAP2FullStackTests {
 
             let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: userId,
                     name: "cancel-test@example.com",
                     displayName: "Cancel Test User"

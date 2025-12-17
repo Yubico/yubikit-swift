@@ -37,8 +37,8 @@ struct CTAP2ExtensionFullStackTests {
             print("👆 Touch YubiKey: credential without credProtect extension...")
             let noExtParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x00, count: 32),
                     name: "noext@test.com",
                     displayName: "No Extension User"
@@ -58,8 +58,8 @@ struct CTAP2ExtensionFullStackTests {
             print("👆 Touch YubiKey: credProtect level 1...")
             let level1Params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x01, count: 32),
                     name: "level1@test.com",
                     displayName: "Level 1 User"
@@ -80,8 +80,8 @@ struct CTAP2ExtensionFullStackTests {
             print("👆 Touch YubiKey: credProtect level 2...")
             let level2Params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x02, count: 32),
                     name: "level2@test.com",
                     displayName: "Level 2 User"
@@ -114,8 +114,8 @@ struct CTAP2ExtensionFullStackTests {
             print("👆 Touch YubiKey: credProtect level 3 with resident key...")
             let level3Params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x03, count: 32),
                     name: "level3@test.com",
                     displayName: "Level 3 User"
@@ -146,8 +146,8 @@ struct CTAP2ExtensionFullStackTests {
 
             let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "hmac-secret-test.com", name: "HmacSecret Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: "hmac-secret-test.com", name: "HmacSecret Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x10, count: 32),
                     name: "hmac@test.com",
                     displayName: "HmacSecret User"
@@ -205,8 +205,8 @@ struct CTAP2ExtensionFullStackTests {
 
             let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "hmac-secret-mc-test.com", name: "HmacSecretMC Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: "hmac-secret-mc-test.com", name: "HmacSecretMC Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x20, count: 32),
                     name: "hmac-mc@test.com",
                     displayName: "HmacSecretMC User"
