@@ -23,7 +23,8 @@ struct CTAP2ExtensionFullStackTests {
 
     @Test("CredProtect Extension")
     func testCredProtect() async throws {
-        try await withCTAP2Session { session in
+        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
+            var session = session
             guard try await CTAP2.Extension.CredProtect.isSupported(by: session) else {
                 print("Device doesn't support credProtect - skipping")
                 return
@@ -38,7 +39,8 @@ struct CTAP2ExtensionFullStackTests {
                 session: session
             )
 
-            // Test 1: No extension - should not return credProtect
+            // Test 1: No extension - should not return credProtect (requires UP)
+            session = try await reconnectWhenOverNFC()
             print("👆 Touch YubiKey: credential without credProtect extension...")
             let noExtParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
@@ -55,7 +57,8 @@ struct CTAP2ExtensionFullStackTests {
             #expect(credProtect1.output(from: noExtResponse) == nil)
             print("✅ No credProtect in response when not requested")
 
-            // Test 2: Level 1 (userVerificationOptional)
+            // Test 2: Level 1 (userVerificationOptional) (requires UP)
+            session = try await reconnectWhenOverNFC()
             print("👆 Touch YubiKey: credProtect level 1...")
             let level1Params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
@@ -73,7 +76,8 @@ struct CTAP2ExtensionFullStackTests {
             #expect(credProtect1.output(from: level1Response) == .userVerificationOptional)
             print("✅ CredProtect level 1 confirmed")
 
-            // Test 3: Level 2 (userVerificationOptionalWithCredentialIDList)
+            // Test 3: Level 2 (userVerificationOptionalWithCredentialIDList) (requires UP)
+            session = try await reconnectWhenOverNFC()
             let credProtect2 = try await CTAP2.Extension.CredProtect(
                 level: .userVerificationOptionalWithCredentialIDList,
                 session: session
@@ -95,7 +99,8 @@ struct CTAP2ExtensionFullStackTests {
             #expect(credProtect2.output(from: level2Response) == .userVerificationOptionalWithCredentialIDList)
             print("✅ CredProtect level 2 confirmed")
 
-            // Test 4: Level 3 (userVerificationRequired) with resident key
+            // Test 4: Level 3 (userVerificationRequired) with resident key (requires UP)
+            session = try await reconnectWhenOverNFC()
             let info = try await session.getInfo()
             guard info.options.clientPin == true else {
                 print("PIN not set - skipping level 3 test (requires PIN for rk: true)")

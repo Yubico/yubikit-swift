@@ -27,7 +27,8 @@ struct WebAuthnExtensionFullStackTests {
 
     @Test("PRF - Enable at MakeCredential and Derive Secrets at GetAssertion")
     func testPRF() async throws {
-        try await withCTAP2Session { session in
+        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
+            var session = session
             guard try await CTAP2.Extension.HmacSecret.isSupported(by: session) else {
                 print("Device doesn't support hmac-secret - skipping PRF test")
                 return
@@ -42,13 +43,15 @@ struct WebAuthnExtensionFullStackTests {
             let rpId = "prf-test.example.com"
             let clientDataHash = Data(repeating: 0xCD, count: 32)
 
+            // 1. Create a credential with PRF enabled (via hmac-secret) (requires UP)
+            session = try await reconnectWhenOverNFC()
+
             let pinToken = try await session.getPinUVToken(
                 using: .pin(defaultTestPin),
                 permissions: [.makeCredential],
                 rpId: rpId
             )
 
-            // 1. Create a credential with PRF enabled (via hmac-secret)
             let hmacSecret = CTAP2.Extension.HmacSecret()
             let hmacSecretInput = hmacSecret.makeCredential.input()
 
@@ -84,7 +87,9 @@ struct WebAuthnExtensionFullStackTests {
             let credentialId = attestedData.credentialId
             print("✅ Credential created")
 
-            // 2. Authenticate with PRF using one secret
+            // 2. Authenticate with PRF using one secret (requires UP)
+            session = try await reconnectWhenOverNFC()
+
             let secret1 = Data(repeating: 0xAA, count: 32)
 
             let prf = try await WebAuthn.Extension.PRF(session: session)
@@ -117,7 +122,9 @@ struct WebAuthnExtensionFullStackTests {
             #expect(secrets1.first.count == 32)
             print("✅ PRF secrets.first: \(secrets1.first.prefix(8).hexEncodedString)...")
 
-            // 3. Authenticate again with two secrets using evalByCredential
+            // 3. Authenticate again with two secrets using evalByCredential (requires UP)
+            session = try await reconnectWhenOverNFC()
+
             let secret2 = Data(repeating: 0xBB, count: 32)
 
             let prf2 = try await WebAuthn.Extension.PRF(
@@ -170,7 +177,8 @@ struct WebAuthnExtensionFullStackTests {
 
     @Test("PRF MC - Derive Secrets at MakeCredential (CTAP2.2)")
     func testPRFMakeCredential() async throws {
-        try await withCTAP2Session { session in
+        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
+            var session = session
             let info = try await session.getInfo()
 
             // hmac-secret-mc requires CTAP 2.2
@@ -190,6 +198,9 @@ struct WebAuthnExtensionFullStackTests {
             // Generate PRF secrets
             let secret1 = Data(repeating: 0xCC, count: 32)
             let secret2 = Data(repeating: 0xDD, count: 32)
+
+            // 1. Create credential with PRF secrets (requires UP)
+            session = try await reconnectWhenOverNFC()
 
             let prf = try await WebAuthn.Extension.PRF(session: session)
             let prfMcInput = try prf.makeCredential.input(first: secret1, second: secret2)
@@ -242,7 +253,9 @@ struct WebAuthnExtensionFullStackTests {
             }
             let credentialId = attestedData.credentialId
 
-            // Authenticate with the same secrets and verify we get the same outputs (determinism)
+            // 2. Authenticate with the same secrets and verify determinism (requires UP)
+            session = try await reconnectWhenOverNFC()
+
             let prfGa = try await WebAuthn.Extension.PRF(session: session)
             let prfGaInput = try prfGa.getAssertion.input(first: secret1, second: secret2)
 
