@@ -14,19 +14,24 @@
 
 import Foundation
 
-extension PublicKeyCredential {
-    /// Public key credential descriptor (credential ID and type).
-    struct Descriptor: Sendable {
+extension WebAuthn.PublicKeyCredential {
+    /// Public key credential descriptor identifying a specific credential.
+    ///
+    /// Used in `allowList` and `excludeList` parameters to identify credentials
+    /// for authentication or exclusion during registration.
+    ///
+    /// - SeeAlso: [WebAuthn PublicKeyCredentialDescriptor](https://www.w3.org/TR/webauthn/#dictdef-publickeycredentialdescriptor)
+    public struct Descriptor: Sendable {
         /// Credential type (always "public-key" for FIDO2).
-        let type: String
+        public let type: String
 
         /// Credential ID (opaque byte sequence).
-        let id: Data
+        public let id: Data
 
         /// Optional transports hint.
-        let transports: [String]?
+        public let transports: [String]?
 
-        init(type: String = "public-key", id: Data, transports: [String]? = nil) {
+        public init(type: String = "public-key", id: Data, transports: [String]? = nil) {
             self.type = type
             self.id = id
             self.transports = transports

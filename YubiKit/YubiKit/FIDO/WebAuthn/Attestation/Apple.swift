@@ -18,8 +18,8 @@ extension WebAuthn.AttestationStatement {
     /// Apple anonymous attestation statement.
     ///
     /// - SeeAlso: [Apple Anonymous Attestation Statement Format](https://www.w3.org/TR/webauthn/#sctn-apple-anonymous-attestation)
-    struct Apple: Sendable {
+    public struct Apple: Sendable {
         /// Attestation certificate chain.
-        let x5c: [Data]
+        public let x5c: [Data]
     }
 }

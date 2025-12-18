@@ -19,9 +19,9 @@ import Foundation
 
 extension WebAuthn {
     /// Namespace for WebAuthn extensions.
-    enum Extension {
+    public enum Extension {
         /// Extension identifier type (shared with CTAP2).
-        typealias Identifier = CTAP2.Extension.Identifier
+        public typealias Identifier = CTAP2.Extension.Identifier
     }
 }
 
@@ -64,7 +64,7 @@ extension WebAuthn.Extension {
     /// ```
     ///
     /// - SeeAlso: [WebAuthn PRF Extension](https://www.w3.org/TR/webauthn-3/#prf-extension)
-    struct PRF: Sendable {
+    public struct PRF: Sendable {
         /// The underlying hmac-secret extension.
         private let hmacSecret: CTAP2.Extension.HmacSecret
 
@@ -79,9 +79,9 @@ extension WebAuthn.Extension {
         /// Creates a PRF extension for simple single-credential usage.
         ///
         /// - Parameter session: The CTAP2 session to use for key agreement.
-        init<I: CBORInterface>(
-            session: CTAP2.Session<I>
-        ) async throws(CTAP2.SessionError) where I.Error == CTAP2.SessionError {
+        public init(
+            session: CTAP2.Session
+        ) async throws(CTAP2.SessionError) {
             self.hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
             self.defaultSecrets = nil
             self.evalByCredential = [:]
@@ -99,12 +99,12 @@ extension WebAuthn.Extension {
         ///   - session: The CTAP2 session to use for key agreement.
         // TODO: Per WebAuthn spec, evalByCredential keys must be a subset of allowList.
         // Validation requires a WebAuthn client layer that has access to the full request.
-        init<I: CBORInterface>(
+        public init(
             first: Data,
             second: Data? = nil,
             evalByCredential: [Data: (first: Data, second: Data?)] = [:],
-            session: CTAP2.Session<I>
-        ) async throws(CTAP2.SessionError) where I.Error == CTAP2.SessionError {
+            session: CTAP2.Session
+        ) async throws(CTAP2.SessionError) {
             self.hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
             self.defaultSecrets = (first, second)
             self.evalByCredential = evalByCredential
@@ -113,19 +113,19 @@ extension WebAuthn.Extension {
         // MARK: - Operations
 
         /// Operations for MakeCredential.
-        var makeCredential: MakeCredentialOperations {
+        public var makeCredential: MakeCredentialOperations {
             MakeCredentialOperations(parent: self)
         }
 
         /// Operations for GetAssertion.
-        var getAssertion: GetAssertionOperations {
+        public var getAssertion: GetAssertionOperations {
             GetAssertionOperations(parent: self)
         }
 
         // MARK: - Type Aliases
 
         /// Derived secrets from PRF.
-        typealias Secrets = CTAP2.Extension.HmacSecret.Secrets
+        public typealias Secrets = CTAP2.Extension.HmacSecret.Secrets
 
         // MARK: - Salt Transformation
 
@@ -135,7 +135,7 @@ extension WebAuthn.Extension {
         ///
         /// - Parameter secret: The PRF secret (any length).
         /// - Returns: A 32-byte salt for hmac-secret.
-        static func salt(_ secret: Data) -> Data {
+        public static func salt(_ secret: Data) -> Data {
             var sha = SHA256()
             sha.update(data: Data("WebAuthn PRF".utf8))
             sha.update(data: [0x00])
@@ -149,7 +149,7 @@ extension WebAuthn.Extension {
 
 extension WebAuthn.Extension.PRF {
     /// MakeCredential operations for PRF.
-    struct MakeCredentialOperations: Sendable {
+    public struct MakeCredentialOperations: Sendable {
         fileprivate let parent: WebAuthn.Extension.PRF
 
         /// Creates a MakeCredential input to enable PRF.
@@ -158,7 +158,7 @@ extension WebAuthn.Extension.PRF {
         /// deriving secrets immediately.
         ///
         /// - Returns: A MakeCredential extension input.
-        func input() -> CTAP2.Extension.HmacSecret.MakeCredentialOperations.Input {
+        public func input() -> CTAP2.Extension.MakeCredential.Input {
             parent.hmacSecret.makeCredential.input()
         }
 
@@ -172,10 +172,10 @@ extension WebAuthn.Extension.PRF {
         ///   - first: First PRF secret (any length).
         ///   - second: Optional second PRF secret (any length).
         /// - Returns: A MakeCredential extension input.
-        func input(
+        public func input(
             first: Data,
             second: Data? = nil
-        ) throws(CTAP2.SessionError) -> CTAP2.Extension.HmacSecret.MakeCredentialOperations.Input {
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.MakeCredential.Input {
             try parent.hmacSecret.makeCredential.input(
                 salt1: WebAuthn.Extension.PRF.salt(first),
                 salt2: second.map { WebAuthn.Extension.PRF.salt($0) }
@@ -187,7 +187,7 @@ extension WebAuthn.Extension.PRF {
         /// - Parameter response: The MakeCredential response from the authenticator.
         /// - Returns: `.enabled` if PRF is supported, `.secrets` if hmac-secret-mc
         ///            returned derived secrets, or `nil` if the extension output is not present.
-        func output(
+        public func output(
             from response: CTAP2.MakeCredential.Response
         ) throws(CTAP2.SessionError) -> Result? {
             guard let hmacResult = try parent.hmacSecret.makeCredential.output(from: response) else {
@@ -202,7 +202,7 @@ extension WebAuthn.Extension.PRF {
         }
 
         /// Result type for PRF MakeCredential extension.
-        typealias Result = CTAP2.Extension.HmacSecret.MakeCredentialOperations.Result
+        public typealias Result = CTAP2.Extension.HmacSecret.MakeCredentialOperations.Result
     }
 }
 
@@ -210,7 +210,7 @@ extension WebAuthn.Extension.PRF {
 
 extension WebAuthn.Extension.PRF {
     /// GetAssertion operations for PRF.
-    struct GetAssertionOperations: Sendable {
+    public struct GetAssertionOperations: Sendable {
         fileprivate let parent: WebAuthn.Extension.PRF
 
         /// Creates a GetAssertion input with PRF secrets.
@@ -219,10 +219,10 @@ extension WebAuthn.Extension.PRF {
         ///   - first: First PRF secret (any length).
         ///   - second: Optional second PRF secret (any length).
         /// - Returns: A GetAssertion extension input.
-        func input(
+        public func input(
             first: Data,
             second: Data? = nil
-        ) throws(CTAP2.SessionError) -> CTAP2.Extension.HmacSecret.GetAssertionOperations.Input {
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.GetAssertion.Input {
             try parent.hmacSecret.getAssertion.input(
                 salt1: WebAuthn.Extension.PRF.salt(first),
                 salt2: second.map { WebAuthn.Extension.PRF.salt($0) }
@@ -237,9 +237,9 @@ extension WebAuthn.Extension.PRF {
         /// - Parameter credentialId: The credential ID to look up secrets for,
         ///                           or nil to use default secrets.
         /// - Returns: A GetAssertion extension input.
-        func input(
+        public func input(
             for credentialId: Data?
-        ) throws(CTAP2.SessionError) -> CTAP2.Extension.HmacSecret.GetAssertionOperations.Input {
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.GetAssertion.Input {
             let secrets = credentialId.flatMap { parent.evalByCredential[$0] } ?? parent.defaultSecrets
 
             guard let secrets else {
@@ -256,7 +256,7 @@ extension WebAuthn.Extension.PRF {
         ///
         /// - Parameter response: The GetAssertion response from the authenticator.
         /// - Returns: The derived secrets, or nil if the extension output is not present.
-        func output(
+        public func output(
             from response: CTAP2.GetAssertion.Response
         ) throws(CTAP2.SessionError) -> Secrets? {
             try parent.hmacSecret.getAssertion.output(from: response)

@@ -14,12 +14,11 @@
 
 import Foundation
 
-extension CTAP2 {
-    /// CTAP authenticator transport identifiers.
+extension WebAuthn {
+    /// Authenticator transport identifiers.
     ///
     /// These indicate the transports an authenticator supports for communication.
     ///
-    /// - SeeAlso: [CTAP 2.2 Section 6.4](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorGetInfo)
     /// - SeeAlso: [WebAuthn AuthenticatorTransport](https://www.w3.org/TR/webauthn/#enumdef-authenticatortransport)
     public enum Transport: Sendable, Hashable {
         /// USB transport.
@@ -73,7 +72,7 @@ extension CTAP2 {
 
 // MARK: - CBOR Conformance
 
-extension CTAP2.Transport: CBOR.Decodable {
+extension WebAuthn.Transport: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let string: String = cbor.cborDecoded() else {
             return nil
@@ -82,7 +81,7 @@ extension CTAP2.Transport: CBOR.Decodable {
     }
 }
 
-extension CTAP2.Transport: CBOR.Encodable {
+extension WebAuthn.Transport: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         .textString(rawValue)
     }

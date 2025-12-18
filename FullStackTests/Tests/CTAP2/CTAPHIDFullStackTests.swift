@@ -15,7 +15,6 @@
 import Foundation
 import Testing
 
-@testable import FullStackTests
 @testable import YubiKit
 
 #if os(macOS)

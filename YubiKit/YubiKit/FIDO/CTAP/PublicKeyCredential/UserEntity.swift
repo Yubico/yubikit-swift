@@ -14,19 +14,24 @@
 
 import Foundation
 
-extension PublicKeyCredential {
+extension WebAuthn.PublicKeyCredential {
     /// User account entity information.
-    struct UserEntity: Sendable {
+    ///
+    /// Identifies the user account for which a credential is being registered
+    /// or that owns an existing credential.
+    ///
+    /// - SeeAlso: [WebAuthn PublicKeyCredentialUserEntity](https://www.w3.org/TR/webauthn/#dictdef-publickeycredentialuserentity)
+    public struct UserEntity: Sendable {
         /// User handle (opaque byte sequence).
-        let id: Data
+        public let id: Data
 
         /// User identifier (e.g., "alice@example.com").
-        let name: String?
+        public let name: String?
 
         /// Display name (e.g., "Alice Smith").
-        let displayName: String?
+        public let displayName: String?
 
-        init(id: Data, name: String? = nil, displayName: String? = nil) {
+        public init(id: Data, name: String? = nil, displayName: String? = nil) {
             self.id = id
             self.name = name
             self.displayName = displayName

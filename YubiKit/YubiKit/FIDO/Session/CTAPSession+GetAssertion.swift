@@ -26,15 +26,15 @@ extension CTAP2.Session {
     /// The authenticator validates the request, locates the credential, and generates a signature
     /// over the authenticator data and client data hash using the credential's private key.
     ///
-    /// > Note: This functionality requires support for ``CTAP/Feature/getAssertion``, available on YubiKey 5.0 or later.
+    /// > Note: This functionality is available on YubiKey 5.0 or later.
     ///
     /// - Parameters:
     ///   - parameters: The assertion request parameters.
     ///   - pinToken: Optional PIN token for user verification. Obtain via ``getPinUVToken(using:permissions:rpId:protocol:)``.
     /// - Returns: AsyncStream of status updates, ending with `.finished(response)` containing the assertion data
     ///
-    /// - SeeAlso: [CTAP authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)
-    func getAssertion(
+    /// - SeeAlso: [CTAP 2.2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorGetAssertion)
+    public func getAssertion(
         parameters: CTAP2.GetAssertion.Parameters,
         pinToken: CTAP2.ClientPin.Token? = nil
     ) async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
@@ -58,19 +58,19 @@ extension CTAP2.Session {
 
     /// Get the next assertion when multiple credentials are available.
     ///
-    /// After calling ``getAssertion(parameters:)``, if the response contains `numberOfCredentials > 1`,
+    /// After calling ``getAssertion(parameters:pinToken:)``, if the response contains `numberOfCredentials > 1`,
     /// call this method repeatedly to retrieve the remaining assertions. Each call returns the next
     /// available assertion until all have been retrieved.
     ///
-    /// > Important: This command must only be called after a successful ``getAssertion(parameters:)`` call
+    /// > Important: This command must only be called after a successful ``getAssertion(parameters:pinToken:)`` call
     /// > that returned `numberOfCredentials > 1`. Calling it at other times will result in an error.
     ///
-    /// > Note: This functionality requires support for ``CTAP/Feature/getNextAssertion``, available on YubiKey 5.0 or later.
+    /// > Note: This functionality is available on YubiKey 5.0 or later.
     ///
     /// - Returns: AsyncStream of status updates, ending with `.finished(response)` containing the next assertion
     ///
-    /// - SeeAlso: [CTAP authenticatorGetNextAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetNextAssertion)
-    func getNextAssertion() async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
+    /// - SeeAlso: [CTAP 2.2 authenticatorGetNextAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorGetNextAssertion)
+    public func getNextAssertion() async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
         await interface.send(command: .getNextAssertion)
     }
 
@@ -91,10 +91,10 @@ extension CTAP2.Session {
     /// - Returns: An async sequence of assertion responses.
     ///
     /// - SeeAlso: ``getAssertion(parameters:pinToken:)`` for low-level access to a single assertion.
-    func getAssertions(
+    public func getAssertions(
         parameters: CTAP2.GetAssertion.Parameters,
         pinToken: CTAP2.ClientPin.Token? = nil
-    ) async -> CTAP2.GetAssertion.Sequence<I> {
+    ) async -> CTAP2.GetAssertion.Sequence {
         var authenticatedParams = parameters
 
         if let pinToken {
@@ -114,22 +114,22 @@ extension CTAP2.Session {
 ///
 /// Use ``CTAP2/Session/getAssertions(parameters:pinToken:)`` to create instances of this type.
 extension CTAP2.GetAssertion {
-    struct Sequence<I: CBORInterface>: AsyncSequence where I.Error == CTAP2.SessionError {
-        typealias Element = CTAP2.GetAssertion.Response
+    public struct Sequence: AsyncSequence {
+        public typealias Element = CTAP2.GetAssertion.Response
 
-        let session: CTAP2.Session<I>
+        let session: CTAP2.Session
         let parameters: CTAP2.GetAssertion.Parameters
 
         fileprivate init(
-            session: CTAP2.Session<I>,
+            session: CTAP2.Session,
             parameters: CTAP2.GetAssertion.Parameters
         ) {
             self.session = session
             self.parameters = parameters
         }
 
-        func makeAsyncIterator() -> Iterator<I> {
-            Iterator<I>(session: session, parameters: parameters)
+        public func makeAsyncIterator() -> Iterator {
+            Iterator(session: session, parameters: parameters)
         }
     }
 }
@@ -138,24 +138,24 @@ extension CTAP2.GetAssertion {
     /// Iterator that fetches assertions one at a time from the authenticator.
     ///
     /// Created by ``Sequence/makeAsyncIterator()``. Use ``CTAP2/Session/getAssertions(parameters:pinToken:)`` instead of instantiating directly.
-    actor Iterator<I: CBORInterface>: AsyncIteratorProtocol where I.Error == CTAP2.SessionError {
-        typealias Element = CTAP2.GetAssertion.Response
+    public actor Iterator: AsyncIteratorProtocol {
+        public typealias Element = CTAP2.GetAssertion.Response
 
-        let session: CTAP2.Session<I>
+        let session: CTAP2.Session
         let parameters: CTAP2.GetAssertion.Parameters
 
         var currentIndex = 0
         var totalCredentials = 0
 
         fileprivate init(
-            session: CTAP2.Session<I>,
+            session: CTAP2.Session,
             parameters: CTAP2.GetAssertion.Parameters
         ) {
             self.session = session
             self.parameters = parameters
         }
 
-        func next() async throws(CTAP2.SessionError) -> CTAP2.GetAssertion.Response? {
+        public func next() async throws(CTAP2.SessionError) -> CTAP2.GetAssertion.Response? {
             if currentIndex == 0 {
                 // Get first assertion (parameters already authenticated if PIN token was provided)
                 let stream = await session.getAssertion(parameters: parameters)

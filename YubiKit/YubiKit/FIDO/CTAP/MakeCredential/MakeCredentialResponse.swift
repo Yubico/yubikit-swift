@@ -20,9 +20,9 @@ extension CTAP2.MakeCredential {
     /// Contains the attestation object with the new credential's public key,
     /// credential ID, and attestation information.
     ///
-    /// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorMakeCredential)
+    /// - SeeAlso: [CTAP 2.2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorMakeCredential)
     /// - SeeAlso: [WebAuthn AuthenticatorData](https://www.w3.org/TR/webauthn/#authenticator-data)
-    struct Response: Sendable {
+    public struct Response: Sendable {
 
         /// Attestation statement format identifier (e.g., "packed", "fido-u2f", "none").
         public let format: String

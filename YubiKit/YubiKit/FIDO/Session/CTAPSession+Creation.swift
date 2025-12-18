@@ -16,34 +16,34 @@ import Foundation
 
 // MARK: - Session Creation
 
-extension CTAP2.Session where I == FIDOInterface<CTAP2.SessionError> {
+extension CTAP2.Session {
     /// Create a FIDO2 session over USB/HID connection.
     ///
     /// - Parameter connection: A FIDO (USB HID) connection to the YubiKey.
     /// - Returns: A new FIDO2 session.
-    /// - Throws: ``CTAP.SessionError`` if session creation fails.
-    static func makeSession(connection: FIDOConnection) async throws -> FIDO2Session {
-        let interface = try await FIDOInterface<CTAP2.SessionError>(connection: connection)
-        return await CTAP2.Session(interface: interface)
+    /// - Throws: ``CTAP2/SessionError`` if session creation fails.
+    public static func makeSession(connection: FIDOConnection) async throws -> CTAP2.Session {
+        let fidoInterface = try await FIDOInterface<CTAP2.SessionError>(connection: connection)
+        return await CTAP2.Session(interface: Interface(interface: fidoInterface))
     }
 }
 
-extension CTAP2.Session where I == SmartCardInterface<CTAP2.SessionError> {
+extension CTAP2.Session {
     /// Create a FIDO2 session over NFC/SmartCard connection.
     ///
     /// - Parameters:
     ///   - connection: A SmartCard (NFC) connection to the YubiKey.
     ///   - application: The FIDO2 application to select (defaults to .fido2).
     /// - Returns: A new FIDO2 session over NFC.
-    /// - Throws: ``CTAP.SessionError`` if session creation fails.
-    static func makeSession(
+    /// - Throws: ``CTAP2/SessionError`` if session creation fails.
+    public static func makeSession(
         connection: SmartCardConnection,
         application: Application = .fido2
-    ) async throws -> FIDO2SessionOverSmartCard {
-        let interface = try await SmartCardInterface<CTAP2.SessionError>(
+    ) async throws -> CTAP2.Session {
+        let smartCardInterface = try await SmartCardInterface<CTAP2.SessionError>(
             connection: connection,
             application: application
         )
-        return await CTAP2.Session(interface: interface)
+        return await CTAP2.Session(interface: Interface(interface: smartCardInterface))
     }
 }

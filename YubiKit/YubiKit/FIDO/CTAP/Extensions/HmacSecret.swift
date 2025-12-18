@@ -68,7 +68,7 @@ extension CTAP2.Extension {
     ///
     /// - SeeAlso: [CTAP2 hmac-secret Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#sctn-hmac-secret-extension)
     /// - SeeAlso: [CTAP2.2 hmac-secret-mc Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#sctn-hmac-secret-make-cred-extension)
-    struct HmacSecret: Sendable {
+    public struct HmacSecret: Sendable {
         /// Salt length required by hmac-secret (32 bytes).
         static let saltLength = 32
 
@@ -90,7 +90,7 @@ extension CTAP2.Extension {
         ///
         /// Use this when you only need to enable hmac-secret at registration
         /// without deriving secrets.
-        init() {
+        public init() {
             self.sharedSecret = nil
             self.supportsMC = false
         }
@@ -101,9 +101,9 @@ extension CTAP2.Extension {
         /// hmac-secret-mc, or at GetAssertion).
         ///
         /// - Parameter session: The CTAP2 session to use for key agreement.
-        init<I: CBORInterface>(
-            session: CTAP2.Session<I>
-        ) async throws(CTAP2.SessionError) where I.Error == CTAP2.SessionError {
+        public init(
+            session: CTAP2.Session
+        ) async throws(CTAP2.SessionError) {
             guard try await Self.isSupported(by: session) else {
                 throw .extensionNotSupported(Self.identifier, source: .here())
             }
@@ -113,9 +113,9 @@ extension CTAP2.Extension {
         }
 
         /// Checks if the authenticator supports hmac-secret.
-        static func isSupported<I: CBORInterface>(
-            by session: CTAP2.Session<I>
-        ) async throws(CTAP2.SessionError) -> Bool where I.Error == CTAP2.SessionError {
+        public static func isSupported(
+            by session: CTAP2.Session
+        ) async throws(CTAP2.SessionError) -> Bool {
             let info = try await session.getInfo()
             return info.extensions.contains(identifier)
         }
@@ -123,12 +123,12 @@ extension CTAP2.Extension {
         // MARK: - Operations
 
         /// Operations for MakeCredential.
-        var makeCredential: MakeCredentialOperations {
+        public var makeCredential: MakeCredentialOperations {
             MakeCredentialOperations(parent: self)
         }
 
         /// Operations for GetAssertion.
-        var getAssertion: GetAssertionOperations {
+        public var getAssertion: GetAssertionOperations {
             GetAssertionOperations(parent: self)
         }
     }
@@ -138,14 +138,14 @@ extension CTAP2.Extension {
 
 extension CTAP2.Extension.HmacSecret {
     /// MakeCredential operations for hmac-secret.
-    struct MakeCredentialOperations: Sendable {
+    public struct MakeCredentialOperations: Sendable {
         fileprivate let parent: CTAP2.Extension.HmacSecret
 
         /// Creates a MakeCredential input to enable hmac-secret.
         ///
         /// - Returns: An extension input for MakeCredential.
-        func input() -> Input {
-            Input(encoded: [CTAP2.Extension.HmacSecret.identifier: .boolean(true)])
+        public func input() -> CTAP2.Extension.MakeCredential.Input {
+            CTAP2.Extension.MakeCredential.Input(encoded: [CTAP2.Extension.HmacSecret.identifier: .boolean(true)])
         }
 
         /// Creates a MakeCredential input with salts for hmac-secret-mc.
@@ -157,7 +157,10 @@ extension CTAP2.Extension.HmacSecret {
         ///   - salt1: First salt (must be exactly 32 bytes).
         ///   - salt2: Optional second salt (must be exactly 32 bytes if provided).
         /// - Returns: An extension input for MakeCredential.
-        func input(salt1: Data, salt2: Data? = nil) throws(CTAP2.SessionError) -> Input {
+        public func input(
+            salt1: Data,
+            salt2: Data? = nil
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.MakeCredential.Input {
             guard let sharedSecret = parent.sharedSecret, parent.supportsMC else {
                 // Fall back to simple enable
                 return input()
@@ -177,7 +180,7 @@ extension CTAP2.Extension.HmacSecret {
                 ]),
             ]
 
-            return Input(encoded: encoded)
+            return CTAP2.Extension.MakeCredential.Input(encoded: encoded)
         }
 
         /// Extracts the hmac-secret output from a MakeCredential response.
@@ -185,7 +188,7 @@ extension CTAP2.Extension.HmacSecret {
         /// - Parameter response: The MakeCredential response from the authenticator.
         /// - Returns: `.enabled` if hmac-secret is supported, `.secrets` if hmac-secret-mc
         ///            returned derived secrets, or `nil` if the extension output is not present.
-        func output(from response: CTAP2.MakeCredential.Response) throws(CTAP2.SessionError) -> Result? {
+        public func output(from response: CTAP2.MakeCredential.Response) throws(CTAP2.SessionError) -> Result? {
             // Try hmac-secret-mc first if we have shared secret
             if let sharedSecret = parent.sharedSecret {
                 let mcIdentifier = CTAP2.Extension.HmacSecret.mcIdentifier
@@ -206,27 +209,12 @@ extension CTAP2.Extension.HmacSecret {
         }
 
         /// Result type for hmac-secret MakeCredential extension.
-        enum Result: Sendable {
+        public enum Result: Sendable {
             /// hmac-secret is enabled for this credential.
             case enabled
 
             /// Derived secrets from hmac-secret-mc.
             case secrets(Secrets)
-        }
-
-        /// Extension input for MakeCredential.
-        struct Input: CTAP2.Extension.MakeCredential.Input {
-            static let identifier = CTAP2.Extension.HmacSecret.identifier
-
-            private let encoded: [CTAP2.Extension.Identifier: CBOR.Value]
-
-            fileprivate init(encoded: [CTAP2.Extension.Identifier: CBOR.Value]) {
-                self.encoded = encoded
-            }
-
-            func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
-                encoded
-            }
         }
     }
 }
@@ -235,7 +223,7 @@ extension CTAP2.Extension.HmacSecret {
 
 extension CTAP2.Extension.HmacSecret {
     /// GetAssertion operations for hmac-secret.
-    struct GetAssertionOperations: Sendable {
+    public struct GetAssertionOperations: Sendable {
         fileprivate let parent: CTAP2.Extension.HmacSecret
 
         /// Creates a GetAssertion input with salts for hmac-secret.
@@ -244,7 +232,10 @@ extension CTAP2.Extension.HmacSecret {
         ///   - salt1: First salt (must be exactly 32 bytes).
         ///   - salt2: Optional second salt (must be exactly 32 bytes if provided).
         /// - Returns: An extension input for GetAssertion.
-        func input(salt1: Data, salt2: Data? = nil) throws(CTAP2.SessionError) -> Input {
+        public func input(
+            salt1: Data,
+            salt2: Data? = nil
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.GetAssertion.Input {
             guard let sharedSecret = parent.sharedSecret else {
                 throw .illegalArgument(
                     "HmacSecret must be initialized with session for GetAssertion",
@@ -265,14 +256,14 @@ extension CTAP2.Extension.HmacSecret {
                 ])
             ]
 
-            return Input(encoded: encoded)
+            return CTAP2.Extension.GetAssertion.Input(encoded: encoded)
         }
 
         /// Extracts and decrypts the hmac-secret output from a GetAssertion response.
         ///
         /// - Parameter response: The GetAssertion response from the authenticator.
         /// - Returns: The derived secrets, or nil if the extension output is not present.
-        func output(from response: CTAP2.GetAssertion.Response) throws(CTAP2.SessionError) -> Secrets? {
+        public func output(from response: CTAP2.GetAssertion.Response) throws(CTAP2.SessionError) -> Secrets? {
             guard let sharedSecret = parent.sharedSecret else {
                 throw .illegalArgument(
                     "HmacSecret must be initialized with session for GetAssertion",
@@ -287,21 +278,6 @@ extension CTAP2.Extension.HmacSecret {
 
             let decrypted = try sharedSecret.decrypt(ciphertext: ciphertext)
             return try Secrets.parse(from: decrypted)
-        }
-
-        /// Extension input for GetAssertion.
-        struct Input: CTAP2.Extension.GetAssertion.Input {
-            static let identifier = CTAP2.Extension.HmacSecret.identifier
-
-            private let encoded: [CTAP2.Extension.Identifier: CBOR.Value]
-
-            fileprivate init(encoded: [CTAP2.Extension.Identifier: CBOR.Value]) {
-                self.encoded = encoded
-            }
-
-            func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
-                encoded
-            }
         }
     }
 }
@@ -320,9 +296,9 @@ extension CTAP2.Extension.HmacSecret {
         /// PIN/UV auth protocol version.
         fileprivate let protocolVersion: CTAP2.ClientPin.ProtocolVersion
 
-        static func create<I: CBORInterface>(
-            session: CTAP2.Session<I>
-        ) async throws(CTAP2.SessionError) -> SharedSecret where I.Error == CTAP2.SessionError {
+        static func create(
+            session: CTAP2.Session
+        ) async throws(CTAP2.SessionError) -> SharedSecret {
             let pinProtocol = try await session.preferredClientPinProtocol
             let authenticatorKey = try await getKeyAgreement(session: session, protocol: pinProtocol)
 
@@ -337,10 +313,10 @@ extension CTAP2.Extension.HmacSecret {
             )
         }
 
-        private static func getKeyAgreement<I: CBORInterface>(
-            session: CTAP2.Session<I>,
+        private static func getKeyAgreement(
+            session: CTAP2.Session,
             protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion
-        ) async throws(CTAP2.SessionError) -> COSE.Key where I.Error == CTAP2.SessionError {
+        ) async throws(CTAP2.SessionError) -> COSE.Key {
             let params = CTAP2.ClientPin.GetKeyAgreement.Parameters(pinUVAuthProtocol: pinProtocol)
             let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetKeyAgreement.Response> =
                 await session.interface.send(
@@ -366,12 +342,12 @@ extension CTAP2.Extension.HmacSecret {
 
 extension CTAP2.Extension.HmacSecret {
     /// Derived secrets from hmac-secret.
-    struct Secrets: Sendable, Equatable {
+    public struct Secrets: Sendable, Equatable {
         /// First derived secret (32 bytes).
-        let first: Data
+        public let first: Data
 
         /// Second derived secret (32 bytes), if salt2 was provided.
-        let second: Data?
+        public let second: Data?
     }
 }
 

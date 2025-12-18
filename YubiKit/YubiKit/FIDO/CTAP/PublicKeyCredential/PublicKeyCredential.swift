@@ -14,10 +14,12 @@
 
 import Foundation
 
-/// Public Key Credential types and entities.
-///
-/// Shared structures used across CTAP2 commands for representing
-/// relying parties, users, and credential descriptors.
-///
-/// - SeeAlso: [WebAuthn Public Key Credential](https://www.w3.org/TR/webauthn/#public-key-credential)
-enum PublicKeyCredential {}
+extension WebAuthn {
+    /// Public Key Credential types and entities.
+    ///
+    /// Shared structures used across CTAP2 commands for representing
+    /// relying parties, users, and credential descriptors.
+    ///
+    /// - SeeAlso: [WebAuthn Public Key Credential](https://www.w3.org/TR/webauthn/#public-key-credential)
+    public enum PublicKeyCredential {}
+}

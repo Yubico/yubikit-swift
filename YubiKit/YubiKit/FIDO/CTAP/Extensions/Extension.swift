@@ -21,7 +21,7 @@ extension CTAP2.Extension {
     ///
     /// Extension identifiers are strings that identify specific CTAP2 extensions
     /// reported in the authenticator's GetInfo response.
-    enum Identifier: Hashable, Sendable {
+    public enum Identifier: Hashable, Sendable {
         /// The hmac-secret extension for deriving secrets at GetAssertion.
         case hmacSecret
 
@@ -35,7 +35,7 @@ extension CTAP2.Extension {
         case other(String)
 
         /// The raw extension identifier string.
-        var value: String {
+        public var value: String {
             switch self {
             case .hmacSecret: return "hmac-secret"
             case .hmacSecretMC: return "hmac-secret-mc"
@@ -47,7 +47,7 @@ extension CTAP2.Extension {
         /// Initialize from a raw extension identifier string.
         ///
         /// - Parameter value: Extension identifier string
-        init(_ value: String) {
+        public init(_ value: String) {
             switch value {
             case "hmac-secret": self = .hmacSecret
             case "hmac-secret-mc": self = .hmacSecretMC
@@ -62,44 +62,82 @@ extension CTAP2.Extension {
 
 extension CTAP2.Extension {
     /// Namespace for MakeCredential extension input protocol.
-    enum MakeCredential {}
+    public enum MakeCredential {}
 
     /// Namespace for GetAssertion extension input protocol.
-    enum GetAssertion {}
+    public enum GetAssertion {}
 }
 
 // MARK: - MakeCredential Extension Input
 
 extension CTAP2.Extension.MakeCredential {
-    /// Protocol for extension inputs sent with authenticatorMakeCredential.
+    /// An extension input for authenticatorMakeCredential.
     ///
-    /// Extensions encode to a dictionary of extension identifier to CBOR value.
-    /// Most extensions return a single entry, but some (like hmac-secret with
-    /// hmac-secret-mc) may return multiple entries.
-    protocol Input: Sendable {
-        /// The CTAP2 extension identifier (e.g., `.credProtect`, `.hmacSecret`).
-        static var identifier: CTAP2.Extension.Identifier { get }
+    /// Extension inputs cannot be created directly. Instead, use the helper methods
+    /// provided by each extension type:
+    ///
+    /// ```swift
+    /// // Using credProtect extension
+    /// let credProtect = try await CTAP2.Extension.CredProtect(
+    ///     level: .userVerificationRequired,
+    ///     session: session
+    /// )
+    /// let params = CTAP2.MakeCredential.Parameters(
+    ///     ...,
+    ///     extensions: [credProtect.input()]
+    /// )
+    ///
+    /// // Using hmac-secret extension
+    /// let hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
+    /// let params = CTAP2.MakeCredential.Parameters(
+    ///     ...,
+    ///     extensions: [hmacSecret.makeCredential.input()]
+    /// )
+    /// ```
+    ///
+    /// - SeeAlso: ``CTAP2/Extension/CredProtect/input()``
+    /// - SeeAlso: ``CTAP2/Extension/HmacSecret/MakeCredentialOperations/input()``
+    public struct Input: Sendable {
+        private let encoded: [CTAP2.Extension.Identifier: CBOR.Value]
 
-        /// Encodes the extension as CTAP2 extension inputs.
-        ///
-        /// - Returns: A dictionary of extension identifier to CBOR value.
-        func encode() -> [CTAP2.Extension.Identifier: CBOR.Value]
+        internal init(encoded: [CTAP2.Extension.Identifier: CBOR.Value]) {
+            self.encoded = encoded
+        }
+
+        internal func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
+            encoded
+        }
     }
 }
 
 // MARK: - GetAssertion Extension Input
 
 extension CTAP2.Extension.GetAssertion {
-    /// Protocol for extension inputs sent with authenticatorGetAssertion.
+    /// An extension input for authenticatorGetAssertion.
     ///
-    /// Extensions encode to a dictionary of extension identifier to CBOR value.
-    protocol Input: Sendable {
-        /// The CTAP2 extension identifier (e.g., `.credProtect`, `.hmacSecret`).
-        static var identifier: CTAP2.Extension.Identifier { get }
+    /// Extension inputs cannot be created directly. Instead, use the helper methods
+    /// provided by each extension type:
+    ///
+    /// ```swift
+    /// // Using hmac-secret extension to derive secrets
+    /// let hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
+    /// let salt = Data(repeating: 0x42, count: 32)
+    /// let params = CTAP2.GetAssertion.Parameters(
+    ///     ...,
+    ///     extensions: [try hmacSecret.getAssertion.input(salt1: salt)]
+    /// )
+    /// ```
+    ///
+    /// - SeeAlso: ``CTAP2/Extension/HmacSecret/GetAssertionOperations/input(salt1:salt2:)``
+    public struct Input: Sendable {
+        private let encoded: [CTAP2.Extension.Identifier: CBOR.Value]
 
-        /// Encodes the extension as CTAP2 extension inputs.
-        ///
-        /// - Returns: A dictionary of extension identifier to CBOR value.
-        func encode() -> [CTAP2.Extension.Identifier: CBOR.Value]
+        internal init(encoded: [CTAP2.Extension.Identifier: CBOR.Value]) {
+            self.encoded = encoded
+        }
+
+        internal func encode() -> [CTAP2.Extension.Identifier: CBOR.Value] {
+            encoded
+        }
     }
 }

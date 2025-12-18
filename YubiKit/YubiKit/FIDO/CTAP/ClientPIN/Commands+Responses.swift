@@ -18,12 +18,12 @@ import Foundation
 
 extension CTAP2.ClientPin.GetRetries {
     /// Response from getPinRetries.
-    struct Response: Sendable {
+    public struct Response: Sendable {
         /// Number of PIN retries remaining before lockout.
-        let retries: Int
+        public let retries: Int
 
         /// Whether a power cycle is required before PIN operations can continue.
-        let powerCycleState: Bool
+        public let powerCycleState: Bool
     }
 }
 
@@ -31,9 +31,9 @@ extension CTAP2.ClientPin.GetRetries {
 
 extension CTAP2.ClientPin.GetKeyAgreement {
     /// Response from getKeyAgreement.
-    struct Response: Sendable {
+    public struct Response: Sendable {
         /// Authenticator's public key for ECDH key agreement.
-        let keyAgreement: COSE.Key
+        public let keyAgreement: COSE.Key
     }
 }
 
@@ -41,9 +41,9 @@ extension CTAP2.ClientPin.GetKeyAgreement {
 
 extension CTAP2.ClientPin.GetToken {
     /// Response from getPinToken.
-    struct Response: Sendable {
+    public struct Response: Sendable {
         /// Encrypted PIN/UV auth token.
-        let pinUVAuthToken: Data
+        public let pinUVAuthToken: Data
     }
 }
 
@@ -51,8 +51,8 @@ extension CTAP2.ClientPin.GetToken {
 
 extension CTAP2.ClientPin.GetUVRetries {
     /// Response from getUVRetries.
-    struct Response: Sendable {
+    public struct Response: Sendable {
         /// Number of UV retries remaining before UV is disabled.
-        let retries: Int
+        public let retries: Int
     }
 }

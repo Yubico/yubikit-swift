@@ -20,14 +20,14 @@ import Foundation
 /// as defined in RFC 8152.
 ///
 /// - SeeAlso: [RFC 8152: CBOR Object Signing and Encryption](https://www.rfc-editor.org/rfc/rfc8152.html)
-/* public */ enum COSE {
+public enum COSE {
     /// COSE algorithm identifier for FIDO2/WebAuthn.
     ///
     /// Supported algorithms for credential generation on YubiKey.
     /// Values from the IANA COSE Algorithms registry.
     ///
     /// - SeeAlso: [IANA COSE Algorithms Registry](https://www.iana.org/assignments/cose/cose.xhtml#algorithms)
-    /* public */ enum Algorithm: Sendable, Equatable {
+    public enum Algorithm: Sendable, Equatable {
         /// ES256 algorithm (ECDSA with P-256 and SHA-256).
         case es256
 
@@ -82,7 +82,7 @@ import Foundation
     /// The key type determines which parameters are available.
     ///
     /// - SeeAlso: [RFC 8152 Section 7: COSE Key Objects](https://www.rfc-editor.org/rfc/rfc8152.html#section-7)
-    /* public */ enum Key: Sendable, Equatable {
+    public enum Key: Sendable, Equatable {
         /// EC2 (Elliptic Curve) key with P-256 or P-384 curve.
         ///
         /// Used for ECDSA algorithms like ES256 (P-256) and ES384 (P-384).
@@ -127,8 +127,9 @@ import Foundation
         ///
         /// Preserves the original CBOR structure for unknown algorithms or key types.
         /// Cannot be instantiated from outside YubiKit to prevent invalid data.
-        /* public */ struct Unsupported: Sendable, Equatable {
-            let cborData: Data
+        public struct Unsupported: Sendable, Equatable {
+            /// The raw CBOR-encoded key data.
+            public let cborData: Data
 
             internal init(cborData: Data) {
                 self.cborData = cborData

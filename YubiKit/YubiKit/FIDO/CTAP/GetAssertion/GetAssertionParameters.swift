@@ -17,22 +17,22 @@ import Foundation
 extension CTAP2.GetAssertion {
     /// Parameters for the authenticatorGetAssertion command.
     ///
-    /// - SeeAlso: [CTAP2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetAssertion)
-    struct Parameters: Sendable {
+    /// - SeeAlso: [CTAP 2.2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorGetAssertion)
+    public struct Parameters: Sendable {
         /// Relying Party identifier (e.g., "example.com").
-        let rpId: String
+        public let rpId: String
 
         /// SHA-256 hash of the client data.
-        let clientDataHash: Data
+        public let clientDataHash: Data
 
         /// List of credentials acceptable to the RP (omit for resident key discovery).
-        let allowList: [PublicKeyCredential.Descriptor]?
+        public let allowList: [WebAuthn.PublicKeyCredential.Descriptor]?
 
         /// Extension inputs for additional authenticator processing.
-        let extensions: [any CTAP2.Extension.GetAssertion.Input]
+        public let extensions: [CTAP2.Extension.GetAssertion.Input]
 
         /// Authenticator options.
-        let options: Options?
+        public let options: Options?
 
         /// PIN/UV auth parameter (populated automatically when using PIN authentication).
         private(set) var pinUVAuthParam: Data?
@@ -46,11 +46,11 @@ extension CTAP2.GetAssertion {
             self.pinUVAuthProtocol = pinToken.protocolVersion
         }
 
-        init(
+        public init(
             rpId: String,
             clientDataHash: Data,
-            allowList: [PublicKeyCredential.Descriptor]? = nil,
-            extensions: [any CTAP2.Extension.GetAssertion.Input] = [],
+            allowList: [WebAuthn.PublicKeyCredential.Descriptor]? = nil,
+            extensions: [CTAP2.Extension.GetAssertion.Input] = [],
             options: Options? = nil
         ) {
             self.rpId = rpId
@@ -61,14 +61,14 @@ extension CTAP2.GetAssertion {
         }
 
         /// Authenticator options for getAssertion.
-        struct Options: Sendable {
+        public struct Options: Sendable {
             /// Require user presence (default: true).
-            let up: Bool?
+            public let up: Bool?
 
             /// Require user verification.
-            let uv: Bool?
+            public let uv: Bool?
 
-            init(up: Bool? = nil, uv: Bool? = nil) {
+            public init(up: Bool? = nil, uv: Bool? = nil) {
                 self.up = up
                 self.uv = uv
             }

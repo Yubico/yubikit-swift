@@ -101,65 +101,121 @@ public enum CTAP2 {
 
     // MARK: - Error Types
 
-    /// CTAP-level errors returned from the Authenticator.
+    /// CTAP protocol-level errors returned by the authenticator.
+    ///
+    /// These error codes are defined in the CTAP specification and indicate
+    /// specific failure conditions during authenticator operations.
+    ///
+    /// - SeeAlso: [CTAP 2.2 Status Codes](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#error-responses)
     public enum Error: Swift.Error, Sendable {
+        /// The command is not a valid CTAP command.
         case invalidCommand
+        /// The command included an invalid parameter.
         case invalidParameter
+        /// Invalid message or item length.
         case invalidLength
+        /// Invalid message sequencing.
         case invalidSeq
+        /// Message timed out.
         case timeout
+        /// Channel busy; client should retry after a short delay.
         case channelBusy
+        /// Command requires channel lock.
         case lockRequired
+        /// Command not allowed on this channel ID.
         case invalidChannel
+        /// Invalid/unexpected CBOR error.
         case cborUnexpectedType
+        /// Error when parsing CBOR.
         case invalidCbor
+        /// Missing non-optional parameter.
         case missingParameter
+        /// Limit for number of items exceeded.
         case limitExceeded
+        /// The requested extension is not supported.
         case unsupportedExtension
+        /// Fingerprint database is full, e.g., during enrollment.
         case fpDatabaseFull
+        /// Large blob storage is full.
         case largeBlobStorageFull
+        /// Valid credential found in the exclude list.
         case credentialExcluded
+        /// Processing; lengthy operation is in progress.
         case processing
+        /// Credential not valid for the authenticator.
         case invalidCredential
+        /// Authentication is waiting for user interaction.
         case userActionPending
+        /// Processing; lengthy operation is in progress.
         case operationPending
+        /// No request is pending.
         case noOperations
+        /// Authenticator does not support requested algorithm.
         case unsupportedAlgorithm
+        /// Not authorized for requested operation.
         case operationDenied
+        /// Internal key storage is full.
         case keyStoreFull
+        /// Authenticator is not currently busy.
         case notBusy
+        /// No operation is pending.
         case noOperationPending
+        /// Unsupported option.
         case unsupportedOption
+        /// Not a valid option for current operation.
         case invalidOption
+        /// Pending keep alive was cancelled.
         case keepaliveCancel
+        /// No valid credentials provided.
         case noCredentials
+        /// User action timeout occurred.
         case userActionTimeout
+        /// Continuation command not allowed.
         case notAllowed
+        /// PIN invalid.
         case pinInvalid
+        /// PIN blocked.
         case pinBlocked
+        /// PIN authentication (pinUvAuthParam) verification failed.
         case pinAuthInvalid
+        /// PIN authentication blocked; requires power cycle to reset.
         case pinAuthBlocked
+        /// No PIN has been set.
         case pinNotSet
+        /// A pinUvAuthToken is required for the selected operation.
         case puatRequired
+        /// PIN policy violation; e.g., minimum length or complexity.
         case pinPolicyViolation
+        /// PIN token expired.
         case pinTokenExpired
+        /// Authenticator cannot handle this request due to memory constraints.
         case requestTooLarge
+        /// The current operation has timed out.
         case actionTimeout
+        /// User presence is required for the requested operation.
         case upRequired
+        /// Built-in user verification is disabled.
         case uvBlocked
+        /// A checksum did not match.
         case integrityFailure
+        /// The requested subcommand is either invalid or not implemented.
         case invalidSubcommand
+        /// Built-in user verification unsuccessful; platform should retry.
         case uvInvalid
+        /// The permissions parameter contains an unauthorized permission.
         case unauthorizedPermission
+        /// Other unspecified error.
         case other
+        /// CTAP 2 spec last error.
         case specLast
 
-        // Extension errors (0xE0-0xEF)
+        /// Extension-specific error.
         case `extension`(UInt8)
 
-        // Vendor errors (0xF0-0xFF)
+        /// Vendor-specific error.
         case vendor(UInt8)
 
+        /// Unknown error code.
         case unknown(UInt8)
 
         static func from(errorCode: UInt8) -> Error {
@@ -230,16 +286,28 @@ public enum CTAP2 {
     /// CTAPHID transport-layer errors returned by the authenticator via ERROR frames.
     ///
     /// These errors indicate problems at the HID transport level (as opposed to CTAP2 protocol-level errors).
+    ///
+    /// - SeeAlso: [CTAP 2.2 CTAPHID_ERROR](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#usb-hid-error)
     public enum HIDError: Swift.Error, Sendable {
+        /// The command in the request is invalid.
         case invalidCmd
+        /// The parameter(s) in the request is invalid.
         case invalidPar
+        /// The length field (BCNT) is invalid for the request.
         case invalidLen
+        /// The sequence does not match expected value.
         case invalidSeq
+        /// The message has timed out.
         case msgTimeout
+        /// The device is busy for the requesting channel.
         case channelBusy
+        /// Command requires channel lock.
         case lockRequired
+        /// Channel ID is not valid.
         case invalidChannel
+        /// Unspecified error.
         case other
+        /// Unknown error code.
         case unknown(UInt8)
 
         static func from(errorCode: UInt8) -> HIDError {
@@ -271,17 +339,17 @@ public enum CTAP2 {
     // MARK: - Command Namespaces
 
     /// Namespace for GetAssertion command types.
-    enum GetAssertion {}
+    public enum GetAssertion {}
 
     /// Namespace for MakeCredential command types.
-    enum MakeCredential {}
+    public enum MakeCredential {}
 
     /// Namespace for GetInfo command types.
-    enum GetInfo {}
+    public enum GetInfo {}
 
     /// Namespace for ClientPin command types.
-    enum ClientPin {}
+    public enum ClientPin {}
 
     /// Namespace for CTAP2 extension types.
-    enum Extension {}
+    public enum Extension {}
 }

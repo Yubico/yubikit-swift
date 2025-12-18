@@ -103,7 +103,7 @@ extension CTAP2.Session {
 
     private func clientPinHandler(
         protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion?
-    ) async throws(CTAP2.SessionError) -> ClientPinHandler<I> {
+    ) async throws(CTAP2.SessionError) -> ClientPinHandler {
         let selectedProtocol: CTAP2.ClientPin.ProtocolVersion
         if let pinProtocol {
             selectedProtocol = pinProtocol
@@ -121,8 +121,8 @@ extension CTAP2.Session {
 // MARK: - ClientPinHandler (Internal)
 
 /// Internal handler for ClientPIN operations.
-private struct ClientPinHandler<I: CBORInterface>: Sendable where I.Error == CTAP2.SessionError {
-    let interface: I
+private struct ClientPinHandler: Sendable {
+    let interface: CTAP2.Session.Interface
     let pinProtocol: CTAP2.ClientPin.ProtocolVersion
     let supportsTokenPermissions: Bool
 
@@ -170,8 +170,8 @@ private struct ClientPinHandler<I: CBORInterface>: Sendable where I.Error == CTA
         let sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
         let platformKey = pinProtocol.coseKey(from: keyPair)
 
-        // Build command parameters based on auth method
-        let params: CBOR.Encodable
+        // Build command parameters and send based on auth method
+        let response: CTAP2.ClientPin.GetToken.Response
         switch method {
         case .pin(let pin):
             // Hash and encrypt PIN
@@ -181,37 +181,46 @@ private struct ClientPinHandler<I: CBORInterface>: Sendable where I.Error == CTA
 
             if supportsTokenPermissions {
                 // Use 0x09 (getPinUvAuthTokenUsingPinWithPermissions)
-                params = CTAP2.ClientPin.GetTokenWithPermissions.Parameters(
+                let params = CTAP2.ClientPin.GetTokenWithPermissions.Parameters(
                     pinUVAuthProtocol: pinProtocol,
                     keyAgreement: platformKey,
                     pinHashEnc: pinHashEnc,
                     permissions: permissions,
                     rpId: rpId
                 )
+                let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
+                    command: .clientPin,
+                    payload: params
+                )
+                response = try await stream.value
             } else {
                 // Fall back to 0x05 (legacy getPinToken)
-                params = CTAP2.ClientPin.GetToken.Parameters(
+                let params = CTAP2.ClientPin.GetToken.Parameters(
                     pinUVAuthProtocol: pinProtocol,
                     keyAgreement: platformKey,
                     pinHashEnc: pinHashEnc
                 )
+                let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
+                    command: .clientPin,
+                    payload: params
+                )
+                response = try await stream.value
             }
 
         case .uv:
             // Use 0x06 (getPinUvAuthTokenUsingUvWithPermissions)
-            params = CTAP2.ClientPin.GetTokenUsingUV.Parameters(
+            let params = CTAP2.ClientPin.GetTokenUsingUV.Parameters(
                 pinUVAuthProtocol: pinProtocol,
                 keyAgreement: platformKey,
                 permissions: permissions,
                 rpId: rpId
             )
+            let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
+                command: .clientPin,
+                payload: params
+            )
+            response = try await stream.value
         }
-
-        let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
-            command: .clientPin,
-            payload: params
-        )
-        let response = try await stream.value
         let pinToken = try pinProtocol.decrypt(key: sharedSecret, ciphertext: response.pinUVAuthToken)
 
         // Validate token size: V1 allows 16 or 32 bytes, V2 requires exactly 32 bytes

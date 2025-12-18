@@ -22,6 +22,12 @@ import Foundation
 /// ``SmartCardInterface`` for NFC communication.
 protocol CBORInterface: Actor {
 
+    /// Shorthand for CBOR input payload constraints.
+    typealias In = CBOR.Encodable & Sendable
+
+    /// Shorthand for CBOR output response constraints.
+    typealias Out = CBOR.Decodable & Sendable
+
     /// The error type thrown by this interface.
     associatedtype Error: SessionError
 
@@ -29,10 +35,10 @@ protocol CBORInterface: Actor {
 
     /// Maximum message size supported by the authenticator.
     /// Defaults to 1024 bytes until getInfo() returns the actual limit.
-    var maxMsgSize: Int { get }
+    var maxMsgSize: Int { get async }
 
     /// Update the maximum message size after getInfo() returns.
-    func setMaxMsgSize(_ size: Int)
+    func setMaxMsgSize(_ size: Int) async
 
     /// Send a CTAP2 command with CBOR payload.
     ///
@@ -43,10 +49,10 @@ protocol CBORInterface: Actor {
     ///   - command: The CTAP2 command
     ///   - payload: CBOR-encodable payload (will be CBOR-encoded)
     /// - Returns: Async sequence of status updates, ending with `.finished(response)` or errors
-    func send<I: CBOR.Encodable, O: CBOR.Decodable & Sendable>(
+    func send<I: In, O: Out>(
         command: CTAP2.Command,
         payload: I
-    ) -> CTAP2.StatusStream<O>
+    ) async -> CTAP2.StatusStream<O>
 
     /// Send a CTAP2 command with CBOR payload that has no response body.
     ///
@@ -54,32 +60,32 @@ protocol CBORInterface: Actor {
     ///   - command: The CTAP2 command
     ///   - payload: CBOR-encodable payload (will be CBOR-encoded)
     /// - Returns: Async sequence of status updates, ending with `.finished(())`
-    func send<I: CBOR.Encodable>(
+    func send<I: In>(
         command: CTAP2.Command,
         payload: I
-    ) -> CTAP2.StatusStream<Void>
+    ) async -> CTAP2.StatusStream<Void>
 }
 
 extension CBORInterface {
     /// Send a CTAP2 command with no payload and a CBOR-decodable response.
     func send<O: CBOR.Decodable & Sendable>(
         command: CTAP2.Command
-    ) -> CTAP2.StatusStream<O> {
-        send(command: command, payload: nil as CBOR.Value?)
+    ) async -> CTAP2.StatusStream<O> {
+        await send(command: command, payload: nil as CBOR.Value?)
     }
 
     /// Send a CTAP2 command with no payload and no response body.
     func send(
         command: CTAP2.Command
-    ) -> CTAP2.StatusStream<Void> {
-        send(command: command, payload: nil as CBOR.Value?)
+    ) async -> CTAP2.StatusStream<Void> {
+        await send(command: command, payload: nil as CBOR.Value?)
     }
 
     /// Send a CTAP2 command with no payload, returning raw CBOR.
     func send(
         command: CTAP2.Command
-    ) -> CTAP2.StatusStream<CBOR.Value> {
-        send(command: command, payload: nil as CBOR.Value?)
+    ) async -> CTAP2.StatusStream<CBOR.Value> {
+        await send(command: command, payload: nil as CBOR.Value?)
     }
 }
 

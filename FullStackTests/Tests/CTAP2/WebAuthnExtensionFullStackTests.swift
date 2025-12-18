@@ -14,9 +14,7 @@
 
 import Foundation
 import Testing
-
-@testable import FullStackTests
-@testable import YubiKit
+import YubiKit
 
 /// WebAuthn Extension Full Stack Tests
 ///
@@ -56,8 +54,8 @@ struct WebAuthnExtensionFullStackTests {
 
             let makeCredParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: rpId, name: "PRF Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: "PRF Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x60, count: 32),
                     name: "prf@test.com",
                     displayName: "PRF User"
@@ -176,7 +174,7 @@ struct WebAuthnExtensionFullStackTests {
             let info = try await session.getInfo()
 
             // hmac-secret-mc requires CTAP 2.2
-            guard info.extensions.contains(CTAP2.Extension.HmacSecret.mcIdentifier) else {
+            guard info.extensions.contains(.hmacSecretMC) else {
                 print("Device doesn't support hmac-secret-mc (CTAP2.2) - skipping PRF MC test")
                 return
             }
@@ -204,8 +202,8 @@ struct WebAuthnExtensionFullStackTests {
 
             let makeCredParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: rpId, name: "PRF MC Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: "PRF MC Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x70, count: 32),
                     name: "prf-mc@test.com",
                     displayName: "PRF MC User"

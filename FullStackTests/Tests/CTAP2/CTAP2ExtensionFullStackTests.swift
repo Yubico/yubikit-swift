@@ -14,9 +14,7 @@
 
 import Foundation
 import Testing
-
-@testable import FullStackTests
-@testable import YubiKit
+import YubiKit
 
 @Suite("CTAP2 Extension Full Stack Tests", .serialized)
 struct CTAP2ExtensionFullStackTests {
@@ -34,12 +32,18 @@ struct CTAP2ExtensionFullStackTests {
             let clientDataHash = Data(repeating: 0xCD, count: 32)
             let rpId = "credprotect-test.com"
 
+            // Create credProtect instance for output checking
+            let credProtect1 = try await CTAP2.Extension.CredProtect(
+                level: .userVerificationOptional,
+                session: session
+            )
+
             // Test 1: No extension - should not return credProtect
             print("👆 Touch YubiKey: credential without credProtect extension...")
             let noExtParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x00, count: 32),
                     name: "noext@test.com",
                     displayName: "No Extension User"
@@ -48,19 +52,15 @@ struct CTAP2ExtensionFullStackTests {
                 options: .init(rk: false)
             )
             let noExtResponse = try await session.makeCredential(parameters: noExtParams).value
-            #expect(noExtResponse.authenticatorData.extensions?[.credProtect] == nil)
+            #expect(credProtect1.output(from: noExtResponse) == nil)
             print("✅ No credProtect in response when not requested")
 
             // Test 2: Level 1 (userVerificationOptional)
-            let credProtect1 = try await CTAP2.Extension.CredProtect(
-                level: .userVerificationOptional,
-                session: session
-            )
             print("👆 Touch YubiKey: credProtect level 1...")
             let level1Params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x01, count: 32),
                     name: "level1@test.com",
                     displayName: "Level 1 User"
@@ -81,8 +81,8 @@ struct CTAP2ExtensionFullStackTests {
             print("👆 Touch YubiKey: credProtect level 2...")
             let level2Params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x02, count: 32),
                     name: "level2@test.com",
                     displayName: "Level 2 User"
@@ -115,8 +115,8 @@ struct CTAP2ExtensionFullStackTests {
             print("👆 Touch YubiKey: credProtect level 3 with resident key...")
             let level3Params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: "CredProtect Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x03, count: 32),
                     name: "level3@test.com",
                     displayName: "Level 3 User"
@@ -147,8 +147,8 @@ struct CTAP2ExtensionFullStackTests {
 
             let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "hmac-secret-test.com", name: "HmacSecret Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: "hmac-secret-test.com", name: "HmacSecret Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x10, count: 32),
                     name: "hmac@test.com",
                     displayName: "HmacSecret User"
@@ -180,7 +180,7 @@ struct CTAP2ExtensionFullStackTests {
             let info = try await session.getInfo()
 
             // hmac-secret-mc requires a device that supports CTAP 2.3+
-            guard info.extensions.contains(CTAP2.Extension.HmacSecret.mcIdentifier) else {
+            guard info.extensions.contains(.hmacSecretMC) else {
                 print("Device doesn't support hmac-secret-mc - skipping")
                 return
             }
@@ -206,8 +206,8 @@ struct CTAP2ExtensionFullStackTests {
 
             let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
-                rp: PublicKeyCredential.RPEntity(id: "hmac-secret-mc-test.com", name: "HmacSecretMC Test"),
-                user: PublicKeyCredential.UserEntity(
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: "hmac-secret-mc-test.com", name: "HmacSecretMC Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
                     id: Data(repeating: 0x20, count: 32),
                     name: "hmac-mc@test.com",
                     displayName: "HmacSecretMC User"
