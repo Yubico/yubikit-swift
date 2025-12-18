@@ -351,8 +351,16 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             return
         }
 
-        // Store completion to be called when didInvalidateWithError fires
-        currentState.stopCompletion = completion
+        // Store completion to be called when didInvalidateWithError fires.
+        // Chain with existing completion if stop() is called multiple times.
+        if let existing = currentState.stopCompletion {
+            currentState.stopCompletion = {
+                existing()
+                completion()
+            }
+        } else {
+            currentState.stopCompletion = completion
+        }
 
         switch result {
         case let .failure(error):
