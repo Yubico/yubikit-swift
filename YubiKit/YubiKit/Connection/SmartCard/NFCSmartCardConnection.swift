@@ -345,6 +345,15 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
     func stop(with result: Result<String?, Error>, completion: @escaping @Sendable () -> Void) {
         /* Fix trace: trace(message: "Manager.stop(with:) - result: \(String(describing: result))") */
 
+        // If already inactive, complete immediately
+        guard currentState.phase != .inactive else {
+            completion()
+            return
+        }
+
+        // Store completion to be called when didInvalidateWithError fires
+        currentState.stopCompletion = completion
+
         switch result {
         case let .failure(error):
             currentState.session?.invalidate(errorMessage: error.localizedDescription)
@@ -354,8 +363,6 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             }
             currentState.session?.invalidate()
         }
-
-        completion()
     }
 
     // @TraceScope
@@ -427,6 +434,9 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             return
         }
 
+        // Capture stopCompletion before reset clears it
+        let stopCompletion = currentState.stopCompletion
+
         switch error {
         case .none:
             currentState.didCloseCallback?(nil as Error?)
@@ -439,6 +449,9 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         currentState.didCloseCallback = nil
 
         currentState.reset()
+
+        // Signal that the session is fully invalidated
+        stopCompletion?()
     }
 }
 
@@ -509,12 +522,16 @@ private class NFCState: @unchecked Sendable {
     var tag: NFCISO7816Tag?
     var didCloseCallback: (@Sendable (Error?) -> Void)?
 
+    // Stop completion - called when session is fully invalidated
+    var stopCompletion: (@Sendable () -> Void)?
+
     func reset() {
         phase = .inactive
         session = nil
         connectionCompletion = nil
         tag = nil
         didCloseCallback = nil
+        stopCompletion = nil
     }
 
     func setScanning(
