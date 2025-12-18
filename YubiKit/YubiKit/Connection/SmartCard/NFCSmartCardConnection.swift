@@ -289,7 +289,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         /* Fix trace: trace(message: "Manager.didClose(for:) – tracking closure for tag \(connection.tag)") */
 
         switch currentState.phase {
-        case .inactive, .scanning:
+        case .inactive, .scanning, .stopping:
             completion(.success(()))
         case .connected:
             guard let tag = currentState.tag, connection.tag == .init(tag.identifier) else {
@@ -351,6 +351,19 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             return
         }
 
+        // If already stopping, just chain the completion
+        if currentState.phase == .stopping {
+            if let existing = currentState.stopCompletion {
+                currentState.stopCompletion = {
+                    existing()
+                    completion()
+                }
+            } else {
+                currentState.stopCompletion = completion
+            }
+            return
+        }
+
         // Store completion to be called when didInvalidateWithError fires.
         // Chain with existing completion if stop() is called multiple times.
         if let existing = currentState.stopCompletion {
@@ -361,6 +374,9 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         } else {
             currentState.stopCompletion = completion
         }
+
+        // Mark as stopping - session is being invalidated
+        currentState.phase = .stopping
 
         switch result {
         case let .failure(error):
@@ -391,6 +407,19 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         case .inactive:
             // lets continue
             break
+        case .stopping:
+            // Session is being invalidated - wait for it to complete then retry
+            if let existing = currentState.stopCompletion {
+                currentState.stopCompletion = { [weak self] in
+                    existing()
+                    self?.connect(message: alertMessage, completion: completion)
+                }
+            } else {
+                currentState.stopCompletion = { [weak self] in
+                    self?.connect(message: alertMessage, completion: completion)
+                }
+            }
+            return
         case .scanning, .connected:
             // throw
             completion(.failure(SmartCardConnectionError.busy))
@@ -518,6 +547,7 @@ private class NFCState: @unchecked Sendable {
         case inactive
         case scanning
         case connected
+        case stopping
     }
 
     var phase: Phase = .inactive
