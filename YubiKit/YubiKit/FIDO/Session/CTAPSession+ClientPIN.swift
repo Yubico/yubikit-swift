@@ -46,6 +46,10 @@ extension CTAP2.Session {
     /// The returned token can be used to authenticate subsequent CTAP operations
     /// like ``makeCredential(parameters:pinToken:)`` and ``getAssertion(parameters:pinToken:)``.
     ///
+    /// > Warning: This implementation does not perform zeroization of sensitive data.
+    /// > The PIN token stored in memory is not securely erased when the ``CTAP2/ClientPin/Token``
+    /// > instance is deallocated. This will be addressed in a future release.
+    ///
     /// - Parameters:
     ///   - method: The authentication method to use (PIN or built-in UV).
     ///   - permissions: Permissions for the token.
