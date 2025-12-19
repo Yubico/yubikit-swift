@@ -58,6 +58,10 @@ Learn by example:
 
 - iOS 16.0+ / macOS 13.0+
 
+## Security Notice
+
+This SDK does not perform zeroization of sensitive data in memory. Cryptographic keys, PIN tokens, and other secrets are not securely erased when no longer in use. This is currently out of scope but may be addressed in a future release.
+
 ## Support
 
 - [GitHub Issues](https://github.com/Yubico/yubikit-swift/issues)
