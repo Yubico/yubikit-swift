@@ -231,7 +231,9 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         // Other statuses (including errors and keepalive 0x9100) return immediately
         guard response.status == .ok || response.responseStatus.sw1 == 0x61 else {
             return Response(
-                rawData: accumulated + response.data + Data([response.responseStatus.sw1, response.responseStatus.sw2])
+                data: accumulated + response.data,
+                sw1: response.responseStatus.sw1,
+                sw2: response.responseStatus.sw2
             )
         }
 
