@@ -47,7 +47,8 @@ struct CTAP2FullStackTests {
 
     @Test("Make Credential and Get Assertion")
     func testMakeCredentialGetAssertion() async throws {
-        try await withCTAP2Session { session in
+        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
+            var session = session
             let clientDataHash = Data(repeating: 0xCD, count: 32)
 
             // 1. Make a non-resident credential
@@ -70,7 +71,9 @@ struct CTAP2FullStackTests {
             #expect(nonRkCredential.authenticatorData.attestedCredentialData != nil, "Missing attested credential data")
             print("✅ Non-resident credential created")
 
-            // 2. Make a resident credential
+            // 2. Make a resident credential (requires UP)
+            session = try await reconnectWhenOverNFC()
+
             let rkParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: WebAuthn.PublicKeyCredential.RPEntity(id: "example.com", name: "Example Corp"),
@@ -92,7 +95,9 @@ struct CTAP2FullStackTests {
             }
             print("✅ Resident credential created")
 
-            // 3. Get assertion (discovers resident credentials)
+            // 3. Get assertion (requires UP) - reconnect for NFC
+            session = try await reconnectWhenOverNFC()
+
             let getAssertionParams = CTAP2.GetAssertion.Parameters(
                 rpId: "example.com",
                 clientDataHash: clientDataHash
@@ -127,7 +132,9 @@ struct CTAP2FullStackTests {
                 }
             }
 
-            #expect(receivedWaitingForUser, "Should receive waitingForUser status during selection")
+            if !ctap2Transport.isNFC {
+                #expect(receivedWaitingForUser, "Should receive waitingForUser status during selection")
+            }
             print("✅ Selection command successful")
         }
     }

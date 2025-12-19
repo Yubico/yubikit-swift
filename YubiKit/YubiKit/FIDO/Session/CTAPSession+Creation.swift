@@ -34,15 +34,18 @@ extension CTAP2.Session {
     /// - Parameters:
     ///   - connection: A SmartCard (NFC) connection to the YubiKey.
     ///   - application: The FIDO2 application to select (defaults to .fido2).
+    ///   - scpKeyParams: Optional SCP key parameters for secure channel communication.
     /// - Returns: A new FIDO2 session over NFC.
     /// - Throws: ``CTAP2/SessionError`` if session creation fails.
     public static func makeSession(
         connection: SmartCardConnection,
-        application: Application = .fido2
+        application: Application = .fido2,
+        scpKeyParams: SCPKeyParams? = nil
     ) async throws -> CTAP2.Session {
         let smartCardInterface = try await SmartCardInterface<CTAP2.SessionError>(
             connection: connection,
-            application: application
+            application: application,
+            keyParams: scpKeyParams
         )
         return await CTAP2.Session(interface: Interface(interface: smartCardInterface))
     }
