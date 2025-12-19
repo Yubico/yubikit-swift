@@ -351,19 +351,6 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             return
         }
 
-        // If already stopping, just chain the completion
-        if currentState.phase == .stopping {
-            if let existing = currentState.stopCompletion {
-                currentState.stopCompletion = {
-                    existing()
-                    completion()
-                }
-            } else {
-                currentState.stopCompletion = completion
-            }
-            return
-        }
-
         // Store completion to be called when didInvalidateWithError fires.
         // Chain with existing completion if stop() is called multiple times.
         if let existing = currentState.stopCompletion {
@@ -375,7 +362,8 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             currentState.stopCompletion = completion
         }
 
-        // Mark as stopping - session is being invalidated
+        // If already stopping, don't invalidate again
+        guard currentState.phase != .stopping else { return }
         currentState.phase = .stopping
 
         switch result {
