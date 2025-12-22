@@ -16,48 +16,48 @@ import Foundation
 
 // MARK: - CredentialData + CBOR
 
-extension CredentialData: CBOR.Decodable {
+extension CTAP2.MakeCredential.Response: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue else {
             return nil
         }
 
         // Required: fmt (0x01) - attestation format
-        guard let fmt: String = map[.unsignedInt(0x01)]?.cborDecoded() else {
+        guard let fmt: String = map[.int(0x01)]?.cborDecoded() else {
             return nil
         }
         self.format = fmt
 
         // Required: authData (0x02) - authenticator data
-        guard let authDataBytes: Data = map[.unsignedInt(0x02)]?.cborDecoded(),
-            let authData = AuthenticatorData(data: authDataBytes)
+        guard let authDataBytes: Data = map[.int(0x02)]?.cborDecoded(),
+            let authData = WebAuthn.AuthenticatorData(data: authDataBytes)
         else {
             return nil
         }
         self.authenticatorData = authData
 
         // Required: attStmt (0x03) - attestation statement
-        guard let attStmtValue = map[.unsignedInt(0x03)] else {
+        guard let attStmtValue = map[.int(0x03)] else {
             return nil
         }
 
         // Decode based on format
-        let attStmt: AttestationStatement
+        let attStmt: WebAuthn.AttestationStatement
         switch fmt {
         case "packed":
-            guard let packed = PackedAttestation(cbor: attStmtValue) else {
+            guard let packed = WebAuthn.AttestationStatement.Packed(cbor: attStmtValue) else {
                 return nil  // Known format but invalid CBOR structure
             }
             attStmt = .packed(packed)
         case "fido-u2f":
-            guard let fidoU2F = FIDOU2FAttestation(cbor: attStmtValue) else {
+            guard let fidoU2F = WebAuthn.AttestationStatement.FIDOU2F(cbor: attStmtValue) else {
                 return nil  // Known format but invalid CBOR structure
             }
             attStmt = .fidoU2F(fidoU2F)
         case "none":
             attStmt = .none
         case "apple":
-            guard let apple = AppleAttestation(cbor: attStmtValue) else {
+            guard let apple = WebAuthn.AttestationStatement.Apple(cbor: attStmtValue) else {
                 return nil  // Known format but invalid CBOR structure
             }
             attStmt = .apple(apple)
@@ -68,12 +68,23 @@ extension CredentialData: CBOR.Decodable {
         self.attestationStatement = attStmt
 
         // Optional: epAtt (0x04) - enterprise attestation
-        self.enterpriseAttestation = map[.unsignedInt(0x04)]?.cborDecoded()
+        self.enterpriseAttestation = map[.int(0x04)]?.cborDecoded()
 
         // Optional: largeBlobKey (0x05)
-        self.largeBlobKey = map[.unsignedInt(0x05)]?.cborDecoded()
+        self.largeBlobKey = map[.int(0x05)]?.cborDecoded()
 
         // Optional: unsignedExtensionOutputs (0x06)
-        self.unsignedExtensionOutputs = map[.unsignedInt(0x06)]?.cborDecoded()
+        if let extMap = map[.int(0x06)]?.mapValue {
+            var unsignedOutputs: [String: CBOR.Value] = [:]
+            for (key, value) in extMap {
+                guard let name = key.stringValue else {
+                    return nil  // Extension keys must be strings
+                }
+                unsignedOutputs[name] = value
+            }
+            self.unsignedExtensionOutputs = unsignedOutputs
+        } else {
+            self.unsignedExtensionOutputs = nil
+        }
     }
 }

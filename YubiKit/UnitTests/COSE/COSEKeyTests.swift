@@ -137,10 +137,10 @@ struct COSEKeyTests {
         #expect(decoded == key)
     }
 
-    @Test("COSE.Key with unsupported algorithm (PS256)")
-    func testCOSEKeyUnsupportedAlgorithm() throws {
-        // Uses PS256 (RSASSA-PSS, algorithm -37) which we it's unsupported
-        // This should be stored as .other(...) to preserve future compatibility
+    @Test("COSE.Key with non-enumerated algorithm (PS256)")
+    func testCOSEKeyNonEnumeratedAlgorithm() throws {
+        // Uses PS256 (RSASSA-PSS, algorithm -37) which is not in the Algorithm enum
+        // This should be stored as .other(-37) to preserve forward compatibility
         let n = Data([
             0xbc, 0x7e, 0x29, 0xd0, 0xdf, 0x7e, 0x20, 0xcc, 0x9d, 0xc8, 0xd5, 0x09,
             0xe0, 0xf6, 0x88, 0x95, 0x92, 0x2a, 0xf0, 0xef, 0x45, 0x21, 0x90, 0xd4,
@@ -169,24 +169,20 @@ struct COSEKeyTests {
 
         // Build a COSE key with PS256 (algorithm -37)
         let coseKeyMap: [CBOR.Value: CBOR.Value] = [
-            .unsignedInt(1): .unsignedInt(3),  // kty: RSA
-            .unsignedInt(3): .negativeInt(36),  // alg: PS256 (-37)
-            .negativeInt(0): .byteString(n),  // n: modulus
-            .negativeInt(1): .byteString(e),  // e: exponent
+            .int(1): .int(3),  // kty: RSA
+            .int(3): .int(-37),  // alg: PS256
+            .int(-1): .byteString(n),  // n: modulus
+            .int(-2): .byteString(e),  // e: exponent
         ]
 
-        let originalCBOR = CBOR.Value.map(coseKeyMap).encode()
         let key = try #require(COSE.Key(cbor: .map(coseKeyMap)))
 
-        // Verify it's stored as .other since PS256 is not in our Algorithm enum
-        guard case .other(let unsupported) = key else {
-            Issue.record("Expected .other case for unsupported PS256 algorithm")
+        // PS256 is parsed as RSA key with alg: .other(-37)
+        guard case .rsa(let alg, _, n, e) = key else {
+            Issue.record("Expected RSA key for PS256 algorithm")
             return
         }
-
-        // Verify the CBOR is preserved exactly
-        #expect(unsupported.cborData == originalCBOR)
-        #expect(key.cbor().encode() == originalCBOR)
+        #expect(alg == .other(-37))
     }
 
 }

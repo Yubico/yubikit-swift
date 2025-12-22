@@ -48,10 +48,12 @@ public enum RSA: Sendable {
         public let e: Data  // public exponent
 
         /// Initializes an RSA public key.
+        ///
+        /// Returns `nil` if modulus size doesn't match a supported key size.
+        ///
         /// - Parameters:
         ///   - n: Modulus
         ///   - e: Exponent
-        ///   - Returns: PublicKey if modulus size matches; otherwise nil.
         public init?(n: Data, e: Data) {
             guard let size = KeySize(rawValue: n.count * 8) else { return nil }
 
@@ -195,10 +197,10 @@ extension RSA.PrivateKey {
     }
 
     /// Initializes private key from DER-encoded PKCS #1 blob.
-    /// - Parameters:
-    ///   - size: Key size (bits).
-    ///   - pkcs1: DER bytes for the full private key.
-    ///   - Returns: PrivateKey if valid; otherwise nil.
+    ///
+    /// Returns `nil` if the data is invalid or uses an unsupported format.
+    ///
+    /// - Parameter pkcs1: DER bytes for the full private key.
     public init?(pkcs1: Data) {
         var data = pkcs1
 

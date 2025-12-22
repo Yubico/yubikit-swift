@@ -1,37 +1,17 @@
-# ``YubiKit/ManagementSession``
-
-@Metadata {
-    @DocumentationExtension(mergeBehavior: append)
-}
+# ``YubiKit/Management/Session``
 
 ## Topics
 
-### Managing the ManagementSession
+### Session Operations
 
-- ``session(connection:scpKeyParams:)``
-- ``end()``
-
-### Running commands in the Management application
-
-- ``deviceInfo()``
+- ``getDeviceInfo()``
 - ``updateDeviceConfig(_:reboot:lockCode:newLockCode:)``
-- ``isApplicationSupported(_:over:)``
-- ``isApplicationEnabled(_:over:)``
-- ``enable(_:over:reboot:)``
-- ``disable(_:over:reboot:)``
-- ``deviceReset()``
+- ``resetDevice()``
+- ``supports(_:)``
 
-### Return types
+### Types
 
-- ``Device/Info``
-- ``Device/Config``
-
-### Enumerations
-
-- ``Capability``
-- ``Device.Transport``
-- ``FormFactor``
-- ``ManagementFeature``
+- ``Management/Feature``
 
 ### Errors
 

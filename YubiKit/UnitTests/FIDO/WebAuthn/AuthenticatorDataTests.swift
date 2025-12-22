@@ -17,18 +17,15 @@ import Testing
 
 @testable import YubiKit
 
-/// Test parsing and decoding of WebAuthn data structures.
-///
-/// Tests the binary parsing of AuthenticatorData, AttestationStatement decoding,
-/// and ExtensionOutputs parsing from CBOR.
-@Suite("WebAuthn Structures Tests")
-struct WebAuthnStructuresTests {
+/// Test parsing of WebAuthn.AuthenticatorData and AttestationStatement decoding.
+@Suite("AuthenticatorData Tests")
+struct AuthenticatorDataTests {
 
-    // MARK: - AuthenticatorData Tests
+    // MARK: - WebAuthn.AuthenticatorData Tests
 
-    @Test("AuthenticatorData binary parsing - real example")
+    @Test("WebAuthn.AuthenticatorData binary parsing - real example")
     func testAuthenticatorDataParsing() throws {
-        // Real AuthenticatorData from a YubiKey makeCredential response
+        // Real WebAuthn.AuthenticatorData from a YubiKey makeCredential response
         // This is the same base64 example used in Java's SerializationTest.java:283-287
         let base64 = """
             5Yaf4EYzO6ALp/K7s+p+BQLPSCYVYcKLZptoXwxqQztFAAAAAhSaICGO9kEzlriB+NW38fUAMA5hR\
@@ -37,7 +34,10 @@ struct WebAuthnStructuresTests {
             """
 
         let data = try #require(Data(base64Encoded: base64), "Failed to decode base64")
-        let authData = try #require(AuthenticatorData(data: data), "Failed to parse AuthenticatorData")
+        let authData = try #require(
+            WebAuthn.AuthenticatorData(data: data),
+            "Failed to parse WebAuthn.AuthenticatorData"
+        )
 
         // Verify basic structure
         #expect(authData.rpIdHash.count == 32)
@@ -60,7 +60,7 @@ struct WebAuthnStructuresTests {
         #expect(y.count == 32)
     }
 
-    @Test("AuthenticatorData binary parsing - minimal")
+    @Test("WebAuthn.AuthenticatorData binary parsing - minimal")
     func testAuthenticatorDataMinimal() throws {
         // Minimal authenticatorData: rpIdHash (32) + flags (1) + signCount (4) = 37 bytes
         var data = Data()
@@ -68,7 +68,10 @@ struct WebAuthnStructuresTests {
         data.append(0x01)  // flags: UP only
         data.append(contentsOf: [0x00, 0x00, 0x00, 0x05])  // signCount = 5 (big-endian)
 
-        let authData = try #require(AuthenticatorData(data: data), "Failed to parse minimal AuthenticatorData")
+        let authData = try #require(
+            WebAuthn.AuthenticatorData(data: data),
+            "Failed to parse minimal WebAuthn.AuthenticatorData"
+        )
 
         #expect(authData.rpIdHash.count == 32)
         #expect(authData.flags.contains(.userPresent))
@@ -77,13 +80,13 @@ struct WebAuthnStructuresTests {
         #expect(authData.extensions == nil)
     }
 
-    @Test("AuthenticatorData parsing - invalid size")
+    @Test("WebAuthn.AuthenticatorData parsing - invalid size")
     func testAuthenticatorDataInvalidSize() {
         let tooSmall = Data(count: 36)  // Need at least 37 bytes
-        #expect(AuthenticatorData(data: tooSmall) == nil)
+        #expect(WebAuthn.AuthenticatorData(data: tooSmall) == nil)
     }
 
-    @Test("AuthenticatorData parsing - invalid attested credential data")
+    @Test("WebAuthn.AuthenticatorData parsing - invalid attested credential data")
     func testAuthenticatorDataInvalidAttestedData() {
         var data = Data()
         data.append(randomBytes(count: 32))  // rpIdHash
@@ -91,12 +94,12 @@ struct WebAuthnStructuresTests {
         data.append(contentsOf: [0x00, 0x00, 0x00, 0x01])  // signCount
         // But don't include the attested credential data!
 
-        #expect(AuthenticatorData(data: data) == nil)
+        #expect(WebAuthn.AuthenticatorData(data: data) == nil)
     }
 
     // MARK: - AttestationStatement Tests
 
-    @Test("PackedAttestation CBOR decoding")
+    @Test("WebAuthn.AttestationStatement.Packed CBOR decoding")
     func testPackedAttestationCBOR() throws {
         let sig = randomBytes(count: 70)
         let cert1 = randomBytes(count: 100)
@@ -104,11 +107,14 @@ struct WebAuthnStructuresTests {
 
         let cborMap: [CBOR.Value: CBOR.Value] = [
             .textString("sig"): .byteString(sig),
-            .textString("alg"): .negativeInt(6),  // ES256 (-7)
+            .textString("alg"): .int(-7),  // ES256
             .textString("x5c"): .array([.byteString(cert1), .byteString(cert2)]),
         ]
 
-        let packed = try #require(PackedAttestation(cbor: .map(cborMap)), "Failed to decode PackedAttestation")
+        let packed = try #require(
+            WebAuthn.AttestationStatement.Packed(cbor: .map(cborMap)),
+            "Failed to decode WebAuthn.AttestationStatement.Packed"
+        )
 
         #expect(packed.sig == sig)
         #expect(packed.alg == -7)
@@ -118,16 +124,19 @@ struct WebAuthnStructuresTests {
         #expect(packed.ecdaaKeyId == nil)
     }
 
-    @Test("PackedAttestation CBOR decoding - self-attestation")
-    func testPackedAttestationSelfAttestation() throws {
+    @Test("WebAuthn.AttestationStatement.Packed CBOR decoding - self-attestation")
+    func testPackedSelfAttestation() throws {
         let sig = randomBytes(count: 70)
 
         let cborMap: [CBOR.Value: CBOR.Value] = [
             .textString("sig"): .byteString(sig),
-            .textString("alg"): .negativeInt(6),  // ES256 (-7)
+            .textString("alg"): .int(-7),  // ES256
         ]
 
-        let packed = try #require(PackedAttestation(cbor: .map(cborMap)), "Failed to decode PackedAttestation")
+        let packed = try #require(
+            WebAuthn.AttestationStatement.Packed(cbor: .map(cborMap)),
+            "Failed to decode WebAuthn.AttestationStatement.Packed"
+        )
 
         #expect(packed.sig == sig)
         #expect(packed.alg == -7)
@@ -135,7 +144,7 @@ struct WebAuthnStructuresTests {
         #expect(packed.ecdaaKeyId == nil)
     }
 
-    @Test("FIDOU2FAttestation CBOR decoding")
+    @Test("WebAuthn.AttestationStatement.FIDOU2F CBOR decoding")
     func testFIDOU2FAttestationCBOR() throws {
         let sig = randomBytes(count: 70)
         let cert = randomBytes(count: 100)
@@ -145,14 +154,17 @@ struct WebAuthnStructuresTests {
             .textString("x5c"): .array([.byteString(cert)]),
         ]
 
-        let fidoU2F = try #require(FIDOU2FAttestation(cbor: .map(cborMap)), "Failed to decode FIDOU2FAttestation")
+        let fidoU2F = try #require(
+            WebAuthn.AttestationStatement.FIDOU2F(cbor: .map(cborMap)),
+            "Failed to decode WebAuthn.AttestationStatement.FIDOU2F"
+        )
 
         #expect(fidoU2F.sig == sig)
         #expect(fidoU2F.x5c.count == 1)
         #expect(fidoU2F.x5c[0] == cert)
     }
 
-    @Test("AppleAttestation CBOR decoding")
+    @Test("WebAuthn.AttestationStatement.Apple CBOR decoding")
     func testAppleAttestationCBOR() throws {
         let cert1 = randomBytes(count: 100)
         let cert2 = randomBytes(count: 100)
@@ -161,7 +173,10 @@ struct WebAuthnStructuresTests {
             .textString("x5c"): .array([.byteString(cert1), .byteString(cert2)])
         ]
 
-        let apple = try #require(AppleAttestation(cbor: .map(cborMap)), "Failed to decode AppleAttestation")
+        let apple = try #require(
+            WebAuthn.AttestationStatement.Apple(cbor: .map(cborMap)),
+            "Failed to decode WebAuthn.AttestationStatement.Apple"
+        )
 
         #expect(apple.x5c.count == 2)
         #expect(apple.x5c[0] == cert1)
@@ -170,7 +185,7 @@ struct WebAuthnStructuresTests {
 
     @Test("AttestationStatement - unknown format fallback")
     func testAttestationStatementUnknownFormat() throws {
-        // Create a CredentialData with an unknown attestation format
+        // Create a CTAP.MakeCredential.Response with an unknown attestation format
         // Build valid authData: rpIdHash (32) + flags (1) + signCount (4)
         var authData = Data()
         authData.append(randomBytes(count: 32))  // rpIdHash
@@ -182,57 +197,22 @@ struct WebAuthnStructuresTests {
         ]
 
         let cborMap: [CBOR.Value: CBOR.Value] = [
-            .unsignedInt(0x01): .textString("unknown-format"),  // fmt
-            .unsignedInt(0x02): .byteString(authData),  // authData
-            .unsignedInt(0x03): .map(statement),  // attStmt
+            .int(0x01): .textString("unknown-format"),  // fmt
+            .int(0x02): .byteString(authData),  // authData
+            .int(0x03): .map(statement),  // attStmt
         ]
 
-        let credData = try #require(CredentialData(cbor: .map(cborMap)), "Failed to decode CredentialData")
+        let credData = try #require(
+            CTAP2.MakeCredential.Response(cbor: .map(cborMap)),
+            "Failed to decode CTAP.MakeCredential.Response"
+        )
 
         // Verify unknown format is preserved
         if case let .unknown(format) = credData.attestationStatement {
             #expect(format == "unknown-format")
         } else {
-            Issue.record("Expected .unknown case for unknown format, got \(credData.attestationStatement)")
+            Issue.record("Expected .unknown case for unknown format")
         }
-    }
-
-    // MARK: - ExtensionOutputs Tests
-
-    @Test("ExtensionOutputs CBOR decoding")
-    func testExtensionOutputsCBOR() throws {
-        let largeBlobKey = randomBytes(count: 32)
-
-        let cborMap: [CBOR.Value: CBOR.Value] = [
-            .textString("credProps"): .map([.textString("rk"): .boolean(true)]),
-            .textString("largeBlobKey"): .byteString(largeBlobKey),
-            .textString("hmac-secret"): .boolean(true),
-            .textString("credProtect"): .unsignedInt(3),
-            .textString("minPINLength"): .unsignedInt(6),
-            .textString("customExtension"): .textString("custom-value"),
-        ]
-
-        let extensions = try #require(ExtensionOutputs(cbor: .map(cborMap)), "Failed to decode ExtensionOutputs")
-
-        #expect(extensions.credProps?.rk == true)
-        #expect(extensions.largeBlobKey == largeBlobKey)
-        #expect(extensions.hmacSecret == true)
-        #expect(extensions.credProtect == .userVerificationRequired)
-        #expect(extensions.minPINLength == 6)
-    }
-
-    @Test("ExtensionOutputs CBOR decoding - empty")
-    func testExtensionOutputsEmpty() throws {
-        let cborMap: [CBOR.Value: CBOR.Value] = [:]
-
-        let extensions = try #require(ExtensionOutputs(cbor: .map(cborMap)), "Failed to decode empty ExtensionOutputs")
-
-        #expect(extensions.credProps == nil)
-        #expect(extensions.largeBlobKey == nil)
-        #expect(extensions.hmacSecret == nil)
-        #expect(extensions.credProtect == nil)
-        #expect(extensions.minPINLength == nil)
-        #expect(extensions.thirdPartyPayment == nil)
     }
 
     // MARK: - Test Helpers

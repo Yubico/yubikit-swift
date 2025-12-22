@@ -152,8 +152,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
 
     /// Retrieves the certificate chain for a given key.
     ///
-    /// - Parameter scpKeyRef: The key reference whose certificate chain is requested.
-    ///
+    /// - Parameter keyRef: The key reference whose certificate chain is requested.
     /// - Throws: ``SCPError`` if the command fails or the response format is invalid.
     /// - Returns: An array of ``X509Cert`` objects representing the certificate chain.
     // @TraceScope
@@ -166,8 +165,8 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
                 data: TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data
             )
         } catch {
-            guard case let .failedResponse(responseStatus, _) = error else { throw error }
-            if responseStatus.status == .referencedDataNotFound {
+            guard case let .failedResponse(response, _) = error else { throw error }
+            if response.status == .referencedDataNotFound {
                 return []
             } else {
                 throw error
@@ -200,8 +199,8 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             do {
                 data.append(try await getData(tag: 0xFF33, data: nil))
             } catch {
-                if case let .failedResponse(responseStatus, _) = error,
-                    responseStatus.status != .referencedDataNotFound
+                if case let .failedResponse(response, _) = error,
+                    response.status != .referencedDataNotFound
                 {
                     throw error
                 }
@@ -212,8 +211,8 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             do {
                 data.append(try await getData(tag: 0xFF34, data: nil))
             } catch {
-                if case let .failedResponse(responseStatus, _) = error,
-                    responseStatus.status != .referencedDataNotFound
+                if case let .failedResponse(response, _) = error,
+                    response.status != .referencedDataNotFound
                 {
                     throw error
                 }
@@ -380,7 +379,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
         guard let dek = keys.dek else {
             throw .illegalArgument("New DEK must be set in static keys", source: .here())
         }
-        guard let scpState else {
+        guard let scpState = interface.scpState else {
             throw SCPError.secureChannelRequired(source: .here())
         }
 
@@ -469,7 +468,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw .illegalArgument("Expected SECP256R1 private key", source: .here())
         }
 
-        guard let scpState else {
+        guard let scpState = interface.scpState else {
             throw .secureChannelRequired(source: .here())
         }
 
@@ -536,12 +535,12 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
                 do {
                     _ = try await process(apdu: apdu)
                 } catch let error {
-                    guard case let .failedResponse(responseStatus, _) = error else {
+                    guard case let .failedResponse(response, _) = error else {
                         throw error
                     }
 
                     let shouldExit =
-                        switch responseStatus.status {
+                        switch response.status {
                         case .authMethodBlocked, .securityConditionNotSatisfied:
                             true
                         case .incorrectParameters:

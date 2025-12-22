@@ -40,6 +40,20 @@ extension CBOR.Value {
         }
     }
 
+    // Creates a CBOR integer from its actual value
+    static func int(_ value: Int) -> CBOR.Value {
+        if value >= 0 {
+            return .unsignedInt(UInt64(value))
+        } else {
+            return .negativeInt(UInt64(-1 - value))
+        }
+    }
+
+    // Creates a CBOR integer from an UInt8 with command / subcommand semantics
+    static func command(_ value: UInt8) -> CBOR.Value {
+        .unsignedInt(UInt64(value))
+    }
+
     // Creates a CBOR value from a UInt64
     init(_ value: UInt64) {
         self = .unsignedInt(value)

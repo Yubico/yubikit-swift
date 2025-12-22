@@ -19,18 +19,18 @@ public enum OATHSessionError: SmartCardSessionError, Sendable {
     // MARK: - SessionError Protocol Cases
     case featureNotSupported(source: SourceLocation)
     case connectionError(SmartCardConnectionError, source: SourceLocation)
-    case failedResponse(ResponseStatus, source: SourceLocation)
+    case failedResponse(Response, source: SourceLocation)
     case scpError(SCPError, source: SourceLocation)
     case cryptoError(String, error: Error?, source: SourceLocation)
     case responseParseError(String, source: SourceLocation)
     case dataProcessingError(String, source: SourceLocation)
     case illegalArgument(String, source: SourceLocation)
 
-    public var responseStatus: ResponseStatus? {
-        guard case let .failedResponse(status, _) = self else {
+    public var responseStatus: Response.Status? {
+        guard case let .failedResponse(response, _) = self else {
             return nil
         }
-        return status
+        return response.responseStatus
     }
 
     // MARK: - OATH-Specific Cases

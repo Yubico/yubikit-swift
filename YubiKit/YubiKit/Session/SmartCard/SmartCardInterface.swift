@@ -25,8 +25,15 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
     let scpState: SCPState?
     let selectResponse: Data
 
-    // State for cancelling CTAP keep-alive commands
-    var shouldCancelCTAP = false
+    // Flag to signal cancellation for CTAP operations over NFC
+    internal var shouldCancelCTAP: Bool = false
+
+    // Maximum message size for CTAP operations (CBORInterface)
+    public private(set) var maxMsgSize: Int = 1024
+
+    public func setMaxMsgSize(_ size: Int) {
+        maxMsgSize = size
+    }
 
     // Select application and optionally setup SCP
     init(
@@ -69,26 +76,40 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         }
     }
 
-    // Send APDU with optional SCP encryption and automatic continuation handling
+    // Send APDU with optional SCP encryption and automatic continuation handling.
+    // Returns response data only (status bytes stripped).
     @discardableResult
     func send(apdu: APDU, insSendRemaining: UInt8 = 0xc0) async throws(Error) -> Data {
         let response: Response = try await send(apdu: apdu, insSendRemaining: insSendRemaining)
         return response.data
     }
 
-    // Internal overload that returns full Response (including status codes)
+    // Sets a flag that will cause the next GET_RESPONSE poll to send P1_CANCEL_KEEP_ALIVE
+    // instead of P1_KEEP_ALIVE, signaling the authenticator to abort the operation.
+    func cancel() async throws(Error) where Error == CTAP2.SessionError {
+        shouldCancelCTAP = true
+    }
+
+    // Internal variant that returns full Response and throws on non-success status.
     internal func send(
         apdu: APDU,
         insSendRemaining: UInt8 = 0xc0,
     ) async throws(Error) -> Response {
+        let response: Response
         if let scpState {
-            return try await sendWithSCP(apdu: apdu, scpState: scpState, insSendRemaining: insSendRemaining)
+            response = try await sendWithSCP(apdu: apdu, scpState: scpState, insSendRemaining: insSendRemaining)
         } else {
-            return try await sendPlain(apdu: apdu, insSendRemaining: insSendRemaining)
+            response = try await sendPlain(apdu: apdu, insSendRemaining: insSendRemaining)
         }
+        guard response.status == .ok else {
+            throw .failedResponse(response, source: .here())
+        }
+        return response
     }
 
-    // Send APDU with SCP encryption
+    // Send APDU with SCP encryption/decryption.
+    // Flow: encrypt command → compute MAC → send → verify response MAC → decrypt response.
+    // Returns the decrypted response with original status code (status check happens in caller).
     private func sendWithSCP(
         apdu: APDU,
         scpState: SCPState,
@@ -125,11 +146,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         let secureApdu = APDU(cla: cla, ins: apdu.ins, p1: apdu.p1, p2: apdu.p2, command: data + mac)
         let response = try await sendPlain(apdu: secureApdu, insSendRemaining: insSendRemaining)
         var result = response.data
+        let sw = response.responseStatus.rawStatus
 
         // Verify and remove MAC from response
         if !result.isEmpty {
             do {
-                result = try await scpState.unmac(data: result, sw: 0x9000)
+                result = try await scpState.unmac(data: result, sw: sw)
             } catch {
                 throw .scpError(error, source: .here())
             }
@@ -144,11 +166,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
             }
         }
 
-        // Return response with decrypted data
+        // Return response with decrypted data and original status
         return Response(rawData: result + Data([response.responseStatus.sw1, response.responseStatus.sw2]))
     }
 
-    // Send APDU without SCP encryption
+    // Send APDU without SCP.
+    // Returns the response with status code (status check happens in caller).
     private func sendPlain(apdu: APDU, insSendRemaining: UInt8) async throws(Error) -> Response {
         try await Self.sendWithContinuationStatic(
             connection: connection,
@@ -159,7 +182,8 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         )
     }
 
-    // Send APDU without SCP encryption (static version for use in init)
+    // Send APDU without SCP (static version).
+    // Used during actor init before instance methods are available.
     private static func sendPlainStatic(
         connection: SmartCardConnection,
         apdu: APDU,
@@ -172,10 +196,14 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
             readMoreData: false,
             insSendRemaining: insSendRemaining
         )
+        guard response.status == .ok else {
+            throw .failedResponse(response, source: .here())
+        }
         return response.data
     }
 
-    // Send APDU and handle continuation responses (0x61) - static version for use in init
+    // Send APDU and handle continuation responses (0x61).
+    // Used during actor init before instance methods are available.
     private static func sendWithContinuationStatic(
         connection: SmartCardConnection,
         apdu: APDU,
@@ -199,8 +227,14 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         // Parse response status
         let response = Response(rawData: responseData)
 
-        guard response.responseStatus.status == .ok || response.responseStatus.sw1 == 0x61 else {
-            throw .failedResponse(response.responseStatus, source: .here())
+        // Only continue accumulation for 0x61 (more data) or 0x9000 (success)
+        // Other statuses (including errors and keepalive 0x9100) return immediately
+        guard response.status == .ok || response.responseStatus.sw1 == 0x61 else {
+            return Response(
+                data: accumulated + response.data,
+                sw1: response.responseStatus.sw1,
+                sw2: response.responseStatus.sw2
+            )
         }
 
         // Accumulate data
@@ -474,6 +508,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
             insSendRemaining: insSendRemaining
         )
 
+        // sendPlainStatic already threw if status != 0x9000
         if !result.isEmpty {
             do {
                 result = try await scpState.unmac(data: result, sw: 0x9000)

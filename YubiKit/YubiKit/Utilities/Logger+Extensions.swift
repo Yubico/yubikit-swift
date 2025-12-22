@@ -118,7 +118,7 @@ extension HasLogger {
     ) {
 
         let typeName = String(describing: type(of: self))
-        let _ = "\(typeName).\(function)"
+        _ = "\(typeName).\(function)"
 
         /* Fix trace: logger.trace("\(label): \(message)") */
     }
@@ -132,7 +132,7 @@ extension HasLogger {
     ) {
 
         let typeName = String(describing: type(of: self))
-        let _ = "\(typeName).\(function)"
+        _ = "\(typeName).\(function)"
 
         if let obj = self as AnyObject? {
             let ptr = Unmanaged.passUnretained(obj).toOpaque()

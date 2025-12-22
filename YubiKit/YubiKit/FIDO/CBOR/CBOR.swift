@@ -55,3 +55,21 @@ public enum CBOR {
     }
 
 }
+
+// MARK: - Default Implementations
+
+extension CBOR.Encodable where Self: RawRepresentable, RawValue: CBOR.Encodable {
+    func cbor() -> CBOR.Value {
+        rawValue.cbor()
+    }
+}
+
+extension CBOR.Decodable where Self: RawRepresentable, RawValue: CBOR.Decodable {
+    init?(cbor: CBOR.Value) {
+        if let rawValue = RawValue(cbor: cbor), let value: Self = .init(rawValue: rawValue) {
+            self = value
+        } else {
+            return nil
+        }
+    }
+}

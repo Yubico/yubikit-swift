@@ -26,7 +26,7 @@ public protocol SmartCardSessionError: SessionError {
 
     /// Response status error that couldn't be handled specifically by the session.
     static func failedResponse(
-        _ responseStatus: ResponseStatus,
+        _ response: Response,
         source: SourceLocation
     ) -> Self
 
@@ -38,5 +38,5 @@ public protocol SmartCardSessionError: SessionError {
 
     /// The response status code from the YubiKey, if this error was caused by a failed response.
     /// Returns `nil` for errors that don't originate from a response status (connection errors, crypto errors).
-    var responseStatus: ResponseStatus? { get }
+    var responseStatus: Response.Status? { get }
 }

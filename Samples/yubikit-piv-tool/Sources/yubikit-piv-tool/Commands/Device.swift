@@ -40,7 +40,7 @@ struct List: AsyncParsableCommand {
                     let connection = try await USBSmartCardConnection.makeConnection(slot: slot)
 
                     // Create management session to access device metadata
-                    let session = try await ManagementSession.makeSession(connection: connection)
+                    let session: Management.Session = try await .makeSession(connection: connection)
 
                     // Get basic device info: form factor (5A, 5C, etc), firmware version, serial number
                     let deviceInfo = try await session.getDeviceInfo()

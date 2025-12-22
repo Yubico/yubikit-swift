@@ -23,6 +23,10 @@ let session = try await OATHSession.makeSession(connection: connection)
 let codes = try await session.calculateCredentialCodes()
 ```
 
+> Warning: This SDK does not perform zeroization of sensitive data in memory. Cryptographic keys, PIN tokens,
+> and other secrets are not securely erased when no longer in use. This is currently out of scope but may be
+> addressed in a future release.
+
 ## Topics
 
 ### Preparing your project
@@ -38,9 +42,9 @@ let codes = try await session.calculateCredentialCodes()
 
 ### Creating a SmartCardConnection to a YubiKey
 
-The implementations of the SmartCardConnection protocol handles the connection to the YubiKey and can be used to send
-data in the form of a ``APDU`` to the YubiKey. In most cases it is adviced to use one of the supplied Sessions
-(``OATHSession``, ``ManagementSession``) instead of sending raw APDUs to the YubiKey.
+The implementations of the SmartCardConnection protocol handle the connection to the YubiKey and can be used to send
+data to the YubiKey. In most cases it is advised to use one of the supplied Sessions
+(``OATHSession``, ``Management/Session``) instead of sending raw data to the YubiKey.
 
 
 - ``SmartCardConnection``
@@ -49,21 +53,21 @@ data in the form of a ``APDU`` to the YubiKey. In most cases it is adviced to us
 - ``LightningSmartCardConnection``
 - ``WiredSmartCardConnection``
 
+> Note: `NFCSmartCardConnection` and `LightningSmartCardConnection` are available on iOS only.
+
 ### Sending and receiving data
 
 Use ``SmartCardConnection/send(data:)`` to send raw data to the YubiKey using the SmartCardConnection.
 For most use cases, it's recommended to use one of the provided Sessions instead of sending raw data.
 
-- ``APDU``
-
 ### Creating a Session
 
 The implementations of the ``Session`` protocol provides an interface to the different applications on a YubiKey.
-A Session is created by calling ``Session/makeSession(connection:)`` providing the ``SmartCardConnection`` you want to use for
-communication with the YubiKey.
+A Session is created by calling the `makeSession(connection:)` method on the session type, providing the
+``SmartCardConnection`` you want to use for communication with the YubiKey.
 
 - ``Session``
 - ``OATHSession``
-- ``ManagementSession``
+- ``Management/Session``
 - ``PIVSession``
 - ``SecurityDomainSession``

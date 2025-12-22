@@ -20,7 +20,7 @@ public enum ManagementSessionError: FIDOSessionError, SmartCardSessionError, Sen
     case fidoConnectionError(FIDOConnectionError, source: SourceLocation)
 
     case featureNotSupported(source: SourceLocation)
-    case failedResponse(ResponseStatus, source: SourceLocation)
+    case failedResponse(Response, source: SourceLocation)
     case scpError(SCPError, source: SourceLocation)
     case cryptoError(String, error: Swift.Error?, source: SourceLocation)
     case responseParseError(String, source: SourceLocation)
@@ -29,11 +29,11 @@ public enum ManagementSessionError: FIDOSessionError, SmartCardSessionError, Sen
 
     case timeout(source: SourceLocation)
     case initializationFailed(_ message: String, source: SourceLocation)
-    case hidError(_ error: CTAP.HIDError, source: SourceLocation)
+    case hidError(_ error: CTAP2.HIDError, source: SourceLocation)
 
-    public var responseStatus: ResponseStatus? {
-        guard case let .failedResponse(status, _) = self else { return nil }
-        return status
+    public var responseStatus: Response.Status? {
+        guard case let .failedResponse(response, _) = self else { return nil }
+        return response.responseStatus
     }
 
     // MARK: - Management-Specific Cases

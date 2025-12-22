@@ -14,58 +14,64 @@
 
 import Foundation
 
-/// Parsed authenticator data from FIDO2/WebAuthn operations.
-///
-/// The authenticator data structure encodes contextual bindings made by the authenticator.
-/// It contains information about the relying party, flags, signature counter, and optionally
-/// attested credential data.
-///
-/// - SeeAlso: [WebAuthn Authenticator Data](https://www.w3.org/TR/webauthn/#authenticator-data)
-struct AuthenticatorData: Sendable {
-    /// SHA-256 hash of the RP ID (32 bytes).
-    let rpIdHash: Data
-
-    /// Flags indicating various states.
-    let flags: Flags
-
-    /// Signature counter value (32-bit unsigned big-endian integer).
-    let signCount: UInt32
-
-    /// Attested credential data (present when AT flag is set).
-    let attestedCredentialData: AttestedCredentialData?
-
-    /// Extensions data (present when ED flag is set).
+extension WebAuthn {
+    /// Parsed authenticator data from FIDO2/WebAuthn operations.
     ///
-    /// Provides strongly-typed access to common extensions.
-    let extensions: ExtensionOutputs?
+    /// The authenticator data structure encodes contextual bindings made by the authenticator.
+    /// It contains information about the relying party, flags, signature counter, and optionally
+    /// attested credential data.
+    ///
+    /// - SeeAlso: [WebAuthn Authenticator Data](https://www.w3.org/TR/webauthn/#authenticator-data)
+    public struct AuthenticatorData: Sendable {
+        /// SHA-256 hash of the RP ID (32 bytes).
+        public let rpIdHash: Data
 
-    /// Authenticator data flags.
-    struct Flags: OptionSet, Sendable {
-        let rawValue: UInt8
+        /// Flags indicating various states.
+        public let flags: Flags
 
-        /// User Present (UP): User was present during the operation.
-        static let userPresent = Flags(rawValue: 1 << 0)
+        /// Signature counter value (32-bit unsigned big-endian integer).
+        public let signCount: UInt32
 
-        /// User Verified (UV): User was verified (PIN, biometric, etc.).
-        static let userVerified = Flags(rawValue: 1 << 2)
+        /// Attested credential data (present when AT flag is set).
+        public let attestedCredentialData: AttestedCredentialData?
 
-        /// Backup Eligibility (BE): Credential can be backed up.
-        static let backupEligibility = Flags(rawValue: 1 << 3)
+        /// Raw extension outputs map (present when ED flag is set).
+        ///
+        /// Use extension-specific `result(from:)` methods for typed access to extension outputs.
+        internal let extensions: [WebAuthn.Extension.Identifier: CBOR.Value]?
 
-        /// Backup State (BS): Credential is currently backed up.
-        static let backupState = Flags(rawValue: 1 << 4)
+        /// Authenticator data flags.
+        public struct Flags: OptionSet, Sendable {
+            public let rawValue: UInt8
 
-        /// Attested Credential Data (AT): Includes attested credential data.
-        static let attestedCredentialData = Flags(rawValue: 1 << 6)
+            public init(rawValue: UInt8) {
+                self.rawValue = rawValue
+            }
 
-        /// Extension Data (ED): Includes extension data.
-        static let extensionData = Flags(rawValue: 1 << 7)
+            /// User Present (UP): User was present during the operation.
+            public static let userPresent = Flags(rawValue: 1 << 0)
+
+            /// User Verified (UV): User was verified (PIN, biometric, etc.).
+            public static let userVerified = Flags(rawValue: 1 << 2)
+
+            /// Backup Eligibility (BE): Credential can be backed up.
+            public static let backupEligibility = Flags(rawValue: 1 << 3)
+
+            /// Backup State (BS): Credential is currently backed up.
+            public static let backupState = Flags(rawValue: 1 << 4)
+
+            /// Attested Credential Data (AT): Includes attested credential data.
+            public static let attestedCredentialData = Flags(rawValue: 1 << 6)
+
+            /// Extension Data (ED): Includes extension data.
+            public static let extensionData = Flags(rawValue: 1 << 7)
+        }
     }
 }
 
 // MARK: - Binary Parsing
 
-extension AuthenticatorData {
+extension WebAuthn.AuthenticatorData {
     /// Parse authenticator data from raw bytes.
     ///
     /// - Parameter data: The raw authenticator data bytes.
@@ -94,7 +100,8 @@ extension AuthenticatorData {
 
         // MARK: Parse Attested Credential Data (optional)
         if flags.contains(.attestedCredentialData) {
-            guard let (attestedData, newOffset) = AttestedCredentialData.parse(from: data, startingAt: offset) else {
+            guard let (attestedData, newOffset) = WebAuthn.AttestedCredentialData.parse(from: data, startingAt: offset)
+            else {
                 return nil
             }
             self.attestedCredentialData = attestedData
@@ -105,12 +112,20 @@ extension AuthenticatorData {
 
         // MARK: Parse Extensions (optional)
         if flags.contains(.extensionData) {
-            // Extensions are CBOR-encoded
+            // Extensions are CBOR-encoded as a map with string keys
             let extensionsData = data.subdata(in: offset..<data.count)
             guard let extensionsValue: CBOR.Value = try? extensionsData.decode(),
-                let extensions = ExtensionOutputs(cbor: extensionsValue)
+                let map = extensionsValue.mapValue
             else {
                 return nil
+            }
+            // Convert CBOR map to [Identifier: CBOR.Value]
+            var extensions: [WebAuthn.Extension.Identifier: CBOR.Value] = [:]
+            for (key, value) in map {
+                guard let identifier: WebAuthn.Extension.Identifier = key.cborDecoded() else {
+                    return nil  // Extension keys must be strings
+                }
+                extensions[identifier] = value
             }
             self.extensions = extensions
         } else {
@@ -121,42 +136,44 @@ extension AuthenticatorData {
 
 // MARK: - Attested Credential Data
 
-/// Attested credential data included in authenticator data during credential creation.
-///
-/// Contains the AAGUID, credential ID, and credential public key.
-///
-/// - SeeAlso: [WebAuthn Attested Credential Data](https://www.w3.org/TR/webauthn/#sctn-attested-credential-data)
-struct AttestedCredentialData: Sendable {
-    /// Authenticator Attestation GUID (16 bytes).
-    let aaguid: Data
+extension WebAuthn {
+    /// Attested credential data included in authenticator data during credential creation.
+    ///
+    /// Contains the AAGUID, credential ID, and credential public key.
+    ///
+    /// - SeeAlso: [WebAuthn Attested Credential Data](https://www.w3.org/TR/webauthn/#sctn-attested-credential-data)
+    public struct AttestedCredentialData: Sendable {
+        /// Authenticator Attestation GUID (16 bytes).
+        public let aaguid: Data
 
-    /// The credential ID (variable length).
-    let credentialId: Data
+        /// The credential ID (variable length).
+        public let credentialId: Data
 
-    /// The credential public key as a COSE Key.
-    ///
-    /// Structured representation of the COSE key from the authenticator.
-    /// Unknown or unsupported algorithms are preserved in the `.other` case.
-    ///
-    /// Supported algorithms for FIDO2 on YubiKey:
-    /// - ES256 (ECDSA with P-256, alg=-7)
-    /// - EdDSA (Ed25519, alg=-8)
-    /// - RS256 (RSA with SHA-256, alg=-257)
-    ///
-    /// - SeeAlso: [COSE Key Structure](https://www.rfc-editor.org/rfc/rfc8152.html#section-7)
-    let credentialPublicKey: COSE.Key
+        /// The credential public key as a COSE Key.
+        ///
+        /// Structured representation of the COSE key from the authenticator.
+        /// Unknown or unsupported algorithms are preserved in the `.other` case.
+        ///
+        /// Supported algorithms for FIDO2 on YubiKey:
+        /// - ES256 (ECDSA with P-256, alg=-7)
+        /// - EdDSA (Ed25519, alg=-8)
+        /// - RS256 (RSA with SHA-256, alg=-257)
+        ///
+        /// - SeeAlso: [COSE Key Structure](https://www.rfc-editor.org/rfc/rfc8152.html#section-7)
+        public let credentialPublicKey: COSE.Key
+    }
 }
 
 // MARK: - Attested Credential Data Parsing
 
-extension AttestedCredentialData {
+extension WebAuthn.AttestedCredentialData {
     /// Parse attested credential data from raw bytes.
     ///
     /// - Parameters:
     ///   - data: The raw data containing attested credential data.
     ///   - offset: The starting offset in the data.
     /// - Returns: Tuple of (parsed data, new offset), or nil if parsing fails.
-    static func parse(from data: Data, startingAt offset: Int) -> (AttestedCredentialData, Int)? {
+    static func parse(from data: Data, startingAt offset: Int) -> (WebAuthn.AttestedCredentialData, Int)? {
         // Need at least: aaguid (16) + credIdLen (2) = 18 bytes
         guard data.count >= offset + 18 else {
             return nil
@@ -181,22 +198,14 @@ extension AttestedCredentialData {
         currentOffset += credIdLength
 
         // MARK: Parse Credential Public Key (CBOR)
-        // We need to decode the CBOR to know how many bytes it consumes
-        let remainingData = data.subdata(in: currentOffset..<data.count)
-        guard let cborValue: CBOR.Value = try? remainingData.decode() else {
+        let cborData = data.subdata(in: currentOffset..<data.count)
+        var remaining = Data()
+        guard let coseKey: COSE.Key = try? cborData.decode(remaining: &remaining) else {
             return nil
         }
+        currentOffset = data.count - remaining.count
 
-        // Parse the COSE key from the CBOR value
-        guard let coseKey = COSE.Key(cbor: cborValue) else {
-            return nil
-        }
-
-        // Track how many bytes the CBOR value consumed (canonical encoding)
-        let encodedCbor = cborValue.encode()
-        currentOffset += encodedCbor.count
-
-        let attestedData = AttestedCredentialData(
+        let attestedData = WebAuthn.AttestedCredentialData(
             aaguid: aaguid,
             credentialId: credentialId,
             credentialPublicKey: coseKey

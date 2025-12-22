@@ -1,23 +1,20 @@
 # ``YubiKit/USBSmartCardConnection``
 
-@Metadata {
-    @DocumentationExtension(mergeBehavior: append)
-}
-
 ## Topics
 
-### Creating a USBSmartCardConnection
+### Creating a Connection
 
-- ``connection()``
+- ``makeConnection()``
+- ``availableDevices()``
 
-### Managing the USBSmartCardConnection
+### Connection Lifecycle
 
 - ``close(error:)``
 - ``waitUntilClosed()``
 
-### Sending data to the YubiKey
+### Sending Data
 
-- ``SmartCardConnection/send(apdu:)``
+- ``send(data:)``
 
 ### Errors
 

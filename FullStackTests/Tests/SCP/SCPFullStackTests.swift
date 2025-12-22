@@ -47,7 +47,7 @@ class SCPFullStackTests: XCTestCase {
                 return
             }
             let scp11KeyParams = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
-            let managementSession = try await ManagementSession.makeSession(
+            let managementSession: Management.Session = try await .makeSession(
                 connection: connection,
                 scpKeyParams: scp11KeyParams
             )
@@ -62,7 +62,7 @@ class SCPFullStackTests: XCTestCase {
                 keyRef: SCPKeyRef(kid: .scp03, kvn: 0xff),
                 staticKeys: StaticKeys.defaultKeys()
             )
-            let managementSession = try await ManagementSession.makeSession(
+            let managementSession: Management.Session = try await .makeSession(
                 connection: connection,
                 scpKeyParams: scpKeyParams
             )

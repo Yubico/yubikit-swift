@@ -1,26 +1,21 @@
 # ``YubiKit/SmartCardConnection``
 
-@Metadata {
-    @DocumentationExtension(mergeBehavior: append)
-}
-
 ## Topics
 
-### Creating a SmartCardConnection
+### Creating a Connection
 
-- ``connection()``
+- ``makeConnection()``
 
-### Managing the SmartCardConnection
+### Connection Lifecycle
 
-- ``close(error:)``
-- ``waitUntilClosed()``
-- ``nfcConnection``
+- ``Connection/close(error:)``
+- ``Connection/waitUntilClosed()``
 
-### Sending and receiving data to the YubiKey
+### Sending Data
 
 - ``send(data:)``
 
 ### Errors
 
 - ``SmartCardConnectionError``
-- ``ResponseStatusCode``
+- ``Response/Status/Code``

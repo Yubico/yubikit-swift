@@ -14,127 +14,79 @@
 
 import Foundation
 
-/// Parameters for the authenticatorMakeCredential command.
-///
-/// - SeeAlso: [CTAP2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250228/fido-client-to-authenticator-protocol-v2.2-ps-20250228.html#authenticatorMakeCredential)
-struct MakeCredentialParameters: Sendable {
-    /// SHA-256 hash of the client data.
-    let clientDataHash: Data
+extension CTAP2.MakeCredential {
+    /// Parameters for the authenticatorMakeCredential command.
+    ///
+    /// - SeeAlso: [CTAP 2.2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorMakeCredential)
+    public struct Parameters: Sendable {
+        /// SHA-256 hash of the client data.
+        public let clientDataHash: Data
 
-    /// Relying Party information.
-    let rp: PublicKeyCredentialRPEntity
+        /// Relying Party information.
+        public let rp: WebAuthn.PublicKeyCredential.RPEntity
 
-    /// User account information.
-    let user: PublicKeyCredentialUserEntity
+        /// User account information.
+        public let user: WebAuthn.PublicKeyCredential.UserEntity
 
-    /// Supported public key algorithms in order of preference.
-    let pubKeyCredParams: [COSE.Algorithm]
+        /// Supported public key algorithms in order of preference.
+        public let pubKeyCredParams: [COSE.Algorithm]
 
-    /// Credentials to exclude (already registered).
-    let excludeList: [PublicKeyCredentialDescriptor]?
+        /// Credentials to exclude (already registered).
+        public let excludeList: [WebAuthn.PublicKeyCredential.Descriptor]?
 
-    /// CTAP extensions (CBOR-encoded map).
-    let extensions: Data?
+        /// Extension inputs for additional authenticator processing.
+        public let extensions: [CTAP2.Extension.MakeCredential.Input]
 
-    /// Authenticator options.
-    let options: Options?
+        /// Authenticator options.
+        public let options: Options?
 
-    /// PIN/UV auth parameter.
-    let pinUvAuthParam: Data?
+        /// Enterprise attestation level (1 or 2).
+        public let enterpriseAttestation: Int?
 
-    /// PIN/UV protocol version (1 or 2).
-    let pinUvAuthProtocol: Int?
+        /// PIN/UV auth parameter (populated automatically when using PIN authentication).
+        private(set) var pinUVAuthParam: Data?
 
-    /// Enterprise attestation level (1 or 2).
-    let enterpriseAttestation: Int?
+        /// PIN/UV protocol version (populated automatically when using PIN authentication).
+        private(set) var pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion?
 
-    init(
-        clientDataHash: Data,
-        rp: PublicKeyCredentialRPEntity,
-        user: PublicKeyCredentialUserEntity,
-        pubKeyCredParams: [COSE.Algorithm],
-        excludeList: [PublicKeyCredentialDescriptor]? = nil,
-        extensions: Data? = nil,
-        options: Options? = nil,
-        pinUvAuthParam: Data? = nil,
-        pinUvAuthProtocol: Int? = nil,
-        enterpriseAttestation: Int? = nil
-    ) {
-        self.clientDataHash = clientDataHash
-        self.rp = rp
-        self.user = user
-        self.pubKeyCredParams = pubKeyCredParams
-        self.excludeList = excludeList
-        self.extensions = extensions
-        self.options = options
-        self.pinUvAuthParam = pinUvAuthParam
-        self.pinUvAuthProtocol = pinUvAuthProtocol
-        self.enterpriseAttestation = enterpriseAttestation
-    }
-
-    /// Authenticator options for makeCredential.
-    struct Options: Sendable {
-        /// Require resident key (discoverable credential).
-        let rk: Bool?
-
-        /// Require user verification.
-        let uv: Bool?
-
-        init(rk: Bool? = nil, uv: Bool? = nil) {
-            self.rk = rk
-            self.uv = uv
+        /// Sets the PIN/UV authentication parameters using a PIN token.
+        mutating func setAuthentication(pinToken: CTAP2.ClientPin.Token) {
+            self.pinUVAuthParam = pinToken.authenticate(message: clientDataHash)
+            self.pinUVAuthProtocol = pinToken.protocolVersion
         }
-    }
-}
 
-// MARK: - Supporting Types
+        public init(
+            clientDataHash: Data,
+            rp: WebAuthn.PublicKeyCredential.RPEntity,
+            user: WebAuthn.PublicKeyCredential.UserEntity,
+            pubKeyCredParams: [COSE.Algorithm],
+            excludeList: [WebAuthn.PublicKeyCredential.Descriptor]? = nil,
+            extensions: [CTAP2.Extension.MakeCredential.Input] = [],
+            options: Options? = nil,
+            enterpriseAttestation: Int? = nil
+        ) {
+            self.clientDataHash = clientDataHash
+            self.rp = rp
+            self.user = user
+            self.pubKeyCredParams = pubKeyCredParams
+            self.excludeList = excludeList
+            self.extensions = extensions
+            self.options = options
+            self.enterpriseAttestation = enterpriseAttestation
+        }
 
-/// Relying Party entity information.
-struct PublicKeyCredentialRPEntity: Sendable {
-    /// Relying Party identifier (e.g., "example.com").
-    let id: String
+        /// Authenticator options for makeCredential.
+        public struct Options: Sendable {
+            /// Require resident key (discoverable credential).
+            public let rk: Bool?
 
-    /// Human-readable relying party name.
-    let name: String?
+            /// Require user verification.
+            public let uv: Bool?
 
-    init(id: String, name: String? = nil) {
-        self.id = id
-        self.name = name
-    }
-}
-
-/// User account entity information.
-struct PublicKeyCredentialUserEntity: Sendable {
-    /// User handle (opaque byte sequence).
-    let id: Data
-
-    /// User identifier (e.g., "alice@example.com").
-    let name: String?
-
-    /// Display name (e.g., "Alice Smith").
-    let displayName: String?
-
-    init(id: Data, name: String? = nil, displayName: String? = nil) {
-        self.id = id
-        self.name = name
-        self.displayName = displayName
-    }
-}
-
-/// Public key credential descriptor (credential ID and type).
-struct PublicKeyCredentialDescriptor: Sendable {
-    /// Credential type (always "public-key" for FIDO2).
-    let type: String
-
-    /// Credential ID (opaque byte sequence).
-    let id: Data
-
-    /// Optional transports hint.
-    let transports: [String]?
-
-    init(type: String = "public-key", id: Data, transports: [String]? = nil) {
-        self.type = type
-        self.id = id
-        self.transports = transports
+            public init(rk: Bool? = nil, uv: Bool? = nil) {
+                self.rk = rk
+                self.uv = uv
+            }
+        }
     }
 }

@@ -121,8 +121,8 @@ final class SCP11aFullStackTests: XCTestCase {
                 )
                 XCTFail("Authentication should have been blocked by allow‑list")
             } catch {
-                if case let SCPError.failedResponse(responseStatus, _) = error {
-                    XCTAssert(responseStatus.rawStatus == 0x6640)
+                if case let SCPError.failedResponse(response, _) = error {
+                    XCTAssert(response.rawStatus == 0x6640)
                 } else {
                     XCTFail("Unexpected error: \(error)")
                 }
@@ -180,8 +180,8 @@ final class SCP11bFullStackTests: XCTestCase {
             do {
                 try await securityDomainSession.verifyScp11bAuth()
             } catch {
-                if case let SCPError.failedResponse(responseStatus, _) = error {
-                    XCTAssert(responseStatus.status == .securityConditionNotSatisfied)
+                if case let SCPError.failedResponse(response, _) = error {
+                    XCTAssert(response.status == .securityConditionNotSatisfied)
                 } else {
                     XCTFail("Failed: Wrong error type: \(error)")
                 }
@@ -205,7 +205,7 @@ final class SCP11bFullStackTests: XCTestCase {
             let params = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
 
             do {
-                let _ = try await ManagementSession.makeSession(connection: connection, scpKeyParams: params)
+                _ = try await Management.Session.makeSession(connection: connection, scpKeyParams: params)
             } catch ManagementSessionError.responseParseError(let message, _) {
                 XCTAssert(true, "Expected: \(String(describing: message))")
                 return
@@ -234,7 +234,7 @@ final class SCP11bFullStackTests: XCTestCase {
             try await securityDomainSession.putPrivateKey(privateKey, for: scpKeyRef, replacing: 0)
 
             let params = try SCP11KeyParams(keyRef: scpKeyRef, pkSdEcka: publicKey)
-            let _ = try await ManagementSession.makeSession(connection: connection, scpKeyParams: params)
+            _ = try await Management.Session.makeSession(connection: connection, scpKeyParams: params)
 
             XCTAssert(true, "Successfully imported key pair and authenticated")
         }
@@ -266,8 +266,8 @@ final class SCP11cFullStackTests: XCTestCase {
             do {
                 try await securityDomainSession.deleteKey(for: scpKeyRef)
             } catch {
-                if case let SCPError.failedResponse(responseStatus, _) = error {
-                    XCTAssert(responseStatus.status == .securityConditionNotSatisfied)
+                if case let SCPError.failedResponse(response, _) = error {
+                    XCTAssert(response.status == .securityConditionNotSatisfied)
                 } else {
                     XCTFail("Failed: Wrong error type: \(error)")
                 }

@@ -1,24 +1,11 @@
 # ``YubiKit/Session``
 
-@Metadata {
-    @DocumentationExtension(mergeBehavior: append)
-}
-
 ## Topics
 
-### Creating a session
+### Feature Support
 
-- ``session(connection:)``
+- ``supports(_:)``
 
-### Ending a session
-
-- ``end()``
-
-### Session feature support
+### Related Types
 
 - ``SessionFeature``
-- ``hasSupport(for:)``
-
-### Errors
-
-- ``SessionError``
