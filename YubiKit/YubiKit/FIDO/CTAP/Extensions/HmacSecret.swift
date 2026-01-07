@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import Foundation
 
 // MARK: - HmacSecret Extension
@@ -302,13 +301,11 @@ extension CTAP2.Extension.HmacSecret {
             let pinProtocol = try await session.preferredClientPinProtocol
             let authenticatorKey = try await getKeyAgreement(session: session, protocol: pinProtocol)
 
-            let keyPair = P256.KeyAgreement.PrivateKey()
-            let sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
-            let clientKey = pinProtocol.coseKey(from: keyPair)
+            let secretResult = try pinProtocol.establishSharedSecret(peerKey: authenticatorKey)
 
             return SharedSecret(
-                keyAgreement: clientKey,
-                secret: sharedSecret,
+                keyAgreement: secretResult.platformKey,
+                secret: secretResult.sharedSecret,
                 protocolVersion: pinProtocol
             )
         }

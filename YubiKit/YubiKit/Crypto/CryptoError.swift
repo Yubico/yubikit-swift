@@ -27,6 +27,27 @@ public enum CryptoError: Error, Sendable {
 
     /// Secure random byte generation failed.
     case randomGenerationFailed
+
+    /// The provided key is invalid or malformed.
+    case invalidKey
+
+    /// ECDH key agreement operation failed.
+    case keyAgreementFailed
+
+    /// Key derivation (PBKDF2) failed.
+    case keyDerivationFailed(CCCryptorStatus)
+
+    /// RSA or ECDSA signing operation failed.
+    case signingFailed(Error?)
+
+    /// RSA encryption operation failed.
+    case encryptionFailed(Error?)
+
+    /// RSA decryption operation failed.
+    case decryptionFailed(Error?)
+
+    /// Failed to create a cryptographic key.
+    case keyCreationFailed(Error?)
 }
 
 /// Type alias for backward compatibility.

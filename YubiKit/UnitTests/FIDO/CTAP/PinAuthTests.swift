@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import Foundation
 import Testing
 
@@ -347,30 +346,24 @@ struct PinAuthTests {
         }
     }
 
-    // MARK: - COSE Key
+    // MARK: - P256 Key Agreement
 
-    @Test("coseKey produces valid P-256 COSE key from key pair")
-    func testCoseKeyFromKeyPair() {
-        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
-        let keyPair = P256.KeyAgreement.PrivateKey()
-        let coseKey = pinProtocol.coseKey(from: keyPair)
+    @Test("P256KeyAgreement.KeyPair produces valid 32-byte coordinates")
+    func testP256KeyPairCoordinates() {
+        let keyPair = P256KeyAgreement.KeyPair()
 
-        guard case let .ec2(alg, _, crv, x, y) = coseKey else {
-            Issue.record("Expected EC2 key")
-            return
-        }
+        // Verify coordinates are 32 bytes each (P-256)
+        #expect(keyPair.publicKeyX.count == 32)
+        #expect(keyPair.publicKeyY.count == 32)
 
-        #expect(alg.rawValue == -25)  // ECDH-ES+HKDF-256
-        #expect(crv == 1)  // P-256
-        #expect(x.count == 32)
-        #expect(y.count == 32)
+        // Verify ECDH works with the key pair
+        let anotherKeyPair = P256KeyAgreement.KeyPair()
+        var peerPublicKey = Data([0x04])
+        peerPublicKey.append(anotherKeyPair.publicKeyX)
+        peerPublicKey.append(anotherKeyPair.publicKeyY)
 
-        // Verify COSE key matches the original key pair
-        var uncompressedPoint = Data([0x04])
-        uncompressedPoint.append(x)
-        uncompressedPoint.append(y)
-        let publicKey = try? P256.KeyAgreement.PublicKey(x963Representation: uncompressedPoint)
-        #expect(publicKey != nil)
-        #expect(publicKey?.x963Representation == keyPair.publicKey.x963Representation)
+        let sharedSecret = try? keyPair.sharedSecret(withX963: peerPublicKey)
+        #expect(sharedSecret != nil)
+        #expect(sharedSecret?.count == 32)  // Raw P-256 shared secret
     }
 }

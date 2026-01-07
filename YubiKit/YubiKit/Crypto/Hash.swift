@@ -30,6 +30,12 @@ extension Data {
         Data(SHA256.hash(data: self))
     }
 
+    /// Computes SHA-384 hash of the data.
+    /// - Returns: 48-byte SHA-384 digest.
+    internal func sha384() -> Data {
+        Data(SHA384.hash(data: self))
+    }
+
     /// Computes SHA-512 hash of the data.
     /// - Returns: 64-byte SHA-512 digest.
     internal func sha512() -> Data {

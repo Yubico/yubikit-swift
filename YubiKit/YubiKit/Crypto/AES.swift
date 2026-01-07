@@ -15,7 +15,53 @@
 import CommonCrypto
 import Foundation
 
+/// Symmetric encryption algorithms supported by the Crypto module.
+internal enum SymmetricAlgorithm: Sendable {
+    case aes
+    case tripleDES
+
+    fileprivate var ccAlgorithm: CCAlgorithm {
+        switch self {
+        case .aes: return CCAlgorithm(kCCAlgorithmAES)
+        case .tripleDES: return CCAlgorithm(kCCAlgorithm3DES)
+        }
+    }
+
+    fileprivate var blockSize: Int {
+        switch self {
+        case .aes: return kCCBlockSizeAES128
+        case .tripleDES: return kCCBlockSize3DES
+        }
+    }
+}
+
 extension Data {
+
+    // MARK: - Public Interface (uses SymmetricAlgorithm enum)
+
+    /// Encrypts data using the specified symmetric algorithm.
+    /// - Parameters:
+    ///   - algorithm: The symmetric algorithm to use.
+    ///   - key: The encryption key.
+    ///   - iv: The initialization vector (optional, uses ECB mode if nil).
+    /// - Returns: The encrypted data.
+    /// - Throws: `CryptoError` if encryption fails.
+    internal func encrypt(algorithm: SymmetricAlgorithm, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
+        try encrypt(algorithm: algorithm.ccAlgorithm, key: key, iv: iv)
+    }
+
+    /// Decrypts data using the specified symmetric algorithm.
+    /// - Parameters:
+    ///   - algorithm: The symmetric algorithm to use.
+    ///   - key: The decryption key.
+    ///   - iv: The initialization vector (optional, uses ECB mode if nil).
+    /// - Returns: The decrypted data.
+    /// - Throws: `CryptoError` if decryption fails.
+    internal func decrypt(algorithm: SymmetricAlgorithm, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
+        try decrypt(algorithm: algorithm.ccAlgorithm, key: key, iv: iv)
+    }
+
+    // MARK: - AES-CMAC
 
     internal func aescmac(key: Data) throws(CryptoError) -> Data {
 
@@ -73,6 +119,8 @@ extension Data {
         return paddedData + Data(count: zeroPadding)
     }
 
+    // MARK: - Internal Implementation (CCAlgorithm)
+
     internal func encrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
         let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
         return try cryptOperation(UInt32(kCCEncrypt), algorithm: algorithm, mode: mode, key: key, iv: iv)
@@ -83,7 +131,7 @@ extension Data {
         return try cryptOperation(UInt32(kCCDecrypt), algorithm: algorithm, mode: mode, key: key, iv: iv)
     }
 
-    internal func cryptOperation(
+    private func cryptOperation(
         _ operation: CCOperation,
         algorithm: CCAlgorithm,
         mode: CCMode,
@@ -96,7 +144,7 @@ extension Data {
         switch Int(algorithm) {
         case kCCAlgorithm3DES:
             blockSize = kCCBlockSize3DES
-        case kCCAlgorithmAES:
+        case kCCAlgorithmAES, kCCAlgorithmAES128:
             blockSize = kCCBlockSizeAES128
         default:
             throw CryptoError.unsupportedAlgorithm
