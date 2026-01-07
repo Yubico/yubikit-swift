@@ -12,16 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
+import Foundation
 
-/// Errors related to encryption operations.
-public enum EncryptionError: Error, Sendable {
-    /// CommonCrypto cryptor operation failed.
-    case cryptorError(CCCryptorStatus)
+extension Data {
 
-    /// Required data is missing for the cryptographic operation.
-    case missingData
-
-    /// The requested cryptographic algorithm is not supported.
-    case unsupportedAlgorithm
+    /// Compares two Data values in constant time to prevent timing attacks.
+    internal func constantTimeCompare(_ other: Data) -> Bool {
+        guard self.count == other.count else { return false }
+        return zip(self, other).reduce(0) { $0 | ($1.0 ^ $1.1) } == 0
+    }
 }
