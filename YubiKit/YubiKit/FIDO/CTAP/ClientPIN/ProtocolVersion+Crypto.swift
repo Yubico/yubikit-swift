@@ -54,7 +54,7 @@ extension CTAP2.ClientPin.ProtocolVersion {
         switch self {
         case .v1:
             // V1: SHA-256(shared secret)
-            return Data(SHA256.hash(data: sharedSecretData))
+            return sharedSecretData.sha256()
 
         case .v2:
             // V2: HKDF-SHA-256 to derive separate HMAC and AES keys
@@ -115,10 +115,7 @@ extension CTAP2.ClientPin.ProtocolVersion {
             case .v2:
                 // V2: AES-256-CBC with random IV, using AES key (last 32 bytes)
                 let aesKey = key.suffix(32)
-                var iv = Data(count: 16)
-                _ = iv.withUnsafeMutableBytes { buffer in
-                    SecRandomCopyBytes(kSecRandomDefault, 16, buffer.baseAddress!)
-                }
+                let iv = try Data.random(length: 16)
                 let ciphertext = try plaintext.encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES), key: aesKey, iv: iv)
                 return iv + ciphertext
             }
@@ -164,11 +161,11 @@ extension CTAP2.ClientPin.ProtocolVersion {
     /// Compute authentication parameter for PIN/UV operations.
     func authenticate(key: Data, message: Data) -> Data {
         // V1 uses full key, V2 uses first 32 bytes (HMAC key)
-        let hmacKey = self == .v1 ? key : key.prefix(32)
+        let hmacKey = self == .v1 ? key : Data(key.prefix(32))
 
-        let hmac = HMAC<SHA256>.authenticationCode(for: message, using: SymmetricKey(data: hmacKey))
+        let hmac = message.hmacSha256(key: hmacKey)
         // V1: truncate to 16 bytes, V2: full 32 bytes
-        return self == .v1 ? Data(hmac.prefix(16)) : Data(hmac)
+        return self == .v1 ? hmac.prefix(16) : hmac
     }
 }
 

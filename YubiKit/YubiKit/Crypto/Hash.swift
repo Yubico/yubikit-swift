@@ -12,32 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
+import CryptoKit
 import Foundation
 
 extension Data {
 
+    /// Computes SHA-1 hash of the data.
+    /// - Returns: 20-byte SHA-1 digest.
+    /// - Note: SHA-1 is cryptographically weak and should only be used for legacy compatibility.
     internal func sha1() -> Data {
-        var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
-        self.withUnsafeBytes { bytes in
-            _ = CC_SHA1(bytes.baseAddress, UInt32(self.count), &digest)
-        }
-        return Data(digest)
+        Data(Insecure.SHA1.hash(data: self))
     }
 
+    /// Computes SHA-256 hash of the data.
+    /// - Returns: 32-byte SHA-256 digest.
     internal func sha256() -> Data {
-        var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
-        self.withUnsafeBytes { bytes in
-            _ = CC_SHA256(bytes.baseAddress, UInt32(self.count), &digest)
-        }
-        return Data(digest)
+        Data(SHA256.hash(data: self))
     }
 
+    /// Computes SHA-512 hash of the data.
+    /// - Returns: 64-byte SHA-512 digest.
     internal func sha512() -> Data {
-        var digest = [UInt8](repeating: 0, count: Int(CC_SHA512_DIGEST_LENGTH))
-        self.withUnsafeBytes { bytes in
-            _ = CC_SHA512(bytes.baseAddress, UInt32(self.count), &digest)
-        }
-        return Data(digest)
+        Data(SHA512.hash(data: self))
     }
 }

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
 import CryptoKit
 import Foundation
 
@@ -21,21 +20,13 @@ extension Data {
     /// Computes HMAC-SHA1 authentication code.
     /// - Parameter key: The secret key for HMAC.
     /// - Returns: 20-byte HMAC-SHA1 digest.
+    /// - Note: HMAC-SHA1 is used for legacy compatibility (e.g., OATH TOTP/HOTP).
     internal func hmacSha1(key: Data) -> Data {
-        var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
-        self.withUnsafeBytes { dataBytes in
-            key.withUnsafeBytes { keyBytes in
-                CCHmac(
-                    CCHmacAlgorithm(kCCHmacAlgSHA1),
-                    keyBytes.baseAddress,
-                    key.count,
-                    dataBytes.baseAddress,
-                    self.count,
-                    &digest
-                )
-            }
-        }
-        return Data(digest)
+        let hmac = HMAC<Insecure.SHA1>.authenticationCode(
+            for: self,
+            using: SymmetricKey(data: key)
+        )
+        return Data(hmac)
     }
 
     /// Computes HMAC-SHA256 authentication code.
