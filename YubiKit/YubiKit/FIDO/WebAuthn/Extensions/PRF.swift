@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import Foundation
 
 // MARK: - WebAuthn Extension Namespace
@@ -136,11 +135,10 @@ extension WebAuthn.Extension {
         /// - Parameter secret: The PRF secret (any length).
         /// - Returns: A 32-byte salt for hmac-secret.
         public static func salt(_ secret: Data) -> Data {
-            var sha = SHA256()
-            sha.update(data: Data("WebAuthn PRF".utf8))
-            sha.update(data: [0x00])
-            sha.update(data: secret)
-            return Data(sha.finalize())
+            var data = Data("WebAuthn PRF".utf8)
+            data.append(0x00)
+            data.append(secret)
+            return data.sha256()
         }
     }
 }

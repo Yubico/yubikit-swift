@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
-import CryptoKit
 import CryptoTokenKit
 import Foundation
 import OSLog
@@ -472,14 +470,10 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw .secureChannelRequired(source: .here())
         }
 
-        let rawSecret: Data
-        do {
-            let secretScalar = privateKey.k
-            let p256 = try P256.Signing.PrivateKey(rawRepresentation: secretScalar)
-            rawSecret = p256.rawRepresentation
-            precondition(rawSecret.count == 32)
-        } catch {
-            throw .cryptoError("Failed to generate P256 key pair", error: error, source: .here())
+        // Extract the raw 32-byte secret scalar from the EC private key
+        let rawSecret = privateKey.k
+        guard rawSecret.count == 32 else {
+            throw .cryptoError("Invalid P256 private key scalar size", error: nil, source: .here())
         }
 
         let currentDek = scpState.sessionKeys.dek!
@@ -563,11 +557,11 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
 
 extension Data {
     fileprivate func cbcEncrypt(key: Data) throws(SCPError) -> Data {
-        // zero IV for CBC
-        let iv = Data(repeating: 0, count: kCCBlockSizeAES128)
+        // zero IV for CBC (AES block size is always 16 bytes)
+        let iv = Data(repeating: 0, count: 16)
 
         do {
-            return try encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES), key: key, iv: iv)
+            return try encrypt(algorithm: .aes, key: key, iv: iv)
         } catch {
             throw SCPError.cryptoError("Failed to encrypt data with AES", error: error, source: .here())
         }

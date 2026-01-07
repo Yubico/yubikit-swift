@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
-import CryptoKit
 import Foundation
 
 // Utilities for formatting data for PIV cryptographic operations
@@ -75,22 +73,13 @@ internal enum PIVDataFormatter {
             case .sha1:
                 hash = data.sha1()
             case .sha224:
-                hash = Data(count: Int(CC_SHA224_DIGEST_LENGTH))
-                hash.withUnsafeMutableBytes { (hashPtr) in
-                    if let rawHashPtr = hashPtr.baseAddress {
-                        data.withUnsafeBytes { (dataPtr) in
-                            if let rawDataPtr = dataPtr.baseAddress {
-                                _ = CC_SHA224(rawDataPtr, CC_LONG(data.count), rawHashPtr)
-                            }
-                        }
-                    }
-                }
+                hash = data.sha224()
             case .sha256:
-                hash = SHA256.hash(data: data).data
+                hash = data.sha256()
             case .sha384:
-                hash = SHA384.hash(data: data).data
+                hash = data.sha384()
             case .sha512:
-                hash = SHA512.hash(data: data).data
+                hash = data.sha512()
             }
         case .prehashed:
             // For digest signatures, the data is already hashed

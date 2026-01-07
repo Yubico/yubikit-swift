@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
-import CryptoKit
 import CryptoTokenKit
 import Foundation
 import OSLog
@@ -576,12 +574,12 @@ public final actor PIVSession: SmartCardSessionInternal {
 
         guard keyType.keyLength == managementKey.count else { throw .invalidKeyLength(source: .here()) }
 
-        let ccAlgorithm =
+        let algorithm: SymmetricAlgorithm =
             switch keyType {
             case .tripleDES:
-                UInt32(kCCAlgorithm3DES)
+                .tripleDES
             case .aes128, .aes192, .aes256:
-                UInt32(kCCAlgorithmAES)
+                .aes
             }
 
         let witness = TKBERTLVRecord(tag: tagAuthWitness, value: Data()).data
@@ -603,7 +601,7 @@ public final actor PIVSession: SmartCardSessionInternal {
         let decryptedWitness: Data
         do {
             decryptedWitness = try witnessRecord.value.decrypt(
-                algorithm: ccAlgorithm,
+                algorithm: algorithm,
                 key: managementKey
             )
         } catch {
@@ -638,7 +636,7 @@ public final actor PIVSession: SmartCardSessionInternal {
         let challengeReturned: Data
         do {
             challengeReturned = try encryptedChallengeRecord.value.decrypt(
-                algorithm: ccAlgorithm,
+                algorithm: algorithm,
                 key: managementKey
             )
         } catch {

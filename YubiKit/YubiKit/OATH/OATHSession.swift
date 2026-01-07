@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
-import CryptoKit
 import CryptoTokenKit
 import Foundation
 import OSLog
@@ -84,9 +82,9 @@ public final actor OATHSession: SmartCardSessionInternal {
             throw .responseParseError("Missing salt in OATH application select response", source: .here())
         }
 
-        let digest = SHA256.hash(data: salt)
-        guard digest.data.count >= 16 else { throw .failedDerivingDeviceId(source: .here()) }
-        let deviceId = digest.data.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
+        let digest = salt.sha256()
+        guard digest.count >= 16 else { throw .failedDerivingDeviceId(source: .here()) }
+        let deviceId = digest.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
 
         self.selectResponse = SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
         self.interface = interface
@@ -514,10 +512,6 @@ public final actor OATHSession: SmartCardSessionInternal {
 
 }
 
-struct DeriveAccessKeyError: Error, Sendable {
-    let cryptorStatus: CCCryptorStatus
-}
-
 extension OATHSession {
 
     /// Derives an access key from a password and the device-specific salt. The key is derived by running
@@ -525,32 +519,19 @@ extension OATHSession {
     /// - Parameter password: A user-supplied password.
     /// - Returns: Access key for unlocking the session.
     public func deriveAccessKey(from password: String) throws(OATHSessionError) -> Data {
-        var derivedKey = Data(count: 16)
         do {
-            try derivedKey.withUnsafeMutableBytes { (outputBytes: UnsafeMutableRawBufferPointer) in
-                let status = CCKeyDerivationPBKDF(
-                    CCPBKDFAlgorithm(kCCPBKDF2),
-                    password,
-                    password.utf8.count,
-                    selectResponse.salt.bytes,
-                    selectResponse.salt.bytes.count,
-                    CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA1),
-                    1000,
-                    outputBytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                    kCCKeySizeAES256
-                )
-                guard status == kCCSuccess else {
-                    throw EncryptionError.cryptorError(status)
-                }
-            }
+            return try Data.pbkdf2(
+                password: password,
+                salt: selectResponse.salt,
+                iterations: 1000,
+                keyLength: 16
+            )
         } catch {
-            let encryptionError = error as! EncryptionError
             throw OATHSessionError.cryptoError(
                 "Unable to derive access key",
-                error: encryptionError,
+                error: error,
                 source: .here()
             )
         }
-        return derivedKey
     }
 }

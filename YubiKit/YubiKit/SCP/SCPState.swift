@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
 import Foundation
 
 public actor SCPState: HasSCPLogger {
@@ -32,8 +31,8 @@ public actor SCPState: HasSCPLogger {
         var ivData = Data(count: 12)
         ivData.append(self.encCounter.bigEndian.data)
         self.encCounter += 1
-        let iv = try ivData.encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES128), key: sessionKeys.senc)
-        return try paddedData.encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES128), key: sessionKeys.senc, iv: iv)
+        let iv = try ivData.encrypt(algorithm: .aes, key: sessionKeys.senc)
+        return try paddedData.encrypt(algorithm: .aes, key: sessionKeys.senc, iv: iv)
     }
 
     func decrypt(_ data: Data) throws(EncryptionError) -> Data {
@@ -43,8 +42,8 @@ public actor SCPState: HasSCPLogger {
         ivData.append(UInt8(0x80))
         ivData.append(Data(count: 11))
         ivData.append((self.encCounter - 1).bigEndian.data)
-        let iv = try ivData.encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES128), key: sessionKeys.senc)
-        var decrypted = try data.decrypt(algorithm: CCAlgorithm(kCCAlgorithmAES128), key: sessionKeys.senc, iv: iv)
+        let iv = try ivData.encrypt(algorithm: .aes, key: sessionKeys.senc)
+        var decrypted = try data.decrypt(algorithm: .aes, key: sessionKeys.senc, iv: iv)
 
         defer {
             decrypted.secureClear()
