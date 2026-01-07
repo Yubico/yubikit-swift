@@ -69,7 +69,7 @@ public actor SCPState: HasSCPLogger {
 
     func mac(data: Data) throws(EncryptionError) -> Data {
         let message = macChain + data
-        self.macChain = try message.aescmac(key: sessionKeys.smac)
+        self.macChain = try message.aesCmac(key: sessionKeys.smac)
         return macChain.prefix(8)
     }
 
@@ -78,7 +78,7 @@ public actor SCPState: HasSCPLogger {
 
         let rmac: Data
         do {
-            rmac = try (macChain + message).aescmac(key: sessionKeys.srmac).prefix(8)
+            rmac = try (macChain + message).aesCmac(key: sessionKeys.srmac).prefix(8)
         } catch {
             throw SCPError.cryptoError("Failed to verify MAC", error: error, source: .here())
         }

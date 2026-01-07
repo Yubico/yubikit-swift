@@ -67,14 +67,3 @@ internal enum P256KeyAgreement {
         }
     }
 }
-
-/// P-256 elliptic curve signing operations.
-internal enum P256Signing {
-
-    /// Creates a P-256 signing private key from raw scalar data.
-    /// - Parameter rawRepresentation: The raw 32-byte scalar value.
-    /// - Returns: The private key's raw representation, or nil if invalid.
-    internal static func privateKey(rawRepresentation: Data) -> CryptoKit.P256.Signing.PrivateKey? {
-        try? CryptoKit.P256.Signing.PrivateKey(rawRepresentation: rawRepresentation)
-    }
-}

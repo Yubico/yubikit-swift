@@ -468,7 +468,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
 
         let genReceipt: Data
         do {
-            genReceipt = try keyAgreementData.aescmac(key: keys[0])
+            genReceipt = try keyAgreementData.aesCmac(key: keys[0])
         } catch {
             throw .cryptoError("Failed to generate receipt", error: error, source: .here())
         }

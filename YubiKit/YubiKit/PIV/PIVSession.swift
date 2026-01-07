@@ -574,7 +574,7 @@ public final actor PIVSession: SmartCardSessionInternal {
 
         guard keyType.keyLength == managementKey.count else { throw .invalidKeyLength(source: .here()) }
 
-        let algorithm: SymmetricAlgorithm =
+        let algorithm: Crypto.SymmetricAlgorithm =
             switch keyType {
             case .tripleDES:
                 .tripleDES

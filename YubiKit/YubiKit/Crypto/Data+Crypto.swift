@@ -1,0 +1,169 @@
+// Copyright Yubico AB
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import Foundation
+
+/// Convenience extensions for cryptographic operations on Data.
+extension Data {
+
+    // MARK: - Hashing
+
+    /// Computes SHA-1 hash.
+    /// - Returns: 20-byte SHA-1 digest.
+    /// - Note: SHA-1 is cryptographically weak and should only be used for legacy compatibility.
+    internal func sha1() -> Data {
+        Crypto.sha1(self)
+    }
+
+    /// Computes SHA-224 hash.
+    /// - Returns: 28-byte SHA-224 digest.
+    internal func sha224() -> Data {
+        Crypto.sha224(self)
+    }
+
+    /// Computes SHA-256 hash.
+    /// - Returns: 32-byte SHA-256 digest.
+    internal func sha256() -> Data {
+        Crypto.sha256(self)
+    }
+
+    /// Computes SHA-384 hash.
+    /// - Returns: 48-byte SHA-384 digest.
+    internal func sha384() -> Data {
+        Crypto.sha384(self)
+    }
+
+    /// Computes SHA-512 hash.
+    /// - Returns: 64-byte SHA-512 digest.
+    internal func sha512() -> Data {
+        Crypto.sha512(self)
+    }
+
+    // MARK: - HMAC
+
+    /// Computes HMAC-SHA1.
+    /// - Parameter key: The secret key.
+    /// - Returns: 20-byte HMAC-SHA1 digest.
+    internal func hmacSha1(key: Data) -> Data {
+        Crypto.hmacSha1(self, key: key)
+    }
+
+    /// Computes HMAC-SHA256.
+    /// - Parameter key: The secret key.
+    /// - Returns: 32-byte HMAC-SHA256 digest.
+    internal func hmacSha256(key: Data) -> Data {
+        Crypto.hmacSha256(self, key: key)
+    }
+
+    // MARK: - Symmetric Encryption
+
+    /// Encrypts data using symmetric encryption.
+    /// - Parameters:
+    ///   - algorithm: The symmetric algorithm to use.
+    ///   - key: The encryption key.
+    ///   - iv: The initialization vector (optional, uses ECB mode if nil).
+    /// - Returns: The encrypted data.
+    internal func encrypt(
+        algorithm: Crypto.SymmetricAlgorithm,
+        key: Data,
+        iv: Data? = nil
+    ) throws(CryptoError) -> Data {
+        try Crypto.encrypt(self, using: algorithm, key: key, iv: iv)
+    }
+
+    /// Decrypts data using symmetric encryption.
+    /// - Parameters:
+    ///   - algorithm: The symmetric algorithm to use.
+    ///   - key: The decryption key.
+    ///   - iv: The initialization vector (optional, uses ECB mode if nil).
+    /// - Returns: The decrypted data.
+    internal func decrypt(
+        algorithm: Crypto.SymmetricAlgorithm,
+        key: Data,
+        iv: Data? = nil
+    ) throws(CryptoError) -> Data {
+        try Crypto.decrypt(self, using: algorithm, key: key, iv: iv)
+    }
+
+    /// Computes AES-CMAC.
+    /// - Parameter key: The AES key.
+    /// - Returns: 16-byte AES-CMAC.
+    internal func aesCmac(key: Data) throws(CryptoError) -> Data {
+        try Crypto.aesCmac(self, key: key)
+    }
+
+    /// Applies bit padding for CMAC.
+    /// - Returns: Bit-padded data.
+    internal func bitPadded() -> Data {
+        Crypto.bitPadded(self)
+    }
+
+    // MARK: - Key Derivation
+
+    /// Derives a key using HKDF-SHA256.
+    /// - Parameters:
+    ///   - salt: The salt value.
+    ///   - info: The context/application-specific info string.
+    ///   - outputByteCount: The desired output key length in bytes.
+    /// - Returns: The derived key material.
+    internal func hkdfDeriveKey(salt: Data, info: String, outputByteCount: Int) -> Data {
+        Crypto.hkdf(self, salt: salt, info: info, outputLength: outputByteCount)
+    }
+
+    /// Derives a key using HKDF-SHA256.
+    /// - Parameters:
+    ///   - salt: The salt value.
+    ///   - info: The context/application-specific info data.
+    ///   - outputByteCount: The desired output key length in bytes.
+    /// - Returns: The derived key material.
+    internal func hkdfDeriveKey(salt: Data, info: Data, outputByteCount: Int) -> Data {
+        Crypto.hkdf(self, salt: salt, info: info, outputLength: outputByteCount)
+    }
+
+    // MARK: - Random
+
+    /// Generates cryptographically secure random bytes.
+    /// - Parameter length: Number of random bytes to generate.
+    /// - Returns: Data containing random bytes.
+    internal static func random(length: Int) throws(CryptoError) -> Data {
+        try Crypto.randomData(length: length)
+    }
+
+    // MARK: - Key Derivation (Static)
+
+    /// Derives a key using PBKDF2-HMAC-SHA1.
+    /// - Parameters:
+    ///   - password: The password string.
+    ///   - salt: The salt data.
+    ///   - iterations: Number of iterations.
+    ///   - keyLength: Desired key length in bytes.
+    /// - Returns: The derived key.
+    internal static func pbkdf2(
+        password: String,
+        salt: Data,
+        iterations: Int,
+        keyLength: Int
+    ) throws(CryptoError) -> Data {
+        try Crypto.pbkdf2(password: password, salt: salt, iterations: iterations, keyLength: keyLength)
+    }
+
+    // MARK: - Comparison
+
+    /// Compares with another Data value in constant time to prevent timing attacks.
+    /// - Parameter other: The data to compare with.
+    /// - Returns: True if equal, false otherwise.
+    internal func constantTimeCompare(_ other: Data) -> Bool {
+        Crypto.constantTimeCompare(self, other)
+    }
+}
