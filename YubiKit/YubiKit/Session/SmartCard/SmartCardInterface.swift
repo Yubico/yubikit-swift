@@ -290,7 +290,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         staticKeys: StaticKeys,
         insSendRemaining: UInt8
     ) async throws(Error) -> SCPState {
-        let hostChallenge = Data.random(length: 8)
+        let hostChallenge: Data
+        do {
+            hostChallenge = try Data.random(length: 8)
+        } catch {
+            throw .cryptoError("Failed to generate host challenge", error: error, source: .here())
+        }
 
         var result = try await sendPlainStatic(
             connection: connection,

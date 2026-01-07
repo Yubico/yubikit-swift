@@ -59,7 +59,12 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
         /* Fix trace: trace(message: "Starting FIDO interface initialization...") */
 
         // Generate random nonce for INIT
-        let nonce = try generateRandomBytes(count: 8)
+        let nonce: Data
+        do {
+            nonce = try Data.random(length: 8)
+        } catch {
+            throw .cryptoError("Failed to generate random bytes for CTAP INIT", error: error, source: .here())
+        }
         /* Fix trace: trace(message: "Generated nonce: \(nonce.hexEncodedString)") */
 
         // Send INIT command and get response

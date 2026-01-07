@@ -18,13 +18,13 @@ import Security
 extension Data {
 
     /// Generates cryptographically secure random bytes.
-    /// - Parameter count: Number of random bytes to generate.
+    /// - Parameter length: Number of random bytes to generate.
     /// - Returns: Data containing random bytes.
     /// - Throws: `CryptoError.randomGenerationFailed` if SecRandomCopyBytes fails.
-    internal static func secureRandom(count: Int) throws(CryptoError) -> Data {
-        var data = Data(count: count)
+    internal static func random(length: Int) throws(CryptoError) -> Data {
+        var data = Data(count: length)
         let result = data.withUnsafeMutableBytes { buffer in
-            SecRandomCopyBytes(kSecRandomDefault, count, buffer.baseAddress!)
+            SecRandomCopyBytes(kSecRandomDefault, length, buffer.baseAddress!)
         }
         guard result == errSecSuccess else {
             throw .randomGenerationFailed

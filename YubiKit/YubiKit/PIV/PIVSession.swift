@@ -610,7 +610,12 @@ public final actor PIVSession: SmartCardSessionInternal {
             throw .cryptoError("Failed to decrypt witness", error: error, source: .here())
         }
         let decryptedWitnessRecord = TKBERTLVRecord(tag: tagAuthWitness, value: decryptedWitness)
-        let challengeSent = Data.random(length: keyType.challengeLength)
+        let challengeSent: Data
+        do {
+            challengeSent = try Data.random(length: keyType.challengeLength)
+        } catch {
+            throw .cryptoError("Failed to generate challenge", error: error, source: .here())
+        }
         let challengeRecord = TKBERTLVRecord(tag: tagChallenge, value: challengeSent)
         var data = Data()
         data.append(decryptedWitnessRecord.data)

@@ -80,10 +80,6 @@ extension Data {
         reduce("") { $0 + String(format: "%02x", $1) }
     }
 
-    internal static func random(length: Int) -> Data {
-        Data((0..<length).map { _ in UInt8.random(in: 0...UInt8.max) })
-    }
-
     internal func padOrTrim(to length: Int) -> Data {
         if self.count == length {
             return self

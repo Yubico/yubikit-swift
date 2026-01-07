@@ -439,7 +439,12 @@ public final actor OATHSession: SmartCardSessionInternal {
         let keyTlv = TKBERTLVRecord(tag: tagSetCodeKey, value: data)
 
         // Challenge
-        let challenge = Data.random(length: 8)
+        let challenge: Data
+        do {
+            challenge = try Data.random(length: 8)
+        } catch {
+            throw .cryptoError("Failed to generate challenge", error: error, source: .here())
+        }
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
 
         // Response
@@ -460,7 +465,12 @@ public final actor OATHSession: SmartCardSessionInternal {
             throw .responseParseError("Missing challenge in OATH application select response", source: .here())
         }
         let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
-        let challenge = Data.random(length: 8)
+        let challenge: Data
+        do {
+            challenge = try Data.random(length: 8)
+        } catch {
+            throw .cryptoError("Failed to generate challenge", error: error, source: .here())
+        }
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
         let apdu = APDU(cla: 0, ins: 0xa3, p1: 0, p2: 0, command: reponseTlv.data + challengeTlv.data)
 
