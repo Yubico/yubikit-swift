@@ -16,13 +16,12 @@
 // Unit tests for the ECKeys implementation.
 // Validates key generation, encoding, decoding, SecKey conversions, and equality for EC keys.
 
-import CommonCrypto
 import Foundation
 import Testing
 
 @testable import YubiKit
 
-// Tests for EC key size, generation, encoding/decoding, and SecKey interoperability.
+// Tests for EC key size, generation, and encoding/decoding.
 struct ECKeysTests {
 
     // MARK: - Curve Properties
@@ -46,22 +45,6 @@ struct ECKeysTests {
             #expect(privKey.publicKey.x.count == curve.keySizeInBytes)
             #expect(privKey.publicKey.y.count == curve.keySizeInBytes)
             #expect(privKey.k.count == curve.keySizeInBytes)
-        }
-    }
-
-    // MARK: - SecKey Conversion
-
-    // Test conversion from EC keys to SecKey.
-    @Test func asSecKeyConversion() throws {
-        let curves: [EC.Curve] = [.secp256r1, .secp384r1]
-        for curve in curves {
-            let privKey = EC.PrivateKey.random(curve: curve)!
-            let pubKey = privKey.publicKey
-
-            let secPrivKey = privKey.asSecKey()
-            let secPubKey = pubKey.asSecKey()
-            #expect(secPrivKey != nil)
-            #expect(secPubKey != nil)
         }
     }
 
@@ -104,54 +87,6 @@ struct ECKeysTests {
             #expect(decodedPriv == nil)
             let decodedPub = EC.PublicKey(uncompressedPoint: invalid, curve: curve)
             #expect(decodedPub == nil)
-        }
-    }
-
-    // MARK: - Public Key SecKey Round Trip
-
-    // Test round-trip conversion from EC.PublicKey to SecKey and back, validating integrity.
-    @Test func publicKeyToSecKeyAndBack() throws {
-        let curves: [EC.Curve] = [.secp256r1, .secp384r1]
-        for curve in curves {
-            let originalPrivKey = EC.PrivateKey.random(curve: curve)!
-            let originalPubKey = originalPrivKey.publicKey
-
-            let publicSecKey = try #require(originalPubKey.asSecKey())
-            var error: Unmanaged<CFError>?
-            let publicDERFromSecKey = SecKeyCopyExternalRepresentation(publicSecKey, &error) as Data?
-            #expect(publicDERFromSecKey != nil)
-
-            // Re-initialize EC.PublicKey from this uncompressed data
-            if let pubRaw = publicDERFromSecKey {
-                let roundTrippedPubKey = EC.PublicKey(uncompressedPoint: pubRaw, curve: curve)
-                #expect(roundTrippedPubKey != nil)
-                #expect(roundTrippedPubKey?.x == originalPubKey.x)
-                #expect(roundTrippedPubKey?.y == originalPubKey.y)
-            }
-        }
-    }
-
-    // MARK: - Private Key SecKey Round Trip
-
-    // Test round-trip conversion from EC.PrivateKey to SecKey and back, validating integrity.
-    @Test func privateKeyToSecKeyAndBack() throws {
-        let curves: [EC.Curve] = [.secp256r1, .secp384r1]
-        for curve in curves {
-            let originalPrivKey = EC.PrivateKey.random(curve: curve)!
-
-            let privateSecKey = try #require(originalPrivKey.asSecKey())
-            var error: Unmanaged<CFError>?
-            let privateDERFromSecKey = SecKeyCopyExternalRepresentation(privateSecKey, &error) as Data?
-            #expect(privateDERFromSecKey != nil)
-
-            // Re-initialize EC.PrivateKey from this uncompressed data
-            if let privRaw = privateDERFromSecKey {
-                let roundTrippedPrivKey = EC.PrivateKey(uncompressedRepresentation: privRaw, curve: curve)
-                #expect(roundTrippedPrivKey != nil)
-                #expect(roundTrippedPrivKey?.publicKey.x == originalPrivKey.publicKey.x)
-                #expect(roundTrippedPrivKey?.publicKey.y == originalPrivKey.publicKey.y)
-                #expect(roundTrippedPrivKey?.k == originalPrivKey.k)
-            }
         }
     }
 }

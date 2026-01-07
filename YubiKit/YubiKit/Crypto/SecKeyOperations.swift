@@ -15,16 +15,176 @@
 import Foundation
 import Security
 
-/// SecKey-based cryptographic operations for RSA and EC keys.
-internal enum SecKeyOperations {
+// MARK: - Crypto.RSA
 
-    // MARK: - RSA Key Generation
+extension Crypto.RSA {
 
-    /// Creates a temporary RSA key pair.
+    /// Generates a random RSA private key and returns its PKCS#1 DER encoding.
     /// - Parameter bitCount: The key size in bits (e.g., 1024, 2048).
-    /// - Returns: A tuple of (privateKey, publicKey).
-    /// - Throws: `CryptoError.keyCreationFailed` if key generation fails.
-    internal static func generateRSAKeyPair(bitCount: Int) throws(CryptoError) -> (privateKey: SecKey, publicKey: SecKey) {
+    /// - Returns: The PKCS#1 DER-encoded private key data, or nil if generation fails.
+    static func generateRandomPrivateKey(bitCount: Int) -> Data? {
+        guard let (privateKey, _) = try? SecKeyHelpers.generateRSAKeyPair(bitCount: bitCount) else {
+            return nil
+        }
+        return SecKeyHelpers.exportSecKey(privateKey)
+    }
+
+    /// Prepares data for RSA signing by applying the specified signature algorithm padding.
+    static func prepareSignatureData(
+        _ data: Data,
+        keySize: RSA.KeySize,
+        algorithm: PIV.RSASignatureAlgorithm
+    ) throws(CryptoError) -> Data {
+        try SecKeyHelpers.prepareRSASignatureData(data, bitCount: keySize.bitCount, algorithm: algorithm.secKeyAlgorithm)
+    }
+
+    /// Prepares data for RSA encryption by applying the specified encryption algorithm padding.
+    static func prepareEncryptionData(
+        _ data: Data,
+        keySize: RSA.KeySize,
+        algorithm: PIV.RSAEncryptionAlgorithm
+    ) throws(CryptoError) -> Data {
+        try SecKeyHelpers.prepareRSAEncryptionData(data, bitCount: keySize.bitCount, algorithm: algorithm.secKeyAlgorithm)
+    }
+
+    /// Extracts original data from RSA encryption format by removing padding.
+    static func extractEncryptionData(
+        _ data: Data,
+        keySize: RSA.KeySize,
+        algorithm: PIV.RSAEncryptionAlgorithm
+    ) throws(CryptoError) -> Data {
+        try SecKeyHelpers.extractRSAEncryptionData(data, bitCount: keySize.bitCount, algorithm: algorithm.secKeyAlgorithm)
+    }
+
+    /// Extracts original data from RSA signature format by removing padding.
+    static func extractSignatureData(
+        _ data: Data,
+        keySize: RSA.KeySize,
+        algorithm: PIV.RSASignatureAlgorithm
+    ) throws(CryptoError) -> Data {
+        try SecKeyHelpers.extractRSASignatureData(data, bitCount: keySize.bitCount, algorithm: algorithm.secKeyAlgorithm)
+    }
+}
+
+// MARK: - Crypto.EC
+
+extension Crypto.EC {
+
+    /// Generates a random EC private key and returns its uncompressed representation.
+    /// - Parameter keySizeInBits: The key size in bits (e.g., 256, 384).
+    /// - Returns: The uncompressed private key data, or nil if generation fails.
+    static func generateRandomPrivateKey(keySizeInBits: Int) -> Data? {
+        guard let (privateKey, _) = try? SecKeyHelpers.generateECKeyPair(keySizeInBits: keySizeInBits) else {
+            return nil
+        }
+        return SecKeyHelpers.exportSecKey(privateKey)
+    }
+
+    /// Performs ECDH key agreement using EC key types.
+    /// - Parameters:
+    ///   - privateKey: The EC private key.
+    ///   - publicKey: The peer's EC public key.
+    /// - Returns: The shared secret, or nil if key agreement fails.
+    static func sharedSecret(privateKey: EC.PrivateKey, publicKey: EC.PublicKey) -> Data? {
+        guard let privateSecKey = SecKeyHelpers.createECPrivateKey(
+            from: privateKey.uncompressedRepresentation,
+            keySizeInBits: privateKey.curve.keySizeInBits
+        ) else {
+            return nil
+        }
+
+        guard let publicSecKey = SecKeyHelpers.createECPublicKey(
+            from: publicKey.uncompressedPoint,
+            keySizeInBits: publicKey.curve.keySizeInBits
+        ) else {
+            return nil
+        }
+
+        return try? SecKeyHelpers.ecdhKeyExchange(privateKey: privateSecKey, publicKey: publicSecKey)
+    }
+}
+
+// MARK: - Crypto.X509
+
+extension Crypto.X509 {
+
+    /// Extracts a PublicKey from X.509 DER-encoded certificate data.
+    /// - Parameter der: The DER-encoded certificate data.
+    /// - Returns: The extracted PublicKey, or nil if extraction fails.
+    static func extractPublicKey(fromDER der: Data) -> PublicKey? {
+        guard let cert = SecCertificateCreateWithData(nil, der as CFData) else {
+            return nil
+        }
+
+        var trust: SecTrust?
+        let policy = SecPolicyCreateBasicX509()
+        let status = SecTrustCreateWithCertificates(cert, policy, &trust)
+        guard status == errSecSuccess, let trust = trust else {
+            return nil
+        }
+
+        guard let secKey = SecTrustCopyKey(trust) else {
+            return nil
+        }
+
+        return SecKeyHelpers.publicKey(from: secKey)
+    }
+}
+
+// MARK: - PIV Algorithm Mapping (Fileprivate)
+
+extension PIV.RSASignatureAlgorithm {
+    fileprivate var secKeyAlgorithm: SecKeyAlgorithm {
+        switch self {
+        case .pkcs1v15(let hash):
+            switch hash {
+            case .sha1: return .rsaSignatureMessagePKCS1v15SHA1
+            case .sha224: return .rsaSignatureMessagePKCS1v15SHA224
+            case .sha256: return .rsaSignatureMessagePKCS1v15SHA256
+            case .sha384: return .rsaSignatureMessagePKCS1v15SHA384
+            case .sha512: return .rsaSignatureMessagePKCS1v15SHA512
+            }
+        case .pss(let hash):
+            switch hash {
+            case .sha1: return .rsaSignatureMessagePSSSHA1
+            case .sha224: return .rsaSignatureMessagePSSSHA224
+            case .sha256: return .rsaSignatureMessagePSSSHA256
+            case .sha384: return .rsaSignatureMessagePSSSHA384
+            case .sha512: return .rsaSignatureMessagePSSSHA512
+            }
+        case .raw:
+            return .rsaSignatureRaw
+        }
+    }
+}
+
+extension PIV.RSAEncryptionAlgorithm {
+    fileprivate var secKeyAlgorithm: SecKeyAlgorithm {
+        switch self {
+        case .pkcs1v15:
+            return .rsaEncryptionPKCS1
+        case .oaep(let hash):
+            switch hash {
+            case .sha1: return .rsaEncryptionOAEPSHA1
+            case .sha224: return .rsaEncryptionOAEPSHA224
+            case .sha256: return .rsaEncryptionOAEPSHA256
+            case .sha384: return .rsaEncryptionOAEPSHA384
+            case .sha512: return .rsaEncryptionOAEPSHA512
+            }
+        case .raw:
+            return .rsaEncryptionRaw
+        }
+    }
+}
+
+// MARK: - SecKey Helpers (Private)
+
+/// Private helpers for SecKey operations. Not exposed outside the Crypto module.
+private enum SecKeyHelpers {
+
+    // MARK: - Key Generation
+
+    static func generateRSAKeyPair(bitCount: Int) throws(CryptoError) -> (privateKey: SecKey, publicKey: SecKey) {
         let attributes: [CFString: Any] = [
             kSecAttrKeyType: kSecAttrKeyTypeRSA,
             kSecAttrKeySizeInBits: bitCount
@@ -39,20 +199,89 @@ internal enum SecKeyOperations {
         return (privateKey, publicKey)
     }
 
-    // MARK: - RSA Signing
+    static func generateECKeyPair(keySizeInBits: Int) throws(CryptoError) -> (privateKey: SecKey, publicKey: SecKey) {
+        let attributes: [CFString: Any] = [
+            kSecAttrKeyClass: kSecAttrKeyClassPrivate,
+            kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrKeySizeInBits: keySizeInBits
+        ]
 
-    /// Signs data using an RSA private key.
-    /// - Parameters:
-    ///   - data: The data to sign.
-    ///   - privateKey: The RSA private key.
-    ///   - algorithm: The signature algorithm.
-    /// - Returns: The signature.
-    /// - Throws: `CryptoError.signingFailed` if signing fails.
-    internal static func rsaSign(
-        _ data: Data,
-        privateKey: SecKey,
-        algorithm: SecKeyAlgorithm
-    ) throws(CryptoError) -> Data {
+        var error: Unmanaged<CFError>?
+        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
+              let publicKey = SecKeyCopyPublicKey(privateKey) else {
+            throw .keyCreationFailed(error?.takeRetainedValue())
+        }
+
+        return (privateKey, publicKey)
+    }
+
+    // MARK: - SecKey Creation from Data
+
+    static func createECPublicKey(from data: Data, keySizeInBits: Int) -> SecKey? {
+        createSecKey(from: data, keyType: kSecAttrKeyTypeECSECPrimeRandom, keyClass: kSecAttrKeyClassPublic, keySizeInBits: keySizeInBits)
+    }
+
+    static func createECPrivateKey(from data: Data, keySizeInBits: Int) -> SecKey? {
+        createSecKey(from: data, keyType: kSecAttrKeyTypeECSECPrimeRandom, keyClass: kSecAttrKeyClassPrivate, keySizeInBits: keySizeInBits)
+    }
+
+    private static func createSecKey(from data: Data, keyType: CFString, keyClass: CFString, keySizeInBits: Int) -> SecKey? {
+        let attributes: [CFString: Any] = [
+            kSecAttrKeyClass: keyClass,
+            kSecAttrKeyType: keyType,
+            kSecAttrKeySizeInBits: keySizeInBits
+        ]
+
+        var error: Unmanaged<CFError>?
+        return SecKeyCreateWithData(data as CFData, attributes as CFDictionary, &error)
+    }
+
+    // MARK: - SecKey Export
+
+    static func exportSecKey(_ key: SecKey) -> Data? {
+        var error: Unmanaged<CFError>?
+        return SecKeyCopyExternalRepresentation(key, &error) as Data?
+    }
+
+    // MARK: - SecKey Attributes
+
+    struct KeyAttributes {
+        let keyClass: CFString
+        let keyType: CFString
+        let keySizeInBits: Int
+    }
+
+    static func getAttributes(of key: SecKey) -> KeyAttributes? {
+        guard let attributes = SecKeyCopyAttributes(key) as? [CFString: Any],
+              let keySizeInBits = attributes[kSecAttrKeySizeInBits] as? Int
+        else {
+            return nil
+        }
+
+        let keyClass = attributes[kSecAttrKeyClass] as! CFString
+        let keyType = attributes[kSecAttrKeyType] as! CFString
+
+        return KeyAttributes(keyClass: keyClass, keyType: keyType, keySizeInBits: keySizeInBits)
+    }
+
+    static func isPublicKey(_ key: SecKey) -> Bool {
+        guard let attributes = getAttributes(of: key) else { return false }
+        return attributes.keyClass == kSecAttrKeyClassPublic
+    }
+
+    static func isRSAKey(_ key: SecKey) -> Bool {
+        guard let attributes = getAttributes(of: key) else { return false }
+        return attributes.keyType == kSecAttrKeyTypeRSA
+    }
+
+    static func isECKey(_ key: SecKey) -> Bool {
+        guard let attributes = getAttributes(of: key) else { return false }
+        return attributes.keyType == kSecAttrKeyTypeECSECPrimeRandom
+    }
+
+    // MARK: - RSA Operations
+
+    static func rsaSign(_ data: Data, privateKey: SecKey, algorithm: SecKeyAlgorithm) throws(CryptoError) -> Data {
         var error: Unmanaged<CFError>?
         guard let signature = SecKeyCreateSignature(privateKey, algorithm, data as CFData, &error) else {
             throw .signingFailed(error?.takeRetainedValue())
@@ -60,20 +289,7 @@ internal enum SecKeyOperations {
         return signature as Data
     }
 
-    // MARK: - RSA Encryption/Decryption
-
-    /// Encrypts data using an RSA public key.
-    /// - Parameters:
-    ///   - data: The data to encrypt.
-    ///   - publicKey: The RSA public key.
-    ///   - algorithm: The encryption algorithm.
-    /// - Returns: The encrypted data.
-    /// - Throws: `CryptoError.encryptionFailed` if encryption fails.
-    internal static func rsaEncrypt(
-        _ data: Data,
-        publicKey: SecKey,
-        algorithm: SecKeyAlgorithm
-    ) throws(CryptoError) -> Data {
+    static func rsaEncrypt(_ data: Data, publicKey: SecKey, algorithm: SecKeyAlgorithm) throws(CryptoError) -> Data {
         var error: Unmanaged<CFError>?
         guard let encrypted = SecKeyCreateEncryptedData(publicKey, algorithm, data as CFData, &error) else {
             throw .encryptionFailed(error?.takeRetainedValue())
@@ -81,18 +297,7 @@ internal enum SecKeyOperations {
         return encrypted as Data
     }
 
-    /// Decrypts data using an RSA private key.
-    /// - Parameters:
-    ///   - data: The data to decrypt.
-    ///   - privateKey: The RSA private key.
-    ///   - algorithm: The decryption algorithm.
-    /// - Returns: The decrypted data.
-    /// - Throws: `CryptoError.decryptionFailed` if decryption fails.
-    internal static func rsaDecrypt(
-        _ data: Data,
-        privateKey: SecKey,
-        algorithm: SecKeyAlgorithm
-    ) throws(CryptoError) -> Data {
+    static func rsaDecrypt(_ data: Data, privateKey: SecKey, algorithm: SecKeyAlgorithm) throws(CryptoError) -> Data {
         var error: Unmanaged<CFError>?
         guard let decrypted = SecKeyCreateDecryptedData(privateKey, algorithm, data as CFData, &error) else {
             throw .decryptionFailed(error?.takeRetainedValue())
@@ -100,18 +305,9 @@ internal enum SecKeyOperations {
         return decrypted as Data
     }
 
-    // MARK: - ECDH Key Exchange
+    // MARK: - ECDH
 
-    /// Performs ECDH key exchange using SecKey.
-    /// - Parameters:
-    ///   - privateKey: The EC private key.
-    ///   - publicKey: The peer's EC public key.
-    /// - Returns: The shared secret.
-    /// - Throws: `CryptoError.keyAgreementFailed` if key exchange fails.
-    internal static func ecdhKeyExchange(
-        privateKey: SecKey,
-        publicKey: SecKey
-    ) throws(CryptoError) -> Data {
+    static func ecdhKeyExchange(privateKey: SecKey, publicKey: SecKey) throws(CryptoError) -> Data {
         var error: Unmanaged<CFError>?
         let params: [String: Any] = [:]
         guard let secretData = SecKeyCopyKeyExchangeResult(
@@ -124,5 +320,71 @@ internal enum SecKeyOperations {
             throw .keyAgreementFailed
         }
         return secretData as Data
+    }
+
+    // MARK: - Public Key Conversion
+
+    static func publicKey(from secKey: SecKey) -> PublicKey? {
+        guard isPublicKey(secKey) else {
+            return nil
+        }
+
+        guard let attributes = getAttributes(of: secKey) else {
+            return nil
+        }
+
+        guard let blob = exportSecKey(secKey) else {
+            return nil
+        }
+
+        if isRSAKey(secKey) {
+            let key = RSA.PublicKey(pkcs1: blob)
+            guard let keySize = RSA.KeySize(rawValue: attributes.keySizeInBits),
+                  keySize == key?.size
+            else {
+                return nil
+            }
+            return key.map { .rsa($0) }
+
+        } else if isECKey(secKey) {
+            return [EC.Curve.secp256r1, EC.Curve.secp384r1]
+                .compactMap { EC.PublicKey(uncompressedPoint: blob, curve: $0) }
+                .map { PublicKey.ec($0) }
+                .first
+
+        } else {
+            // Curve25519 keys
+            if let key = Ed25519.PublicKey(keyData: blob) {
+                return .ed25519(key)
+            } else if let key = X25519.PublicKey(keyData: blob) {
+                return .x25519(key)
+            }
+            return nil
+        }
+    }
+
+    // MARK: - RSA Data Formatting
+
+    static func prepareRSASignatureData(_ data: Data, bitCount: Int, algorithm: SecKeyAlgorithm) throws(CryptoError) -> Data {
+        let (privateKey, publicKey) = try generateRSAKeyPair(bitCount: bitCount)
+        let signedData = try rsaSign(data, privateKey: privateKey, algorithm: algorithm)
+        return try rsaEncrypt(signedData, publicKey: publicKey, algorithm: .rsaEncryptionRaw)
+    }
+
+    static func prepareRSAEncryptionData(_ data: Data, bitCount: Int, algorithm: SecKeyAlgorithm) throws(CryptoError) -> Data {
+        let (_, publicKey) = try generateRSAKeyPair(bitCount: bitCount)
+        return try rsaEncrypt(data, publicKey: publicKey, algorithm: algorithm)
+    }
+
+    static func extractRSAEncryptionData(_ data: Data, bitCount: Int, algorithm: SecKeyAlgorithm) throws(CryptoError) -> Data {
+        let (privateKey, publicKey) = try generateRSAKeyPair(bitCount: bitCount)
+        let encryptedData = try rsaEncrypt(data, publicKey: publicKey, algorithm: .rsaEncryptionRaw)
+        return try rsaDecrypt(encryptedData, privateKey: privateKey, algorithm: algorithm)
+    }
+
+    static func extractRSASignatureData(_ data: Data, bitCount: Int, algorithm: SecKeyAlgorithm) throws(CryptoError) -> Data {
+        let (privateKey, publicKey) = try generateRSAKeyPair(bitCount: bitCount)
+        let encryptedData = try rsaEncrypt(data, publicKey: publicKey, algorithm: .rsaEncryptionRaw)
+        return try rsaDecrypt(encryptedData, privateKey: privateKey, algorithm: algorithm)
     }
 }

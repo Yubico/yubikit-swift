@@ -348,16 +348,16 @@ struct PinAuthTests {
 
     // MARK: - P256 Key Agreement
 
-    @Test("P256KeyAgreement.KeyPair produces valid 32-byte coordinates")
+    @Test("Crypto.P256.KeyPair produces valid 32-byte coordinates")
     func testP256KeyPairCoordinates() {
-        let keyPair = P256KeyAgreement.KeyPair()
+        let keyPair = Crypto.P256.KeyPair()
 
         // Verify coordinates are 32 bytes each (P-256)
         #expect(keyPair.publicKeyX.count == 32)
         #expect(keyPair.publicKeyY.count == 32)
 
         // Verify ECDH works with the key pair
-        let anotherKeyPair = P256KeyAgreement.KeyPair()
+        let anotherKeyPair = Crypto.P256.KeyPair()
         var peerPublicKey = Data([0x04])
         peerPublicKey.append(anotherKeyPair.publicKeyX)
         peerPublicKey.append(anotherKeyPair.publicKeyY)

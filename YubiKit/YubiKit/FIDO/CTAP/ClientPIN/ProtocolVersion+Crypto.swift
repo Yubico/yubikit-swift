@@ -40,7 +40,7 @@ extension CTAP2.ClientPin.ProtocolVersion {
         }
 
         // Generate ephemeral key pair
-        let keyPair = P256KeyAgreement.KeyPair()
+        let keyPair = Crypto.P256.KeyPair()
 
         // Perform ECDH
         let rawSharedSecret: Data
@@ -96,13 +96,13 @@ extension CTAP2.ClientPin.ProtocolVersion {
             case .v1:
                 // V1: AES-256-CBC with zero IV
                 let iv = Data(count: 16)
-                return try plaintext.encrypt(algorithm: .aes, key: key, iv: iv)
+                return try plaintext.encryptAES(key: key, iv: iv)
 
             case .v2:
                 // V2: AES-256-CBC with random IV, using AES key (last 32 bytes)
                 let aesKey = key.suffix(32)
                 let iv = try Data.random(length: 16)
-                let ciphertext = try plaintext.encrypt(algorithm: .aes, key: Data(aesKey), iv: iv)
+                let ciphertext = try plaintext.encryptAES(key: Data(aesKey), iv: iv)
                 return iv + ciphertext
             }
         } catch {
@@ -117,7 +117,7 @@ extension CTAP2.ClientPin.ProtocolVersion {
             case .v1:
                 // V1: AES-256-CBC with zero IV
                 let iv = Data(count: 16)
-                return try ciphertext.decrypt(algorithm: .aes, key: key, iv: iv)
+                return try ciphertext.decryptAES(key: key, iv: iv)
 
             case .v2:
                 // V2: Extract IV from ciphertext, use AES key (last 32 bytes)
@@ -131,7 +131,7 @@ extension CTAP2.ClientPin.ProtocolVersion {
                 let aesKey = Data(key.suffix(32))
                 let iv = Data(ciphertext.prefix(16))
                 let actualCiphertext = Data(ciphertext.dropFirst(16))
-                return try actualCiphertext.decrypt(algorithm: .aes, key: aesKey, iv: iv)
+                return try actualCiphertext.decryptAES(key: aesKey, iv: iv)
             }
         } catch let error as CTAP2.SessionError {
             throw error

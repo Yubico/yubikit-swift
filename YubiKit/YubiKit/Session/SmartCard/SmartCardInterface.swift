@@ -545,27 +545,3 @@ extension Application {
         return APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: data)
     }
 }
-
-extension EC.PrivateKey {
-    // Perform ECDH key-agreement and return the raw shared secret bytes
-    fileprivate func sharedSecret(with publicKey: EC.PublicKey) -> Data? {
-        guard let privateSecKey = asSecKey(), let associatedPublicSecKey = publicKey.asSecKey() else {
-            return nil
-        }
-
-        var cfError: Unmanaged<CFError>?
-        guard
-            let secretData = SecKeyCopyKeyExchangeResult(
-                privateSecKey,
-                .ecdhKeyExchangeStandard,
-                associatedPublicSecKey,
-                [:] as CFDictionary,
-                &cfError
-            ) as Data?
-        else {
-            return nil
-        }
-
-        return secretData
-    }
-}

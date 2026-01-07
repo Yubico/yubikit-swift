@@ -15,26 +15,27 @@
 import CryptoKit
 import Foundation
 
-/// P-256 elliptic curve key agreement operations.
-internal enum P256KeyAgreement {
+// MARK: - Crypto.P256
+
+extension Crypto.P256 {
 
     /// A P-256 key pair for ECDH key agreement.
-    internal struct KeyPair: Sendable {
+    struct KeyPair: Sendable {
         private let privateKey: CryptoKit.P256.KeyAgreement.PrivateKey
 
         /// Creates a new random P-256 key pair.
-        internal init() {
+        init() {
             self.privateKey = CryptoKit.P256.KeyAgreement.PrivateKey()
         }
 
         /// The public key's X coordinate (32 bytes).
-        internal var publicKeyX: Data {
+        var publicKeyX: Data {
             let raw = privateKey.publicKey.x963Representation
             return Data(raw.dropFirst().prefix(32))
         }
 
         /// The public key's Y coordinate (32 bytes).
-        internal var publicKeyY: Data {
+        var publicKeyY: Data {
             let raw = privateKey.publicKey.x963Representation
             return Data(raw.dropFirst(33))
         }
@@ -43,7 +44,7 @@ internal enum P256KeyAgreement {
         /// - Parameter peerPublicKey: The peer's public key in X9.63 uncompressed format (65 bytes: 0x04 || X || Y).
         /// - Returns: The raw shared secret (32 bytes).
         /// - Throws: `CryptoError` if the peer key is invalid or key agreement fails.
-        internal func sharedSecret(withX963 peerPublicKey: Data) throws(CryptoError) -> Data {
+        func sharedSecret(withX963 peerPublicKey: Data) throws(CryptoError) -> Data {
             guard let peerKey = try? CryptoKit.P256.KeyAgreement.PublicKey(x963Representation: peerPublicKey) else {
                 throw .invalidKey
             }
@@ -59,7 +60,7 @@ internal enum P256KeyAgreement {
         ///   - y: The peer's public key Y coordinate (32 bytes).
         /// - Returns: The raw shared secret (32 bytes).
         /// - Throws: `CryptoError` if the peer key is invalid or key agreement fails.
-        internal func sharedSecret(withX x: Data, y: Data) throws(CryptoError) -> Data {
+        func sharedSecret(withX x: Data, y: Data) throws(CryptoError) -> Data {
             var uncompressed = Data([0x04])
             uncompressed.append(x)
             uncompressed.append(y)

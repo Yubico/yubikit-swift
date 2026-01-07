@@ -574,14 +574,6 @@ public final actor PIVSession: SmartCardSessionInternal {
 
         guard keyType.keyLength == managementKey.count else { throw .invalidKeyLength(source: .here()) }
 
-        let algorithm: Crypto.SymmetricAlgorithm =
-            switch keyType {
-            case .tripleDES:
-                .tripleDES
-            case .aes128, .aes192, .aes256:
-                .aes
-            }
-
         let witness = TKBERTLVRecord(tag: tagAuthWitness, value: Data()).data
         let command = TKBERTLVRecord(tag: tagDynAuth, value: witness).data
         let witnessApdu = APDU(
@@ -600,10 +592,7 @@ public final actor PIVSession: SmartCardSessionInternal {
         else { throw .responseParseError("Response data not in expected TLV format", source: .here()) }
         let decryptedWitness: Data
         do {
-            decryptedWitness = try witnessRecord.value.decrypt(
-                algorithm: algorithm,
-                key: managementKey
-            )
+            decryptedWitness = try keyType.decrypt(witnessRecord.value, key: managementKey)
         } catch {
             throw .cryptoError("Failed to decrypt witness", error: error, source: .here())
         }
@@ -635,10 +624,7 @@ public final actor PIVSession: SmartCardSessionInternal {
         else { throw .responseParseError("Response data not in expected TLV format", source: .here()) }
         let challengeReturned: Data
         do {
-            challengeReturned = try encryptedChallengeRecord.value.decrypt(
-                algorithm: algorithm,
-                key: managementKey
-            )
+            challengeReturned = try keyType.decrypt(encryptedChallengeRecord.value, key: managementKey)
         } catch {
             throw .cryptoError("Failed to decrypt challenge", error: error, source: .here())
         }

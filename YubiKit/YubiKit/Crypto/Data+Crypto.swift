@@ -23,31 +23,31 @@ extension Data {
     /// - Returns: 20-byte SHA-1 digest.
     /// - Note: SHA-1 is cryptographically weak and should only be used for legacy compatibility.
     internal func sha1() -> Data {
-        Crypto.sha1(self)
+        Crypto.Hash.sha1(self)
     }
 
     /// Computes SHA-224 hash.
     /// - Returns: 28-byte SHA-224 digest.
     internal func sha224() -> Data {
-        Crypto.sha224(self)
+        Crypto.Hash.sha224(self)
     }
 
     /// Computes SHA-256 hash.
     /// - Returns: 32-byte SHA-256 digest.
     internal func sha256() -> Data {
-        Crypto.sha256(self)
+        Crypto.Hash.sha256(self)
     }
 
     /// Computes SHA-384 hash.
     /// - Returns: 48-byte SHA-384 digest.
     internal func sha384() -> Data {
-        Crypto.sha384(self)
+        Crypto.Hash.sha384(self)
     }
 
     /// Computes SHA-512 hash.
     /// - Returns: 64-byte SHA-512 digest.
     internal func sha512() -> Data {
-        Crypto.sha512(self)
+        Crypto.Hash.sha512(self)
     }
 
     // MARK: - HMAC
@@ -56,57 +56,67 @@ extension Data {
     /// - Parameter key: The secret key.
     /// - Returns: 20-byte HMAC-SHA1 digest.
     internal func hmacSha1(key: Data) -> Data {
-        Crypto.hmacSha1(self, key: key)
+        Crypto.HMAC.sha1(self, key: key)
     }
 
     /// Computes HMAC-SHA256.
     /// - Parameter key: The secret key.
     /// - Returns: 32-byte HMAC-SHA256 digest.
     internal func hmacSha256(key: Data) -> Data {
-        Crypto.hmacSha256(self, key: key)
+        Crypto.HMAC.sha256(self, key: key)
     }
 
-    // MARK: - Symmetric Encryption
+    // MARK: - AES Encryption
 
-    /// Encrypts data using symmetric encryption.
+    /// Encrypts data using AES.
     /// - Parameters:
-    ///   - algorithm: The symmetric algorithm to use.
-    ///   - key: The encryption key.
+    ///   - key: The AES key.
     ///   - iv: The initialization vector (optional, uses ECB mode if nil).
     /// - Returns: The encrypted data.
-    internal func encrypt(
-        algorithm: Crypto.SymmetricAlgorithm,
-        key: Data,
-        iv: Data? = nil
-    ) throws(CryptoError) -> Data {
-        try Crypto.encrypt(self, using: algorithm, key: key, iv: iv)
+    internal func encryptAES(key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
+        try Crypto.AES.encrypt(self, key: key, iv: iv)
     }
 
-    /// Decrypts data using symmetric encryption.
+    /// Decrypts data using AES.
     /// - Parameters:
-    ///   - algorithm: The symmetric algorithm to use.
-    ///   - key: The decryption key.
+    ///   - key: The AES key.
     ///   - iv: The initialization vector (optional, uses ECB mode if nil).
     /// - Returns: The decrypted data.
-    internal func decrypt(
-        algorithm: Crypto.SymmetricAlgorithm,
-        key: Data,
-        iv: Data? = nil
-    ) throws(CryptoError) -> Data {
-        try Crypto.decrypt(self, using: algorithm, key: key, iv: iv)
+    internal func decryptAES(key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
+        try Crypto.AES.decrypt(self, key: key, iv: iv)
+    }
+
+    // MARK: - 3DES Encryption
+
+    /// Encrypts data using Triple DES.
+    /// - Parameters:
+    ///   - key: The 3DES key.
+    ///   - iv: The initialization vector (optional, uses ECB mode if nil).
+    /// - Returns: The encrypted data.
+    internal func encrypt3DES(key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
+        try Crypto.TripleDES.encrypt(self, key: key, iv: iv)
+    }
+
+    /// Decrypts data using Triple DES.
+    /// - Parameters:
+    ///   - key: The 3DES key.
+    ///   - iv: The initialization vector (optional, uses ECB mode if nil).
+    /// - Returns: The decrypted data.
+    internal func decrypt3DES(key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
+        try Crypto.TripleDES.decrypt(self, key: key, iv: iv)
     }
 
     /// Computes AES-CMAC.
     /// - Parameter key: The AES key.
     /// - Returns: 16-byte AES-CMAC.
     internal func aesCmac(key: Data) throws(CryptoError) -> Data {
-        try Crypto.aesCmac(self, key: key)
+        try Crypto.AES.cmac(self, key: key)
     }
 
     /// Applies bit padding for CMAC.
     /// - Returns: Bit-padded data.
     internal func bitPadded() -> Data {
-        Crypto.bitPadded(self)
+        Crypto.AES.bitPadded(self)
     }
 
     // MARK: - Key Derivation
@@ -118,7 +128,7 @@ extension Data {
     ///   - outputByteCount: The desired output key length in bytes.
     /// - Returns: The derived key material.
     internal func hkdfDeriveKey(salt: Data, info: String, outputByteCount: Int) -> Data {
-        Crypto.hkdf(self, salt: salt, info: info, outputLength: outputByteCount)
+        Crypto.KDF.hkdf(self, salt: salt, info: info, outputLength: outputByteCount)
     }
 
     /// Derives a key using HKDF-SHA256.
@@ -128,7 +138,7 @@ extension Data {
     ///   - outputByteCount: The desired output key length in bytes.
     /// - Returns: The derived key material.
     internal func hkdfDeriveKey(salt: Data, info: Data, outputByteCount: Int) -> Data {
-        Crypto.hkdf(self, salt: salt, info: info, outputLength: outputByteCount)
+        Crypto.KDF.hkdf(self, salt: salt, info: info, outputLength: outputByteCount)
     }
 
     // MARK: - Random
@@ -137,7 +147,7 @@ extension Data {
     /// - Parameter length: Number of random bytes to generate.
     /// - Returns: Data containing random bytes.
     internal static func random(length: Int) throws(CryptoError) -> Data {
-        try Crypto.randomData(length: length)
+        try Crypto.Random.data(length: length)
     }
 
     // MARK: - Key Derivation (Static)
@@ -155,7 +165,7 @@ extension Data {
         iterations: Int,
         keyLength: Int
     ) throws(CryptoError) -> Data {
-        try Crypto.pbkdf2(password: password, salt: salt, iterations: iterations, keyLength: keyLength)
+        try Crypto.KDF.pbkdf2(password: password, salt: salt, iterations: iterations, keyLength: keyLength)
     }
 
     // MARK: - Comparison

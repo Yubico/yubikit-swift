@@ -13,10 +13,11 @@
 // limitations under the License.
 
 import CommonCrypto
+import Foundation
 
 /// Errors related to cryptographic operations.
 public enum CryptoError: Error, Sendable {
-    /// CommonCrypto cryptor operation failed.
+    /// Symmetric encryption/decryption operation failed.
     case cryptorError(CCCryptorStatus)
 
     /// Required data is missing for the cryptographic operation.

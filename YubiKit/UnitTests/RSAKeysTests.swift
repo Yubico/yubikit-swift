@@ -16,13 +16,12 @@
 // Unit tests for the RSAKeys implementation.
 // Validates key generation, encoding, decoding, SecKey conversions, and equality for RSA keys.
 
-import CommonCrypto
 import Foundation
 import Testing
 
 @testable import YubiKit
 
-// Tests for RSA key size, generation, encoding/decoding, and SecKey interoperability.
+// Tests for RSA key size, generation, and encoding/decoding.
 struct RSAKeysTests {
 
     // MARK: - Key Size Properties
@@ -44,22 +43,6 @@ struct RSAKeysTests {
             #expect(privKey != nil)
             #expect(privKey?.publicKey.size == keySize)
             #expect(privKey?.publicKey.n.count == keySize.byteCount)
-        }
-    }
-
-    // MARK: - SecKey Conversion
-
-    // Test conversion from RSA keys to SecKey.
-    @Test func asSecKeyConversion() throws {
-        let keySizes: [RSA.KeySize] = [.bits1024, .bits2048, .bits4096]
-        for keySize in keySizes {
-            let privKey = RSA.PrivateKey.random(keySize: keySize)!
-            let pubKey = privKey.publicKey
-
-            let secPrivKey = privKey.asSecKey()
-            let secPubKey = pubKey.asSecKey()
-            #expect(secPrivKey != nil)
-            #expect(secPubKey != nil)
         }
     }
 
@@ -109,67 +92,6 @@ struct RSAKeysTests {
             #expect(decodedPriv == nil)
             let decodedPub = RSA.PublicKey(pkcs1: invalidDER)
             #expect(decodedPub == nil)
-        }
-    }
-
-    // MARK: - Public Key SecKey Round Trip
-
-    // Test round-trip conversion from RSA.PublicKey to SecKey and back, validating integrity.
-    @Test func publicKeyToSecKeyAndBack() throws {
-        let keySizes: [RSA.KeySize] = [.bits1024, .bits2048, .bits4096]
-
-        for keySize in keySizes {
-            // Generate RSA.PrivateKey to get a public key
-            let originalPrivKey = try #require(RSA.PrivateKey.random(keySize: keySize))
-            let originalPubKey = originalPrivKey.publicKey
-
-            // Convert RSA.PublicKey to SecKey
-            let publicSecKey = try #require(originalPubKey.asSecKey())
-
-            // Extract PKCS#1 data from public SecKey
-            var error: Unmanaged<CFError>?
-            let publicDERFromSecKey = try #require(SecKeyCopyExternalRepresentation(publicSecKey, &error) as Data?)
-
-            // Re-initialize RSA.PublicKey from this PKCS#1 data
-            let roundTrippedPubKey = try #require(RSA.PublicKey(pkcs1: publicDERFromSecKey))
-
-            // Compare
-            #expect(roundTrippedPubKey.n == originalPubKey.n)
-            #expect(roundTrippedPubKey.e == originalPubKey.e)
-            #expect(roundTrippedPubKey.size == originalPubKey.size)
-        }
-    }
-
-    // MARK: - Private Key SecKey Round Trip
-
-    // Test round-trip conversion from RSA.PrivateKey to SecKey and back, validating integrity.
-    @Test func privateKeyToSecKeyAndBack() throws {
-        let keySizes: [RSA.KeySize] = [.bits1024, .bits2048, .bits4096]
-
-        for keySize in keySizes {
-            // Generate RSA.PrivateKey
-            let originalPrivKey = try #require(RSA.PrivateKey.random(keySize: keySize))
-
-            // Convert RSA.PrivateKey to SecKey
-            let privateSecKey = try #require(originalPrivKey.asSecKey())
-
-            // Extract PKCS#1 data from private SecKey
-            var error: Unmanaged<CFError>?
-            let privateDERFromSecKey = try #require(SecKeyCopyExternalRepresentation(privateSecKey, &error) as Data?)
-
-            // Re-initialize RSA.PrivateKey from this PKCS#1 data
-            let roundTrippedPrivKey = try #require(RSA.PrivateKey(pkcs1: privateDERFromSecKey))
-
-            // Compare
-            #expect(roundTrippedPrivKey.n == originalPrivKey.n)
-            #expect(roundTrippedPrivKey.d == originalPrivKey.d)
-            #expect(roundTrippedPrivKey.p == originalPrivKey.p)
-            #expect(roundTrippedPrivKey.q == originalPrivKey.q)
-            #expect(roundTrippedPrivKey.dP == originalPrivKey.dP)
-            #expect(roundTrippedPrivKey.dQ == originalPrivKey.dQ)
-            #expect(roundTrippedPrivKey.qInv == originalPrivKey.qInv)
-            #expect(roundTrippedPrivKey.publicKey.e == originalPrivKey.publicKey.e)
-            #expect(roundTrippedPrivKey.size == originalPrivKey.size)
         }
     }
 }

@@ -25,37 +25,15 @@ internal enum PIVDataFormatter {
         keySize: RSA.KeySize,
         algorithm: PIV.RSASignatureAlgorithm
     ) throws(PIVSessionError) -> Data {
-        let attributes =
-            [
-                kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keySize.bitCount,
-            ] as [CFString: Any]
-        var error: Unmanaged<CFError>?
-        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-            let publicKey = SecKeyCopyPublicKey(privateKey)
-        else {
-            throw .cryptoError(
-                "Failed to create RSA key pair for signing",
-                error: error?.takeRetainedValue(),
-                source: .here()
+        do {
+            return try Crypto.RSA.prepareSignatureData(
+                data,
+                keySize: keySize,
+                algorithm: algorithm
             )
+        } catch {
+            throw .cryptoError("Failed to prepare data for RSA signing", error: error, source: .here())
         }
-        guard let signedData = SecKeyCreateSignature(privateKey, algorithm.secKeyAlgorithm, data as CFData, &error)
-        else {
-            throw .cryptoError(
-                "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue(),
-                source: .here()
-            )
-        }
-        guard let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionRaw, signedData, &error) else {
-            throw .cryptoError(
-                "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue(),
-                source: .here()
-            )
-        }
-        return encryptedData as Data
     }
 
     // Prepares data for ECDSA signing by hashing or formatting the input.
@@ -104,31 +82,15 @@ internal enum PIVDataFormatter {
         keySize: RSA.KeySize,
         algorithm: PIV.RSAEncryptionAlgorithm
     ) throws(PIVSessionError) -> Data {
-        let attributes =
-            [
-                kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keySize.bitCount,
-            ] as [CFString: Any]
-        var error: Unmanaged<CFError>?
-        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-            let publicKey = SecKeyCopyPublicKey(privateKey)
-        else {
-            throw .cryptoError(
-                "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue(),
-                source: .here()
+        do {
+            return try Crypto.RSA.prepareEncryptionData(
+                data,
+                keySize: keySize,
+                algorithm: algorithm
             )
+        } catch {
+            throw .cryptoError("Failed to prepare data for RSA encryption", error: error, source: .here())
         }
-        guard
-            let encryptedData = SecKeyCreateEncryptedData(publicKey, algorithm.secKeyAlgorithm, data as CFData, &error)
-        else {
-            throw .cryptoError(
-                "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue(),
-                source: .here()
-            )
-        }
-        return encryptedData as Data
     }
 
     // Extracts the original data from RSA encryption format.
@@ -138,44 +100,19 @@ internal enum PIVDataFormatter {
         _ data: Data,
         algorithm: PIV.RSAEncryptionAlgorithm
     ) throws(PIVSessionError) -> Data {
-        let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
-        guard let keyType = validTypes.first(where: { $0.keysize.byteCount == data.count }) else {
+        guard let keySize = RSA.KeySize.allCases.first(where: { $0.byteCount == data.count }) else {
             throw .invalidDataSize(source: .here())
         }
 
-        let attributes =
-            [
-                kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keyType.keysize.bitCount,
-            ] as [CFString: Any]
-
-        var error: Unmanaged<CFError>?
-        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-            let publicKey = SecKeyCopyPublicKey(privateKey)
-        else {
-            throw .cryptoError(
-                "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue(),
-                source: .here()
+        do {
+            return try Crypto.RSA.extractEncryptionData(
+                data,
+                keySize: keySize,
+                algorithm: algorithm
             )
+        } catch {
+            throw .cryptoError("Failed to extract data from RSA encryption", error: error, source: .here())
         }
-        guard let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionRaw, data as CFData, &error) else {
-            throw .cryptoError(
-                "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue(),
-                source: .here()
-            )
-        }
-        guard
-            let decryptedData = SecKeyCreateDecryptedData(privateKey, algorithm.secKeyAlgorithm, encryptedData, &error)
-        else {
-            throw .cryptoError(
-                "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue(),
-                source: .here()
-            )
-        }
-        return decryptedData as Data
     }
 
     // Extracts the original data from RSA signature format.
@@ -185,90 +122,18 @@ internal enum PIVDataFormatter {
         _ data: Data,
         algorithm: PIV.RSASignatureAlgorithm
     ) throws(PIVSessionError) -> Data {
-
-        let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
-        guard let keyType = validTypes.first(where: { $0.keysize.byteCount == data.count }) else {
+        guard let keySize = RSA.KeySize.allCases.first(where: { $0.byteCount == data.count }) else {
             throw .invalidDataSize(source: .here())
         }
 
-        let attributes =
-            [
-                kSecAttrKeyType: kSecAttrKeyTypeRSA,
-                kSecAttrKeySizeInBits: keyType.keysize.bitCount,
-            ] as [CFString: Any]
-
-        var error: Unmanaged<CFError>?
-        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error),
-            let publicKey = SecKeyCopyPublicKey(privateKey)
-        else {
-            throw .cryptoError(
-                "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue(),
-                source: .here()
+        do {
+            return try Crypto.RSA.extractSignatureData(
+                data,
+                keySize: keySize,
+                algorithm: algorithm
             )
-        }
-        guard let encryptedData = SecKeyCreateEncryptedData(publicKey, .rsaEncryptionRaw, data as CFData, &error) else {
-            throw .cryptoError(
-                "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue(),
-                source: .here()
-            )
-        }
-        guard
-            let decryptedData = SecKeyCreateDecryptedData(privateKey, algorithm.secKeyAlgorithm, encryptedData, &error)
-        else {
-            throw .cryptoError(
-                "Failed to perform RSA cryptographic operation",
-                error: error?.takeRetainedValue(),
-                source: .here()
-            )
-        }
-        return decryptedData as Data
-    }
-}
-
-extension PIV.RSASignatureAlgorithm {
-    // Maps to the corresponding SecKeyAlgorithm
-    fileprivate var secKeyAlgorithm: SecKeyAlgorithm {
-        switch self {
-        case .pkcs1v15(let hash):
-            switch hash {
-            case .sha1: return .rsaSignatureMessagePKCS1v15SHA1
-            case .sha224: return .rsaSignatureMessagePKCS1v15SHA224
-            case .sha256: return .rsaSignatureMessagePKCS1v15SHA256
-            case .sha384: return .rsaSignatureMessagePKCS1v15SHA384
-            case .sha512: return .rsaSignatureMessagePKCS1v15SHA512
-            }
-        case .pss(let hash):
-            switch hash {
-            case .sha1: return .rsaSignatureMessagePSSSHA1
-            case .sha224: return .rsaSignatureMessagePSSSHA224
-            case .sha256: return .rsaSignatureMessagePSSSHA256
-            case .sha384: return .rsaSignatureMessagePSSSHA384
-            case .sha512: return .rsaSignatureMessagePSSSHA512
-            }
-        case .raw:
-            return .rsaSignatureRaw
-        }
-    }
-}
-
-extension PIV.RSAEncryptionAlgorithm {
-    // Maps to the corresponding SecKeyAlgorithm
-    fileprivate var secKeyAlgorithm: SecKeyAlgorithm {
-        switch self {
-        case .pkcs1v15:
-            return .rsaEncryptionPKCS1
-        case .oaep(let hash):
-            switch hash {
-            case .sha1: return .rsaEncryptionOAEPSHA1
-            case .sha224: return .rsaEncryptionOAEPSHA224
-            case .sha256: return .rsaEncryptionOAEPSHA256
-            case .sha384: return .rsaEncryptionOAEPSHA384
-            case .sha512: return .rsaEncryptionOAEPSHA512
-            }
-        case .raw:
-            return .rsaEncryptionRaw
+        } catch {
+            throw .cryptoError("Failed to extract data from RSA signature", error: error, source: .here())
         }
     }
 }

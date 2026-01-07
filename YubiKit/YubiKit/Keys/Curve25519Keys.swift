@@ -25,7 +25,7 @@ public enum Ed25519: Sendable {
         /// - Parameter keyData: 32-byte Ed25519 public key
         public init?(keyData: Data) {
             guard keyData.count == 32 else { return nil }
-            guard Curve25519Crypto.isValidEd25519PublicKey(keyData) else { return nil }
+            guard Crypto.Curve25519.isValidEd25519PublicKey(keyData) else { return nil }
             self.keyData = keyData
         }
     }
@@ -43,7 +43,7 @@ public enum Ed25519: Sendable {
         ///   - publicKey: Associated public key
         public init?(seed: Data, publicKey: PublicKey) {
             guard seed.count == 32 else { return nil }
-            guard Curve25519Crypto.validateEd25519KeyPair(seed: seed, publicKey: publicKey.keyData) else {
+            guard Crypto.Curve25519.validateEd25519KeyPair(seed: seed, publicKey: publicKey.keyData) else {
                 return nil
             }
             self.seed = seed
@@ -54,7 +54,7 @@ public enum Ed25519: Sendable {
         /// - Parameter seed: 32-byte private key seed
         public init?(seed: Data) {
             guard seed.count == 32 else { return nil }
-            guard let derivedPublicKey = Curve25519Crypto.deriveEd25519PublicKey(fromSeed: seed),
+            guard let derivedPublicKey = Crypto.Curve25519.deriveEd25519PublicKey(fromSeed: seed),
                   let publicKey = PublicKey(keyData: derivedPublicKey)
             else {
                 return nil
@@ -76,7 +76,7 @@ public enum X25519: Sendable {
         /// - Parameter keyData: 32-byte X25519 public key
         public init?(keyData: Data) {
             guard keyData.count == 32 else { return nil }
-            guard Curve25519Crypto.isValidX25519PublicKey(keyData) else { return nil }
+            guard Crypto.Curve25519.isValidX25519PublicKey(keyData) else { return nil }
             self.keyData = keyData
         }
     }
@@ -94,7 +94,7 @@ public enum X25519: Sendable {
         ///   - publicKey: Associated public key
         public init?(scalar: Data, publicKey: PublicKey) {
             guard scalar.count == 32 else { return nil }
-            guard Curve25519Crypto.validateX25519KeyPair(scalar: scalar, publicKey: publicKey.keyData) else {
+            guard Crypto.Curve25519.validateX25519KeyPair(scalar: scalar, publicKey: publicKey.keyData) else {
                 return nil
             }
             self.scalar = scalar
@@ -105,7 +105,7 @@ public enum X25519: Sendable {
         /// - Parameter scalar: 32-byte private key scalar
         public init?(scalar: Data) {
             guard scalar.count == 32 else { return nil }
-            guard let derivedPublicKey = Curve25519Crypto.deriveX25519PublicKey(fromScalar: scalar),
+            guard let derivedPublicKey = Crypto.Curve25519.deriveX25519PublicKey(fromScalar: scalar),
                   let publicKey = PublicKey(keyData: derivedPublicKey)
             else {
                 return nil

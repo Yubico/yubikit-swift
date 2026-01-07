@@ -15,8 +15,9 @@
 import CryptoKit
 import Foundation
 
-/// Curve25519 key validation and derivation operations.
-internal enum Curve25519Crypto {
+// MARK: - Crypto.Curve25519
+
+extension Crypto.Curve25519 {
 
     // MARK: - Ed25519 (Signing)
 
@@ -24,14 +25,14 @@ internal enum Curve25519Crypto {
     /// - Parameter data: 32-byte public key data.
     /// - Returns: True if valid, false otherwise.
     static func isValidEd25519PublicKey(_ data: Data) -> Bool {
-        (try? Curve25519.Signing.PublicKey(rawRepresentation: data)) != nil
+        (try? CryptoKit.Curve25519.Signing.PublicKey(rawRepresentation: data)) != nil
     }
 
     /// Derives an Ed25519 public key from a private key seed.
     /// - Parameter seed: 32-byte private key seed.
     /// - Returns: The 32-byte public key, or nil if the seed is invalid.
     static func deriveEd25519PublicKey(fromSeed seed: Data) -> Data? {
-        guard let privateKey = try? Curve25519.Signing.PrivateKey(rawRepresentation: seed) else {
+        guard let privateKey = try? CryptoKit.Curve25519.Signing.PrivateKey(rawRepresentation: seed) else {
             return nil
         }
         return privateKey.publicKey.rawRepresentation
@@ -55,14 +56,14 @@ internal enum Curve25519Crypto {
     /// - Parameter data: 32-byte public key data.
     /// - Returns: True if valid, false otherwise.
     static func isValidX25519PublicKey(_ data: Data) -> Bool {
-        (try? Curve25519.KeyAgreement.PublicKey(rawRepresentation: data)) != nil
+        (try? CryptoKit.Curve25519.KeyAgreement.PublicKey(rawRepresentation: data)) != nil
     }
 
     /// Derives an X25519 public key from a private key scalar.
     /// - Parameter scalar: 32-byte private key scalar.
     /// - Returns: The 32-byte public key, or nil if the scalar is invalid.
     static func deriveX25519PublicKey(fromScalar scalar: Data) -> Data? {
-        guard let privateKey = try? Curve25519.KeyAgreement.PrivateKey(rawRepresentation: scalar) else {
+        guard let privateKey = try? CryptoKit.Curve25519.KeyAgreement.PrivateKey(rawRepresentation: scalar) else {
             return nil
         }
         return privateKey.publicKey.rawRepresentation
