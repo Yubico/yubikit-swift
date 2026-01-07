@@ -448,7 +448,7 @@ public final actor OATHSession: SmartCardSessionInternal {
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
 
         // Response
-        let response = challenge.hmacSha1(usingKey: accessKey)
+        let response = challenge.hmacSha1(key: accessKey)
         let responseTlv = TKBERTLVRecord(tag: tagResponse, value: response)
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: keyTlv.data + challengeTlv.data + responseTlv.data)
         try await process(apdu: apdu)
@@ -464,7 +464,7 @@ public final actor OATHSession: SmartCardSessionInternal {
         guard let responseChallenge = self.selectResponse.challenge else {
             throw .responseParseError("Missing challenge in OATH application select response", source: .here())
         }
-        let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
+        let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(key: accessKey))
         let challenge: Data
         do {
             challenge = try Data.random(length: 8)
@@ -491,7 +491,7 @@ public final actor OATHSession: SmartCardSessionInternal {
                 source: .here()
             )
         }
-        let expectedResult = challenge.hmacSha1(usingKey: accessKey)
+        let expectedResult = challenge.hmacSha1(key: accessKey)
         guard resultTlv.value == expectedResult else {
             throw .responseParseError(
                 "Validation failed: response does not match expected result",
@@ -552,13 +552,5 @@ extension OATHSession {
             )
         }
         return derivedKey
-    }
-}
-
-extension Data {
-    internal func hmacSha1(usingKey key: Data) -> Data {
-        var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
-        CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA1), key.bytes, key.bytes.count, self.bytes, self.bytes.count, &digest)
-        return Data(digest)
     }
 }
