@@ -73,16 +73,7 @@ internal enum PIVDataFormatter {
         case .hash(let hashAlg):
             switch hashAlg {
             case .sha1:
-                hash = Data(count: Int(CC_SHA1_DIGEST_LENGTH))
-                hash.withUnsafeMutableBytes { (hashPtr) in
-                    if let rawHashPtr = hashPtr.baseAddress {
-                        data.withUnsafeBytes { (dataPtr) in
-                            if let rawDataPtr = dataPtr.baseAddress {
-                                _ = CC_SHA1(rawDataPtr, CC_LONG(data.count), rawHashPtr)
-                            }
-                        }
-                    }
-                }
+                hash = data.sha1()
             case .sha224:
                 hash = Data(count: Int(CC_SHA224_DIGEST_LENGTH))
                 hash.withUnsafeMutableBytes { (hashPtr) in

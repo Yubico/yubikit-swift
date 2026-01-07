@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
 import Foundation
 
 private let hotpCode: UInt8 = 0x10
@@ -344,11 +343,11 @@ extension OATHSession {
                 var mutableSecret = secret
                 mutableSecret.append(Data(count: Self.minSecretLenght - secret.count))
                 self.secret = mutableSecret
-            } else if algorithm == .sha1 && secret.count > CC_SHA1_BLOCK_BYTES {
+            } else if algorithm == .sha1 && secret.count > 64 {  // SHA1 block size
                 self.secret = secret.sha1()
-            } else if algorithm == .sha256 && secret.count > CC_SHA256_BLOCK_BYTES {
+            } else if algorithm == .sha256 && secret.count > 64 {  // SHA256 block size
                 self.secret = secret.sha256()
-            } else if algorithm == .sha512 && secret.count > CC_SHA512_BLOCK_BYTES {
+            } else if algorithm == .sha512 && secret.count > 128 {  // SHA512 block size
                 self.secret = secret.sha512()
             } else {
                 self.secret = secret
