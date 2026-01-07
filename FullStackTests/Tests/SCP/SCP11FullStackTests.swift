@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import XCTest
 
 @testable import YubiKit
@@ -300,7 +299,7 @@ extension SecurityDomainSession {
         try await putPublicKey(certificatePublicKey, for: oceRef, replacing: 0)
 
         // Extract the CA certificate's Subject Key Identifier for issuer referencing
-        let ski = Insecure.SHA1.hash(data: certificatePublicKey.uncompressedPoint).data
+        let ski = certificatePublicKey.uncompressedPoint.sha1()
 
         // Store the CA issuer identifier on the YubiKey
         try await putCAIssuer(for: oceRef, ski: ski)

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import OSLog
 import Testing
 
@@ -83,8 +82,7 @@ struct PIVFullStackTests {
             }
 
             try await session.verifyPin(defaultPIN)
-            let digest = SHA256.hash(data: testMessage)
-            let digestData = Data(digest)
+            let digestData = testMessage.sha256()
 
             let signature = try await session.sign(
                 digestData,
