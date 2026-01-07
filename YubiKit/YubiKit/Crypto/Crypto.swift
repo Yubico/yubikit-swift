@@ -20,6 +20,20 @@ import Security
 /// Namespace for cryptographic operations.
 internal enum Crypto {
 
+    // MARK: - Constants
+
+    /// AES block size in bytes.
+    static let aesBlockSize = kCCBlockSizeAES128
+
+    /// SHA-1 block size in bytes.
+    static let sha1BlockSize = Int(CC_SHA1_BLOCK_BYTES)
+
+    /// SHA-256 block size in bytes.
+    static let sha256BlockSize = Int(CC_SHA256_BLOCK_BYTES)
+
+    /// SHA-512 block size in bytes.
+    static let sha512BlockSize = Int(CC_SHA512_BLOCK_BYTES)
+
     // MARK: - Symmetric Algorithms
 
     /// Symmetric encryption algorithms.
@@ -128,12 +142,12 @@ internal enum Crypto {
 
     /// Computes AES-CMAC.
     static func aesCmac(_ data: Data, key: Data) throws(CryptoError) -> Data {
-        let constZero = Data(count: 16)
+        let blockSize = kCCBlockSizeAES128
+        let constZero = Data(count: blockSize)
         let constRb = Data([
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87,
         ])
-        let blockSize = 16
         let algorithm = CCAlgorithm(kCCAlgorithmAES128)
 
         let l = try cryptOperation(kCCEncrypt, data: constZero, algorithm: algorithm, mode: CCMode(kCCModeCBC), key: key, iv: constZero)
@@ -177,7 +191,7 @@ internal enum Crypto {
 
     /// Applies bit padding for CMAC.
     static func bitPadded(_ data: Data) -> Data {
-        let blockSize = 16
+        let blockSize = kCCBlockSizeAES128
         var paddedData = data
         paddedData.append(0x80)
         let remainder = data.count % blockSize
