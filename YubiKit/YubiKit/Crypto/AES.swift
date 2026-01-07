@@ -119,14 +119,14 @@ extension Data {
         return paddedData + Data(count: zeroPadding)
     }
 
-    // MARK: - Internal Implementation (CCAlgorithm)
+    // MARK: - Private Implementation (CCAlgorithm)
 
-    internal func encrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
+    fileprivate func encrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
         let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
         return try cryptOperation(UInt32(kCCEncrypt), algorithm: algorithm, mode: mode, key: key, iv: iv)
     }
 
-    internal func decrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
+    fileprivate func decrypt(algorithm: CCAlgorithm, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
         let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
         return try cryptOperation(UInt32(kCCDecrypt), algorithm: algorithm, mode: mode, key: key, iv: iv)
     }

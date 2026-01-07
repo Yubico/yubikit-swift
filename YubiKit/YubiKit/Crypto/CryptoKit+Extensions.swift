@@ -16,10 +16,10 @@ import CryptoKit
 import Foundation
 
 extension CryptoKit.Digest {
-    var bytes: [UInt8] { Array(makeIterator()) }
-    var data: Data { Data(bytes) }
+    fileprivate var bytes: [UInt8] { Array(makeIterator()) }
+    fileprivate var data: Data { Data(bytes) }
 
-    var hexStr: String {
+    fileprivate var hexStr: String {
         bytes.map { String(format: "%02X", $0) }.joined()
     }
 }

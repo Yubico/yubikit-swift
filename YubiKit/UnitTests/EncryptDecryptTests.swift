@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
 import Foundation
 import Testing
 
@@ -23,7 +22,7 @@ struct EncryptDecryptTests {
     @Test func encryptAESECB() throws {
         let data = "Hello World!0000".data(using: .utf8)!
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f8420495e472259a729439158766cfee5497c2b")!
-        let result = try data.encrypt(algorithm: UInt32(kCCAlgorithmAES), key: key)
+        let result = try data.encrypt(algorithm: .aes, key: key)
         let expected = Data(hexEncodedString: "0cb774fc5a0a3d4fbb9a6b582cb56b84")!
         #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
     }
@@ -34,7 +33,7 @@ struct EncryptDecryptTests {
                 "0cb774fc5a0a3d4fbb9a6b582cb56b84fa4e95678dbb6cc763bb4ce68df9155ffa4e95678dbb6cc763bb4ce68df9155ffa4e95678dbb6cc763bb4ce68df9155f"
         )!
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f8420495e472259a729439158766cfee5497c2b")!
-        let result = try data.decrypt(algorithm: UInt32(kCCAlgorithmAES), key: key)
+        let result = try data.decrypt(algorithm: .aes, key: key)
         let decrypted = String(data: result, encoding: .utf8)!
         let expected = "Hello World!0000000000000000000000000000000000000000000000000000"
         #expect(decrypted == expected, "Got \(decrypted), expected: \(expected)")
@@ -44,7 +43,7 @@ struct EncryptDecryptTests {
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f842049")!
         let iv = Data(hexEncodedString: "000102030405060708090a0b0c0d0e0f")!
         let data = "Hello World!0000".data(using: .utf8)!
-        let encrypted = try data.encrypt(algorithm: UInt32(kCCAlgorithmAES), key: key, iv: iv)
+        let encrypted = try data.encrypt(algorithm: .aes, key: key, iv: iv)
         #expect(encrypted == Data(hexEncodedString: "9dcb09c51227ea753fad4c6bda8efa46")!)
     }
 
@@ -52,7 +51,7 @@ struct EncryptDecryptTests {
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f842049")!
         let iv = Data(hexEncodedString: "000102030405060708090a0b0c0d0e0f")!
         let encrypted = Data(hexEncodedString: "9dcb09c51227ea753fad4c6bda8efa46")!
-        let decrypted = try encrypted.decrypt(algorithm: UInt32(kCCAlgorithmAES), key: key, iv: iv)
+        let decrypted = try encrypted.decrypt(algorithm: .aes, key: key, iv: iv)
         let plainText = String(data: decrypted, encoding: .utf8)
         #expect(
             plainText == "Hello World!0000",
@@ -63,7 +62,7 @@ struct EncryptDecryptTests {
     @Test func encrypt3DES() throws {
         let data = "Hello World!0000".data(using: .utf8)!
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f8420495e472259a7294391")!
-        let result = try data.encrypt(algorithm: UInt32(kCCAlgorithm3DES), key: key)
+        let result = try data.encrypt(algorithm: .tripleDES, key: key)
         let expected = Data(hexEncodedString: "b2b1619cecc9e1b2fba580d764af2c43")!
         #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
     }
@@ -71,7 +70,7 @@ struct EncryptDecryptTests {
     @Test func decrypt3DES() throws {
         let data = Data(hexEncodedString: "b2b1619cecc9e1b2fba580d764af2c43")!
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f8420495e472259a7294391")!
-        let result = try data.decrypt(algorithm: UInt32(kCCAlgorithm3DES), key: key)
+        let result = try data.decrypt(algorithm: .tripleDES, key: key)
         let decrypted = String(data: result, encoding: .utf8)!
         let expected = "Hello World!0000"
         #expect(decrypted == expected, "Got \(decrypted), expected: \(expected)")
