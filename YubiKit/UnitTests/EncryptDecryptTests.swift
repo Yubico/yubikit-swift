@@ -76,41 +76,41 @@ struct EncryptDecryptTests {
         #expect(decrypted == expected, "Got \(decrypted), expected: \(expected)")
     }
 
-    @Test func aesCmac0() throws {
+    @Test func aescmac0() throws {
         let key = Data(hexEncodedString: "2b7e1516 28aed2a6 abf71588 09cf4f3c")!
         let msg = Data()
         let expectedMac = Data(hexEncodedString: "bb1d6929 e9593728 7fa37d12 9b756746")!
-        let result = try msg.aesCmac(key: key)
+        let result = try msg.aescmac(key: key)
         #expect(result == expectedMac)
     }
 
-    @Test func aesCmac16() throws {
+    @Test func aescmac16() throws {
         let key = Data(hexEncodedString: "2b7e1516 28aed2a6 abf71588 09cf4f3c")!
         let msg = Data(hexEncodedString: "6bc1bee2 2e409f96 e93d7e11 7393172a")!
         let expectedMac = Data(hexEncodedString: "070a16b4 6b4d4144 f79bdd9d d04a287c")!
-        let result = try msg.aesCmac(key: key)
+        let result = try msg.aescmac(key: key)
         #expect(result == expectedMac)
     }
 
-    @Test func aesCmac40() throws {
+    @Test func aescmac40() throws {
         let key = Data(hexEncodedString: "2b7e1516 28aed2a6 abf71588 09cf4f3c")!
         let msg = Data(
             hexEncodedString:
                 "6bc1bee2 2e409f96 e93d7e11 7393172a ae2d8a57 1e03ac9c 9eb76fac 45af8e51 30c81c46 a35ce411"
         )!
         let expectedMac = Data(hexEncodedString: "dfa66747 de9ae630 30ca3261 1497c827")!
-        let result = try msg.aesCmac(key: key)
+        let result = try msg.aescmac(key: key)
         #expect(result == expectedMac)
     }
 
-    @Test func aesCmac64() throws {
+    @Test func aescmac64() throws {
         let key = Data(hexEncodedString: "2b7e1516 28aed2a6 abf71588 09cf4f3c")!
         let msg = Data(
             hexEncodedString:
                 "6bc1bee2 2e409f96 e93d7e11 7393172a ae2d8a57 1e03ac9c 9eb76fac 45af8e51 30c81c46 a35ce411 e5fbc119 1a0a52ef f69f2445 df4f9b17 ad2b417b e66c3710"
         )!
         let expectedMac = Data(hexEncodedString: "51f0bebf 7e3b9d92 fc497417 79363cfe")!
-        let result = try msg.aesCmac(key: key)
+        let result = try msg.aescmac(key: key)
         #expect(result == expectedMac)
     }
 

@@ -110,7 +110,7 @@ internal enum Crypto {
                 key.withUnsafeBytes { keyBytes in
                     iv.withUnsafeBytes { ivBytes in
                         var cryptorRef: CCCryptorRef?
-                        CCCryptorCreateWithMode(
+                        let createStatus = CCCryptorCreateWithMode(
                             CCOperation(operation),
                             mode,
                             algorithm,
@@ -124,8 +124,12 @@ internal enum Crypto {
                             0,
                             &cryptorRef
                         )
+                        guard createStatus == kCCSuccess, let cryptor = cryptorRef else {
+                            return createStatus
+                        }
+                        defer { CCCryptorRelease(cryptor) }
                         return CCCryptorUpdate(
-                            cryptorRef,
+                            cryptor,
                             dataBytes.baseAddress,
                             data.count,
                             bufferBytes.baseAddress,

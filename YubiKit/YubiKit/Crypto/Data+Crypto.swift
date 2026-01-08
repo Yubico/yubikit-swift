@@ -109,7 +109,7 @@ extension Data {
     /// Computes AES-CMAC.
     /// - Parameter key: The AES key.
     /// - Returns: 16-byte AES-CMAC.
-    internal func aesCmac(key: Data) throws(CryptoError) -> Data {
+    internal func aescmac(key: Data) throws(CryptoError) -> Data {
         try Crypto.AES.cmac(self, key: key)
     }
 

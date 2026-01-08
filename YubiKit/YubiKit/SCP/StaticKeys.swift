@@ -66,7 +66,7 @@ public struct StaticKeys: Sendable {
         i.append(UInt8(1).data)
         i.append(context)
 
-        let digest = try i.aesCmac(key: key)
+        let digest = try i.aescmac(key: key)
         return digest.prefix(Int(l / 8))
     }
 }
