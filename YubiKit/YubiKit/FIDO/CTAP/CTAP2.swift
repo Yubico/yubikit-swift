@@ -350,6 +350,9 @@ public enum CTAP2 {
     /// Namespace for ClientPin command types.
     public enum ClientPin {}
 
+    /// Namespace for LargeBlobs command types.
+    public enum LargeBlobs {}
+
     /// Namespace for CTAP2 extension types.
     public enum Extension {}
 }

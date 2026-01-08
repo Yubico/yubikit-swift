@@ -31,6 +31,9 @@ extension CTAP2.Extension {
         /// The credProtect extension for setting credential protection levels.
         case credProtect
 
+        /// The largeBlobKey extension for associating large blobs with credentials (CTAP 2.1+).
+        case largeBlobKey
+
         /// Other extension not explicitly defined.
         case other(String)
 
@@ -40,6 +43,7 @@ extension CTAP2.Extension {
             case .hmacSecret: return "hmac-secret"
             case .hmacSecretMC: return "hmac-secret-mc"
             case .credProtect: return "credProtect"
+            case .largeBlobKey: return "largeBlobKey"
             case .other(let value): return value
             }
         }
@@ -52,6 +56,7 @@ extension CTAP2.Extension {
             case "hmac-secret": self = .hmacSecret
             case "hmac-secret-mc": self = .hmacSecretMC
             case "credProtect": self = .credProtect
+            case "largeBlobKey": self = .largeBlobKey
             default: self = .other(value)
             }
         }
