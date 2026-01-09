@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import Compression
+import CryptoKit
 import Foundation
 
 // MARK: - LargeBlobs Session Methods
@@ -29,59 +31,6 @@ extension CTAP2.Session {
     public func supportsLargeBlobs() async throws(CTAP2.SessionError) -> Bool {
         let info = try await getInfo()
         return info.options.largeBlobs == true
-    }
-
-    // MARK: - Low-Level Fragment Operations
-
-    /// Reads a fragment of the large blob array.
-    ///
-    /// - Parameters:
-    ///   - get: Maximum number of bytes to read.
-    ///   - offset: Byte offset to start reading from.
-    /// - Returns: The fragment data.
-    func readLargeBlobFragment(
-        get: UInt,
-        offset: UInt
-    ) async throws(CTAP2.SessionError) -> Data {
-        let params = CTAP2.LargeBlobs.ReadParameters(get: get, offset: offset)
-        let stream: CTAP2.StatusStream<CTAP2.LargeBlobs.Response> = await interface.send(
-            command: .largeBlobs,
-            payload: params
-        )
-        let response = try await stream.value
-        return response.config
-    }
-
-    /// Writes a fragment to the large blob array.
-    ///
-    /// - Parameters:
-    ///   - set: The fragment data to write.
-    ///   - offset: Byte offset for this fragment.
-    ///   - length: Total length (required only for first fragment, nil otherwise).
-    ///   - pinToken: PIN/UV auth token with largeBlobWrite permission.
-    func writeLargeBlobFragment(
-        set: Data,
-        offset: UInt,
-        length: UInt?,
-        pinToken: CTAP2.ClientPin.Token
-    ) async throws(CTAP2.SessionError) {
-        // Compute PIN auth
-        let message = CTAP2.LargeBlobs.writeAuthMessage(fragment: set, offset: offset)
-        let pinUVAuthParam = pinToken.authenticate(message: message)
-
-        let params = CTAP2.LargeBlobs.WriteParameters(
-            set: set,
-            offset: offset,
-            length: length,
-            pinUVAuthParam: pinUVAuthParam,
-            pinUVAuthProtocol: pinToken.protocolVersion
-        )
-
-        let stream: CTAP2.StatusStream<Void> = await interface.send(
-            command: .largeBlobs,
-            payload: params
-        )
-        try await stream.value
     }
 
     // MARK: - High-Level Array Operations
@@ -107,16 +56,16 @@ extension CTAP2.Session {
         }
 
         // Validate minimum size (at least checksum)
-        guard data.count >= CTAP2.LargeBlobs.checksumLength else {
+        guard data.count >= Self.checksumLength else {
             throw .ctapError(.integrityFailure, source: .here())
         }
 
         // Split data and checksum
-        let content = Data(data.dropLast(CTAP2.LargeBlobs.checksumLength))
-        let checksum = Data(data.suffix(CTAP2.LargeBlobs.checksumLength))
+        let content = Data(data.dropLast(Self.checksumLength))
+        let checksum = Data(data.suffix(Self.checksumLength))
 
         // Validate checksum
-        let expectedChecksum = CTAP2.LargeBlobs.checksum(content)
+        let expectedChecksum = self.checksum(content)
         guard checksum == expectedChecksum else {
             throw .ctapError(.integrityFailure, source: .here())
         }
@@ -150,7 +99,7 @@ extension CTAP2.Session {
         // Encode array and append checksum
         let encoded = blobArray.cbor().encode()
         var data = encoded
-        data.append(CTAP2.LargeBlobs.checksum(encoded))
+        data.append(checksum(encoded))
 
         // Check against max size if available
         if let maxSize = info.maxSerializedLargeBlobArray {
@@ -197,7 +146,7 @@ extension CTAP2.Session {
         // Try to decrypt each entry with the key
         for entry in blobArray.entries {
             do {
-                let decrypted = try CTAP2.LargeBlobs.decrypt(entry: entry, key: key)
+                let decrypted = try decrypt(entry: entry, key: key)
                 return decrypted
             } catch {
                 // Wrong key for this entry, try next
@@ -228,7 +177,7 @@ extension CTAP2.Session {
         // Remove existing entries for this key
         blobArray.entries.removeAll { entry in
             do {
-                _ = try CTAP2.LargeBlobs.decrypt(entry: entry, key: key)
+                _ = try decrypt(entry: entry, key: key)
                 return true  // Successfully decrypted = same key, remove it
             } catch {
                 return false  // Different key, keep it
@@ -236,7 +185,7 @@ extension CTAP2.Session {
         }
 
         // Encrypt and add new entry
-        let newEntry = try CTAP2.LargeBlobs.encrypt(data: data, key: key)
+        let newEntry = try encrypt(data: data, key: key)
         blobArray.entries.append(newEntry)
 
         // Write back
@@ -263,7 +212,7 @@ extension CTAP2.Session {
         // Remove entries for this key
         blobArray.entries.removeAll { entry in
             do {
-                _ = try CTAP2.LargeBlobs.decrypt(entry: entry, key: key)
+                _ = try decrypt(entry: entry, key: key)
                 return true  // Successfully decrypted = same key, remove it
             } catch {
                 return false  // Different key, keep it
@@ -273,6 +222,259 @@ extension CTAP2.Session {
         // Only write back if something was removed
         if blobArray.entries.count != originalCount {
             try await writeBlobArray(blobArray, pinToken: pinToken)
+        }
+    }
+
+    // MARK: - Low-Level Fragment Operations
+
+    /// Reads a fragment of the large blob array.
+    private func readLargeBlobFragment(
+        get: UInt,
+        offset: UInt
+    ) async throws(CTAP2.SessionError) -> Data {
+        let params = ReadParameters(get: get, offset: offset)
+        let stream: CTAP2.StatusStream<Response> = await interface.send(
+            command: .largeBlobs,
+            payload: params
+        )
+        let response = try await stream.value
+        return response.config
+    }
+
+    /// Writes a fragment to the large blob array.
+    private func writeLargeBlobFragment(
+        set: Data,
+        offset: UInt,
+        length: UInt?,
+        pinToken: CTAP2.ClientPin.Token
+    ) async throws(CTAP2.SessionError) {
+        // Compute PIN auth
+        let message = writeAuthMessage(fragment: set, offset: offset)
+        let pinUVAuthParam = pinToken.authenticate(message: message)
+
+        let params = WriteParameters(
+            set: set,
+            offset: offset,
+            length: length,
+            pinUVAuthParam: pinUVAuthParam,
+            pinUVAuthProtocol: pinToken.protocolVersion
+        )
+
+        let stream: CTAP2.StatusStream<Void> = await interface.send(
+            command: .largeBlobs,
+            payload: params
+        )
+        try await stream.value
+    }
+
+    // MARK: - Crypto Operations (Private)
+
+    /// Length of the checksum appended to the serialized blob array.
+    private static let checksumLength = 16
+
+    /// Nonce length for AES-GCM encryption.
+    private static let nonceLength = 12
+
+    /// Computes the SHA-256 checksum truncated to 16 bytes.
+    private func checksum(_ data: Data) -> Data {
+        let hash = SHA256.hash(data: data)
+        return Data(hash.prefix(Self.checksumLength))
+    }
+
+    /// Compresses data using DEFLATE.
+    private func compress(_ data: Data) throws(CTAP2.SessionError) -> Data {
+        guard !data.isEmpty else {
+            return Data()
+        }
+
+        let destinationSize = data.count + 64
+        var destinationBuffer = Data(count: destinationSize)
+
+        let compressedSize = data.withUnsafeBytes { srcBuffer in
+            destinationBuffer.withUnsafeMutableBytes { dstBuffer in
+                compression_encode_buffer(
+                    dstBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                    dstBuffer.count,
+                    srcBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                    srcBuffer.count,
+                    nil,
+                    COMPRESSION_ZLIB
+                )
+            }
+        }
+
+        guard compressedSize > 0 else {
+            throw .dataProcessingError("DEFLATE compression failed", source: .here())
+        }
+
+        return destinationBuffer.prefix(compressedSize)
+    }
+
+    /// Decompresses DEFLATE data.
+    private func decompress(_ data: Data, originalSize: Int) throws(CTAP2.SessionError) -> Data {
+        guard originalSize > 0 else {
+            return Data()
+        }
+        guard !data.isEmpty else {
+            throw .dataProcessingError("Cannot decompress empty data", source: .here())
+        }
+
+        var destinationBuffer = Data(count: originalSize)
+
+        let decompressedSize = data.withUnsafeBytes { srcBuffer in
+            destinationBuffer.withUnsafeMutableBytes { dstBuffer in
+                compression_decode_buffer(
+                    dstBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                    dstBuffer.count,
+                    srcBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                    srcBuffer.count,
+                    nil,
+                    COMPRESSION_ZLIB
+                )
+            }
+        }
+
+        guard decompressedSize == originalSize else {
+            throw .dataProcessingError(
+                "DEFLATE decompression size mismatch: expected \(originalSize), got \(decompressedSize)",
+                source: .here()
+            )
+        }
+
+        return destinationBuffer
+    }
+
+    /// Encrypts data for storage in the large blob array.
+    private func encrypt(data: Data, key: Data) throws(CTAP2.SessionError) -> CTAP2.LargeBlobs.BlobArray.Entry {
+        guard key.count == 32 else {
+            throw .illegalArgument("largeBlobKey must be 32 bytes", source: .here())
+        }
+
+        let originalSize = data.count
+        let compressed = try compress(data)
+
+        // Generate random nonce
+        var nonce = Data(count: Self.nonceLength)
+        let status = nonce.withUnsafeMutableBytes { buffer in
+            SecRandomCopyBytes(kSecRandomDefault, Self.nonceLength, buffer.baseAddress!)
+        }
+        guard status == errSecSuccess else {
+            throw .dataProcessingError("Failed to generate random nonce", source: .here())
+        }
+
+        // Build associated data: "blob" || uint64LE(originalSize)
+        var ad = Data("blob".utf8)
+        var sizeLE = UInt64(originalSize).littleEndian
+        ad.append(Data(bytes: &sizeLE, count: 8))
+
+        // Encrypt with AES-256-GCM
+        do {
+            let symmetricKey = SymmetricKey(data: key)
+            let gcmNonce = try AES.GCM.Nonce(data: nonce)
+            let sealedBox = try AES.GCM.seal(compressed, using: symmetricKey, nonce: gcmNonce, authenticating: ad)
+
+            guard let ciphertext = sealedBox.combined?.dropFirst(Self.nonceLength) else {
+                throw CTAP2.SessionError.dataProcessingError("AES-GCM encryption failed", source: .here())
+            }
+
+            return CTAP2.LargeBlobs.BlobArray.Entry(
+                ciphertext: Data(ciphertext),
+                nonce: nonce,
+                origSize: originalSize
+            )
+        } catch let error as CTAP2.SessionError {
+            throw error
+        } catch {
+            throw .dataProcessingError("AES-GCM encryption failed: \(error)", source: .here())
+        }
+    }
+
+    /// Decrypts a blob entry.
+    private func decrypt(entry: CTAP2.LargeBlobs.BlobArray.Entry, key: Data) throws(CTAP2.SessionError) -> Data {
+        guard key.count == 32 else {
+            throw .illegalArgument("largeBlobKey must be 32 bytes", source: .here())
+        }
+
+        guard entry.nonce.count == Self.nonceLength else {
+            throw .dataProcessingError("Invalid nonce length", source: .here())
+        }
+
+        // Build associated data: "blob" || uint64LE(originalSize)
+        var ad = Data("blob".utf8)
+        var sizeLE = UInt64(entry.origSize).littleEndian
+        ad.append(Data(bytes: &sizeLE, count: 8))
+
+        // Decrypt with AES-256-GCM
+        let compressed: Data
+        do {
+            let symmetricKey = SymmetricKey(data: key)
+            let combined = entry.nonce + entry.ciphertext
+            let sealedBox = try AES.GCM.SealedBox(combined: combined)
+            compressed = try AES.GCM.open(sealedBox, using: symmetricKey, authenticating: ad)
+        } catch {
+            throw .dataProcessingError("AES-GCM decryption failed: \(error)", source: .here())
+        }
+
+        return try decompress(compressed, originalSize: entry.origSize)
+    }
+
+    /// Computes the PIN/UV auth message for write operations.
+    private func writeAuthMessage(fragment: Data, offset: UInt) -> Data {
+        var message = Data(repeating: 0xFF, count: 32)
+        message.append(contentsOf: [0x0C, 0x00])
+        var offsetLE = UInt32(offset).littleEndian
+        message.append(Data(bytes: &offsetLE, count: 4))
+        message.append(Data(SHA256.hash(data: fragment)))
+        return message
+    }
+
+    // MARK: - Parameters (Private)
+
+    /// Parameters for reading from the large blob array.
+    private struct ReadParameters: Sendable, CBOR.Encodable {
+        let get: UInt
+        let offset: UInt
+
+        func cbor() -> CBOR.Value {
+            var map: [CBOR.Value: CBOR.Value] = [:]
+            map[.int(0x01)] = get.cbor()
+            map[.int(0x03)] = offset.cbor()
+            return .map(map)
+        }
+    }
+
+    /// Parameters for writing to the large blob array.
+    private struct WriteParameters: Sendable, CBOR.Encodable {
+        let set: Data
+        let offset: UInt
+        let length: UInt?
+        let pinUVAuthParam: Data
+        let pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion
+
+        func cbor() -> CBOR.Value {
+            var map: [CBOR.Value: CBOR.Value] = [:]
+            map[.int(0x02)] = set.cbor()
+            map[.int(0x03)] = offset.cbor()
+            if let length {
+                map[.int(0x04)] = length.cbor()
+            }
+            map[.int(0x05)] = pinUVAuthParam.cbor()
+            map[.int(0x06)] = pinUVAuthProtocol.cbor()
+            return .map(map)
+        }
+    }
+
+    /// Response from the authenticatorLargeBlobs command.
+    private struct Response: Sendable, CBOR.Decodable {
+        let config: Data
+
+        init?(cbor: CBOR.Value) {
+            guard let map = cbor.mapValue,
+                let config = map[.int(0x01)]?.dataValue
+            else {
+                return nil
+            }
+            self.config = config
         }
     }
 }
