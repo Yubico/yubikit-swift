@@ -16,7 +16,7 @@ import Foundation
 
 extension CBOR {
     // CBOR value representation for CTAP2/FIDO2
-    indirect enum Value: Sendable {
+    indirect public enum Value: Sendable {
         case unsignedInt(UInt64)  // CBOR major type 0
         case negativeInt(UInt64)  // CBOR major type 1, one's complement
         case byteString(Data)  // CBOR major type 2
@@ -32,7 +32,7 @@ extension CBOR {
 
 extension CBOR.Value {
     // Creates a CBOR value from an Int64
-    init(_ value: Int64) {
+    public init(_ value: Int64) {
         if value >= 0 {
             self = .unsignedInt(UInt64(value))
         } else {
@@ -55,32 +55,32 @@ extension CBOR.Value {
     }
 
     // Creates a CBOR value from a UInt64
-    init(_ value: UInt64) {
+    public init(_ value: UInt64) {
         self = .unsignedInt(value)
     }
 
     // Creates a CBOR value from a String
-    init(_ value: String) {
+    public init(_ value: String) {
         self = .textString(value)
     }
 
     // Creates a CBOR value from Data
-    init(_ value: Data) {
+    public init(_ value: Data) {
         self = .byteString(value)
     }
 
     // Creates a CBOR value from a Bool
-    init(_ value: Bool) {
+    public init(_ value: Bool) {
         self = .boolean(value)
     }
 
     // Creates a CBOR array from an array of values
-    init(_ array: [CBOR.Value]) {
+    public init(_ array: [CBOR.Value]) {
         self = .array(array)
     }
 
     // Creates a CBOR map from a dictionary with CBOR.Value keys
-    init(_ dict: [CBOR.Value: CBOR.Value]) {
+    public init(_ dict: [CBOR.Value: CBOR.Value]) {
         self = .map(dict)
     }
 }
@@ -180,14 +180,14 @@ extension CBOR.Value {
 // MARK: - Hashable & Equatable
 
 extension CBOR.Value: Hashable {
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         // Use the canonical CBOR encoding for hashing
         hasher.combine(self.encode())
     }
 }
 
 extension CBOR.Value: Equatable {
-    static func == (lhs: CBOR.Value, rhs: CBOR.Value) -> Bool {
+    public static func == (lhs: CBOR.Value, rhs: CBOR.Value) -> Bool {
         // Two CBOR values are equal if their canonical encodings are equal
         lhs.encode() == rhs.encode()
     }
@@ -196,31 +196,31 @@ extension CBOR.Value: Equatable {
 // MARK: - ExpressibleBy Literal Conformances
 
 extension CBOR.Value: ExpressibleByIntegerLiteral {
-    init(integerLiteral value: Int) {
+    public init(integerLiteral value: Int) {
         self.init(Int64(value))
     }
 }
 
 extension CBOR.Value: ExpressibleByStringLiteral {
-    init(stringLiteral value: String) {
+    public init(stringLiteral value: String) {
         self.init(value)
     }
 }
 
 extension CBOR.Value: ExpressibleByBooleanLiteral {
-    init(booleanLiteral value: Bool) {
+    public init(booleanLiteral value: Bool) {
         self.init(value)
     }
 }
 
 extension CBOR.Value: ExpressibleByArrayLiteral {
-    init(arrayLiteral elements: CBOR.Value...) {
+    public init(arrayLiteral elements: CBOR.Value...) {
         self = .array(elements)
     }
 }
 
 extension CBOR.Value: ExpressibleByDictionaryLiteral {
-    init(dictionaryLiteral elements: (CBOR.Value, CBOR.Value)...) {
+    public init(dictionaryLiteral elements: (CBOR.Value, CBOR.Value)...) {
         var dict: [CBOR.Value: CBOR.Value] = [:]
         for (key, value) in elements {
             dict[key] = value
@@ -230,7 +230,7 @@ extension CBOR.Value: ExpressibleByDictionaryLiteral {
 }
 
 extension CBOR.Value: ExpressibleByNilLiteral {
-    init(nilLiteral: ()) {
+    public init(nilLiteral: ()) {
         self = .null
     }
 }
@@ -238,7 +238,7 @@ extension CBOR.Value: ExpressibleByNilLiteral {
 // MARK: - CustomStringConvertible
 
 extension CBOR.Value: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         switch self {
         case .unsignedInt(let n):
             return "\(n)"

@@ -100,7 +100,7 @@ extension CTAP2.Extension.MakeCredential {
     public struct Input: Sendable {
         private let encoded: [CTAP2.Extension.Identifier: CBOR.Value]
 
-        internal init(encoded: [CTAP2.Extension.Identifier: CBOR.Value]) {
+        public init(encoded: [CTAP2.Extension.Identifier: CBOR.Value]) {
             self.encoded = encoded
         }
 
@@ -132,7 +132,7 @@ extension CTAP2.Extension.GetAssertion {
     public struct Input: Sendable {
         private let encoded: [CTAP2.Extension.Identifier: CBOR.Value]
 
-        internal init(encoded: [CTAP2.Extension.Identifier: CBOR.Value]) {
+        public init(encoded: [CTAP2.Extension.Identifier: CBOR.Value]) {
             self.encoded = encoded
         }
 

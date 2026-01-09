@@ -38,7 +38,7 @@ extension WebAuthn {
         /// Raw extension outputs map (present when ED flag is set).
         ///
         /// Use extension-specific `result(from:)` methods for typed access to extension outputs.
-        internal let extensions: [WebAuthn.Extension.Identifier: CBOR.Value]?
+        public let extensions: [WebAuthn.Extension.Identifier: CBOR.Value]?
 
         /// Authenticator data flags.
         public struct Flags: OptionSet, Sendable {
