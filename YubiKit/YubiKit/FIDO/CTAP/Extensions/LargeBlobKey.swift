@@ -23,36 +23,6 @@ extension CTAP2.Extension {
     /// or assertion. The key can then be used with the LargeBlobs API to store
     /// and retrieve arbitrary data associated with the credential.
     ///
-    /// ## MakeCredential Usage
-    ///
-    /// Request a largeBlobKey when creating a credential:
-    /// ```swift
-    /// let largeBlobKey = CTAP2.Extension.LargeBlobKey()
-    /// let params = CTAP2.MakeCredential.Parameters(
-    ///     ...,
-    ///     extensions: [largeBlobKey.makeCredential.input()]
-    /// )
-    /// let response = try await session.makeCredential(params)
-    /// if let key = largeBlobKey.makeCredential.output(from: response) {
-    ///     // Store key for later blob operations
-    /// }
-    /// ```
-    ///
-    /// ## GetAssertion Usage
-    ///
-    /// Retrieve a largeBlobKey during authentication:
-    /// ```swift
-    /// let largeBlobKey = CTAP2.Extension.LargeBlobKey()
-    /// let params = CTAP2.GetAssertion.Parameters(
-    ///     ...,
-    ///     extensions: [largeBlobKey.getAssertion.input()]
-    /// )
-    /// let response = try await session.getAssertion(params)
-    /// if let key = largeBlobKey.getAssertion.output(from: response) {
-    ///     // Use key with LargeBlobs API
-    /// }
-    /// ```
-    ///
     /// - SeeAlso: [CTAP2 largeBlobKey Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#sctn-largeBlobKey-extension)
     public struct LargeBlobKey: Sendable {
         /// The extension identifier for largeBlobKey.
