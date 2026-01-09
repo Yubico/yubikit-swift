@@ -141,7 +141,7 @@ struct LargeBlobsTests {
         let key = Data(repeating: 0x42, count: 32)
 
         let entry = try CTAP2.LargeBlobs.encrypt(data: plaintext, key: key)
-        #expect(entry.origSize == UInt64(plaintext.count))
+        #expect(entry.origSize == plaintext.count)
     }
 
     @Test("Encryption rejects invalid key length")
@@ -350,12 +350,6 @@ struct LargeBlobsTests {
     }
 
     // MARK: - LargeBlobKey Extension Tests
-
-    @Test("LargeBlobKey extension identifier is largeBlobKey")
-    func testLargeBlobKeyIdentifier() {
-        // Static identifier on the type
-        #expect(CTAP2.Extension.LargeBlobKey.identifier == .largeBlobKey)
-    }
 
     @Test("LargeBlobKey can create MakeCredential input")
     func testLargeBlobKeyMakeCredentialInput() {

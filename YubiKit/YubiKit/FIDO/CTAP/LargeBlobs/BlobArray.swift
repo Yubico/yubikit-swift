@@ -54,7 +54,7 @@ extension CTAP2.LargeBlobs.BlobArray {
         public let nonce: Data
 
         /// Original uncompressed size of the data.
-        public let origSize: UInt64
+        public let origSize: Int
 
         /// Creates a blob entry.
         ///
@@ -62,7 +62,7 @@ extension CTAP2.LargeBlobs.BlobArray {
         ///   - ciphertext: The encrypted ciphertext.
         ///   - nonce: The 12-byte nonce.
         ///   - origSize: The original uncompressed size.
-        public init(ciphertext: Data, nonce: Data, origSize: UInt64) {
+        public init(ciphertext: Data, nonce: Data, origSize: Int) {
             self.ciphertext = ciphertext
             self.nonce = nonce
             self.origSize = origSize
@@ -117,6 +117,6 @@ extension CTAP2.LargeBlobs.BlobArray.Entry: CBOR.Decodable {
         }
         self.ciphertext = ciphertext
         self.nonce = nonce
-        self.origSize = UInt64(origSize)
+        self.origSize = origSize
     }
 }

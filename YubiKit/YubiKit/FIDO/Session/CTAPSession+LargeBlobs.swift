@@ -18,8 +18,8 @@ import Foundation
 
 extension CTAP2.Session {
 
-    /// Overhead bytes subtracted from maxMsgSize for fragment calculations.
-    private static let fragmentOverhead = 64
+    /// maxFragmentLength = maxMsgSize - 64, as per spec.
+    private static let maxFragmentLengthOverhead = 64
 
     // MARK: - Support Check
 
@@ -92,7 +92,7 @@ extension CTAP2.Session {
     /// - Throws: `CTAP2.SessionError` if reading fails or checksum is invalid.
     public func readBlobArray() async throws(CTAP2.SessionError) -> CTAP2.LargeBlobs.BlobArray {
         let info = try await getInfo()
-        let maxFragment = Int(info.maxMsgSize) - Self.fragmentOverhead
+        let maxFragment = Int(info.maxMsgSize) - Self.maxFragmentLengthOverhead
 
         // Read all fragments
         var data = Data()
@@ -145,7 +145,7 @@ extension CTAP2.Session {
         pinToken: CTAP2.ClientPin.Token
     ) async throws(CTAP2.SessionError) {
         let info = try await getInfo()
-        let maxFragment = Int(info.maxMsgSize) - Self.fragmentOverhead
+        let maxFragment = Int(info.maxMsgSize) - Self.maxFragmentLengthOverhead
 
         // Encode array and append checksum
         let encoded = blobArray.cbor().encode()

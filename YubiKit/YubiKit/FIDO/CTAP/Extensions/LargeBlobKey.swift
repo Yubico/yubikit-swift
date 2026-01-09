@@ -56,7 +56,7 @@ extension CTAP2.Extension {
     /// - SeeAlso: [CTAP2 largeBlobKey Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#sctn-largeBlobKey-extension)
     public struct LargeBlobKey: Sendable {
         /// The extension identifier for largeBlobKey.
-        static let identifier: Identifier = .largeBlobKey
+        private static let identifier: Identifier = .largeBlobKey
 
         // MARK: - Initializer
 

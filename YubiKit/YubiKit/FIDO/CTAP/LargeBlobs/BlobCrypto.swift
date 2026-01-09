@@ -24,7 +24,7 @@ extension CTAP2.LargeBlobs {
     static let checksumLength = 16
 
     /// Nonce length for AES-GCM encryption.
-    static let nonceLength = 12
+    private static let nonceLength = 12
 
     // MARK: - Checksum
 
@@ -45,8 +45,12 @@ extension CTAP2.LargeBlobs {
     /// - Returns: The compressed data.
     /// - Throws: `CTAP2.SessionError` if compression fails.
     static func compress(_ data: Data) throws(CTAP2.SessionError) -> Data {
+        guard !data.isEmpty else {
+            return Data()
+        }
+
         // Allocate destination buffer (worst case: slightly larger than input)
-        let destinationSize = max(data.count + 64, 128)
+        let destinationSize = data.count + 64
         var destinationBuffer = Data(count: destinationSize)
 
         let compressedSize = data.withUnsafeBytes { srcBuffer in
@@ -77,6 +81,13 @@ extension CTAP2.LargeBlobs {
     /// - Returns: The decompressed data.
     /// - Throws: `CTAP2.SessionError` if decompression fails or size doesn't match.
     static func decompress(_ data: Data, originalSize: Int) throws(CTAP2.SessionError) -> Data {
+        guard originalSize > 0 else {
+            return Data()
+        }
+        guard !data.isEmpty else {
+            throw .dataProcessingError("Cannot decompress empty data", source: .here())
+        }
+
         // Allocate destination buffer for original size
         var destinationBuffer = Data(count: originalSize)
 
@@ -120,20 +131,23 @@ extension CTAP2.LargeBlobs {
             throw .illegalArgument("largeBlobKey must be 32 bytes", source: .here())
         }
 
-        let originalSize = UInt64(data.count)
+        let originalSize = data.count
 
         // Compress the data
         let compressed = try compress(data)
 
         // Generate random nonce
         var nonce = Data(count: nonceLength)
-        nonce.withUnsafeMutableBytes { buffer in
-            _ = SecRandomCopyBytes(kSecRandomDefault, nonceLength, buffer.baseAddress!)
+        let status = nonce.withUnsafeMutableBytes { buffer in
+            SecRandomCopyBytes(kSecRandomDefault, nonceLength, buffer.baseAddress!)
+        }
+        guard status == errSecSuccess else {
+            throw .dataProcessingError("Failed to generate random nonce", source: .here())
         }
 
         // Build associated data: "blob" || uint64LE(originalSize)
         var ad = Data("blob".utf8)
-        var sizeLE = originalSize.littleEndian
+        var sizeLE = UInt64(originalSize).littleEndian
         ad.append(Data(bytes: &sizeLE, count: 8))
 
         // Encrypt with AES-256-GCM
@@ -177,7 +191,7 @@ extension CTAP2.LargeBlobs {
 
         // Build associated data: "blob" || uint64LE(originalSize)
         var ad = Data("blob".utf8)
-        var sizeLE = entry.origSize.littleEndian
+        var sizeLE = UInt64(entry.origSize).littleEndian
         ad.append(Data(bytes: &sizeLE, count: 8))
 
         // Decrypt with AES-256-GCM
@@ -195,7 +209,7 @@ extension CTAP2.LargeBlobs {
         }
 
         // Decompress
-        return try decompress(compressed, originalSize: Int(entry.origSize))
+        return try decompress(compressed, originalSize: entry.origSize)
     }
 
     // MARK: - PIN Auth Message
