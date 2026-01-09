@@ -23,7 +23,7 @@ extension CTAP2.LargeBlobs {
     /// followed by a 16-byte SHA-256 checksum.
     public struct BlobArray: Sendable, Equatable {
         /// Individual blob entries in the array.
-        public var entries: [Entry]
+        public internal(set) var entries: [Entry]
 
         /// Creates an empty blob array.
         public init() {
@@ -55,18 +55,6 @@ extension CTAP2.LargeBlobs.BlobArray {
 
         /// Original uncompressed size of the data.
         public let origSize: Int
-
-        /// Creates a blob entry.
-        ///
-        /// - Parameters:
-        ///   - ciphertext: The encrypted ciphertext.
-        ///   - nonce: The 12-byte nonce.
-        ///   - origSize: The original uncompressed size.
-        public init(ciphertext: Data, nonce: Data, origSize: Int) {
-            self.ciphertext = ciphertext
-            self.nonce = nonce
-            self.origSize = origSize
-        }
     }
 }
 

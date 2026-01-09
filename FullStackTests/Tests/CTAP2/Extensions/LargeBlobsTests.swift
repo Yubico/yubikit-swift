@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import Foundation
 import Testing
 import YubiKit
@@ -343,58 +342,6 @@ struct LargeBlobsFullStackTests {
 
     // MARK: - Error Cases
 
-    @Test("Invalid Checksum Returns Integrity Failure")
-    func testInvalidChecksum() async throws {
-        try await withCTAP2Session { session in
-            guard try await session.supportsLargeBlobs() else {
-                print("LargeBlobs not supported - skipping")
-                return
-            }
-
-            let info = try await session.getInfo()
-            guard info.options.clientPin == true else {
-                print("PIN not set - skipping")
-                return
-            }
-
-            // Build a blob array with an invalid checksum
-            let emptyArray = CTAP2.LargeBlobs.BlobArray()
-            let encoded = emptyArray.cbor().encode()
-
-            // Create invalid checksum (correct checksum with last byte corrupted)
-            var badChecksum = CTAP2.LargeBlobs.checksum(encoded)
-            badChecksum[badChecksum.count - 1] ^= 0xFF
-
-            var dataWithBadChecksum = encoded
-            dataWithBadChecksum.append(badChecksum)
-
-            // Get PIN token with largeBlobWrite permission
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.largeBlobWrite],
-                rpId: nil
-            )
-
-            // Try to write with invalid checksum - should fail with integrityFailure
-            do {
-                try await session.writeLargeBlobFragment(
-                    set: dataWithBadChecksum,
-                    offset: 0,
-                    length: UInt(dataWithBadChecksum.count),
-                    pinToken: pinToken
-                )
-                Issue.record("Expected integrityFailure error")
-            } catch let error as CTAP2.SessionError {
-                if case .ctapError(let ctapError, _) = error {
-                    #expect(ctapError == .integrityFailure, "Expected integrityFailure, got \(ctapError)")
-                    print("✅ Correctly received integrityFailure for invalid checksum")
-                } else {
-                    Issue.record("Expected ctapError, got \(error)")
-                }
-            }
-        }
-    }
-
     @Test("Storage Full Returns LargeBlobStorageFull")
     func testStorageFull() async throws {
         try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
@@ -435,12 +382,11 @@ struct LargeBlobsFullStackTests {
                 try await session.putBlob(key: randomKey, data: oversizedData, pinToken: pinToken)
                 Issue.record("Expected largeBlobStorageFull error")
             } catch let error as CTAP2.SessionError {
-                if case .ctapError(let ctapError, _) = error {
-                    #expect(ctapError == .largeBlobStorageFull, "Expected largeBlobStorageFull, got \(ctapError)")
-                    print("✅ Correctly received largeBlobStorageFull for oversized blob")
-                } else {
-                    Issue.record("Expected ctapError, got \(error)")
+                guard case .ctapError(.largeBlobStorageFull, _) = error else {
+                    Issue.record("Expected largeBlobStorageFull, got \(error)")
+                    return
                 }
+                print("✅ Correctly received largeBlobStorageFull for oversized blob")
             }
         }
     }

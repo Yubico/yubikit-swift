@@ -63,17 +63,6 @@ extension CTAP2.Extension {
         /// Creates a LargeBlobKey extension instance.
         public init() {}
 
-        /// Checks if the authenticator supports largeBlobKey.
-        ///
-        /// - Parameter session: The CTAP2 session to check.
-        /// - Returns: `true` if the authenticator supports large blobs.
-        public static func isSupported(
-            by session: CTAP2.Session
-        ) async throws(CTAP2.SessionError) -> Bool {
-            let info = try await session.getInfo()
-            return info.options.largeBlobs == true
-        }
-
         // MARK: - Operations
 
         /// Operations for MakeCredential.
