@@ -17,16 +17,11 @@ import Foundation
 // MARK: - Blob Array
 
 extension CTAP2.LargeBlobs {
-    /// Represents the large blob array stored on the authenticator.
-    ///
-    /// The blob array is a CBOR-encoded list of encrypted blob entries,
-    /// followed by a 16-byte SHA-256 checksum.
-    public struct BlobArray: Sendable, Equatable {
-        /// Individual blob entries in the array.
-        public internal(set) var entries: [Entry]
+    // CBOR-encoded list of encrypted blob entries with 16-byte SHA-256 checksum.
+    struct BlobArray: Sendable, Equatable {
+        var entries: [Entry]
 
-        /// Creates an empty blob array.
-        public init() {
+        init() {
             self.entries = []
         }
     }
@@ -35,16 +30,10 @@ extension CTAP2.LargeBlobs {
 // MARK: - Blob Entry
 
 extension CTAP2.LargeBlobs.BlobArray {
-    /// A single encrypted blob entry in the large blob array.
-    public struct Entry: Sendable, Equatable {
-        /// The encrypted ciphertext.
-        public let ciphertext: Data
-
-        /// The nonce used for encryption.
-        public let nonce: Data
-
-        /// The original uncompressed size of the data.
-        public let origSize: Int
+    struct Entry: Sendable, Equatable {
+        let ciphertext: Data
+        let nonce: Data
+        let origSize: Int
     }
 }
 

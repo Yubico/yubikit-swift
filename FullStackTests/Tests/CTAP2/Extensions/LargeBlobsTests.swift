@@ -312,13 +312,8 @@ struct LargeBlobsFullStackTests {
             try await session.putBlob(key: key2, data: testData2, pinToken: writeToken)
             print("✅ Both blobs stored")
 
-            // Verify blob array has 2 entries
-            session = try await reconnectWhenOverNFC()
-            let blobArray = try await session.readBlobArray()
-            #expect(blobArray.entries.count >= 2, "Should have at least 2 blob entries")
-            print("✅ Blob array has \(blobArray.entries.count) entries")
-
             // Retrieve and verify each blob
+            session = try await reconnectWhenOverNFC()
             let retrieved1 = try await session.getBlob(key: key1)
             let retrieved2 = try await session.getBlob(key: key2)
 
