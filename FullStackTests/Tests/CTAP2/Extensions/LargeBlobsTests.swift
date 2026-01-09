@@ -186,8 +186,7 @@ struct LargeBlobsFullStackTests {
             let getAssertionParams = CTAP2.GetAssertion.Parameters(
                 rpId: rpId,
                 clientDataHash: clientDataHash,
-                extensions: [largeBlobKey.getAssertion.input()],
-                options: .init(uv: true)
+                extensions: [largeBlobKey.getAssertion.input()]
             )
 
             print("👆 Touch YubiKey: authenticating with largeBlobKey...")
@@ -363,9 +362,8 @@ struct LargeBlobsFullStackTests {
                 return
             }
 
-            // The max storage is for the CBOR-encoded array plus 16-byte checksum
-            // Create data that when CBOR-encoded exceeds the max size
-            let oversizedData = Data(repeating: 0x42, count: Int(maxSize))
+            // Create random data that won't compress well
+            let oversizedData = Data((0..<Int(maxSize)).map { _ in UInt8.random(in: 0...255) })
 
             // Get a random key (we just need any 32-byte key for this test)
             let randomKey = Data((0..<32).map { _ in UInt8.random(in: 0...255) })
