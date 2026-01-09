@@ -29,13 +29,6 @@ extension CTAP2.LargeBlobs {
         public init() {
             self.entries = []
         }
-
-        /// Creates a blob array with the specified entries.
-        ///
-        /// - Parameter entries: The blob entries.
-        public init(entries: [Entry]) {
-            self.entries = entries
-        }
     }
 }
 
@@ -43,17 +36,14 @@ extension CTAP2.LargeBlobs {
 
 extension CTAP2.LargeBlobs.BlobArray {
     /// A single encrypted blob entry in the large blob array.
-    ///
-    /// Each entry contains AES-GCM encrypted and DEFLATE-compressed data.
-    /// The encryption key is the largeBlobKey associated with a credential.
     public struct Entry: Sendable, Equatable {
-        /// AES-GCM encrypted ciphertext (includes auth tag).
+        /// The encrypted ciphertext.
         public let ciphertext: Data
 
-        /// 12-byte nonce used for AES-GCM encryption.
+        /// The nonce used for encryption.
         public let nonce: Data
 
-        /// Original uncompressed size of the data.
+        /// The original uncompressed size of the data.
         public let origSize: Int
     }
 }

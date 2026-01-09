@@ -20,7 +20,7 @@ import Foundation
 
 extension CTAP2.Session {
 
-    /// maxFragmentLength = maxMsgSize - 64, as per spec.
+    // maxFragmentLength = maxMsgSize - 64, as per spec.
     private static let maxFragmentLengthOverhead = 64
 
     // MARK: - Support Check
@@ -227,7 +227,7 @@ extension CTAP2.Session {
 
     // MARK: - Low-Level Fragment Operations
 
-    /// Reads a fragment of the large blob array.
+    // Reads a fragment of the large blob array.
     private func readLargeBlobFragment(
         get: UInt,
         offset: UInt
@@ -241,7 +241,7 @@ extension CTAP2.Session {
         return response.config
     }
 
-    /// Writes a fragment to the large blob array.
+    // Writes a fragment to the large blob array.
     private func writeLargeBlobFragment(
         set: Data,
         offset: UInt,
@@ -267,21 +267,20 @@ extension CTAP2.Session {
         try await stream.value
     }
 
-    // MARK: - Crypto Operations (Private)
+    // MARK: - Crypto Operations
 
-    /// Length of the checksum appended to the serialized blob array.
+    // Length of the checksum appended to the serialized blob array.
     private static let checksumLength = 16
-
-    /// Nonce length for AES-GCM encryption.
+    // Nonce length for AES-GCM encryption.
     private static let nonceLength = 12
 
-    /// Computes the SHA-256 checksum truncated to 16 bytes.
+    // Computes the SHA-256 checksum truncated to 16 bytes.
     private func checksum(_ data: Data) -> Data {
         let hash = SHA256.hash(data: data)
         return Data(hash.prefix(Self.checksumLength))
     }
 
-    /// Compresses data using DEFLATE.
+    // Compresses data using DEFLATE.
     private func compress(_ data: Data) throws(CTAP2.SessionError) -> Data {
         guard !data.isEmpty else {
             return Data()
@@ -310,7 +309,7 @@ extension CTAP2.Session {
         return destinationBuffer.prefix(compressedSize)
     }
 
-    /// Decompresses DEFLATE data.
+    // Decompresses DEFLATE data.
     private func decompress(_ data: Data, originalSize: Int) throws(CTAP2.SessionError) -> Data {
         guard originalSize > 0 else {
             return Data()
@@ -344,7 +343,7 @@ extension CTAP2.Session {
         return destinationBuffer
     }
 
-    /// Encrypts data for storage in the large blob array.
+    // Encrypts data for storage in the large blob array.
     private func encrypt(data: Data, key: Data) throws(CTAP2.SessionError) -> CTAP2.LargeBlobs.BlobArray.Entry {
         guard key.count == 32 else {
             throw .illegalArgument("largeBlobKey must be 32 bytes", source: .here())
@@ -389,7 +388,7 @@ extension CTAP2.Session {
         }
     }
 
-    /// Decrypts a blob entry.
+    // Decrypts a blob entry.
     private func decrypt(entry: CTAP2.LargeBlobs.BlobArray.Entry, key: Data) throws(CTAP2.SessionError) -> Data {
         guard key.count == 32 else {
             throw .illegalArgument("largeBlobKey must be 32 bytes", source: .here())
@@ -418,7 +417,7 @@ extension CTAP2.Session {
         return try decompress(compressed, originalSize: entry.origSize)
     }
 
-    /// Computes the PIN/UV auth message for write operations.
+    // Computes the PIN/UV auth message for write operations.
     private func writeAuthMessage(fragment: Data, offset: UInt) -> Data {
         var message = Data(repeating: 0xFF, count: 32)
         message.append(contentsOf: [0x0C, 0x00])
@@ -428,9 +427,9 @@ extension CTAP2.Session {
         return message
     }
 
-    // MARK: - Parameters (Private)
+    // MARK: - Parameters
 
-    /// Parameters for reading from the large blob array.
+    // Parameters for reading from the large blob array.
     private struct ReadParameters: Sendable, CBOR.Encodable {
         let get: UInt
         let offset: UInt
@@ -443,7 +442,7 @@ extension CTAP2.Session {
         }
     }
 
-    /// Parameters for writing to the large blob array.
+    // Parameters for writing to the large blob array.
     private struct WriteParameters: Sendable, CBOR.Encodable {
         let set: Data
         let offset: UInt
@@ -464,7 +463,7 @@ extension CTAP2.Session {
         }
     }
 
-    /// Response from the authenticatorLargeBlobs command.
+    // Response from the authenticatorLargeBlobs command.
     private struct Response: Sendable, CBOR.Decodable {
         let config: Data
 
