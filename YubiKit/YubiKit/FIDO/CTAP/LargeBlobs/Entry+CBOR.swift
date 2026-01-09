@@ -14,38 +14,9 @@
 
 import Foundation
 
-// MARK: - Blob Array
-
-extension CTAP2.LargeBlobs {
-    // CBOR-encoded list of encrypted blob entries with 16-byte SHA-256 checksum.
-    struct BlobArray: Sendable, Equatable {
-        var entries: [Entry]
-
-        init() {
-            self.entries = []
-        }
-    }
-}
-
-// MARK: - Blob Entry
-
-extension CTAP2.LargeBlobs.BlobArray {
-    struct Entry: Sendable, Equatable {
-        let ciphertext: Data
-        let nonce: Data
-        let origSize: Int
-    }
-}
-
 // MARK: - CBOR Encoding
 
-extension CTAP2.LargeBlobs.BlobArray: CBOR.Encodable {
-    func cbor() -> CBOR.Value {
-        .array(entries.map { $0.cbor() })
-    }
-}
-
-extension CTAP2.LargeBlobs.BlobArray.Entry: CBOR.Encodable {
+extension CTAP2.LargeBlobs.Entry: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         var map: [CBOR.Value: CBOR.Value] = [:]
         map[.int(0x01)] = ciphertext.cbor()
@@ -57,23 +28,7 @@ extension CTAP2.LargeBlobs.BlobArray.Entry: CBOR.Encodable {
 
 // MARK: - CBOR Decoding
 
-extension CTAP2.LargeBlobs.BlobArray: CBOR.Decodable {
-    init?(cbor: CBOR.Value) {
-        guard let array = cbor.arrayValue else {
-            return nil
-        }
-        var entries: [Entry] = []
-        for element in array {
-            guard let entry = Entry(cbor: element) else {
-                return nil
-            }
-            entries.append(entry)
-        }
-        self.entries = entries
-    }
-}
-
-extension CTAP2.LargeBlobs.BlobArray.Entry: CBOR.Decodable {
+extension CTAP2.LargeBlobs.Entry: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue,
             let ciphertext = map[.int(0x01)]?.dataValue,
