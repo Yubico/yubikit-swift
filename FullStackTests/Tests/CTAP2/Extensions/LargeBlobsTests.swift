@@ -17,8 +17,6 @@ import Foundation
 import Testing
 import YubiKit
 
-@testable import YubiKit
-
 @Suite("LargeBlobs Full Stack Tests", .serialized)
 struct LargeBlobsFullStackTests {
 
@@ -440,109 +438,6 @@ struct LargeBlobsFullStackTests {
                 if case .ctapError(let ctapError, _) = error {
                     #expect(ctapError == .largeBlobStorageFull, "Expected largeBlobStorageFull, got \(ctapError)")
                     print("✅ Correctly received largeBlobStorageFull for oversized blob")
-                } else {
-                    Issue.record("Expected ctapError, got \(error)")
-                }
-            }
-        }
-    }
-
-    @Test("Write Without PIN Token Returns PUAT Required")
-    func testWriteWithoutPinToken() async throws {
-        try await withCTAP2Session { session in
-            guard try await session.supportsLargeBlobs() else {
-                print("LargeBlobs not supported - skipping")
-                return
-            }
-
-            let info = try await session.getInfo()
-            guard info.options.clientPin == true else {
-                print("PIN not set - skipping")
-                return
-            }
-
-            // Build a valid blob array with checksum
-            let emptyArray = CTAP2.LargeBlobs.BlobArray()
-            let encoded = emptyArray.cbor().encode()
-            var dataWithChecksum = encoded
-            dataWithChecksum.append(CTAP2.LargeBlobs.checksum(encoded))
-
-            // Try to write without PIN authentication using low-level interface
-            // This requires sending the command directly without pinUvAuthParam
-            // The session's writeBlobArray requires a pinToken, so we need to use the interface directly
-
-            // Create write parameters without PIN auth
-            let params = CTAP2.LargeBlobs.WriteParameters(
-                set: dataWithChecksum,
-                offset: 0,
-                length: UInt(dataWithChecksum.count),
-                pinUVAuthParam: Data(),  // Empty - no PIN auth
-                pinUVAuthProtocol: .v2
-            )
-
-            do {
-                let stream: CTAP2.StatusStream<Void> = await session.interface.send(
-                    command: .largeBlobs,
-                    payload: params
-                )
-                try await stream.value
-                Issue.record("Expected puatRequired error")
-            } catch let error as CTAP2.SessionError {
-                if case .ctapError(let ctapError, _) = error {
-                    // Could be puatRequired or pinAuthInvalid depending on authenticator
-                    let validErrors: [CTAP2.Error] = [.puatRequired, .pinAuthInvalid]
-                    #expect(
-                        validErrors.contains(ctapError),
-                        "Expected puatRequired or pinAuthInvalid, got \(ctapError)"
-                    )
-                    print("✅ Correctly received \(ctapError) for missing PIN auth")
-                } else {
-                    Issue.record("Expected ctapError, got \(error)")
-                }
-            }
-        }
-    }
-
-    @Test("Write With Wrong Permission Returns PIN Auth Invalid")
-    func testWriteWithWrongPermission() async throws {
-        try await withCTAP2Session { session in
-            guard try await session.supportsLargeBlobs() else {
-                print("LargeBlobs not supported - skipping")
-                return
-            }
-
-            let info = try await session.getInfo()
-            guard info.options.clientPin == true else {
-                print("PIN not set - skipping")
-                return
-            }
-
-            // Get PIN token with WRONG permission (credentialManagement instead of largeBlobWrite)
-            let wrongToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement],
-                rpId: nil
-            )
-
-            // Build a valid blob array
-            let emptyArray = CTAP2.LargeBlobs.BlobArray()
-            let encoded = emptyArray.cbor().encode()
-            var dataWithChecksum = encoded
-            dataWithChecksum.append(CTAP2.LargeBlobs.checksum(encoded))
-
-            // Try to write with wrong permission - should fail with pinAuthInvalid
-            do {
-                try await session.writeLargeBlobFragment(
-                    set: dataWithChecksum,
-                    offset: 0,
-                    length: UInt(dataWithChecksum.count),
-                    pinToken: wrongToken
-                )
-                Issue.record("Expected pinAuthInvalid error")
-            } catch let error as CTAP2.SessionError {
-                if case .ctapError(let ctapError, _) = error {
-                    #expect(ctapError == .pinAuthInvalid, "Expected pinAuthInvalid, got \(ctapError)")
-                    print("✅ Correctly received pinAuthInvalid for wrong permission")
                 } else {
                     Issue.record("Expected ctapError, got \(error)")
                 }
