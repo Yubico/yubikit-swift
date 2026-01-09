@@ -40,6 +40,9 @@ extension CTAP2 {
         /// Error processing data.
         case dataProcessingError(_ message: String, source: SourceLocation)
 
+        /// Compression/decompression failed.
+        case compressionError(any Swift.Error, source: SourceLocation)
+
         /// A cryptographic operation failed.
         case cryptoError(_ message: String, error: Swift.Error?, source: SourceLocation)
 

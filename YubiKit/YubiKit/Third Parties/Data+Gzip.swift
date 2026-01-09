@@ -279,6 +279,14 @@ extension Data {
 
         return data
     }
+
+    func deflated() throws(GzipError) -> Data {
+        try gzipped(wBits: -MAX_WBITS)
+    }
+
+    func inflated() throws(GzipError) -> Data {
+        try gunzipped(wBits: -MAX_WBITS)
+    }
 }
 
 private enum DataSize {

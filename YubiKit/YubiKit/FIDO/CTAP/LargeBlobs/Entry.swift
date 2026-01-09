@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import Compression
 import CryptoKit
 import Foundation
 
@@ -107,28 +106,11 @@ extension CTAP2.LargeBlobs.Entry {
         guard !data.isEmpty else {
             return Data()
         }
-
-        let destinationSize = data.count + 64
-        var destinationBuffer = Data(count: destinationSize)
-
-        let compressedSize = data.withUnsafeBytes { srcBuffer in
-            destinationBuffer.withUnsafeMutableBytes { dstBuffer in
-                compression_encode_buffer(
-                    dstBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                    dstBuffer.count,
-                    srcBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                    srcBuffer.count,
-                    nil,
-                    COMPRESSION_ZLIB
-                )
-            }
+        do {
+            return try data.deflated()
+        } catch {
+            throw .compressionError(error, source: .here())
         }
-
-        guard compressedSize > 0 else {
-            throw .dataProcessingError("DEFLATE compression failed", source: .here())
-        }
-
-        return destinationBuffer.prefix(compressedSize)
     }
 
     private static func decompress(_ data: Data, originalSize: Int) throws(CTAP2.SessionError) -> Data {
@@ -138,29 +120,19 @@ extension CTAP2.LargeBlobs.Entry {
         guard !data.isEmpty else {
             throw .dataProcessingError("Cannot decompress empty data", source: .here())
         }
-
-        var destinationBuffer = Data(count: originalSize)
-
-        let decompressedSize = data.withUnsafeBytes { srcBuffer in
-            destinationBuffer.withUnsafeMutableBytes { dstBuffer in
-                compression_decode_buffer(
-                    dstBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                    dstBuffer.count,
-                    srcBuffer.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                    srcBuffer.count,
-                    nil,
-                    COMPRESSION_ZLIB
+        do {
+            let decompressed = try data.inflated()
+            guard decompressed.count == originalSize else {
+                throw CTAP2.SessionError.dataProcessingError(
+                    "DEFLATE decompression size mismatch: expected \(originalSize), got \(decompressed.count)",
+                    source: .here()
                 )
             }
+            return decompressed
+        } catch let error as CTAP2.SessionError {
+            throw error
+        } catch {
+            throw .compressionError(error, source: .here())
         }
-
-        guard decompressedSize == originalSize else {
-            throw .dataProcessingError(
-                "DEFLATE decompression size mismatch: expected \(originalSize), got \(decompressedSize)",
-                source: .here()
-            )
-        }
-
-        return destinationBuffer
     }
 }
