@@ -33,10 +33,10 @@ extension CTAP2.Session {
         return info.options.largeBlobs == true
     }
 
-    // MARK: - Internal Array Operations
+    // MARK: - Private Array Operations
 
     // Reads the entire large blob array with checksum validation.
-    func readBlobArray() async throws(CTAP2.SessionError) -> CTAP2.LargeBlobs.BlobArray {
+    private func readBlobArray() async throws(CTAP2.SessionError) -> CTAP2.LargeBlobs.BlobArray {
         let info = try await getInfo()
         let maxFragment = Int(info.maxMsgSize) - Self.maxFragmentLengthOverhead
 
@@ -81,7 +81,7 @@ extension CTAP2.Session {
     }
 
     // Writes the entire large blob array with automatic fragmentation.
-    func writeBlobArray(
+    private func writeBlobArray(
         _ blobArray: CTAP2.LargeBlobs.BlobArray,
         pinToken: CTAP2.ClientPin.Token
     ) async throws(CTAP2.SessionError) {
