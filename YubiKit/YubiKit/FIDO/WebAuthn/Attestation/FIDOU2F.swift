@@ -19,6 +19,10 @@ extension WebAuthn.AttestationStatement {
     ///
     /// - SeeAlso: [FIDO U2F Attestation Statement Format](https://www.w3.org/TR/webauthn/#sctn-fido-u2f-attestation)
     public struct FIDOU2F: Sendable {
+
+        /// Original raw data.
+        public let rawData: Data
+
         /// Attestation signature.
         public let sig: Data
 

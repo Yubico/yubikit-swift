@@ -19,6 +19,10 @@ extension WebAuthn.AttestationStatement {
     ///
     /// - SeeAlso: [Packed Attestation Statement Format](https://www.w3.org/TR/webauthn/#sctn-packed-attestation)
     public struct Packed: Sendable {
+
+        /// Original raw data.
+        public let rawData: Data
+
         /// Attestation signature.
         public let sig: Data
 

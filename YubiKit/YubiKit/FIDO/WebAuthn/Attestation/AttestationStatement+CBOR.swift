@@ -39,6 +39,8 @@ extension WebAuthn.AttestationStatement.Packed: CBOR.Decodable {
 
         // Optional: ecdaaKeyId (rarely used)
         self.ecdaaKeyId = map["ecdaaKeyId"]?.cborDecoded()
+
+        self.rawData = cbor.encode()
     }
 }
 
@@ -61,6 +63,8 @@ extension WebAuthn.AttestationStatement.FIDOU2F: CBOR.Decodable {
             return nil
         }
         self.x5c = x5c
+
+        self.rawData = cbor.encode()
     }
 }
 
@@ -77,5 +81,7 @@ extension WebAuthn.AttestationStatement.Apple: CBOR.Decodable {
             return nil
         }
         self.x5c = x5c
+
+        self.rawData = cbor.encode()
     }
 }
