@@ -70,12 +70,12 @@ struct MakeCredentialSerializationTests {
             "Failed to decode CTAP.MakeCredential.Response"
         )
 
-        #expect(credentialData.format == "packed")
+        #expect(credentialData.attestationObject.format == "packed")
         #expect(credentialData.authenticatorData.rpIdHash.count == 32)
         #expect(credentialData.authenticatorData.signCount == 1)
 
         // Verify strongly-typed attestation statement
-        guard case let .packed(packed) = credentialData.attestationStatement else {
+        guard case let .packed(packed) = credentialData.attestationObject.statement else {
             Issue.record("Expected packed attestation statement")
             return
         }
@@ -108,8 +108,8 @@ struct MakeCredentialSerializationTests {
             "Failed to decode CTAP.MakeCredential.Response"
         )
 
-        #expect(credentialData.format == "none")
-        guard case .none = credentialData.attestationStatement else {
+        #expect(credentialData.attestationObject.format == "none")
+        guard case .none = credentialData.attestationObject.statement else {
             Issue.record("Expected none attestation statement")
             return
         }
