@@ -23,10 +23,9 @@ extension CTAP2.MakeCredential.Response: CBOR.Decodable {
         }
 
         // Required: fmt (0x01) - attestation format
-        guard let fmt: String = map[.int(0x01)]?.cborDecoded() else {
+        guard let format: String = map[.int(0x01)]?.cborDecoded() else {
             return nil
         }
-        self.format = fmt
 
         // Required: authData (0x02) - authenticator data
         guard let authDataBytes: Data = map[.int(0x02)]?.cborDecoded(),
@@ -34,38 +33,18 @@ extension CTAP2.MakeCredential.Response: CBOR.Decodable {
         else {
             return nil
         }
-        self.authenticatorData = authData
 
         // Required: attStmt (0x03) - attestation statement
-        guard let attStmtValue = map[.int(0x03)] else {
+        guard let statementCBOR = map[.int(0x03)] else {
             return nil
         }
 
-        // Decode based on format
-        let attStmt: WebAuthn.AttestationStatement
-        switch fmt {
-        case "packed":
-            guard let packed = WebAuthn.AttestationStatement.Packed(cbor: attStmtValue) else {
-                return nil  // Known format but invalid CBOR structure
-            }
-            attStmt = .packed(packed)
-        case "fido-u2f":
-            guard let fidoU2F = WebAuthn.AttestationStatement.FIDOU2F(cbor: attStmtValue) else {
-                return nil  // Known format but invalid CBOR structure
-            }
-            attStmt = .fidoU2F(fidoU2F)
-        case "none":
-            attStmt = .none
-        case "apple":
-            guard let apple = WebAuthn.AttestationStatement.Apple(cbor: attStmtValue) else {
-                return nil  // Known format but invalid CBOR structure
-            }
-            attStmt = .apple(apple)
-        default:
-            // Unknown format - preserve for future compatibility
-            attStmt = .unknown(format: fmt)
-        }
-        self.attestationStatement = attStmt
+        // Build attestation object from components
+        self.attestationObject = WebAuthn.AttestationObject(
+            format: format,
+            statementCBOR: statementCBOR,
+            authenticatorData: authData
+        )
 
         // Optional: epAtt (0x04) - enterprise attestation
         self.enterpriseAttestation = map[.int(0x04)]?.cborDecoded()
