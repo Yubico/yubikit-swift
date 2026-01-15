@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ================================================================================
+  Info.plist - Application Configuration for FIDO2 Sample
+  ================================================================================
+
+  This property list configures the iOS-specific settings required for NFC
+  communication with FIDO2/CTAP2 authenticators.
+
+  ## NFC Configuration
+
+  iOS apps must declare:
+    1. NFCReaderUsageDescription - User-facing privacy explanation
+    2. ISO7816 Application Identifiers (AIDs) - FIDO2/CTAP2 applet addresses
+
+  ## ISO 7816 Application Identifiers
+
+  The FIDO2/CTAP2 specification defines the following AIDs:
+
+    A0000006472F0001 - FIDO Alliance CTAP (older YubiKeys)
+    A000000308       - JCOP 3 (JavaCard platform)
+    A0000005272101   - FIDO2/CTAP2 standard AID
+    A000000527471117 - YubiKey 5 NFC specific
+
+  These AIDs allow iOS to select the correct applet on the YubiKey when
+  an NFC session is established.
+
+  ================================================================================
+-->
+<plist version="1.0">
+<dict>
+    <!-- Privacy description shown to user when NFC is first used -->
+    <key>NFCReaderUsageDescription</key>
+    <string>This app uses NFC to communicate with your YubiKey for FIDO2 authentication operations including credential registration and assertion signing.</string>
+
+    <!-- ISO 7816 Smart Card Application Identifiers for FIDO2 -->
+    <key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+    <array>
+        <!-- FIDO Alliance CTAP AID (legacy) -->
+        <string>A0000006472F0001</string>
+
+        <!-- JCOP 3 Platform AID -->
+        <string>A000000308</string>
+
+        <!-- FIDO2/CTAP2 Standard AID -->
+        <string>A0000005272101</string>
+
+        <!-- YubiKey 5 NFC AID -->
+        <string>A000000527471117</string>
+    </array>
+
+    <!-- Lightning Connector Support (YubiKey 5Ci) -->
+    <key>UISupportedExternalAccessoryProtocols</key>
+    <array>
+        <!-- Yubico Lightning Protocol for YubiKey 5Ci -->
+        <string>com.yubico.ylp</string>
+    </array>
+</dict>
+</plist>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ================================================================================
+  FIDO2Sample.entitlements - Application Entitlements
+  ================================================================================
+
+  Required entitlements for FIDO2/CTAP2 communication across all connection types:
+
+  ## iOS (NFC)
+  - com.apple.developer.nfc.readersession.formats: Enables NFC tag reading
+    with the TAG format (ISO 7816 smart cards like YubiKey)
+
+  ## iOS (Lightning - YubiKey 5Ci)
+  - No entitlement needed here. Lightning support is configured via
+    UISupportedExternalAccessoryProtocols in Info.plist with com.yubico.ylp
+
+  ## macOS (USB HID FIDO)
+  - com.apple.security.device.usb: Allows USB device communication for
+    HID FIDO protocol (required for YubiKey over USB)
+
+  ## macOS (Smart Card / CCID)
+  - com.apple.security.smartcard: Allows smart card communication for
+    CCID-based connections (alternative to HID FIDO on some devices)
+
+  ================================================================================
+-->
+<plist version="1.0">
+<dict>
+    <!-- NFC Tag Reading (iOS) - Required for NFCSmartCardConnection -->
+    <key>com.apple.developer.nfc.readersession.formats</key>
+    <array>
+        <string>TAG</string>
+    </array>
+
+    <!-- Smart Card Access (macOS) - Required for smart card sessions -->
+    <key>com.apple.security.smartcard</key>
+    <true/>
+
+    <!-- USB Device Access (macOS) - Required for HIDFIDOConnection -->
+    <key>com.apple.security.device.usb</key>
+    <true/>
+</dict>
+</plist>
