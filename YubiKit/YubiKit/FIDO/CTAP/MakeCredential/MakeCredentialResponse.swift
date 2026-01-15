@@ -24,15 +24,18 @@ extension CTAP2.MakeCredential {
     /// - SeeAlso: [WebAuthn AuthenticatorData](https://www.w3.org/TR/webauthn/#authenticator-data)
     public struct Response: Sendable {
 
-        /// Attestation statement format identifier (e.g., "packed", "fido-u2f", "none").
-        public let format: String
-
         /// Parsed authenticator data containing RP ID hash, flags, counter, and credential info.
-        public let authenticatorData: WebAuthn.AuthenticatorData
+        public var authenticatorData: WebAuthn.AuthenticatorData {
+            attestationObject.authenticatorData
+        }
 
-        /// Attestation statement with strongly-typed access based on format.
-        /// Unknown formats are represented as `.unknown(format:)`.
-        public let attestationStatement: WebAuthn.AttestationStatement
+        /// Attestation object containing format, statement, and CBOR-encoded data.
+        ///
+        /// - `attestationObject.rawData`: CBOR bytes for WebAuthn API
+        /// - `attestationObject.format`: Format identifier (e.g., "packed")
+        /// - `attestationObject.statement`: Parsed attestation statement
+        /// - `attestationObject.authenticatorData`:  Parsed authenticator data
+        public let attestationObject: WebAuthn.AttestationObject
 
         /// Whether enterprise attestation was returned.
         public let enterpriseAttestation: Bool?
@@ -44,5 +47,15 @@ extension CTAP2.MakeCredential {
         ///
         /// Use extension-specific `result(from:)` methods for typed access to extension outputs.
         internal let unsignedExtensionOutputs: [String: CBOR.Value]?
+
+        // MARK: - Deprecated
+
+        /// Attestation statement format identifier.
+        @available(*, deprecated, renamed: "attestationObject.format")
+        public var format: String { attestationObject.format }
+
+        /// Parsed attestation statement.
+        @available(*, deprecated, renamed: "attestationObject.statement")
+        public var attestationStatement: WebAuthn.AttestationStatement { attestationObject.statement }
     }
 }

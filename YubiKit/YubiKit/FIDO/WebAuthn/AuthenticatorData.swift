@@ -23,8 +23,7 @@ extension WebAuthn {
     ///
     /// - SeeAlso: [WebAuthn Authenticator Data](https://www.w3.org/TR/webauthn/#authenticator-data)
     public struct AuthenticatorData: Sendable {
-
-        /// The raw data
+        /// The raw authenticator data bytes.
         public let rawData: Data
 
         /// SHA-256 hash of the RP ID (32 bytes).
@@ -86,6 +85,9 @@ extension WebAuthn.AuthenticatorData {
             return nil
         }
 
+        // Store raw data for WebAuthn client use
+        self.rawData = data
+
         var offset = 0
 
         // MARK: Parse RP ID Hash
@@ -135,8 +137,6 @@ extension WebAuthn.AuthenticatorData {
         } else {
             self.extensions = nil
         }
-
-        self.rawData = data
     }
 }
 

@@ -44,7 +44,7 @@ extension WebAuthn.AttestationStatement.Packed: CBOR.Decodable {
     }
 }
 
-// MARK: - FIDOU2F + CBOR
+// MARK: - FIDO U2F + CBOR
 
 extension WebAuthn.AttestationStatement.FIDOU2F: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
