@@ -238,7 +238,7 @@ actor FIDO2Coordinator {
             pubKeyCredParams: [.es256, .edDSA],
             excludeList: nil,
             extensions: extensions,
-            options: CTAP2.MakeCredential.Parameters.Options(rk: true, uv: pinToken == nil)
+            options: CTAP2.MakeCredential.Parameters.Options(rk: true, uv: false)
         )
 
         // Execute
@@ -322,7 +322,7 @@ actor FIDO2Coordinator {
             clientDataHash: clientDataHash,
             allowList: allowList,
             extensions: extensions,
-            options: CTAP2.GetAssertion.Parameters.Options(uv: pinToken == nil)
+            options: CTAP2.GetAssertion.Parameters.Options(uv: false)
         )
 
         // Execute
