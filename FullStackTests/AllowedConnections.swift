@@ -25,6 +25,7 @@ let allowedSerialNumbers: [UInt] = [
     30_617_000,  // 5C NFC (5.7.1)
     32_133_203,  // NFC FIPS (5.7.4)
     31_683_782,  // YubiKey 5C FIPS (5.7.4)
+    32_061_488,  // YubiKey 5Ci (5.7.1)
 ]
 
 enum TestableConnection: Equatable {

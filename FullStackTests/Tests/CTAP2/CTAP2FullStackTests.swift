@@ -132,7 +132,11 @@ struct CTAP2FullStackTests {
                 }
             }
 
-            if !ctap2Transport.isNFC {
+            switch ctap2Transport {
+            case .nfc, .lightning:
+                // SW_KEEPALIVE does not send status over these
+                break
+            default:
                 #expect(receivedWaitingForUser, "Should receive waitingForUser status during selection")
             }
             print("✅ Selection command successful")
