@@ -42,6 +42,7 @@ struct LargeBlobsFullStackTests {
             let testData = Data("Hello from Swift LargeBlobs test!".utf8)
 
             // 1. Create credential with largeBlobKey extension
+            // Use a single token with makeCredential + largeBlobWrite permissions.
             session = try await reconnectWhenOverNFC()
             let pinToken = try await session.getPinUVToken(
                 using: .pin(defaultTestPin),
@@ -76,13 +77,7 @@ struct LargeBlobsFullStackTests {
 
             // 2. Store a blob
             session = try await reconnectWhenOverNFC()
-            let writeToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.largeBlobWrite],
-                rpId: nil
-            )
-
-            try await session.putBlob(key: key, data: testData, pinToken: writeToken)
+            try await session.putBlob(key: key, data: testData, pinToken: pinToken)
             print("✅ Blob stored successfully")
 
             // 3. Read back the blob
@@ -133,11 +128,12 @@ struct LargeBlobsFullStackTests {
             let clientDataHash = Data(repeating: 0xCD, count: 32)
             let testData = Data("Blob data for GetAssertion test".utf8)
 
-            // 1. Create credential with largeBlobKey
+            // 1. Create credential with largeBlobKey and store blob
+            // Use makeCredential + largeBlobWrite token for registration flow.
             session = try await reconnectWhenOverNFC()
-            let pinToken = try await session.getPinUVToken(
+            let mcToken = try await session.getPinUVToken(
                 using: .pin(defaultTestPin),
-                permissions: [.makeCredential, .largeBlobWrite, .getAssertion],
+                permissions: [.makeCredential, .largeBlobWrite],
                 rpId: rpId
             )
 
@@ -157,7 +153,7 @@ struct LargeBlobsFullStackTests {
             )
 
             print("👆 Touch YubiKey: creating credential...")
-            let credential = try await session.makeCredential(parameters: makeCredParams, pinToken: pinToken).value
+            let credential = try await session.makeCredential(parameters: makeCredParams, pinToken: mcToken).value
 
             guard let mcKey = largeBlobKey.makeCredential.output(from: credential) else {
                 Issue.record("Expected largeBlobKey from MakeCredential")
@@ -165,21 +161,17 @@ struct LargeBlobsFullStackTests {
             }
             print("✅ Credential created")
 
-            // 2. Store blob using the key from MakeCredential
+            // 2. Store blob
             session = try await reconnectWhenOverNFC()
-            let writeToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.largeBlobWrite],
-                rpId: nil
-            )
-            try await session.putBlob(key: mcKey, data: testData, pinToken: writeToken)
+            try await session.putBlob(key: mcKey, data: testData, pinToken: mcToken)
             print("✅ Blob stored")
 
             // 3. GetAssertion with largeBlobKey extension to get the key again
+            // Use getAssertion + largeBlobWrite token for authentication flow.
             session = try await reconnectWhenOverNFC()
             let gaToken = try await session.getPinUVToken(
                 using: .pin(defaultTestPin),
-                permissions: [.getAssertion],
+                permissions: [.getAssertion, .largeBlobWrite],
                 rpId: rpId
             )
 
@@ -205,14 +197,9 @@ struct LargeBlobsFullStackTests {
             #expect(retrievedData == testData, "Should retrieve correct blob data")
             print("✅ Retrieved blob using key from GetAssertion")
 
-            // Cleanup
+            // 5. Cleanup
             session = try await reconnectWhenOverNFC()
-            let cleanupToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.largeBlobWrite],
-                rpId: nil
-            )
-            try await session.deleteBlob(key: gaKey, pinToken: cleanupToken)
+            try await session.deleteBlob(key: gaKey, pinToken: gaToken)
             print("✅ Cleanup complete")
         }
     }
@@ -240,7 +227,7 @@ struct LargeBlobsFullStackTests {
             let testData1 = Data("First credential's blob data".utf8)
             let testData2 = Data("Second credential's blob data".utf8)
 
-            // Create first credential
+            // Create first credential and store its blob
             session = try await reconnectWhenOverNFC()
             let pinToken1 = try await session.getPinUVToken(
                 using: .pin(defaultTestPin),
@@ -271,7 +258,11 @@ struct LargeBlobsFullStackTests {
             }
             print("✅ First credential created")
 
-            // Create second credential
+            session = try await reconnectWhenOverNFC()
+            try await session.putBlob(key: key1, data: testData1, pinToken: pinToken1)
+            print("✅ First blob stored")
+
+            // Create second credential and store its blob
             session = try await reconnectWhenOverNFC()
             let pinToken2 = try await session.getPinUVToken(
                 using: .pin(defaultTestPin),
@@ -300,17 +291,9 @@ struct LargeBlobsFullStackTests {
             }
             print("✅ Second credential created")
 
-            // Store blobs for both credentials
             session = try await reconnectWhenOverNFC()
-            let writeToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.largeBlobWrite],
-                rpId: nil
-            )
-
-            try await session.putBlob(key: key1, data: testData1, pinToken: writeToken)
-            try await session.putBlob(key: key2, data: testData2, pinToken: writeToken)
-            print("✅ Both blobs stored")
+            try await session.putBlob(key: key2, data: testData2, pinToken: pinToken2)
+            print("✅ Second blob stored")
 
             // Retrieve and verify each blob
             session = try await reconnectWhenOverNFC()
