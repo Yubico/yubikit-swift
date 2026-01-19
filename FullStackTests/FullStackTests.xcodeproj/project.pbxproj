@@ -18,19 +18,20 @@
 		6C2B14532DC8CF4C00B5C482 /* SCP03FullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2B144C2DC8CF4C00B5C482 /* SCP03FullStackTests.swift */; };
 		6C2B14542DC8CF4C00B5C482 /* SCPFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2B144F2DC8CF4C00B5C482 /* SCPFullStackTests.swift */; };
 		6C2B14552DC8CF4C00B5C482 /* XCTestCase+SCP.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2B14502DC8CF4C00B5C482 /* XCTestCase+SCP.swift */; };
-		6C734BAC2EE860AF00972E2A /* CTAPHIDFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BAA2EE860AF00972E2A /* CTAPHIDFullStackTests.swift */; };
-		6C734BB62EE860E100972E2A /* CTAP2FullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BB42EE860E100972E2A /* CTAP2FullStackTests.swift */; };
-		6C734BB72EE860E100972E2A /* CTAP2ExtensionFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BB32EE860E100972E2A /* CTAP2ExtensionFullStackTests.swift */; };
-		6C734BB92EE861EE00972E2A /* Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BB82EE861EE00972E2A /* Helpers.swift */; };
+		6C734BAC2EE860AF00972E2A /* HIDTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BAA2EE860AF00972E2A /* HIDTransportTests.swift */; };
+		6C734BB62EE860E100972E2A /* CredentialTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BB42EE860E100972E2A /* CredentialTests.swift */; };
+		6C734BB72EE860E100972E2A /* CredProtectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BB32EE860E100972E2A /* CredProtectTests.swift */; };
+		6C734BB92EE861EE00972E2A /* TestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BB82EE861EE00972E2A /* TestHelpers.swift */; };
 		6C8465362DADB1C600788FB7 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8465352DADB1C600788FB7 /* YubiKit */; };
-		6CCAB7BA2EEC35EA00A789E7 /* WebAuthnExtensionFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCAB7B92EEC35EA00A789E7 /* WebAuthnExtensionFullStackTests.swift */; };
+		6CCAB7BA2EEC35EA00A789E7 /* PRFTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCAB7B92EEC35EA00A789E7 /* PRFTests.swift */; };
+		6CDATAHEX2EF1234500000001 /* Data+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CDATAHEX2EF1234500000000 /* Data+Hex.swift */; };
 		B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */; };
 		B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */; };
 		B481051F2AAB6029006664AE /* ConnectionFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */; };
 		B4F9375A2B518A8B0007D394 /* AllowedConnections.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937592B518A8B0007D394 /* AllowedConnections.swift */; };
 		B4F9375F2B519D940007D394 /* Logger+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */; };
 		B4F937642B51A7DD0007D394 /* PIVFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */; };
-		6CDATAHEX2EF1234500000001 /* Data+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CDATAHEX2EF1234500000000 /* Data+Hex.swift */; };
+		CD75D32C2F1114C7000624CB /* LargeBlobsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD75D32B2F1114C7000624CB /* LargeBlobsTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,11 +57,12 @@
 		6C2B144E2DC8CF4C00B5C482 /* SCP11TestData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCP11TestData.swift; sourceTree = "<group>"; };
 		6C2B144F2DC8CF4C00B5C482 /* SCPFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPFullStackTests.swift; sourceTree = "<group>"; };
 		6C2B14502DC8CF4C00B5C482 /* XCTestCase+SCP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCTestCase+SCP.swift"; sourceTree = "<group>"; };
-		6C734BAA2EE860AF00972E2A /* CTAPHIDFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CTAPHIDFullStackTests.swift; sourceTree = "<group>"; };
-		6C734BB32EE860E100972E2A /* CTAP2ExtensionFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CTAP2ExtensionFullStackTests.swift; sourceTree = "<group>"; };
-		6C734BB42EE860E100972E2A /* CTAP2FullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CTAP2FullStackTests.swift; sourceTree = "<group>"; };
-		6C734BB82EE861EE00972E2A /* Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Helpers.swift; sourceTree = "<group>"; };
-		6CCAB7B92EEC35EA00A789E7 /* WebAuthnExtensionFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAuthnExtensionFullStackTests.swift; sourceTree = "<group>"; };
+		6C734BAA2EE860AF00972E2A /* HIDTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDTransportTests.swift; sourceTree = "<group>"; };
+		6C734BB32EE860E100972E2A /* CredProtectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredProtectTests.swift; sourceTree = "<group>"; };
+		6C734BB42EE860E100972E2A /* CredentialTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialTests.swift; sourceTree = "<group>"; };
+		6C734BB82EE861EE00972E2A /* TestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHelpers.swift; sourceTree = "<group>"; };
+		6CCAB7B92EEC35EA00A789E7 /* PRFTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRFTests.swift; sourceTree = "<group>"; };
+		6CDATAHEX2EF1234500000000 /* Data+Hex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Hex.swift"; sourceTree = "<group>"; };
 		B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCTestCase+Extensions.swift"; sourceTree = "<group>"; };
 		B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementFullStackTests.swift; sourceTree = "<group>"; };
 		B45C0B6928FEE1250077EE2A /* FullStackTests.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FullStackTests.entitlements; sourceTree = "<group>"; };
@@ -69,7 +71,7 @@
 		B4F937592B518A8B0007D394 /* AllowedConnections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllowedConnections.swift; sourceTree = SOURCE_ROOT; };
 		B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Extensions.swift"; sourceTree = "<group>"; };
 		B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVFullStackTests.swift; sourceTree = "<group>"; };
-		6CDATAHEX2EF1234500000000 /* Data+Hex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Hex.swift"; sourceTree = "<group>"; };
+		CD75D32B2F1114C7000624CB /* LargeBlobsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeBlobsTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -157,13 +159,22 @@
 		6C734BB52EE860E100972E2A /* CTAP2 */ = {
 			isa = PBXGroup;
 			children = (
-				6CCAB7B92EEC35EA00A789E7 /* WebAuthnExtensionFullStackTests.swift */,
-				6C734BAA2EE860AF00972E2A /* CTAPHIDFullStackTests.swift */,
-				6C734BB82EE861EE00972E2A /* Helpers.swift */,
-				6C734BB32EE860E100972E2A /* CTAP2ExtensionFullStackTests.swift */,
-				6C734BB42EE860E100972E2A /* CTAP2FullStackTests.swift */,
+				CD75D32D2F1114C8000624CB /* Extensions */,
+				6C734BB42EE860E100972E2A /* CredentialTests.swift */,
+				6C734BAA2EE860AF00972E2A /* HIDTransportTests.swift */,
+				6C734BB82EE861EE00972E2A /* TestHelpers.swift */,
 			);
 			path = CTAP2;
+			sourceTree = "<group>";
+		};
+		CD75D32D2F1114C8000624CB /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				6C734BB32EE860E100972E2A /* CredProtectTests.swift */,
+				CD75D32B2F1114C7000624CB /* LargeBlobsTests.swift */,
+				6CCAB7B92EEC35EA00A789E7 /* PRFTests.swift */,
+			);
+			path = Extensions;
 			sourceTree = "<group>";
 		};
 		6CD9DCC52DC2160B00D4DAA5 /* SCP */ = {
@@ -306,16 +317,17 @@
 				B4F9375F2B519D940007D394 /* Logger+Extensions.swift in Sources */,
 				51BBE41E273D1AA400DA47CC /* OATHFullStackTests.swift in Sources */,
 				B4F937642B51A7DD0007D394 /* PIVFullStackTests.swift in Sources */,
-				6C734BB62EE860E100972E2A /* CTAP2FullStackTests.swift in Sources */,
-				6C734BB72EE860E100972E2A /* CTAP2ExtensionFullStackTests.swift in Sources */,
+				6C734BB62EE860E100972E2A /* CredentialTests.swift in Sources */,
+				6C734BB72EE860E100972E2A /* CredProtectTests.swift in Sources */,
+				CD75D32C2F1114C7000624CB /* LargeBlobsTests.swift in Sources */,
 				B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */,
 				6C2B14512DC8CF4C00B5C482 /* SCP11FullStackTests.swift in Sources */,
 				6C2B14522DC8CF4C00B5C482 /* SCP11TestData.swift in Sources */,
-				6C734BB92EE861EE00972E2A /* Helpers.swift in Sources */,
+				6C734BB92EE861EE00972E2A /* TestHelpers.swift in Sources */,
 				6C2B14532DC8CF4C00B5C482 /* SCP03FullStackTests.swift in Sources */,
 				6C2B14542DC8CF4C00B5C482 /* SCPFullStackTests.swift in Sources */,
-				6C734BAC2EE860AF00972E2A /* CTAPHIDFullStackTests.swift in Sources */,
-				6CCAB7BA2EEC35EA00A789E7 /* WebAuthnExtensionFullStackTests.swift in Sources */,
+				6C734BAC2EE860AF00972E2A /* HIDTransportTests.swift in Sources */,
+				6CCAB7BA2EEC35EA00A789E7 /* PRFTests.swift in Sources */,
 				6C2B14552DC8CF4C00B5C482 /* XCTestCase+SCP.swift in Sources */,
 				6CDATAHEX2EF1234500000001 /* Data+Hex.swift in Sources */,
 			);
