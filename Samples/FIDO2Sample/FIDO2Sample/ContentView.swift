@@ -11,8 +11,8 @@ struct ContentView: View {
 
     @State private var coordinator: FIDO2Coordinator?
     @State private var isLoading = false
-    @State private var credentialId: Data?
-    @State private var status = "Ready"
+    @State private var credentialId: Data? // Demo: lost on restart. Credential persists on YubiKey.
+    @State private var resultAlert: ResultAlert?
 
     var connectionStatus: String {
         if let type = connectionManager.connectionType {
@@ -34,10 +34,6 @@ struct ContentView: View {
             Text("FIDO2 Sample")
                 .font(.largeTitle)
                 .fontWeight(.bold)
-
-            Text(status)
-                .font(.headline)
-                .foregroundColor(.secondary)
 
             HStack {
                 Circle()
@@ -99,12 +95,8 @@ struct ContentView: View {
         .onAppear {
             setupCoordinator()
         }
-        .onChange(of: connectionManager.wiredConnection != nil) { isConnected in
-            if isConnected {
-                status = "YubiKey connected"
-            } else {
-                status = "Ready"
-            }
+        .alert(item: $resultAlert) { alert in
+            Alert(title: Text(alert.title), message: Text(alert.message), dismissButton: .default(Text("OK")))
         }
     }
 
@@ -146,14 +138,13 @@ struct ContentView: View {
     private func createCredential() async {
         guard let coordinator else { return }
         isLoading = true
-        status = "Creating credential..."
         let usedWired = connectionManager.wiredConnection != nil
 
         do {
             let connection = try await Self.getConnection(using: connectionManager)
             let result = try await coordinator.makeCredential(connection: connection)
             credentialId = result.credentialId
-            status = "Credential created!"
+            resultAlert = ResultAlert(result: result)
 
             #if os(iOS)
             if !usedWired {
@@ -161,9 +152,9 @@ struct ContentView: View {
             }
             #endif
         } catch is CancellationError {
-            status = "Cancelled"
+            // User cancelled, no alert needed
         } catch {
-            status = "Error: \(error.localizedDescription)"
+            resultAlert = ResultAlert(error: error)
             #if os(iOS)
             if !usedWired {
                 await connectionManager.closeNFCConnection(message: "Error")
@@ -176,13 +167,12 @@ struct ContentView: View {
     private func authenticate() async {
         guard let coordinator, let credentialId else { return }
         isLoading = true
-        status = "Authenticating..."
         let usedWired = connectionManager.wiredConnection != nil
 
         do {
             let connection = try await Self.getConnection(using: connectionManager)
-            _ = try await coordinator.getAssertion(connection: connection, credentialId: credentialId)
-            status = "Authentication successful!"
+            let result = try await coordinator.getAssertion(connection: connection, credentialId: credentialId)
+            resultAlert = ResultAlert(result: result)
 
             #if os(iOS)
             if !usedWired {
@@ -190,9 +180,9 @@ struct ContentView: View {
             }
             #endif
         } catch is CancellationError {
-            status = "Cancelled"
+            // User cancelled, no alert needed
         } catch {
-            status = "Error: \(error.localizedDescription)"
+            resultAlert = ResultAlert(error: error)
             #if os(iOS)
             if !usedWired {
                 await connectionManager.closeNFCConnection(message: "Error")
@@ -203,8 +193,35 @@ struct ContentView: View {
     }
 }
 
-#if DEBUG
-#Preview {
-    ContentView()
+// MARK: - Result Alert
+
+private struct ResultAlert: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
+
+    init(result: MakeCredentialResult) {
+        self.title = "Credential Created"
+        self.message = """
+            PRF Enabled: \(result.hmacSecretEnabled ? "Yes" : "No")
+            Credential ID: \(result.credentialId.hexEncodedString.prefix(8))...
+            """
+    }
+
+    init(result: GetAssertionResult) {
+        self.title = "Authentication Successful"
+        var lines = ["Sign Count: \(result.signCount)"]
+        if let first = result.prfFirst {
+            lines.append("PRF Output 1: \(first.hexEncodedString.prefix(8))...")
+        }
+        if let second = result.prfSecond {
+            lines.append("PRF Output 2: \(second.hexEncodedString.prefix(8))...")
+        }
+        self.message = lines.joined(separator: "\n")
+    }
+
+    init(error: Error) {
+        self.title = "Error"
+        self.message = String(reflecting: error)
+    }
 }
-#endif

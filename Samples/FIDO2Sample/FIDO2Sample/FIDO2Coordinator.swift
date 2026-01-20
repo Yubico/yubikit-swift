@@ -132,6 +132,7 @@ actor FIDO2Coordinator {
                     }
                     errorMessage = "Invalid PIN"
                 } else {
+                    trace("PIN verification failed: \(error)")
                     throw error
                 }
             }
@@ -174,6 +175,7 @@ actor FIDO2Coordinator {
                     trace("Invalid PIN, retrying...")
                     errorMessage = "Invalid PIN"
                 } else {
+                    trace("PIN verification failed: \(error)")
                     throw error
                 }
             }
@@ -215,7 +217,7 @@ actor FIDO2Coordinator {
     #endif
 
     private func performMakeCredential(session: CTAP2.Session, pinToken: CTAP2.ClientPin.Token?) async throws -> MakeCredentialResult {
-        // Build clientDataHash (normally done by browser with server-provided challenge)
+        // Demo: random challenge. Production: use server-provided challenge in clientDataJSON.
         let clientDataHash = Data(SHA256.hash(data: Data.random(count: 32)))
 
         // Build extensions
@@ -253,19 +255,15 @@ actor FIDO2Coordinator {
         trace("Credential ID: \(attested.credentialId.hexEncodedString)")
         trace("AAGUID: \(attested.aaguid.hexEncodedString)")
 
+        let hmacSecretEnabled = (try? prfExt.makeCredential.output(from: response)) != nil
+
         return MakeCredentialResult(
             credentialId: attested.credentialId,
             publicKey: attested.credentialPublicKey,
             aaguid: attested.aaguid,
             attestationFormat: response.attestationObject.format,
             signCount: authData.signCount,
-            hmacSecretEnabled: {
-                if let result = try? prfExt.makeCredential.output(from: response) {
-                    if case .enabled = result { return true }
-                    if case .secrets = result { return true }
-                }
-                return false
-            }()
+            hmacSecretEnabled: hmacSecretEnabled
         )
     }
 
@@ -303,14 +301,14 @@ actor FIDO2Coordinator {
     #endif
 
     private func performGetAssertion(session: CTAP2.Session, credentialId: Data, pinToken: CTAP2.ClientPin.Token?) async throws -> GetAssertionResult {
-        // Build clientDataHash (normally done by browser with server-provided challenge)
+        // Demo: random challenge. Production: use server-provided challenge in clientDataJSON.
         let clientDataHash = Data(SHA256.hash(data: Data.random(count: 32)))
 
         // Build allow list
         let allowList = [WebAuthn.PublicKeyCredential.Descriptor(id: credentialId, transports: nil)]
-        trace("Using credential: \(credentialId.hexEncodedString.prefix(16))...")
+        trace("Using credential: \(credentialId.hexEncodedString.prefix(8))...")
 
-        // Build PRF extension with random salts
+        // Demo: random salts produce different outputs each time. Use deterministic salts for reproducible secrets.
         trace("Adding PRF extension with salt")
         let prfExt = try await WebAuthn.Extension.PRF(session: session)
         let extensions = [try prfExt.getAssertion.input(first: Data.random(count: 32), second: Data.random(count: 32))]
@@ -358,8 +356,6 @@ extension Data {
         map { String(format: "%02x", $0) }.joined()
     }
 
-    /// Generates random bytes for demo purposes.
-    /// Note: In production, challenges MUST come from the server to prevent replay attacks.
     static func random(count: Int) -> Data {
         var data = Data(count: count)
         _ = data.withUnsafeMutableBytes { SecRandomCopyBytes(kSecRandomDefault, count, $0.baseAddress!) }
