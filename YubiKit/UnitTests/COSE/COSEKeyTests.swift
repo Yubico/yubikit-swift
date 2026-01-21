@@ -46,6 +46,16 @@ struct COSEKeyTests {
         let encoded = key.cbor()
         let decoded = try #require(COSE.Key(cbor: encoded))
         #expect(decoded == key)
+
+        // Verify conversion to PublicKey
+        let publicKey = try #require(PublicKey(cose: key))
+        guard case .ec(let ecKey) = publicKey else {
+            Issue.record("Expected EC public key")
+            return
+        }
+        #expect(ecKey.curve == .secp256r1)
+        #expect(ecKey.x == x)
+        #expect(ecKey.y == y)
     }
 
     @Test("COSE.Key with test vector (EC2 P-384)")
@@ -74,6 +84,16 @@ struct COSEKeyTests {
         let encoded = key.cbor()
         let decoded = try #require(COSE.Key(cbor: encoded))
         #expect(decoded == key)
+
+        // Verify conversion to PublicKey
+        let publicKey = try #require(PublicKey(cose: key))
+        guard case .ec(let ecKey) = publicKey else {
+            Issue.record("Expected EC public key")
+            return
+        }
+        #expect(ecKey.curve == .secp384r1)
+        #expect(ecKey.x == x)
+        #expect(ecKey.y == y)
     }
 
     @Test("COSE.Key with test vector (OKP Ed25519)")
@@ -94,6 +114,14 @@ struct COSEKeyTests {
         let encoded = key.cbor()
         let decoded = try #require(COSE.Key(cbor: encoded))
         #expect(decoded == key)
+
+        // Verify conversion to PublicKey and DER encoding
+        let publicKey = try #require(PublicKey(cose: key))
+        guard case .ed25519(let ed25519Key) = publicKey else {
+            Issue.record("Expected Ed25519 public key")
+            return
+        }
+        #expect(ed25519Key.keyData == x)
     }
 
     @Test("COSE.Key with test vector (RSA)")
@@ -135,6 +163,16 @@ struct COSEKeyTests {
         let encoded = key.cbor()
         let decoded = try #require(COSE.Key(cbor: encoded))
         #expect(decoded == key)
+
+        // Verify conversion to PublicKey
+        let publicKey = try #require(PublicKey(cose: key))
+        guard case .rsa(let rsaKey) = publicKey else {
+            Issue.record("Expected RSA public key")
+            return
+        }
+        #expect(rsaKey.n == n)
+        #expect(rsaKey.e == e)
+        #expect(rsaKey.size == .bits2048)
     }
 
     @Test("COSE.Key with non-enumerated algorithm (PS256)")
@@ -183,6 +221,10 @@ struct COSEKeyTests {
             return
         }
         #expect(alg == .other(-37))
+
+        // Verify conversion to PublicKey returns nil for unsupported algorithms
+        let publicKey = PublicKey(cose: key)
+        #expect(publicKey == nil)
     }
 
 }
