@@ -346,24 +346,20 @@ struct PinAuthTests {
         }
     }
 
-    // MARK: - P256 Key Agreement
+    // MARK: - EC Key Agreement
 
-    @Test("Crypto.P256.KeyPair produces valid 32-byte coordinates")
-    func testP256KeyPairCoordinates() {
-        let keyPair = Crypto.P256.KeyPair()
+    @Test("EC.PrivateKey produces valid 32-byte coordinates for P-256")
+    func testECKeyPairCoordinates() throws {
+        let keyPair = try EC.PrivateKey.random(curve: .secp256r1)
 
         // Verify coordinates are 32 bytes each (P-256)
-        #expect(keyPair.publicKeyX.count == 32)
-        #expect(keyPair.publicKeyY.count == 32)
+        #expect(keyPair.publicKey.x.count == 32)
+        #expect(keyPair.publicKey.y.count == 32)
 
         // Verify ECDH works with the key pair
-        let anotherKeyPair = Crypto.P256.KeyPair()
-        var peerPublicKey = Data([0x04])
-        peerPublicKey.append(anotherKeyPair.publicKeyX)
-        peerPublicKey.append(anotherKeyPair.publicKeyY)
+        let anotherKeyPair = try EC.PrivateKey.random(curve: .secp256r1)
 
-        let sharedSecret = try? keyPair.sharedSecret(withX963: peerPublicKey)
-        #expect(sharedSecret != nil)
-        #expect(sharedSecret?.count == 32)  // Raw P-256 shared secret
+        let sharedSecret = try keyPair.sharedSecret(with: anotherKeyPair.publicKey)
+        #expect(sharedSecret.count == 32)  // Raw P-256 shared secret
     }
 }

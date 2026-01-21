@@ -39,10 +39,9 @@ struct RSAKeysTests {
     @Test func generateRandomPrivateKey() throws {
         let keySizes: [RSA.KeySize] = [.bits1024, .bits2048, .bits4096]
         for keySize in keySizes {
-            let privKey = RSA.PrivateKey.random(keySize: keySize)
-            #expect(privKey != nil)
-            #expect(privKey?.publicKey.size == keySize)
-            #expect(privKey?.publicKey.n.count == keySize.byteCount)
+            let privKey = try RSA.PrivateKey.random(keySize: keySize)
+            #expect(privKey.publicKey.size == keySize)
+            #expect(privKey.publicKey.n.count == keySize.byteCount)
         }
     }
 
@@ -53,7 +52,7 @@ struct RSAKeysTests {
         let keySizes: [RSA.KeySize] = [.bits1024, .bits2048, .bits4096]
         for keySize in keySizes {
             // Generate a random key
-            let privKey = try #require(RSA.PrivateKey.random(keySize: keySize))
+            let privKey = try RSA.PrivateKey.random(keySize: keySize)
 
             // Encode to PKCS#1 DER
             let privDER = privKey.pkcs1

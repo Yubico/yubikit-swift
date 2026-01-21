@@ -40,12 +40,18 @@ extension CTAP2.ClientPin.ProtocolVersion {
         }
 
         // Generate ephemeral key pair
-        let keyPair = Crypto.P256.KeyPair()
+        let keyPair: EC.PrivateKey
+        do {
+            keyPair = try EC.PrivateKey.random(curve: .secp256r1)
+        } catch {
+            throw .cryptoError("Failed to generate ephemeral key pair", error: error, source: .here())
+        }
 
-        // Perform ECDH
+        // Parse peer's public key and perform ECDH
         let rawSharedSecret: Data
         do {
-            rawSharedSecret = try keyPair.sharedSecret(withX: x, y: y)
+            let peerPublicKey = try EC.PublicKey(x: x, y: y, curve: .secp256r1)
+            rawSharedSecret = try keyPair.sharedSecret(with: peerPublicKey)
         } catch {
             throw .cryptoError("ECDH key agreement failed", error: error, source: .here())
         }
@@ -78,8 +84,8 @@ extension CTAP2.ClientPin.ProtocolVersion {
             alg: .other(-25),  // Per spec: "although this is NOT the algorithm actually used"
             kid: nil,
             crv: 1,
-            x: keyPair.publicKeyX,
-            y: keyPair.publicKeyY
+            x: keyPair.publicKey.x,
+            y: keyPair.publicKey.y
         )
 
         return SharedSecretResult(sharedSecret: derivedSecret, platformKey: platformKey)

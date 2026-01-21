@@ -20,11 +20,50 @@ import Foundation
 
 extension EC.PrivateKey {
 
+    /// Generates a random EC private key.
+    /// - Parameter curve: The desired elliptic curve.
+    /// - Returns: A new random EC private key.
+    /// - Throws: `CryptoError.keyCreationFailed` if generation fails.
+    internal static func random(curve: EC.Curve) throws(CryptoError) -> EC.PrivateKey {
+        guard let keyData = Crypto.EC.generateRandomPrivateKey(keySizeInBits: curve.keySizeInBits) else {
+            throw .keyCreationFailed(nil)
+        }
+        guard let key = EC.PrivateKey(uncompressedRepresentation: keyData, curve: curve) else {
+            throw .keyCreationFailed(nil)
+        }
+        return key
+    }
+
     /// Computes ECDH shared secret with a peer's public key.
     /// - Parameter publicKey: The peer's EC public key.
-    /// - Returns: The shared secret, or nil if key agreement fails.
-    internal func sharedSecret(with publicKey: EC.PublicKey) -> Data? {
-        Crypto.EC.sharedSecret(privateKey: self, publicKey: publicKey)
+    /// - Returns: The shared secret.
+    /// - Throws: `CryptoError.keyAgreementFailed` if ECDH fails.
+    internal func sharedSecret(with publicKey: EC.PublicKey) throws(CryptoError) -> Data {
+        guard let secret = Crypto.EC.sharedSecret(privateKey: self, publicKey: publicKey) else {
+            throw .keyAgreementFailed
+        }
+        return secret
+    }
+}
+
+// MARK: - EC.PublicKey
+
+extension EC.PublicKey {
+
+    /// Initialize a public key from separate X and Y coordinates.
+    /// - Parameters:
+    ///   - x: The X coordinate.
+    ///   - y: The Y coordinate.
+    ///   - curve: The elliptic curve.
+    /// - Throws: `CryptoError.invalidKey` if coordinates are invalid for the curve.
+    internal init(x: Data, y: Data, curve: EC.Curve) throws(CryptoError) {
+        var uncompressed = Data([0x04])
+        uncompressed.append(x)
+        uncompressed.append(y)
+        guard let key = EC.PublicKey(uncompressedPoint: uncompressed, curve: curve) else {
+            throw .invalidKey
+        }
+        self = key
     }
 }
 
@@ -34,26 +73,15 @@ extension RSA.PrivateKey {
 
     /// Generates a random RSA private key.
     /// - Parameter keySize: The desired key size.
-    /// - Returns: A new random RSA private key, or nil if generation fails.
-    internal static func random(keySize: RSA.KeySize) -> RSA.PrivateKey? {
+    /// - Returns: A new random RSA private key.
+    /// - Throws: `CryptoError.keyCreationFailed` if generation fails.
+    internal static func random(keySize: RSA.KeySize) throws(CryptoError) -> RSA.PrivateKey {
         guard let pkcs1 = Crypto.RSA.generateRandomPrivateKey(bitCount: keySize.rawValue) else {
-            return nil
+            throw .keyCreationFailed(nil)
         }
-        return RSA.PrivateKey(pkcs1: pkcs1)
-    }
-}
-
-// MARK: - EC.PrivateKey
-
-extension EC.PrivateKey {
-
-    /// Generates a random EC private key.
-    /// - Parameter curve: The desired elliptic curve.
-    /// - Returns: A new random EC private key, or nil if generation fails.
-    internal static func random(curve: EC.Curve) -> EC.PrivateKey? {
-        guard let keyData = Crypto.EC.generateRandomPrivateKey(keySizeInBits: curve.keySizeInBits) else {
-            return nil
+        guard let key = RSA.PrivateKey(pkcs1: pkcs1) else {
+            throw .keyCreationFailed(nil)
         }
-        return EC.PrivateKey(uncompressedRepresentation: keyData, curve: curve)
+        return key
     }
 }

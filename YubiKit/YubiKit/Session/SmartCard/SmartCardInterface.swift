@@ -404,8 +404,11 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
 
         let pkSdEcka = scp11Params.pkSdEcka
 
-        guard let eskOceEcka = EC.PrivateKey.random(curve: .secp256r1) else {
-            throw .cryptoError("Failed to generate private key", error: nil, source: .here())
+        let eskOceEcka: EC.PrivateKey
+        do {
+            eskOceEcka = try EC.PrivateKey.random(curve: .secp256r1)
+        } catch {
+            throw .cryptoError("Failed to generate private key", error: error, source: .here())
         }
         let epkOceEcka = eskOceEcka.publicKey
         let epkOceEckaData = epkOceEcka.uncompressedPoint
@@ -450,10 +453,13 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
             throw .dataProcessingError("Unable to parse EC public key", source: .here())
         }
 
-        guard let keyAgreement1 = eskOceEcka.sharedSecret(with: epkSdEcka),
-            let keyAgreement2 = skOceEcka.sharedSecret(with: pkSdEcka)
-        else {
-            throw .cryptoError("Unable to generate shared secret", error: nil, source: .here())
+        let keyAgreement1: Data
+        let keyAgreement2: Data
+        do {
+            keyAgreement1 = try eskOceEcka.sharedSecret(with: epkSdEcka)
+            keyAgreement2 = try skOceEcka.sharedSecret(with: pkSdEcka)
+        } catch {
+            throw .cryptoError("Unable to generate shared secret", error: error, source: .here())
         }
 
         let keyMaterial = keyAgreement1 + keyAgreement2

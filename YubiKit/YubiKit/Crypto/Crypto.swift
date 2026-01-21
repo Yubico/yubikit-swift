@@ -40,9 +40,6 @@ internal enum Crypto {
     /// Elliptic curve cryptography operations.
     enum EC {}
 
-    /// P-256 elliptic curve key agreement operations.
-    enum P256 {}
-
     /// Curve25519 key validation and derivation operations.
     enum Curve25519 {}
 

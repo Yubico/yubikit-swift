@@ -40,7 +40,7 @@ struct ECKeysTests {
     @Test func generateRandomPrivateKey() throws {
         let curves: [EC.Curve] = [.secp256r1, .secp384r1]
         for curve in curves {
-            let privKey = EC.PrivateKey.random(curve: curve)!
+            let privKey = try EC.PrivateKey.random(curve: curve)
             #expect(privKey.publicKey.curve == curve)
             #expect(privKey.publicKey.x.count == curve.keySizeInBytes)
             #expect(privKey.publicKey.y.count == curve.keySizeInBytes)
@@ -55,7 +55,7 @@ struct ECKeysTests {
         let curves: [EC.Curve] = [.secp256r1, .secp384r1]
         for curve in curves {
             // Generate a random key
-            let privKey = EC.PrivateKey.random(curve: curve)!
+            let privKey = try EC.PrivateKey.random(curve: curve)
 
             // Encode to uncompressed representation
             let privRaw = privKey.uncompressedRepresentation
