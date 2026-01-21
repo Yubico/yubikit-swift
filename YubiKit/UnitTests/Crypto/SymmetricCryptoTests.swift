@@ -17,7 +17,7 @@ import Testing
 
 @testable import YubiKit
 
-struct EncryptDecryptTests {
+struct SymmetricCryptoTests {
 
     @Test func encryptAESECB() throws {
         let data = "Hello World!0000".data(using: .utf8)!
@@ -112,6 +112,33 @@ struct EncryptDecryptTests {
         let expectedMac = Data(hexEncodedString: "51f0bebf 7e3b9d92 fc497417 79363cfe")!
         let result = try msg.aescmac(key: key)
         #expect(result == expectedMac)
+    }
+
+    // MARK: - AES-GCM
+
+    @Test func aesGcmRoundTrip() throws {
+        let plaintext = "Hello, AES-GCM!".data(using: .utf8)!
+        let key = try Data.random(length: 32)
+        let nonce = try Data.random(length: 12)
+        let aad = "additional data".data(using: .utf8)!
+
+        let sealed = try Crypto.AES.GCM.seal(plaintext, key: key, nonce: nonce, authenticating: aad)
+        let decrypted = try Crypto.AES.GCM.open(sealed, key: key, nonce: nonce, authenticating: aad)
+
+        #expect(decrypted == plaintext)
+    }
+
+    @Test func aesGcmAuthenticationFailure() throws {
+        let plaintext = "Hello, AES-GCM!".data(using: .utf8)!
+        let key = try Data.random(length: 32)
+        let nonce = try Data.random(length: 12)
+
+        let sealed = try Crypto.AES.GCM.seal(plaintext, key: key, nonce: nonce)
+        let tampered = Crypto.AES.GCM.SealedBox(ciphertext: sealed.ciphertext, tag: Data(repeating: 0, count: 16))
+
+        #expect(throws: CryptoError.self) {
+            _ = try Crypto.AES.GCM.open(tampered, key: key, nonce: nonce)
+        }
     }
 
 }
