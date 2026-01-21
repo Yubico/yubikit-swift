@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import Foundation
 
 // MARK: - LargeBlobs Session Methods
@@ -242,7 +241,7 @@ extension CTAP2.Session {
 
     // Computes the SHA-256 checksum truncated to 16 bytes.
     private func checksum(_ data: Data) -> Data {
-        Data(SHA256.hash(data: data).prefix(Self.checksumLength))
+        data.sha256().prefix(Self.checksumLength)
     }
 
     // Computes the PIN/UV auth message for write operations.
@@ -251,7 +250,7 @@ extension CTAP2.Session {
         message.append(contentsOf: [0x0C, 0x00])
         var offsetLE = UInt32(offset).littleEndian
         message.append(Data(bytes: &offsetLE, count: 4))
-        message.append(Data(SHA256.hash(data: fragment)))
+        message.append(fragment.sha256())
         return message
     }
 

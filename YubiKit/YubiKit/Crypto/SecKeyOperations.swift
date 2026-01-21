@@ -253,15 +253,14 @@ private enum SecKeyHelpers {
 
     static func getAttributes(of key: SecKey) -> KeyAttributes? {
         guard let attributes = SecKeyCopyAttributes(key) as? [CFString: Any],
-              let keySizeInBits = attributes[kSecAttrKeySizeInBits] as? Int
+              let keySizeInBits = attributes[kSecAttrKeySizeInBits] as? Int,
+              let keyClass = attributes[kSecAttrKeyClass] as? String,
+              let keyType = attributes[kSecAttrKeyType] as? String
         else {
             return nil
         }
 
-        let keyClass = attributes[kSecAttrKeyClass] as! CFString
-        let keyType = attributes[kSecAttrKeyType] as! CFString
-
-        return KeyAttributes(keyClass: keyClass, keyType: keyType, keySizeInBits: keySizeInBits)
+        return KeyAttributes(keyClass: keyClass as CFString, keyType: keyType as CFString, keySizeInBits: keySizeInBits)
     }
 
     static func isPublicKey(_ key: SecKey) -> Bool {

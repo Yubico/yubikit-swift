@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import Foundation
 
 // MARK: - Entry
@@ -37,29 +36,19 @@ extension CTAP2.LargeBlobs.Entry {
         let originalSize = data.count
         let compressed = try Self.compress(data)
 
-        var nonce = Data(count: Self.nonceLength)
-        let status = nonce.withUnsafeMutableBytes { buffer in
-            SecRandomCopyBytes(kSecRandomDefault, Self.nonceLength, buffer.baseAddress!)
-        }
-        guard status == errSecSuccess else {
+        let nonce: Data
+        do {
+            nonce = try Crypto.Random.data(length: Self.nonceLength)
+        } catch {
             throw .dataProcessingError("Failed to generate random nonce", source: .here())
         }
 
         do {
-            let symmetricKey = SymmetricKey(data: key)
-            let gcmNonce = try AES.GCM.Nonce(data: nonce)
             let ad = Self.associatedData(originalSize: originalSize)
-            let sealedBox = try AES.GCM.seal(compressed, using: symmetricKey, nonce: gcmNonce, authenticating: ad)
-
-            guard let ciphertext = sealedBox.combined?.dropFirst(Self.nonceLength) else {
-                throw CTAP2.SessionError.dataProcessingError("AES-GCM encryption failed", source: .here())
-            }
-
-            self.ciphertext = Data(ciphertext)
+            let sealedBox = try Crypto.AES.GCM.seal(compressed, key: key, nonce: nonce, authenticating: ad)
+            self.ciphertext = sealedBox.ciphertextAndTag
             self.nonce = nonce
             self.origSize = originalSize
-        } catch let error as CTAP2.SessionError {
-            throw error
         } catch {
             throw .dataProcessingError("AES-GCM encryption failed: \(error)", source: .here())
         }
@@ -75,11 +64,13 @@ extension CTAP2.LargeBlobs.Entry {
 
         let compressed: Data
         do {
-            let symmetricKey = SymmetricKey(data: key)
-            let combined = nonce + ciphertext
-            let sealedBox = try AES.GCM.SealedBox(combined: combined)
+            guard let sealedBox = Crypto.AES.GCM.SealedBox(combined: ciphertext) else {
+                throw CTAP2.SessionError.dataProcessingError("Invalid ciphertext format", source: .here())
+            }
             let ad = Self.associatedData(originalSize: origSize)
-            compressed = try AES.GCM.open(sealedBox, using: symmetricKey, authenticating: ad)
+            compressed = try Crypto.AES.GCM.open(sealedBox, key: key, nonce: nonce, authenticating: ad)
+        } catch let error as CTAP2.SessionError {
+            throw error
         } catch {
             throw .dataProcessingError("AES-GCM decryption failed: \(error)", source: .here())
         }

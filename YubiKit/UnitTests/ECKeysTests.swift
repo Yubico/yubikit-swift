@@ -14,7 +14,7 @@
 
 // # ECKeysTests
 // Unit tests for the ECKeys implementation.
-// Validates key generation, encoding, decoding, SecKey conversions, and equality for EC keys.
+// Validates key generation, encoding/decoding, and equality for EC keys.
 
 import Foundation
 import Testing
