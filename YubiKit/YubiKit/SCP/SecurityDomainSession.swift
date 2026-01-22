@@ -384,7 +384,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
         var data = Data([keyRef.kvn])
         var expected = Data([keyRef.kvn])
 
-        let defaultKcvIv: Data = .init(repeating: 0x01, count: Crypto.aesBlockSize)
+        let defaultKcvIv: Data = .init(repeating: 0x01, count: Crypto.BlockSize.aes)
 
         for key in [keys.enc, keys.mac, dek] {
             let kcv = try defaultKcvIv.cbcEncrypt(key: key).prefix(3)
@@ -557,7 +557,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
 
 extension Data {
     fileprivate func cbcEncrypt(key: Data) throws(SCPError) -> Data {
-        let iv = Data(repeating: 0, count: Crypto.aesBlockSize)
+        let iv = Data(repeating: 0, count: Crypto.BlockSize.aes)
 
         do {
             return try encryptAES(key: key, iv: iv)

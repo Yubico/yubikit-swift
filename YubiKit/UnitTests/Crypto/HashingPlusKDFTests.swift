@@ -87,7 +87,7 @@ struct HashingPlusKDFTests {
     // MARK: - PBKDF2
 
     @Test func pbkdf2Derivation() throws {
-        let derived = try Data.pbkdf2(
+        let derived = try Crypto.KDF.pbkdf2(
             password: "password",
             salt: "salt".data(using: .utf8)!,
             iterations: 1,

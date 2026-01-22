@@ -150,24 +150,6 @@ extension Data {
         try Crypto.Random.data(length: length)
     }
 
-    // MARK: - Key Derivation (Static)
-
-    /// Derives a key using PBKDF2-HMAC-SHA1.
-    /// - Parameters:
-    ///   - password: The password string.
-    ///   - salt: The salt data.
-    ///   - iterations: Number of iterations.
-    ///   - keyLength: Desired key length in bytes.
-    /// - Returns: The derived key.
-    internal static func pbkdf2(
-        password: String,
-        salt: Data,
-        iterations: Int,
-        keyLength: Int
-    ) throws(CryptoError) -> Data {
-        try Crypto.KDF.pbkdf2(password: password, salt: salt, iterations: iterations, keyLength: keyLength)
-    }
-
     // MARK: - Comparison
 
     /// Compares with another Data value in constant time to prevent timing attacks.

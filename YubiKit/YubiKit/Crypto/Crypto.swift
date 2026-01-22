@@ -52,19 +52,17 @@ internal enum Crypto {
     /// Cryptographically secure random number generation.
     enum Random {}
 
-    // MARK: - Constants
-
-    /// AES block size in bytes.
-    static let aesBlockSize = kCCBlockSizeAES128
-
-    /// SHA-1 block size in bytes.
-    static let sha1BlockSize = Int(CC_SHA1_BLOCK_BYTES)
-
-    /// SHA-256 block size in bytes.
-    static let sha256BlockSize = Int(CC_SHA256_BLOCK_BYTES)
-
-    /// SHA-512 block size in bytes.
-    static let sha512BlockSize = Int(CC_SHA512_BLOCK_BYTES)
+    /// Block size constants for cryptographic algorithms.
+    enum BlockSize {
+        /// AES block size in bytes.
+        static let aes = kCCBlockSizeAES128
+        /// SHA-1 block size in bytes.
+        static let sha1 = Int(CC_SHA1_BLOCK_BYTES)
+        /// SHA-256 block size in bytes.
+        static let sha256 = Int(CC_SHA256_BLOCK_BYTES)
+        /// SHA-512 block size in bytes.
+        static let sha512 = Int(CC_SHA512_BLOCK_BYTES)
+    }
 
     // MARK: - Utilities
 
@@ -74,73 +72,6 @@ internal enum Crypto {
         return zip(lhs, rhs).reduce(0) { $0 | ($1.0 ^ $1.1) } == 0
     }
 
-    // MARK: - Private Helpers (used by nested enums in this file)
-
-    /// Performs symmetric encryption/decryption operation.
-    fileprivate static func cryptOperation(
-        _ operation: Int,
-        data: Data,
-        algorithm: CCAlgorithm,
-        mode: CCMode,
-        key: Data,
-        iv: Data?
-    ) throws(CryptoError) -> Data {
-        guard !key.isEmpty else { throw CryptoError.missingData }
-
-        let blockSize: Int
-        switch Int(algorithm) {
-        case kCCAlgorithm3DES:
-            blockSize = kCCBlockSize3DES
-        case kCCAlgorithmAES, kCCAlgorithmAES128:
-            blockSize = kCCBlockSizeAES128
-        default:
-            throw CryptoError.unsupportedAlgorithm
-        }
-
-        var outLength: Int = 0
-        let bufferLength = data.count + blockSize
-        var buffer = Data(count: bufferLength)
-        let iv = iv ?? Data()
-
-        let cryptorStatus: CCCryptorStatus = buffer.withUnsafeMutableBytes { bufferBytes in
-            data.withUnsafeBytes { dataBytes in
-                key.withUnsafeBytes { keyBytes in
-                    iv.withUnsafeBytes { ivBytes in
-                        var cryptorRef: CCCryptorRef?
-                        let createStatus = CCCryptorCreateWithMode(
-                            CCOperation(operation),
-                            mode,
-                            algorithm,
-                            CCPadding(ccNoPadding),
-                            iv.count > 0 ? ivBytes.baseAddress : nil,
-                            keyBytes.baseAddress,
-                            key.count,
-                            nil,
-                            0,
-                            0,
-                            0,
-                            &cryptorRef
-                        )
-                        guard createStatus == kCCSuccess, let cryptor = cryptorRef else {
-                            return createStatus
-                        }
-                        defer { CCCryptorRelease(cryptor) }
-                        return CCCryptorUpdate(
-                            cryptor,
-                            dataBytes.baseAddress,
-                            data.count,
-                            bufferBytes.baseAddress,
-                            bufferLength,
-                            &outLength
-                        )
-                    }
-                }
-            }
-        }
-
-        guard cryptorStatus == kCCSuccess else { throw CryptoError.cryptorError(cryptorStatus) }
-        return buffer.subdata(in: 0..<outLength)
-    }
 }
 
 // MARK: - Crypto.Hash
@@ -525,5 +456,76 @@ extension Crypto.Random {
             throw .randomGenerationFailed
         }
         return data
+    }
+}
+
+// MARK: - Private Helpers
+
+private extension Crypto {
+
+    /// Performs symmetric encryption/decryption operation.
+    static func cryptOperation(
+        _ operation: Int,
+        data: Data,
+        algorithm: CCAlgorithm,
+        mode: CCMode,
+        key: Data,
+        iv: Data?
+    ) throws(CryptoError) -> Data {
+        guard !key.isEmpty else { throw CryptoError.missingData }
+
+        let blockSize: Int
+        switch Int(algorithm) {
+        case kCCAlgorithm3DES:
+            blockSize = kCCBlockSize3DES
+        case kCCAlgorithmAES, kCCAlgorithmAES128:
+            blockSize = kCCBlockSizeAES128
+        default:
+            throw CryptoError.unsupportedAlgorithm
+        }
+
+        var outLength: Int = 0
+        let bufferLength = data.count + blockSize
+        var buffer = Data(count: bufferLength)
+        let iv = iv ?? Data()
+
+        let cryptorStatus: CCCryptorStatus = buffer.withUnsafeMutableBytes { bufferBytes in
+            data.withUnsafeBytes { dataBytes in
+                key.withUnsafeBytes { keyBytes in
+                    iv.withUnsafeBytes { ivBytes in
+                        var cryptorRef: CCCryptorRef?
+                        let createStatus = CCCryptorCreateWithMode(
+                            CCOperation(operation),
+                            mode,
+                            algorithm,
+                            CCPadding(ccNoPadding),
+                            iv.count > 0 ? ivBytes.baseAddress : nil,
+                            keyBytes.baseAddress,
+                            key.count,
+                            nil,
+                            0,
+                            0,
+                            0,
+                            &cryptorRef
+                        )
+                        guard createStatus == kCCSuccess, let cryptor = cryptorRef else {
+                            return createStatus
+                        }
+                        defer { CCCryptorRelease(cryptor) }
+                        return CCCryptorUpdate(
+                            cryptor,
+                            dataBytes.baseAddress,
+                            data.count,
+                            bufferBytes.baseAddress,
+                            bufferLength,
+                            &outLength
+                        )
+                    }
+                }
+            }
+        }
+
+        guard cryptorStatus == kCCSuccess else { throw CryptoError.cryptorError(cryptorStatus) }
+        return buffer.subdata(in: 0..<outLength)
     }
 }

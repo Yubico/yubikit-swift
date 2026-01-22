@@ -343,11 +343,11 @@ extension OATHSession {
                 var mutableSecret = secret
                 mutableSecret.append(Data(count: Self.minSecretLenght - secret.count))
                 self.secret = mutableSecret
-            } else if algorithm == .sha1 && secret.count > Crypto.sha1BlockSize {
+            } else if algorithm == .sha1 && secret.count > Crypto.BlockSize.sha1 {
                 self.secret = secret.sha1()
-            } else if algorithm == .sha256 && secret.count > Crypto.sha256BlockSize {
+            } else if algorithm == .sha256 && secret.count > Crypto.BlockSize.sha256 {
                 self.secret = secret.sha256()
-            } else if algorithm == .sha512 && secret.count > Crypto.sha512BlockSize {
+            } else if algorithm == .sha512 && secret.count > Crypto.BlockSize.sha512 {
                 self.secret = secret.sha512()
             } else {
                 self.secret = secret

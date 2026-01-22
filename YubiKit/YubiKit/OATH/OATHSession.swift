@@ -520,7 +520,7 @@ extension OATHSession {
     /// - Returns: Access key for unlocking the session.
     public func deriveAccessKey(from password: String) throws(OATHSessionError) -> Data {
         do {
-            return try Data.pbkdf2(
+            return try Crypto.KDF.pbkdf2(
                 password: password,
                 salt: selectResponse.salt,
                 iterations: 1000,
