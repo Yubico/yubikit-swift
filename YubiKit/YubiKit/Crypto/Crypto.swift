@@ -218,7 +218,14 @@ extension Crypto.AES {
     /// - Returns: Encrypted data.
     static func encrypt(_ data: Data, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
         let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
-        return try Crypto.cryptOperation(kCCEncrypt, data: data, algorithm: CCAlgorithm(kCCAlgorithmAES), mode: mode, key: key, iv: iv)
+        return try Crypto.cryptOperation(
+            kCCEncrypt,
+            data: data,
+            algorithm: CCAlgorithm(kCCAlgorithmAES),
+            mode: mode,
+            key: key,
+            iv: iv
+        )
     }
 
     /// Decrypts data using AES.
@@ -229,7 +236,14 @@ extension Crypto.AES {
     /// - Returns: Decrypted data.
     static func decrypt(_ data: Data, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
         let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
-        return try Crypto.cryptOperation(kCCDecrypt, data: data, algorithm: CCAlgorithm(kCCAlgorithmAES), mode: mode, key: key, iv: iv)
+        return try Crypto.cryptOperation(
+            kCCDecrypt,
+            data: data,
+            algorithm: CCAlgorithm(kCCAlgorithmAES),
+            mode: mode,
+            key: key,
+            iv: iv
+        )
     }
 
     /// Computes AES-CMAC.
@@ -242,7 +256,14 @@ extension Crypto.AES {
         ])
         let algorithm = CCAlgorithm(kCCAlgorithmAES128)
 
-        let l = try Crypto.cryptOperation(kCCEncrypt, data: constZero, algorithm: algorithm, mode: CCMode(kCCModeCBC), key: key, iv: constZero)
+        let l = try Crypto.cryptOperation(
+            kCCEncrypt,
+            data: constZero,
+            algorithm: algorithm,
+            mode: CCMode(kCCModeCBC),
+            key: key,
+            iv: constZero
+        )
         var subKey1 = l.shiftedLeftByOne()
         if (l[0] & 0x80) != 0 {
             subKey1 = constRb.xor(with: subKey1)
@@ -278,7 +299,14 @@ extension Crypto.AES {
             lastIv = lastIv.xor(with: encryptedBlock)
         }
 
-        return try Crypto.cryptOperation(kCCEncrypt, data: lastBlock, algorithm: algorithm, mode: CCMode(kCCModeCBC), key: key, iv: lastIv)
+        return try Crypto.cryptOperation(
+            kCCEncrypt,
+            data: lastBlock,
+            algorithm: algorithm,
+            mode: CCMode(kCCModeCBC),
+            key: key,
+            iv: lastIv
+        )
     }
 
     /// Applies bit padding for CMAC.
@@ -342,7 +370,12 @@ extension Crypto.AES {
             do {
                 let symmetricKey = SymmetricKey(data: key)
                 let gcmNonce = try CryptoKit.AES.GCM.Nonce(data: nonce)
-                let sealedBox = try CryptoKit.AES.GCM.seal(data, using: symmetricKey, nonce: gcmNonce, authenticating: aad)
+                let sealedBox = try CryptoKit.AES.GCM.seal(
+                    data,
+                    using: symmetricKey,
+                    nonce: gcmNonce,
+                    authenticating: aad
+                )
                 // sealedBox.combined is nonce + ciphertext + tag
                 guard let combined = sealedBox.combined else {
                     throw CryptoError.encryptionFailed(nil)
@@ -399,7 +432,14 @@ extension Crypto.TripleDES {
     /// - Returns: Encrypted data.
     static func encrypt(_ data: Data, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
         let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
-        return try Crypto.cryptOperation(kCCEncrypt, data: data, algorithm: CCAlgorithm(kCCAlgorithm3DES), mode: mode, key: key, iv: iv)
+        return try Crypto.cryptOperation(
+            kCCEncrypt,
+            data: data,
+            algorithm: CCAlgorithm(kCCAlgorithm3DES),
+            mode: mode,
+            key: key,
+            iv: iv
+        )
     }
 
     /// Decrypts data using Triple DES.
@@ -410,7 +450,14 @@ extension Crypto.TripleDES {
     /// - Returns: Decrypted data.
     static func decrypt(_ data: Data, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
         let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
-        return try Crypto.cryptOperation(kCCDecrypt, data: data, algorithm: CCAlgorithm(kCCAlgorithm3DES), mode: mode, key: key, iv: iv)
+        return try Crypto.cryptOperation(
+            kCCDecrypt,
+            data: data,
+            algorithm: CCAlgorithm(kCCAlgorithm3DES),
+            mode: mode,
+            key: key,
+            iv: iv
+        )
     }
 }
 

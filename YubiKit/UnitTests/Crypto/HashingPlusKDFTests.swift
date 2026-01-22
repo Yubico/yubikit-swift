@@ -42,13 +42,19 @@ struct HashingPlusKDFTests {
     @Test func sha384Hash() {
         let data = "abc".data(using: .utf8)!
         let hash = data.sha384()
-        #expect(hash.hexEncodedString == "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7")
+        #expect(
+            hash.hexEncodedString
+                == "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7"
+        )
     }
 
     @Test func sha512Hash() {
         let data = "abc".data(using: .utf8)!
         let hash = data.sha512()
-        #expect(hash.hexEncodedString == "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f")
+        #expect(
+            hash.hexEncodedString
+                == "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"
+        )
     }
 
     // MARK: - HMAC
@@ -81,7 +87,12 @@ struct HashingPlusKDFTests {
     // MARK: - PBKDF2
 
     @Test func pbkdf2Derivation() throws {
-        let derived = try Data.pbkdf2(password: "password", salt: "salt".data(using: .utf8)!, iterations: 1, keyLength: 20)
+        let derived = try Data.pbkdf2(
+            password: "password",
+            salt: "salt".data(using: .utf8)!,
+            iterations: 1,
+            keyLength: 20
+        )
         #expect(derived.hexEncodedString == "0c60c80f961f0e71f3a9b524af6012062fe037a6")
     }
 
@@ -90,7 +101,7 @@ struct HashingPlusKDFTests {
     @Test func randomGeneration() throws {
         let random = try Data.random(length: 32)
         #expect(random.count == 32)
-        #expect(random != Data(count: 32)) // Not all zeros
+        #expect(random != Data(count: 32))  // Not all zeros
     }
 
     @Test func randomUniqueness() throws {

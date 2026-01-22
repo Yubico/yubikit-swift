@@ -55,7 +55,7 @@ public enum Ed25519: Sendable {
         public init?(seed: Data) {
             guard seed.count == 32 else { return nil }
             guard let derivedPublicKey = Crypto.Curve25519.deriveEd25519PublicKey(fromSeed: seed),
-                  let publicKey = PublicKey(keyData: derivedPublicKey)
+                let publicKey = PublicKey(keyData: derivedPublicKey)
             else {
                 return nil
             }
@@ -106,7 +106,7 @@ public enum X25519: Sendable {
         public init?(scalar: Data) {
             guard scalar.count == 32 else { return nil }
             guard let derivedPublicKey = Crypto.Curve25519.deriveX25519PublicKey(fromScalar: scalar),
-                  let publicKey = PublicKey(keyData: derivedPublicKey)
+                let publicKey = PublicKey(keyData: derivedPublicKey)
             else {
                 return nil
             }
