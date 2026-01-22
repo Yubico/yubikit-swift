@@ -265,11 +265,11 @@ extension Crypto.AES {
             iv: constZero
         )
         var subKey1 = l.shiftedLeftByOne()
-        if (l[0] & 0x80) != 0 {
+        if let firstByte = l.first, (firstByte & 0x80) != 0 {
             subKey1 = constRb.xor(with: subKey1)
         }
         var subKey2 = subKey1.shiftedLeftByOne()
-        if (subKey1[0] & 0x80) != 0 {
+        if let firstByte = subKey1.first, (firstByte & 0x80) != 0 {
             subKey2 = constRb.xor(with: subKey2)
         }
 
@@ -382,7 +382,10 @@ extension Crypto.AES {
                 }
                 // Remove the nonce prefix to get ciphertext + tag
                 let ciphertextAndTag = combined.dropFirst(nonceSize)
-                return SealedBox(combined: Data(ciphertextAndTag))!
+                guard let sealedBox = SealedBox(combined: Data(ciphertextAndTag)) else {
+                    throw CryptoError.encryptionFailed(nil)
+                }
+                return sealedBox
             } catch let error as CryptoError {
                 throw error
             } catch {

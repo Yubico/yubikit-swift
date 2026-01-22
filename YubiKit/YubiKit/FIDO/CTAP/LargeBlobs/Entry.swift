@@ -40,7 +40,7 @@ extension CTAP2.LargeBlobs.Entry {
         do {
             nonce = try Crypto.Random.data(length: Self.nonceLength)
         } catch {
-            throw .dataProcessingError("Failed to generate random nonce", source: .here())
+            throw .dataProcessingError("Failed to generate random nonce: \(error)", source: .here())
         }
 
         do {
