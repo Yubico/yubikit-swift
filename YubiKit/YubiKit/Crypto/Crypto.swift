@@ -461,10 +461,10 @@ extension Crypto.Random {
 
 // MARK: - Private Helpers
 
-private extension Crypto {
+extension Crypto {
 
     /// Performs symmetric encryption/decryption operation.
-    static func cryptOperation(
+    fileprivate static func cryptOperation(
         _ operation: Int,
         data: Data,
         algorithm: CCAlgorithm,

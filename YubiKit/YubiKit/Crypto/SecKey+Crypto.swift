@@ -86,11 +86,11 @@ extension Crypto.RSA {
 extension Crypto.EC {
 
     /// Generates a random EC private key and returns its uncompressed representation.
-    /// - Parameter keySizeInBits: The key size in bits (e.g., 256, 384).
+    /// - Parameter curve: The elliptic curve to use.
     /// - Returns: The uncompressed private key data.
     /// - Throws: `CryptoError.keyCreationFailed` if generation fails.
-    static func generateRandomPrivateKey(keySizeInBits: Int) throws(CryptoError) -> Data {
-        let (privateKey, _) = try SecKeyHelpers.generateECKeyPair(keySizeInBits: keySizeInBits)
+    static func generateRandomPrivateKey(curve: EC.Curve) throws(CryptoError) -> Data {
+        let (privateKey, _) = try SecKeyHelpers.generateECKeyPair(curve: curve)
         return try SecKeyHelpers.exportSecKey(privateKey)
     }
 
@@ -103,11 +103,11 @@ extension Crypto.EC {
     static func sharedSecret(privateKey: EC.PrivateKey, publicKey: EC.PublicKey) throws(CryptoError) -> Data {
         let privateSecKey = try SecKeyHelpers.createECPrivateKey(
             from: privateKey.uncompressedRepresentation,
-            keySizeInBits: privateKey.curve.keySizeInBits
+            curve: privateKey.curve
         )
         let publicSecKey = try SecKeyHelpers.createECPublicKey(
             from: publicKey.uncompressedPoint,
-            keySizeInBits: publicKey.curve.keySizeInBits
+            curve: publicKey.curve
         )
         return try SecKeyHelpers.ecdhKeyExchange(privateKey: privateSecKey, publicKey: publicSecKey)
     }
@@ -209,11 +209,18 @@ private enum SecKeyHelpers {
         return (privateKey, publicKey)
     }
 
-    static func generateECKeyPair(keySizeInBits: Int) throws(CryptoError) -> (privateKey: SecKey, publicKey: SecKey) {
+    static func generateECKeyPair(curve: EC.Curve) throws(CryptoError) -> (privateKey: SecKey, publicKey: SecKey) {
+        // When adding new curves, ensure the correct Security framework key type is used.
+        let keyType: CFString
+        switch curve {
+        case .secp256r1, .secp384r1:
+            keyType = kSecAttrKeyTypeECSECPrimeRandom
+        }
+
         let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPrivate,
-            kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
-            kSecAttrKeySizeInBits: keySizeInBits,
+            kSecAttrKeyType: keyType,
+            kSecAttrKeySizeInBits: curve.keySizeInBits,
         ]
 
         var error: Unmanaged<CFError>?
@@ -228,21 +235,35 @@ private enum SecKeyHelpers {
 
     // MARK: - SecKey Creation from Data
 
-    static func createECPublicKey(from data: Data, keySizeInBits: Int) throws(CryptoError) -> SecKey {
-        try createSecKey(
+    static func createECPublicKey(from data: Data, curve: EC.Curve) throws(CryptoError) -> SecKey {
+        // When adding new curves, ensure the correct Security framework key type is used.
+        let keyType: CFString
+        switch curve {
+        case .secp256r1, .secp384r1:
+            keyType = kSecAttrKeyTypeECSECPrimeRandom
+        }
+
+        return try createSecKey(
             from: data,
-            keyType: kSecAttrKeyTypeECSECPrimeRandom,
+            keyType: keyType,
             keyClass: kSecAttrKeyClassPublic,
-            keySizeInBits: keySizeInBits
+            keySizeInBits: curve.keySizeInBits
         )
     }
 
-    static func createECPrivateKey(from data: Data, keySizeInBits: Int) throws(CryptoError) -> SecKey {
-        try createSecKey(
+    static func createECPrivateKey(from data: Data, curve: EC.Curve) throws(CryptoError) -> SecKey {
+        // When adding new curves, ensure the correct Security framework key type is used.
+        let keyType: CFString
+        switch curve {
+        case .secp256r1, .secp384r1:
+            keyType = kSecAttrKeyTypeECSECPrimeRandom
+        }
+
+        return try createSecKey(
             from: data,
-            keyType: kSecAttrKeyTypeECSECPrimeRandom,
+            keyType: keyType,
             keyClass: kSecAttrKeyClassPrivate,
-            keySizeInBits: keySizeInBits
+            keySizeInBits: curve.keySizeInBits
         )
     }
 

@@ -1102,8 +1102,8 @@ struct PIVFullStackTests {
 // MARK: - Test Helpers for SecKey Conversion
 // CryptoKit doesn't support RSA or verifying pre-hashed EC digests, so we need SecKey
 
-private extension RSA.PublicKey {
-    func asSecKey() -> SecKey? {
+extension RSA.PublicKey {
+    fileprivate func asSecKey() -> SecKey? {
         let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPublic,
             kSecAttrKeyType: kSecAttrKeyTypeRSA,
@@ -1113,8 +1113,8 @@ private extension RSA.PublicKey {
     }
 }
 
-private extension EC.PublicKey {
-    func asSecKey() -> SecKey? {
+extension EC.PublicKey {
+    fileprivate func asSecKey() -> SecKey? {
         let attributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPublic,
             kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
