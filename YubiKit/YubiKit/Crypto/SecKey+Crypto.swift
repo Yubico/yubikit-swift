@@ -21,12 +21,11 @@ extension Crypto.RSA {
 
     /// Generates a random RSA private key and returns its PKCS#1 DER encoding.
     /// - Parameter bitCount: The key size in bits (e.g., 1024, 2048).
-    /// - Returns: The PKCS#1 DER-encoded private key data, or nil if generation fails.
-    static func generateRandomPrivateKey(bitCount: Int) -> Data? {
-        guard let (privateKey, _) = try? SecKeyHelpers.generateRSAKeyPair(bitCount: bitCount) else {
-            return nil
-        }
-        return SecKeyHelpers.exportSecKey(privateKey)
+    /// - Returns: The PKCS#1 DER-encoded private key data.
+    /// - Throws: `CryptoError.keyCreationFailed` if generation fails.
+    static func generateRandomPrivateKey(bitCount: Int) throws(CryptoError) -> Data {
+        let (privateKey, _) = try SecKeyHelpers.generateRSAKeyPair(bitCount: bitCount)
+        return try SecKeyHelpers.exportSecKey(privateKey)
     }
 
     /// Prepares data for RSA signing by applying the specified signature algorithm padding.
@@ -72,35 +71,29 @@ extension Crypto.EC {
 
     /// Generates a random EC private key and returns its uncompressed representation.
     /// - Parameter keySizeInBits: The key size in bits (e.g., 256, 384).
-    /// - Returns: The uncompressed private key data, or nil if generation fails.
-    static func generateRandomPrivateKey(keySizeInBits: Int) -> Data? {
-        guard let (privateKey, _) = try? SecKeyHelpers.generateECKeyPair(keySizeInBits: keySizeInBits) else {
-            return nil
-        }
-        return SecKeyHelpers.exportSecKey(privateKey)
+    /// - Returns: The uncompressed private key data.
+    /// - Throws: `CryptoError.keyCreationFailed` if generation fails.
+    static func generateRandomPrivateKey(keySizeInBits: Int) throws(CryptoError) -> Data {
+        let (privateKey, _) = try SecKeyHelpers.generateECKeyPair(keySizeInBits: keySizeInBits)
+        return try SecKeyHelpers.exportSecKey(privateKey)
     }
 
     /// Performs ECDH key agreement using EC key types.
     /// - Parameters:
     ///   - privateKey: The EC private key.
     ///   - publicKey: The peer's EC public key.
-    /// - Returns: The shared secret, or nil if key agreement fails.
-    static func sharedSecret(privateKey: EC.PrivateKey, publicKey: EC.PublicKey) -> Data? {
-        guard let privateSecKey = SecKeyHelpers.createECPrivateKey(
+    /// - Returns: The shared secret.
+    /// - Throws: `CryptoError.keyCreationFailed` or `CryptoError.keyAgreementFailed`.
+    static func sharedSecret(privateKey: EC.PrivateKey, publicKey: EC.PublicKey) throws(CryptoError) -> Data {
+        let privateSecKey = try SecKeyHelpers.createECPrivateKey(
             from: privateKey.uncompressedRepresentation,
             keySizeInBits: privateKey.curve.keySizeInBits
-        ) else {
-            return nil
-        }
-
-        guard let publicSecKey = SecKeyHelpers.createECPublicKey(
+        )
+        let publicSecKey = try SecKeyHelpers.createECPublicKey(
             from: publicKey.uncompressedPoint,
             keySizeInBits: publicKey.curve.keySizeInBits
-        ) else {
-            return nil
-        }
-
-        return try? SecKeyHelpers.ecdhKeyExchange(privateKey: privateSecKey, publicKey: publicSecKey)
+        )
+        return try SecKeyHelpers.ecdhKeyExchange(privateKey: privateSecKey, publicKey: publicSecKey)
     }
 }
 
@@ -217,15 +210,30 @@ private enum SecKeyHelpers {
 
     // MARK: - SecKey Creation from Data
 
-    static func createECPublicKey(from data: Data, keySizeInBits: Int) -> SecKey? {
-        createSecKey(from: data, keyType: kSecAttrKeyTypeECSECPrimeRandom, keyClass: kSecAttrKeyClassPublic, keySizeInBits: keySizeInBits)
+    static func createECPublicKey(from data: Data, keySizeInBits: Int) throws(CryptoError) -> SecKey {
+        try createSecKey(
+            from: data,
+            keyType: kSecAttrKeyTypeECSECPrimeRandom,
+            keyClass: kSecAttrKeyClassPublic,
+            keySizeInBits: keySizeInBits
+        )
     }
 
-    static func createECPrivateKey(from data: Data, keySizeInBits: Int) -> SecKey? {
-        createSecKey(from: data, keyType: kSecAttrKeyTypeECSECPrimeRandom, keyClass: kSecAttrKeyClassPrivate, keySizeInBits: keySizeInBits)
+    static func createECPrivateKey(from data: Data, keySizeInBits: Int) throws(CryptoError) -> SecKey {
+        try createSecKey(
+            from: data,
+            keyType: kSecAttrKeyTypeECSECPrimeRandom,
+            keyClass: kSecAttrKeyClassPrivate,
+            keySizeInBits: keySizeInBits
+        )
     }
 
-    private static func createSecKey(from data: Data, keyType: CFString, keyClass: CFString, keySizeInBits: Int) -> SecKey? {
+    private static func createSecKey(
+        from data: Data,
+        keyType: CFString,
+        keyClass: CFString,
+        keySizeInBits: Int
+    ) throws(CryptoError) -> SecKey {
         let attributes: [CFString: Any] = [
             kSecAttrKeyClass: keyClass,
             kSecAttrKeyType: keyType,
@@ -233,14 +241,20 @@ private enum SecKeyHelpers {
         ]
 
         var error: Unmanaged<CFError>?
-        return SecKeyCreateWithData(data as CFData, attributes as CFDictionary, &error)
+        guard let key = SecKeyCreateWithData(data as CFData, attributes as CFDictionary, &error) else {
+            throw .keyCreationFailed(error?.takeRetainedValue())
+        }
+        return key
     }
 
     // MARK: - SecKey Export
 
-    static func exportSecKey(_ key: SecKey) -> Data? {
+    static func exportSecKey(_ key: SecKey) throws(CryptoError) -> Data {
         var error: Unmanaged<CFError>?
-        return SecKeyCopyExternalRepresentation(key, &error) as Data?
+        guard let data = SecKeyCopyExternalRepresentation(key, &error) as Data? else {
+            throw .keyCreationFailed(error?.takeRetainedValue())
+        }
+        return data
     }
 
     // MARK: - SecKey Attributes
@@ -332,7 +346,7 @@ private enum SecKeyHelpers {
             return nil
         }
 
-        guard let blob = exportSecKey(secKey) else {
+        guard let blob = try? exportSecKey(secKey) else {
             return nil
         }
 

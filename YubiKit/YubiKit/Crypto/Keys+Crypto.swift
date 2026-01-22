@@ -25,9 +25,7 @@ extension EC.PrivateKey {
     /// - Returns: A new random EC private key.
     /// - Throws: `CryptoError.keyCreationFailed` if generation fails.
     internal static func random(curve: EC.Curve) throws(CryptoError) -> EC.PrivateKey {
-        guard let keyData = Crypto.EC.generateRandomPrivateKey(keySizeInBits: curve.keySizeInBits) else {
-            throw .keyCreationFailed(nil)
-        }
+        let keyData = try Crypto.EC.generateRandomPrivateKey(keySizeInBits: curve.keySizeInBits)
         guard let key = EC.PrivateKey(uncompressedRepresentation: keyData, curve: curve) else {
             throw .keyCreationFailed(nil)
         }
@@ -37,12 +35,9 @@ extension EC.PrivateKey {
     /// Computes ECDH shared secret with a peer's public key.
     /// - Parameter publicKey: The peer's EC public key.
     /// - Returns: The shared secret.
-    /// - Throws: `CryptoError.keyAgreementFailed` if ECDH fails.
+    /// - Throws: `CryptoError.keyCreationFailed` or `CryptoError.keyAgreementFailed`.
     internal func sharedSecret(with publicKey: EC.PublicKey) throws(CryptoError) -> Data {
-        guard let secret = Crypto.EC.sharedSecret(privateKey: self, publicKey: publicKey) else {
-            throw .keyAgreementFailed
-        }
-        return secret
+        try Crypto.EC.sharedSecret(privateKey: self, publicKey: publicKey)
     }
 }
 
@@ -76,9 +71,7 @@ extension RSA.PrivateKey {
     /// - Returns: A new random RSA private key.
     /// - Throws: `CryptoError.keyCreationFailed` if generation fails.
     internal static func random(keySize: RSA.KeySize) throws(CryptoError) -> RSA.PrivateKey {
-        guard let pkcs1 = Crypto.RSA.generateRandomPrivateKey(bitCount: keySize.rawValue) else {
-            throw .keyCreationFailed(nil)
-        }
+        let pkcs1 = try Crypto.RSA.generateRandomPrivateKey(bitCount: keySize.rawValue)
         guard let key = RSA.PrivateKey(pkcs1: pkcs1) else {
             throw .keyCreationFailed(nil)
         }
