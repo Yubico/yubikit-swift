@@ -118,13 +118,18 @@ extension Crypto.EC {
     /// Performs ECDH key agreement using EC key types.
     /// - Parameters:
     ///   - privateKey: The EC private key.
-    ///   - publicKey: The peer's EC public key.
+    ///   - publicKey: The peer's EC public key (must be on the same curve as privateKey).
     /// - Returns: The shared secret.
-    /// - Throws: `CryptoError.keyCreationFailed` or `CryptoError.keyAgreementFailed`.
+    /// - Throws: `CryptoError.keyAgreementFailed` or `CryptoError.keyCreationFailed`.
     static func sharedSecret(privateKey: EC.PrivateKey, publicKey: EC.PublicKey) throws(CryptoError) -> Data {
+        guard privateKey.curve == publicKey.curve else {
+            throw .keyAgreementFailed
+        }
+        let curve = privateKey.curve
+
         // Determine key type (when adding new curves, ensure the correct Security framework key type is used)
         let keyType: CFString
-        switch privateKey.curve {
+        switch curve {
         case .secp256r1, .secp384r1:
             keyType = kSecAttrKeyTypeECSECPrimeRandom
         }
@@ -133,7 +138,7 @@ extension Crypto.EC {
         let privateKeyAttributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPrivate,
             kSecAttrKeyType: keyType,
-            kSecAttrKeySizeInBits: privateKey.curve.keySizeInBits,
+            kSecAttrKeySizeInBits: curve.keySizeInBits,
         ]
         var error: Unmanaged<CFError>?
         guard let privateSecKey = SecKeyCreateWithData(
@@ -148,7 +153,7 @@ extension Crypto.EC {
         let publicKeyAttributes: [CFString: Any] = [
             kSecAttrKeyClass: kSecAttrKeyClassPublic,
             kSecAttrKeyType: keyType,
-            kSecAttrKeySizeInBits: publicKey.curve.keySizeInBits,
+            kSecAttrKeySizeInBits: curve.keySizeInBits,
         ]
         guard let publicSecKey = SecKeyCreateWithData(
             publicKey.uncompressedPoint as CFData,
