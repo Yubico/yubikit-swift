@@ -147,7 +147,7 @@ final class SCP11aFullStackTests: XCTestCase {
     private func importScp03Key(connection: SmartCardConnection) async throws -> SCPKeyParams {
         let scp03Ref = SCPKeyRef(kid: 0x01, kvn: 0x01)
 
-        let staticKeys = StaticKeys(
+        let staticKeys = try StaticKeys(
             enc: .random(length: 16),
             mac: .random(length: 16),
             dek: .random(length: 16)
@@ -226,7 +226,7 @@ final class SCP11bFullStackTests: XCTestCase {
 
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x02)
 
-            let privateKey = EC.PrivateKey.random(curve: .secp256r1)!
+            let privateKey = try EC.PrivateKey.random(curve: .secp256r1)
 
             let publicKey = privateKey.publicKey
 

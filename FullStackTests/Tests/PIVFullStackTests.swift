@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import CryptoKit
 import OSLog
 import Testing
 
@@ -182,19 +183,12 @@ struct PIVFullStackTests {
                 return
             }
 
-            let privateKey = try #require(EC.PrivateKey.random(curve: curve))
+            let privateKey = try EC.PrivateKey.random(curve: curve)
             let peerPublicKey = privateKey.publicKey
 
             try await session.verifyPin(defaultPIN)
             let yubiKeySecret = try await session.deriveSharedSecret(in: .signature, with: peerPublicKey)
-            let softwareSecret =
-                SecKeyCopyKeyExchangeResult(
-                    privateKey.asSecKey()!,
-                    .ecdhKeyExchangeStandard,
-                    yubiKeyPublicKey.asSecKey()!,
-                    [String: Any]() as CFDictionary,
-                    nil
-                )! as Data
+            let softwareSecret = try privateKey.sharedSecret(with: yubiKeyPublicKey)
 
             #expect(softwareSecret == yubiKeySecret)
         }
@@ -244,10 +238,7 @@ struct PIVFullStackTests {
     @Test("Import RSA Keys", .tags(.pivKeyManagement), .timeLimit(.minutes(3)), arguments: RSA.KeySize.allCases)
     func putRSAKeys(keySize: RSA.KeySize) async throws {
         try await withPIVSession(authenticated: true) { session in
-            guard let privateKey = RSA.PrivateKey.random(keySize: keySize) else {
-                Issue.record("Failed to create RSA keys")
-                return
-            }
+            let privateKey = try RSA.PrivateKey.random(keySize: keySize)
             let publicKey = privateKey.publicKey
 
             let keyType = try await session.putPrivateKey(
@@ -284,7 +275,7 @@ struct PIVFullStackTests {
     @Test("Import ECC Keys", .tags(.pivKeyManagement), arguments: [EC.Curve.secp256r1, .secp384r1])
     func putECKeys(curve: EC.Curve) async throws {
         try await withPIVSession(authenticated: true) { session in
-            let privateKey = try #require(EC.PrivateKey.random(curve: curve))
+            let privateKey = try EC.PrivateKey.random(curve: curve)
             let publicKey = privateKey.publicKey
 
             let keyType = try await session.putPrivateKey(
@@ -1012,6 +1003,8 @@ struct PIVFullStackTests {
         signature: Data,
         algorithm: SecKeyAlgorithm
     ) throws {
+        // Use SecKey for EC verification - CryptoKit ties hash algorithm to curve,
+        // but tests may use different combinations (e.g., P384 with SHA256)
         var error: Unmanaged<CFError>?
         let result = SecKeyVerifySignature(
             publicKey.asSecKey()!,
@@ -1104,4 +1097,29 @@ struct PIVFullStackTests {
         return try await body(session)
     }
 
+}
+
+// MARK: - Test Helpers for SecKey Conversion
+// CryptoKit doesn't support RSA or verifying pre-hashed EC digests, so we need SecKey
+
+private extension RSA.PublicKey {
+    func asSecKey() -> SecKey? {
+        let attributes: [CFString: Any] = [
+            kSecAttrKeyClass: kSecAttrKeyClassPublic,
+            kSecAttrKeyType: kSecAttrKeyTypeRSA,
+            kSecAttrKeySizeInBits: size.rawValue,
+        ]
+        return SecKeyCreateWithData(pkcs1 as CFData, attributes as CFDictionary, nil)
+    }
+}
+
+private extension EC.PublicKey {
+    func asSecKey() -> SecKey? {
+        let attributes: [CFString: Any] = [
+            kSecAttrKeyClass: kSecAttrKeyClassPublic,
+            kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrKeySizeInBits: curve.keySizeInBits,
+        ]
+        return SecKeyCreateWithData(uncompressedPoint as CFData, attributes as CFDictionary, nil)
+    }
 }
