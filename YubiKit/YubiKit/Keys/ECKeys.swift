@@ -58,13 +58,13 @@ public enum EC: Sendable {
             self.y = y
         }
 
-        /// Initialize a public key from SEC1 uncompressed EC point format (0x04 || X || Y).
+        /// Initialize a public key from X9.63 format (0x04 || X || Y).
         /// - Parameters:
-        ///   - uncompressedPoint: Data in SEC1 format.
+        ///   - x963Representation: The X9.63 encoded public key data.
         ///   - curve: The elliptic curve type (secp256r1 or secp384r1).
         /// - Returns: PublicKey if valid, otherwise nil.
-        public init?(uncompressedPoint: Data, curve: Curve) {
-            var data = uncompressedPoint
+        public init?(x963Representation: Data, curve: Curve) {
+            var data = x963Representation
             guard data.extract(1)?.bytes == [0x04] else {
                 // invalid representation
                 return nil
@@ -81,8 +81,8 @@ public enum EC: Sendable {
             self.init(curve: curve, x: x, y: y)
         }
 
-        /// SEC1 uncompressed EC point representation (0x04 || X || Y).
-        public var uncompressedPoint: Data {
+        /// X9.63 representation (0x04 || X || Y).
+        public var x963Representation: Data {
             var result = Data([0x04])
             result.append(contentsOf: x)
             result.append(contentsOf: y)
@@ -101,18 +101,18 @@ public enum EC: Sendable {
         /// The private scalar (k) for this key.
         public let k: Data  // secret scalar
 
-        /// Uncompressed representation of private key as 0x04 || X || Y || K.
-        public var uncompressedRepresentation: Data {
-            publicKey.uncompressedPoint + k
+        /// X9.63 representation of private key as 0x04 || X || Y || K.
+        public var x963Representation: Data {
+            publicKey.x963Representation + k
         }
 
-        /// Initialize a private key from 0x04 || X || Y || K
+        /// Initialize a private key from X9.63 format (0x04 || X || Y || K).
         /// - Parameters:
-        ///   - uncompressedRepresentation: uncompressedPoint + K
+        ///   - x963Representation: The X9.63 encoded private key data.
         ///   - curve: The elliptic curve type (secp256r1 or secp384r1).
         /// - Returns: PrivateKey if valid, otherwise nil.
-        public init?(uncompressedRepresentation: Data, curve: Curve) {
-            var data = uncompressedRepresentation
+        public init?(x963Representation: Data, curve: Curve) {
+            var data = x963Representation
             guard data.extract(1)?.bytes == [0x04] else {
                 // invalid representation
                 return nil

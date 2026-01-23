@@ -57,13 +57,13 @@ struct ECKeysTests {
             // Generate a random key
             let privKey = try EC.PrivateKey.random(curve: curve)
 
-            // Encode to uncompressed representation
-            let privRaw = privKey.uncompressedRepresentation
-            let pubRaw = privKey.publicKey.uncompressedPoint
+            // Encode to X9.63 representation
+            let privX963 = privKey.x963Representation
+            let pubX963 = privKey.publicKey.x963Representation
 
-            // Decode back from uncompressed representation
-            let decodedPriv = EC.PrivateKey(uncompressedRepresentation: privRaw, curve: curve)
-            let decodedPub = EC.PublicKey(uncompressedPoint: pubRaw, curve: curve)
+            // Decode back from X9.63 representation
+            let decodedPriv = EC.PrivateKey(x963Representation: privX963, curve: curve)
+            let decodedPub = EC.PublicKey(x963Representation: pubX963, curve: curve)
 
             // Compare all components of private key
             #expect(decodedPriv != nil)
@@ -83,9 +83,9 @@ struct ECKeysTests {
         let invalid = Data([0x00, 0x01, 0x02])
         let curves: [EC.Curve] = [.secp256r1, .secp384r1]
         for curve in curves {
-            let decodedPriv = EC.PrivateKey(uncompressedRepresentation: invalid, curve: curve)
+            let decodedPriv = EC.PrivateKey(x963Representation: invalid, curve: curve)
             #expect(decodedPriv == nil)
-            let decodedPub = EC.PublicKey(uncompressedPoint: invalid, curve: curve)
+            let decodedPub = EC.PublicKey(x963Representation: invalid, curve: curve)
             #expect(decodedPub == nil)
         }
     }

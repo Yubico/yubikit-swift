@@ -355,7 +355,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw SCPError.responseParseError("Malformed EC key response: expected tag 0xB0", source: .here())
         }
 
-        guard let key = EC.PublicKey(uncompressedPoint: tlv.value, curve: .secp256r1) else {
+        guard let key = EC.PublicKey(x963Representation: tlv.value, curve: .secp256r1) else {
             throw SCPError.dataProcessingError("Unable to parse EC public key from response", source: .here())
         }
 
@@ -433,7 +433,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
         var data = Data()
         data.append(keyRef.kvn)  // KVN
 
-        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKey.uncompressedPoint).data)  // EC point
+        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKey.x963Representation).data)  // EC point
         data.append(TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data)  // params = P-256
         data.append(0x00)  // END TLV list
 

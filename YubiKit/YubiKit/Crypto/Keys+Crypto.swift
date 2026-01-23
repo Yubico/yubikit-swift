@@ -26,7 +26,7 @@ extension EC.PrivateKey {
     /// - Throws: `CryptoError.keyCreationFailed` if generation fails.
     internal static func random(curve: EC.Curve) throws(CryptoError) -> EC.PrivateKey {
         let keyData = try Crypto.EC.generateRandomPrivateKey(curve: curve)
-        guard let key = EC.PrivateKey(uncompressedRepresentation: keyData, curve: curve) else {
+        guard let key = EC.PrivateKey(x963Representation: keyData, curve: curve) else {
             throw .keyCreationFailed(nil)
         }
         return key
@@ -55,7 +55,7 @@ extension EC.PublicKey {
         var uncompressed = Data([0x04])
         uncompressed.append(x)
         uncompressed.append(y)
-        guard let key = EC.PublicKey(uncompressedPoint: uncompressed, curve: curve) else {
+        guard let key = EC.PublicKey(x963Representation: uncompressed, curve: curve) else {
             throw .invalidKey
         }
         self = key

@@ -411,7 +411,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
             throw .cryptoError("Failed to generate private key", error: error, source: .here())
         }
         let epkOceEcka = eskOceEcka.publicKey
-        let epkOceEckaData = epkOceEcka.uncompressedPoint
+        let epkOceEckaData = epkOceEcka.x963Representation
 
         let data =
             TKBERTLVRecord(
@@ -449,7 +449,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         let keyAgreementData = data + tlvs[0].data
         let sharedInfo = keyUsage + keyType + keyLen
 
-        guard let epkSdEcka = EC.PublicKey(uncompressedPoint: epkSdEckaEncodedPoint, curve: .secp256r1) else {
+        guard let epkSdEcka = EC.PublicKey(x963Representation: epkSdEckaEncodedPoint, curve: .secp256r1) else {
             throw .dataProcessingError("Unable to parse EC public key", source: .here())
         }
 

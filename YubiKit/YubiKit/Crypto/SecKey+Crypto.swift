@@ -85,9 +85,9 @@ extension Crypto.RSA {
 
 extension Crypto.EC {
 
-    /// Generates a random EC private key and returns its uncompressed representation.
+    /// Generates a random EC private key and returns its X9.63 representation.
     /// - Parameter curve: The elliptic curve to use.
-    /// - Returns: The uncompressed private key data.
+    /// - Returns: The X9.63 encoded private key data (0x04 || X || Y || K).
     /// - Throws: `CryptoError.keyCreationFailed` if generation fails.
     static func generateRandomPrivateKey(curve: EC.Curve) throws(CryptoError) -> Data {
         // Determine key type (when adding new curves, ensure the correct Security framework key type is used)
@@ -143,7 +143,7 @@ extension Crypto.EC {
         var error: Unmanaged<CFError>?
         guard
             let privateSecKey = SecKeyCreateWithData(
-                privateKey.uncompressedRepresentation as CFData,
+                privateKey.x963Representation as CFData,
                 privateKeyAttributes as CFDictionary,
                 &error
             )
@@ -159,7 +159,7 @@ extension Crypto.EC {
         ]
         guard
             let publicSecKey = SecKeyCreateWithData(
-                publicKey.uncompressedPoint as CFData,
+                publicKey.x963Representation as CFData,
                 publicKeyAttributes as CFDictionary,
                 &error
             )
@@ -377,7 +377,7 @@ private enum SecKeyHelpers {
 
         } else if isECKey(secKey) {
             return [EC.Curve.secp256r1, EC.Curve.secp384r1]
-                .compactMap { EC.PublicKey(uncompressedPoint: blob, curve: $0) }
+                .compactMap { EC.PublicKey(x963Representation: blob, curve: $0) }
                 .map { PublicKey.ec($0) }
                 .first
 
