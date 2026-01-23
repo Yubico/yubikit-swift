@@ -299,7 +299,7 @@ extension SecurityDomainSession {
         try await putPublicKey(certificatePublicKey, for: oceRef, replacing: 0)
 
         // Extract the CA certificate's Subject Key Identifier for issuer referencing
-        let ski = certificatePublicKey.uncompressedPoint.sha1()
+        let ski = certificatePublicKey.x963Representation.sha1()
 
         // Store the CA issuer identifier on the YubiKey
         try await putCAIssuer(for: oceRef, ski: ski)
