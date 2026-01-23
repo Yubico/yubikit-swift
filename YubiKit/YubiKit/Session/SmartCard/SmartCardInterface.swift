@@ -290,7 +290,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         staticKeys: StaticKeys,
         insSendRemaining: UInt8
     ) async throws(Error) -> SCPState {
-        let hostChallenge = Data.random(length: 8)
+        let hostChallenge: Data
+        do {
+            hostChallenge = try Data.random(length: 8)
+        } catch {
+            throw .cryptoError("Failed to generate host challenge", error: error, source: .here())
+        }
 
         var result = try await sendPlainStatic(
             connection: connection,
@@ -399,11 +404,14 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
 
         let pkSdEcka = scp11Params.pkSdEcka
 
-        guard let eskOceEcka = EC.PrivateKey.random(curve: .secp256r1) else {
-            throw .cryptoError("Failed to generate private key", error: nil, source: .here())
+        let eskOceEcka: EC.PrivateKey
+        do {
+            eskOceEcka = try EC.PrivateKey.random(curve: .secp256r1)
+        } catch {
+            throw .cryptoError("Failed to generate private key", error: error, source: .here())
         }
         let epkOceEcka = eskOceEcka.publicKey
-        let epkOceEckaData = epkOceEcka.uncompressedPoint
+        let epkOceEckaData = epkOceEcka.x963Representation
 
         let data =
             TKBERTLVRecord(
@@ -441,14 +449,17 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         let keyAgreementData = data + tlvs[0].data
         let sharedInfo = keyUsage + keyType + keyLen
 
-        guard let epkSdEcka = EC.PublicKey(uncompressedPoint: epkSdEckaEncodedPoint, curve: .secp256r1) else {
+        guard let epkSdEcka = EC.PublicKey(x963Representation: epkSdEckaEncodedPoint, curve: .secp256r1) else {
             throw .dataProcessingError("Unable to parse EC public key", source: .here())
         }
 
-        guard let keyAgreement1 = eskOceEcka.sharedSecret(with: epkSdEcka),
-            let keyAgreement2 = skOceEcka.sharedSecret(with: pkSdEcka)
-        else {
-            throw .cryptoError("Unable to generate shared secret", error: nil, source: .here())
+        let keyAgreement1: Data
+        let keyAgreement2: Data
+        do {
+            keyAgreement1 = try eskOceEcka.sharedSecret(with: epkSdEcka)
+            keyAgreement2 = try skOceEcka.sharedSecret(with: pkSdEcka)
+        } catch {
+            throw .cryptoError("Unable to generate shared secret", error: error, source: .here())
         }
 
         let keyMaterial = keyAgreement1 + keyAgreement2
@@ -538,29 +549,5 @@ extension Application {
         }
 
         return APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: data)
-    }
-}
-
-extension EC.PrivateKey {
-    // Perform ECDH key-agreement and return the raw shared secret bytes
-    fileprivate func sharedSecret(with publicKey: EC.PublicKey) -> Data? {
-        guard let privateSecKey = asSecKey(), let associatedPublicSecKey = publicKey.asSecKey() else {
-            return nil
-        }
-
-        var cfError: Unmanaged<CFError>?
-        guard
-            let secretData = SecKeyCopyKeyExchangeResult(
-                privateSecKey,
-                .ecdhKeyExchangeStandard,
-                associatedPublicSecKey,
-                [:] as CFDictionary,
-                &cfError
-            ) as Data?
-        else {
-            return nil
-        }
-
-        return secretData
     }
 }

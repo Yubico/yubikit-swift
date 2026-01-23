@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import Foundation
 
 // MARK: - ClientPin Operations on Session
@@ -166,9 +165,9 @@ private struct ClientPinHandler: Sendable {
         let authenticatorKey = try await getKeyAgreement()
 
         // Generate ephemeral key pair and derive shared secret
-        let keyPair = P256.KeyAgreement.PrivateKey()
-        let sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
-        let platformKey = pinProtocol.coseKey(from: keyPair)
+        let secretResult = try pinProtocol.establishSharedSecret(peerKey: authenticatorKey)
+        let sharedSecret = secretResult.sharedSecret
+        let platformKey = secretResult.platformKey
 
         // Build command parameters and send based on auth method
         let response: CTAP2.ClientPin.GetToken.Response
@@ -176,7 +175,7 @@ private struct ClientPinHandler: Sendable {
         case .pin(let pin):
             // Hash and encrypt PIN
             let normalizedPin = pin.precomposedStringWithCanonicalMapping
-            let pinHash = Data(SHA256.hash(data: Data(normalizedPin.utf8)).prefix(16))
+            let pinHash = Data(Data(normalizedPin.utf8).sha256().prefix(16))
             let pinHashEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: pinHash)
 
             if supportsTokenPermissions {
@@ -240,15 +239,14 @@ private struct ClientPinHandler: Sendable {
         let authenticatorKey = try await getKeyAgreement()
 
         // Generate ephemeral key pair and derive shared secret
-        let keyPair = P256.KeyAgreement.PrivateKey()
-        let sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
+        let secretResult = try pinProtocol.establishSharedSecret(peerKey: authenticatorKey)
         let paddedPin = try pinProtocol.padPin(pin)
-        let newPinEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: paddedPin)
-        let pinUVAuthParam = pinProtocol.authenticate(key: sharedSecret, message: newPinEnc)
+        let newPinEnc = try pinProtocol.encrypt(key: secretResult.sharedSecret, plaintext: paddedPin)
+        let pinUVAuthParam = pinProtocol.authenticate(key: secretResult.sharedSecret, message: newPinEnc)
 
         let params = CTAP2.ClientPin.SetPin.Parameters(
             pinUVAuthProtocol: pinProtocol,
-            keyAgreement: pinProtocol.coseKey(from: keyPair),
+            keyAgreement: secretResult.platformKey,
             newPinEnc: newPinEnc,
             pinUVAuthParam: pinUVAuthParam
         )
@@ -264,14 +262,14 @@ private struct ClientPinHandler: Sendable {
         let authenticatorKey = try await getKeyAgreement()
 
         // Generate ephemeral key pair and derive shared secret
-        let keyPair = P256.KeyAgreement.PrivateKey()
-        let sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
+        let secretResult = try pinProtocol.establishSharedSecret(peerKey: authenticatorKey)
+        let sharedSecret = secretResult.sharedSecret
         let paddedNewPin = try pinProtocol.padPin(newPin)
         let newPinEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: paddedNewPin)
 
         // Hash and encrypt current PIN
         let normalizedCurrentPin = currentPin.precomposedStringWithCanonicalMapping
-        let pinHash = Data(SHA256.hash(data: Data(normalizedCurrentPin.utf8)).prefix(16))
+        let pinHash = Data(Data(normalizedCurrentPin.utf8).sha256().prefix(16))
         let pinHashEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: pinHash)
 
         // pinUVAuthParam = HMAC(sharedSecret, newPinEnc || pinHashEnc)
@@ -281,7 +279,7 @@ private struct ClientPinHandler: Sendable {
 
         let params = CTAP2.ClientPin.ChangePin.Parameters(
             pinUVAuthProtocol: pinProtocol,
-            keyAgreement: pinProtocol.coseKey(from: keyPair),
+            keyAgreement: secretResult.platformKey,
             newPinEnc: newPinEnc,
             pinHashEnc: pinHashEnc,
             pinUVAuthParam: pinUVAuthParam

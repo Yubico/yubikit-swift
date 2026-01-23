@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
-
 /// Key parameters for Secure Channel Protocol 11 (SCP11).
 /// Contains the key reference and cryptographic materials needed for establishing an SCP11 secure channel.
 /// Supports three variants: SCP11a, SCP11b, and SCP11c with different key requirements.

@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
-import CryptoKit
 import CryptoTokenKit
 import Foundation
 import OSLog
@@ -357,7 +355,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw SCPError.responseParseError("Malformed EC key response: expected tag 0xB0", source: .here())
         }
 
-        guard let key = EC.PublicKey(uncompressedPoint: tlv.value, curve: .secp256r1) else {
+        guard let key = EC.PublicKey(x963Representation: tlv.value, curve: .secp256r1) else {
             throw SCPError.dataProcessingError("Unable to parse EC public key from response", source: .here())
         }
 
@@ -386,7 +384,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
         var data = Data([keyRef.kvn])
         var expected = Data([keyRef.kvn])
 
-        let defaultKcvIv: Data = .init(repeating: 0x01, count: 16)
+        let defaultKcvIv: Data = .init(repeating: 0x01, count: Crypto.BlockSize.Bytes.aes)
 
         for key in [keys.enc, keys.mac, dek] {
             let kcv = try defaultKcvIv.cbcEncrypt(key: key).prefix(3)
@@ -435,7 +433,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
         var data = Data()
         data.append(keyRef.kvn)  // KVN
 
-        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKey.uncompressedPoint).data)  // EC point
+        data.append(TKBERTLVRecord(tag: 0xB0, value: publicKey.x963Representation).data)  // EC point
         data.append(TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data)  // params = P-256
         data.append(0x00)  // END TLV list
 
@@ -472,14 +470,10 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw .secureChannelRequired(source: .here())
         }
 
-        let rawSecret: Data
-        do {
-            let secretScalar = privateKey.k
-            let p256 = try P256.Signing.PrivateKey(rawRepresentation: secretScalar)
-            rawSecret = p256.rawRepresentation
-            precondition(rawSecret.count == 32)
-        } catch {
-            throw .cryptoError("Failed to generate P256 key pair", error: error, source: .here())
+        // Extract the raw 32-byte secret scalar from the EC private key
+        let rawSecret = privateKey.k
+        guard rawSecret.count == 32 else {
+            throw .cryptoError("Invalid P256 private key scalar size", error: nil, source: .here())
         }
 
         let currentDek = scpState.sessionKeys.dek!
@@ -563,11 +557,10 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
 
 extension Data {
     fileprivate func cbcEncrypt(key: Data) throws(SCPError) -> Data {
-        // zero IV for CBC
-        let iv = Data(repeating: 0, count: kCCBlockSizeAES128)
+        let iv = Data(repeating: 0, count: Crypto.BlockSize.Bytes.aes)
 
         do {
-            return try encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES), key: key, iv: iv)
+            return try encryptAES(key: key, mode: .cbc(iv: iv))
         } catch {
             throw SCPError.cryptoError("Failed to encrypt data with AES", error: error, source: .here())
         }

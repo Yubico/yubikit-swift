@@ -12,18 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
 import Foundation
 import Testing
 
 @testable import YubiKit
 
-struct EncryptDecryptTests {
+struct SymmetricCryptoTests {
 
     @Test func encryptAESECB() throws {
         let data = "Hello World!0000".data(using: .utf8)!
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f8420495e472259a729439158766cfee5497c2b")!
-        let result = try data.encrypt(algorithm: UInt32(kCCAlgorithmAES), key: key)
+        let result = try data.encryptAES(key: key, mode: .ecb)
         let expected = Data(hexEncodedString: "0cb774fc5a0a3d4fbb9a6b582cb56b84")!
         #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
     }
@@ -34,7 +33,7 @@ struct EncryptDecryptTests {
                 "0cb774fc5a0a3d4fbb9a6b582cb56b84fa4e95678dbb6cc763bb4ce68df9155ffa4e95678dbb6cc763bb4ce68df9155ffa4e95678dbb6cc763bb4ce68df9155f"
         )!
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f8420495e472259a729439158766cfee5497c2b")!
-        let result = try data.decrypt(algorithm: UInt32(kCCAlgorithmAES), key: key)
+        let result = try data.decryptAES(key: key, mode: .ecb)
         let decrypted = String(data: result, encoding: .utf8)!
         let expected = "Hello World!0000000000000000000000000000000000000000000000000000"
         #expect(decrypted == expected, "Got \(decrypted), expected: \(expected)")
@@ -44,7 +43,7 @@ struct EncryptDecryptTests {
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f842049")!
         let iv = Data(hexEncodedString: "000102030405060708090a0b0c0d0e0f")!
         let data = "Hello World!0000".data(using: .utf8)!
-        let encrypted = try data.encrypt(algorithm: UInt32(kCCAlgorithmAES), key: key, iv: iv)
+        let encrypted = try data.encryptAES(key: key, mode: .cbc(iv: iv))
         #expect(encrypted == Data(hexEncodedString: "9dcb09c51227ea753fad4c6bda8efa46")!)
     }
 
@@ -52,7 +51,7 @@ struct EncryptDecryptTests {
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f842049")!
         let iv = Data(hexEncodedString: "000102030405060708090a0b0c0d0e0f")!
         let encrypted = Data(hexEncodedString: "9dcb09c51227ea753fad4c6bda8efa46")!
-        let decrypted = try encrypted.decrypt(algorithm: UInt32(kCCAlgorithmAES), key: key, iv: iv)
+        let decrypted = try encrypted.decryptAES(key: key, mode: .cbc(iv: iv))
         let plainText = String(data: decrypted, encoding: .utf8)
         #expect(
             plainText == "Hello World!0000",
@@ -60,18 +59,18 @@ struct EncryptDecryptTests {
         )
     }
 
-    @Test func encrypt3DES() throws {
+    @Test func encrypt3DESECB() throws {
         let data = "Hello World!0000".data(using: .utf8)!
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f8420495e472259a7294391")!
-        let result = try data.encrypt(algorithm: UInt32(kCCAlgorithm3DES), key: key)
+        let result = try data.encrypt3DES(key: key, mode: .ecb)
         let expected = Data(hexEncodedString: "b2b1619cecc9e1b2fba580d764af2c43")!
         #expect(result == expected, "Got \(result.hexEncodedString), expected: \(expected.hexEncodedString)")
     }
 
-    @Test func decrypt3DES() throws {
+    @Test func decrypt3DESECB() throws {
         let data = Data(hexEncodedString: "b2b1619cecc9e1b2fba580d764af2c43")!
         let key = Data(hexEncodedString: "5ec1bf26a34a6300c23bb45a9f8420495e472259a7294391")!
-        let result = try data.decrypt(algorithm: UInt32(kCCAlgorithm3DES), key: key)
+        let result = try data.decrypt3DES(key: key, mode: .ecb)
         let decrypted = String(data: result, encoding: .utf8)!
         let expected = "Hello World!0000"
         #expect(decrypted == expected, "Got \(decrypted), expected: \(expected)")
@@ -113,6 +112,33 @@ struct EncryptDecryptTests {
         let expectedMac = Data(hexEncodedString: "51f0bebf 7e3b9d92 fc497417 79363cfe")!
         let result = try msg.aescmac(key: key)
         #expect(result == expectedMac)
+    }
+
+    // MARK: - AES-GCM
+
+    @Test func aesGcmRoundTrip() throws {
+        let plaintext = "Hello, AES-GCM!".data(using: .utf8)!
+        let key = try Data.random(length: 32)
+        let nonce = try Data.random(length: 12)
+        let aad = "additional data".data(using: .utf8)!
+
+        let sealed = try Crypto.AES.GCM.seal(plaintext, key: key, nonce: nonce, authenticating: aad)
+        let decrypted = try Crypto.AES.GCM.open(sealed, key: key, nonce: nonce, authenticating: aad)
+
+        #expect(decrypted == plaintext)
+    }
+
+    @Test func aesGcmAuthenticationFailure() throws {
+        let plaintext = "Hello, AES-GCM!".data(using: .utf8)!
+        let key = try Data.random(length: 32)
+        let nonce = try Data.random(length: 12)
+
+        let sealed = try Crypto.AES.GCM.seal(plaintext, key: key, nonce: nonce)
+        let tampered = Crypto.AES.GCM.SealedBox(ciphertext: sealed.ciphertext, tag: Data(repeating: 0, count: 16))
+
+        #expect(throws: CryptoError.self) {
+            _ = try Crypto.AES.GCM.open(tampered, key: key, nonce: nonce)
+        }
     }
 
 }

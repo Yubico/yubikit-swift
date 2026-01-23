@@ -320,15 +320,4 @@ extension FIDOInterface {
         CTAP2.FRAME_INIT | command.rawValue
     }
 
-    /// Generate cryptographically secure random bytes
-    func generateRandomBytes(count: Int) throws(Error) -> Data {
-        var randomData = Data(count: count)
-        let result = randomData.withUnsafeMutableBytes {
-            SecRandomCopyBytes(kSecRandomDefault, count, $0.baseAddress!)
-        }
-        guard result == errSecSuccess else {
-            throw .cryptoError("Failed to generate random bytes for CTAP INIT", error: nil, source: .here())
-        }
-        return randomData
-    }
 }

@@ -194,8 +194,12 @@ try await session.authenticateWith(managementKey: defaultManagementKey)
 For production applications, change the default management key:
 
 ```swift
-let newKey = Data.random(count: 32)
-try await session.setManagementKey(newKey, type: .aes256, requiresTouch: false)
+do {
+    let newKey = try Data.random(length: 32)
+    try await session.setManagementKey(newKey, type: .aes256, requiresTouch: false)
+} catch {
+    // Handle error generating or setting the management key
+}
 ```
 
 ### PIN Unlock (PUK) Operations

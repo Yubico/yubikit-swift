@@ -27,7 +27,7 @@ extension PIVSession {
                 throw .responseParseError("Missing EC key data in TLV record", source: .here())
             }
 
-            guard let key = EC.PublicKey(uncompressedPoint: keyData, curve: curve),
+            guard let key = EC.PublicKey(x963Representation: keyData, curve: curve),
                 key.curve == curve
             else {
                 throw .dataProcessingError("Failed to create public key from data", source: .here())

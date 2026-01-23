@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import XCTest
 
 @testable import YubiKit
@@ -148,7 +147,7 @@ final class SCP11aFullStackTests: XCTestCase {
     private func importScp03Key(connection: SmartCardConnection) async throws -> SCPKeyParams {
         let scp03Ref = SCPKeyRef(kid: 0x01, kvn: 0x01)
 
-        let staticKeys = StaticKeys(
+        let staticKeys = try StaticKeys(
             enc: .random(length: 16),
             mac: .random(length: 16),
             dek: .random(length: 16)
@@ -227,7 +226,7 @@ final class SCP11bFullStackTests: XCTestCase {
 
             let scpKeyRef = SCPKeyRef(kid: .scp11b, kvn: 0x02)
 
-            let privateKey = EC.PrivateKey.random(curve: .secp256r1)!
+            let privateKey = try EC.PrivateKey.random(curve: .secp256r1)
 
             let publicKey = privateKey.publicKey
 
@@ -300,7 +299,7 @@ extension SecurityDomainSession {
         try await putPublicKey(certificatePublicKey, for: oceRef, replacing: 0)
 
         // Extract the CA certificate's Subject Key Identifier for issuer referencing
-        let ski = Insecure.SHA1.hash(data: certificatePublicKey.uncompressedPoint).data
+        let ski = certificatePublicKey.x963Representation.sha1()
 
         // Store the CA issuer identifier on the YubiKey
         try await putCAIssuer(for: oceRef, ski: ski)

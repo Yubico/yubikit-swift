@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
-import CryptoKit
 import CryptoTokenKit
 import Foundation
 import OSLog
@@ -84,9 +82,9 @@ public final actor OATHSession: SmartCardSessionInternal {
             throw .responseParseError("Missing salt in OATH application select response", source: .here())
         }
 
-        let digest = SHA256.hash(data: salt)
-        guard digest.data.count >= 16 else { throw .failedDerivingDeviceId(source: .here()) }
-        let deviceId = digest.data.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
+        let digest = salt.sha256()
+        guard digest.count >= 16 else { throw .failedDerivingDeviceId(source: .here()) }
+        let deviceId = digest.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
 
         self.selectResponse = SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
         self.interface = interface
@@ -439,11 +437,16 @@ public final actor OATHSession: SmartCardSessionInternal {
         let keyTlv = TKBERTLVRecord(tag: tagSetCodeKey, value: data)
 
         // Challenge
-        let challenge = Data.random(length: 8)
+        let challenge: Data
+        do {
+            challenge = try Data.random(length: 8)
+        } catch {
+            throw .cryptoError("Failed to generate challenge", error: error, source: .here())
+        }
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
 
         // Response
-        let response = challenge.hmacSha1(usingKey: accessKey)
+        let response = challenge.hmacSha1(key: accessKey)
         let responseTlv = TKBERTLVRecord(tag: tagResponse, value: response)
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: keyTlv.data + challengeTlv.data + responseTlv.data)
         try await process(apdu: apdu)
@@ -459,8 +462,13 @@ public final actor OATHSession: SmartCardSessionInternal {
         guard let responseChallenge = self.selectResponse.challenge else {
             throw .responseParseError("Missing challenge in OATH application select response", source: .here())
         }
-        let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(usingKey: accessKey))
-        let challenge = Data.random(length: 8)
+        let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(key: accessKey))
+        let challenge: Data
+        do {
+            challenge = try Data.random(length: 8)
+        } catch {
+            throw .cryptoError("Failed to generate challenge", error: error, source: .here())
+        }
         let challengeTlv = TKBERTLVRecord(tag: tagChallenge, value: challenge)
         let apdu = APDU(cla: 0, ins: 0xa3, p1: 0, p2: 0, command: reponseTlv.data + challengeTlv.data)
 
@@ -481,7 +489,7 @@ public final actor OATHSession: SmartCardSessionInternal {
                 source: .here()
             )
         }
-        let expectedResult = challenge.hmacSha1(usingKey: accessKey)
+        let expectedResult = challenge.hmacSha1(key: accessKey)
         guard resultTlv.value == expectedResult else {
             throw .responseParseError(
                 "Validation failed: response does not match expected result",
@@ -504,10 +512,6 @@ public final actor OATHSession: SmartCardSessionInternal {
 
 }
 
-struct DeriveAccessKeyError: Error, Sendable {
-    let cryptorStatus: CCCryptorStatus
-}
-
 extension OATHSession {
 
     /// Derives an access key from a password and the device-specific salt. The key is derived by running
@@ -515,40 +519,19 @@ extension OATHSession {
     /// - Parameter password: A user-supplied password.
     /// - Returns: Access key for unlocking the session.
     public func deriveAccessKey(from password: String) throws(OATHSessionError) -> Data {
-        var derivedKey = Data(count: 16)
         do {
-            try derivedKey.withUnsafeMutableBytes { (outputBytes: UnsafeMutableRawBufferPointer) in
-                let status = CCKeyDerivationPBKDF(
-                    CCPBKDFAlgorithm(kCCPBKDF2),
-                    password,
-                    password.utf8.count,
-                    selectResponse.salt.bytes,
-                    selectResponse.salt.bytes.count,
-                    CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA1),
-                    1000,
-                    outputBytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                    kCCKeySizeAES256
-                )
-                guard status == kCCSuccess else {
-                    throw EncryptionError.cryptorError(status)
-                }
-            }
+            return try Crypto.KDF.pbkdf2(
+                password: password,
+                salt: selectResponse.salt,
+                iterations: 1000,
+                keyLength: 16
+            )
         } catch {
-            let encryptionError = error as! EncryptionError
             throw OATHSessionError.cryptoError(
                 "Unable to derive access key",
-                error: encryptionError,
+                error: error,
                 source: .here()
             )
         }
-        return derivedKey
-    }
-}
-
-extension Data {
-    internal func hmacSha1(usingKey key: Data) -> Data {
-        var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
-        CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA1), key.bytes, key.bytes.count, self.bytes, self.bytes.count, &digest)
-        return Data(digest)
     }
 }

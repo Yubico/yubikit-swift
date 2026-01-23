@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import Foundation
 
 /// Ed25519
@@ -25,13 +24,8 @@ public enum Ed25519: Sendable {
         /// Initialize an Ed25519 public key from raw key data
         /// - Parameter keyData: 32-byte Ed25519 public key
         public init?(keyData: Data) {
-
-            // Let's check if CryptoKit agrees this is a valid key
-            guard let _ = try? Curve25519.Signing.PublicKey(rawRepresentation: keyData) else {
-                return nil
-            }
-
             guard keyData.count == 32 else { return nil }
+            guard Crypto.Curve25519.isValidEd25519PublicKey(keyData) else { return nil }
             self.keyData = keyData
         }
     }
@@ -49,14 +43,9 @@ public enum Ed25519: Sendable {
         ///   - publicKey: Associated public key
         public init?(seed: Data, publicKey: PublicKey) {
             guard seed.count == 32 else { return nil }
-
-            // Validate that the seed and public key are consistent using CryptoKit
-            guard let cryptoKitPrivateKey = try? Curve25519.Signing.PrivateKey(rawRepresentation: seed),
-                cryptoKitPrivateKey.publicKey.rawRepresentation == publicKey.keyData
-            else {
+            guard Crypto.Curve25519.validateEd25519KeyPair(seed: seed, publicKey: publicKey.keyData) else {
                 return nil
             }
-
             self.seed = seed
             self.publicKey = publicKey
         }
@@ -65,14 +54,11 @@ public enum Ed25519: Sendable {
         /// - Parameter seed: 32-byte private key seed
         public init?(seed: Data) {
             guard seed.count == 32 else { return nil }
-
-            // Use CryptoKit to derive the public key from the private key seed
-            guard let cryptoKitPrivateKey = try? Curve25519.Signing.PrivateKey(rawRepresentation: seed),
-                let publicKey = PublicKey(keyData: cryptoKitPrivateKey.publicKey.rawRepresentation)
+            guard let derivedPublicKey = Crypto.Curve25519.deriveEd25519PublicKey(fromSeed: seed),
+                let publicKey = PublicKey(keyData: derivedPublicKey)
             else {
                 return nil
             }
-
             self.seed = seed
             self.publicKey = publicKey
         }
@@ -90,12 +76,7 @@ public enum X25519: Sendable {
         /// - Parameter keyData: 32-byte X25519 public key
         public init?(keyData: Data) {
             guard keyData.count == 32 else { return nil }
-
-            // Validate with CryptoKit to ensure this is a valid X25519 public key
-            guard let _ = try? Curve25519.KeyAgreement.PublicKey(rawRepresentation: keyData) else {
-                return nil
-            }
-
+            guard Crypto.Curve25519.isValidX25519PublicKey(keyData) else { return nil }
             self.keyData = keyData
         }
     }
@@ -113,17 +94,9 @@ public enum X25519: Sendable {
         ///   - publicKey: Associated public key
         public init?(scalar: Data, publicKey: PublicKey) {
             guard scalar.count == 32 else { return nil }
-
-            // Validate that the scalar and public key are consistent using CryptoKit
-            guard
-                let cryptoKitPrivateKey = try? Curve25519.KeyAgreement.PrivateKey(
-                    rawRepresentation: scalar
-                ),
-                cryptoKitPrivateKey.publicKey.rawRepresentation == publicKey.keyData
-            else {
+            guard Crypto.Curve25519.validateX25519KeyPair(scalar: scalar, publicKey: publicKey.keyData) else {
                 return nil
             }
-
             self.scalar = scalar
             self.publicKey = publicKey
         }
@@ -132,17 +105,11 @@ public enum X25519: Sendable {
         /// - Parameter scalar: 32-byte private key scalar
         public init?(scalar: Data) {
             guard scalar.count == 32 else { return nil }
-
-            // Use CryptoKit to derive the public key from the private key scalar
-            guard
-                let cryptoKitPrivateKey = try? Curve25519.KeyAgreement.PrivateKey(
-                    rawRepresentation: scalar
-                ),
-                let publicKey = PublicKey(keyData: cryptoKitPrivateKey.publicKey.rawRepresentation)
+            guard let derivedPublicKey = Crypto.Curve25519.deriveX25519PublicKey(fromScalar: scalar),
+                let publicKey = PublicKey(keyData: derivedPublicKey)
             else {
                 return nil
             }
-
             self.scalar = scalar
             self.publicKey = publicKey
         }

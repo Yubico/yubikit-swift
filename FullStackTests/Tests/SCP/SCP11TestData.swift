@@ -120,7 +120,7 @@ extension EC.PrivateKey {
 
         let rep = pkcs8Key.x963Representation as Data
 
-        guard let key = EC.PrivateKey(uncompressedRepresentation: rep, curve: .secp256r1) else {
+        guard let key = EC.PrivateKey(x963Representation: rep, curve: .secp256r1) else {
             return nil
         }
 

@@ -133,9 +133,11 @@ struct CTAP2FullStackTests {
             }
 
             switch ctap2Transport {
+            #if (iOS)
             case .nfc, .lightning:
                 // SW_KEEPALIVE does not send status over these
                 break
+            #endif
             default:
                 #expect(receivedWaitingForUser, "Should receive waitingForUser status during selection")
             }
