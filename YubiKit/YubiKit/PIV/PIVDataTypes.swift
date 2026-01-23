@@ -242,13 +242,13 @@ public enum PIV: Sendable {
         /// AES-256
         case aes256 = 0x0c
 
-        /// Decrypts data using this key type's algorithm.
+        /// Decrypts data using this key type's algorithm in ECB mode.
         internal func decrypt(_ data: Data, key: Data) throws(CryptoError) -> Data {
             switch self {
             case .tripleDES:
-                return try data.decrypt3DES(key: key)
+                return try data.decrypt3DES(key: key, mode: .ecb)
             case .aes128, .aes192, .aes256:
-                return try data.decryptAES(key: key)
+                return try data.decryptAES(key: key, mode: .ecb)
             }
         }
 

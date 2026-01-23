@@ -560,7 +560,7 @@ extension Data {
         let iv = Data(repeating: 0, count: Crypto.BlockSize.aes)
 
         do {
-            return try encryptAES(key: key, iv: iv)
+            return try encryptAES(key: key, mode: .cbc(iv: iv))
         } catch {
             throw SCPError.cryptoError("Failed to encrypt data with AES", error: error, source: .here())
         }

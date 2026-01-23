@@ -56,12 +56,25 @@ internal enum Crypto {
     enum BlockSize {
         /// AES block size in bytes.
         static let aes = kCCBlockSizeAES128
+        /// Triple DES block size in bytes.
+        static let tripleDES = kCCBlockSize3DES
         /// SHA-1 block size in bytes.
         static let sha1 = Int(CC_SHA1_BLOCK_BYTES)
         /// SHA-256 block size in bytes.
         static let sha256 = Int(CC_SHA256_BLOCK_BYTES)
         /// SHA-512 block size in bytes.
         static let sha512 = Int(CC_SHA512_BLOCK_BYTES)
+    }
+
+    /// Block cipher operations.
+    enum BlockCipher {
+        /// Mode of operation for block ciphers.
+        enum Mode {
+            /// Electronic Codebook mode
+            case ecb
+            /// Cipher Block Chaining mode
+            case cbc(iv: Data)
+        }
     }
 
     // MARK: - Utilities
@@ -145,17 +158,15 @@ extension Crypto.AES {
     /// - Parameters:
     ///   - data: Data to encrypt (must be block-aligned).
     ///   - key: AES key (16, 24, or 32 bytes).
-    ///   - iv: Initialization vector for CBC mode. If nil, uses ECB mode.
+    ///   - mode: Cipher mode (ECB or CBC with IV).
     /// - Returns: Encrypted data.
-    static func encrypt(_ data: Data, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
-        let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
-        return try Crypto.cryptOperation(
+    static func encrypt(_ data: Data, key: Data, mode: Crypto.BlockCipher.Mode) throws(CryptoError) -> Data {
+        try Crypto.cryptOperation(
             kCCEncrypt,
             data: data,
             algorithm: CCAlgorithm(kCCAlgorithmAES),
-            mode: mode,
             key: key,
-            iv: iv
+            mode: mode
         )
     }
 
@@ -163,17 +174,15 @@ extension Crypto.AES {
     /// - Parameters:
     ///   - data: Data to decrypt.
     ///   - key: AES key (16, 24, or 32 bytes).
-    ///   - iv: Initialization vector for CBC mode. If nil, uses ECB mode.
+    ///   - mode: Cipher mode (ECB or CBC with IV).
     /// - Returns: Decrypted data.
-    static func decrypt(_ data: Data, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
-        let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
-        return try Crypto.cryptOperation(
+    static func decrypt(_ data: Data, key: Data, mode: Crypto.BlockCipher.Mode) throws(CryptoError) -> Data {
+        try Crypto.cryptOperation(
             kCCDecrypt,
             data: data,
             algorithm: CCAlgorithm(kCCAlgorithmAES),
-            mode: mode,
             key: key,
-            iv: iv
+            mode: mode
         )
     }
 
@@ -191,9 +200,8 @@ extension Crypto.AES {
             kCCEncrypt,
             data: constZero,
             algorithm: algorithm,
-            mode: CCMode(kCCModeCBC),
             key: key,
-            iv: constZero
+            mode: .cbc(iv: constZero)
         )
         var subKey1 = l.shiftedLeftByOne()
         if let firstByte = l.first, (firstByte & 0x80) != 0 {
@@ -223,9 +231,8 @@ extension Crypto.AES {
                 kCCEncrypt,
                 data: messageSkippingLastBlock,
                 algorithm: algorithm,
-                mode: CCMode(kCCModeCBC),
                 key: key,
-                iv: constZero
+                mode: .cbc(iv: constZero)
             ).subdata(in: (messageSkippingLastBlock.count - blockSize)..<messageSkippingLastBlock.count)
             lastIv = lastIv.xor(with: encryptedBlock)
         }
@@ -234,9 +241,8 @@ extension Crypto.AES {
             kCCEncrypt,
             data: lastBlock,
             algorithm: algorithm,
-            mode: CCMode(kCCModeCBC),
             key: key,
-            iv: lastIv
+            mode: .cbc(iv: lastIv)
         )
     }
 
@@ -362,17 +368,15 @@ extension Crypto.TripleDES {
     /// - Parameters:
     ///   - data: Data to encrypt (must be block-aligned).
     ///   - key: 3DES key (24 bytes).
-    ///   - iv: Initialization vector for CBC mode. If nil, uses ECB mode.
+    ///   - mode: Cipher mode (ECB or CBC with IV).
     /// - Returns: Encrypted data.
-    static func encrypt(_ data: Data, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
-        let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
-        return try Crypto.cryptOperation(
+    static func encrypt(_ data: Data, key: Data, mode: Crypto.BlockCipher.Mode) throws(CryptoError) -> Data {
+        try Crypto.cryptOperation(
             kCCEncrypt,
             data: data,
             algorithm: CCAlgorithm(kCCAlgorithm3DES),
-            mode: mode,
             key: key,
-            iv: iv
+            mode: mode
         )
     }
 
@@ -380,17 +384,15 @@ extension Crypto.TripleDES {
     /// - Parameters:
     ///   - data: Data to decrypt.
     ///   - key: 3DES key (24 bytes).
-    ///   - iv: Initialization vector for CBC mode. If nil, uses ECB mode.
+    ///   - mode: Cipher mode (ECB or CBC with IV).
     /// - Returns: Decrypted data.
-    static func decrypt(_ data: Data, key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
-        let mode = iv == nil ? CCMode(kCCModeECB) : CCMode(kCCModeCBC)
-        return try Crypto.cryptOperation(
+    static func decrypt(_ data: Data, key: Data, mode: Crypto.BlockCipher.Mode) throws(CryptoError) -> Data {
+        try Crypto.cryptOperation(
             kCCDecrypt,
             data: data,
             algorithm: CCAlgorithm(kCCAlgorithm3DES),
-            mode: mode,
             key: key,
-            iv: iv
+            mode: mode
         )
     }
 }
@@ -468,9 +470,8 @@ extension Crypto {
         _ operation: Int,
         data: Data,
         algorithm: CCAlgorithm,
-        mode: CCMode,
         key: Data,
-        iv: Data?
+        mode: BlockCipher.Mode
     ) throws(CryptoError) -> Data {
         guard !key.isEmpty else { throw CryptoError.missingData }
 
@@ -484,22 +485,50 @@ extension Crypto {
             throw CryptoError.unsupportedAlgorithm
         }
 
+        let ccMode: CCMode
+        let iv: Data?
+        switch mode {
+        case .ecb:
+            ccMode = CCMode(kCCModeECB)
+            iv = nil
+        case .cbc(let ivData):
+            ccMode = CCMode(kCCModeCBC)
+            iv = ivData
+        }
+
         var outLength: Int = 0
         let bufferLength = data.count + blockSize
         var buffer = Data(count: bufferLength)
-        let iv = iv ?? Data()
 
         let cryptorStatus: CCCryptorStatus = buffer.withUnsafeMutableBytes { bufferBytes in
             data.withUnsafeBytes { dataBytes in
                 key.withUnsafeBytes { keyBytes in
-                    iv.withUnsafeBytes { ivBytes in
-                        var cryptorRef: CCCryptorRef?
-                        let createStatus = CCCryptorCreateWithMode(
+                    var cryptorRef: CCCryptorRef?
+                    let createStatus: CCCryptorStatus
+                    if let iv {
+                        createStatus = iv.withUnsafeBytes { ivBytes in
+                            CCCryptorCreateWithMode(
+                                CCOperation(operation),
+                                ccMode,
+                                algorithm,
+                                CCPadding(ccNoPadding),
+                                ivBytes.baseAddress,
+                                keyBytes.baseAddress,
+                                key.count,
+                                nil,
+                                0,
+                                0,
+                                0,
+                                &cryptorRef
+                            )
+                        }
+                    } else {
+                        createStatus = CCCryptorCreateWithMode(
                             CCOperation(operation),
-                            mode,
+                            ccMode,
                             algorithm,
                             CCPadding(ccNoPadding),
-                            iv.count > 0 ? ivBytes.baseAddress : nil,
+                            nil,
                             keyBytes.baseAddress,
                             key.count,
                             nil,
@@ -508,19 +537,19 @@ extension Crypto {
                             0,
                             &cryptorRef
                         )
-                        guard createStatus == kCCSuccess, let cryptor = cryptorRef else {
-                            return createStatus
-                        }
-                        defer { CCCryptorRelease(cryptor) }
-                        return CCCryptorUpdate(
-                            cryptor,
-                            dataBytes.baseAddress,
-                            data.count,
-                            bufferBytes.baseAddress,
-                            bufferLength,
-                            &outLength
-                        )
                     }
+                    guard createStatus == kCCSuccess, let cryptor = cryptorRef else {
+                        return createStatus
+                    }
+                    defer { CCCryptorRelease(cryptor) }
+                    return CCCryptorUpdate(
+                        cryptor,
+                        dataBytes.baseAddress,
+                        data.count,
+                        bufferBytes.baseAddress,
+                        bufferLength,
+                        &outLength
+                    )
                 }
             }
         }

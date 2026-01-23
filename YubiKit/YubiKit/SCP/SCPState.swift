@@ -31,8 +31,8 @@ public actor SCPState: HasSCPLogger {
         var ivData = Data(count: 12)
         ivData.append(self.encCounter.bigEndian.data)
         self.encCounter += 1
-        let iv = try ivData.encryptAES(key: sessionKeys.senc)
-        return try paddedData.encryptAES(key: sessionKeys.senc, iv: iv)
+        let iv = try ivData.encryptAES(key: sessionKeys.senc, mode: .ecb)
+        return try paddedData.encryptAES(key: sessionKeys.senc, mode: .cbc(iv: iv))
     }
 
     func decrypt(_ data: Data) throws(EncryptionError) -> Data {
@@ -42,8 +42,8 @@ public actor SCPState: HasSCPLogger {
         ivData.append(UInt8(0x80))
         ivData.append(Data(count: 11))
         ivData.append((self.encCounter - 1).bigEndian.data)
-        let iv = try ivData.encryptAES(key: sessionKeys.senc)
-        var decrypted = try data.decryptAES(key: sessionKeys.senc, iv: iv)
+        let iv = try ivData.encryptAES(key: sessionKeys.senc, mode: .ecb)
+        var decrypted = try data.decryptAES(key: sessionKeys.senc, mode: .cbc(iv: iv))
 
         defer {
             decrypted.secureClear()

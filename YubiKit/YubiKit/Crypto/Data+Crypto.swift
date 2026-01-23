@@ -71,19 +71,19 @@ extension Data {
     /// Encrypts data using AES.
     /// - Parameters:
     ///   - key: The AES key.
-    ///   - iv: The initialization vector (optional, uses ECB mode if nil).
+    ///   - mode: Cipher mode (ECB or CBC with IV).
     /// - Returns: The encrypted data.
-    internal func encryptAES(key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
-        try Crypto.AES.encrypt(self, key: key, iv: iv)
+    internal func encryptAES(key: Data, mode: Crypto.BlockCipher.Mode) throws(CryptoError) -> Data {
+        try Crypto.AES.encrypt(self, key: key, mode: mode)
     }
 
     /// Decrypts data using AES.
     /// - Parameters:
     ///   - key: The AES key.
-    ///   - iv: The initialization vector (optional, uses ECB mode if nil).
+    ///   - mode: Cipher mode (ECB or CBC with IV).
     /// - Returns: The decrypted data.
-    internal func decryptAES(key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
-        try Crypto.AES.decrypt(self, key: key, iv: iv)
+    internal func decryptAES(key: Data, mode: Crypto.BlockCipher.Mode) throws(CryptoError) -> Data {
+        try Crypto.AES.decrypt(self, key: key, mode: mode)
     }
 
     // MARK: - 3DES Encryption
@@ -91,19 +91,19 @@ extension Data {
     /// Encrypts data using Triple DES.
     /// - Parameters:
     ///   - key: The 3DES key.
-    ///   - iv: The initialization vector (optional, uses ECB mode if nil).
+    ///   - mode: Cipher mode (ECB or CBC with IV).
     /// - Returns: The encrypted data.
-    internal func encrypt3DES(key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
-        try Crypto.TripleDES.encrypt(self, key: key, iv: iv)
+    internal func encrypt3DES(key: Data, mode: Crypto.BlockCipher.Mode) throws(CryptoError) -> Data {
+        try Crypto.TripleDES.encrypt(self, key: key, mode: mode)
     }
 
     /// Decrypts data using Triple DES.
     /// - Parameters:
     ///   - key: The 3DES key.
-    ///   - iv: The initialization vector (optional, uses ECB mode if nil).
+    ///   - mode: Cipher mode (ECB or CBC with IV).
     /// - Returns: The decrypted data.
-    internal func decrypt3DES(key: Data, iv: Data? = nil) throws(CryptoError) -> Data {
-        try Crypto.TripleDES.decrypt(self, key: key, iv: iv)
+    internal func decrypt3DES(key: Data, mode: Crypto.BlockCipher.Mode) throws(CryptoError) -> Data {
+        try Crypto.TripleDES.decrypt(self, key: key, mode: mode)
     }
 
     /// Computes AES-CMAC.
