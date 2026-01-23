@@ -141,11 +141,13 @@ extension Crypto.EC {
             kSecAttrKeySizeInBits: curve.keySizeInBits,
         ]
         var error: Unmanaged<CFError>?
-        guard let privateSecKey = SecKeyCreateWithData(
-            privateKey.uncompressedRepresentation as CFData,
-            privateKeyAttributes as CFDictionary,
-            &error
-        ) else {
+        guard
+            let privateSecKey = SecKeyCreateWithData(
+                privateKey.uncompressedRepresentation as CFData,
+                privateKeyAttributes as CFDictionary,
+                &error
+            )
+        else {
             throw .keyCreationFailed(error?.takeRetainedValue())
         }
 
@@ -155,23 +157,27 @@ extension Crypto.EC {
             kSecAttrKeyType: keyType,
             kSecAttrKeySizeInBits: curve.keySizeInBits,
         ]
-        guard let publicSecKey = SecKeyCreateWithData(
-            publicKey.uncompressedPoint as CFData,
-            publicKeyAttributes as CFDictionary,
-            &error
-        ) else {
+        guard
+            let publicSecKey = SecKeyCreateWithData(
+                publicKey.uncompressedPoint as CFData,
+                publicKeyAttributes as CFDictionary,
+                &error
+            )
+        else {
             throw .keyCreationFailed(error?.takeRetainedValue())
         }
 
         // Perform ECDH key exchange
         let params: [String: Any] = [:]
-        guard let secretData = SecKeyCopyKeyExchangeResult(
-            privateSecKey,
-            .ecdhKeyExchangeStandard,
-            publicSecKey,
-            params as CFDictionary,
-            &error
-        ) else {
+        guard
+            let secretData = SecKeyCopyKeyExchangeResult(
+                privateSecKey,
+                .ecdhKeyExchangeStandard,
+                publicSecKey,
+                params as CFDictionary,
+                &error
+            )
+        else {
             throw .keyAgreementFailed
         }
         return secretData as Data

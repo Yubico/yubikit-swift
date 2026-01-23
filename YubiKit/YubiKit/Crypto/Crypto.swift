@@ -54,16 +54,19 @@ internal enum Crypto {
 
     /// Block size constants for cryptographic algorithms.
     enum BlockSize {
-        /// AES block size in bytes.
-        static let aes = kCCBlockSizeAES128
-        /// Triple DES block size in bytes.
-        static let tripleDES = kCCBlockSize3DES
-        /// SHA-1 block size in bytes.
-        static let sha1 = Int(CC_SHA1_BLOCK_BYTES)
-        /// SHA-256 block size in bytes.
-        static let sha256 = Int(CC_SHA256_BLOCK_BYTES)
-        /// SHA-512 block size in bytes.
-        static let sha512 = Int(CC_SHA512_BLOCK_BYTES)
+        /// Block sizes in bytes.
+        enum Bytes {
+            /// AES block size in bytes.
+            static let aes = kCCBlockSizeAES128
+            /// Triple DES block size in bytes.
+            static let tripleDES = kCCBlockSize3DES
+            /// SHA-1 block size in bytes.
+            static let sha1 = Int(CC_SHA1_BLOCK_BYTES)
+            /// SHA-256 block size in bytes.
+            static let sha256 = Int(CC_SHA256_BLOCK_BYTES)
+            /// SHA-512 block size in bytes.
+            static let sha512 = Int(CC_SHA512_BLOCK_BYTES)
+        }
     }
 
     /// Block cipher operations.
