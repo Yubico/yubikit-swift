@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import CryptoKit
 import Foundation
 import Security
 
@@ -88,31 +89,13 @@ extension Crypto.EC {
     /// Generates a random EC private key and returns its X9.63 representation.
     /// - Parameter curve: The elliptic curve to use.
     /// - Returns: The X9.63 encoded private key data (0x04 || X || Y || K).
-    /// - Throws: `CryptoError.keyCreationFailed` if generation fails.
-    static func generateRandomPrivateKey(curve: EC.Curve) throws(CryptoError) -> Data {
-        // Determine key type (when adding new curves, ensure the correct Security framework key type is used)
-        let keyType: CFString
+    static func generateRandomPrivateKey(curve: EC.Curve) -> Data {
         switch curve {
-        case .secp256r1, .secp384r1:
-            keyType = kSecAttrKeyTypeECSECPrimeRandom
+        case .secp256r1:
+            Data(P256.KeyAgreement.PrivateKey().x963Representation)
+        case .secp384r1:
+            Data(P384.KeyAgreement.PrivateKey().x963Representation)
         }
-
-        // Generate key pair
-        let attributes: [CFString: Any] = [
-            kSecAttrKeyClass: kSecAttrKeyClassPrivate,
-            kSecAttrKeyType: keyType,
-            kSecAttrKeySizeInBits: curve.keySizeInBits,
-        ]
-        var error: Unmanaged<CFError>?
-        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
-            throw .keyCreationFailed(error?.takeRetainedValue())
-        }
-
-        // Export private key
-        guard let data = SecKeyCopyExternalRepresentation(privateKey, &error) as Data? else {
-            throw .keyCreationFailed(error?.takeRetainedValue())
-        }
-        return data
     }
 
     /// Performs ECDH key agreement using EC key types.
@@ -120,67 +103,25 @@ extension Crypto.EC {
     ///   - privateKey: The EC private key.
     ///   - publicKey: The peer's EC public key (must be on the same curve as privateKey).
     /// - Returns: The shared secret.
-    /// - Throws: `CryptoError.keyAgreementFailed` or `CryptoError.keyCreationFailed`.
+    /// - Throws: `CryptoError.keyAgreementFailed`.
     static func sharedSecret(privateKey: EC.PrivateKey, publicKey: EC.PublicKey) throws(CryptoError) -> Data {
         guard privateKey.curve == publicKey.curve else {
             throw .keyAgreementFailed
         }
-        let curve = privateKey.curve
-
-        // Determine key type (when adding new curves, ensure the correct Security framework key type is used)
-        let keyType: CFString
-        switch curve {
-        case .secp256r1, .secp384r1:
-            keyType = kSecAttrKeyTypeECSECPrimeRandom
-        }
-
-        // Create SecKey from private key data
-        let privateKeyAttributes: [CFString: Any] = [
-            kSecAttrKeyClass: kSecAttrKeyClassPrivate,
-            kSecAttrKeyType: keyType,
-            kSecAttrKeySizeInBits: curve.keySizeInBits,
-        ]
-        var error: Unmanaged<CFError>?
-        guard
-            let privateSecKey = SecKeyCreateWithData(
-                privateKey.x963Representation as CFData,
-                privateKeyAttributes as CFDictionary,
-                &error
-            )
-        else {
-            throw .keyCreationFailed(error?.takeRetainedValue())
-        }
-
-        // Create SecKey from public key data
-        let publicKeyAttributes: [CFString: Any] = [
-            kSecAttrKeyClass: kSecAttrKeyClassPublic,
-            kSecAttrKeyType: keyType,
-            kSecAttrKeySizeInBits: curve.keySizeInBits,
-        ]
-        guard
-            let publicSecKey = SecKeyCreateWithData(
-                publicKey.x963Representation as CFData,
-                publicKeyAttributes as CFDictionary,
-                &error
-            )
-        else {
-            throw .keyCreationFailed(error?.takeRetainedValue())
-        }
-
-        // Perform ECDH key exchange
-        let params: [String: Any] = [:]
-        guard
-            let secretData = SecKeyCopyKeyExchangeResult(
-                privateSecKey,
-                .ecdhKeyExchangeStandard,
-                publicSecKey,
-                params as CFDictionary,
-                &error
-            )
-        else {
+        do {
+            switch privateKey.curve {
+            case .secp256r1:
+                let priv = try P256.KeyAgreement.PrivateKey(x963Representation: privateKey.x963Representation)
+                let pub = try P256.KeyAgreement.PublicKey(x963Representation: publicKey.x963Representation)
+                return try priv.sharedSecretFromKeyAgreement(with: pub).withUnsafeBytes { Data($0) }
+            case .secp384r1:
+                let priv = try P384.KeyAgreement.PrivateKey(x963Representation: privateKey.x963Representation)
+                let pub = try P384.KeyAgreement.PublicKey(x963Representation: publicKey.x963Representation)
+                return try priv.sharedSecretFromKeyAgreement(with: pub).withUnsafeBytes { Data($0) }
+            }
+        } catch {
             throw .keyAgreementFailed
         }
-        return secretData as Data
     }
 }
 
