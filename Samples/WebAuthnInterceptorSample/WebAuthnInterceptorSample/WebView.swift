@@ -154,10 +154,10 @@ extension WebView {
 extension WebView {
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         weak var webView: WKWebView?
-        private let bridge: Bridge
+        private let handler: WebAuthnHandler
 
         init(pinHandler: PINRequestHandler) {
-            self.bridge = Bridge { [weak pinHandler] errorMessage in
+            self.handler = WebAuthnHandler { [weak pinHandler] errorMessage in
                 await pinHandler?.requestPIN(errorMessage: errorMessage)
             }
         }
@@ -188,10 +188,10 @@ extension WebView {
                 let response: String
                 if name == MessageHandler.create {
                     trace("Dispatching to handleCreate")
-                    response = try await bridge.handleCreate(data)
+                    response = try await handler.handleCreate(data)
                 } else {
                     trace("Dispatching to handleGet")
-                    response = try await bridge.handleGet(data)
+                    response = try await handler.handleGet(data)
                 }
 
                 trace("Operation succeeded, executing JS callback")

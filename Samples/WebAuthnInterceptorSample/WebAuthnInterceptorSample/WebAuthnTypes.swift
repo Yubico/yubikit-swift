@@ -1,5 +1,5 @@
 //
-//  BridgeTypes.swift
+//  WebAuthnTypes.swift
 //  WebAuthnInterceptorSample
 //
 //  Types for JSON serialization between browser WebAuthn API and YubiKit SDK.

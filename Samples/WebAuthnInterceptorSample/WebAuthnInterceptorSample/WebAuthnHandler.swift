@@ -1,8 +1,8 @@
 //
-//  Bridge.swift
+//  WebAuthnHandler.swift
 //  WebAuthnInterceptorSample
 //
-//  Thin bridge layer: receives WebAuthn requests from JS, manages connection/PIN,
+//  Receives WebAuthn requests from JS, manages YubiKey connection and PIN flow,
 //  delegates to WebAuthnClientLogic for extension handling, returns responses.
 //
 
@@ -10,16 +10,16 @@ import CryptoKit
 import Foundation
 import YubiKit
 
-// MARK: - Bridge
+// MARK: - WebAuthnHandler
 
-actor Bridge {
+actor WebAuthnHandler {
 
     private var connection: (any Connection)?
     private let pinProvider: @Sendable (String?) async -> String?
 
     init(pinProvider: @escaping @Sendable (String?) async -> String?) {
         self.pinProvider = pinProvider
-        trace("Bridge initialized")
+        trace("WebAuthnHandler initialized")
     }
 
     // MARK: - Public API
@@ -209,7 +209,7 @@ actor Bridge {
             trace("Prompting for PIN...")
             guard let pin = await pinProvider(errorMessage) else {
                 trace("User cancelled PIN entry")
-                throw BridgeError.userCancelled
+                throw WebAuthnHandlerError.userCancelled
             }
 
             #if os(iOS)
@@ -241,9 +241,9 @@ actor Bridge {
 
 }
 
-// MARK: - BridgeError
+// MARK: - WebAuthnHandlerError
 
-enum BridgeError: LocalizedError {
+enum WebAuthnHandlerError: LocalizedError {
     case userCancelled
 
     var errorDescription: String? {
