@@ -1,6 +1,6 @@
 # WebAuthnInterceptorSample
 
-Sample app demonstrating FIDO2/WebAuthn functionality by intercepting browser credentials API in a WKWebView and routing requests to a YubiKey.
+Sample app that bypasses WebKit's WebAuthn implementation and uses the YubiKit SDK instead, giving you full control over the authentication flow, PIN UI, and access to extensions like PRF.
 
 ## Overview
 

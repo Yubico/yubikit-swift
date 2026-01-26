@@ -17,15 +17,19 @@ The WebAuthn interceptor shows how to build applications that:
 - Support the PRF extension (hmac-secret) for deriving cryptographic secrets
 - Connect via NFC on iOS or USB HID on macOS
 
-This sample enables using hardware security keys on websites that don't natively support them, by acting as a WebAuthn client that bridges the browser API to the YubiKey.
+This sample bypasses the WebKit WebAuthn implementation and uses the YubiKit SDK instead, giving you full control over the authentication flow, PIN UI, and access to extensions like PRF.
 
 ## Architecture Overview
 
-The sample consists of three main components:
+The sample consists of the following components:
 
 - **Interceptor.js**: Injected into the WKWebView to intercept WebAuthn API calls
-- **Bridge.swift**: Converts WebAuthn requests to CTAP2 commands and handles YubiKey communication
 - **WebView.swift**: Sets up the WKWebView with the interceptor and message handlers
+- **WebAuthnHandler.swift**: Manages YubiKey connection and PIN flow, delegates to client logic
+- **WebAuthnClientLogic.swift**: Builds CTAP2 extension inputs and extracts results
+- **WebAuthnTypes.swift**: Request/response types for JSON serialization between JS and Swift
+- **PINEntryView.swift**: SwiftUI PIN entry UI and async handler
+- **ContentView.swift**: Main UI with URL bar and navigation controls
 
 The flow works as follows:
 1. JavaScript intercepts `navigator.credentials.create()` or `navigator.credentials.get()`
@@ -54,7 +58,8 @@ navigator.credentials.create = function(options) {
             origin: window.location.origin,
             request: encodeRequest(options.publicKey)
         };
-        window.webkit.messageHandlers.__webauthn_create__.postMessage(JSON.stringify(request));
+        // Base64 encode to safely pass through the JS/Swift bridge
+        window.webkit.messageHandlers.__webauthn_create__.postMessage(btoa(JSON.stringify(request)));
     });
 };
 ```
@@ -76,8 +81,9 @@ The `Coordinator` class implements `WKScriptMessageHandler` to receive the inter
 
 ```swift
 func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-    guard let body = message.body as? String,
-          let data = body.data(using: .utf8) else { return }
+    // Decode the base64-encoded request from JavaScript
+    guard let base64 = message.body as? String,
+          let data = Data(base64Encoded: base64) else { return }
 
     Task {
         await handleWebAuthnMessage(name: message.name, data: data)
@@ -178,15 +184,7 @@ During credential creation, you typically get confirmation that PRF is enabled:
 
 ```swift
 if let prf = state.prf, let prfResult = try prf.makeCredential.output(from: response) {
-    switch prfResult {
-    case .enabled:
-        results.prf = PRFOutput(enabled: true)
-    case .secrets(let secrets):
-        results.prf = PRFOutput(
-            first: secrets.first.base64urlEncodedString(),
-            second: secrets.second?.base64urlEncodedString()
-        )
-    }
+    results.prf = PRFOutput(prfResult)
 }
 ```
 
@@ -194,10 +192,7 @@ During assertion (authentication), you get the actual derived secrets:
 
 ```swift
 if let prf = state.prf, let secrets = try prf.getAssertion.output(from: response) {
-    results.prf = PRFOutput(
-        first: secrets.first.base64urlEncodedString(),
-        second: secrets.second?.base64urlEncodedString()
-    )
+    results.prf = PRFOutput(secrets)
 }
 ```
 
@@ -223,24 +218,56 @@ private func makeSession() async throws -> CTAP2.Session {
 
 On iOS, NFC provides a system dialog prompting the user to tap their YubiKey. On macOS, USB HID waits for a FIDO-capable device to be connected.
 
-## Response Encoding
+## Binary Encoding
 
-The WebAuthn API expects specific response formats. The sample converts CTAP2 responses back to the expected structure:
+The WebAuthn API uses `ArrayBuffer` for binary fields, but WebKit's Swift-to-JavaScript bridge only supports JSON, which has no binary type. The sample uses base64url encoding for binary fields within the JSON structure. The entire message is then wrapped in standard base64 for transport.
+
+### Requests (JS → Swift)
+
+WebAuthn request options contain `ArrayBuffer` fields like `challenge` and `user.id`. The `encodeRequest` function recursively converts these to base64url strings before JSON serialization:
+
+```javascript
+function encodeRequest(obj) {
+    if (obj instanceof ArrayBuffer) {
+        return base64urlEncode(obj);
+    }
+    // recurse into objects/arrays...
+}
+```
+
+### Responses (Swift → JS)
+
+Swift wraps binary data as `{"__binary__": "<base64url>"}`. On the JavaScript side, a recursive function finds all `__binary__` markers and decodes them to `ArrayBuffer`:
+
+```swift
+struct BinaryValue: Codable {
+    let __binary__: String
+    init(_ data: Data) {
+        self.__binary__ = data.base64urlEncodedString()
+    }
+}
+```
+
+This allows Swift to wrap any `Data` in `BinaryValue` without needing to know which specific fields the WebAuthn API expects as binary.
+
+## Response Structure
+
+The sample converts CTAP2 responses back to the expected WebAuthn structure:
 
 ```swift
 struct CredentialResponse: Codable {
     let type: String
     let id: String?
-    let rawId: String?
+    let rawId: BinaryValue?
     let response: AuthenticatorResponse
     let clientExtensionResults: ExtensionResults?
     let authenticatorAttachment: String?
 
     init(clientDataJSON: Data, makeCredentialResponse: CTAP2.MakeCredential.Response, extensionResults: ExtensionResults? = nil) {
-        let credentialId = makeCredentialResponse.authenticatorData.attestedCredentialData?.credentialId.base64urlEncodedString()
+        let credentialId = makeCredentialResponse.authenticatorData.attestedCredentialData?.credentialId
         self.type = "public-key"
-        self.id = credentialId
-        self.rawId = credentialId
+        self.id = credentialId?.base64urlEncodedString()
+        self.rawId = BinaryValue(credentialId)
         self.response = AuthenticatorResponse(clientDataJSON: clientDataJSON, makeCredentialResponse: makeCredentialResponse)
         self.clientExtensionResults = extensionResults
         self.authenticatorAttachment = "cross-platform"
@@ -251,7 +278,6 @@ struct CredentialResponse: Codable {
 The response is then JSON-encoded and passed back to JavaScript via a callback:
 
 ```swift
-let js = "__webauthn_callback__('\(response.escapedForJavaScript())')"
-try? await webView?.evaluateJavaScript(js)
+let encodedResponse = Data(response.utf8).base64EncodedString()
+_ = try? await webView?.evaluateJavaScript("__webauthn_callback__('\(encodedResponse)')")
 ```
-
