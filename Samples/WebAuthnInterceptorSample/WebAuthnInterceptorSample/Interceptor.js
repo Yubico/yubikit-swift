@@ -122,8 +122,10 @@
                 return decoded.response.authenticatorData;
             };
             credential.response.getPublicKey = function() {
-                // TODO: Implement SPKI encoding to return the public key in SubjectPublicKeyInfo format.
-                // Without this, RPs that call getPublicKey() will receive null and may fail.
+                // This sample does not implement SPKI encoding for getPublicKey().
+                // RPs that require the public key should extract it from attestationObject
+                // or extend the native implementation to provide SPKI-encoded key data.
+                console.warn('[WebAuthn] getPublicKey() is not implemented in this sample and returns null');
                 return null;
             };
             credential.response.getPublicKeyAlgorithm = function() {

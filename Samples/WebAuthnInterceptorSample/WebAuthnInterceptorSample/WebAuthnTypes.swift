@@ -295,6 +295,8 @@ extension WebAuthn.AttestationObject: BinaryEncodable {}
 
 /// Encodes binary data as `{"__binary__": "<base64url>"}` for the JS side to decode to ArrayBuffer.
 struct BinaryValue: Codable {
+    // The double-underscore property name is required by the JavaScript bridge contract.
+    // The JS side expects `{"__binary__": "..."}` objects and decodes them to ArrayBuffer.
     // swiftlint:disable:next identifier_name
     let __binary__: String
 
