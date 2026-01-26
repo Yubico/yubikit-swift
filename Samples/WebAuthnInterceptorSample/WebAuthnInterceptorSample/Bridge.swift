@@ -2,8 +2,8 @@
 //  Bridge.swift
 //  WebAuthnInterceptorSample
 //
-//  Core orchestrator: receives WebAuthn requests from JS, communicates with YubiKey via CTAP2,
-//  and returns responses. Handles connection lifecycle, PIN flow, and extension processing.
+//  Thin bridge layer: receives WebAuthn requests from JS, manages connection/PIN,
+//  delegates to WebAuthnClientLogic for extension handling, returns responses.
 //
 
 import CryptoKit
@@ -78,17 +78,7 @@ actor Bridge {
 
         trace("Calling makeCredential...")
         let response = try await session.makeCredential(parameters: params, pinToken: pinToken).value
-
-        // Extract extension results
-        var extensionResults = ExtensionResults()
-        if let credProtect = extState.credProtect, let level = credProtect.output(from: response) {
-            trace("credProtect applied with level \(level.rawValue)")
-            extensionResults.credProtect = level.rawValue
-        }
-        if let prf = extState.prf, let prfResult = try prf.makeCredential.output(from: response) {
-            trace("PRF extension result received")
-            extensionResults.prf = PRFOutput(prfResult)
-        }
+        let extensionResults = try extractCreateExtensionResults(state: extState, response: response)
 
         let credentials = CredentialResponse(
             clientDataJSON: clientDataJSON,
@@ -120,7 +110,7 @@ actor Bridge {
 
         let (activeSession, pinToken) = try await getPinTokenIfNeeded(
             session: session,
-            permissions: .getAssertion,
+            permissions: permissionsForGetAssertion(request: request),
             rpId: rpId
         )
         session = activeSession
@@ -139,13 +129,12 @@ actor Bridge {
 
         trace("Calling getAssertion...")
         let response = try await session.getAssertion(parameters: params, pinToken: pinToken).value
-
-        // Extract extension results
-        var extensionResults = ExtensionResults()
-        if let prf = extState.prf, let secrets = try prf.getAssertion.output(from: response) {
-            trace("PRF extension returned secrets")
-            extensionResults.prf = PRFOutput(secrets)
-        }
+        let extensionResults = try await extractGetExtensionResults(
+            state: extState,
+            response: response,
+            session: session,
+            pinToken: pinToken
+        )
 
         let credentials = CredentialResponse(
             clientDataJSON: clientDataJSON,
@@ -250,77 +239,6 @@ actor Bridge {
         }
     }
 
-    // MARK: - Extension Handling
-    //
-    // Extensions require manual handling: build inputs before CTAP call, extract outputs after.
-    // When adding new extensions, update: state structs, build functions, and result extraction.
-    // Supported: credProtect, PRF (hmac-secret)
-
-    private struct CreateExtensionState {
-        var inputs: [CTAP2.Extension.MakeCredential.Input] = []
-        var credProtect: CTAP2.Extension.CredProtect?
-        var prf: WebAuthn.Extension.PRF?
-    }
-
-    private func buildCreateExtensions(
-        request: CreateRequest,
-        session: CTAP2.Session
-    ) async throws -> CreateExtensionState {
-        var state = CreateExtensionState()
-
-        // credProtect extension
-        if let credProtectLevel = request.extensions?.credProtect,
-            let level = CTAP2.Extension.CredProtect.Level(rawValue: credProtectLevel)
-        {
-            trace("Adding credProtect extension with level \(credProtectLevel)")
-            let credProtect = try await CTAP2.Extension.CredProtect(level: level, session: session)
-            state.inputs.append(credProtect.input())
-            state.credProtect = credProtect
-        }
-
-        // PRF extension (with or without secrets)
-        if let prfEval = request.extensions?.prf?.eval,
-            let firstData = Data(base64urlDecoding: prfEval.first)
-        {
-            trace("Adding PRF extension for makeCredential with secrets")
-            let prf = try await WebAuthn.Extension.PRF(session: session)
-            let secondData = prfEval.second.flatMap { Data(base64urlDecoding: $0) }
-            state.inputs.append(try prf.makeCredential.input(first: firstData, second: secondData))
-            state.prf = prf
-        } else if request.extensions?.hmacCreateSecret == true || request.extensions?.prf != nil {
-            trace("Adding PRF extension for makeCredential (enable only)")
-            let prf = try await WebAuthn.Extension.PRF(session: session)
-            state.inputs.append(prf.makeCredential.input())
-            state.prf = prf
-        }
-
-        return state
-    }
-
-    private struct GetExtensionState {
-        var inputs: [CTAP2.Extension.GetAssertion.Input] = []
-        var prf: WebAuthn.Extension.PRF?
-    }
-
-    private func buildGetExtensions(
-        request: GetRequest,
-        session: CTAP2.Session
-    ) async throws -> GetExtensionState {
-        var state = GetExtensionState()
-
-        // PRF extension
-        if let prfEval = request.extensions?.prf?.eval,
-            let firstData = Data(base64urlDecoding: prfEval.first)
-        {
-            trace("Adding PRF extension")
-            let prf = try await WebAuthn.Extension.PRF(session: session)
-            let secondData = prfEval.second.flatMap { Data(base64urlDecoding: $0) }
-            state.inputs.append(try prf.getAssertion.input(first: firstData, second: secondData))
-            state.prf = prf
-        }
-
-        return state
-    }
 }
 
 // MARK: - BridgeError

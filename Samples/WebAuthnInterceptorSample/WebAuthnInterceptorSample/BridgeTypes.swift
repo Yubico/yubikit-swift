@@ -108,10 +108,12 @@ struct CreateExtensions: Decodable {
     let credProtect: Int?
     let hmacCreateSecret: Bool?
     let prf: PRFInput?
+    let largeBlob: LargeBlobInput?
 }
 
 struct GetExtensions: Decodable {
     let prf: PRFInput?
+    let largeBlob: LargeBlobInput?
 }
 
 struct PRFInput: Decodable {
@@ -121,6 +123,12 @@ struct PRFInput: Decodable {
 struct PRFEval: Decodable {
     let first: String  // base64url encoded
     let second: String?
+}
+
+struct LargeBlobInput: Decodable {
+    let support: String?  // "required" or "preferred" (for makeCredential)
+    let read: Bool?  // true to read blob (for getAssertion)
+    let write: String?  // base64url encoded data to write (for getAssertion)
 }
 
 // MARK: - Response Types (Swift → Browser)
@@ -209,14 +217,17 @@ struct AuthenticatorResponse: Codable {
 // MARK: - Extension Results
 //
 // Output types for WebAuthn extensions. Update when adding new extensions.
-// Supported: credProtect (Int), PRF (PRFOutput)
+// Supported: credProtect (Int), PRF (PRFOutput), largeBlob (LargeBlobOutput)
 
 struct ExtensionResults: Codable {
     var prf: PRFOutput?
     var hmacCreateSecret: Bool?
     var credProtect: Int?
+    var largeBlob: LargeBlobOutput?
 
-    var isEmpty: Bool { prf == nil && hmacCreateSecret == nil && credProtect == nil }
+    var isEmpty: Bool {
+        prf == nil && hmacCreateSecret == nil && credProtect == nil && largeBlob == nil
+    }
 }
 
 struct PRFOutput: Codable {
@@ -249,6 +260,27 @@ struct PRFSecrets: Codable {
     init(_ secrets: WebAuthn.Extension.PRF.Secrets) {
         self.first = BinaryValue(secrets.first)
         self.second = BinaryValue(secrets.second)
+    }
+}
+
+struct LargeBlobOutput: Codable {
+    let supported: Bool?  // For makeCredential: true if largeBlobKey was returned
+    let blob: BinaryValue?  // For getAssertion with read: the decrypted blob
+    let written: Bool?  // For getAssertion with write: true if write succeeded
+
+    /// For makeCredential - indicates largeBlob support
+    static func supported(_ isSupported: Bool) -> LargeBlobOutput {
+        LargeBlobOutput(supported: isSupported, blob: nil, written: nil)
+    }
+
+    /// For getAssertion read - returns the blob data
+    static func read(_ data: Data?) -> LargeBlobOutput {
+        LargeBlobOutput(supported: nil, blob: BinaryValue(data), written: nil)
+    }
+
+    /// For getAssertion write - indicates success
+    static func written(_ success: Bool) -> LargeBlobOutput {
+        LargeBlobOutput(supported: nil, blob: nil, written: success)
     }
 }
 
