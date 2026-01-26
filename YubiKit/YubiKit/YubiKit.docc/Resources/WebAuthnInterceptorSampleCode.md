@@ -109,7 +109,7 @@ func handleCreate(_ data: Data) async throws -> String {
         name: request.rp.name
     )
     let userEntity = WebAuthn.PublicKeyCredential.UserEntity(
-        id: Data(base64urlDecoding: request.user.id) ?? Data(),
+        id: Data(base64Encoded: request.user.id) ?? Data(),
         name: request.user.name,
         displayName: request.user.displayName
     )
@@ -165,9 +165,9 @@ The PRF extension allows deriving cryptographic secrets from credentials. This i
 
 ```swift
 if let prfEval = request.extensions?.prf?.eval,
-   let firstData = Data(base64urlDecoding: prfEval.first) {
+   let firstData = Data(base64Encoded: prfEval.first) {
     let prf = try await WebAuthn.Extension.PRF(session: session)
-    let secondData = prfEval.second.flatMap { Data(base64urlDecoding: $0) }
+    let secondData = prfEval.second.flatMap { Data(base64Encoded: $0) }
     state.inputs.append(try prf.makeCredential.input(first: firstData, second: secondData))
     state.prf = prf
 } else if request.extensions?.prf != nil {
@@ -220,16 +220,16 @@ On iOS, NFC provides a system dialog prompting the user to tap their YubiKey. On
 
 ## Binary Encoding
 
-The WebAuthn API uses `ArrayBuffer` for binary fields, but WebKit's Swift-to-JavaScript bridge only supports JSON, which has no binary type. The sample uses base64url encoding for binary fields within the JSON structure. The entire message is then wrapped in standard base64 for transport.
+The WebAuthn API uses `ArrayBuffer` for binary fields, but WebKit's Swift-to-JavaScript bridge only supports JSON, which has no binary type. The sample uses standard base64 encoding in both directions for simplicity. The entire message is then wrapped in standard base64 for transport.
 
 ### Requests (JS → Swift)
 
-WebAuthn request options contain `ArrayBuffer` fields like `challenge` and `user.id`. The `encodeRequest` function recursively converts these to base64url strings before JSON serialization:
+WebAuthn request options contain `ArrayBuffer` fields like `challenge` and `user.id`. The `encodeRequest` function recursively converts these to base64 strings before JSON serialization:
 
 ```javascript
 function encodeRequest(obj) {
     if (obj instanceof ArrayBuffer) {
-        return base64urlEncode(obj);
+        return base64Encode(obj);
     }
     // recurse into objects/arrays...
 }
@@ -237,13 +237,13 @@ function encodeRequest(obj) {
 
 ### Responses (Swift → JS)
 
-Swift wraps binary data as `{"__binary__": "<base64url>"}`. On the JavaScript side, a recursive function finds all `__binary__` markers and decodes them to `ArrayBuffer`:
+Swift wraps binary data as `{"__binary__": "<base64>"}`. On the JavaScript side, a recursive function finds all `__binary__` markers and decodes them to `ArrayBuffer`:
 
 ```swift
 struct BinaryValue: Codable {
     let __binary__: String
     init(_ data: Data) {
-        self.__binary__ = data.base64urlEncodedString()
+        self.__binary__ = data.base64EncodedString()
     }
 }
 ```

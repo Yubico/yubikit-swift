@@ -44,15 +44,8 @@
 
     // MARK: - Binary Decoding (Swift → JS)
 
-    function base64urlDecode(str) {
-        str = str.replace(/-/g, '+').replace(/_/g, '/');
-        while (str.length % 4) str += '=';
-        const binary = atob(str);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-        }
-        return bytes.buffer;
+    function base64Decode(str) {
+        return Uint8Array.from(atob(str), c => c.charCodeAt(0)).buffer;
     }
 
     // Recursively decode all {"__binary__": "..."} markers to ArrayBuffer
@@ -60,7 +53,7 @@
         if (obj === null || obj === undefined) return obj;
         if (typeof obj !== 'object') return obj;
         if (Array.isArray(obj)) return obj.map(decodeBinaryValues);
-        if (obj.__binary__ !== undefined) return base64urlDecode(obj.__binary__);
+        if (obj.__binary__ !== undefined) return base64Decode(obj.__binary__);
         const result = {};
         for (const key of Object.keys(obj)) {
             result[key] = decodeBinaryValues(obj[key]);
@@ -70,22 +63,17 @@
 
     // MARK: - Binary Encoding (JS → Swift)
 
-    function base64urlEncode(buffer) {
-        const bytes = new Uint8Array(buffer);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    function base64Encode(buffer) {
+        return btoa(String.fromCharCode(...new Uint8Array(buffer)));
     }
 
     function encodeRequest(options) {
         return JSON.parse(JSON.stringify(options, (key, value) => {
             if (value instanceof ArrayBuffer) {
-                return base64urlEncode(value);
+                return base64Encode(value);
             }
             if (value instanceof Uint8Array) {
-                return base64urlEncode(value.buffer);
+                return base64Encode(value.buffer);
             }
             return value;
         }));

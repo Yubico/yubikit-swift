@@ -29,7 +29,7 @@ actor WebAuthnHandler {
 
         let rpEntity = WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: request.rp.name)
         let userEntity = WebAuthn.PublicKeyCredential.UserEntity(
-            id: Data(base64urlDecoding: request.user.id) ?? Data(),
+            id: Data(base64Encoded: request.user.id) ?? Data(),
             name: request.user.name,
             displayName: request.user.displayName
         )

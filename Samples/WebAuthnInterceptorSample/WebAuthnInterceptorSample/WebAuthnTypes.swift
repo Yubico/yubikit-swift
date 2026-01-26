@@ -86,7 +86,7 @@ struct CredentialDescriptor: Decodable {
             logError("CredentialDescriptor missing id")
             return nil
         }
-        guard let data = Data(base64urlDecoding: id) else {
+        guard let data = Data(base64Encoded: id) else {
             logError("CredentialDescriptor failed to decode id: \(id)")
             return nil
         }
@@ -116,14 +116,14 @@ struct PRFInput: Decodable {
 }
 
 struct PRFEval: Decodable {
-    let first: String  // base64url encoded
+    let first: String  // base64 encoded
     let second: String?
 }
 
 struct LargeBlobInput: Decodable {
     let support: String?  // "required" or "preferred" (for makeCredential)
     let read: Bool?  // true to read blob (for getAssertion)
-    let write: String?  // base64url encoded data to write (for getAssertion)
+    let write: String?  // base64 encoded data to write (for getAssertion)
 }
 
 // MARK: - Response Types (Swift → Browser)
@@ -131,7 +131,7 @@ struct LargeBlobInput: Decodable {
 // WebKit's Swift-to-JavaScript bridge only supports JSON, which has no binary type.
 // The WebAuthn API requires ArrayBuffer for fields like rawId, clientDataJSON, etc.
 //
-// Solution: Encode binary data as `{"__binary__": "<base64url>"}`. The JS side
+// Solution: Encode binary data as `{"__binary__": "<base64>"}`. The JS side
 // recursively finds these markers and decodes them to ArrayBuffer, without needing
 // to know which specific fields are binary.
 
@@ -289,7 +289,7 @@ protocol BinaryEncodable {
 extension WebAuthn.AuthenticatorData: BinaryEncodable {}
 extension WebAuthn.AttestationObject: BinaryEncodable {}
 
-/// Encodes binary data as `{"__binary__": "<base64url>"}` for the JS side to decode to ArrayBuffer.
+/// Encodes binary data as `{"__binary__": "<base64>"}` for the JS side to decode to ArrayBuffer.
 struct BinaryValue: Codable {
     // The double-underscore property name is required by the JavaScript bridge contract.
     // The JS side expects `{"__binary__": "..."}` objects and decodes them to ArrayBuffer.
@@ -297,38 +297,28 @@ struct BinaryValue: Codable {
     let __binary__: String
 
     init(_ data: Data) {
-        self.__binary__ = data.base64urlEncodedString()
+        self.__binary__ = data.base64EncodedString()
     }
 
     init?(_ data: Data?) {
         guard let data else { return nil }
-        self.__binary__ = data.base64urlEncodedString()
+        self.__binary__ = data.base64EncodedString()
     }
 
     init(_ value: some BinaryEncodable) {
-        self.__binary__ = value.rawData.base64urlEncodedString()
+        self.__binary__ = value.rawData.base64EncodedString()
     }
 
     init?(_ value: (some BinaryEncodable)?) {
         guard let value else { return nil }
-        self.__binary__ = value.rawData.base64urlEncodedString()
+        self.__binary__ = value.rawData.base64EncodedString()
     }
 }
 
 // MARK: - Base64URL Encoding
 
 extension Data {
-    init?(base64urlDecoding string: String) {
-        var base64 =
-            string
-            .replacingOccurrences(of: "-", with: "+")
-            .replacingOccurrences(of: "_", with: "/")
-        while base64.count % 4 != 0 {
-            base64.append("=")
-        }
-        self.init(base64Encoded: base64)
-    }
-
+    /// Encodes as base64url (used for credential `id` field per WebAuthn spec).
     func base64urlEncodedString() -> String {
         base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")

@@ -49,10 +49,10 @@ func buildCreateExtensions(
 
     // PRF extension (with or without secrets)
     if let prfEval = request.extensions?.prf?.eval,
-        let firstData = Data(base64urlDecoding: prfEval.first)
+        let firstData = Data(base64Encoded: prfEval.first)
     {
         let prf = try await WebAuthn.Extension.PRF(session: session)
-        let secondData = prfEval.second.flatMap { Data(base64urlDecoding: $0) }
+        let secondData = prfEval.second.flatMap { Data(base64Encoded: $0) }
         state.inputs.append(try prf.makeCredential.input(first: firstData, second: secondData))
         state.prf = prf
     } else if request.extensions?.hmacCreateSecret == true || request.extensions?.prf != nil {
@@ -82,17 +82,17 @@ func buildGetExtensions(
 
     // PRF extension
     if let prfEval = request.extensions?.prf?.eval,
-        let firstData = Data(base64urlDecoding: prfEval.first)
+        let firstData = Data(base64Encoded: prfEval.first)
     {
         let prf = try await WebAuthn.Extension.PRF(session: session)
-        let secondData = prfEval.second.flatMap { Data(base64urlDecoding: $0) }
+        let secondData = prfEval.second.flatMap { Data(base64Encoded: $0) }
         state.inputs.append(try prf.getAssertion.input(first: firstData, second: secondData))
         state.prf = prf
     }
 
     // largeBlob extension (read or write)
     let wantsRead = request.extensions?.largeBlob?.read == true
-    let writeData = request.extensions?.largeBlob?.write.flatMap { Data(base64urlDecoding: $0) }
+    let writeData = request.extensions?.largeBlob?.write.flatMap { Data(base64Encoded: $0) }
     if wantsRead || writeData != nil {
         let largeBlobKey = CTAP2.Extension.LargeBlobKey()
         state.inputs.append(largeBlobKey.getAssertion.input())
