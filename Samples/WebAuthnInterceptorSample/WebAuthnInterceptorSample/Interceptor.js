@@ -2,6 +2,7 @@
 //
 // Monkey-patches navigator.credentials.create() and navigator.credentials.get()
 // to route WebAuthn requests through native Swift via WebKit message handlers.
+// Data is base64-encoded in both directions to avoid escaping issues.
 
 (function() {
     'use strict';
@@ -20,11 +21,11 @@
     // MARK: - Native Callbacks
     // ============================================================================
 
-    window.__webauthn_callback__ = function(responseJson) {
+    window.__webauthn_callback__ = function(encoded) {
         console.log('[WebAuthn] Received success callback');
         if (pendingResolve) {
             try {
-                const response = JSON.parse(responseJson);
+                const response = JSON.parse(atob(encoded));
                 const credential = decodeCredential(response);
                 pendingResolve(credential);
             } catch (e) {
@@ -35,7 +36,8 @@
         }
     };
 
-    window.__webauthn_error__ = function(errorMessage) {
+    window.__webauthn_error__ = function(encoded) {
+        const errorMessage = atob(encoded);
         console.log('[WebAuthn] Received error:', errorMessage);
         if (pendingReject) {
             pendingReject(new DOMException(errorMessage, 'NotAllowedError'));
@@ -179,7 +181,7 @@
                 request: encodeRequest(options.publicKey)
             };
 
-            window.webkit.messageHandlers[`__webauthn_${type}__`].postMessage(JSON.stringify(request));
+            window.webkit.messageHandlers[`__webauthn_${type}__`].postMessage(btoa(JSON.stringify(request)));
         });
     }
 

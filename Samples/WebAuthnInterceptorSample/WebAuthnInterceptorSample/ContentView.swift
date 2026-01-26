@@ -22,7 +22,7 @@ struct ContentView: View {
             urlBar
             WebView(url: currentURL, pinHandler: pinHandler, navigator: navigator)
         }
-        .sheet(isPresented: $pinHandler.isShowingPINEntry) {
+        .sheet(isPresented: $pinHandler.isShowingPINEntry, onDismiss: pinHandler.cancel) {
             PINEntryView(
                 onSubmit: pinHandler.submitPIN,
                 onCancel: pinHandler.cancel,

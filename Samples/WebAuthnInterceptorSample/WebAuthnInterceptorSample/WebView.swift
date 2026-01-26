@@ -161,10 +161,10 @@ extension WebView {
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
-            guard let body = message.body as? String,
-                let data = body.data(using: .utf8)
+            guard let base64 = message.body as? String,
+                let data = Data(base64Encoded: base64)
             else {
-                logError("Failed to parse message body")
+                logError("Failed to decode message body")
                 return
             }
 
@@ -183,25 +183,13 @@ extension WebView {
                     response = try await handler.handleGet(data)
                 }
 
-                let js = "__webauthn_callback__('\(response.escapedForJavaScript())')"
-                _ = try? await webView?.evaluateJavaScript(js)
+                let encoded = Data(response.utf8).base64EncodedString()
+                _ = try? await webView?.evaluateJavaScript("__webauthn_callback__('\(encoded)')")
             } catch {
                 logError("WebAuthn operation failed: \(error)")
-                let js = "__webauthn_error__('\(error.localizedDescription.escapedForJavaScript())')"
-                _ = try? await webView?.evaluateJavaScript(js)
+                let encoded = Data(error.localizedDescription.utf8).base64EncodedString()
+                _ = try? await webView?.evaluateJavaScript("__webauthn_error__('\(encoded)')")
             }
         }
-    }
-}
-
-// MARK: - String Escaping
-
-extension String {
-    fileprivate func escapedForJavaScript() -> String {
-        self.replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
-            .replacingOccurrences(of: "\n", with: "\\n")
-            .replacingOccurrences(of: "\r", with: "\\r")
-            .replacingOccurrences(of: "\t", with: "\\t")
     }
 }
