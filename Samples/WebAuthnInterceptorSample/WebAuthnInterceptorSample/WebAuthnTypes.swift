@@ -1,9 +1,4 @@
-//
-//  WebAuthnTypes.swift
-//  WebAuthnInterceptorSample
-//
-//  Types for JSON serialization between browser WebAuthn API and YubiKit SDK.
-//
+/// Types for JSON serialization between browser WebAuthn API and YubiKit SDK.
 
 import Foundation
 import YubiKit
@@ -197,7 +192,11 @@ struct AuthenticatorResponse: Codable {
         self.authenticatorData = BinaryValue(response.authenticatorData)
         self.signature = nil
         self.userHandle = nil
+        #if os(iOS)
         self.transports = ["nfc", "usb"]
+        #else
+        self.transports = ["usb"]
+        #endif
         self.attestationObject = BinaryValue(response.attestationObject)
         self.publicKeyAlgorithm =
             response.authenticatorData.attestedCredentialData?.credentialPublicKey.algorithmRawValue
@@ -360,10 +359,10 @@ private func hostFromOrigin(_ origin: String) -> String {
 extension COSE.Key {
     var algorithmRawValue: Int? {
         switch self {
-        case .ec2(let alg, _, _, _, _): return alg.rawValue
-        case .okp(let alg, _, _, _): return alg.rawValue
-        case .rsa(let alg, _, _, _): return alg.rawValue
-        case .other: return nil
+        case .ec2(let alg, _, _, _, _), .okp(let alg, _, _, _), .rsa(let alg, _, _, _):
+            alg.rawValue
+        case .other:
+            nil
         }
     }
 }

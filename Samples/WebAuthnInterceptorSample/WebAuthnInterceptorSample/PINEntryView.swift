@@ -1,9 +1,4 @@
-//
-//  PINEntryView.swift
-//  WebAuthnInterceptorSample
-//
-//  PIN entry UI and async handler for bridging SwiftUI sheets with async/await.
-//
+/// PIN entry UI and async handler for bridging SwiftUI sheets with async/await.
 
 import SwiftUI
 
@@ -56,7 +51,7 @@ struct PINEntryView: View {
 
 // MARK: - PIN Request Handler
 
-/// Bridges async PIN requests from the Bridge actor to SwiftUI sheet presentation.
+/// Bridges async PIN requests from WebAuthnHandler to SwiftUI sheet presentation.
 /// Uses CheckedContinuation to suspend until the user submits or cancels.
 @MainActor
 class PINRequestHandler: ObservableObject {

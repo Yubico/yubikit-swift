@@ -7,9 +7,7 @@
 (function() {
     'use strict';
 
-    // ============================================================================
     // MARK: - Setup
-    // ============================================================================
 
     const originalCreate = navigator.credentials.create.bind(navigator.credentials);
     const originalGet = navigator.credentials.get.bind(navigator.credentials);
@@ -17,9 +15,7 @@
     let pendingResolve = null;
     let pendingReject = null;
 
-    // ============================================================================
     // MARK: - Native Callbacks
-    // ============================================================================
 
     window.__webauthn_callback__ = function(encoded) {
         console.log('[WebAuthn] Received success callback');
@@ -46,9 +42,7 @@
         }
     };
 
-    // ============================================================================
     // MARK: - Binary Decoding (Swift → JS)
-    // ============================================================================
 
     function base64urlDecode(str) {
         str = str.replace(/-/g, '+').replace(/_/g, '/');
@@ -74,9 +68,7 @@
         return result;
     }
 
-    // ============================================================================
     // MARK: - Binary Encoding (JS → Swift)
-    // ============================================================================
 
     function base64urlEncode(buffer) {
         const bytes = new Uint8Array(buffer);
@@ -99,9 +91,7 @@
         }));
     }
 
-    // ============================================================================
     // MARK: - Credential Decoding
-    // ============================================================================
 
     function decodeCredential(response) {
         // Decode all binary fields in one pass
@@ -152,9 +142,7 @@
         return credential;
     }
 
-    // ============================================================================
     // MARK: - Interception
-    // ============================================================================
 
     function shouldIntercept(options) {
         // Intercept all WebAuthn requests and route them to the YubiKey.
@@ -185,9 +173,7 @@
         });
     }
 
-    // ============================================================================
     // MARK: - API Patching
-    // ============================================================================
 
     navigator.credentials.create = function(options) {
         return interceptWebAuthn('create', options, originalCreate);

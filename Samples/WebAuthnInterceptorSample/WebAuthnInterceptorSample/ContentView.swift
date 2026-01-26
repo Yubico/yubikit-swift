@@ -1,9 +1,4 @@
-//
-//  ContentView.swift
-//  WebAuthnInterceptorSample
-//
-//  Main UI: URL bar with navigation controls and WebView.
-//
+/// Main UI: URL bar with navigation controls and WebView.
 
 import SwiftUI
 

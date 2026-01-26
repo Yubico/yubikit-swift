@@ -1,19 +1,11 @@
-//
-//  WebAuthnClientLogic.swift
-//  WebAuthnInterceptorSample
-//
-//  TODO: Move this to the SDK as a WebAuthn.Client API.
-//
-//  This file contains WebAuthn client-level logic that bridges between WebAuthn API requests
-//  and CTAP2 SDK calls. Currently lives in the sample app, but should eventually be part of
-//  the SDK to simplify WebAuthn implementations.
-//
-//  What this file handles:
-//  - Building CTAP2 extension inputs from WebAuthn extension requests
-//  - Extracting WebAuthn extension results from CTAP2 responses
-//  - LargeBlob orchestration (key retrieval + blob read/write)
-//  - Extension state tracking across request/response
-//
+/// WebAuthn client-level logic bridging WebAuthn API requests and CTAP2 SDK calls.
+///
+/// TODO: Move this to the SDK as a WebAuthn.Client API.
+///
+/// Handles:
+/// - Building CTAP2 extension inputs from WebAuthn extension requests
+/// - Extracting WebAuthn extension results from CTAP2 responses
+/// - LargeBlob orchestration (key retrieval + blob read/write)
 
 import Foundation
 import YubiKit

@@ -1,10 +1,5 @@
-//
-//  WebView.swift
-//  WebAuthnInterceptorSample
-//
-//  WKWebView wrapper that injects the WebAuthn interceptor script and handles
-//  message passing between JavaScript and Swift.
-//
+/// WKWebView wrapper that injects the WebAuthn interceptor script and handles
+/// message passing between JavaScript and Swift.
 
 import SwiftUI
 import WebKit
@@ -21,23 +16,20 @@ private enum MessageHandler {
 
 @MainActor
 class WebViewNavigator: ObservableObject {
+    @Published var canGoBack = false
+
     weak var webView: WKWebView? {
-        didSet { setupObservation() }
+        didSet {
+            observation = webView?.observe(\.canGoBack, options: [.initial, .new]) { [weak self] webView, _ in
+                Task { @MainActor in self?.canGoBack = webView.canGoBack }
+            }
+        }
     }
 
-    @Published var canGoBack = false
     private var observation: NSKeyValueObservation?
 
     func goBack() {
         webView?.goBack()
-    }
-
-    private func setupObservation() {
-        observation = webView?.observe(\.canGoBack, options: [.initial, .new]) { [weak self] webView, _ in
-            Task { @MainActor in
-                self?.canGoBack = webView.canGoBack
-            }
-        }
     }
 }
 
@@ -176,13 +168,10 @@ extension WebView {
         @MainActor
         private func handleWebAuthnMessage(name: String, data: Data) async {
             do {
-                let response: String
-                if name == MessageHandler.create {
-                    response = try await handler.handleCreate(data)
-                } else {
-                    response = try await handler.handleGet(data)
-                }
-
+                let response =
+                    name == MessageHandler.create
+                    ? try await handler.handleCreate(data)
+                    : try await handler.handleGet(data)
                 let encoded = Data(response.utf8).base64EncodedString()
                 _ = try? await webView?.evaluateJavaScript("__webauthn_callback__('\(encoded)')")
             } catch {

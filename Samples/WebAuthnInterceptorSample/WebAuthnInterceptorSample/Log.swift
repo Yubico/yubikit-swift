@@ -1,10 +1,3 @@
-//
-//  Log.swift
-//  WebAuthnInterceptorSample
-//
-//  Simple error logging for debugging.
-//
-
 import Foundation
 
 func logError(_ message: String, file: String = #file, line: Int = #line) {

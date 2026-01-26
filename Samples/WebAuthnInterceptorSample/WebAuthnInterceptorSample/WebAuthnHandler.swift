@@ -1,10 +1,5 @@
-//
-//  WebAuthnHandler.swift
-//  WebAuthnInterceptorSample
-//
-//  Receives WebAuthn requests from JS, manages YubiKey connection and PIN flow,
-//  delegates to WebAuthnClientLogic for extension handling, returns responses.
-//
+/// Receives WebAuthn requests from JS, manages YubiKey connection and PIN flow,
+/// delegates to WebAuthnClientLogic for extension handling, returns responses.
 
 import CryptoKit
 import Foundation

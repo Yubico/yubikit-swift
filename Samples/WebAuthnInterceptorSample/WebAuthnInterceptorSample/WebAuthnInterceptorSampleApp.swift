@@ -1,8 +1,3 @@
-//
-//  WebAuthnInterceptorSampleApp.swift
-//  WebAuthnInterceptorSample
-//
-
 import SwiftUI
 
 @main
