@@ -223,10 +223,6 @@ struct ExtensionResults: Codable {
     var hmacCreateSecret: Bool?
     var credProtect: Int?
     var largeBlob: LargeBlobOutput?
-
-    var isEmpty: Bool {
-        prf == nil && hmacCreateSecret == nil && credProtect == nil && largeBlob == nil
-    }
 }
 
 struct PRFOutput: Codable {

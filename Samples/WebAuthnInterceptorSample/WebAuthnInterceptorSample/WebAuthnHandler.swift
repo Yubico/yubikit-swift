@@ -73,7 +73,7 @@ actor WebAuthnHandler {
         let credentials = CredentialResponse(
             clientDataJSON: clientDataJSON,
             makeCredentialResponse: response,
-            extensionResults: extensionResults.isEmpty ? nil : extensionResults
+            extensionResults: extensionResults
         )
         let jsonData = try JSONEncoder().encode(credentials)
         return String(data: jsonData, encoding: .utf8) ?? ""
@@ -124,7 +124,7 @@ actor WebAuthnHandler {
         let credentials = CredentialResponse(
             clientDataJSON: clientDataJSON,
             getAssertionResponse: response,
-            extensionResults: extensionResults.isEmpty ? nil : extensionResults
+            extensionResults: extensionResults
         )
         let jsonData = try JSONEncoder().encode(credentials)
         return String(data: jsonData, encoding: .utf8) ?? ""
