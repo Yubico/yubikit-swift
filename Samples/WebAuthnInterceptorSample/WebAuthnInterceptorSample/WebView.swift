@@ -4,12 +4,9 @@
 import SwiftUI
 import WebKit
 
-// MARK: - Constants
-
-private enum MessageHandler {
-    static let create = "__webauthn_create__"
-    static let get = "__webauthn_get__"
-    static let all = [create, get]
+private enum WebAuthnMessage: String, CaseIterable {
+    case create = "__webauthn_create__"
+    case get = "__webauthn_get__"
 }
 
 // MARK: - Navigator
@@ -90,8 +87,8 @@ struct WebView: NSViewRepresentable {
 extension WebView {
     static func cleanupWebView(_ webView: WKWebView) {
         let controller = webView.configuration.userContentController
-        for name in MessageHandler.all {
-            controller.removeScriptMessageHandler(forName: name)
+        for message in WebAuthnMessage.allCases {
+            controller.removeScriptMessageHandler(forName: message.rawValue)
         }
     }
 
@@ -108,8 +105,8 @@ extension WebView {
             config.userContentController.addUserScript(script)
         }
 
-        for name in MessageHandler.all {
-            config.userContentController.add(coordinator, name: name)
+        for message in WebAuthnMessage.allCases {
+            config.userContentController.add(coordinator, name: message.rawValue)
         }
 
         let webView = WKWebView(frame: .zero, configuration: config)
@@ -167,17 +164,21 @@ extension WebView {
 
         @MainActor
         private func handleWebAuthnMessage(name: String, data: Data) async {
+            guard let message = WebAuthnMessage(rawValue: name) else { return }
             do {
-                let response =
-                    name == MessageHandler.create
-                    ? try await handler.handleCreate(data)
-                    : try await handler.handleGet(data)
-                let encoded = Data(response.utf8).base64EncodedString()
-                _ = try? await webView?.evaluateJavaScript("__webauthn_callback__('\(encoded)')")
+                let response: String
+                switch message {
+                case .create:
+                    response = try await handler.handleCreate(data)
+                case .get:
+                    response = try await handler.handleGet(data)
+                }
+                let encodedResponse = Data(response.utf8).base64EncodedString()
+                _ = try? await webView?.evaluateJavaScript("__webauthn_callback__('\(encodedResponse)')")
             } catch {
                 logError("WebAuthn operation failed: \(error)")
-                let encoded = Data(error.localizedDescription.utf8).base64EncodedString()
-                _ = try? await webView?.evaluateJavaScript("__webauthn_error__('\(encoded)')")
+                let encodedError = Data(error.localizedDescription.utf8).base64EncodedString()
+                _ = try? await webView?.evaluateJavaScript("__webauthn_error__('\(encodedError)')")
             }
         }
     }
