@@ -2,19 +2,18 @@
 //  Bridge.swift
 //  WebAuthnInterceptorSample
 //
+//  Core orchestrator: receives WebAuthn requests from JS, communicates with YubiKey via CTAP2,
+//  and returns responses. Handles connection lifecycle, PIN flow, and extension processing.
+//
 
 import CryptoKit
 import Foundation
 import YubiKit
 
-func trace(_ message: String, file: String = #file, line: Int = #line) {
-    let filename = (file as NSString).lastPathComponent
-    print("[TRACE] \(filename):\(line) - \(message)")
-}
+// MARK: - Bridge
 
 actor Bridge {
 
-    // MARK: - State & Init
     private var connection: (any Connection)?
     private let pinProvider: @Sendable (String?) async -> String?
 
@@ -23,103 +22,8 @@ actor Bridge {
         trace("Bridge initialized")
     }
 
-    // MARK: - Session Management
-    #if os(iOS)
-    private func makeSession(alertMessage: String = "Tap your YubiKey") async throws -> CTAP2.Session {
-        trace("Requesting NFC connection...")
-        let conn = try await NFCSmartCardConnection(alertMessage: alertMessage)
-        connection = conn
-        trace("Connection established, creating CTAP2 session...")
-        let session = try await CTAP2.Session.makeSession(connection: conn)
-        trace("CTAP2 session created")
-        return session
-    }
-    #else
-    private func makeSession() async throws -> CTAP2.Session {
-        trace("Waiting for USB HID FIDO connection...")
-        let conn = try await HIDFIDOConnection()
-        connection = conn
-        trace("Connection established, creating CTAP2 session...")
-        let session = try await CTAP2.Session.makeSession(connection: conn)
-        trace("CTAP2 session created")
-        return session
-    }
-    #endif
+    // MARK: - Public API
 
-    private func closeConnection(message: String? = nil) async {
-        trace("Closing connection" + (message.map { ": \($0)" } ?? ""))
-        #if os(iOS)
-        if let nfc = connection as? NFCSmartCardConnection {
-            await nfc.close(message: message)
-        } else {
-            await connection?.close(error: nil)
-        }
-        #else
-        await connection?.close(error: nil)
-        #endif
-        connection = nil
-    }
-
-    // MARK: - PIN Flow
-    private func promptForPin(_ errorMessage: String?) async throws -> String {
-        trace("PIN required, requesting from user...")
-        guard let pin = await pinProvider(errorMessage) else {
-            trace("User cancelled PIN entry")
-            throw BridgeError.userCancelled
-        }
-        return pin
-    }
-
-    /// Get PIN token if device requires PIN. iOS uses two-tap flow (close NFC, ask PIN, reconnect).
-    private func getPinTokenIfNeeded(
-        session: CTAP2.Session,
-        permissions: CTAP2.ClientPin.Permission,
-        rpId: String
-    ) async throws -> (session: CTAP2.Session, pinToken: CTAP2.ClientPin.Token?) {
-        let info = try await session.getInfo()
-        trace("Device clientPin option: \(String(describing: info.options.clientPin))")
-
-        guard info.options.clientPin == true else {
-            return (session, nil)
-        }
-
-        #if os(iOS)
-        await closeConnection(message: "Enter PIN")
-        #endif
-
-        var errorMessage: String?
-        var currentSession = session
-        while true {
-            let pin = try await promptForPin(errorMessage)
-
-            #if os(iOS)
-            trace("Got PIN, reconnecting...")
-            currentSession = try await makeSession(alertMessage: "Tap again to complete")
-            #endif
-
-            trace("Obtaining PIN token...")
-            do throws(CTAP2.SessionError) {
-                let token = try await currentSession.getPinUVToken(
-                    using: .pin(pin),
-                    permissions: permissions,
-                    rpId: rpId
-                )
-                return (currentSession, token)
-            } catch {
-                if case .ctapError(.pinInvalid, _) = error {
-                    trace("Invalid PIN, retrying...")
-                    #if os(iOS)
-                    await closeConnection(message: "Invalid PIN")
-                    #endif
-                    errorMessage = "Invalid PIN. Please try again."
-                } else {
-                    throw error
-                }
-            }
-        }
-    }
-
-    // MARK: - Operations
     func handleCreate(_ data: Data) async throws -> String {
         trace("handleCreate: \(String(data: data, encoding: .utf8) ?? "nil")")
         let wrapper = try JSONDecoder().decode(CreateRequestWrapper.self, from: data)
@@ -174,78 +78,28 @@ actor Bridge {
 
         trace("Calling makeCredential...")
         let response = try await session.makeCredential(parameters: params, pinToken: pinToken).value
-        let extensionResults = try extractCreateExtensionResults(state: extState, response: response)
+
+        // Extract extension results
+        var extensionResults = ExtensionResults()
+        if let credProtect = extState.credProtect, let level = credProtect.output(from: response) {
+            trace("credProtect applied with level \(level.rawValue)")
+            extensionResults.credProtect = level.rawValue
+        }
+        if let prf = extState.prf, let prfResult = try prf.makeCredential.output(from: response) {
+            trace("PRF extension result received")
+            extensionResults.prf = PRFOutput(prfResult)
+        }
 
         let credentials = CredentialResponse(
             clientDataJSON: clientDataJSON,
             makeCredentialResponse: response,
             extensionResults: extensionResults.isEmpty ? nil : extensionResults
         )
-        return try encodeResponse(credentials, operation: "handleCreate")
+        let jsonData = try JSONEncoder().encode(credentials)
+        trace("handleCreate completed")
+        return String(data: jsonData, encoding: .utf8) ?? ""
     }
 
-    private struct CreateExtensionState {
-        var inputs: [CTAP2.Extension.MakeCredential.Input] = []
-        var credProtect: CTAP2.Extension.CredProtect?
-        var prf: WebAuthn.Extension.PRF?
-    }
-
-    // MARK: - Extensions
-    private func buildCreateExtensions(
-        request: CreateRequest,
-        session: CTAP2.Session
-    ) async throws -> CreateExtensionState {
-        var state = CreateExtensionState()
-
-        if let credProtectLevel = request.extensions?.credProtect,
-            let level = CTAP2.Extension.CredProtect.Level(rawValue: credProtectLevel)
-        {
-            trace("Adding credProtect extension with level \(credProtectLevel)")
-            let credProtect = try await CTAP2.Extension.CredProtect(level: level, session: session)
-            state.inputs.append(credProtect.input())
-            state.credProtect = credProtect
-        }
-
-        if let prfEval = request.extensions?.prf?.eval,
-            let firstData = Data(base64urlDecoding: prfEval.first)
-        {
-            trace("Adding PRF extension for makeCredential with secrets")
-            let prf = try await WebAuthn.Extension.PRF(session: session)
-            let secondData = prfEval.second.flatMap { Data(base64urlDecoding: $0) }
-            state.inputs.append(try prf.makeCredential.input(first: firstData, second: secondData))
-            state.prf = prf
-        } else if request.extensions?.hmacCreateSecret == true || request.extensions?.prf != nil {
-            trace("Adding PRF extension for makeCredential (enable only)")
-            let prf = try await WebAuthn.Extension.PRF(session: session)
-            state.inputs.append(prf.makeCredential.input())
-            state.prf = prf
-        }
-
-        return state
-    }
-
-    private func extractCreateExtensionResults(
-        state: CreateExtensionState,
-        response: CTAP2.MakeCredential.Response
-    ) throws -> ExtensionResults {
-        var results = ExtensionResults()
-
-        if let credProtect = state.credProtect,
-            let level = credProtect.output(from: response)
-        {
-            trace("credProtect applied with level \(level.rawValue)")
-            results.credProtect = level.rawValue
-        }
-
-        if let prf = state.prf, let prfResult = try prf.makeCredential.output(from: response) {
-            trace("PRF extension result received")
-            results.prf = PRFOutput(prfResult)
-        }
-
-        return results
-    }
-
-    // MARK: - Operations
     func handleGet(_ data: Data) async throws -> String {
         trace("handleGet: \(String(data: data, encoding: .utf8) ?? "nil")")
         let wrapper = try JSONDecoder().decode(GetRequestWrapper.self, from: data)
@@ -285,14 +139,162 @@ actor Bridge {
 
         trace("Calling getAssertion...")
         let response = try await session.getAssertion(parameters: params, pinToken: pinToken).value
-        let extensionResults = try extractGetExtensionResults(state: extState, response: response)
+
+        // Extract extension results
+        var extensionResults = ExtensionResults()
+        if let prf = extState.prf, let secrets = try prf.getAssertion.output(from: response) {
+            trace("PRF extension returned secrets")
+            extensionResults.prf = PRFOutput(secrets)
+        }
 
         let credentials = CredentialResponse(
             clientDataJSON: clientDataJSON,
             getAssertionResponse: response,
             extensionResults: extensionResults.isEmpty ? nil : extensionResults
         )
-        return try encodeResponse(credentials, operation: "handleGet")
+        let jsonData = try JSONEncoder().encode(credentials)
+        trace("handleGet completed")
+        return String(data: jsonData, encoding: .utf8) ?? ""
+    }
+
+    // MARK: - Connection Management
+
+    #if os(iOS)
+    private func makeSession(alertMessage: String = "Tap your YubiKey") async throws -> CTAP2.Session {
+        trace("Requesting NFC connection...")
+        let conn = try await NFCSmartCardConnection(alertMessage: alertMessage)
+        connection = conn
+        trace("Connection established, creating CTAP2 session...")
+        let session = try await CTAP2.Session.makeSession(connection: conn)
+        trace("CTAP2 session created")
+        return session
+    }
+    #else
+    private func makeSession() async throws -> CTAP2.Session {
+        trace("Waiting for USB HID FIDO connection...")
+        let conn = try await HIDFIDOConnection()
+        connection = conn
+        trace("Connection established, creating CTAP2 session...")
+        let session = try await CTAP2.Session.makeSession(connection: conn)
+        trace("CTAP2 session created")
+        return session
+    }
+    #endif
+
+    private func closeConnection(message: String? = nil) async {
+        trace("Closing connection" + (message.map { ": \($0)" } ?? ""))
+        #if os(iOS)
+        if let nfc = connection as? NFCSmartCardConnection {
+            await nfc.close(message: message)
+        } else {
+            await connection?.close(error: nil)
+        }
+        #else
+        await connection?.close(error: nil)
+        #endif
+        connection = nil
+    }
+
+    // MARK: - PIN Flow
+
+    /// Get PIN token if device requires PIN. iOS uses two-tap flow (close NFC, ask PIN, reconnect).
+    private func getPinTokenIfNeeded(
+        session: CTAP2.Session,
+        permissions: CTAP2.ClientPin.Permission,
+        rpId: String
+    ) async throws -> (session: CTAP2.Session, pinToken: CTAP2.ClientPin.Token?) {
+        let info = try await session.getInfo()
+        trace("Device clientPin option: \(String(describing: info.options.clientPin))")
+
+        guard info.options.clientPin == true else {
+            return (session, nil)
+        }
+
+        #if os(iOS)
+        await closeConnection(message: "Enter PIN")
+        #endif
+
+        var errorMessage: String?
+        var currentSession = session
+        while true {
+            trace("Prompting for PIN...")
+            guard let pin = await pinProvider(errorMessage) else {
+                trace("User cancelled PIN entry")
+                throw BridgeError.userCancelled
+            }
+
+            #if os(iOS)
+            trace("Got PIN, reconnecting...")
+            currentSession = try await makeSession(alertMessage: "Tap again to complete")
+            #endif
+
+            trace("Obtaining PIN token...")
+            do throws(CTAP2.SessionError) {
+                let token = try await currentSession.getPinUVToken(
+                    using: .pin(pin),
+                    permissions: permissions,
+                    rpId: rpId
+                )
+                return (currentSession, token)
+            } catch {
+                if case .ctapError(.pinInvalid, _) = error {
+                    trace("Invalid PIN, retrying...")
+                    #if os(iOS)
+                    await closeConnection(message: "Invalid PIN")
+                    #endif
+                    errorMessage = "Invalid PIN. Please try again."
+                } else {
+                    throw error
+                }
+            }
+        }
+    }
+
+    // MARK: - Extension Handling
+    //
+    // Extensions require manual handling: build inputs before CTAP call, extract outputs after.
+    // When adding new extensions, update: state structs, build functions, and result extraction.
+    // Supported: credProtect, PRF (hmac-secret)
+
+    private struct CreateExtensionState {
+        var inputs: [CTAP2.Extension.MakeCredential.Input] = []
+        var credProtect: CTAP2.Extension.CredProtect?
+        var prf: WebAuthn.Extension.PRF?
+    }
+
+    private func buildCreateExtensions(
+        request: CreateRequest,
+        session: CTAP2.Session
+    ) async throws -> CreateExtensionState {
+        var state = CreateExtensionState()
+
+        // credProtect extension
+        if let credProtectLevel = request.extensions?.credProtect,
+            let level = CTAP2.Extension.CredProtect.Level(rawValue: credProtectLevel)
+        {
+            trace("Adding credProtect extension with level \(credProtectLevel)")
+            let credProtect = try await CTAP2.Extension.CredProtect(level: level, session: session)
+            state.inputs.append(credProtect.input())
+            state.credProtect = credProtect
+        }
+
+        // PRF extension (with or without secrets)
+        if let prfEval = request.extensions?.prf?.eval,
+            let firstData = Data(base64urlDecoding: prfEval.first)
+        {
+            trace("Adding PRF extension for makeCredential with secrets")
+            let prf = try await WebAuthn.Extension.PRF(session: session)
+            let secondData = prfEval.second.flatMap { Data(base64urlDecoding: $0) }
+            state.inputs.append(try prf.makeCredential.input(first: firstData, second: secondData))
+            state.prf = prf
+        } else if request.extensions?.hmacCreateSecret == true || request.extensions?.prf != nil {
+            trace("Adding PRF extension for makeCredential (enable only)")
+            let prf = try await WebAuthn.Extension.PRF(session: session)
+            state.inputs.append(prf.makeCredential.input())
+            state.prf = prf
+        }
+
+        return state
     }
 
     private struct GetExtensionState {
@@ -300,13 +302,13 @@ actor Bridge {
         var prf: WebAuthn.Extension.PRF?
     }
 
-    // MARK: - Extensions
     private func buildGetExtensions(
         request: GetRequest,
         session: CTAP2.Session
     ) async throws -> GetExtensionState {
         var state = GetExtensionState()
 
+        // PRF extension
         if let prfEval = request.extensions?.prf?.eval,
             let firstData = Data(base64urlDecoding: prfEval.first)
         {
@@ -318,29 +320,6 @@ actor Bridge {
         }
 
         return state
-    }
-
-    private func extractGetExtensionResults(
-        state: GetExtensionState,
-        response: CTAP2.GetAssertion.Response
-    ) throws -> ExtensionResults {
-        var results = ExtensionResults()
-
-        if let prf = state.prf, let secrets = try prf.getAssertion.output(from: response) {
-            trace("PRF extension returned secrets")
-            results.prf = PRFOutput(secrets)
-        }
-
-        return results
-    }
-
-    // MARK: - Encoding
-    private func encodeResponse(_ credentials: CredentialResponse, operation: String) throws -> String {
-        let jsonData = try JSONEncoder().encode(credentials)
-        let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
-        trace("\(operation) completed successfully")
-        trace("Response: \(jsonString)")
-        return jsonString
     }
 }
 
@@ -355,4 +334,11 @@ enum BridgeError: LocalizedError {
             return "User cancelled the operation"
         }
     }
+}
+
+// MARK: - Trace Logging
+
+func trace(_ message: String, file: String = #file, line: Int = #line) {
+    let filename = (file as NSString).lastPathComponent
+    print("[TRACE] \(filename):\(line) - \(message)")
 }

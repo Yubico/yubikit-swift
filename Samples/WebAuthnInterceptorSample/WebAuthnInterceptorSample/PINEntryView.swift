@@ -2,8 +2,12 @@
 //  PINEntryView.swift
 //  WebAuthnInterceptorSample
 //
+//  PIN entry UI and async handler for bridging SwiftUI sheets with async/await.
+//
 
 import SwiftUI
+
+// MARK: - PIN Entry View
 
 struct PINEntryView: View {
     let onSubmit: (String) -> Void
@@ -52,10 +56,13 @@ struct PINEntryView: View {
 
 // MARK: - PIN Request Handler
 
+/// Bridges async PIN requests from the Bridge actor to SwiftUI sheet presentation.
+/// Uses CheckedContinuation to suspend until the user submits or cancels.
 @MainActor
 class PINRequestHandler: ObservableObject {
     @Published var isShowingPINEntry = false
     @Published var errorMessage: String?
+
     private var pendingContinuation: CheckedContinuation<String?, Never>?
 
     func requestPIN(errorMessage: String? = nil) async -> String? {
@@ -80,6 +87,8 @@ class PINRequestHandler: ObservableObject {
         pendingContinuation = nil
     }
 }
+
+// MARK: - Preview
 
 #Preview {
     PINEntryView(onSubmit: { _ in }, onCancel: {})

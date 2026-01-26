@@ -2,9 +2,20 @@
 //  WebView.swift
 //  WebAuthnInterceptorSample
 //
+//  WKWebView wrapper that injects the WebAuthn interceptor script and handles
+//  message passing between JavaScript and Swift.
+//
 
 import SwiftUI
 import WebKit
+
+// MARK: - Constants
+
+private enum MessageHandler {
+    static let create = "__webauthn_create__"
+    static let get = "__webauthn_get__"
+    static let all = [create, get]
+}
 
 // MARK: - Navigator
 
@@ -29,6 +40,8 @@ class WebViewNavigator: ObservableObject {
         }
     }
 }
+
+// MARK: - WebView (Platform-Specific)
 
 #if os(iOS)
 struct WebView: UIViewRepresentable {
@@ -80,15 +93,13 @@ struct WebView: NSViewRepresentable {
 }
 #endif
 
-// MARK: - Shared Implementation
-
-private let messageHandlerNames = ["__webauthn_create__", "__webauthn_get__"]
+// MARK: - WebView Configuration
 
 extension WebView {
     static func cleanupWebView(_ webView: WKWebView) {
         trace("Cleaning up WebView message handlers")
         let controller = webView.configuration.userContentController
-        for name in messageHandlerNames {
+        for name in MessageHandler.all {
             controller.removeScriptMessageHandler(forName: name)
         }
     }
@@ -108,7 +119,7 @@ extension WebView {
             trace("Interceptor.js injected")
         }
 
-        for name in messageHandlerNames {
+        for name in MessageHandler.all {
             config.userContentController.add(coordinator, name: name)
         }
         trace("Message handlers registered")
@@ -143,10 +154,10 @@ extension WebView {
 extension WebView {
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         weak var webView: WKWebView?
-        private let bridgeModel: Bridge
+        private let bridge: Bridge
 
         init(pinHandler: PINRequestHandler) {
-            self.bridgeModel = Bridge { [weak pinHandler] errorMessage in
+            self.bridge = Bridge { [weak pinHandler] errorMessage in
                 await pinHandler?.requestPIN(errorMessage: errorMessage)
             }
         }
@@ -175,12 +186,12 @@ extension WebView {
         private func handleWebAuthnMessage(name: String, data: Data) async {
             do {
                 let response: String
-                if name == "__webauthn_create__" {
+                if name == MessageHandler.create {
                     trace("Dispatching to handleCreate")
-                    response = try await bridgeModel.handleCreate(data)
+                    response = try await bridge.handleCreate(data)
                 } else {
                     trace("Dispatching to handleGet")
-                    response = try await bridgeModel.handleGet(data)
+                    response = try await bridge.handleGet(data)
                 }
 
                 trace("Operation succeeded, executing JS callback")

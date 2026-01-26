@@ -8,7 +8,7 @@
 import Foundation
 import YubiKit
 
-// MARK: - Browser → SDK (Input)
+// MARK: - Request Types (Browser → Swift)
 
 struct CreateRequestWrapper: Decodable {
     let type: String
@@ -53,21 +53,56 @@ struct GetRequest: Decodable {
     }
 }
 
-// MARK: - Helpers
-private func makeClientDataJSON(type: String, challenge: String, origin: String) throws -> Data {
-    let clientData: [String: Any] = [
-        "type": type,
-        "challenge": challenge,
-        "origin": origin,
-        "crossOrigin": false,
-    ]
-    return try JSONSerialization.data(withJSONObject: clientData)
+// MARK: - Request Components
+
+struct RelyingParty: Decodable {
+    let id: String?
+    let name: String?
+
+    func effectiveId(origin: String) -> String {
+        id ?? hostFromOrigin(origin)
+    }
 }
 
-private func hostFromOrigin(_ origin: String) -> String {
-    if let url = URL(string: origin), let host = url.host { return host }
-    return origin
+struct User: Decodable {
+    let id: String
+    let name: String?
+    let displayName: String?
 }
+
+struct PubKeyCredParams: Decodable {
+    let type: String?
+    let alg: Int
+}
+
+struct AuthenticatorSelection: Decodable {
+    let requireResidentKey: Bool?
+    let residentKey: String?
+    let userVerification: String?
+}
+
+struct CredentialDescriptor: Decodable {
+    let type: String
+    let id: String?
+    let transports: [String]?
+
+    func toDescriptor() -> WebAuthn.PublicKeyCredential.Descriptor? {
+        guard let id else {
+            trace("CredentialDescriptor missing id")
+            return nil
+        }
+        guard let data = Data(base64urlDecoding: id) else {
+            trace("CredentialDescriptor failed to decode id: \(id)")
+            return nil
+        }
+        return WebAuthn.PublicKeyCredential.Descriptor(id: data)
+    }
+}
+
+// MARK: - Extension Inputs
+//
+// When adding new extensions, update these input types and the corresponding
+// output types in "Extension Results" section below.
 
 struct CreateExtensions: Decodable {
     let credProtect: Int?
@@ -88,7 +123,7 @@ struct PRFEval: Decodable {
     let second: String?
 }
 
-// MARK: - SDK → Browser (Output)
+// MARK: - Response Types (Swift → Browser)
 //
 // WebKit's Swift-to-JavaScript bridge only supports JSON, which has no binary type.
 // The WebAuthn API requires ArrayBuffer for fields like rawId, clientDataJSON, etc.
@@ -96,38 +131,6 @@ struct PRFEval: Decodable {
 // Solution: Encode binary data as `{"__binary__": "<base64url>"}`. The JS side
 // recursively finds these markers and decodes them to ArrayBuffer, without needing
 // to know which specific fields are binary.
-
-/// Protocol for types with raw binary data that should encode as `{"__binary__": "..."}`.
-protocol BinaryEncodable {
-    var rawData: Data { get }
-}
-
-extension WebAuthn.AuthenticatorData: BinaryEncodable {}
-extension WebAuthn.AttestationObject: BinaryEncodable {}
-
-/// Encodes binary data as `{"__binary__": "<base64url>"}` for the JS side to decode to ArrayBuffer.
-struct BinaryValue: Codable {
-    // swiftlint:disable:next identifier_name
-    let __binary__: String
-
-    init(_ data: Data) {
-        self.__binary__ = data.base64urlEncodedString()
-    }
-
-    init?(_ data: Data?) {
-        guard let data else { return nil }
-        self.__binary__ = data.base64urlEncodedString()
-    }
-
-    init(_ value: some BinaryEncodable) {
-        self.__binary__ = value.rawData.base64urlEncodedString()
-    }
-
-    init?(_ value: (some BinaryEncodable)?) {
-        guard let value else { return nil }
-        self.__binary__ = value.rawData.base64urlEncodedString()
-    }
-}
 
 struct CredentialResponse: Codable {
     let type: String
@@ -203,6 +206,11 @@ struct AuthenticatorResponse: Codable {
     }
 }
 
+// MARK: - Extension Results
+//
+// Output types for WebAuthn extensions. Update when adding new extensions.
+// Supported: credProtect (Int), PRF (PRFOutput)
+
 struct ExtensionResults: Codable {
     var prf: PRFOutput?
     var hmacCreateSecret: Bool?
@@ -244,53 +252,41 @@ struct PRFSecrets: Codable {
     }
 }
 
-// MARK: - Shared Types
+// MARK: - Binary Encoding
 
-struct RelyingParty: Decodable {
-    let id: String?
-    let name: String?
+/// Protocol for SDK types with raw binary data that should encode as `{"__binary__": "..."}`.
+protocol BinaryEncodable {
+    var rawData: Data { get }
+}
 
-    func effectiveId(origin: String) -> String {
-        id ?? hostFromOrigin(origin)
+extension WebAuthn.AuthenticatorData: BinaryEncodable {}
+extension WebAuthn.AttestationObject: BinaryEncodable {}
+
+/// Encodes binary data as `{"__binary__": "<base64url>"}` for the JS side to decode to ArrayBuffer.
+struct BinaryValue: Codable {
+    // swiftlint:disable:next identifier_name
+    let __binary__: String
+
+    init(_ data: Data) {
+        self.__binary__ = data.base64urlEncodedString()
+    }
+
+    init?(_ data: Data?) {
+        guard let data else { return nil }
+        self.__binary__ = data.base64urlEncodedString()
+    }
+
+    init(_ value: some BinaryEncodable) {
+        self.__binary__ = value.rawData.base64urlEncodedString()
+    }
+
+    init?(_ value: (some BinaryEncodable)?) {
+        guard let value else { return nil }
+        self.__binary__ = value.rawData.base64urlEncodedString()
     }
 }
 
-struct User: Decodable {
-    let id: String
-    let name: String?
-    let displayName: String?
-}
-
-struct PubKeyCredParams: Decodable {
-    let type: String?
-    let alg: Int
-}
-
-struct AuthenticatorSelection: Decodable {
-    let requireResidentKey: Bool?
-    let residentKey: String?
-    let userVerification: String?
-}
-
-struct CredentialDescriptor: Decodable {
-    let type: String
-    let id: String?
-    let transports: [String]?
-
-    func toDescriptor() -> WebAuthn.PublicKeyCredential.Descriptor? {
-        guard let id else {
-            trace("CredentialDescriptor missing id")
-            return nil
-        }
-        guard let data = Data(base64urlDecoding: id) else {
-            trace("CredentialDescriptor failed to decode id: \(id)")
-            return nil
-        }
-        return WebAuthn.PublicKeyCredential.Descriptor(id: data)
-    }
-}
-
-// MARK: - Base64URL
+// MARK: - Base64URL Encoding
 
 extension Data {
     init?(base64urlDecoding string: String) {
@@ -312,7 +308,22 @@ extension Data {
     }
 }
 
-// MARK: - COSE.Key Helper
+// MARK: - Helpers
+
+private func makeClientDataJSON(type: String, challenge: String, origin: String) throws -> Data {
+    let clientData: [String: Any] = [
+        "type": type,
+        "challenge": challenge,
+        "origin": origin,
+        "crossOrigin": false,
+    ]
+    return try JSONSerialization.data(withJSONObject: clientData)
+}
+
+private func hostFromOrigin(_ origin: String) -> String {
+    if let url = URL(string: origin), let host = url.host { return host }
+    return origin
+}
 
 extension COSE.Key {
     var algorithmRawValue: Int? {

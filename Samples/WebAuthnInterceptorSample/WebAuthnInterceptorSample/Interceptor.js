@@ -1,18 +1,25 @@
-// Bridge.js - WebAuthn API Interceptor
-// Monkey-patches navigator.credentials to route through native Swift
+// Interceptor.js - WebAuthn API Interceptor
+//
+// Monkey-patches navigator.credentials.create() and navigator.credentials.get()
+// to route WebAuthn requests through native Swift via WebKit message handlers.
 
 (function() {
     'use strict';
 
-    // Store original functions
+    // ============================================================================
+    // MARK: - Setup
+    // ============================================================================
+
     const originalCreate = navigator.credentials.create.bind(navigator.credentials);
     const originalGet = navigator.credentials.get.bind(navigator.credentials);
 
-    // Promise resolvers for async callbacks
     let pendingResolve = null;
     let pendingReject = null;
 
-    // Callback from native code on success
+    // ============================================================================
+    // MARK: - Native Callbacks
+    // ============================================================================
+
     window.__webauthn_callback__ = function(responseJson) {
         console.log('[WebAuthn] Received success callback');
         if (pendingResolve) {
@@ -28,7 +35,6 @@
         }
     };
 
-    // Callback from native code on error
     window.__webauthn_error__ = function(errorMessage) {
         console.log('[WebAuthn] Received error:', errorMessage);
         if (pendingReject) {
@@ -38,7 +44,10 @@
         }
     };
 
-    // Base64URL decode to ArrayBuffer
+    // ============================================================================
+    // MARK: - Binary Decoding (Swift → JS)
+    // ============================================================================
+
     function base64urlDecode(str) {
         str = str.replace(/-/g, '+').replace(/_/g, '/');
         while (str.length % 4) str += '=';
@@ -50,7 +59,7 @@
         return bytes.buffer;
     }
 
-    // Recursively decode all __binary__ markers to ArrayBuffer
+    // Recursively decode all {"__binary__": "..."} markers to ArrayBuffer
     function decodeBinaryValues(obj) {
         if (obj === null || obj === undefined) return obj;
         if (typeof obj !== 'object') return obj;
@@ -63,7 +72,35 @@
         return result;
     }
 
-    // Decode credential response from native
+    // ============================================================================
+    // MARK: - Binary Encoding (JS → Swift)
+    // ============================================================================
+
+    function base64urlEncode(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    }
+
+    function encodeRequest(options) {
+        return JSON.parse(JSON.stringify(options, (key, value) => {
+            if (value instanceof ArrayBuffer) {
+                return base64urlEncode(value);
+            }
+            if (value instanceof Uint8Array) {
+                return base64urlEncode(value.buffer);
+            }
+            return value;
+        }));
+    }
+
+    // ============================================================================
+    // MARK: - Credential Decoding
+    // ============================================================================
+
     function decodeCredential(response) {
         // Decode all binary fields in one pass
         const decoded = decodeBinaryValues(response);
@@ -78,7 +115,7 @@
             }
         };
 
-        // Build response object with decoded binary fields
+        // Build response object
         credential.response = {
             clientDataJSON: decoded.response.clientDataJSON
         };
@@ -95,7 +132,6 @@
             credential.response.getPublicKey = function() {
                 // TODO: Implement SPKI encoding to return the public key in SubjectPublicKeyInfo format.
                 // Without this, RPs that call getPublicKey() will receive null and may fail.
-                // See DerRepresentable helpers in Samples/yubikit-piv-tool for SPKI encoding reference.
                 return null;
             };
             credential.response.getPublicKeyAlgorithm = function() {
@@ -114,36 +150,15 @@
         return credential;
     }
 
-    // Base64URL encode ArrayBuffer
-    function base64urlEncode(buffer) {
-        const bytes = new Uint8Array(buffer);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    }
+    // ============================================================================
+    // MARK: - Interception
+    // ============================================================================
 
-    // Encode request for native
-    function encodeRequest(options) {
-        const encoded = JSON.parse(JSON.stringify(options, (key, value) => {
-            if (value instanceof ArrayBuffer) {
-                return base64urlEncode(value);
-            }
-            if (value instanceof Uint8Array) {
-                return base64urlEncode(value.buffer);
-            }
-            return value;
-        }));
-        return encoded;
-    }
-
-    // Intercept all WebAuthn requests and route them to the YubiKey.
-    // To only intercept when security-key hint is present, use:
-    // return Array.isArray(pk.hints) && pk.hints.includes('security-key');
     function shouldIntercept(options) {
-        const pk = options?.publicKey;
-        return pk != null;
+        // Intercept all WebAuthn requests and route them to the YubiKey.
+        // To only intercept when security-key hint is present, use:
+        // return Array.isArray(options?.publicKey?.hints) && options.publicKey.hints.includes('security-key');
+        return options?.publicKey != null;
     }
 
     function interceptWebAuthn(type, options, originalFn) {
@@ -168,6 +183,10 @@
         });
     }
 
+    // ============================================================================
+    // MARK: - API Patching
+    // ============================================================================
+
     navigator.credentials.create = function(options) {
         return interceptWebAuthn('create', options, originalCreate);
     };
@@ -176,8 +195,7 @@
         return interceptWebAuthn('get', options, originalGet);
     };
 
-    // Override platform authenticator checks to return false since we route to YubiKey.
-    // Preserve native PublicKeyCredential for other methods (e.g. isExternalCTAP2SecurityKeySupported).
+    // Override platform authenticator checks since we route to YubiKey
     if (window.PublicKeyCredential) {
         window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable = function() {
             return Promise.resolve(false);
