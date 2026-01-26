@@ -88,11 +88,11 @@ struct CredentialDescriptor: Decodable {
 
     func toDescriptor() -> WebAuthn.PublicKeyCredential.Descriptor? {
         guard let id else {
-            trace("CredentialDescriptor missing id")
+            logError("CredentialDescriptor missing id")
             return nil
         }
         guard let data = Data(base64urlDecoding: id) else {
-            trace("CredentialDescriptor failed to decode id: \(id)")
+            logError("CredentialDescriptor failed to decode id: \(id)")
             return nil
         }
         return WebAuthn.PublicKeyCredential.Descriptor(id: data)

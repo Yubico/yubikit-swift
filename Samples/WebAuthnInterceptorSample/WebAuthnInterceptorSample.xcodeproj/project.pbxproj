@@ -17,6 +17,7 @@
 		AA000008273D537800F999A4 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA000031273D537800F999A4 /* YubiKit */; };
 		AA000009273D537500F999A4 /* PINEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001A273D537500F999A4 /* PINEntryView.swift */; };
 		AA00000A273D537500F999A4 /* WebAuthnClientLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001B273D537500F999A4 /* WebAuthnClientLogic.swift */; };
+		AA00000B273D537500F999A4 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001C273D537500F999A4 /* Log.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 		AA000019273D537800F999A4 /* WebAuthnInterceptorSample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WebAuthnInterceptorSample.entitlements; sourceTree = "<group>"; };
 		AA00001A273D537500F999A4 /* PINEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PINEntryView.swift; sourceTree = "<group>"; };
 		AA00001B273D537500F999A4 /* WebAuthnClientLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAuthnClientLogic.swift; sourceTree = "<group>"; };
+		AA00001C273D537500F999A4 /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -66,6 +68,7 @@
 				AA000014273D537500F999A4 /* WebAuthnHandler.swift */,
 				AA000015273D537500F999A4 /* WebAuthnTypes.swift */,
 				AA00001B273D537500F999A4 /* WebAuthnClientLogic.swift */,
+				AA00001C273D537500F999A4 /* Log.swift */,
 				AA000016273D537500F999A4 /* Interceptor.js */,
 				AA000017273D537800F999A4 /* Assets.xcassets */,
 			);
@@ -163,6 +166,7 @@
 				AA000004273D537500F999A4 /* WebAuthnHandler.swift in Sources */,
 				AA000005273D537500F999A4 /* WebAuthnTypes.swift in Sources */,
 				AA00000A273D537500F999A4 /* WebAuthnClientLogic.swift in Sources */,
+				AA00000B273D537500F999A4 /* Log.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -19,18 +19,15 @@ actor WebAuthnHandler {
 
     init(pinProvider: @escaping @Sendable (String?) async -> String?) {
         self.pinProvider = pinProvider
-        trace("WebAuthnHandler initialized")
     }
 
     // MARK: - Public API
 
     func handleCreate(_ data: Data) async throws -> String {
-        trace("handleCreate: \(String(data: data, encoding: .utf8) ?? "nil")")
         let wrapper = try JSONDecoder().decode(CreateRequestWrapper.self, from: data)
         let request = wrapper.request
         let origin = wrapper.origin
         let rpId = request.rp.effectiveId(origin: origin)
-        trace("RP: \(rpId), User: \(request.user.name ?? "nil"), Origin: \(origin)")
 
         defer { Task { await closeConnection() } }
         var session = try await makeSession()
@@ -44,7 +41,6 @@ actor WebAuthnHandler {
 
         let pubKeyParams = request.pubKeyCredParams.map { COSE.Algorithm(rawValue: $0.alg) }
         let excludeList = request.excludeCredentials?.compactMap { $0.toDescriptor() }
-        if let count = excludeList?.count { trace("Exclude list has \(count) credentials") }
 
         let residentKeyRequired =
             request.authenticatorSelection?.residentKey == "required"
@@ -76,7 +72,6 @@ actor WebAuthnHandler {
             options: options
         )
 
-        trace("Calling makeCredential...")
         let response = try await session.makeCredential(parameters: params, pinToken: pinToken).value
         let extensionResults = try extractCreateExtensionResults(state: extState, response: response)
 
@@ -86,23 +81,19 @@ actor WebAuthnHandler {
             extensionResults: extensionResults.isEmpty ? nil : extensionResults
         )
         let jsonData = try JSONEncoder().encode(credentials)
-        trace("handleCreate completed")
         return String(data: jsonData, encoding: .utf8) ?? ""
     }
 
     func handleGet(_ data: Data) async throws -> String {
-        trace("handleGet: \(String(data: data, encoding: .utf8) ?? "nil")")
         let wrapper = try JSONDecoder().decode(GetRequestWrapper.self, from: data)
         let request = wrapper.request
         let origin = wrapper.origin
         let rpId = request.effectiveRpId(origin: origin)
-        trace("RP: \(rpId), Origin: \(origin)")
 
         defer { Task { await closeConnection() } }
         var session = try await makeSession()
 
         let allowList = request.allowCredentials?.compactMap { $0.toDescriptor() }
-        if let count = allowList?.count { trace("Allow list has \(count) credentials") }
 
         let options = CTAP2.GetAssertion.Parameters.Options(
             uv: request.userVerification == "required"
@@ -127,7 +118,6 @@ actor WebAuthnHandler {
             options: options
         )
 
-        trace("Calling getAssertion...")
         let response = try await session.getAssertion(parameters: params, pinToken: pinToken).value
         let extensionResults = try await extractGetExtensionResults(
             state: extState,
@@ -142,7 +132,6 @@ actor WebAuthnHandler {
             extensionResults: extensionResults.isEmpty ? nil : extensionResults
         )
         let jsonData = try JSONEncoder().encode(credentials)
-        trace("handleGet completed")
         return String(data: jsonData, encoding: .utf8) ?? ""
     }
 
@@ -150,28 +139,19 @@ actor WebAuthnHandler {
 
     #if os(iOS)
     private func makeSession(alertMessage: String = "Tap your YubiKey") async throws -> CTAP2.Session {
-        trace("Requesting NFC connection...")
         let conn = try await NFCSmartCardConnection(alertMessage: alertMessage)
         connection = conn
-        trace("Connection established, creating CTAP2 session...")
-        let session = try await CTAP2.Session.makeSession(connection: conn)
-        trace("CTAP2 session created")
-        return session
+        return try await CTAP2.Session.makeSession(connection: conn)
     }
     #else
     private func makeSession() async throws -> CTAP2.Session {
-        trace("Waiting for USB HID FIDO connection...")
         let conn = try await HIDFIDOConnection()
         connection = conn
-        trace("Connection established, creating CTAP2 session...")
-        let session = try await CTAP2.Session.makeSession(connection: conn)
-        trace("CTAP2 session created")
-        return session
+        return try await CTAP2.Session.makeSession(connection: conn)
     }
     #endif
 
     private func closeConnection(message: String? = nil) async {
-        trace("Closing connection" + (message.map { ": \($0)" } ?? ""))
         #if os(iOS)
         if let nfc = connection as? NFCSmartCardConnection {
             await nfc.close(message: message)
@@ -193,8 +173,6 @@ actor WebAuthnHandler {
         rpId: String
     ) async throws -> (session: CTAP2.Session, pinToken: CTAP2.ClientPin.Token?) {
         let info = try await session.getInfo()
-        trace("Device clientPin option: \(String(describing: info.options.clientPin))")
-
         guard info.options.clientPin == true else {
             return (session, nil)
         }
@@ -206,18 +184,14 @@ actor WebAuthnHandler {
         var errorMessage: String?
         var currentSession = session
         while true {
-            trace("Prompting for PIN...")
             guard let pin = await pinProvider(errorMessage) else {
-                trace("User cancelled PIN entry")
                 throw WebAuthnHandlerError.userCancelled
             }
 
             #if os(iOS)
-            trace("Got PIN, reconnecting...")
             currentSession = try await makeSession(alertMessage: "Tap again to complete")
             #endif
 
-            trace("Obtaining PIN token...")
             do throws(CTAP2.SessionError) {
                 let token = try await currentSession.getPinUVToken(
                     using: .pin(pin),
@@ -227,7 +201,6 @@ actor WebAuthnHandler {
                 return (currentSession, token)
             } catch {
                 if case .ctapError(.pinInvalid, _) = error {
-                    trace("Invalid PIN, retrying...")
                     #if os(iOS)
                     await closeConnection(message: "Invalid PIN")
                     #endif
@@ -243,7 +216,7 @@ actor WebAuthnHandler {
 
 // MARK: - WebAuthnHandlerError
 
-enum WebAuthnHandlerError: LocalizedError {
+private enum WebAuthnHandlerError: LocalizedError {
     case userCancelled
 
     var errorDescription: String? {
@@ -252,11 +225,4 @@ enum WebAuthnHandlerError: LocalizedError {
             return "User cancelled the operation"
         }
     }
-}
-
-// MARK: - Trace Logging
-
-func trace(_ message: String, file: String = #file, line: Int = #line) {
-    let filename = (file as NSString).lastPathComponent
-    print("[TRACE] \(filename):\(line) - \(message)")
 }

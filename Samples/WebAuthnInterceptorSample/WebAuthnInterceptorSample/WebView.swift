@@ -97,7 +97,6 @@ struct WebView: NSViewRepresentable {
 
 extension WebView {
     static func cleanupWebView(_ webView: WKWebView) {
-        trace("Cleaning up WebView message handlers")
         let controller = webView.configuration.userContentController
         for name in MessageHandler.all {
             controller.removeScriptMessageHandler(forName: name)
@@ -105,7 +104,6 @@ extension WebView {
     }
 
     func createWebView(context: Context) -> WKWebView {
-        trace("Creating WebView...")
         let config = WKWebViewConfiguration()
         let coordinator = context.coordinator
 
@@ -116,19 +114,16 @@ extension WebView {
                 forMainFrameOnly: true
             )
             config.userContentController.addUserScript(script)
-            trace("Interceptor.js injected")
         }
 
         for name in MessageHandler.all {
             config.userContentController.add(coordinator, name: name)
         }
-        trace("Message handlers registered")
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = coordinator
         coordinator.webView = webView
 
-        trace("Loading URL: \(url.absoluteString)")
         webView.load(URLRequest(url: url))
         return webView
     }
@@ -142,7 +137,7 @@ extension WebView {
         guard let url = Bundle.main.url(forResource: "Interceptor", withExtension: "js"),
             let script = try? String(contentsOf: url, encoding: .utf8)
         else {
-            trace("Failed to load Interceptor.js!")
+            logError("Failed to load Interceptor.js!")
             return nil
         }
         return script
@@ -166,16 +161,12 @@ extension WebView {
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
-            trace("Received message: \(message.name)")
-
             guard let body = message.body as? String,
                 let data = body.data(using: .utf8)
             else {
-                trace("Failed to parse message body")
+                logError("Failed to parse message body")
                 return
             }
-
-            trace("Message body: \(body)")
 
             Task {
                 await handleWebAuthnMessage(name: message.name, data: data)
@@ -187,18 +178,15 @@ extension WebView {
             do {
                 let response: String
                 if name == MessageHandler.create {
-                    trace("Dispatching to handleCreate")
                     response = try await handler.handleCreate(data)
                 } else {
-                    trace("Dispatching to handleGet")
                     response = try await handler.handleGet(data)
                 }
 
-                trace("Operation succeeded, executing JS callback")
                 let js = "__webauthn_callback__('\(response.escapedForJavaScript())')"
                 _ = try? await webView?.evaluateJavaScript(js)
             } catch {
-                trace("Operation failed: \(error) (\(type(of: error)))")
+                logError("WebAuthn operation failed: \(error)")
                 let js = "__webauthn_error__('\(error.localizedDescription.escapedForJavaScript())')"
                 _ = try? await webView?.evaluateJavaScript(js)
             }

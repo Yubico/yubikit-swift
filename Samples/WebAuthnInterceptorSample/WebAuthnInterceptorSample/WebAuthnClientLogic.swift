@@ -50,7 +50,6 @@ func buildCreateExtensions(
     if let credProtectLevel = request.extensions?.credProtect,
         let level = CTAP2.Extension.CredProtect.Level(rawValue: credProtectLevel)
     {
-        trace("Adding credProtect extension with level \(credProtectLevel)")
         let credProtect = try await CTAP2.Extension.CredProtect(level: level, session: session)
         state.inputs.append(credProtect.input())
         state.credProtect = credProtect
@@ -60,13 +59,11 @@ func buildCreateExtensions(
     if let prfEval = request.extensions?.prf?.eval,
         let firstData = Data(base64urlDecoding: prfEval.first)
     {
-        trace("Adding PRF extension for makeCredential with secrets")
         let prf = try await WebAuthn.Extension.PRF(session: session)
         let secondData = prfEval.second.flatMap { Data(base64urlDecoding: $0) }
         state.inputs.append(try prf.makeCredential.input(first: firstData, second: secondData))
         state.prf = prf
     } else if request.extensions?.hmacCreateSecret == true || request.extensions?.prf != nil {
-        trace("Adding PRF extension for makeCredential (enable only)")
         let prf = try await WebAuthn.Extension.PRF(session: session)
         state.inputs.append(prf.makeCredential.input())
         state.prf = prf
@@ -76,7 +73,6 @@ func buildCreateExtensions(
     if let support = request.extensions?.largeBlob?.support,
         support == "required" || support == "preferred"
     {
-        trace("Adding largeBlobKey extension for makeCredential (support: \(support))")
         let largeBlobKey = CTAP2.Extension.LargeBlobKey()
         state.inputs.append(largeBlobKey.makeCredential.input())
         state.largeBlobKey = largeBlobKey
@@ -96,7 +92,6 @@ func buildGetExtensions(
     if let prfEval = request.extensions?.prf?.eval,
         let firstData = Data(base64urlDecoding: prfEval.first)
     {
-        trace("Adding PRF extension")
         let prf = try await WebAuthn.Extension.PRF(session: session)
         let secondData = prfEval.second.flatMap { Data(base64urlDecoding: $0) }
         state.inputs.append(try prf.getAssertion.input(first: firstData, second: secondData))
@@ -107,7 +102,6 @@ func buildGetExtensions(
     let wantsRead = request.extensions?.largeBlob?.read == true
     let writeData = request.extensions?.largeBlob?.write.flatMap { Data(base64urlDecoding: $0) }
     if wantsRead || writeData != nil {
-        trace("Adding largeBlobKey extension for getAssertion (read: \(wantsRead), write: \(writeData != nil))")
         let largeBlobKey = CTAP2.Extension.LargeBlobKey()
         state.inputs.append(largeBlobKey.getAssertion.input())
         state.largeBlobKey = largeBlobKey
@@ -128,18 +122,15 @@ func extractCreateExtensionResults(
     var results = ExtensionResults()
 
     if let credProtect = state.credProtect, let level = credProtect.output(from: response) {
-        trace("credProtect applied with level \(level.rawValue)")
         results.credProtect = level.rawValue
     }
 
     if let prf = state.prf, let prfResult = try prf.makeCredential.output(from: response) {
-        trace("PRF extension result received")
         results.prf = PRFOutput(prfResult)
     }
 
     if let largeBlobKey = state.largeBlobKey {
         let key = largeBlobKey.makeCredential.output(from: response)
-        trace("largeBlobKey extension: \(key != nil ? "supported" : "not supported")")
         results.largeBlob = .supported(key != nil)
     }
 
@@ -157,7 +148,6 @@ func extractGetExtensionResults(
     var results = ExtensionResults()
 
     if let prf = state.prf, let secrets = try prf.getAssertion.output(from: response) {
-        trace("PRF extension returned secrets")
         results.prf = PRFOutput(secrets)
     }
 
@@ -166,18 +156,13 @@ func extractGetExtensionResults(
         let key = largeBlobKey.getAssertion.output(from: response)
     {
         if state.largeBlobRead {
-            trace("Reading largeBlob...")
             let blob = try await session.getBlob(key: key)
-            trace("largeBlob read: \(blob != nil ? "\(blob!.count) bytes" : "no blob found")")
             results.largeBlob = .read(blob)
         } else if let writeData = state.largeBlobWrite, let pinToken {
-            trace("Writing largeBlob (\(writeData.count) bytes)...")
             try await session.putBlob(key: key, data: writeData, pinToken: pinToken)
-            trace("largeBlob write successful")
             results.largeBlob = .written(true)
         }
     } else if state.largeBlobKey != nil {
-        trace("largeBlobKey not returned by authenticator")
         if state.largeBlobRead {
             results.largeBlob = .read(nil)
         } else if state.largeBlobWrite != nil {
