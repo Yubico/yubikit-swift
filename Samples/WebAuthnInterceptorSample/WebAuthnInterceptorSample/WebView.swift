@@ -173,6 +173,9 @@ extension WebView {
                 case .get:
                     response = try await handler.handleGet(data)
                 }
+                // Note: For very large responses (e.g., largeBlob data), interpolating into
+                // evaluateJavaScript may hit size limits. Production apps handling large blobs
+                // should consider using WKScriptMessage for bidirectional communication.
                 let encodedResponse = Data(response.utf8).base64EncodedString()
                 _ = try? await webView?.evaluateJavaScript("__webauthn_callback__('\(encodedResponse)')")
             } catch {

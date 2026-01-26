@@ -28,8 +28,11 @@ actor WebAuthnHandler {
         var session = try await makeSession()
 
         let rpEntity = WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: request.rp.name)
+        guard let userId = Data(base64Encoded: request.user.id) else {
+            throw NSError(domain: "WebAuthn", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid user.id"])
+        }
         let userEntity = WebAuthn.PublicKeyCredential.UserEntity(
-            id: Data(base64Encoded: request.user.id) ?? Data(),
+            id: userId,
             name: request.user.name,
             displayName: request.user.displayName
         )
@@ -180,7 +183,7 @@ actor WebAuthnHandler {
         var currentSession = session
         while true {
             guard let pin = await pinProvider(errorMessage) else {
-                throw WebAuthnHandlerError.userCancelled
+                throw NSError(domain: "WebAuthn", code: 1, userInfo: [NSLocalizedDescriptionKey: "User cancelled"])
             }
 
             #if os(iOS)
@@ -207,17 +210,4 @@ actor WebAuthnHandler {
         }
     }
 
-}
-
-// MARK: - WebAuthnHandlerError
-
-private enum WebAuthnHandlerError: LocalizedError {
-    case userCancelled
-
-    var errorDescription: String? {
-        switch self {
-        case .userCancelled:
-            return "User cancelled the operation"
-        }
-    }
 }

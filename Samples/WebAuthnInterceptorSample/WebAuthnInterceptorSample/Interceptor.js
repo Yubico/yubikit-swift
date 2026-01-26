@@ -63,6 +63,8 @@
 
     // MARK: - Binary Encoding (JS → Swift)
 
+    // Note: Spread operator may hit stack limits for very large ArrayBuffers.
+    // Typical WebAuthn payloads are well under this limit.
     function base64Encode(buffer) {
         return btoa(String.fromCharCode(...new Uint8Array(buffer)));
     }
