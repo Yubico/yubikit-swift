@@ -238,17 +238,8 @@ actor Bridge {
         }
 
         if let prf = state.prf, let prfResult = try prf.makeCredential.output(from: response) {
-            switch prfResult {
-            case .enabled:
-                trace("PRF extension enabled")
-                results.prf = PRFOutput(enabled: true)
-            case .secrets(let secrets):
-                trace("PRF extension returned secrets (hmac-secret-mc)")
-                results.prf = PRFOutput(
-                    first: secrets.first.base64urlEncodedString(),
-                    second: secrets.second?.base64urlEncodedString()
-                )
-            }
+            trace("PRF extension result received")
+            results.prf = PRFOutput(prfResult)
         }
 
         return results
@@ -337,10 +328,7 @@ actor Bridge {
 
         if let prf = state.prf, let secrets = try prf.getAssertion.output(from: response) {
             trace("PRF extension returned secrets")
-            results.prf = PRFOutput(
-                first: secrets.first.base64urlEncodedString(),
-                second: secrets.second?.base64urlEncodedString()
-            )
+            results.prf = PRFOutput(secrets)
         }
 
         return results

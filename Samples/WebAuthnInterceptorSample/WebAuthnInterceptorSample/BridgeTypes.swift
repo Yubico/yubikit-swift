@@ -89,11 +89,50 @@ struct PRFEval: Decodable {
 }
 
 // MARK: - SDK → Browser (Output)
+//
+// WebKit's Swift-to-JavaScript bridge only supports JSON, which has no binary type.
+// The WebAuthn API requires ArrayBuffer for fields like rawId, clientDataJSON, etc.
+//
+// Solution: Encode binary data as `{"__binary__": "<base64url>"}`. The JS side
+// recursively finds these markers and decodes them to ArrayBuffer, without needing
+// to know which specific fields are binary.
+
+/// Protocol for types with raw binary data that should encode as `{"__binary__": "..."}`.
+protocol BinaryEncodable {
+    var rawData: Data { get }
+}
+
+extension WebAuthn.AuthenticatorData: BinaryEncodable {}
+extension WebAuthn.AttestationObject: BinaryEncodable {}
+
+/// Encodes binary data as `{"__binary__": "<base64url>"}` for the JS side to decode to ArrayBuffer.
+struct BinaryValue: Codable {
+    // swiftlint:disable:next identifier_name
+    let __binary__: String
+
+    init(_ data: Data) {
+        self.__binary__ = data.base64urlEncodedString()
+    }
+
+    init?(_ data: Data?) {
+        guard let data else { return nil }
+        self.__binary__ = data.base64urlEncodedString()
+    }
+
+    init(_ value: some BinaryEncodable) {
+        self.__binary__ = value.rawData.base64urlEncodedString()
+    }
+
+    init?(_ value: (some BinaryEncodable)?) {
+        guard let value else { return nil }
+        self.__binary__ = value.rawData.base64urlEncodedString()
+    }
+}
 
 struct CredentialResponse: Codable {
     let type: String
     let id: String?
-    let rawId: String?
+    let rawId: BinaryValue?
     let response: AuthenticatorResponse
     let clientExtensionResults: ExtensionResults?
     let authenticatorAttachment: String?
@@ -104,10 +143,9 @@ struct CredentialResponse: Codable {
         extensionResults: ExtensionResults? = nil
     ) {
         let credentialId = makeCredentialResponse.authenticatorData.attestedCredentialData?.credentialId
-            .base64urlEncodedString()
         self.type = "public-key"
-        self.id = credentialId
-        self.rawId = credentialId
+        self.id = credentialId?.base64urlEncodedString()
+        self.rawId = BinaryValue(credentialId)
         self.response = AuthenticatorResponse(
             clientDataJSON: clientDataJSON,
             makeCredentialResponse: makeCredentialResponse
@@ -121,10 +159,10 @@ struct CredentialResponse: Codable {
         getAssertionResponse: CTAP2.GetAssertion.Response,
         extensionResults: ExtensionResults? = nil
     ) {
-        let credentialId = getAssertionResponse.credential?.id.base64urlEncodedString()
+        let credentialId = getAssertionResponse.credential?.id
         self.type = "public-key"
-        self.id = credentialId
-        self.rawId = credentialId
+        self.id = credentialId?.base64urlEncodedString()
+        self.rawId = BinaryValue(credentialId)
         self.response = AuthenticatorResponse(
             clientDataJSON: clientDataJSON,
             getAssertionResponse: getAssertionResponse
@@ -135,30 +173,30 @@ struct CredentialResponse: Codable {
 }
 
 struct AuthenticatorResponse: Codable {
-    let clientDataJSON: String
-    let authenticatorData: String
-    let signature: String?
-    let userHandle: String?
+    let clientDataJSON: BinaryValue
+    let authenticatorData: BinaryValue
+    let signature: BinaryValue?
+    let userHandle: BinaryValue?
     let transports: [String]?
-    let attestationObject: String?
+    let attestationObject: BinaryValue?
     let publicKeyAlgorithm: Int?
 
     init(clientDataJSON: Data, makeCredentialResponse response: CTAP2.MakeCredential.Response) {
-        self.clientDataJSON = clientDataJSON.base64urlEncodedString()
-        self.authenticatorData = response.authenticatorData.rawData.base64urlEncodedString()
+        self.clientDataJSON = BinaryValue(clientDataJSON)
+        self.authenticatorData = BinaryValue(response.authenticatorData)
         self.signature = nil
         self.userHandle = nil
         self.transports = ["nfc", "usb"]
-        self.attestationObject = response.attestationObject.rawData.base64urlEncodedString()
+        self.attestationObject = BinaryValue(response.attestationObject)
         self.publicKeyAlgorithm =
             response.authenticatorData.attestedCredentialData?.credentialPublicKey.algorithmRawValue
     }
 
     init(clientDataJSON: Data, getAssertionResponse response: CTAP2.GetAssertion.Response) {
-        self.clientDataJSON = clientDataJSON.base64urlEncodedString()
-        self.authenticatorData = response.authenticatorData.rawData.base64urlEncodedString()
-        self.signature = response.signature.base64urlEncodedString()
-        self.userHandle = response.user?.id.base64urlEncodedString()
+        self.clientDataJSON = BinaryValue(clientDataJSON)
+        self.authenticatorData = BinaryValue(response.authenticatorData)
+        self.signature = BinaryValue(response.signature)
+        self.userHandle = BinaryValue(response.user?.id)
         self.transports = nil
         self.attestationObject = nil
         self.publicKeyAlgorithm = nil
@@ -177,22 +215,33 @@ struct PRFOutput: Codable {
     let enabled: Bool?
     let results: PRFSecrets?
 
-    /// For makeCredential when PRF is just enabled (no hmac-secret-mc)
-    init(enabled: Bool) {
-        self.enabled = enabled
-        self.results = nil
+    /// From makeCredential result (handles both .enabled and .secrets cases)
+    init(_ result: WebAuthn.Extension.PRF.MakeCredentialOperations.Result) {
+        switch result {
+        case .enabled:
+            self.enabled = true
+            self.results = nil
+        case .secrets(let secrets):
+            self.enabled = true
+            self.results = PRFSecrets(secrets)
+        }
     }
 
-    /// For getAssertion or makeCredential with hmac-secret-mc secrets
-    init(first: String, second: String?) {
+    /// From getAssertion secrets
+    init(_ secrets: WebAuthn.Extension.PRF.Secrets) {
         self.enabled = true
-        self.results = PRFSecrets(first: first, second: second)
+        self.results = PRFSecrets(secrets)
     }
 }
 
 struct PRFSecrets: Codable {
-    let first: String  // base64url encoded
-    let second: String?
+    let first: BinaryValue
+    let second: BinaryValue?
+
+    init(_ secrets: WebAuthn.Extension.PRF.Secrets) {
+        self.first = BinaryValue(secrets.first)
+        self.second = BinaryValue(secrets.second)
+    }
 }
 
 // MARK: - Shared Types

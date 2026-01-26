@@ -40,7 +40,6 @@
 
     // Base64URL decode to ArrayBuffer
     function base64urlDecode(str) {
-        // Add padding
         str = str.replace(/-/g, '+').replace(/_/g, '/');
         while (str.length % 4) str += '=';
         const binary = atob(str);
@@ -51,66 +50,47 @@
         return bytes.buffer;
     }
 
-    // Decode extension results from native
-    function decodeExtensionResults(results) {
-        if (!results) return {};
-
-        const decoded = {};
-
-        // Decode PRF results (base64url → ArrayBuffer)
-        if (results.prf) {
-            decoded.prf = {};
-            if (results.prf.enabled !== undefined) {
-                decoded.prf.enabled = results.prf.enabled;
-            }
-            if (results.prf.results) {
-                decoded.prf.results = {
-                    first: base64urlDecode(results.prf.results.first)
-                };
-                if (results.prf.results.second) {
-                    decoded.prf.results.second = base64urlDecode(results.prf.results.second);
-                }
-            }
+    // Recursively decode all __binary__ markers to ArrayBuffer
+    function decodeBinaryValues(obj) {
+        if (obj === null || obj === undefined) return obj;
+        if (typeof obj !== 'object') return obj;
+        if (Array.isArray(obj)) return obj.map(decodeBinaryValues);
+        if (obj.__binary__ !== undefined) return base64urlDecode(obj.__binary__);
+        const result = {};
+        for (const key of Object.keys(obj)) {
+            result[key] = decodeBinaryValues(obj[key]);
         }
-
-        // Copy credProtect as-is (integer)
-        if (results.credProtect !== undefined) {
-            decoded.credProtect = results.credProtect;
-        }
-
-        // Copy hmacCreateSecret as-is (boolean)
-        if (results.hmacCreateSecret !== undefined) {
-            decoded.hmacCreateSecret = results.hmacCreateSecret;
-        }
-
-        return decoded;
+        return result;
     }
 
     // Decode credential response from native
     function decodeCredential(response) {
+        // Decode all binary fields in one pass
+        const decoded = decodeBinaryValues(response);
+
         const credential = {
             id: response.id,
-            rawId: base64urlDecode(response.rawId),
-            type: response.type,
-            authenticatorAttachment: response.authenticatorAttachment,
+            rawId: decoded.rawId,
+            type: decoded.type,
+            authenticatorAttachment: decoded.authenticatorAttachment,
             getClientExtensionResults: function() {
-                return decodeExtensionResults(response.clientExtensionResults);
+                return decoded.clientExtensionResults || {};
             }
         };
 
-        // Build response object
+        // Build response object with decoded binary fields
         credential.response = {
-            clientDataJSON: base64urlDecode(response.response.clientDataJSON)
+            clientDataJSON: decoded.response.clientDataJSON
         };
 
         // MakeCredential response fields
-        if (response.response.attestationObject) {
-            credential.response.attestationObject = base64urlDecode(response.response.attestationObject);
+        if (decoded.response.attestationObject) {
+            credential.response.attestationObject = decoded.response.attestationObject;
             credential.response.getTransports = function() {
                 return response.response.transports || [];
             };
             credential.response.getAuthenticatorData = function() {
-                return base64urlDecode(response.response.authenticatorData);
+                return decoded.response.authenticatorData;
             };
             credential.response.getPublicKey = function() {
                 // TODO: Implement SPKI encoding to return the public key in SubjectPublicKeyInfo format.
@@ -124,13 +104,11 @@
         }
 
         // GetAssertion response fields
-        if (response.response.signature) {
-            credential.response.authenticatorData = base64urlDecode(response.response.authenticatorData);
-            credential.response.signature = base64urlDecode(response.response.signature);
+        if (decoded.response.signature) {
+            credential.response.authenticatorData = decoded.response.authenticatorData;
+            credential.response.signature = decoded.response.signature;
             // Per spec, userHandle should be null (not undefined) when absent
-            credential.response.userHandle = response.response.userHandle
-                ? base64urlDecode(response.response.userHandle)
-                : null;
+            credential.response.userHandle = decoded.response.userHandle ?? null;
         }
 
         return credential;
