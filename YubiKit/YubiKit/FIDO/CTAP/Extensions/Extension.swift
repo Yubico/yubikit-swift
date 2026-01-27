@@ -37,6 +37,9 @@ extension CTAP2.Extension {
         /// The credBlob extension for storing small blobs with credentials (CTAP 2.1+).
         case credBlob
 
+        /// The minPinLength extension for including minimum PIN length in authenticator data.
+        case minPinLength
+
         /// Other extension not explicitly defined.
         case other(String)
 
@@ -48,6 +51,7 @@ extension CTAP2.Extension {
             case .credProtect: return "credProtect"
             case .largeBlobKey: return "largeBlobKey"
             case .credBlob: return "credBlob"
+            case .minPinLength: return "minPinLength"
             case .other(let value): return value
             }
         }
@@ -62,6 +66,7 @@ extension CTAP2.Extension {
             case "credProtect": self = .credProtect
             case "largeBlobKey": self = .largeBlobKey
             case "credBlob": self = .credBlob
+            case "minPinLength": self = .minPinLength
             default: self = .other(value)
             }
         }
