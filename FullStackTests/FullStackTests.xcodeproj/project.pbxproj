@@ -32,6 +32,7 @@
 		B4F9375F2B519D940007D394 /* Logger+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */; };
 		B4F937642B51A7DD0007D394 /* PIVFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */; };
 		CD75D32C2F1114C7000624CB /* LargeBlobsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD75D32B2F1114C7000624CB /* LargeBlobsTests.swift */; };
+		DA1BB9E330014BCBBD93BF69 /* ConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD89AB9B1BB24FA6B5FD79D3 /* ConfigTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,6 +73,7 @@
 		B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Extensions.swift"; sourceTree = "<group>"; };
 		B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVFullStackTests.swift; sourceTree = "<group>"; };
 		CD75D32B2F1114C7000624CB /* LargeBlobsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeBlobsTests.swift; sourceTree = "<group>"; };
+		CD89AB9B1BB24FA6B5FD79D3 /* ConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -160,6 +162,7 @@
 			isa = PBXGroup;
 			children = (
 				CD75D32D2F1114C8000624CB /* Extensions */,
+				CD89AB9B1BB24FA6B5FD79D3 /* ConfigTests.swift */,
 				6C734BB42EE860E100972E2A /* CredentialTests.swift */,
 				6C734BAA2EE860AF00972E2A /* HIDTransportTests.swift */,
 				6C734BB82EE861EE00972E2A /* TestHelpers.swift */,
@@ -328,6 +331,7 @@
 				6C2B14542DC8CF4C00B5C482 /* SCPFullStackTests.swift in Sources */,
 				6C734BAC2EE860AF00972E2A /* HIDTransportTests.swift in Sources */,
 				6CCAB7BA2EEC35EA00A789E7 /* PRFTests.swift in Sources */,
+				DA1BB9E330014BCBBD93BF69 /* ConfigTests.swift in Sources */,
 				6C2B14552DC8CF4C00B5C482 /* XCTestCase+SCP.swift in Sources */,
 				6CDATAHEX2EF1234500000001 /* Data+Hex.swift in Sources */,
 			);
