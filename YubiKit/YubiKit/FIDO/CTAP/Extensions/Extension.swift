@@ -34,6 +34,9 @@ extension CTAP2.Extension {
         /// The largeBlobKey extension for associating large blobs with credentials (CTAP 2.1+).
         case largeBlobKey
 
+        /// The credBlob extension for storing small blobs with credentials (CTAP 2.1+).
+        case credBlob
+
         /// Other extension not explicitly defined.
         case other(String)
 
@@ -44,6 +47,7 @@ extension CTAP2.Extension {
             case .hmacSecretMC: return "hmac-secret-mc"
             case .credProtect: return "credProtect"
             case .largeBlobKey: return "largeBlobKey"
+            case .credBlob: return "credBlob"
             case .other(let value): return value
             }
         }
@@ -57,6 +61,7 @@ extension CTAP2.Extension {
             case "hmac-secret-mc": self = .hmacSecretMC
             case "credProtect": self = .credProtect
             case "largeBlobKey": self = .largeBlobKey
+            case "credBlob": self = .credBlob
             default: self = .other(value)
             }
         }
