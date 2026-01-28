@@ -46,7 +46,7 @@ extension EC.PublicKey: DerRepresentable {
 
         // subjectPublicKey: BIT STRING with 0 unused bits + uncompressed point
         var bitStringValue = Data([0x00])  // number of unused bits
-        bitStringValue.append(uncompressedPoint)
+        bitStringValue.append(x963Representation)
         let subjectPublicKey = TKBERTLVRecord(tag: 0x03, value: bitStringValue).data
 
         // SubjectPublicKeyInfo ::= SEQUENCE { algorithm, subjectPublicKey }

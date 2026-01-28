@@ -54,8 +54,14 @@ public enum PIVSessionError: SmartCardSessionError, Sendable {
     /// Invalid data size for operation.
     case invalidDataSize(source: SourceLocation)
 
+    /// Certificate decompression failed (gzip or GIDS zlib).
+    case compression(Error, source: SourceLocation)
+
     /// Gzip compression/decompression failed.
-    case gzip(Error, source: SourceLocation)
+    @available(*, deprecated, renamed: "compression")
+    static func gzip(_ error: Error, source: SourceLocation) -> PIVSessionError {
+        .compression(error, source: source)
+    }
 
     case other(Error, source: SourceLocation)
 }
