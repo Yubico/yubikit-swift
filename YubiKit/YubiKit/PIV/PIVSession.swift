@@ -481,7 +481,7 @@ public final actor PIVSession: SmartCardSessionInternal {
             do {
                 certData = try certData.gzipped()
             } catch {
-                throw .gzip(error, source: .here())
+                throw .compression(error, source: .here())
             }
         }
         var data = Data()
@@ -507,14 +507,16 @@ public final actor PIVSession: SmartCardSessionInternal {
             var certificateData = subRecords.recordWithTag(tagCertificate)?.value
         else { throw .responseParseError("Failed to parse certificate data from object", source: .here()) }
 
+        // certificateInfo byte 0 == 1 indicates compressed certificate (PIV spec).
+        // decompressCertificate() detects format (gzip or Net iD) via magic bytes.
         if let certificateInfo = subRecords.recordWithTag(tagCertificateInfo)?.value,
             !certificateInfo.isEmpty,
             certificateInfo.bytes[0] == 1
         {
             do {
-                certificateData = try certificateData.gunzipped()
+                certificateData = try certificateData.decompressCertificate()
             } catch {
-                throw .gzip(error, source: .here())
+                throw .compression(error, source: .here())
             }
         }
         return X509Cert(der: certificateData)
