@@ -38,6 +38,7 @@ let codes = try await session.calculateCredentialCodes()
 @Links(visualStyle: detailedGrid) {
     - <doc:OATHSampleCode>
     - <doc:PIVToolSampleCode>
+    - <doc:WebAuthnInterceptorSampleCode>
 }
 
 ### Creating a SmartCardConnection to a YubiKey
