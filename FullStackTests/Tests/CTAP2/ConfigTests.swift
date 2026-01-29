@@ -42,9 +42,7 @@ struct ConfigFullStackTests {
 
     @Test("Toggle alwaysUV setting")
     func testToggleAlwaysUV() async throws {
-        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
-            var session = session
-
+        try await withCTAP2Session { session in
             let info = try await session.getInfo()
             guard info.options.authenticatorConfig == true else {
                 print("authenticatorConfig not supported - skipping")
@@ -71,15 +69,8 @@ struct ConfigFullStackTests {
             #expect(newAlwaysUV != initialAlwaysUV, "alwaysUV should have toggled")
             print("✅ alwaysUV toggled from \(initialAlwaysUV) to \(newAlwaysUV)")
 
-            // Reconnect if over NFC before second toggle
-            session = try await reconnectWhenOverNFC()
-
             // Toggle back to restore original state
-            let pinToken2 = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.authenticatorConfig]
-            )
-            try await session.config(pinToken: pinToken2).toggleAlwaysUV()
+            try await config.toggleAlwaysUV()
 
             let restoredInfo = try await session.getInfo()
             let restoredAlwaysUV = restoredInfo.options.alwaysUV ?? false
@@ -152,9 +143,7 @@ struct ConfigFullStackTests {
         .disabled("Destructive - minPinLength can only increase, requires reset to restore")
     )
     func testSetMinPinLength() async throws {
-        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
-            var session = session
-
+        try await withCTAP2Session { session in
             let info = try await session.getInfo()
             guard info.options.authenticatorConfig == true else {
                 print("authenticatorConfig not supported - skipping")
@@ -182,23 +171,16 @@ struct ConfigFullStackTests {
                 permissions: [.authenticatorConfig]
             )
 
-            try await session.config(pinToken: pinToken).setMinPINLength(newMinPINLength: newMinPinLength)
+            let config = try await session.config(pinToken: pinToken)
+            try await config.setMinPINLength(newMinPINLength: newMinPinLength)
 
             let newInfo = try await session.getInfo()
             #expect(newInfo.minPinLength == newMinPinLength)
             print("✅ minPinLength increased from \(currentMinPinLength) to \(newMinPinLength)")
 
-            // Reconnect if over NFC before second operation
-            session = try await reconnectWhenOverNFC()
-
             // Verify we cannot decrease it (spec requirement)
-            let pinToken2 = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.authenticatorConfig]
-            )
-
             do {
-                try await session.config(pinToken: pinToken2).setMinPINLength(newMinPINLength: currentMinPinLength)
+                try await config.setMinPINLength(newMinPINLength: currentMinPinLength)
                 Issue.record("Should not be able to decrease minPinLength")
             } catch is CTAP2.SessionError {
                 print("✅ Decreasing minPinLength correctly rejected")
