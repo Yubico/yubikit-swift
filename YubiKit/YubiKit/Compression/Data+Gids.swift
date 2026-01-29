@@ -34,13 +34,15 @@ extension Data {
     ///
     /// Validates:
     /// - Version bytes (0x01 0x00)
-    /// - Valid zlib header (deflate compression, valid checksum)
+    /// - Valid zlib header (deflate compression, no preset dictionary, valid checksum)
     var isGidsCompressed: Bool {
         guard self.count > 5 else { return false }
         // GIDS compression version 1.0
         guard self[0] == 0x01 && self[1] == 0x00 else { return false }
         // Valid zlib CMF byte (compression method must be deflate = 8)
         guard self[4] & 0x0F == 8 else { return false }
+        // Reject if FDICT bit is set (we don't support preset dictionaries)
+        guard self[5] & 0x20 == 0 else { return false }
         // Valid zlib header checksum: (CMF * 256 + FLG) % 31 == 0
         let cmf = UInt16(self[4])
         let flg = UInt16(self[5])
