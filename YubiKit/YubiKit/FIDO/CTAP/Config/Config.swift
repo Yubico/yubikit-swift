@@ -24,16 +24,21 @@ extension CTAP2.Session {
     ///     using: .pin("123456"),
     ///     permissions: [.authenticatorConfig]
     /// )
-    /// let config = session.config(pinToken: pinToken)
+    /// let config = try await session.config(pinToken: pinToken)
     /// try await config.toggleAlwaysUV()
     /// try await config.enableEnterpriseAttestation()
     /// ```
     ///
     /// - Parameter pinToken: PIN/UV auth token with `authenticatorConfig` permission.
     /// - Returns: Config operations bound to the token.
+    /// - Throws: `CTAP2.SessionError.featureNotSupported` if authenticatorConfig is not supported.
     /// - SeeAlso: [CTAP2 authenticatorConfig](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorConfig)
-    public func config(pinToken: CTAP2.ClientPin.Token) -> CTAP2.Config {
-        CTAP2.Config(session: self, pinToken: pinToken)
+    public func config(pinToken: CTAP2.ClientPin.Token) async throws(CTAP2.SessionError) -> CTAP2.Config {
+        let info = try await getInfo()
+        guard info.options.authenticatorConfig == true else {
+            throw .featureNotSupported(source: .here())
+        }
+        return CTAP2.Config(session: self, pinToken: pinToken)
     }
 }
 
@@ -47,7 +52,7 @@ extension CTAP2 {
         private let session: CTAP2.Session
         private let pinToken: CTAP2.ClientPin.Token
 
-        init(session: CTAP2.Session, pinToken: CTAP2.ClientPin.Token) {
+        fileprivate init(session: CTAP2.Session, pinToken: CTAP2.ClientPin.Token) {
             self.session = session
             self.pinToken = pinToken
         }

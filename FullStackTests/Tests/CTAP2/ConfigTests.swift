@@ -24,12 +24,15 @@ struct ConfigFullStackTests {
     @Test("Check authenticatorConfig support")
     func testConfigSupport() async throws {
         try await withCTAP2Session { session in
-            let info = try await session.getInfo()
-            let isSupported = info.options.authenticatorConfig == true
+            let pinToken = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.authenticatorConfig]
+            )
 
-            if isSupported {
+            do {
+                _ = try await session.config(pinToken: pinToken)
                 print("✅ authenticatorConfig is supported")
-            } else {
+            } catch CTAP2.SessionError.featureNotSupported {
                 print("ℹ️ authenticatorConfig is not supported by this authenticator")
             }
         }
@@ -60,7 +63,7 @@ struct ConfigFullStackTests {
                 permissions: [.authenticatorConfig]
             )
 
-            let config = await session.config(pinToken: pinToken)
+            let config = try await session.config(pinToken: pinToken)
             try await config.toggleAlwaysUV()
 
             let newInfo = try await session.getInfo()
