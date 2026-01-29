@@ -49,7 +49,7 @@ extension EC.PublicKey: SecKeyRepresentable {
         attrs[kSecAttrKeySizeInBits as String] = curve.keySizeInBits
 
         // EC keys require raw uncompressed point data (0x04 || X || Y)
-        let keyData = uncompressedPoint
+        let keyData = x963Representation
 
         var err: Unmanaged<CFError>?
         return SecKeyCreateWithData(keyData as CFData, attrs as CFDictionary, &err)
