@@ -67,14 +67,12 @@ struct GzipError: Swift.Error, Sendable {
     /// Returned message by zlib.
     let message: String
 
-    internal init(code: Int32, msg: UnsafePointer<CChar>?) {
-
+    init(code: Int32, msg: UnsafePointer<CChar>?) {
         self.message = msg.flatMap(String.init(validatingCString:)) ?? "Unknown gzip error"
         self.kind = Kind(code: code)
     }
 
     var localizedDescription: String {
-
         self.message
     }
 }
@@ -82,7 +80,6 @@ struct GzipError: Swift.Error, Sendable {
 extension GzipError.Kind {
 
     fileprivate init(code: Int32) {
-
         switch code {
         case Z_STREAM_ERROR:
             self = .stream
@@ -104,8 +101,7 @@ extension Data {
 
     /// Whether the receiver is compressed in gzip format.
     var isGzipped: Bool {
-
-        self.starts(with: [0x1f, 0x8b])  // check magic number// check magic number
+        self.starts(with: [0x1f, 0x8b])  // check magic number
     }
 
     /// Create a new `Data` instance by compressing the receiver using zlib.
