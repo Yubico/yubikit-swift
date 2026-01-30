@@ -213,7 +213,7 @@ extension CTAP2.GetInfo {
         public let encCredStoreState: Encrypted<CredStoreState>?
 
         /// List of supported authenticatorConfig subcommands.
-        public let authenticatorConfigCommands: [UInt]?
+        public let authenticatorConfigCommands: [CTAP2.Config.Subcommand]?
 
     }
 

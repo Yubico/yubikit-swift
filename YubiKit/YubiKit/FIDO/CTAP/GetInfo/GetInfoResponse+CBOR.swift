@@ -115,3 +115,10 @@ extension URL: CBOR.Decodable {
         self = url
     }
 }
+
+extension CTAP2.Config.Subcommand: CBOR.Decodable {
+    init?(cbor: CBOR.Value) {
+        guard let rawValue: UInt8 = cbor.cborDecoded() else { return nil }
+        self.init(rawValue: rawValue)
+    }
+}
