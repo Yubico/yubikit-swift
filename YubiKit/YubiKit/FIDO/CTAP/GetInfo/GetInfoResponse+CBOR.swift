@@ -63,11 +63,17 @@ extension CTAP2.GetInfo.Response: CBOR.Decodable {
             attestationFormats: map[.int(0x16)]?.cborDecoded() ?? [],
             uvCountSinceLastPinEntry: map[.int(0x17)]?.cborDecoded(),
             longTouchForReset: map[.int(0x18)]?.cborDecoded(),
-            encIdentifier: map[.int(0x19)]?.cborDecoded(),
+            encIdentifier: map[.int(0x19)]?.dataValue.map {
+                CTAP2.GetInfo.Encrypted(encryptedData: $0)
+            },
             transportsForReset: map[.int(0x1A)]?.cborDecoded() ?? [],
             pinComplexityPolicy: map[.int(0x1B)]?.cborDecoded(),
             pinComplexityPolicyURL: map[.int(0x1C)]?.cborDecoded(),
-            maxPINLength: map[.int(0x1D)]?.cborDecoded()
+            maxPINLength: map[.int(0x1D)]?.cborDecoded(),
+            encCredStoreState: map[.int(0x1E)]?.dataValue.map {
+                CTAP2.GetInfo.Encrypted(encryptedData: $0)
+            },
+            authenticatorConfigCommands: map[.int(0x1F)]?.cborDecoded()
         )
     }
 }
