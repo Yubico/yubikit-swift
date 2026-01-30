@@ -147,11 +147,40 @@ extension CTAP2 {
 // MARK: - Internal Types
 
 extension CTAP2.Config {
-    fileprivate enum Subcommand: UInt8, Sendable {
-        case enableEnterpriseAttestation = 0x01
-        case toggleAlwaysUV = 0x02
-        case setMinPINLength = 0x03
-        case vendorPrototype = 0xFF
+    /// Subcommands for the authenticatorConfig command.
+    ///
+    /// Authenticators report supported subcommands in ``CTAP2/GetInfo/Response/authenticatorConfigCommands``.
+    public enum Subcommand: RawRepresentable, Sendable, Equatable {
+        /// Enable enterprise attestation.
+        case enableEnterpriseAttestation
+        /// Toggle the alwaysUV setting.
+        case toggleAlwaysUV
+        /// Set minimum PIN length.
+        case setMinPINLength
+        /// Vendor-specific prototype command.
+        case vendorPrototype
+        /// Unknown or future subcommand.
+        case other(UInt8)
+
+        public var rawValue: UInt8 {
+            switch self {
+            case .enableEnterpriseAttestation: return 0x01
+            case .toggleAlwaysUV: return 0x02
+            case .setMinPINLength: return 0x03
+            case .vendorPrototype: return 0xFF
+            case .other(let value): return value
+            }
+        }
+
+        public init(rawValue: UInt8) {
+            switch rawValue {
+            case 0x01: self = .enableEnterpriseAttestation
+            case 0x02: self = .toggleAlwaysUV
+            case 0x03: self = .setMinPINLength
+            case 0xFF: self = .vendorPrototype
+            default: self = .other(rawValue)
+            }
+        }
     }
 
     fileprivate enum Parameter: UInt8, Sendable {
