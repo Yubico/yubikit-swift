@@ -40,6 +40,9 @@ extension CTAP2.Extension {
         /// The minPinLength extension for including minimum PIN length in authenticator data.
         case minPinLength
 
+        /// The thirdPartyPayment extension for Secure Payment Confirmation (CTAP 2.2+).
+        case thirdPartyPayment
+
         /// Other extension not explicitly defined.
         case other(String)
 
@@ -52,6 +55,7 @@ extension CTAP2.Extension {
             case .largeBlobKey: return "largeBlobKey"
             case .credBlob: return "credBlob"
             case .minPinLength: return "minPinLength"
+            case .thirdPartyPayment: return "thirdPartyPayment"
             case .other(let value): return value
             }
         }
@@ -67,6 +71,7 @@ extension CTAP2.Extension {
             case "largeBlobKey": self = .largeBlobKey
             case "credBlob": self = .credBlob
             case "minPinLength": self = .minPinLength
+            case "thirdPartyPayment": self = .thirdPartyPayment
             default: self = .other(value)
             }
         }
