@@ -222,7 +222,7 @@ extension CTAP2.GetInfo {
     /// Opaque 128-bit credential store state used for cache invalidation.
     ///
     /// Compare values to detect if the credential store has changed since last cached.
-    public struct CredStoreState: Sendable, Equatable {
+    public struct CredStoreState: Sendable, Equatable, Hashable {
         // When the SDK's minimum deployment target is raised to macOS 15 / iOS 18,
         // this struct can be replaced with a typealias to UInt128.
         public let high: UInt64
@@ -231,10 +231,10 @@ extension CTAP2.GetInfo {
 
     /// An encrypted GetInfo field, decryptable with a persistent pinUvAuthToken.
     ///
-    /// The encrypted data contains `iv || ct` where `ct` is the AES-128-CBC encryption
-    /// of the underlying value.
-    public struct Encrypted<Value: Sendable>: Sendable {
-        let encryptedData: Data
+    /// - SeeAlso: [CTAP 2.3 Section 6.4](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetInfo)
+    public struct Encrypted<Value: Sendable>: Sendable, Hashable, Equatable {
+        /// The raw encrypted data.
+        public let encryptedData: Data
     }
 }
 

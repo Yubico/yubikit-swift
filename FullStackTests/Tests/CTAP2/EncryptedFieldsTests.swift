@@ -25,10 +25,7 @@ struct EncryptedFieldsTests {
     func testDecryptEncIdentifier() async throws {
         try await withCTAP2Session { session in
             let info = try await session.getInfo()
-            guard info.encIdentifier != nil else {
-                print("encIdentifier not supported - skipping")
-                return
-            }
+            try #require(info.encIdentifier != nil, "encIdentifier not supported")
 
             // Get persistent pinUvAuthToken (PPUAT) with pcmr permission
             let ppuat = try await session.getPinUVToken(
@@ -53,10 +50,7 @@ struct EncryptedFieldsTests {
     func testDecryptEncCredStoreState() async throws {
         try await withCTAP2Session { session in
             let info = try await session.getInfo()
-            guard info.encCredStoreState != nil else {
-                print("encCredStoreState not supported - skipping")
-                return
-            }
+            try #require(info.encCredStoreState != nil, "encCredStoreState not supported")
 
             // Get persistent pinUvAuthToken (PPUAT) with pcmr permission
             let ppuat = try await session.getPinUVToken(
@@ -82,10 +76,7 @@ struct EncryptedFieldsTests {
         // First session: get PPUAT and decrypt fields
         let (ppuat, identifier1, credStoreState1) = try await withCTAP2Session { session in
             let info = try await session.getInfo()
-            guard info.encIdentifier != nil else {
-                print("encIdentifier not supported - skipping")
-                throw XCTSkip("encIdentifier not supported")
-            }
+            try #require(info.encIdentifier != nil, "encIdentifier not supported")
 
             let ppuat = try await session.getPinUVToken(
                 using: .pin(defaultTestPin),
@@ -123,11 +114,4 @@ struct EncryptedFieldsTests {
         // 2. Create discoverable credential -> verify state changes
         // 3. Delete credential via CredentialManagement -> verify state changes again
     }
-}
-
-// MARK: - Skip helper
-
-private struct XCTSkip: Error {
-    let message: String
-    init(_ message: String) { self.message = message }
 }

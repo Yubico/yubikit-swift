@@ -35,6 +35,7 @@
 		DA1BB9E330014BCBBD93BF69 /* ConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD89AB9B1BB24FA6B5FD79D3 /* ConfigTests.swift */; };
 		6CCREDBLOB2F1115000000001 /* CredBlobTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCREDBLOB2F1115000000000 /* CredBlobTests.swift */; };
 		6CMINPINLEN2F1116000000001 /* MinPinLengthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */; };
+		B2A73E5DE80348329B8FA710 /* EncryptedFieldsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E3FD736FBE49ECAAAFA28E /* EncryptedFieldsTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +79,7 @@
 		CD89AB9B1BB24FA6B5FD79D3 /* ConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigTests.swift; sourceTree = "<group>"; };
 		6CCREDBLOB2F1115000000000 /* CredBlobTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredBlobTests.swift; sourceTree = "<group>"; };
 		6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinPinLengthTests.swift; sourceTree = "<group>"; };
+		59E3FD736FBE49ECAAAFA28E /* EncryptedFieldsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedFieldsTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -168,6 +170,7 @@
 				CD75D32D2F1114C8000624CB /* Extensions */,
 				CD89AB9B1BB24FA6B5FD79D3 /* ConfigTests.swift */,
 				6C734BB42EE860E100972E2A /* CredentialTests.swift */,
+				59E3FD736FBE49ECAAAFA28E /* EncryptedFieldsTests.swift */,
 				6C734BAA2EE860AF00972E2A /* HIDTransportTests.swift */,
 				6C734BB82EE861EE00972E2A /* TestHelpers.swift */,
 			);
@@ -342,6 +345,7 @@
 				6CMINPINLEN2F1116000000001 /* MinPinLengthTests.swift in Sources */,
 				6C2B14552DC8CF4C00B5C482 /* XCTestCase+SCP.swift in Sources */,
 				6CDATAHEX2EF1234500000001 /* Data+Hex.swift in Sources */,
+				B2A73E5DE80348329B8FA710 /* EncryptedFieldsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
