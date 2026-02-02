@@ -244,7 +244,7 @@ extension CTAP2.GetInfo.Encrypted {
     /// Decrypts an encrypted field using HKDF-SHA256 and AES-128-CBC.
     fileprivate func decryptRaw(
         info: String,
-        using persistentPinUvAuthToken: Data
+        using token: CTAP2.ClientPin.Token
     ) throws(CryptoError) -> Data {
         let ivSize = Crypto.AES.blockSize
         guard encryptedData.count > ivSize else {
@@ -253,14 +253,7 @@ extension CTAP2.GetInfo.Encrypted {
 
         let iv = encryptedData.prefix(ivSize)
         let ciphertext = encryptedData.dropFirst(ivSize)
-
-        // Derive AES key per spec: HKDF-SHA-256(salt = 32 zero bytes, IKM = token, L = 16, info = info)
-        let aesKey = Crypto.KDF.hkdf(
-            persistentPinUvAuthToken,
-            salt: Data(count: 32),
-            info: info,
-            outputLength: 16
-        )
+        let aesKey = token.deriveKey(info: info)
 
         return try Crypto.AES.decrypt(Data(ciphertext), key: aesKey, mode: .cbc(iv: Data(iv)))
     }
@@ -274,7 +267,7 @@ extension CTAP2.GetInfo.Encrypted where Value == UUID {
     /// - Returns: The decrypted 16-byte device identifier.
     /// - Throws: `CryptoError` if decryption fails.
     public func decrypt(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
-        try decryptRaw(info: "encIdentifier", using: token.token)
+        try decryptRaw(info: "encIdentifier", using: token)
     }
 
     /// Decrypts the device identifier using a persistent pinUvAuthToken.
@@ -298,7 +291,7 @@ extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.CredStoreState {
     /// - Returns: The decrypted 16-byte credential store state.
     /// - Throws: `CryptoError` if decryption fails.
     public func decrypt(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
-        try decryptRaw(info: "encCredStoreState", using: token.token)
+        try decryptRaw(info: "encCredStoreState", using: token)
     }
 
     /// Decrypts the credential store state using a persistent pinUvAuthToken.
