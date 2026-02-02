@@ -269,12 +269,12 @@ extension CTAP2.GetInfo.Encrypted {
 extension CTAP2.GetInfo.Encrypted where Value == UUID {
     /// Decrypts the device identifier using a persistent pinUvAuthToken.
     ///
-    /// - Parameter persistentPinUvAuthToken: A persistent pinUvAuthToken obtained with
+    /// - Parameter token: A persistent pinUvAuthToken obtained with
     ///   the `.persistentCredentialManagement` permission.
     /// - Returns: The decrypted 128-bit device identifier.
     /// - Throws: `CryptoError` if decryption fails.
-    public func decrypt(using persistentPinUvAuthToken: Data) throws(CryptoError) -> UUID {
-        let data = try decryptRaw(info: "encIdentifier", using: persistentPinUvAuthToken)
+    public func decrypt(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> UUID {
+        let data = try decryptRaw(info: "encIdentifier", using: token.token)
         guard data.count == 16 else { throw .missingData }
         return data.withUnsafeBytes { UUID(uuid: $0.load(as: uuid_t.self)) }
     }
@@ -283,14 +283,14 @@ extension CTAP2.GetInfo.Encrypted where Value == UUID {
 extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.CredStoreState {
     /// Decrypts the credential store state using a persistent pinUvAuthToken.
     ///
-    /// - Parameter persistentPinUvAuthToken: A persistent pinUvAuthToken obtained with
+    /// - Parameter token: A persistent pinUvAuthToken obtained with
     ///   the `.persistentCredentialManagement` permission.
     /// - Returns: The decrypted 128-bit credential store state.
     /// - Throws: `CryptoError` if decryption fails.
     public func decrypt(
-        using persistentPinUvAuthToken: Data
+        using token: CTAP2.ClientPin.Token
     ) throws(CryptoError) -> CTAP2.GetInfo.CredStoreState {
-        let data = try decryptRaw(info: "encCredStoreState", using: persistentPinUvAuthToken)
+        let data = try decryptRaw(info: "encCredStoreState", using: token.token)
         guard data.count == 16 else { throw .missingData }
         return data.withUnsafeBytes {
             CTAP2.GetInfo.CredStoreState(

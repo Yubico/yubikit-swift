@@ -48,7 +48,7 @@ extension CTAP2.ClientPin {
     /// and ``CTAP2/Session/getAssertion(parameters:pinToken:)``.
     public struct Token: Sendable {
         /// The decrypted PIN token.
-        private let token: Data
+        internal let token: Data
 
         /// The PIN/UV auth protocol version used to obtain this token.
         public let protocolVersion: ProtocolVersion
