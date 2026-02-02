@@ -29,7 +29,7 @@ struct MinPinLengthFullStackTests {
                 return
             }
 
-            guard try await CTAP2.Config.Operations.isSupported(by: session) else {
+            guard try await CTAP2.Config.isSupported(by: session) else {
                 print("authenticatorConfig not supported - skipping")
                 return
             }
@@ -47,7 +47,7 @@ struct MinPinLengthFullStackTests {
                 using: .pin(defaultTestPin),
                 permissions: [.authenticatorConfig]
             )
-            let config = try await CTAP2.Config.Operations(session: session, pinToken: configToken)
+            let config = try await session.config(pinToken: configToken)
             try await config.setMinPINLength(rpIDs: [rpId])
 
             // Create credential with minPinLength extension

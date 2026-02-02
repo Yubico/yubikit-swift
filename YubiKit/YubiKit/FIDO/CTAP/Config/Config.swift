@@ -57,6 +57,15 @@ extension CTAP2 {
             self.pinToken = pinToken
         }
 
+        /// Checks if the authenticator supports authenticatorConfig.
+        ///
+        /// - Parameter session: The CTAP2 session to check.
+        /// - Returns: `true` if the authenticator supports authenticatorConfig.
+        public static func isSupported(by session: CTAP2.Session) async throws(CTAP2.SessionError) -> Bool {
+            let info = try await session.getInfo()
+            return info.options.authenticatorConfig == true
+        }
+
         /// Enables enterprise attestation. If already enabled, this command is ignored.
         ///
         /// - SeeAlso: [Enable Enterprise Attestation](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#enable-enterprise-attestation)
