@@ -26,12 +26,30 @@ extension CTAP2.Extension {
     /// - SeeAlso: [CTAP2 largeBlobKey Extension](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#sctn-largeBlobKey-extension)
     public struct LargeBlobKey: Sendable {
         /// The extension identifier for largeBlobKey.
-        private static let identifier: Identifier = .largeBlobKey
+        static let identifier: Identifier = .largeBlobKey
 
         // MARK: - Initializer
 
         /// Creates a LargeBlobKey extension instance.
-        public init() {}
+        ///
+        /// - Parameter session: The CTAP2 session to check for support.
+        /// - Throws: `CTAP2.SessionError.extensionNotSupported` if largeBlobKey is not supported.
+        public init(session: CTAP2.Session) async throws(CTAP2.SessionError) {
+            guard try await Self.isSupported(by: session) else {
+                throw .extensionNotSupported(Self.identifier, source: .here())
+            }
+        }
+
+        /// Checks if the authenticator supports largeBlobKey.
+        ///
+        /// Support requires both the `largeBlobKey` extension and the `largeBlobs` option.
+        ///
+        /// - Parameter session: The CTAP2 session to check.
+        /// - Returns: `true` if the authenticator supports largeBlobKey.
+        public static func isSupported(by session: CTAP2.Session) async throws(CTAP2.SessionError) -> Bool {
+            let info = try await session.getInfo()
+            return info.extensions.contains(identifier) && info.options.largeBlobs == true
+        }
 
         // MARK: - Operations
 
