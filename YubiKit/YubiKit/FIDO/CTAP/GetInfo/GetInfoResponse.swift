@@ -267,6 +267,16 @@ extension CTAP2.GetInfo.Encrypted {
 }
 
 extension CTAP2.GetInfo.Encrypted where Value == UUID {
+    /// Decrypts the device identifier to raw bytes using a persistent pinUvAuthToken.
+    ///
+    /// - Parameter token: A persistent pinUvAuthToken obtained with
+    ///   the `.persistentCredentialManagement` permission.
+    /// - Returns: The decrypted 16-byte device identifier.
+    /// - Throws: `CryptoError` if decryption fails.
+    public func decrypt(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
+        try decryptRaw(info: "encIdentifier", using: token.token)
+    }
+
     /// Decrypts the device identifier using a persistent pinUvAuthToken.
     ///
     /// - Parameter token: A persistent pinUvAuthToken obtained with
@@ -274,13 +284,23 @@ extension CTAP2.GetInfo.Encrypted where Value == UUID {
     /// - Returns: The decrypted 128-bit device identifier.
     /// - Throws: `CryptoError` if decryption fails.
     public func decrypt(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> UUID {
-        let data = try decryptRaw(info: "encIdentifier", using: token.token)
+        let data: Data = try decrypt(using: token)
         guard data.count == 16 else { throw .missingData }
         return data.withUnsafeBytes { UUID(uuid: $0.load(as: uuid_t.self)) }
     }
 }
 
 extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.CredStoreState {
+    /// Decrypts the credential store state to raw bytes using a persistent pinUvAuthToken.
+    ///
+    /// - Parameter token: A persistent pinUvAuthToken obtained with
+    ///   the `.persistentCredentialManagement` permission.
+    /// - Returns: The decrypted 16-byte credential store state.
+    /// - Throws: `CryptoError` if decryption fails.
+    public func decrypt(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
+        try decryptRaw(info: "encCredStoreState", using: token.token)
+    }
+
     /// Decrypts the credential store state using a persistent pinUvAuthToken.
     ///
     /// - Parameter token: A persistent pinUvAuthToken obtained with
@@ -290,7 +310,7 @@ extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.CredStoreState {
     public func decrypt(
         using token: CTAP2.ClientPin.Token
     ) throws(CryptoError) -> CTAP2.GetInfo.CredStoreState {
-        let data = try decryptRaw(info: "encCredStoreState", using: token.token)
+        let data: Data = try decrypt(using: token)
         guard data.count == 16 else { throw .missingData }
         return data.withUnsafeBytes {
             CTAP2.GetInfo.CredStoreState(

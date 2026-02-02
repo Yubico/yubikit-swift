@@ -33,12 +33,12 @@ struct EncryptedFieldsTests {
                 permissions: [.persistentCredentialManagement]
             )
 
-            let identifier = try info.encIdentifier!.decrypt(using: ppuat)
+            let identifier: UUID = try info.encIdentifier!.decrypt(using: ppuat)
             print("✅ Decrypted device identifier: \(identifier)")
 
             // Decrypt again to verify same result
             let info2 = try await session.getInfo()
-            let identifier2 = try info2.encIdentifier!.decrypt(using: ppuat)
+            let identifier2: UUID = try info2.encIdentifier!.decrypt(using: ppuat)
             #expect(identifier == identifier2)
             print("✅ Decrypted identifier is consistent across GetInfo calls")
         }
@@ -58,12 +58,12 @@ struct EncryptedFieldsTests {
                 permissions: [.persistentCredentialManagement]
             )
 
-            let state = try info.encCredStoreState!.decrypt(using: ppuat)
+            let state: CTAP2.GetInfo.CredStoreState = try info.encCredStoreState!.decrypt(using: ppuat)
             print("✅ Decrypted credential store state: high=\(state.high), low=\(state.low)")
 
             // Decrypt again to verify same result (without credential changes)
             let info2 = try await session.getInfo()
-            let state2 = try info2.encCredStoreState!.decrypt(using: ppuat)
+            let state2: CTAP2.GetInfo.CredStoreState = try info2.encCredStoreState!.decrypt(using: ppuat)
             #expect(state == state2)
             print("✅ Decrypted state is consistent when no credentials changed")
         }
@@ -74,31 +74,34 @@ struct EncryptedFieldsTests {
     @Test("Persistent pinUvAuthToken works across reconnects")
     func testPersistentTokenAcrossReconnects() async throws {
         // First session: get PPUAT and decrypt fields
-        let (ppuat, identifier1, credStoreState1) = try await withCTAP2Session { session in
-            let info = try await session.getInfo()
-            try #require(info.encIdentifier != nil, "encIdentifier not supported")
+        let (ppuat, identifier1, credStoreState1): (CTAP2.ClientPin.Token, UUID, CTAP2.GetInfo.CredStoreState?) =
+            try await withCTAP2Session { session in
+                let info = try await session.getInfo()
+                try #require(info.encIdentifier != nil, "encIdentifier not supported")
 
-            let ppuat = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.persistentCredentialManagement]
-            )
+                let ppuat = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.persistentCredentialManagement]
+                )
 
-            let identifier = try info.encIdentifier!.decrypt(using: ppuat)
-            let credStoreState = try? info.encCredStoreState?.decrypt(using: ppuat)
+                let identifier: UUID = try info.encIdentifier!.decrypt(using: ppuat)
+                let credStoreState: CTAP2.GetInfo.CredStoreState? = try info.encCredStoreState.map {
+                    try $0.decrypt(using: ppuat)
+                }
 
-            return (ppuat, identifier, credStoreState)
-        }
+                return (ppuat, identifier, credStoreState)
+            }
 
         // Second session: use same PPUAT to decrypt, verify same values
         try await withCTAP2Session { session in
             let info = try await session.getInfo()
 
-            let identifier2 = try info.encIdentifier!.decrypt(using: ppuat)
+            let identifier2: UUID = try info.encIdentifier!.decrypt(using: ppuat)
             #expect(identifier1 == identifier2)
             print("✅ Device identifier consistent across reconnects")
 
             if let credStoreState1 = credStoreState1 {
-                let credStoreState2 = try info.encCredStoreState!.decrypt(using: ppuat)
+                let credStoreState2: CTAP2.GetInfo.CredStoreState = try info.encCredStoreState!.decrypt(using: ppuat)
                 #expect(credStoreState1 == credStoreState2)
                 print("✅ Credential store state consistent across reconnects")
             }
