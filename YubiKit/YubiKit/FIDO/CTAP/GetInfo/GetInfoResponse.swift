@@ -266,7 +266,7 @@ extension CTAP2.GetInfo.Encrypted where Value == UUID {
     ///   the `.persistentCredentialManagement` permission.
     /// - Returns: The decrypted 16-byte device identifier.
     /// - Throws: `CryptoError` if decryption fails.
-    public func decrypt(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
+    public func decryptedData(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
         try decryptRaw(info: "encIdentifier", using: token)
     }
 
@@ -276,8 +276,8 @@ extension CTAP2.GetInfo.Encrypted where Value == UUID {
     ///   the `.persistentCredentialManagement` permission.
     /// - Returns: The decrypted 128-bit device identifier.
     /// - Throws: `CryptoError` if decryption fails.
-    public func decrypt(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> UUID {
-        let data: Data = try decrypt(using: token)
+    public func decrypted(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> UUID {
+        let data = try decryptedData(using: token)
         guard data.count == 16 else { throw .missingData }
         return data.withUnsafeBytes { UUID(uuid: $0.load(as: uuid_t.self)) }
     }
@@ -290,7 +290,7 @@ extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.CredStoreState {
     ///   the `.persistentCredentialManagement` permission.
     /// - Returns: The decrypted 16-byte credential store state.
     /// - Throws: `CryptoError` if decryption fails.
-    public func decrypt(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
+    public func decryptedData(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
         try decryptRaw(info: "encCredStoreState", using: token)
     }
 
@@ -300,10 +300,10 @@ extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.CredStoreState {
     ///   the `.persistentCredentialManagement` permission.
     /// - Returns: The decrypted 128-bit credential store state.
     /// - Throws: `CryptoError` if decryption fails.
-    public func decrypt(
+    public func decrypted(
         using token: CTAP2.ClientPin.Token
     ) throws(CryptoError) -> CTAP2.GetInfo.CredStoreState {
-        let data: Data = try decrypt(using: token)
+        let data = try decryptedData(using: token)
         guard data.count == 16 else { throw .missingData }
         return data.withUnsafeBytes {
             CTAP2.GetInfo.CredStoreState(
