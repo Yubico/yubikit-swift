@@ -254,7 +254,7 @@ extension CTAP2.GetInfo.Encrypted {
         let iv = encryptedData.prefix(ivSize)
         let ciphertext = encryptedData.dropFirst(ivSize)
 
-        // Derive AES key: HKDF-SHA-256(salt = 32 zero bytes, IKM = token, L = 16, info = info)
+        // Derive AES key per spec: HKDF-SHA-256(salt = 32 zero bytes, IKM = token, L = 16, info = info)
         let aesKey = Crypto.KDF.hkdf(
             persistentPinUvAuthToken,
             salt: Data(count: 32),

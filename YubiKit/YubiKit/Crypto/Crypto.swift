@@ -403,17 +403,13 @@ extension Crypto.TripleDES {
 // MARK: - Crypto.KDF
 
 extension Crypto.KDF {
-    /// Derives a key using HKDF-SHA256.
-    static func hkdf(_ data: Data, salt: Data, info: String, outputLength: Int) -> Data {
-        hkdf(data, salt: salt, info: Data(info.utf8), outputLength: outputLength)
-    }
 
     /// Derives a key using HKDF-SHA256.
-    static func hkdf(_ data: Data, salt: Data, info: Data, outputLength: Int) -> Data {
+    static func hkdf(_ data: Data, salt: Data, info: String, outputLength: Int) -> Data {
         let derivedKey = HKDF<SHA256>.deriveKey(
             inputKeyMaterial: SymmetricKey(data: data),
             salt: salt,
-            info: info,
+            info: Data(info.utf8),
             outputByteCount: outputLength
         )
         return derivedKey.withUnsafeBytes { Data($0) }
