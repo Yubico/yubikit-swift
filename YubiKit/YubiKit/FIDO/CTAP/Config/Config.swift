@@ -88,14 +88,11 @@ extension CTAP2 {
         ///   - newMinPINLength: The minimum PIN length to allow. Pass `nil` to keep current.
         ///   - rpIDs: RP IDs allowed to query minimum PIN length via extension.
         ///   - forceChangePin: Enforce PIN change before next use.
-        ///   - pinComplexityPolicy: Enable PIN complexity enforcement.
-        /// - Throws: `CTAP2.SessionError.illegalArgument` if `pinComplexityPolicy` is unsupported.
         /// - SeeAlso: [Setting a Minimum PIN Length](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#setMinPINLength)
         public func setMinPINLength(
             newMinPINLength: UInt? = nil,
             rpIDs: [String]? = nil,
-            forceChangePin: Bool = false,
-            pinComplexityPolicy: Bool = false
+            forceChangePin: Bool = false
         ) async throws(CTAP2.SessionError) {
             var params: [UInt8: CBOR.Value] = [:]
             if let length = newMinPINLength {
@@ -106,16 +103,6 @@ extension CTAP2 {
             }
             if forceChangePin {
                 params[Parameter.forceChangePin.rawValue] = true.cbor()
-            }
-            if pinComplexityPolicy {
-                let info = try await session.getInfo()
-                guard info.pinComplexityPolicy != nil else {
-                    throw .illegalArgument(
-                        "Authenticator does not support PIN complexity policy",
-                        source: .here()
-                    )
-                }
-                params[Parameter.pinComplexityPolicy.rawValue] = true.cbor()
             }
 
             try await execute(subcommand: .setMinPINLength, params: params)
@@ -171,7 +158,6 @@ extension CTAP2.Config {
         case newMinPINLength = 0x01
         case minPINLengthRPIDs = 0x02
         case forceChangePin = 0x03
-        case pinComplexityPolicy = 0x04
     }
 
     fileprivate struct RequestParameters: Sendable, CBOR.Encodable {
