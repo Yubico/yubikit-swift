@@ -45,7 +45,7 @@ struct CredBlobFullStackTests {
             session = try await reconnectWhenOverNFC()
             let pinToken = try await session.getPinUVToken(
                 using: .pin(defaultTestPin),
-                permissions: [.makeCredential, .getAssertion],
+                permissions: [.makeCredential],
                 rpId: rpId
             )
 
@@ -121,7 +121,7 @@ struct CredBlobFullStackTests {
             session = try await reconnectWhenOverNFC()
             let pinToken = try await session.getPinUVToken(
                 using: .pin(defaultTestPin),
-                permissions: [.makeCredential, .getAssertion],
+                permissions: [.makeCredential],
                 rpId: rpId
             )
 
