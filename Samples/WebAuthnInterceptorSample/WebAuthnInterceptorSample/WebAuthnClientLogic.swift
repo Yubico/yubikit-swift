@@ -65,7 +65,7 @@ func buildCreateExtensions(
     if let support = request.extensions?.largeBlob?.support,
         support == "required" || support == "preferred"
     {
-        let largeBlobKey = CTAP2.Extension.LargeBlobKey()
+        let largeBlobKey = try await CTAP2.Extension.LargeBlobKey(session: session)
         state.inputs.append(largeBlobKey.makeCredential.input())
         state.largeBlobKey = largeBlobKey
     }
@@ -94,7 +94,7 @@ func buildGetExtensions(
     let wantsRead = request.extensions?.largeBlob?.read == true
     let writeData = request.extensions?.largeBlob?.write.flatMap { Data(base64Encoded: $0) }
     if wantsRead || writeData != nil {
-        let largeBlobKey = CTAP2.Extension.LargeBlobKey()
+        let largeBlobKey = try await CTAP2.Extension.LargeBlobKey(session: session)
         state.inputs.append(largeBlobKey.getAssertion.input())
         state.largeBlobKey = largeBlobKey
         state.largeBlobRead = wantsRead

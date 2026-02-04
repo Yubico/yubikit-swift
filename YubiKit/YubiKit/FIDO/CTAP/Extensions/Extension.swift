@@ -34,6 +34,15 @@ extension CTAP2.Extension {
         /// The largeBlobKey extension for associating large blobs with credentials (CTAP 2.1+).
         case largeBlobKey
 
+        /// The credBlob extension for storing small blobs with credentials (CTAP 2.1+).
+        case credBlob
+
+        /// The minPinLength extension for including minimum PIN length in authenticator data.
+        case minPinLength
+
+        /// The thirdPartyPayment extension for Secure Payment Confirmation (CTAP 2.2+).
+        case thirdPartyPayment
+
         /// Other extension not explicitly defined.
         case other(String)
 
@@ -44,6 +53,9 @@ extension CTAP2.Extension {
             case .hmacSecretMC: return "hmac-secret-mc"
             case .credProtect: return "credProtect"
             case .largeBlobKey: return "largeBlobKey"
+            case .credBlob: return "credBlob"
+            case .minPinLength: return "minPinLength"
+            case .thirdPartyPayment: return "thirdPartyPayment"
             case .other(let value): return value
             }
         }
@@ -57,6 +69,9 @@ extension CTAP2.Extension {
             case "hmac-secret-mc": self = .hmacSecretMC
             case "credProtect": self = .credProtect
             case "largeBlobKey": self = .largeBlobKey
+            case "credBlob": self = .credBlob
+            case "minPinLength": self = .minPinLength
+            case "thirdPartyPayment": self = .thirdPartyPayment
             default: self = .other(value)
             }
         }
