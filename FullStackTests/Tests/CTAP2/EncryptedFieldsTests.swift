@@ -59,7 +59,7 @@ struct EncryptedFieldsTests {
             )
 
             let state = try info.encCredStoreState!.decrypted(using: ppuat)
-            print("✅ Decrypted credential store state: high=\(state.high), low=\(state.low)")
+            print("✅ Decrypted credential store state: \(state)")
 
             // Decrypt again to verify same result (without credential changes)
             let info2 = try await session.getInfo()
@@ -74,7 +74,8 @@ struct EncryptedFieldsTests {
     @Test("Persistent pinUvAuthToken works across reconnects")
     func testPersistentTokenAcrossReconnects() async throws {
         // First session: get PPUAT and decrypt fields
-        let (ppuat, identifier1, credStoreState1): (CTAP2.ClientPin.Token, UUID, CTAP2.GetInfo.CredStoreState?) =
+        typealias Opaque128 = CTAP2.GetInfo.Opaque128
+        let (ppuat, identifier1, credStoreState1): (CTAP2.ClientPin.Token, Opaque128, Opaque128?) =
             try await withCTAP2Session { session in
                 let info = try await session.getInfo()
                 try #require(info.encIdentifier != nil, "encIdentifier not supported")

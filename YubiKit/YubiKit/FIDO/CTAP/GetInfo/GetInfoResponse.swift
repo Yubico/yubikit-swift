@@ -190,7 +190,7 @@ extension CTAP2.GetInfo {
         public let longTouchForReset: Bool?
 
         /// Encrypted device identifier, decryptable with a persistent pinUvAuthToken.
-        public let encIdentifier: Encrypted<UUID>?
+        public let encIdentifier: Encrypted<Opaque128>?
 
         /// Transports that support the reset command.
         public let transportsForReset: [WebAuthn.Transport]
@@ -210,7 +210,7 @@ extension CTAP2.GetInfo {
         /// Encrypted credential store state, decryptable with a persistent pinUvAuthToken.
         ///
         /// Platforms can use this to detect if the credential store has changed since last cached.
-        public let encCredStoreState: Encrypted<CredStoreState>?
+        public let encCredStoreState: Encrypted<Opaque128>?
 
         /// List of supported authenticatorConfig subcommands.
         public let authenticatorConfigCommands: [CTAP2.Config.Subcommand]?
@@ -219,14 +219,21 @@ extension CTAP2.GetInfo {
 
     // MARK: - Encrypted Fields
 
-    /// Opaque 128-bit credential store state used for cache invalidation.
+    /// An opaque 128-bit value used for encrypted GetInfo fields.
     ///
-    /// Compare values to detect if the credential store has changed since last cached.
-    public struct CredStoreState: Sendable, Equatable, Hashable {
-        // When the SDK's minimum deployment target is raised to macOS 15 / iOS 18,
-        // this struct can be replaced with a typealias to UInt128.
-        public let high: UInt64
-        public let low: UInt64
+    /// Both `encIdentifier` and `encCredStoreState` decrypt to this type.
+    /// Values should be compared for equality, not interpreted.
+    public struct Opaque128: RawRepresentable, Sendable, Equatable, Hashable {
+        public let rawValue: Data
+
+        init?(_ data: Data) {
+            guard data.count == 16 else { return nil }
+            self.rawValue = data
+        }
+
+        public init?(rawValue: Data) {
+            self.init(rawValue)
+        }
     }
 
     /// An encrypted GetInfo field, decryptable with a persistent pinUvAuthToken.
@@ -235,17 +242,21 @@ extension CTAP2.GetInfo {
     public struct Encrypted<Value: Sendable>: Sendable, Hashable, Equatable {
         /// The raw encrypted data.
         public let encryptedData: Data
+        /// The HKDF info string used for key derivation.
+        internal let hkdfInfo: String
     }
 }
 
 // MARK: - Encrypted Field Decryption
 
-extension CTAP2.GetInfo.Encrypted {
-    /// Decrypts an encrypted field using HKDF-SHA256 and AES-128-CBC.
-    fileprivate func decryptRaw(
-        info: String,
-        using token: CTAP2.ClientPin.Token
-    ) throws(CryptoError) -> Data {
+extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.Opaque128 {
+    /// Decrypts the encrypted field to raw bytes using a persistent pinUvAuthToken.
+    ///
+    /// - Parameter token: A persistent pinUvAuthToken obtained with
+    ///   the `.persistentCredentialManagement` permission.
+    /// - Returns: The decrypted 16-byte value.
+    /// - Throws: `CryptoError` if decryption fails.
+    public func decryptedData(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
         let ivSize = Crypto.AES.blockSize
         guard encryptedData.count > ivSize else {
             throw .missingData
@@ -253,63 +264,22 @@ extension CTAP2.GetInfo.Encrypted {
 
         let iv = encryptedData.prefix(ivSize)
         let ciphertext = encryptedData.dropFirst(ivSize)
-        let aesKey = token.deriveKey(info: info)
+        let aesKey = token.deriveKey(info: hkdfInfo)
 
         return try Crypto.AES.decrypt(Data(ciphertext), key: aesKey, mode: .cbc(iv: Data(iv)))
     }
-}
 
-extension CTAP2.GetInfo.Encrypted where Value == UUID {
-    /// Decrypts the device identifier to raw bytes using a persistent pinUvAuthToken.
+    /// Decrypts the encrypted field using a persistent pinUvAuthToken.
     ///
     /// - Parameter token: A persistent pinUvAuthToken obtained with
     ///   the `.persistentCredentialManagement` permission.
-    /// - Returns: The decrypted 16-byte device identifier.
-    /// - Throws: `CryptoError` if decryption fails.
-    public func decryptedData(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
-        try decryptRaw(info: "encIdentifier", using: token)
-    }
-
-    /// Decrypts the device identifier using a persistent pinUvAuthToken.
-    ///
-    /// - Parameter token: A persistent pinUvAuthToken obtained with
-    ///   the `.persistentCredentialManagement` permission.
-    /// - Returns: The decrypted 128-bit device identifier.
-    /// - Throws: `CryptoError` if decryption fails.
-    public func decrypted(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> UUID {
-        let data = try decryptedData(using: token)
-        guard data.count == 16 else { throw .missingData }
-        return data.withUnsafeBytes { UUID(uuid: $0.load(as: uuid_t.self)) }
-    }
-}
-
-extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.CredStoreState {
-    /// Decrypts the credential store state to raw bytes using a persistent pinUvAuthToken.
-    ///
-    /// - Parameter token: A persistent pinUvAuthToken obtained with
-    ///   the `.persistentCredentialManagement` permission.
-    /// - Returns: The decrypted 16-byte credential store state.
-    /// - Throws: `CryptoError` if decryption fails.
-    public func decryptedData(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
-        try decryptRaw(info: "encCredStoreState", using: token)
-    }
-
-    /// Decrypts the credential store state using a persistent pinUvAuthToken.
-    ///
-    /// - Parameter token: A persistent pinUvAuthToken obtained with
-    ///   the `.persistentCredentialManagement` permission.
-    /// - Returns: The decrypted 128-bit credential store state.
+    /// - Returns: The decrypted 128-bit value.
     /// - Throws: `CryptoError` if decryption fails.
     public func decrypted(
         using token: CTAP2.ClientPin.Token
-    ) throws(CryptoError) -> CTAP2.GetInfo.CredStoreState {
+    ) throws(CryptoError) -> CTAP2.GetInfo.Opaque128 {
         let data = try decryptedData(using: token)
-        guard data.count == 16 else { throw .missingData }
-        return data.withUnsafeBytes {
-            CTAP2.GetInfo.CredStoreState(
-                high: $0.load(fromByteOffset: 0, as: UInt64.self),
-                low: $0.load(fromByteOffset: 8, as: UInt64.self)
-            )
-        }
+        guard let value = CTAP2.GetInfo.Opaque128(data) else { throw .missingData }
+        return value
     }
 }
