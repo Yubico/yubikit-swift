@@ -50,7 +50,7 @@ struct LargeBlobsFullStackTests {
                 rpId: rpId
             )
 
-            let largeBlobKey = CTAP2.Extension.LargeBlobKey()
+            let largeBlobKey = try await CTAP2.Extension.LargeBlobKey(session: session)
 
             let makeCredParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
@@ -137,7 +137,7 @@ struct LargeBlobsFullStackTests {
                 rpId: rpId
             )
 
-            let largeBlobKey = CTAP2.Extension.LargeBlobKey()
+            let largeBlobKey = try await CTAP2.Extension.LargeBlobKey(session: session)
 
             let makeCredParams = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
@@ -235,7 +235,7 @@ struct LargeBlobsFullStackTests {
                 rpId: rpId
             )
 
-            let largeBlobKey = CTAP2.Extension.LargeBlobKey()
+            let largeBlobKey = try await CTAP2.Extension.LargeBlobKey(session: session)
 
             let params1 = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
