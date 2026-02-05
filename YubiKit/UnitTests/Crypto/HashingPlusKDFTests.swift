@@ -76,12 +76,11 @@ struct HashingPlusKDFTests {
     // MARK: - HKDF
 
     @Test func hkdfDerivation() {
-        // RFC 5869 Test Case 1 (truncated to 32 bytes)
+        // Test HKDF with string info (as used in CTAP encrypted fields)
         let ikm = Data(repeating: 0x0b, count: 22)
         let salt = Data(hexEncodedString: "000102030405060708090a0b0c")!
-        let info = Data(hexEncodedString: "f0f1f2f3f4f5f6f7f8f9")!
-        let derived = ikm.hkdfDeriveKey(salt: salt, info: info, outputByteCount: 32)
-        #expect(derived.hexEncodedString == "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf")
+        let derived = ikm.hkdfDeriveKey(salt: salt, info: "test", outputByteCount: 32)
+        #expect(derived.hexEncodedString == "0a02d6c8df00fdf93b6c48b13d90ac790cef10cdcc2887c978634f6961532332")
     }
 
     // MARK: - PBKDF2

@@ -131,16 +131,6 @@ extension Data {
         Crypto.KDF.hkdf(self, salt: salt, info: info, outputLength: outputByteCount)
     }
 
-    /// Derives a key using HKDF-SHA256.
-    /// - Parameters:
-    ///   - salt: The salt value.
-    ///   - info: The context/application-specific info data.
-    ///   - outputByteCount: The desired output key length in bytes.
-    /// - Returns: The derived key material.
-    internal func hkdfDeriveKey(salt: Data, info: Data, outputByteCount: Int) -> Data {
-        Crypto.KDF.hkdf(self, salt: salt, info: info, outputLength: outputByteCount)
-    }
-
     // MARK: - Random
 
     /// Generates cryptographically secure random bytes.

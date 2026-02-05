@@ -189,11 +189,8 @@ extension CTAP2.GetInfo {
         /// Whether the authenticator requires a 10-second touch for reset.
         public let longTouchForReset: Bool?
 
-        /// Encrypted device identifier (decryptable with a persistent PUAT).
-        ///
-        /// The value contains `iv || ct` where `ct` is the AES-128-CBC encryption
-        /// of a 128-bit device identifier.
-        public let encIdentifier: Data?
+        /// Encrypted device identifier, decryptable with a persistent pinUvAuthToken.
+        public let encIdentifier: Encrypted<Opaque128>?
 
         /// Transports that support the reset command.
         public let transportsForReset: [WebAuthn.Transport]
@@ -210,5 +207,79 @@ extension CTAP2.GetInfo {
         /// Maximum PIN length supported by the authenticator.
         public let maxPINLength: UInt?
 
+        /// Encrypted credential store state, decryptable with a persistent pinUvAuthToken.
+        ///
+        /// Platforms can use this to detect if the credential store has changed since last cached.
+        public let encCredStoreState: Encrypted<Opaque128>?
+
+        /// List of supported authenticatorConfig subcommands.
+        public let authenticatorConfigCommands: [CTAP2.Config.Subcommand]?
+
+    }
+
+    // MARK: - Encrypted Fields
+
+    /// An opaque 128-bit value used for encrypted GetInfo fields.
+    ///
+    /// Both `encIdentifier` and `encCredStoreState` decrypt to this type.
+    /// Values should be compared for equality, not interpreted.
+    public struct Opaque128: RawRepresentable, Sendable, Equatable, Hashable {
+        public let rawValue: Data
+
+        init?(_ data: Data) {
+            guard data.count == 16 else { return nil }
+            self.rawValue = data
+        }
+
+        public init?(rawValue: Data) {
+            self.init(rawValue)
+        }
+    }
+
+    /// An encrypted GetInfo field, decryptable with a persistent pinUvAuthToken.
+    ///
+    /// - SeeAlso: [CTAP 2.3 Section 6.4](https://fidoalliance.org/specs/fido-v2.3-rd-20251023/fido-client-to-authenticator-protocol-v2.3-rd-20251023.html#authenticatorGetInfo)
+    public struct Encrypted<Value: Sendable>: Sendable, Hashable, Equatable {
+        /// The raw encrypted data.
+        public let encryptedData: Data
+        /// The HKDF info string used for key derivation.
+        internal let hkdfInfo: String
+    }
+}
+
+// MARK: - Encrypted Field Decryption
+
+extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.Opaque128 {
+    /// Decrypts the encrypted field to raw bytes using a persistent pinUvAuthToken.
+    ///
+    /// - Parameter token: A persistent pinUvAuthToken obtained with
+    ///   the `.persistentCredentialManagement` permission.
+    /// - Returns: The decrypted 16-byte value.
+    /// - Throws: `CryptoError` if decryption fails.
+    public func decryptedData(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
+        let ivSize = Crypto.AES.blockSize
+        guard encryptedData.count > ivSize else {
+            throw .missingData
+        }
+
+        let iv = encryptedData.prefix(ivSize)
+        let ciphertext = encryptedData.dropFirst(ivSize)
+        let aesKey = token.deriveKey(info: hkdfInfo)
+
+        return try Crypto.AES.decrypt(Data(ciphertext), key: aesKey, mode: .cbc(iv: Data(iv)))
+    }
+
+    /// Decrypts the encrypted field using a persistent pinUvAuthToken.
+    ///
+    /// - Parameter token: A persistent pinUvAuthToken obtained with
+    ///   the `.persistentCredentialManagement` permission.
+    /// - Returns: The decrypted 128-bit value.
+    /// - Throws: `CryptoError` if decryption fails.
+    public func decrypted(
+        using token: CTAP2.ClientPin.Token
+    ) throws(CryptoError) -> CTAP2.GetInfo.Opaque128 {
+        let data = try decryptedData(using: token)
+        guard let value = CTAP2.GetInfo.Opaque128(data) else { throw .missingData }
+        return value
     }
 }
