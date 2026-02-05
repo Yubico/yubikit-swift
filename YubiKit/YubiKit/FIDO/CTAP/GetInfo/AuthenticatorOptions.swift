@@ -140,6 +140,14 @@ extension CTAP2.GetInfo {
         /// If `true`, `makeCredUVNotRequired` must be `false`.
         public var alwaysUV: Bool? { self["alwaysUv"] }
 
+        // MARK: - CTAP 2.2 Options
+
+        /// Read-only credential management support (CTAP 2.2).
+        ///
+        /// When `true`, the authenticator supports read-only credential management
+        /// operations using a persistent PIN/UV auth token with `persistentCredentialManagement` permission.
+        public var perCredMgmtRO: Bool? { self["perCredMgmtRO"] }
+
         // MARK: - Preview/Prototype Options
 
         /// Prototype biometric enrollment support (FIDO_2_1_PRE).
