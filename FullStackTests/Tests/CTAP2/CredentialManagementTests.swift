@@ -19,10 +19,8 @@ import YubiKit
 // MARK: - Test Constants
 
 private let testClientDataHash = Data(repeating: 0xCD, count: 32)
-
 private let testRpId = "test.example.com"
 private let testRp = WebAuthn.PublicKeyCredential.RPEntity(id: testRpId, name: "Test RP")
-
 private let testUserId = Data([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08])
 private let testUserName = "testuser@example.com"
 private let testUserDisplayName = "Test User"
@@ -32,453 +30,278 @@ private let testUser = WebAuthn.PublicKeyCredential.UserEntity(
     displayName: testUserDisplayName
 )
 
-// MARK: - Test Tags
-
-extension Tag {
-    @Tag static var credentialManagement: Tag
-}
-
 // MARK: - Tests
 
-@Suite("Credential Management Full Stack Tests", .tags(.credentialManagement), .serialized)
-struct CredentialManagementFullStackTests {
+@Suite("Credential Management", .serialized)
+struct CredentialManagementTests {
 
-    // MARK: - Read Metadata Tests
+    // MARK: - Empty State
 
-    @Test("Read credential metadata with no credentials")
-    func testReadMetadataEmpty() async throws {
-        try await withCTAP2Session { session in
-            guard try await requireCredentialManagementSupport(session) else { return }
-            guard try await requirePinSet(session) else { return }
-            try await deleteAllCredentials(session)
-
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            let credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
+    @Test("Operations return empty results when no credentials exist")
+    func testEmptyState() async throws {
+        try await withCredentialManagement(createCredential: false) { credMgmt, _ in
             let metadata = try await credMgmt.getMetadata()
-
             #expect(metadata.existingCredentialsCount == 0)
             #expect(metadata.maxRemainingCredentialsCount > 0)
-        }
-    }
-
-    @Test("Read credential metadata with one credential")
-    func testReadMetadataWithCredential() async throws {
-        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
-            var session = session
-            guard try await requireCredentialManagementSupport(session) else { return }
-            guard try await requirePinSet(session) else { return }
-            try await deleteAllCredentials(session)
-
-            // Create a test credential (requires UP)
-            session = try await reconnectWhenOverNFC()
-            try await createTestCredential(session)
-
-            // Get fresh token for credential management
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            let credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
-            let metadata = try await credMgmt.getMetadata()
-
-            #expect(metadata.existingCredentialsCount == 1)
-            #expect(metadata.maxRemainingCredentialsCount > 0)
-
-            // Cleanup
-            try await deleteAllCredentials(session)
-        }
-    }
-
-    // MARK: - Enumerate RPs Tests
-
-    @Test("Enumerate RPs returns empty when no credentials")
-    func testEnumerateRPsEmpty() async throws {
-        try await withCTAP2Session { session in
-            guard try await requireCredentialManagementSupport(session) else { return }
-            guard try await requirePinSet(session) else { return }
-            try await deleteAllCredentials(session)
-
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            let credMgmt = try await session.credentialManagement(pinToken: pinToken)
 
             let rps = try await credMgmt.enumerateRPs()
-
             #expect(rps.isEmpty)
-        }
-    }
 
-    @Test("Enumerate RPs returns RP after credential creation")
-    func testEnumerateRPs() async throws {
-        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
-            var session = session
-            guard try await requireCredentialManagementSupport(session) else { return }
-            guard try await requirePinSet(session) else { return }
-            try await deleteAllCredentials(session)
-
-            // Create test credential (requires UP)
-            session = try await reconnectWhenOverNFC()
-            try await createTestCredential(session)
-
-            // Get fresh token for credential management
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            let credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
-            let rps = try await credMgmt.enumerateRPs()
-
-            #expect(rps.count == 1)
-            #expect(rps[0].rp.id == testRpId)
-            #expect(rps[0].rpIdHash.count == 32)  // SHA-256 hash
-
-            // Cleanup
-            try await deleteAllCredentials(session)
-        }
-    }
-
-    // MARK: - AsyncSequence Tests
-
-    @Test("Enumerate RPs using AsyncSequence")
-    func testEnumerateRPsAsyncSequence() async throws {
-        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
-            var session = session
-            guard try await requireCredentialManagementSupport(session) else { return }
-            guard try await requirePinSet(session) else { return }
-            try await deleteAllCredentials(session)
-
-            // Create test credential (requires UP)
-            session = try await reconnectWhenOverNFC()
-            try await createTestCredential(session)
-
-            // Get fresh token for credential management
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            let credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
-            // Use AsyncSequence to iterate RPs
-            var rpCount = 0
-            for try await rp in credMgmt.rps {
-                #expect(rp.rp.id == testRpId)
-                #expect(rp.rpIdHash.count == 32)
-                rpCount += 1
-            }
-
-            #expect(rpCount == 1)
-
-            // Cleanup
-            try await deleteAllCredentials(session)
-        }
-    }
-
-    @Test("Enumerate credentials using AsyncSequence")
-    func testEnumerateCredentialsAsyncSequence() async throws {
-        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
-            var session = session
-            guard try await requireCredentialManagementSupport(session) else { return }
-            guard try await requirePinSet(session) else { return }
-            try await deleteAllCredentials(session)
-
-            // Create test credential (requires UP)
-            session = try await reconnectWhenOverNFC()
-            try await createTestCredential(session)
-
-            // Get fresh token for credential management
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            let credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
-            // Get the RP first
-            let rps = try await credMgmt.enumerateRPs()
-            #expect(rps.count == 1)
-
-            // Use AsyncSequence to iterate credentials
-            var credCount = 0
-            for try await cred in credMgmt.credentials(for: rps[0].rpIdHash) {
-                #expect(cred.user.id == testUserId)
-                #expect(cred.user.name == testUserName)
-                #expect(cred.user.displayName == testUserDisplayName)
-                credCount += 1
-            }
-
-            #expect(credCount == 1)
-
-            // Cleanup
-            try await deleteAllCredentials(session)
-        }
-    }
-
-    @Test("AsyncSequence returns empty for no credentials")
-    func testAsyncSequenceEmpty() async throws {
-        try await withCTAP2Session { session in
-            guard try await requireCredentialManagementSupport(session) else { return }
-            guard try await requirePinSet(session) else { return }
-            try await deleteAllCredentials(session)
-
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            let credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
-            // Verify empty iteration
             var rpCount = 0
             for try await _ in credMgmt.rps {
                 rpCount += 1
             }
-
             #expect(rpCount == 0)
         }
     }
 
-    // MARK: - Enumerate Credentials Tests
+    // MARK: - Metadata
 
-    @Test("Enumerate credentials for RP")
-    func testEnumerateCredentials() async throws {
-        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
-            var session = session
-            guard try await requireCredentialManagementSupport(session) else { return }
-            guard try await requirePinSet(session) else { return }
-            try await deleteAllCredentials(session)
+    @Test("Get credential metadata")
+    func testMetadata() async throws {
+        try await withCredentialManagement { credMgmt, _ in
+            let metadata = try await credMgmt.getMetadata()
+            #expect(metadata.existingCredentialsCount == 1)
+            #expect(metadata.maxRemainingCredentialsCount > 0)
+        }
+    }
 
-            // Create test credential (requires UP)
-            session = try await reconnectWhenOverNFC()
-            try await createTestCredential(session)
+    // MARK: - Enumerate
 
-            // Get fresh token for credential management
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            let credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
-            // First get the RP
+    @Test("Enumerate RPs and credentials")
+    func testEnumerate() async throws {
+        try await withCredentialManagement { credMgmt, _ in
             let rps = try await credMgmt.enumerateRPs()
             #expect(rps.count == 1)
+            #expect(rps[0].rp.id == testRpId)
+            #expect(rps[0].rpIdHash.count == 32)
 
-            // Enumerate credentials for the RP
             let credentials = try await credMgmt.enumerateCredentials(rpIdHash: rps[0].rpIdHash)
-
             #expect(credentials.count == 1)
             #expect(credentials[0].user.id == testUserId)
             #expect(credentials[0].user.name == testUserName)
             #expect(credentials[0].user.displayName == testUserDisplayName)
             #expect(credentials[0].credentialId.id.count > 0)
-
-            // Cleanup
-            try await deleteAllCredentials(session)
         }
     }
 
-    // MARK: - Delete Credential Tests
+    @Test("Enumerate using AsyncSequence")
+    func testEnumerateAsyncSequence() async throws {
+        try await withCredentialManagement { credMgmt, _ in
+            var rpCount = 0
+            var rpIdHash: Data?
+            for try await rp in credMgmt.rps {
+                #expect(rp.rp.id == testRpId)
+                #expect(rp.rpIdHash.count == 32)
+                rpIdHash = rp.rpIdHash
+                rpCount += 1
+            }
+            #expect(rpCount == 1)
 
-    @Test("Delete credential removes it from authenticator")
-    func testDeleteCredential() async throws {
-        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
-            var session = session
-            guard try await requireCredentialManagementSupport(session) else { return }
-            guard try await requirePinSet(session) else { return }
-            try await deleteAllCredentials(session)
+            var credCount = 0
+            for try await cred in credMgmt.credentials(for: rpIdHash!) {
+                #expect(cred.user.id == testUserId)
+                #expect(cred.user.name == testUserName)
+                #expect(cred.user.displayName == testUserDisplayName)
+                credCount += 1
+            }
+            #expect(credCount == 1)
+        }
+    }
 
-            // Create test credential (requires UP)
-            session = try await reconnectWhenOverNFC()
-            try await createTestCredential(session)
+    // MARK: - Delete
 
-            // Get fresh token for credential management
-            var pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            var credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
+    @Test("Delete credential")
+    func testDelete() async throws {
+        try await withCredentialManagement { credMgmt, session in
             // Verify credential exists
             var metadata = try await credMgmt.getMetadata()
             #expect(metadata.existingCredentialsCount == 1)
 
-            // Get the credential to delete
+            // Get and delete the credential
             let rps = try await credMgmt.enumerateRPs()
             let credentials = try await credMgmt.enumerateCredentials(rpIdHash: rps[0].rpIdHash)
-            let credentialToDelete = credentials[0]
+            try await credMgmt.deleteCredential(credentials[0].credentialId)
 
-            // Delete the credential
-            try await credMgmt.deleteCredential(credentialToDelete.credentialId)
-
-            // Get new token and verify credential is gone
-            pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
-            metadata = try await credMgmt.getMetadata()
+            // Verify deletion (need fresh token)
+            let newCredMgmt = try await getCredentialManagement(session)
+            metadata = try await newCredMgmt.getMetadata()
             #expect(metadata.existingCredentialsCount == 0)
         }
     }
 
-    // MARK: - Update User Information Tests
+    // MARK: - Update User Information
 
-    @Test("Update user information changes display name")
-    func testUpdateUserInformation() async throws {
-        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
-            var session = session
-            guard try await requireCredentialManagementSupport(session) else { return }
-
-            // Check if update is supported
+    @Test("Update user information")
+    func testUpdateUserInfo() async throws {
+        try await withCredentialManagement { credMgmt, session in
             guard try await CTAP2.CredentialManagement.isUpdateSupported(by: session) else {
                 print("Update user information not supported - skipping")
                 return
             }
 
-            guard try await requirePinSet(session) else { return }
-            try await deleteAllCredentials(session)
-
-            // Create test credential (requires UP)
-            session = try await reconnectWhenOverNFC()
-            try await createTestCredential(session)
-
-            // Get fresh token for credential management
-            var pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            var credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
             // Get the credential
             let rps = try await credMgmt.enumerateRPs()
             let credentials = try await credMgmt.enumerateCredentials(rpIdHash: rps[0].rpIdHash)
-            let credentialToUpdate = credentials[0]
+            let credentialId = credentials[0].credentialId
 
-            // Create updated user info
+            // Update user info
             let updatedUser = WebAuthn.PublicKeyCredential.UserEntity(
                 id: testUserId,
                 name: "UPDATED NAME",
                 displayName: "UPDATED DISPLAY NAME"
             )
+            try await credMgmt.updateUserInformation(credentialId: credentialId, user: updatedUser)
 
-            // Update user information
-            try await credMgmt.updateUserInformation(
-                credentialId: credentialToUpdate.credentialId,
-                user: updatedUser
-            )
+            // Verify update (need fresh token)
+            let newCredMgmt = try await getCredentialManagement(session)
+            let rpsAfter = try await newCredMgmt.enumerateRPs()
+            let updated = try await newCredMgmt.enumerateCredentials(rpIdHash: rpsAfter[0].rpIdHash)
 
-            // Get new token and verify update
-            pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
-            let rpsAfter = try await credMgmt.enumerateRPs()
-            let updatedCredentials = try await credMgmt.enumerateCredentials(rpIdHash: rpsAfter[0].rpIdHash)
-
-            #expect(updatedCredentials[0].user.id == testUserId)
-            #expect(updatedCredentials[0].user.name == "UPDATED NAME")
-            #expect(updatedCredentials[0].user.displayName == "UPDATED DISPLAY NAME")
-
-            // Cleanup
-            try await deleteAllCredentials(session)
+            #expect(updated[0].user.id == testUserId)
+            #expect(updated[0].user.name == "UPDATED NAME")
+            #expect(updated[0].user.displayName == "UPDATED DISPLAY NAME")
         }
     }
 
-    // MARK: - Full Management Flow Test
+    // MARK: - Persistent Token (PPUAT)
 
-    @Test("Full credential management workflow")
-    func testFullManagementWorkflow() async throws {
-        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
-            var session = session
-            guard try await requireCredentialManagementSupport(session) else { return }
-            guard try await requirePinSet(session) else { return }
-            try await deleteAllCredentials(session)
-
-            // 1. Verify no credentials exist
-            var pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            var credMgmt = try await session.credentialManagement(pinToken: pinToken)
-            var rps = try await credMgmt.enumerateRPs()
-            #expect(rps.isEmpty)
-
-            // 2. Create first credential (requires UP)
-            session = try await reconnectWhenOverNFC()
-            try await createTestCredential(session)
-
-            // 3. Verify credential was created
-            pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
-            rps = try await credMgmt.enumerateRPs()
-            #expect(rps.count == 1)
-            #expect(rps[0].rp.id == testRpId)
-
-            let credentials = try await credMgmt.enumerateCredentials(rpIdHash: rps[0].rpIdHash)
-            #expect(credentials.count == 1)
-
-            let metadata = try await credMgmt.getMetadata()
-            #expect(metadata.existingCredentialsCount == 1)
-
-            // 4. Delete the credential
-            try await credMgmt.deleteCredential(credentials[0].credentialId)
-
-            // 5. Verify credential was deleted
-            pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
-                permissions: [.credentialManagement]
-            )
-            credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
-            rps = try await credMgmt.enumerateRPs()
-            #expect(rps.isEmpty)
-
-            let finalMetadata = try await credMgmt.getMetadata()
-            #expect(finalMetadata.existingCredentialsCount == 0)
+    @Test("Read-only management with persistent token")
+    func testReadOnlyWithPPUAT() async throws {
+        // Check prerequisites first
+        let supported = try await withCTAP2Session { session -> Bool in
+            guard try await isSupported(session) else { return false }
+            guard try await CTAP2.CredentialManagement.isReadOnlySupported(by: session) else {
+                print("Persistent PUAT not supported - skipping")
+                return false
+            }
+            return true
         }
+        guard supported else { return }
+
+        typealias Opaque128 = CTAP2.GetInfo.Opaque128
+
+        // First session: setup and get PPUAT
+        let testData:
+            (
+                ppuat: CTAP2.ClientPin.Token,
+                credentialId: WebAuthn.PublicKeyCredential.Descriptor,
+                rpIdHash: Data,
+                identifier: Opaque128?,
+                credStoreState: Opaque128?
+            ) = try await withReconnectableCTAP2Session { session, reconnect in
+                var session = session
+                try await deleteAllCredentials(session)
+
+                // Create test credential
+                session = try await reconnect()
+                try await createTestCredential(session)
+
+                // Get credential info
+                let credMgmt = try await getCredentialManagement(session)
+                let rps = try await credMgmt.enumerateRPs()
+                let credentials = try await credMgmt.enumerateCredentials(rpIdHash: rps[0].rpIdHash)
+
+                // Get PPUAT
+                let ppuat = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.persistentCredentialManagement]
+                )
+
+                // Get encrypted fields
+                let info = try await session.getInfo()
+                let identifier = try info.encIdentifier.map { try $0.decrypted(using: ppuat) }
+                let credStoreState = try info.encCredStoreState.map { try $0.decrypted(using: ppuat) }
+
+                // Verify before reconnect
+                try await verifyReadOnlyOperations(session: session, ppuat: ppuat, rpIdHash: rps[0].rpIdHash)
+
+                return (ppuat, credentials[0].credentialId, rps[0].rpIdHash, identifier, credStoreState)
+            }
+
+        // Second session: verify PPUAT works after reconnect
+        try await withCTAP2Session { session in
+            try await verifyReadOnlyOperations(
+                session: session,
+                ppuat: testData.ppuat,
+                rpIdHash: testData.rpIdHash
+            )
+
+            // Verify encrypted fields are consistent
+            let info = try await session.getInfo()
+            if let expected = testData.identifier {
+                let identifier = try info.encIdentifier!.decrypted(using: testData.ppuat)
+                #expect(identifier == expected)
+            }
+            if let expected = testData.credStoreState {
+                let credStoreState = try info.encCredStoreState!.decrypted(using: testData.ppuat)
+                #expect(credStoreState == expected)
+            }
+        }
+
+        // Third session: cleanup and verify credStoreState changes
+        try await withCTAP2Session { session in
+            let credMgmt = try await getCredentialManagement(session)
+            try await credMgmt.deleteCredential(testData.credentialId)
+
+            if let original = testData.credStoreState {
+                let info = try await session.getInfo()
+                let newState = try info.encCredStoreState!.decrypted(using: testData.ppuat)
+                #expect(newState != original)
+            }
+        }
+    }
+}
+
+// MARK: - Test Fixture
+
+private func withCredentialManagement(
+    createCredential: Bool = true,
+    _ body: (CTAP2.CredentialManagement, CTAP2.Session) async throws -> Void
+) async throws {
+    try await withReconnectableCTAP2Session { session, reconnect in
+        var session = session
+        guard try await isSupported(session) else { return }
+        try await deleteAllCredentials(session)
+
+        if createCredential {
+            session = try await reconnect()
+            try await createTestCredential(session)
+        }
+
+        let credMgmt = try await getCredentialManagement(session)
+        try await body(credMgmt, session)
+
+        try await deleteAllCredentials(session)
     }
 }
 
 // MARK: - Helpers
 
-private func requireCredentialManagementSupport(_ session: CTAP2.Session) async throws -> Bool {
+private func isSupported(_ session: CTAP2.Session) async throws -> Bool {
     guard try await CTAP2.CredentialManagement.isSupported(by: session) else {
         print("Credential management not supported - skipping")
         return false
     }
+    let info = try await session.getInfo()
+    try #require(info.options.clientPin == true, "PIN not set")
     return true
 }
 
-private func requirePinSet(_ session: CTAP2.Session) async throws -> Bool {
-    let info = try await session.getInfo()
-    guard info.options.clientPin == true else {
-        print("PIN not set - skipping (run testClientPinSetup first)")
-        return false
-    }
-    return true
+private func getCredentialManagement(_ session: CTAP2.Session) async throws -> CTAP2.CredentialManagement {
+    let token = try await session.getPinUVToken(
+        using: .pin(defaultTestPin),
+        permissions: [.credentialManagement]
+    )
+    return try await session.credentialManagement(pinToken: token)
 }
 
 private func createTestCredential(_ session: CTAP2.Session) async throws {
-    // Get PIN token for makeCredential
     let pinToken = try await session.getPinUVToken(
         using: .pin(defaultTestPin),
         permissions: [.makeCredential],
         rpId: testRpId
     )
-
-    // Create a discoverable (resident) credential
     let params = CTAP2.MakeCredential.Parameters(
         clientDataHash: testClientDataHash,
         rp: testRp,
@@ -486,23 +309,61 @@ private func createTestCredential(_ session: CTAP2.Session) async throws {
         pubKeyCredParams: [.es256],
         options: .init(rk: true)
     )
-
     print("👆 Touch YubiKey: creating test credential...")
     _ = try await session.makeCredential(parameters: params, pinToken: pinToken).value
-    print("✅ Test credential created")
 }
 
 private func deleteAllCredentials(_ session: CTAP2.Session) async throws {
-    let pinToken = try await session.getPinUVToken(
-        using: .pin(defaultTestPin),
-        permissions: .credentialManagement
-    )
-    let credMgmt = try await session.credentialManagement(pinToken: pinToken)
-
-    // Use AsyncSequence to enumerate and delete all credentials
+    let credMgmt = try await getCredentialManagement(session)
     for try await rp in credMgmt.rps {
         for try await credential in credMgmt.credentials(for: rp.rpIdHash) {
             try await credMgmt.deleteCredential(credential.credentialId)
+        }
+    }
+}
+
+private func verifyReadOnlyOperations(
+    session: CTAP2.Session,
+    ppuat: CTAP2.ClientPin.Token,
+    rpIdHash: Data
+) async throws {
+    let credMgmt = try await session.credentialManagement(pinToken: ppuat)
+
+    // Read operations should work
+    let metadata = try await credMgmt.getMetadata()
+    #expect(metadata.existingCredentialsCount == 1)
+
+    let rps = try await credMgmt.enumerateRPs()
+    #expect(rps.count == 1)
+
+    let credentials = try await credMgmt.enumerateCredentials(rpIdHash: rpIdHash)
+    #expect(credentials.count == 1)
+
+    let credentialId = credentials[0].credentialId
+
+    // Write operations should fail with pinAuthInvalid
+    do {
+        let user = WebAuthn.PublicKeyCredential.UserEntity(
+            id: Data([0x01, 0x02, 0x03]),
+            name: "X",
+            displayName: "X"
+        )
+        try await credMgmt.updateUserInformation(credentialId: credentialId, user: user)
+        Issue.record("updateUserInformation should fail with PPUAT")
+    } catch let error as CTAP2.SessionError {
+        guard case .ctapError(.pinAuthInvalid, _) = error else {
+            Issue.record("Expected pinAuthInvalid, got \(error)")
+            throw error
+        }
+    }
+
+    do {
+        try await credMgmt.deleteCredential(credentialId)
+        Issue.record("deleteCredential should fail with PPUAT")
+    } catch let error as CTAP2.SessionError {
+        guard case .ctapError(.pinAuthInvalid, _) = error else {
+            Issue.record("Expected pinAuthInvalid, got \(error)")
+            throw error
         }
     }
 }
