@@ -103,3 +103,18 @@ extension WebAuthn.PublicKeyCredential.UserEntity: CBOR.Decodable {
         self.init(id: id, name: name, displayName: displayName)
     }
 }
+
+// MARK: - WebAuthn.PublicKeyCredential.RPEntity + CBOR Decoding
+
+extension WebAuthn.PublicKeyCredential.RPEntity: CBOR.Decodable {
+    init?(cbor: CBOR.Value) {
+        guard let map = cbor.mapValue,
+            let id = map["id"]?.stringValue
+        else {
+            return nil
+        }
+
+        let name = map["name"]?.stringValue
+        self.init(id: id, name: name)
+    }
+}
