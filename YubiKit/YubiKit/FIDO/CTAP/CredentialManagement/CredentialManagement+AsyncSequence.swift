@@ -28,7 +28,7 @@ extension CTAP2.CredentialManagement {
     /// }
     /// ```
     ///
-    /// A lazy alternative to ``enumerateRPs()``.
+    /// To collect all RPs into an array, use ``RPSequence/enumerate()``.
     public var rps: RPSequence {
         RPSequence(credentialManagement: self)
     }
@@ -59,6 +59,15 @@ extension CTAP2.CredentialManagement {
 
         fileprivate let credentialManagement: CTAP2.CredentialManagement
 
+        /// Collects all relying parties into an array.
+        public func enumerate() async throws(CTAP2.SessionError) -> [RPData] {
+            var results = [RPData]()
+            for try await rp in self {
+                results.append(rp)
+            }
+            return results
+        }
+
         public func makeAsyncIterator() -> Iterator {
             Iterator(credentialManagement: credentialManagement)
         }
@@ -76,7 +85,7 @@ extension CTAP2.CredentialManagement {
                 self.credentialManagement = credentialManagement
             }
 
-            public func next() async throws -> RPData? {
+            public func next() async throws(CTAP2.SessionError) -> RPData? {
                 guard !finished else { return nil }
 
                 if fetched == 0 {
@@ -109,7 +118,7 @@ extension CTAP2.CredentialManagement {
                 return response.rpData
             }
 
-            private func beginEnumeration() async throws -> EnumerateRPsResponse? {
+            private func beginEnumeration() async throws(CTAP2.SessionError) -> EnumerateRPsResponse? {
                 do {
                     return try await credentialManagement.execute(subcommand: .enumerateRPsBegin)
                 } catch .ctapError(.noCredentials, _) {
@@ -131,6 +140,15 @@ extension CTAP2.CredentialManagement {
         fileprivate let credentialManagement: CTAP2.CredentialManagement
         fileprivate let rpIdHash: Data
 
+        /// Collects all credentials into an array.
+        public func enumerate() async throws(CTAP2.SessionError) -> [CredentialData] {
+            var results = [CredentialData]()
+            for try await cred in self {
+                results.append(cred)
+            }
+            return results
+        }
+
         public func makeAsyncIterator() -> Iterator {
             Iterator(credentialManagement: credentialManagement, rpIdHash: rpIdHash)
         }
@@ -150,7 +168,7 @@ extension CTAP2.CredentialManagement {
                 self.rpIdHash = rpIdHash
             }
 
-            public func next() async throws -> CredentialData? {
+            public func next() async throws(CTAP2.SessionError) -> CredentialData? {
                 guard !finished else { return nil }
 
                 if fetched == 0 {
@@ -183,7 +201,7 @@ extension CTAP2.CredentialManagement {
                 return response.credentialData
             }
 
-            private func beginEnumeration() async throws -> EnumerateCredentialsResponse? {
+            private func beginEnumeration() async throws(CTAP2.SessionError) -> EnumerateCredentialsResponse? {
                 let params: [UInt8: CBOR.Value] = [
                     Parameter.rpIdHash.rawValue: rpIdHash.cbor()
                 ]

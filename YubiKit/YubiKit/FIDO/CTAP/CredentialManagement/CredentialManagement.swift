@@ -26,7 +26,7 @@ extension CTAP2.Session {
     /// )
     /// let credMgmt = try await session.credentialManagement(pinToken: pinToken)
     /// let metadata = try await credMgmt.getMetadata()
-    /// let rps = try await credMgmt.enumerateRPs()
+    /// let rps = try await credMgmt.rps.enumerate()
     /// ```
     ///
     /// - Parameter pinToken: PIN/UV auth token with `credentialManagement` permission.
@@ -108,68 +108,6 @@ extension CTAP2 {
         /// - SeeAlso: [Getting Credentials Metadata](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#getCredsMetadata)
         public func getMetadata() async throws(CTAP2.SessionError) -> Metadata {
             try await execute(subcommand: .getCredsMetadata)
-        }
-
-        /// Enumerates all relying parties with stored credentials.
-        ///
-        /// Returns a list of all RPs that have discoverable credentials stored
-        /// on the authenticator.
-        ///
-        /// - Returns: Array of RP data, or empty array if no credentials exist.
-        /// - SeeAlso: [Enumerating RPs](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#enumeratingRPs)
-        public func enumerateRPs() async throws(CTAP2.SessionError) -> [RPData] {
-            let response: EnumerateRPsResponse
-            do {
-                response = try await execute(subcommand: .enumerateRPsBegin)
-            } catch .ctapError(.noCredentials, _) {
-                return []
-            }
-
-            guard let totalRPs = response.totalRPs, totalRPs > 0 else {
-                return []
-            }
-
-            var results = [response.rpData].compactMap { $0 }
-            for _ in 1..<totalRPs {
-                let next: EnumerateRPsResponse = try await executeNoAuth(subcommand: .enumerateRPsGetNextRP)
-                if let rpData = next.rpData {
-                    results.append(rpData)
-                }
-            }
-            return results
-        }
-
-        /// Enumerates all credentials for a specific relying party.
-        ///
-        /// - Parameter rpIdHash: SHA-256 hash of the RP ID.
-        /// - Returns: Array of credential data, or empty array if no credentials exist.
-        /// - SeeAlso: [Enumerating Credentials](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#enumeratingCredentials)
-        public func enumerateCredentials(rpIdHash: Data) async throws(CTAP2.SessionError) -> [CredentialData] {
-            let params: [UInt8: CBOR.Value] = [
-                Parameter.rpIdHash.rawValue: rpIdHash.cbor()
-            ]
-
-            let response: EnumerateCredentialsResponse
-            do {
-                response = try await execute(subcommand: .enumerateCredentialsBegin, params: params)
-            } catch .ctapError(.noCredentials, _) {
-                return []
-            }
-
-            guard let totalCredentials = response.totalCredentials, totalCredentials > 0 else {
-                return []
-            }
-
-            var results = [response.credentialData].compactMap { $0 }
-            for _ in 1..<totalCredentials {
-                let next: EnumerateCredentialsResponse = try await executeNoAuth(
-                    subcommand: .enumerateCredentialsGetNextCredential
-                )
-                if let credData = next.credentialData {
-                    results.append(credData)
-                }
-            }
-            return results
         }
 
         /// Deletes a credential from the authenticator.

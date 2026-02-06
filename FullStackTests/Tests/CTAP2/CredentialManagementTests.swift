@@ -44,14 +44,8 @@ struct CredentialManagementTests {
             #expect(metadata.existingCredentialsCount == 0)
             #expect(metadata.maxRemainingCredentialsCount > 0)
 
-            let rps = try await credMgmt.enumerateRPs()
+            let rps = try await credMgmt.rps.enumerate()
             #expect(rps.isEmpty)
-
-            var rpCount = 0
-            for try await _ in credMgmt.rps {
-                rpCount += 1
-            }
-            #expect(rpCount == 0)
         }
     }
 
@@ -71,23 +65,6 @@ struct CredentialManagementTests {
     @Test("Enumerate RPs and credentials")
     func testEnumerate() async throws {
         try await withCredentialManagement(createCredential: true) { credMgmt, _ in
-            let rps = try await credMgmt.enumerateRPs()
-            #expect(rps.count == 1)
-            #expect(rps[0].rp.id == testRpId)
-            #expect(rps[0].rpIdHash.count == 32)
-
-            let credentials = try await credMgmt.enumerateCredentials(rpIdHash: rps[0].rpIdHash)
-            #expect(credentials.count == 1)
-            #expect(credentials[0].user.id == testUserId)
-            #expect(credentials[0].user.name == testUserName)
-            #expect(credentials[0].user.displayName == testUserDisplayName)
-            #expect(credentials[0].credentialId.id.count > 0)
-        }
-    }
-
-    @Test("Enumerate using AsyncSequence")
-    func testEnumerateAsyncSequence() async throws {
-        try await withCredentialManagement(createCredential: true) { credMgmt, _ in
             var rpCount = 0
             var rpIdHash: Data?
             for try await rp in credMgmt.rps {
@@ -103,6 +80,7 @@ struct CredentialManagementTests {
                 #expect(cred.user.id == testUserId)
                 #expect(cred.user.name == testUserName)
                 #expect(cred.user.displayName == testUserDisplayName)
+                #expect(cred.credentialId.id.count > 0)
                 credCount += 1
             }
             #expect(credCount == 1)
@@ -119,8 +97,8 @@ struct CredentialManagementTests {
             #expect(metadata.existingCredentialsCount == 1)
 
             // Get and delete the credential
-            let rps = try await credMgmt.enumerateRPs()
-            let credentials = try await credMgmt.enumerateCredentials(rpIdHash: rps[0].rpIdHash)
+            let rps = try await credMgmt.rps.enumerate()
+            let credentials = try await credMgmt.credentials(for: rps[0].rpIdHash).enumerate()
             try await credMgmt.deleteCredential(credentials[0].credentialId)
 
             // Verify deletion
@@ -140,8 +118,8 @@ struct CredentialManagementTests {
             }
 
             // Get the credential
-            let rps = try await credMgmt.enumerateRPs()
-            let credentials = try await credMgmt.enumerateCredentials(rpIdHash: rps[0].rpIdHash)
+            let rps = try await credMgmt.rps.enumerate()
+            let credentials = try await credMgmt.credentials(for: rps[0].rpIdHash).enumerate()
             let credentialId = credentials[0].credentialId
 
             // Update user info
@@ -153,8 +131,8 @@ struct CredentialManagementTests {
             try await credMgmt.updateUserInformation(credentialId: credentialId, user: updatedUser)
 
             // Verify update
-            let rpsAfter = try await credMgmt.enumerateRPs()
-            let updated = try await credMgmt.enumerateCredentials(rpIdHash: rpsAfter[0].rpIdHash)
+            let rpsAfter = try await credMgmt.rps.enumerate()
+            let updated = try await credMgmt.credentials(for: rpsAfter[0].rpIdHash).enumerate()
 
             #expect(updated[0].user.id == testUserId)
             #expect(updated[0].user.name == "UPDATED NAME")
@@ -197,8 +175,8 @@ struct CredentialManagementTests {
 
                 // Get credential info
                 let credMgmt = try await getCredentialManagement(session)
-                let rps = try await credMgmt.enumerateRPs()
-                let credentials = try await credMgmt.enumerateCredentials(rpIdHash: rps[0].rpIdHash)
+                let rps = try await credMgmt.rps.enumerate()
+                let credentials = try await credMgmt.credentials(for: rps[0].rpIdHash).enumerate()
 
                 // Get PPUAT
                 let ppuat = try await session.getPinUVToken(
@@ -331,10 +309,10 @@ private func verifyReadOnlyOperations(
     let metadata = try await credMgmt.getMetadata()
     #expect(metadata.existingCredentialsCount == 1)
 
-    let rps = try await credMgmt.enumerateRPs()
+    let rps = try await credMgmt.rps.enumerate()
     #expect(rps.count == 1)
 
-    let credentials = try await credMgmt.enumerateCredentials(rpIdHash: rpIdHash)
+    let credentials = try await credMgmt.credentials(for: rpIdHash).enumerate()
     #expect(credentials.count == 1)
 
     let credentialId = credentials[0].credentialId
