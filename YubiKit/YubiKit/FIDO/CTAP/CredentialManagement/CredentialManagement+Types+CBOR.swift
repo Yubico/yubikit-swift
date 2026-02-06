@@ -66,15 +66,8 @@ extension CTAP2.CredentialManagement.EnumerateRPsResponse: CBOR.Decodable {
 
         typealias Key = CTAP2.CredentialManagement.ResponseKey
 
-        // totalRPs (0x05) - only in first response
-        let totalRPs: UInt?
-        if let count = map[.int(Key.totalRPs.rawValue)]?.uint64Value {
-            totalRPs = UInt(count)
-        } else {
-            totalRPs = nil
-        }
+        let totalRPs = map[.int(Key.totalRPs.rawValue)]?.uint64Value.map { UInt($0) }
 
-        // rp (0x03) and rpIdHash (0x04)
         let rpData: CTAP2.CredentialManagement.RPData?
         if let rpCbor = map[.int(Key.rp.rawValue)],
             let rp: WebAuthn.PublicKeyCredential.RPEntity = rpCbor.cborDecoded(),
@@ -99,15 +92,8 @@ extension CTAP2.CredentialManagement.EnumerateCredentialsResponse: CBOR.Decodabl
 
         typealias Key = CTAP2.CredentialManagement.ResponseKey
 
-        // totalCredentials (0x09) - only in first response
-        let totalCredentials: UInt?
-        if let count = map[.int(Key.totalCredentials.rawValue)]?.uint64Value {
-            totalCredentials = UInt(count)
-        } else {
-            totalCredentials = nil
-        }
+        let totalCredentials = map[.int(Key.totalCredentials.rawValue)]?.uint64Value.map { UInt($0) }
 
-        // Parse credential data
         let credentialData: CTAP2.CredentialManagement.CredentialData?
         if let userCbor = map[.int(Key.user.rawValue)],
             let user: WebAuthn.PublicKeyCredential.UserEntity = userCbor.cborDecoded(),
@@ -116,18 +102,9 @@ extension CTAP2.CredentialManagement.EnumerateCredentialsResponse: CBOR.Decodabl
             let publicKeyCbor = map[.int(Key.publicKey.rawValue)],
             let publicKey: COSE.Key = publicKeyCbor.cborDecoded()
         {
-            // Optional: credProtect (0x0A)
-            let credProtect: CTAP2.Extension.CredProtect.Level?
-            if let protectValue = map[.int(Key.credProtect.rawValue)]?.uint64Value {
-                credProtect = CTAP2.Extension.CredProtect.Level(rawValue: Int(protectValue))
-            } else {
-                credProtect = nil
-            }
-
-            // Optional: largeBlobKey (0x0B)
+            let credProtect = map[.int(Key.credProtect.rawValue)]?.uint64Value
+                .flatMap { CTAP2.Extension.CredProtect.Level(rawValue: Int($0)) }
             let largeBlobKey = map[.int(Key.largeBlobKey.rawValue)]?.dataValue
-
-            // Optional: thirdPartyPayment (0x0C)
             let thirdPartyPayment = map[.int(Key.thirdPartyPayment.rawValue)]?.boolValue
 
             credentialData = CTAP2.CredentialManagement.CredentialData(

@@ -28,8 +28,7 @@ extension CTAP2.CredentialManagement {
     /// }
     /// ```
     ///
-    /// This is more memory-efficient than `enumerateRPs()` when you may not
-    /// need all results, and supports early termination.
+    /// A lazy alternative to ``enumerateRPs()``.
     public var rps: RPSequence {
         RPSequence(credentialManagement: self)
     }
@@ -58,7 +57,7 @@ extension CTAP2.CredentialManagement {
     public struct RPSequence: AsyncSequence, Sendable {
         public typealias Element = RPData
 
-        let credentialManagement: CTAP2.CredentialManagement
+        fileprivate let credentialManagement: CTAP2.CredentialManagement
 
         public func makeAsyncIterator() -> Iterator {
             Iterator(credentialManagement: credentialManagement)
@@ -68,12 +67,12 @@ extension CTAP2.CredentialManagement {
         public actor Iterator: AsyncIteratorProtocol {
             public typealias Element = RPData
 
-            let credentialManagement: CTAP2.CredentialManagement
-            var totalRPs: UInt = 0
-            var fetched: UInt = 0
-            var finished = false
+            private let credentialManagement: CTAP2.CredentialManagement
+            private var totalRPs: UInt = 0
+            private var fetched: UInt = 0
+            private var finished = false
 
-            init(credentialManagement: CTAP2.CredentialManagement) {
+            fileprivate init(credentialManagement: CTAP2.CredentialManagement) {
                 self.credentialManagement = credentialManagement
             }
 
@@ -129,8 +128,8 @@ extension CTAP2.CredentialManagement {
     public struct CredentialSequence: AsyncSequence, Sendable {
         public typealias Element = CredentialData
 
-        let credentialManagement: CTAP2.CredentialManagement
-        let rpIdHash: Data
+        fileprivate let credentialManagement: CTAP2.CredentialManagement
+        fileprivate let rpIdHash: Data
 
         public func makeAsyncIterator() -> Iterator {
             Iterator(credentialManagement: credentialManagement, rpIdHash: rpIdHash)
@@ -140,13 +139,13 @@ extension CTAP2.CredentialManagement {
         public actor Iterator: AsyncIteratorProtocol {
             public typealias Element = CredentialData
 
-            let credentialManagement: CTAP2.CredentialManagement
-            let rpIdHash: Data
-            var totalCredentials: UInt = 0
-            var fetched: UInt = 0
-            var finished = false
+            private let credentialManagement: CTAP2.CredentialManagement
+            private let rpIdHash: Data
+            private var totalCredentials: UInt = 0
+            private var fetched: UInt = 0
+            private var finished = false
 
-            init(credentialManagement: CTAP2.CredentialManagement, rpIdHash: Data) {
+            fileprivate init(credentialManagement: CTAP2.CredentialManagement, rpIdHash: Data) {
                 self.credentialManagement = credentialManagement
                 self.rpIdHash = rpIdHash
             }
