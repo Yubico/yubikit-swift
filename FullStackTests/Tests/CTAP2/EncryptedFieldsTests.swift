@@ -184,8 +184,8 @@ struct EncryptedFieldsTests {
                 permissions: [.credentialManagement]
             )
             let credMgmt2 = try await session.credentialManagement(pinToken: deleteToken)
-            let rps = try await credMgmt2.enumerateRPs()
-            let creds = try await credMgmt2.enumerateCredentials(rpIdHash: rps[0].rpIdHash)
+            let rps = try await credMgmt2.rps.enumerate()
+            let creds = try await credMgmt2.credentials(for: rps[0].rpIdHash).enumerate()
             try await credMgmt2.deleteCredential(creds[0].credentialId)
 
             // Verify state changed after credential deletion
