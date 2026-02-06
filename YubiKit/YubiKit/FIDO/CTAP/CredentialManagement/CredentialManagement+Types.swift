@@ -95,13 +95,13 @@ extension CTAP2.CredentialManagement {
 extension CTAP2.CredentialManagement {
     /// Internal response from enumerateRPsBegin/enumerateRPsGetNextRP
     struct EnumerateRPsResponse: Sendable {
-        let rpData: RPData?
+        let rpData: RPData
         let totalRPs: UInt?
     }
 
     /// Internal response from enumerateCredentialsBegin/enumerateCredentialsGetNextCredential
     struct EnumerateCredentialsResponse: Sendable {
-        let credentialData: CredentialData?
+        let credentialData: CredentialData
         let totalCredentials: UInt?
     }
 }
