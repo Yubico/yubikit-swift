@@ -59,7 +59,7 @@ struct CredentialManagementTests {
 
     @Test("Get credential metadata")
     func testMetadata() async throws {
-        try await withCredentialManagement { credMgmt, _ in
+        try await withCredentialManagement(createCredential: true) { credMgmt, _ in
             let metadata = try await credMgmt.getMetadata()
             #expect(metadata.existingCredentialsCount == 1)
             #expect(metadata.maxRemainingCredentialsCount > 0)
@@ -70,7 +70,7 @@ struct CredentialManagementTests {
 
     @Test("Enumerate RPs and credentials")
     func testEnumerate() async throws {
-        try await withCredentialManagement { credMgmt, _ in
+        try await withCredentialManagement(createCredential: true) { credMgmt, _ in
             let rps = try await credMgmt.enumerateRPs()
             #expect(rps.count == 1)
             #expect(rps[0].rp.id == testRpId)
@@ -87,7 +87,7 @@ struct CredentialManagementTests {
 
     @Test("Enumerate using AsyncSequence")
     func testEnumerateAsyncSequence() async throws {
-        try await withCredentialManagement { credMgmt, _ in
+        try await withCredentialManagement(createCredential: true) { credMgmt, _ in
             var rpCount = 0
             var rpIdHash: Data?
             for try await rp in credMgmt.rps {
@@ -113,7 +113,7 @@ struct CredentialManagementTests {
 
     @Test("Delete credential")
     func testDelete() async throws {
-        try await withCredentialManagement { credMgmt, session in
+        try await withCredentialManagement(createCredential: true) { credMgmt, session in
             // Verify credential exists
             var metadata = try await credMgmt.getMetadata()
             #expect(metadata.existingCredentialsCount == 1)
@@ -134,7 +134,7 @@ struct CredentialManagementTests {
 
     @Test("Update user information")
     func testUpdateUserInfo() async throws {
-        try await withCredentialManagement { credMgmt, session in
+        try await withCredentialManagement(createCredential: true) { credMgmt, session in
             guard try await CTAP2.CredentialManagement.isUpdateSupported(by: session) else {
                 print("Update user information not supported - skipping")
                 return
@@ -256,7 +256,7 @@ struct CredentialManagementTests {
 // MARK: - Test Fixture
 
 private func withCredentialManagement(
-    createCredential: Bool = true,
+    createCredential: Bool,
     _ body: (CTAP2.CredentialManagement, CTAP2.Session) async throws -> Void
 ) async throws {
     try await withReconnectableCTAP2Session { session, reconnect in
@@ -350,7 +350,7 @@ private func verifyReadOnlyOperations(
         )
         try await credMgmt.updateUserInformation(credentialId: credentialId, user: user)
         Issue.record("updateUserInformation should fail with PPUAT")
-    } catch let error as CTAP2.SessionError {
+    } catch {
         guard case .ctapError(.pinAuthInvalid, _) = error else {
             Issue.record("Expected pinAuthInvalid, got \(error)")
             throw error
@@ -360,7 +360,7 @@ private func verifyReadOnlyOperations(
     do {
         try await credMgmt.deleteCredential(credentialId)
         Issue.record("deleteCredential should fail with PPUAT")
-    } catch let error as CTAP2.SessionError {
+    } catch {
         guard case .ctapError(.pinAuthInvalid, _) = error else {
             Issue.record("Expected pinAuthInvalid, got \(error)")
             throw error
