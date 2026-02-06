@@ -29,8 +29,7 @@ extension CTAP2.Session {
     ///
     /// - Returns: `true` if the authenticator supports the `largeBlobs` option.
     public func supportsLargeBlobs() async throws(CTAP2.SessionError) -> Bool {
-        let info = try await getInfo()
-        return info.options.largeBlobs == true
+        try await cachedInfo.options.largeBlobs == true
     }
 
     // MARK: - Credential Blob Operations
@@ -113,7 +112,7 @@ extension CTAP2.Session {
 
     // Reads the entire large blob array with checksum validation.
     private func readBlobArray() async throws(CTAP2.SessionError) -> [CTAP2.LargeBlobs.Entry] {
-        let info = try await getInfo()
+        let info = try await cachedInfo
         let maxFragment = Int(info.maxMsgSize) - Self.maxFragmentLengthOverhead
 
         // Read all fragments
@@ -161,7 +160,7 @@ extension CTAP2.Session {
         _ entries: [CTAP2.LargeBlobs.Entry],
         pinToken: CTAP2.ClientPin.Token
     ) async throws(CTAP2.SessionError) {
-        let info = try await getInfo()
+        let info = try await cachedInfo
         let maxFragment = Int(info.maxMsgSize) - Self.maxFragmentLengthOverhead
 
         // Encode array and append checksum

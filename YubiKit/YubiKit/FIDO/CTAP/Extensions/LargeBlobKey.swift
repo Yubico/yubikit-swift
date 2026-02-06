@@ -47,7 +47,7 @@ extension CTAP2.Extension {
         /// - Parameter session: The CTAP2 session to check.
         /// - Returns: `true` if the authenticator supports largeBlobKey.
         public static func isSupported(by session: CTAP2.Session) async throws(CTAP2.SessionError) -> Bool {
-            let info = try await session.getInfo()
+            let info = try await session.cachedInfo
             return info.extensions.contains(identifier) && info.options.largeBlobs == true
         }
 
