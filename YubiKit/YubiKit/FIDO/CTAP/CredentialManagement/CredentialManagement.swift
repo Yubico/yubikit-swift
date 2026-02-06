@@ -317,7 +317,7 @@ extension CTAP2.CredentialManagement {
         case updateUserInformation = 0x07
     }
 
-    fileprivate enum Parameter: UInt8, Sendable {
+    enum Parameter: UInt8, Sendable {
         case rpIdHash = 0x01
         case credentialId = 0x02
         case user = 0x03

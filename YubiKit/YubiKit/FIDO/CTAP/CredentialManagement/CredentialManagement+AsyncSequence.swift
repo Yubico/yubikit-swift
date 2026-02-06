@@ -186,7 +186,7 @@ extension CTAP2.CredentialManagement {
 
             private func beginEnumeration() async throws -> EnumerateCredentialsResponse? {
                 let params: [UInt8: CBOR.Value] = [
-                    0x01: rpIdHash.cbor()  // PARAM_RP_ID_HASH
+                    Parameter.rpIdHash.rawValue: rpIdHash.cbor()
                 ]
                 do {
                     return try await credentialManagement.execute(
