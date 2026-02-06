@@ -68,16 +68,14 @@ extension CTAP2.CredentialManagement.EnumerateRPsResponse: CBOR.Decodable {
 
         let totalRPs = map[.int(Key.totalRPs.rawValue)]?.uint64Value.map { UInt($0) }
 
-        let rpData: CTAP2.CredentialManagement.RPData?
-        if let rpCbor = map[.int(Key.rp.rawValue)],
+        guard let rpCbor = map[.int(Key.rp.rawValue)],
             let rp: WebAuthn.PublicKeyCredential.RPEntity = rpCbor.cborDecoded(),
             let rpIdHash = map[.int(Key.rpIdHash.rawValue)]?.dataValue
-        {
-            rpData = CTAP2.CredentialManagement.RPData(rp: rp, rpIdHash: rpIdHash)
-        } else {
-            rpData = nil
+        else {
+            return nil
         }
 
+        let rpData = CTAP2.CredentialManagement.RPData(rp: rp, rpIdHash: rpIdHash)
         self.init(rpData: rpData, totalRPs: totalRPs)
     }
 }
@@ -94,31 +92,29 @@ extension CTAP2.CredentialManagement.EnumerateCredentialsResponse: CBOR.Decodabl
 
         let totalCredentials = map[.int(Key.totalCredentials.rawValue)]?.uint64Value.map { UInt($0) }
 
-        let credentialData: CTAP2.CredentialManagement.CredentialData?
-        if let userCbor = map[.int(Key.user.rawValue)],
+        guard let userCbor = map[.int(Key.user.rawValue)],
             let user: WebAuthn.PublicKeyCredential.UserEntity = userCbor.cborDecoded(),
             let credIdCbor = map[.int(Key.credentialId.rawValue)],
             let credentialId: WebAuthn.PublicKeyCredential.Descriptor = credIdCbor.cborDecoded(),
             let publicKeyCbor = map[.int(Key.publicKey.rawValue)],
             let publicKey: COSE.Key = publicKeyCbor.cborDecoded()
-        {
-            let credProtect = map[.int(Key.credProtect.rawValue)]?.uint64Value
-                .flatMap { CTAP2.Extension.CredProtect.Level(rawValue: Int($0)) }
-            let largeBlobKey = map[.int(Key.largeBlobKey.rawValue)]?.dataValue
-            let thirdPartyPayment = map[.int(Key.thirdPartyPayment.rawValue)]?.boolValue
-
-            credentialData = CTAP2.CredentialManagement.CredentialData(
-                user: user,
-                credentialId: credentialId,
-                publicKey: publicKey,
-                credProtect: credProtect,
-                largeBlobKey: largeBlobKey,
-                thirdPartyPayment: thirdPartyPayment
-            )
-        } else {
-            credentialData = nil
+        else {
+            return nil
         }
 
+        let credProtect = map[.int(Key.credProtect.rawValue)]?.uint64Value
+            .flatMap { CTAP2.Extension.CredProtect.Level(rawValue: Int($0)) }
+        let largeBlobKey = map[.int(Key.largeBlobKey.rawValue)]?.dataValue
+        let thirdPartyPayment = map[.int(Key.thirdPartyPayment.rawValue)]?.boolValue
+
+        let credentialData = CTAP2.CredentialManagement.CredentialData(
+            user: user,
+            credentialId: credentialId,
+            publicKey: publicKey,
+            credProtect: credProtect,
+            largeBlobKey: largeBlobKey,
+            thirdPartyPayment: thirdPartyPayment
+        )
         self.init(credentialData: credentialData, totalCredentials: totalCredentials)
     }
 }
