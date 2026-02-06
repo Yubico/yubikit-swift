@@ -129,21 +129,13 @@ extension CTAP2 {
                 return []
             }
 
-            var results: [RPData] = []
-
-            // First RP is in the initial response
-            if let rpData = response.rpData {
-                results.append(rpData)
-            }
-
-            // Get remaining RPs
+            var results = [response.rpData].compactMap { $0 }
             for _ in 1..<totalRPs {
-                let nextResponse: EnumerateRPsResponse = try await executeNoAuth(subcommand: .enumerateRPsGetNextRP)
-                if let rpData = nextResponse.rpData {
+                let next: EnumerateRPsResponse = try await executeNoAuth(subcommand: .enumerateRPsGetNextRP)
+                if let rpData = next.rpData {
                     results.append(rpData)
                 }
             }
-
             return results
         }
 
@@ -168,23 +160,15 @@ extension CTAP2 {
                 return []
             }
 
-            var results: [CredentialData] = []
-
-            // First credential is in the initial response
-            if let credData = response.credentialData {
-                results.append(credData)
-            }
-
-            // Get remaining credentials
+            var results = [response.credentialData].compactMap { $0 }
             for _ in 1..<totalCredentials {
-                let nextResponse: EnumerateCredentialsResponse = try await executeNoAuth(
+                let next: EnumerateCredentialsResponse = try await executeNoAuth(
                     subcommand: .enumerateCredentialsGetNextCredential
                 )
-                if let credData = nextResponse.credentialData {
+                if let credData = next.credentialData {
                     results.append(credData)
                 }
             }
-
             return results
         }
 
@@ -234,72 +218,52 @@ extension CTAP2 {
             subcommand: Subcommand,
             params: [UInt8: CBOR.Value]? = nil
         ) async throws(CTAP2.SessionError) -> R {
-            let message = authMessage(subcommand: subcommand, params: params)
-            let pinUVAuthParam = pinToken.authenticate(message: message)
-
-            let parameters = RequestParameters(
-                subCommand: subcommand,
-                subCommandParams: params,
-                pinUVAuthProtocol: pinToken.protocolVersion,
-                pinUVAuthParam: pinUVAuthParam
-            )
-
+            let parameters = authParameters(subcommand: subcommand, params: params)
             let command = try await commandCode()
-            return try await session.interface.send(
-                command: command,
-                payload: parameters
-            ).value
+            return try await session.interface.send(command: command, payload: parameters).value
         }
 
         func execute(
             subcommand: Subcommand,
             params: [UInt8: CBOR.Value]? = nil
         ) async throws(CTAP2.SessionError) {
-            let message = authMessage(subcommand: subcommand, params: params)
-            let pinUVAuthParam = pinToken.authenticate(message: message)
-
-            let parameters = RequestParameters(
-                subCommand: subcommand,
-                subCommandParams: params,
-                pinUVAuthProtocol: pinToken.protocolVersion,
-                pinUVAuthParam: pinUVAuthParam
-            )
-
+            let parameters = authParameters(subcommand: subcommand, params: params)
             let command = try await commandCode()
-            try await session.interface.send(
-                command: command,
-                payload: parameters
-            ).value
+            try await session.interface.send(command: command, payload: parameters).value
         }
 
         func executeNoAuth<R: CBOR.Decodable & Sendable>(
             subcommand: Subcommand
         ) async throws(CTAP2.SessionError) -> R {
-            let parameters = RequestParametersNoAuth(subCommand: subcommand)
-
             let command = try await commandCode()
             return try await session.interface.send(
                 command: command,
-                payload: parameters
+                payload: RequestParametersNoAuth(subCommand: subcommand)
             ).value
+        }
+
+        private func authParameters(
+            subcommand: Subcommand,
+            params: [UInt8: CBOR.Value]?
+        ) -> RequestParameters {
+            // Auth message format: subCommand || CBOR(params)
+            var message = Data([subcommand.rawValue])
+            if let params {
+                message.append(params.cbor().encode())
+            }
+            return RequestParameters(
+                subCommand: subcommand,
+                subCommandParams: params,
+                pinUVAuthProtocol: pinToken.protocolVersion,
+                pinUVAuthParam: pinToken.authenticate(message: message)
+            )
         }
 
         private func commandCode() async throws(CTAP2.SessionError) -> CTAP2.Command {
             let info = try await session.getInfo()
-            if info.options.credentialManagement == true {
-                return .credentialManagement
-            }
-            return .credentialManagementPreview
-        }
-
-        // Format: subCommand || CBOR(params)
-        private func authMessage(subcommand: Subcommand, params: [UInt8: CBOR.Value]?) -> Data {
-            var message = Data([subcommand.rawValue])
-            if let params {
-                let cborParams = params.cbor()
-                message.append(cborParams.encode())
-            }
-            return message
+            return info.options.credentialManagement == true
+                ? .credentialManagement
+                : .credentialManagementPreview
         }
     }
 }
@@ -323,7 +287,7 @@ extension CTAP2.CredentialManagement {
         case user = 0x03
     }
 
-    fileprivate struct RequestParameters: Sendable, CBOR.Encodable {
+    struct RequestParameters: Sendable, CBOR.Encodable {
         let subCommand: Subcommand
         let subCommandParams: [UInt8: CBOR.Value]?
         let pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion
@@ -345,7 +309,7 @@ extension CTAP2.CredentialManagement {
         }
     }
 
-    fileprivate struct RequestParametersNoAuth: Sendable, CBOR.Encodable {
+    struct RequestParametersNoAuth: Sendable, CBOR.Encodable {
         let subCommand: Subcommand
 
         func cbor() -> CBOR.Value {

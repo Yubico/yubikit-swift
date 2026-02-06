@@ -123,9 +123,8 @@ struct CredentialManagementTests {
             let credentials = try await credMgmt.enumerateCredentials(rpIdHash: rps[0].rpIdHash)
             try await credMgmt.deleteCredential(credentials[0].credentialId)
 
-            // Verify deletion (need fresh token)
-            let newCredMgmt = try await getCredentialManagement(session)
-            metadata = try await newCredMgmt.getMetadata()
+            // Verify deletion
+            metadata = try await credMgmt.getMetadata()
             #expect(metadata.existingCredentialsCount == 0)
         }
     }
@@ -153,10 +152,9 @@ struct CredentialManagementTests {
             )
             try await credMgmt.updateUserInformation(credentialId: credentialId, user: updatedUser)
 
-            // Verify update (need fresh token)
-            let newCredMgmt = try await getCredentialManagement(session)
-            let rpsAfter = try await newCredMgmt.enumerateRPs()
-            let updated = try await newCredMgmt.enumerateCredentials(rpIdHash: rpsAfter[0].rpIdHash)
+            // Verify update
+            let rpsAfter = try await credMgmt.enumerateRPs()
+            let updated = try await credMgmt.enumerateCredentials(rpIdHash: rpsAfter[0].rpIdHash)
 
             #expect(updated[0].user.id == testUserId)
             #expect(updated[0].user.name == "UPDATED NAME")
@@ -189,12 +187,12 @@ struct CredentialManagementTests {
                 rpIdHash: Data,
                 identifier: Opaque128?,
                 credStoreState: Opaque128?
-            ) = try await withReconnectableCTAP2Session { session, reconnect in
+            ) = try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
                 var session = session
                 try await deleteAllCredentials(session)
 
                 // Create test credential
-                session = try await reconnect()
+                session = try await reconnectWhenOverNFC()
                 try await createTestCredential(session)
 
                 // Get credential info
@@ -259,13 +257,13 @@ private func withCredentialManagement(
     createCredential: Bool,
     _ body: (CTAP2.CredentialManagement, CTAP2.Session) async throws -> Void
 ) async throws {
-    try await withReconnectableCTAP2Session { session, reconnect in
+    try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
         var session = session
         guard try await isSupported(session) else { return }
         try await deleteAllCredentials(session)
 
         if createCredential {
-            session = try await reconnect()
+            session = try await reconnectWhenOverNFC()
             try await createTestCredential(session)
         }
 

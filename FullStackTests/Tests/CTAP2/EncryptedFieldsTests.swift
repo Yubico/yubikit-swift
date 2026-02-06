@@ -178,12 +178,12 @@ struct EncryptedFieldsTests {
             #expect(state2 != state1)
             print("✅ credStoreState changed after credential creation: \(state2)")
 
-            // 3. Delete credential via CredentialManagement
-            let cmToken2 = try await session.getPinUVToken(
+            // 3. Delete credential via CredentialManagement (re-create after potential NFC reconnect)
+            let deleteToken = try await session.getPinUVToken(
                 using: .pin(defaultTestPin),
                 permissions: [.credentialManagement]
             )
-            let credMgmt2 = try await session.credentialManagement(pinToken: cmToken2)
+            let credMgmt2 = try await session.credentialManagement(pinToken: deleteToken)
             let rps = try await credMgmt2.enumerateRPs()
             let creds = try await credMgmt2.enumerateCredentials(rpIdHash: rps[0].rpIdHash)
             try await credMgmt2.deleteCredential(creds[0].credentialId)
