@@ -27,10 +27,12 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
     // Internal (accessible to extensions)
     private(set) var capabilities: CTAP2.Capabilities = []
     private(set) var protocolVersion: UInt8 = 0
+    // NEXTMAJOR: Change type to UInt to match GetInfoResponse.maxMsgSize (CTAP spec defines this as unsigned)
     public private(set) var maxMsgSize: Int = 1024
 
     var channelId: UInt32 = CTAP2.CID_BROADCAST
 
+    // NEXTMAJOR: Change parameter type to UInt to match GetInfoResponse.maxMsgSize
     public func setMaxMsgSize(_ size: Int) {
         maxMsgSize = size
     }

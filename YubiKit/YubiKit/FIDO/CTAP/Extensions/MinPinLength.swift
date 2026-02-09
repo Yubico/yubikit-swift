@@ -46,7 +46,7 @@ extension CTAP2.Extension {
         /// - Returns: `true` if the authenticator supports minPinLength.
         public static func isSupported(by session: CTAP2.Session) async throws(CTAP2.SessionError) -> Bool {
             let info = try await session.cachedInfo
-            return info.options.setMinPINLength != nil
+            return info.options.setMinPINLength
         }
 
         // MARK: - Operations

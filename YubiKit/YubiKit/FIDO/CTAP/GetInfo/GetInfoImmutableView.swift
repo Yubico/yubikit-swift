@@ -16,12 +16,10 @@ import Foundation
 
 extension CTAP2.GetInfo {
 
-    /// A cached view of GetInfo fields that do not change during a ``CTAP2/Session``.
+    /// Cached view of immutable GetInfo fields (capabilities, limits, supported features).
     ///
-    /// These values describe fixed authenticator capabilities and limits.
-    /// Mutable state fields (e.g. `forcePinChange`,
-    /// `remainingDiscoverableCredentials`, `encIdentifier`) are excluded — use
-    /// ``CTAP2/Session/getInfo()`` to read current mutable state.
+    /// Mutable fields (forcePinChange, remainingDiscoverableCredentials, etc.) are excluded.
+    /// Use ``CTAP2/Session/getInfo()`` to read current mutable state.
     internal struct ImmutableView: Sendable {
 
         let versions: [AuthenticatorVersion]
@@ -49,8 +47,6 @@ extension CTAP2.GetInfo {
         let pinComplexityPolicyURL: URL?
         let maxPINLength: UInt?
         let authenticatorConfigCommands: [CTAP2.Config.Subcommand]?
-
-        // MARK: - Init
 
         init(_ response: Response) {
             self.versions = response.versions
@@ -81,41 +77,61 @@ extension CTAP2.GetInfo {
     }
 }
 
-// MARK: - Immutable Options View
+// MARK: - Immutable Options
 
 extension CTAP2.GetInfo.Options {
-    /// A view of authenticator options that do not change during a ``CTAP2/Session``.
+    /// Cached view of immutable options (always-constant values + feature support flags).
     ///
-    /// Mutable state flags (e.g. `clientPin`, `alwaysUV`, `bioEnroll`)
-    /// are excluded — use ``CTAP2/Session/getInfo()`` to read current mutable state.
-    internal struct ImmutableView: Sendable {
+    /// For current mutable option state, use ``CTAP2/Session/getInfo()``.
+    internal struct ImmutableView: Sendable, CTAP2.GetInfo.Options.SupportChecking {
 
+        // Immutable options
         let platformDevice: Bool
         let residentKey: Bool
         let userPresence: Bool
-        let pinUVAuthToken: Bool?
-        let noMcGaPermissionsWithClientPin: Bool?
-        let largeBlobs: Bool?
-        let authenticatorConfig: Bool?
-        let uvAuthenticatorConfig: Bool?
-        let credentialManagement: Bool?
-        let setMinPINLength: Bool?
-        let perCredMgmtRO: Bool?
-        let credentialMgmtPreview: Bool?
+
+        // Tri-state support flags
+        let supportsClientPin: Bool
+        let supportsUserVerification: Bool
+        let supportsEnterpriseAttestation: Bool
+        let supportsBioEnroll: Bool
+        let supportsAlwaysUV: Bool
+        let supportsUserVerificationMgmtPreview: Bool
+
+        // Binary options
+        let pinUVAuthToken: Bool
+        let noMcGaPermissionsWithClientPin: Bool
+        let largeBlobs: Bool
+        let uvBioEnroll: Bool
+        let authenticatorConfig: Bool
+        let uvAuthenticatorConfig: Bool
+        let credentialManagement: Bool
+        let setMinPINLength: Bool
+        let perCredMgmtRO: Bool
+        let credentialMgmtPreview: Bool
 
         init(_ options: CTAP2.GetInfo.Options) {
             self.platformDevice = options.platformDevice
             self.residentKey = options.residentKey
             self.userPresence = options.userPresence
-            self.pinUVAuthToken = options.pinUVAuthToken
-            self.noMcGaPermissionsWithClientPin = options.noMcGaPermissionsWithClientPin
-            self.largeBlobs = options.largeBlobs
-            self.authenticatorConfig = options.authenticatorConfig
-            self.uvAuthenticatorConfig = options.uvAuthenticatorConfig
-            self.credentialManagement = options.credentialManagement
-            self.setMinPINLength = options.setMinPINLength
-            self.perCredMgmtRO = options.perCredMgmtRO
-            self.credentialMgmtPreview = options.credentialMgmtPreview
+
+            self.supportsClientPin = options.supportsClientPin
+            self.supportsUserVerification = options.supportsUserVerification
+            self.supportsEnterpriseAttestation = options.supportsEnterpriseAttestation
+            self.supportsBioEnroll = options.supportsBioEnroll
+            self.supportsAlwaysUV = options.supportsAlwaysUV
+            self.supportsUserVerificationMgmtPreview = options.supportsUserVerificationMgmtPreview
+
+            self.pinUVAuthToken = options.pinUVAuthToken ?? false
+            self.noMcGaPermissionsWithClientPin = options.noMcGaPermissionsWithClientPin ?? false
+            self.largeBlobs = options.largeBlobs ?? false
+            self.uvBioEnroll = options.uvBioEnroll ?? false
+            self.authenticatorConfig = options.authenticatorConfig ?? false
+            self.uvAuthenticatorConfig = options.uvAuthenticatorConfig ?? false
+            self.credentialManagement = options.credentialManagement ?? false
+            self.setMinPINLength = options.setMinPINLength ?? false
+            self.perCredMgmtRO = options.perCredMgmtRO ?? false
+            self.credentialMgmtPreview = options.credentialMgmtPreview ?? false
         }
     }
 }

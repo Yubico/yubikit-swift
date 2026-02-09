@@ -131,12 +131,10 @@ extension CTAP2.Session {
                 return _cachedInfo
             }
             let response = try await getInfo()
-            // getInfo() populates _cachedInfo; fallback avoids force-unwrap.
             return _cachedInfo ?? CTAP2.GetInfo.ImmutableView(response)
         }
     }
 
-    // Prefer v2 when available
     var preferredClientPinProtocol: CTAP2.ClientPin.ProtocolVersion {
         get async throws(CTAP2.SessionError) {
             if try await cachedInfo.pinUVAuthProtocols.contains(.v2) {
@@ -147,10 +145,9 @@ extension CTAP2.Session {
         }
     }
 
-    // Check if authenticator supports pinUVAuthToken (CTAP 2.1+)
     var supportsTokenPermissions: Bool {
         get async throws(CTAP2.SessionError) {
-            try await cachedInfo.options.pinUVAuthToken == true
+            try await cachedInfo.options.pinUVAuthToken
         }
     }
 }

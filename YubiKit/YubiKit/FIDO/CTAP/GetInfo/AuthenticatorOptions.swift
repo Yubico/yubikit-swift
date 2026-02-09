@@ -15,147 +15,112 @@
 import Foundation
 
 extension CTAP2.GetInfo {
-    /// Authenticator options returned by the `authenticatorGetInfo` command.
+    /// Authenticator options indicating capabilities and current configuration.
     ///
-    /// Options indicate the authenticator's capabilities and current configuration.
-    /// Some options are tri-state: `true` (enabled), `false` (supported but not configured),
-    /// or `nil` (not supported).
+    /// Options are either **tri-state** (nil/false/true) or **binary** (false/true):
+    /// - **Tri-state**: nil = not supported, false = supported but disabled, true = enabled
+    /// - **Binary**: false = not supported, true = supported
     ///
-    /// Use the typed properties for known options, or the subscript for custom/unknown options:
-    /// ```swift
-    /// let pinSet = options.clientPin      // Typed access
-    /// let custom = options["customOption"] // String subscript
-    /// ```
+    /// Use `supports*` properties to check tri-state feature support (immutable).
+    /// Access properties directly to read current state (may be mutable).
     public struct Options: Sendable, Equatable {
 
         private let values: [String: Bool]
 
         /// Access any option by its CTAP string key.
-        ///
-        /// Returns `nil` if the option is not present in the authenticator's response.
         public subscript(key: String) -> Bool? {
             values[key]
         }
 
-        // MARK: - CTAP 2.0 Options
+        // MARK: - Immutable Options
 
-        /// Indicates the device is attached to the client and cannot be removed.
-        ///
-        /// If `true`, the authenticator is a platform authenticator (built into the client device).
-        /// If `false` or absent, it's a roaming authenticator.
-        public var platformDevice: Bool { self["plat"] ?? false }
+        /// Platform authenticator (true) vs roaming authenticator (false).
+        public let platformDevice: Bool
 
-        /// Indicates the device supports resident keys (discoverable credentials).
-        ///
-        /// If `true`, the authenticator can store credentials on-device.
-        public var residentKey: Bool { self["rk"] ?? false }
+        /// Supports resident keys (discoverable credentials).
+        public let residentKey: Bool
 
-        /// Indicates the device is capable of testing user presence.
-        ///
-        /// Defaults to `true` if absent.
-        public var userPresence: Bool { self["up"] ?? true }
+        /// Capable of testing user presence.
+        public let userPresence: Bool
 
-        /// Client PIN support status.
-        ///
-        /// - `true`: PIN is supported and has been set
-        /// - `false`: PIN is supported but not yet set
-        /// - `nil`: PIN is not supported
-        public var clientPin: Bool? { self["clientPin"] }
+        // MARK: - Tri-State Options
 
-        /// Built-in user verification support status.
-        ///
-        /// - `true`: UV is supported and configured (e.g., biometric enrolled)
-        /// - `false`: UV is supported but not yet configured
-        /// - `nil`: UV is not supported (device can only do Client PIN)
-        public var userVerification: Bool? { self["uv"] }
+        /// Client PIN status: true = set, false = supported but not set, nil = not supported.
+        public let clientPin: Bool?
 
-        // MARK: - CTAP 2.1 Options
+        /// Built-in user verification status: true = configured, false = supported but not configured, nil = not supported.
+        public let userVerification: Bool?
 
-        /// Indicates support for `getPinUVAuthTokenUsingPinWithPermissions` and
-        /// `getPinUVAuthTokenUsingUVWithPermissions` subcommands.
-        ///
-        /// When `true`:
-        /// - If `clientPin` is `true`, supports `getPinUVAuthTokenUsingPinWithPermissions`
-        /// - If `userVerification` is `true`, supports `getPinUVAuthTokenUsingUVWithPermissions`
-        ///
-        /// When `false` or absent, only legacy `getPinToken` is supported.
+        /// Enterprise attestation status: true = enabled, false = disabled, nil = not supported.
+        public let enterpriseAttestation: Bool?
+
+        /// Biometric enrollment status: true = enrolled, false = supported but not enrolled, nil = not supported.
+        public let bioEnroll: Bool?
+
+        /// Always require UV: true = enabled, false = disabled, nil = not supported.
+        public let alwaysUV: Bool?
+
+        /// Prototype bio enrollment status (FIDO_2_1_PRE): true = enrolled, false = supported but not enrolled, nil = not supported.
+        public let userVerificationMgmtPreview: Bool?
+
+        // MARK: - Binary Options
+
+        /// Supports PIN/UV auth token with permissions (CTAP 2.1+). When false or absent, only legacy getPinToken is available.
         public var pinUVAuthToken: Bool? { self["pinUvAuthToken"] }
 
-        /// Indicates that tokens obtained via PIN cannot be used for MakeCredential/GetAssertion.
-        ///
-        /// When `true`, platforms should not attempt `getPinUVAuthTokenUsingPinWithPermissions`
-        /// if `getPinUVAuthTokenUsingUVWithPermissions` fails.
+        /// PIN tokens cannot be used for MakeCredential/GetAssertion.
         public var noMcGaPermissionsWithClientPin: Bool? { self["noMcGaPermissionsWithClientPin"] }
 
-        /// Indicates support for the `authenticatorLargeBlobs` command.
+        /// Supports `authenticatorLargeBlobs` command.
         public var largeBlobs: Bool? { self["largeBlobs"] }
 
-        /// Enterprise Attestation support status.
-        ///
-        /// - `true`: Supported and enabled
-        /// - `false`: Supported but disabled
-        /// - `nil`: Not supported
-        public var enterpriseAttestation: Bool? { self["ep"] }
-
-        /// Biometric enrollment support status.
-        ///
-        /// - `true`: Supported with at least one enrollment provisioned
-        /// - `false`: Supported but no enrollments yet
-        /// - `nil`: Not supported
-        public var bioEnroll: Bool? { self["bioEnroll"] }
-
-        /// Indicates support for requesting `be` permission via UV.
-        ///
-        /// Only present if `bioEnroll` is also present.
+        /// Supports requesting `be` (bioEnroll) permission via UV.
         public var uvBioEnroll: Bool? { self["uvBioEnroll"] }
 
-        /// Indicates support for the `authenticatorConfig` command.
+        /// Supports `authenticatorConfig` command.
         public var authenticatorConfig: Bool? { self["authnrCfg"] }
 
-        /// Indicates support for requesting `acfg` permission via UV.
-        ///
-        /// Only present if `authenticatorConfig` is also present.
+        /// Supports requesting `acfg` (authenticatorConfig) permission via UV.
         public var uvAuthenticatorConfig: Bool? { self["uvAcfg"] }
 
-        /// Indicates support for the `authenticatorCredentialManagement` command.
+        /// Supports `authenticatorCredentialManagement` command.
         public var credentialManagement: Bool? { self["credMgmt"] }
 
-        /// Indicates support for the `setMinPINLength` subcommand.
-        ///
-        /// Only present if `clientPin` is also present.
+        /// Supports `setMinPINLength` subcommand.
         public var setMinPINLength: Bool? { self["setMinPINLength"] }
 
-        /// Indicates non-discoverable credentials can be created without user verification.
-        ///
-        /// When `true`, the authenticator allows creating non-discoverable credentials
-        /// without requiring any form of user verification if the platform requests it.
+        /// Allows creating non-discoverable credentials without UV if requested by platform.
         public var makeCredUVNotRequired: Bool? { self["makeCredUvNotRqd"] }
 
-        /// Always Require User Verification feature status.
-        ///
-        /// - `true`: Supported and enabled
-        /// - `false`: Supported but disabled
-        /// - `nil`: Not supported
-        ///
-        /// If `true`, `makeCredUVNotRequired` must be `false`.
-        public var alwaysUV: Bool? { self["alwaysUv"] }
-
-        // MARK: - CTAP 2.2 Options
-
-        /// Read-only credential management support (CTAP 2.2).
-        ///
-        /// When `true`, the authenticator supports read-only credential management
-        /// operations using a persistent PIN/UV auth token with `persistentCredentialManagement` permission.
+        /// Supports read-only credential management with persistent token (CTAP 2.2).
         public var perCredMgmtRO: Bool? { self["perCredMgmtRO"] }
 
-        // MARK: - Preview/Prototype Options
-
-        /// Prototype biometric enrollment support (FIDO_2_1_PRE).
-        public var userVerificationMgmtPreview: Bool? { self["userVerificationMgmtPreview"] }
-
-        /// Prototype credential management support (FIDO_2_1_PRE).
+        /// Supports credential management preview (FIDO_2_1_PRE).
         public var credentialMgmtPreview: Bool? { self["credentialMgmtPreview"] }
     }
+}
+
+// MARK: - Tri-State Support Checking
+
+extension CTAP2.GetInfo.Options {
+    /// Protocol for checking tri-state option support.
+    public protocol SupportChecking {
+        var supportsClientPin: Bool { get }
+        var supportsUserVerification: Bool { get }
+        var supportsEnterpriseAttestation: Bool { get }
+        var supportsBioEnroll: Bool { get }
+        var supportsAlwaysUV: Bool { get }
+        var supportsUserVerificationMgmtPreview: Bool { get }
+    }
+}
+
+extension CTAP2.GetInfo.Options: CTAP2.GetInfo.Options.SupportChecking {
+    public var supportsClientPin: Bool { clientPin != nil }
+    public var supportsUserVerification: Bool { userVerification != nil }
+    public var supportsEnterpriseAttestation: Bool { enterpriseAttestation != nil }
+    public var supportsBioEnroll: Bool { bioEnroll != nil }
+    public var supportsAlwaysUV: Bool { alwaysUV != nil }
+    public var supportsUserVerificationMgmtPreview: Bool { userVerificationMgmtPreview != nil }
 }
 
 // MARK: - CBOR Decoding
@@ -164,5 +129,18 @@ extension CTAP2.GetInfo.Options: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
         guard let values: [String: Bool] = cbor.cborDecoded() else { return nil }
         self.values = values
+
+        // Immutable
+        self.platformDevice = values["plat"] ?? false
+        self.residentKey = values["rk"] ?? false
+        self.userPresence = values["up"] ?? true
+
+        // Tri-state
+        self.clientPin = values["clientPin"]
+        self.userVerification = values["uv"]
+        self.enterpriseAttestation = values["ep"]
+        self.bioEnroll = values["bioEnroll"]
+        self.alwaysUV = values["alwaysUv"]
+        self.userVerificationMgmtPreview = values["userVerificationMgmtPreview"]
     }
 }
