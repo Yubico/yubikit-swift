@@ -29,7 +29,7 @@ extension CTAP2.Session {
     ///
     /// - Returns: `true` if the authenticator supports the `largeBlobs` option.
     public func supportsLargeBlobs() async throws(CTAP2.SessionError) -> Bool {
-        try await cachedInfo.options.largeBlobs == true
+        try await cachedInfo.options.largeBlobs
     }
 
     // MARK: - Credential Blob Operations
