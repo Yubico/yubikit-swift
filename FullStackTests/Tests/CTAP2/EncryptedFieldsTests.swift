@@ -113,9 +113,86 @@ struct EncryptedFieldsTests {
 
     @Test("credStoreState changes when credentials are added or deleted")
     func testCredStoreStateChangesOnCredentialLifecycle() async throws {
-        // TODO: Implement when CredentialManagement API is added
-        // 1. Get PPUAT and initial credStoreState
-        // 2. Create discoverable credential -> verify state changes
-        // 3. Delete credential via CredentialManagement -> verify state changes again
+        try await withReconnectableCTAP2Session { session, reconnectWhenOverNFC in
+            var session = session
+            let info = try await session.getInfo()
+            try #require(info.encCredStoreState != nil, "encCredStoreState not supported")
+
+            guard try await CTAP2.CredentialManagement.isSupported(by: session) else {
+                print("Credential management not supported - skipping")
+                return
+            }
+            guard try await CTAP2.CredentialManagement.isReadOnlySupported(by: session) else {
+                print("Persistent PUAT not supported - skipping")
+                return
+            }
+            try #require(info.options.clientPin == true, "PIN not set")
+
+            // Get PPUAT for decrypting credStoreState
+            let ppuat = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.persistentCredentialManagement]
+            )
+
+            // Clean up any existing credentials
+            let cmToken = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.credentialManagement]
+            )
+            let credMgmt = try await session.credentialManagement(pinToken: cmToken)
+            for try await rp in credMgmt.rps {
+                for try await cred in credMgmt.credentials(for: rp.rpIdHash) {
+                    try await credMgmt.deleteCredential(cred.credentialId)
+                }
+            }
+
+            // 1. Get initial credStoreState
+            let info1 = try await session.getInfo()
+            let state1 = try info1.encCredStoreState!.decrypted(using: ppuat)
+            print("✅ Initial credStoreState: \(state1)")
+
+            // 2. Create discoverable credential (requires UP)
+            session = try await reconnectWhenOverNFC()
+            let makeCredToken = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.makeCredential],
+                rpId: "test.example.com"
+            )
+            let params = CTAP2.MakeCredential.Parameters(
+                clientDataHash: Data(repeating: 0xCD, count: 32),
+                rp: WebAuthn.PublicKeyCredential.RPEntity(id: "test.example.com", name: "Test"),
+                user: WebAuthn.PublicKeyCredential.UserEntity(
+                    id: Data([0x01, 0x02, 0x03]),
+                    name: "test",
+                    displayName: "Test"
+                ),
+                pubKeyCredParams: [.es256],
+                options: .init(rk: true)
+            )
+            print("👆 Touch YubiKey: creating credential...")
+            _ = try await session.makeCredential(parameters: params, pinToken: makeCredToken).value
+
+            // Verify state changed after credential creation
+            let info2 = try await session.getInfo()
+            let state2 = try info2.encCredStoreState!.decrypted(using: ppuat)
+            #expect(state2 != state1)
+            print("✅ credStoreState changed after credential creation: \(state2)")
+
+            // 3. Delete credential via CredentialManagement (re-create after potential NFC reconnect)
+            let deleteToken = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.credentialManagement]
+            )
+            let credMgmt2 = try await session.credentialManagement(pinToken: deleteToken)
+            let rps = try await credMgmt2.rps.enumerate()
+            let creds = try await credMgmt2.credentials(for: rps[0].rpIdHash).enumerate()
+            try await credMgmt2.deleteCredential(creds[0].credentialId)
+
+            // Verify state changed after credential deletion
+            let info3 = try await session.getInfo()
+            let state3 = try info3.encCredStoreState!.decrypted(using: ppuat)
+            #expect(state3 != state2)
+            print("✅ credStoreState changed after credential deletion: \(state3)")
+        }
     }
 }
