@@ -67,10 +67,10 @@ extension CTAP2 {
         /// - Parameter session: The CTAP2 session to check.
         /// - Returns: `true` if the authenticator supports credential management.
         public static func isSupported(by session: CTAP2.Session) async throws(CTAP2.SessionError) -> Bool {
-            let info = try await session.getInfo()
+            let info = try await session.cachedInfo
             // Check for CTAP 2.1+ credMgmt or FIDO_2_1_PRE credentialMgmtPreview
-            return info.options.credentialManagement == true
-                || (info.versions.contains(.fido2_1Pre) && info.options.credentialMgmtPreview == true)
+            return info.options.credentialManagement
+                || (info.versions.contains(.fido2_1Pre) && info.options.credentialMgmtPreview)
         }
 
         /// Checks if the authenticator supports updating user information.
@@ -81,8 +81,8 @@ extension CTAP2 {
         /// - Parameter session: The CTAP2 session to check.
         /// - Returns: `true` if the authenticator supports updating user information.
         public static func isUpdateSupported(by session: CTAP2.Session) async throws(CTAP2.SessionError) -> Bool {
-            let info = try await session.getInfo()
-            return info.options.credentialManagement == true
+            let info = try await session.cachedInfo
+            return info.options.credentialManagement
         }
 
         /// Checks if the authenticator supports read-only credential management with a persistent token.
@@ -93,8 +93,8 @@ extension CTAP2 {
         /// - Parameter session: The CTAP2 session to check.
         /// - Returns: `true` if the authenticator supports read-only credential management.
         public static func isReadOnlySupported(by session: CTAP2.Session) async throws(CTAP2.SessionError) -> Bool {
-            let info = try await session.getInfo()
-            return info.options.perCredMgmtRO == true
+            let info = try await session.cachedInfo
+            return info.options.perCredMgmtRO
         }
 
         // MARK: - Operations
@@ -198,8 +198,8 @@ extension CTAP2 {
         }
 
         private func commandCode() async throws(CTAP2.SessionError) -> CTAP2.Command {
-            let info = try await session.getInfo()
-            return info.options.credentialManagement == true
+            let info = try await session.cachedInfo
+            return info.options.credentialManagement
                 ? .credentialManagement
                 : .credentialManagementPreview
         }

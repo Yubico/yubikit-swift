@@ -91,7 +91,7 @@ extension CTAP2.Extension {
         public static func isSupported(
             by session: CTAP2.Session
         ) async throws(CTAP2.SessionError) -> Bool {
-            let info = try await session.getInfo()
+            let info = try await session.cachedInfo
             return info.extensions.contains(identifier)
         }
 

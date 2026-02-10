@@ -106,7 +106,7 @@ extension CTAP2.Extension {
             guard try await Self.isSupported(by: session) else {
                 throw .extensionNotSupported(Self.identifier, source: .here())
             }
-            let info = try await session.getInfo()
+            let info = try await session.cachedInfo
             self.supportsMC = info.extensions.contains(Self.mcIdentifier)
             self.sharedSecret = try await SharedSecret.create(session: session)
         }
@@ -115,7 +115,7 @@ extension CTAP2.Extension {
         public static func isSupported(
             by session: CTAP2.Session
         ) async throws(CTAP2.SessionError) -> Bool {
-            let info = try await session.getInfo()
+            let info = try await session.cachedInfo
             return info.extensions.contains(identifier)
         }
 

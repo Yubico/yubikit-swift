@@ -37,7 +37,7 @@ extension CTAP2.Extension {
         /// - Parameter session: The CTAP2 session to check for support.
         /// - Throws: `CTAP2.SessionError.extensionNotSupported` if credBlob is not supported.
         public init(session: CTAP2.Session) async throws(CTAP2.SessionError) {
-            let info = try await session.getInfo()
+            let info = try await session.cachedInfo
             guard info.extensions.contains(Self.identifier) else {
                 throw .extensionNotSupported(Self.identifier, source: .here())
             }
@@ -49,7 +49,7 @@ extension CTAP2.Extension {
         /// - Parameter session: The CTAP2 session to check.
         /// - Returns: `true` if the authenticator supports credBlob.
         public static func isSupported(by session: CTAP2.Session) async throws(CTAP2.SessionError) -> Bool {
-            let info = try await session.getInfo()
+            let info = try await session.cachedInfo
             return info.extensions.contains(identifier)
         }
 

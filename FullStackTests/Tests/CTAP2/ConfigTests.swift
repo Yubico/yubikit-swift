@@ -49,7 +49,7 @@ struct ConfigFullStackTests {
                 return
             }
 
-            guard info.options.alwaysUV != nil else {
+            guard info.options.supportsAlwaysUV else {
                 print("alwaysUV option not supported - skipping")
                 return
             }
@@ -90,7 +90,7 @@ struct ConfigFullStackTests {
                 return
             }
 
-            guard info.options.enterpriseAttestation != nil else {
+            guard info.options.supportsEnterpriseAttestation else {
                 print("Enterprise attestation not supported - skipping")
                 return
             }
