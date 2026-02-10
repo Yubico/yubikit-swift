@@ -29,8 +29,10 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
     internal var shouldCancelCTAP: Bool = false
 
     // Maximum message size for CTAP operations (CBORInterface)
+    // NEXTMAJOR: Change type to UInt to match GetInfoResponse.maxMsgSize (CTAP spec defines this as unsigned)
     public private(set) var maxMsgSize: Int = 1024
 
+    // NEXTMAJOR: Change parameter type to UInt to match GetInfoResponse.maxMsgSize
     public func setMaxMsgSize(_ size: Int) {
         maxMsgSize = size
     }

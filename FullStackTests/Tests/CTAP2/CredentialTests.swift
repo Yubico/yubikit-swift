@@ -211,7 +211,7 @@ struct CTAP2FullStackTests {
             let info = try await session.getInfo()
 
             // Skip if device doesn't support clientPin
-            guard info.options.clientPin != nil else {
+            guard info.options.supportsClientPin else {
                 print("Device doesn't support clientPin - skipping")
                 return
             }
