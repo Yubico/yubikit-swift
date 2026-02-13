@@ -104,7 +104,7 @@ extension CTAP2.Session {
 
     /// Create a new credential using PIN/UV authentication.
     ///
-    /// - Deprecated: Use ``makeCredential(parameters:pinToken:)`` or
+    /// - Deprecated: Use ``makeCredential(parameters:pinToken:)`` (PinToken) or
     /// ``makeCredential(parameters:uvToken:)`` for type safety.
     @available(
         *,
@@ -113,13 +113,15 @@ extension CTAP2.Session {
     )
     public func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
-        pinToken: CTAP2.ClientPin.Token
+        pinToken: CTAP2.ClientPin.Token? = nil
     ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
-        switch pinToken.type {
+        switch pinToken?.type {
         case .pin(let token):
             return await makeCredential(parameters: parameters, pinToken: token)
         case .uv(let token):
             return await makeCredential(parameters: parameters, uvToken: token)
+        case nil:
+            return await makeCredential(parameters: parameters)
         }
     }
 
@@ -151,7 +153,7 @@ extension CTAP2.Session {
 
     /// Authenticate with a credential using PIN/UV authentication.
     ///
-    /// - Deprecated: Use ``getAssertion(parameters:pinToken:)`` or
+    /// - Deprecated: Use ``getAssertion(parameters:pinToken:)`` (PinToken) or
     /// ``getAssertion(parameters:uvToken:)`` for type safety.
     @available(
         *,
@@ -160,13 +162,15 @@ extension CTAP2.Session {
     )
     public func getAssertion(
         parameters: CTAP2.GetAssertion.Parameters,
-        pinToken: CTAP2.ClientPin.Token
+        pinToken: CTAP2.ClientPin.Token? = nil
     ) async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
-        switch pinToken.type {
+        switch pinToken?.type {
         case .pin(let token):
             return await getAssertion(parameters: parameters, pinToken: token)
         case .uv(let token):
             return await getAssertion(parameters: parameters, uvToken: token)
+        case nil:
+            return await getAssertion(parameters: parameters)
         }
     }
 
@@ -198,7 +202,7 @@ extension CTAP2.Session {
 
     /// Get all assertions as an async sequence using PIN/UV authentication.
     ///
-    /// - Deprecated: Use ``getAssertions(parameters:pinToken:)`` or
+    /// - Deprecated: Use ``getAssertions(parameters:pinToken:)`` (PinToken) or
     /// ``getAssertions(parameters:uvToken:)`` for type safety.
     @available(
         *,
@@ -207,13 +211,15 @@ extension CTAP2.Session {
     )
     public func getAssertions(
         parameters: CTAP2.GetAssertion.Parameters,
-        pinToken: CTAP2.ClientPin.Token
+        pinToken: CTAP2.ClientPin.Token? = nil
     ) async -> CTAP2.GetAssertion.Sequence {
-        switch pinToken.type {
+        switch pinToken?.type {
         case .pin(let token):
             return await getAssertions(parameters: parameters, pinToken: token)
         case .uv(let token):
             return await getAssertions(parameters: parameters, uvToken: token)
+        case nil:
+            return await getAssertions(parameters: parameters)
         }
     }
 
