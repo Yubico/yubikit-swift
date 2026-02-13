@@ -51,7 +51,7 @@ struct CTAP2ExtensionFullStackTests {
                     displayName: "No Extension User"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: false)
+                rk: false
             )
             let noExtResponse = try await session.makeCredential(parameters: noExtParams).value
             #expect(credProtect1.output(from: noExtResponse) == nil)
@@ -70,7 +70,7 @@ struct CTAP2ExtensionFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [credProtect1.input()],
-                options: .init(rk: false)
+                rk: false
             )
             let level1Response = try await session.makeCredential(parameters: level1Params).value
             #expect(credProtect1.output(from: level1Response) == .userVerificationOptional)
@@ -93,7 +93,7 @@ struct CTAP2ExtensionFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [credProtect2.input()],
-                options: .init(rk: false)
+                rk: false
             )
             let level2Response = try await session.makeCredential(parameters: level2Params).value
             #expect(credProtect2.output(from: level2Response) == .userVerificationOptionalWithCredentialIDList)
@@ -128,7 +128,7 @@ struct CTAP2ExtensionFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [credProtect3.input()],
-                options: .init(rk: true)
+                rk: true
             )
             let level3Response = try await session.makeCredential(parameters: level3Params, pinToken: pinToken).value
             #expect(credProtect3.output(from: level3Response) == .userVerificationRequired)
@@ -160,7 +160,7 @@ struct CTAP2ExtensionFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [hmacSecretInput],
-                options: .init(rk: false)
+                rk: false
             )
 
             print("👆 Touch the YubiKey to create credential with hmac-secret...")
@@ -219,7 +219,7 @@ struct CTAP2ExtensionFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [hmacSecretInput],
-                options: .init(rk: true)
+                rk: true
             )
 
             print("👆 Touch the YubiKey to create credential with hmac-secret-mc...")

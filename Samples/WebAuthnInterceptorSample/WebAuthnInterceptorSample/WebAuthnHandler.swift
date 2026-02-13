@@ -44,10 +44,6 @@ actor WebAuthnHandler {
             request.authenticatorSelection?.residentKey == "required"
             || request.authenticatorSelection?.residentKey == "preferred"
             || request.authenticatorSelection?.requireResidentKey == true
-        let options = CTAP2.MakeCredential.Parameters.Options(
-            rk: residentKeyRequired,
-            uv: request.authenticatorSelection?.userVerification == "required"
-        )
 
         let (activeSession, pinToken) = try await getPinTokenIfNeeded(
             session: session,
@@ -67,7 +63,7 @@ actor WebAuthnHandler {
             pubKeyCredParams: pubKeyParams,
             excludeList: excludeList,
             extensions: extState.inputs,
-            options: options
+            rk: residentKeyRequired
         )
 
         let response = try await session.makeCredential(parameters: params, pinToken: pinToken).value
@@ -93,10 +89,6 @@ actor WebAuthnHandler {
 
         let allowList = request.allowCredentials?.compactMap { $0.toDescriptor() }
 
-        let options = CTAP2.GetAssertion.Parameters.Options(
-            uv: request.userVerification == "required"
-        )
-
         let (activeSession, pinToken) = try await getPinTokenIfNeeded(
             session: session,
             permissions: permissionsForGetAssertion(request: request),
@@ -112,8 +104,7 @@ actor WebAuthnHandler {
             rpId: rpId,
             clientDataHash: clientDataHash,
             allowList: allowList,
-            extensions: extState.inputs,
-            options: options
+            extensions: extState.inputs
         )
 
         let response = try await session.getAssertion(parameters: params, pinToken: pinToken).value

@@ -61,7 +61,7 @@ struct CTAP2FullStackTests {
                     displayName: "Non-RK User"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: false)
+                rk: false
             )
 
             print("👆 Touch the YubiKey to create a non-resident credential...")
@@ -83,7 +83,7 @@ struct CTAP2FullStackTests {
                     displayName: "RK User"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: true)
+                rk: true
             )
 
             print("👆 Touch the YubiKey to create a resident credential...")

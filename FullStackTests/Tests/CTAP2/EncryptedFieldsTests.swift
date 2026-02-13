@@ -167,7 +167,7 @@ struct EncryptedFieldsTests {
                     displayName: "Test"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: true)
+                rk: true
             )
             print("👆 Touch YubiKey: creating credential...")
             _ = try await session.makeCredential(parameters: params, pinToken: makeCredToken).value
