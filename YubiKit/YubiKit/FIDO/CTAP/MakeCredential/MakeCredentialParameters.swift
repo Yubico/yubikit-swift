@@ -37,8 +37,11 @@ extension CTAP2.MakeCredential {
         /// Extension inputs for additional authenticator processing.
         public let extensions: [CTAP2.Extension.MakeCredential.Input]
 
-        /// Authenticator options.
-        public let options: Options?
+        /// Require resident key (discoverable credential).
+        public internal(set) var rk: Bool
+
+        /// Require user verification (internal use only — set by SDK, never by callers).
+        internal var uv: Bool?
 
         /// Enterprise attestation level (1 or 2).
         public let enterpriseAttestation: Int?
@@ -49,10 +52,14 @@ extension CTAP2.MakeCredential {
         /// PIN/UV protocol version (populated automatically when using PIN authentication).
         private(set) var pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion?
 
-        /// Sets the PIN/UV authentication parameters using a PIN token.
-        mutating func setAuthentication(pinToken: CTAP2.ClientPin.Token) {
-            self.pinUVAuthParam = pinToken.authenticate(message: clientDataHash)
-            self.pinUVAuthProtocol = pinToken.protocolVersion
+        /// Sets the PIN/UV authentication parameters.
+        ///
+        /// Clears `uv` per CTAP 2.2 Section 6.1: platforms MUST NOT include both
+        /// the `uv` option and `pinUvAuthParam` in the same request.
+        mutating func setAuthentication(_ token: some CTAP2.ClientPin.PinUVAuthToken) {
+            self.uv = nil
+            self.pinUVAuthParam = token.authenticate(message: clientDataHash)
+            self.pinUVAuthProtocol = token.protocolVersion
         }
 
         public init(
@@ -62,7 +69,7 @@ extension CTAP2.MakeCredential {
             pubKeyCredParams: [COSE.Algorithm],
             excludeList: [WebAuthn.PublicKeyCredential.Descriptor]? = nil,
             extensions: [CTAP2.Extension.MakeCredential.Input] = [],
-            options: Options? = nil,
+            rk: Bool = false,
             enterpriseAttestation: Int? = nil
         ) {
             self.clientDataHash = clientDataHash
@@ -71,22 +78,8 @@ extension CTAP2.MakeCredential {
             self.pubKeyCredParams = pubKeyCredParams
             self.excludeList = excludeList
             self.extensions = extensions
-            self.options = options
+            self.rk = rk
             self.enterpriseAttestation = enterpriseAttestation
-        }
-
-        /// Authenticator options for makeCredential.
-        public struct Options: Sendable {
-            /// Require resident key (discoverable credential).
-            public let rk: Bool?
-
-            /// Require user verification.
-            public let uv: Bool?
-
-            public init(rk: Bool? = nil, uv: Bool? = nil) {
-                self.rk = rk
-                self.uv = uv
-            }
         }
     }
 }

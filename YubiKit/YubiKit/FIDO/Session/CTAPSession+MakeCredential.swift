@@ -18,42 +18,58 @@ import Foundation
 
 extension CTAP2.Session {
 
-    /// Create a new credential on the authenticator.
+    /// Create a new credential on the authenticator without authentication.
     ///
-    /// This command registers a new FIDO2 credential with the authenticator. The authenticator
-    /// will verify user presence (and optionally user verification via PIN/biometric), generate
-    /// a new credential keypair, and return attestation data.
+    /// Use this when no PIN/UV is required (e.g., user presence only).
     ///
-    /// > Important: This operation requires user interaction (touch) and may require PIN entry
-    /// > if user verification is requested.
+    /// - Parameter parameters: The credential creation parameters.
+    /// - Returns: AsyncSequence of status updates, ending with `.finished(response)` containing the credential data
     ///
-    /// > Note: This functionality is available on YubiKey 5.0 or later.
+    /// - SeeAlso: [CTAP 2.2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorMakeCredential)
+    public func makeCredential(
+        parameters: CTAP2.MakeCredential.Parameters
+    ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
+        await interface.send(command: .makeCredential, payload: parameters)
+    }
+
+    /// Create a new credential using PIN authentication.
+    ///
+    /// > Important: Per CTAP 2.2 spec, platforms MUST NOT include both the `uv` option and
+    /// > `pinUvAuthParam` in the same request. UV with PIN tokens must occur during token
+    /// > acquisition via ``getPinToken(_:permissions:rpId:protocol:)``.
     ///
     /// - Parameters:
     ///   - parameters: The credential creation parameters.
-    ///   - pinToken: Optional PIN token for user verification. Obtain via ``getPinUVToken(using:permissions:rpId:protocol:)``.
+    ///   - pinToken: PIN token obtained via ``getPinToken(_:permissions:rpId:protocol:)``.
     /// - Returns: AsyncSequence of status updates, ending with `.finished(response)` containing the credential data
     ///
     /// - SeeAlso: [CTAP 2.2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorMakeCredential)
     public func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
-        pinToken: CTAP2.ClientPin.Token? = nil
+        pinToken: CTAP2.ClientPin.PinToken
     ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
+        var params = parameters
+        params.setAuthentication(pinToken)
+        return await interface.send(command: .makeCredential, payload: params)
+    }
 
-        // If no PIN token provided, send parameters as-is
-        guard let pinToken else {
-            return await interface.send(
-                command: .makeCredential,
-                payload: parameters
-            )
-        }
-
-        var authenticatedParams = parameters
-        authenticatedParams.setAuthentication(pinToken: pinToken)
-
-        return await interface.send(
-            command: .makeCredential,
-            payload: authenticatedParams
-        )
+    /// Create a new credential using biometric authentication.
+    ///
+    /// > Important: When using a UV token, user verification has already occurred during token
+    /// > acquisition, so there is no `requireUserVerification` parameter.
+    ///
+    /// - Parameters:
+    ///   - parameters: The credential creation parameters.
+    ///   - uvToken: UV token obtained via ``getUVToken(permissions:rpId:protocol:)``.
+    /// - Returns: AsyncSequence of status updates, ending with `.finished(response)` containing the credential data
+    ///
+    /// - SeeAlso: [CTAP 2.2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorMakeCredential)
+    public func makeCredential(
+        parameters: CTAP2.MakeCredential.Parameters,
+        uvToken: CTAP2.ClientPin.UVToken
+    ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
+        var params = parameters
+        params.setAuthentication(uvToken)
+        return await interface.send(command: .makeCredential, payload: params)
     }
 }

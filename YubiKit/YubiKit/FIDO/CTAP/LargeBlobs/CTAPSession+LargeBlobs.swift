@@ -62,12 +62,47 @@ extension CTAP2.Session {
     /// - Parameters:
     ///   - key: The 32-byte largeBlobKey for the credential.
     ///   - data: The data to store.
-    ///   - pinToken: PIN/UV auth token with largeBlobWrite permission.
+    ///   - pinToken: PIN auth token with largeBlobWrite permission.
     /// - Throws: `CTAP2.SessionError` if the operation fails.
     public func putBlob(
         key: Data,
         data: Data,
+        pinToken: CTAP2.ClientPin.PinToken
+    ) async throws(CTAP2.SessionError) {
+        try await putBlobInternal(key: key, data: data, token: pinToken)
+    }
+
+    /// Stores an encrypted blob for a credential.
+    ///
+    /// - Parameters:
+    ///   - key: The 32-byte largeBlobKey for the credential.
+    ///   - data: The data to store.
+    ///   - uvToken: UV auth token with largeBlobWrite permission.
+    /// - Throws: `CTAP2.SessionError` if the operation fails.
+    public func putBlob(
+        key: Data,
+        data: Data,
+        uvToken: CTAP2.ClientPin.UVToken
+    ) async throws(CTAP2.SessionError) {
+        try await putBlobInternal(key: key, data: data, token: uvToken)
+    }
+
+    /// Stores an encrypted blob for a credential.
+    ///
+    /// - Deprecated: Use ``putBlob(key:data:pinToken:)`` (PinToken) or ``putBlob(key:data:uvToken:)`` instead.
+    @available(*, deprecated, message: "Use putBlob(key:data:pinToken: PinToken) or putBlob(key:data:uvToken:)")
+    public func putBlob(
+        key: Data,
+        data: Data,
         pinToken: CTAP2.ClientPin.Token
+    ) async throws(CTAP2.SessionError) {
+        try await putBlobInternal(key: key, data: data, token: pinToken)
+    }
+
+    private func putBlobInternal(
+        key: Data,
+        data: Data,
+        token: any CTAP2.ClientPin.PinUVAuthToken
     ) async throws(CTAP2.SessionError) {
         var entries = try await readBlobArray()
 
@@ -80,7 +115,7 @@ extension CTAP2.Session {
         let newEntry = try CTAP2.LargeBlobs.Entry(encrypting: data, key: key)
         entries.append(newEntry)
 
-        try await writeBlobArray(entries, pinToken: pinToken)
+        try await writeBlobArray(entries, token: token)
     }
 
     /// Deletes any blobs for a credential.
@@ -90,11 +125,42 @@ extension CTAP2.Session {
     ///
     /// - Parameters:
     ///   - key: The 32-byte largeBlobKey for the credential.
-    ///   - pinToken: PIN/UV auth token with largeBlobWrite permission.
+    ///   - pinToken: PIN auth token with largeBlobWrite permission.
     /// - Throws: `CTAP2.SessionError` if the operation fails.
     public func deleteBlob(
         key: Data,
+        pinToken: CTAP2.ClientPin.PinToken
+    ) async throws(CTAP2.SessionError) {
+        try await deleteBlobInternal(key: key, token: pinToken)
+    }
+
+    /// Deletes any blobs for a credential.
+    ///
+    /// - Parameters:
+    ///   - key: The 32-byte largeBlobKey for the credential.
+    ///   - uvToken: UV auth token with largeBlobWrite permission.
+    /// - Throws: `CTAP2.SessionError` if the operation fails.
+    public func deleteBlob(
+        key: Data,
+        uvToken: CTAP2.ClientPin.UVToken
+    ) async throws(CTAP2.SessionError) {
+        try await deleteBlobInternal(key: key, token: uvToken)
+    }
+
+    /// Deletes any blobs for a credential.
+    ///
+    /// - Deprecated: Use ``deleteBlob(key:pinToken:)`` (PinToken) or ``deleteBlob(key:uvToken:)`` instead.
+    @available(*, deprecated, message: "Use deleteBlob(key:pinToken: PinToken) or deleteBlob(key:uvToken:)")
+    public func deleteBlob(
+        key: Data,
         pinToken: CTAP2.ClientPin.Token
+    ) async throws(CTAP2.SessionError) {
+        try await deleteBlobInternal(key: key, token: pinToken)
+    }
+
+    private func deleteBlobInternal(
+        key: Data,
+        token: any CTAP2.ClientPin.PinUVAuthToken
     ) async throws(CTAP2.SessionError) {
         var entries = try await readBlobArray()
         let originalCount = entries.count
@@ -104,7 +170,7 @@ extension CTAP2.Session {
         }
 
         if entries.count != originalCount {
-            try await writeBlobArray(entries, pinToken: pinToken)
+            try await writeBlobArray(entries, token: token)
         }
     }
 
@@ -158,7 +224,7 @@ extension CTAP2.Session {
     // Writes the entire large blob array with automatic fragmentation.
     private func writeBlobArray(
         _ entries: [CTAP2.LargeBlobs.Entry],
-        pinToken: CTAP2.ClientPin.Token
+        token: any CTAP2.ClientPin.PinUVAuthToken
     ) async throws(CTAP2.SessionError) {
         let info = try await cachedInfo
         let maxFragment = Int(info.maxMsgSize) - Self.maxFragmentLengthOverhead
@@ -189,7 +255,7 @@ extension CTAP2.Session {
                 set: fragment,
                 offset: offset,
                 length: length,
-                pinToken: pinToken
+                token: token
             )
 
             offset += UInt(fragmentSize)
@@ -216,17 +282,17 @@ extension CTAP2.Session {
         set: Data,
         offset: UInt,
         length: UInt?,
-        pinToken: CTAP2.ClientPin.Token
+        token: any CTAP2.ClientPin.PinUVAuthToken
     ) async throws(CTAP2.SessionError) {
         let message = writeAuthMessage(fragment: set, offset: offset)
-        let pinUVAuthParam = pinToken.authenticate(message: message)
+        let pinUVAuthParam = token.authenticate(message: message)
 
         let params = WriteParameters(
             set: set,
             offset: offset,
             length: length,
             pinUVAuthParam: pinUVAuthParam,
-            pinUVAuthProtocol: pinToken.protocolVersion
+            pinUVAuthProtocol: token.protocolVersion
         )
 
         let stream: CTAP2.StatusStream<Void> = await interface.send(

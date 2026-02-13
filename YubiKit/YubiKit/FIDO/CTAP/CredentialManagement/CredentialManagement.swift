@@ -17,11 +17,11 @@ import Foundation
 // MARK: - Session CredentialManagement Accessor
 
 extension CTAP2.Session {
-    /// Returns credential management operations bound to a PIN/UV auth token.
+    /// Returns credential management operations bound to a PIN auth token.
     ///
     /// ```swift
-    /// let pinToken = try await session.getPinUVToken(
-    ///     using: .pin("123456"),
+    /// let pinToken = try await session.getPinToken(
+    ///     "123456",
     ///     permissions: [.credentialManagement]
     /// )
     /// let credMgmt = try await session.credentialManagement(pinToken: pinToken)
@@ -29,17 +29,53 @@ extension CTAP2.Session {
     /// let rps = try await credMgmt.rps.enumerate()
     /// ```
     ///
-    /// - Parameter pinToken: PIN/UV auth token with `credentialManagement` permission.
+    /// - Parameter pinToken: PIN auth token with `credentialManagement` permission.
     /// - Returns: CredentialManagement operations bound to the token.
     /// - Throws: `CTAP2.SessionError.featureNotSupported` if credential management is not supported.
     /// - SeeAlso: [CTAP2 authenticatorCredentialManagement](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorCredentialManagement)
     public func credentialManagement(
+        pinToken: CTAP2.ClientPin.PinToken
+    ) async throws(CTAP2.SessionError) -> CTAP2.CredentialManagement {
+        try await makeCredentialManagement(token: pinToken)
+    }
+
+    /// Returns credential management operations bound to a UV auth token.
+    ///
+    /// ```swift
+    /// let uvToken = try await session.getUVToken(
+    ///     permissions: [.credentialManagement]
+    /// )
+    /// let credMgmt = try await session.credentialManagement(uvToken: uvToken)
+    /// let metadata = try await credMgmt.getMetadata()
+    /// ```
+    ///
+    /// - Parameter uvToken: UV auth token with `credentialManagement` permission.
+    /// - Returns: CredentialManagement operations bound to the token.
+    /// - Throws: `CTAP2.SessionError.featureNotSupported` if credential management is not supported.
+    /// - SeeAlso: [CTAP2 authenticatorCredentialManagement](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorCredentialManagement)
+    public func credentialManagement(
+        uvToken: CTAP2.ClientPin.UVToken
+    ) async throws(CTAP2.SessionError) -> CTAP2.CredentialManagement {
+        try await makeCredentialManagement(token: uvToken)
+    }
+
+    /// Returns credential management operations bound to a PIN/UV auth token.
+    ///
+    /// - Deprecated: Use ``credentialManagement(pinToken:)`` (PinToken) or ``credentialManagement(uvToken:)`` instead.
+    @available(*, deprecated, message: "Use credentialManagement(pinToken: PinToken) or credentialManagement(uvToken:)")
+    public func credentialManagement(
         pinToken: CTAP2.ClientPin.Token
+    ) async throws(CTAP2.SessionError) -> CTAP2.CredentialManagement {
+        try await makeCredentialManagement(token: pinToken)
+    }
+
+    private func makeCredentialManagement(
+        token: any CTAP2.ClientPin.PinUVAuthToken
     ) async throws(CTAP2.SessionError) -> CTAP2.CredentialManagement {
         guard try await CTAP2.CredentialManagement.isSupported(by: self) else {
             throw .featureNotSupported(source: .here())
         }
-        return CTAP2.CredentialManagement(session: self, pinToken: pinToken)
+        return CTAP2.CredentialManagement(session: self, token: token)
     }
 }
 
@@ -53,11 +89,11 @@ extension CTAP2 {
     /// - SeeAlso: [CTAP2 authenticatorCredentialManagement](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorCredentialManagement)
     public struct CredentialManagement: Sendable {
         private let session: CTAP2.Session
-        private let pinToken: CTAP2.ClientPin.Token
+        private let token: any CTAP2.ClientPin.PinUVAuthToken
 
-        fileprivate init(session: CTAP2.Session, pinToken: CTAP2.ClientPin.Token) {
+        fileprivate init(session: CTAP2.Session, token: any CTAP2.ClientPin.PinUVAuthToken) {
             self.session = session
-            self.pinToken = pinToken
+            self.token = token
         }
 
         // MARK: - Feature Detection
@@ -192,8 +228,8 @@ extension CTAP2 {
             return RequestParameters(
                 subCommand: subcommand,
                 subCommandParams: params,
-                pinUVAuthProtocol: pinToken.protocolVersion,
-                pinUVAuthParam: pinToken.authenticate(message: message)
+                pinUVAuthProtocol: token.protocolVersion,
+                pinUVAuthParam: token.authenticate(message: message)
             )
         }
 

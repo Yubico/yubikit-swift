@@ -40,26 +40,57 @@ extension CTAP2.Session {
         return try await handler.getUVRetries()
     }
 
-    /// Get a PIN/UV auth token from the authenticator.
+    /// Get a PIN auth token from the authenticator.
     ///
     /// The returned token can be used to authenticate subsequent CTAP operations
-    /// like ``makeCredential(parameters:pinToken:)`` and ``getAssertion(parameters:pinToken:)``.
+    /// like ``makeCredential(parameters:pinToken:requireResidentKey:)`` and ``getAssertion(parameters:pinToken:requireUserPresence:)``.
     ///
     /// - Parameters:
-    ///   - method: The authentication method to use (PIN or built-in UV).
+    ///   - pin: The PIN to verify.
     ///   - permissions: Permissions for the token.
     ///   - rpId: Optional relying party ID (required for mc/ga permissions).
     ///   - pinProtocol: The PIN/UV auth protocol version to use. If nil, auto-selects.
-    /// - Returns: A PIN/UV auth token that can be used to authenticate CTAP operations.
+    /// - Returns: A PIN auth token that can be used to authenticate CTAP operations.
+    public func getPinToken(
+        _ pin: String,
+        permissions: CTAP2.ClientPin.Permission,
+        rpId: String? = nil,
+        protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion? = nil
+    ) async throws(CTAP2.SessionError) -> CTAP2.ClientPin.PinToken {
+        let handler = try await clientPinHandler(protocol: pinProtocol)
+        return try await handler.getPinToken(pin, permissions: permissions, rpId: rpId)
+    }
+
+    /// Get a UV auth token from the authenticator using built-in user verification (biometric).
     ///
-    /// Example:
-    /// ```swift
-    /// // Using PIN
-    /// let token = try await session.getPinUVToken(using: .pin("1234"), permissions: .makeCredential, rpId: "example.com")
+    /// The returned token can be used to authenticate subsequent CTAP operations.
     ///
-    /// // Using biometrics (YubiKey Bio)
-    /// let token = try await session.getPinUVToken(using: .uv, permissions: .makeCredential, rpId: "example.com")
-    /// ```
+    /// > Important: When using a UV token, user verification has already occurred. Do not set
+    /// > `uv: true` in command options - use the type-safe overloads that accept ``UVToken``.
+    ///
+    /// - Parameters:
+    ///   - permissions: Permissions for the token.
+    ///   - rpId: Optional relying party ID (required for mc/ga permissions).
+    ///   - pinProtocol: The PIN/UV auth protocol version to use. If nil, auto-selects.
+    /// - Returns: A UV auth token that can be used to authenticate CTAP operations.
+    public func getUVToken(
+        permissions: CTAP2.ClientPin.Permission,
+        rpId: String? = nil,
+        protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion? = nil
+    ) async throws(CTAP2.SessionError) -> CTAP2.ClientPin.UVToken {
+        let handler = try await clientPinHandler(protocol: pinProtocol)
+        return try await handler.getUVToken(permissions: permissions, rpId: rpId)
+    }
+
+    /// Get a PIN/UV auth token from the authenticator.
+    ///
+    /// - Deprecated: Use ``getPinToken(_:permissions:rpId:protocol:)`` or
+    /// ``getUVToken(permissions:rpId:protocol:)`` instead for better type safety.
+    @available(
+        *,
+        deprecated,
+        message: "Use getPinToken(_:permissions:rpId:protocol:) or getUVToken(permissions:rpId:protocol:) instead"
+    )
     public func getPinUVToken(
         using method: CTAP2.ClientPin.Method,
         permissions: CTAP2.ClientPin.Permission,
@@ -67,7 +98,15 @@ extension CTAP2.Session {
         protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion? = nil
     ) async throws(CTAP2.SessionError) -> CTAP2.ClientPin.Token {
         let handler = try await clientPinHandler(protocol: pinProtocol)
-        return try await handler.getToken(using: method, permissions: permissions, rpId: rpId)
+        switch method {
+        case .pin(let pin):
+            let pinToken = try await handler.getPinToken(pin, permissions: permissions, rpId: rpId)
+            return CTAP2.ClientPin.Token(pinToken: pinToken)
+        case .uv:
+            // Return Token wrapping the UV token for backwards compatibility
+            let uvToken = try await handler.getUVToken(permissions: permissions, rpId: rpId)
+            return CTAP2.ClientPin.Token(uvToken: uvToken)
+        }
     }
 
     /// Set a new PIN on the authenticator (must not already have a PIN).
@@ -152,13 +191,73 @@ private struct ClientPinHandler: Sendable {
         return try await stream.value.keyAgreement
     }
 
-    func getToken(
-        using method: CTAP2.ClientPin.Method,
+    func getPinToken(
+        _ pin: String,
         permissions: CTAP2.ClientPin.Permission,
         rpId: String? = nil
-    ) async throws(CTAP2.SessionError) -> CTAP2.ClientPin.Token {
+    ) async throws(CTAP2.SessionError) -> CTAP2.ClientPin.PinToken {
+        let authenticatorKey = try await getKeyAgreement()
+
+        // Generate ephemeral key pair and derive shared secret
+        let secretResult = try pinProtocol.establishSharedSecret(peerKey: authenticatorKey)
+        let sharedSecret = secretResult.sharedSecret
+        let platformKey = secretResult.platformKey
+
+        // Hash and encrypt PIN
+        let normalizedPin = pin.precomposedStringWithCanonicalMapping
+        let pinHash = Data(Data(normalizedPin.utf8).sha256().prefix(16))
+        let pinHashEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: pinHash)
+
+        let response: CTAP2.ClientPin.GetToken.Response
+        if supportsTokenPermissions {
+            // Use 0x09 (getPinUvAuthTokenUsingPinWithPermissions)
+            let params = CTAP2.ClientPin.GetTokenWithPermissions.Parameters(
+                pinUVAuthProtocol: pinProtocol,
+                keyAgreement: platformKey,
+                pinHashEnc: pinHashEnc,
+                permissions: permissions,
+                rpId: rpId
+            )
+            let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
+                command: .clientPin,
+                payload: params
+            )
+            response = try await stream.value
+        } else {
+            // Fall back to 0x05 (legacy getPinToken)
+            let params = CTAP2.ClientPin.GetToken.Parameters(
+                pinUVAuthProtocol: pinProtocol,
+                keyAgreement: platformKey,
+                pinHashEnc: pinHashEnc
+            )
+            let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
+                command: .clientPin,
+                payload: params
+            )
+            response = try await stream.value
+        }
+
+        let pinTokenData = try pinProtocol.decrypt(key: sharedSecret, ciphertext: response.pinUVAuthToken)
+
+        // Validate token size: V1 allows 16 or 32 bytes, V2 requires exactly 32 bytes
+        let validSize =
+            pinProtocol == .v1 ? (pinTokenData.count == 16 || pinTokenData.count == 32) : pinTokenData.count == 32
+        guard validSize else {
+            throw CTAP2.SessionError.responseParseError(
+                "Invalid PIN token size: expected \(pinProtocol == .v1 ? "16 or 32" : "32") bytes, got \(pinTokenData.count)",
+                source: .here()
+            )
+        }
+
+        return CTAP2.ClientPin.PinToken(token: pinTokenData, protocolVersion: pinProtocol)
+    }
+
+    func getUVToken(
+        permissions: CTAP2.ClientPin.Permission,
+        rpId: String? = nil
+    ) async throws(CTAP2.SessionError) -> CTAP2.ClientPin.UVToken {
         // UV requires pinUvAuthToken support
-        if case .uv = method, !supportsTokenPermissions {
+        guard supportsTokenPermissions else {
             throw CTAP2.SessionError.featureNotSupported(source: .here())
         }
 
@@ -169,70 +268,32 @@ private struct ClientPinHandler: Sendable {
         let sharedSecret = secretResult.sharedSecret
         let platformKey = secretResult.platformKey
 
-        // Build command parameters and send based on auth method
-        let response: CTAP2.ClientPin.GetToken.Response
-        switch method {
-        case .pin(let pin):
-            // Hash and encrypt PIN
-            let normalizedPin = pin.precomposedStringWithCanonicalMapping
-            let pinHash = Data(Data(normalizedPin.utf8).sha256().prefix(16))
-            let pinHashEnc = try pinProtocol.encrypt(key: sharedSecret, plaintext: pinHash)
+        // Use 0x06 (getPinUvAuthTokenUsingUvWithPermissions)
+        let params = CTAP2.ClientPin.GetTokenUsingUV.Parameters(
+            pinUVAuthProtocol: pinProtocol,
+            keyAgreement: platformKey,
+            permissions: permissions,
+            rpId: rpId
+        )
+        let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
+            command: .clientPin,
+            payload: params
+        )
+        let response = try await stream.value
 
-            if supportsTokenPermissions {
-                // Use 0x09 (getPinUvAuthTokenUsingPinWithPermissions)
-                let params = CTAP2.ClientPin.GetTokenWithPermissions.Parameters(
-                    pinUVAuthProtocol: pinProtocol,
-                    keyAgreement: platformKey,
-                    pinHashEnc: pinHashEnc,
-                    permissions: permissions,
-                    rpId: rpId
-                )
-                let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
-                    command: .clientPin,
-                    payload: params
-                )
-                response = try await stream.value
-            } else {
-                // Fall back to 0x05 (legacy getPinToken)
-                let params = CTAP2.ClientPin.GetToken.Parameters(
-                    pinUVAuthProtocol: pinProtocol,
-                    keyAgreement: platformKey,
-                    pinHashEnc: pinHashEnc
-                )
-                let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
-                    command: .clientPin,
-                    payload: params
-                )
-                response = try await stream.value
-            }
-
-        case .uv:
-            // Use 0x06 (getPinUvAuthTokenUsingUvWithPermissions)
-            let params = CTAP2.ClientPin.GetTokenUsingUV.Parameters(
-                pinUVAuthProtocol: pinProtocol,
-                keyAgreement: platformKey,
-                permissions: permissions,
-                rpId: rpId
-            )
-            let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
-                command: .clientPin,
-                payload: params
-            )
-            response = try await stream.value
-        }
-        let pinToken = try pinProtocol.decrypt(key: sharedSecret, ciphertext: response.pinUVAuthToken)
+        let tokenData = try pinProtocol.decrypt(key: sharedSecret, ciphertext: response.pinUVAuthToken)
 
         // Validate token size: V1 allows 16 or 32 bytes, V2 requires exactly 32 bytes
         let validSize =
-            pinProtocol == .v1 ? (pinToken.count == 16 || pinToken.count == 32) : pinToken.count == 32
+            pinProtocol == .v1 ? (tokenData.count == 16 || tokenData.count == 32) : tokenData.count == 32
         guard validSize else {
             throw CTAP2.SessionError.responseParseError(
-                "Invalid PIN token size: expected \(pinProtocol == .v1 ? "16 or 32" : "32") bytes, got \(pinToken.count)",
+                "Invalid UV token size: expected \(pinProtocol == .v1 ? "16 or 32" : "32") bytes, got \(tokenData.count)",
                 source: .here()
             )
         }
 
-        return CTAP2.ClientPin.Token(token: pinToken, protocolVersion: pinProtocol)
+        return CTAP2.ClientPin.UVToken(token: tokenData, protocolVersion: pinProtocol)
     }
 
     func set(_ pin: String) async throws(CTAP2.SessionError) {

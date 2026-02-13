@@ -14,16 +14,21 @@
 
 import Foundation
 
+// MARK: - PinUVAuthToken Protocol
+
+extension CTAP2.ClientPin {
+    /// Protocol for tokens that can authenticate CTAP2 management operations.
+    internal protocol PinUVAuthToken: Sendable {
+        var protocolVersion: CTAP2.ClientPin.ProtocolVersion { get }
+        func authenticate(message: Data) -> Data
+        func deriveKey(info: String) -> Data
+    }
+}
+
 // MARK: - ClientPin Types
 
 extension CTAP2.ClientPin {
     /// PIN/UV Auth Protocol version.
-    ///
-    /// Defines the cryptographic algorithms used for PIN/UV authentication.
-    /// Protocol v1 is supported by all CTAP2 authenticators, v2 adds improved security.
-    ///
-    /// - SeeAlso: [CTAP2 PIN/UV Auth Protocol One](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#pinProto1)
-    /// - SeeAlso: [CTAP2 PIN/UV Auth Protocol Two](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#pinProto2)
     public enum ProtocolVersion: Int, Sendable, CBOR.Encodable {
         /// Protocol version 1 (CTAP 2.0).
         case v1 = 1
@@ -36,21 +41,15 @@ extension CTAP2.ClientPin {
     public enum Method: Sendable {
         /// Verify using a PIN.
         case pin(String)
-
-        /// Verify using built-in user verification (e.g., fingerprint on YubiKey Bio).
+        /// Verify using built-in user verification (e.g., fingerprint).
         case uv
     }
 
-    /// A PIN/UV auth token obtained from the authenticator for authenticating CTAP operations.
+    /// A PIN auth token for authenticating CTAP2 operations.
     ///
-    /// Use ``CTAP2/Session/getPinUVToken(using:permissions:rpId:protocol:)`` to obtain a token,
-    /// then pass it to operations like ``CTAP2/Session/makeCredential(parameters:pinToken:)``
-    /// and ``CTAP2/Session/getAssertion(parameters:pinToken:)``.
-    public struct Token: Sendable {
-        /// The decrypted PIN token.
+    /// Obtain via ``CTAP2/Session/getPinToken(_:permissions:rpId:protocol:)``.
+    public struct PinToken: Sendable {
         private let token: Data
-
-        /// The PIN/UV auth protocol version used to obtain this token.
         public let protocolVersion: ProtocolVersion
 
         internal init(token: Data, protocolVersion: ProtocolVersion) {
@@ -58,19 +57,83 @@ extension CTAP2.ClientPin {
             self.protocolVersion = protocolVersion
         }
 
-        /// Compute the pinUVAuthParam for a given message.
-        ///
-        /// - Parameter message: The data to authenticate (typically clientDataHash).
-        /// - Returns: The authentication parameter to include in the CTAP request.
         func authenticate(message: Data) -> Data {
             protocolVersion.authenticate(key: token, message: message)
         }
 
-        /// Derives an AES key for decrypting encrypted GetInfo fields.
-        ///
-        /// Uses HKDF-SHA-256 with a 32-byte zero salt as specified in CTAP 2.3.
         internal func deriveKey(info: String) -> Data {
             Crypto.KDF.hkdf(token, salt: Data(count: 32), info: info, outputLength: 16)
         }
     }
+
+    /// A UV auth token obtained via built-in user verification (biometric).
+    ///
+    /// Obtain via ``CTAP2/Session/getUVToken(permissions:rpId:protocol:)``.
+    public struct UVToken: Sendable {
+        internal let token: Data
+        public let protocolVersion: ProtocolVersion
+
+        internal init(token: Data, protocolVersion: ProtocolVersion) {
+            self.token = token
+            self.protocolVersion = protocolVersion
+        }
+
+        func authenticate(message: Data) -> Data {
+            protocolVersion.authenticate(key: token, message: message)
+        }
+
+        internal func deriveKey(info: String) -> Data {
+            Crypto.KDF.hkdf(token, salt: Data(count: 32), info: info, outputLength: 16)
+        }
+    }
+
+    // MARK: - Backwards Compatibility
+
+    /// A PIN/UV auth token (deprecated, use ``PinToken`` or ``UVToken``).
+    @available(*, deprecated, message: "Use PinToken or UVToken directly")
+    public struct Token: Sendable {
+        internal enum TokenType {
+            case pin(PinToken)
+            case uv(UVToken)
+        }
+
+        internal let type: TokenType
+
+        public var protocolVersion: ProtocolVersion {
+            switch type {
+            case .pin(let token): return token.protocolVersion
+            case .uv(let token): return token.protocolVersion
+            }
+        }
+
+        internal init(pinToken: PinToken) {
+            self.type = .pin(pinToken)
+        }
+
+        internal init(uvToken: UVToken) {
+            self.type = .uv(uvToken)
+        }
+
+        func authenticate(message: Data) -> Data {
+            switch type {
+            case .pin(let token): return token.authenticate(message: message)
+            case .uv(let token): return token.authenticate(message: message)
+            }
+        }
+
+        func deriveKey(info: String) -> Data {
+            switch type {
+            case .pin(let token): return token.deriveKey(info: info)
+            case .uv(let token): return token.deriveKey(info: info)
+            }
+        }
+    }
 }
+
+// MARK: - PinUVAuthToken Conformances
+
+extension CTAP2.ClientPin.PinToken: CTAP2.ClientPin.PinUVAuthToken {}
+extension CTAP2.ClientPin.UVToken: CTAP2.ClientPin.PinUVAuthToken {}
+
+@available(*, deprecated, message: "Use PinToken or UVToken directly")
+extension CTAP2.ClientPin.Token: CTAP2.ClientPin.PinUVAuthToken {}
