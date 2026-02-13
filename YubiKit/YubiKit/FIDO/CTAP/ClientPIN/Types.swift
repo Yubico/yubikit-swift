@@ -70,7 +70,7 @@ extension CTAP2.ClientPin {
     ///
     /// Obtain via ``CTAP2/Session/getUVToken(permissions:rpId:protocol:)``.
     public struct UVToken: Sendable {
-        internal let token: Data
+        private let token: Data
         public let protocolVersion: ProtocolVersion
 
         internal init(token: Data, protocolVersion: ProtocolVersion) {

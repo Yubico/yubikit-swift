@@ -49,36 +49,57 @@ extension CTAP2.BioEnrollment {
     }
 
     /// Feedback status for a fingerprint capture sample.
-    public enum SampleStatus: UInt8, Sendable, Equatable {
+    public enum SampleStatus: Sendable, Equatable {
         /// Good fingerprint capture.
-        case good = 0x00
+        case good
         /// Fingerprint was too high.
-        case tooHigh = 0x01
+        case tooHigh
         /// Fingerprint was too low.
-        case tooLow = 0x02
+        case tooLow
         /// Fingerprint was too left.
-        case tooLeft = 0x03
+        case tooLeft
         /// Fingerprint was too right.
-        case tooRight = 0x04
+        case tooRight
         /// Finger moved too fast.
-        case tooFast = 0x05
+        case tooFast
         /// Finger moved too slow.
-        case tooSlow = 0x06
+        case tooSlow
         /// Fingerprint image was poor quality.
-        case poorQuality = 0x07
+        case poorQuality
         /// Fingerprint was too skewed.
-        case tooSkewed = 0x08
+        case tooSkewed
         /// Fingerprint was too short (swipe sensor).
-        case tooShort = 0x09
+        case tooShort
         /// Merge failure of the capture.
-        case mergeFailure = 0x0A
+        case mergeFailure
         /// Fingerprint already exists in database.
-        case exists = 0x0B
-        // 0x0C is reserved (unused per CTAP 2.2 spec).
+        case exists
         /// No user activity detected on the sensor.
-        case noUserActivity = 0x0D
+        case noUserActivity
         /// No user presence transition detected.
-        case noUserPresenceTransition = 0x0E
+        case noUserPresenceTransition
+        /// Unrecognized status code.
+        case other(UInt8)
+
+        internal static func from(_ rawValue: UInt8) -> SampleStatus {
+            switch rawValue {
+            case 0x00: return .good
+            case 0x01: return .tooHigh
+            case 0x02: return .tooLow
+            case 0x03: return .tooLeft
+            case 0x04: return .tooRight
+            case 0x05: return .tooFast
+            case 0x06: return .tooSlow
+            case 0x07: return .poorQuality
+            case 0x08: return .tooSkewed
+            case 0x09: return .tooShort
+            case 0x0A: return .mergeFailure
+            case 0x0B: return .exists
+            case 0x0D: return .noUserActivity
+            case 0x0E: return .noUserPresenceTransition
+            default: return .other(rawValue)
+            }
+        }
     }
 
     /// Information about an enrolled fingerprint template.

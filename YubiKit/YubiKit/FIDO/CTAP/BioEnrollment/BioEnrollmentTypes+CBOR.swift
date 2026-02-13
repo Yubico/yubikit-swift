@@ -71,9 +71,9 @@ extension CTAP2.BioEnrollment.EnrollBeginResult: CBOR.Decodable {
         guard
             let templateId = map[.int(Key.templateId.rawValue)]?.dataValue,
             let statusRaw = map[.int(Key.lastEnrollSampleStatus.rawValue)]?.uint64Value,
-            let sampleStatus = CTAP2.BioEnrollment.SampleStatus(rawValue: UInt8(statusRaw)),
             let remaining = map[.int(Key.remainingSamples.rawValue)]?.uint64Value
         else { return nil }
+        let sampleStatus = CTAP2.BioEnrollment.SampleStatus.from(UInt8(statusRaw))
         self.init(templateId: templateId, sampleStatus: sampleStatus, remainingSamples: UInt(remaining))
     }
 }
@@ -86,9 +86,9 @@ extension CTAP2.BioEnrollment.CaptureResult: CBOR.Decodable {
         typealias Key = CTAP2.BioEnrollment.ResponseKey
         guard
             let statusRaw = map[.int(Key.lastEnrollSampleStatus.rawValue)]?.uint64Value,
-            let sampleStatus = CTAP2.BioEnrollment.SampleStatus(rawValue: UInt8(statusRaw)),
             let remaining = map[.int(Key.remainingSamples.rawValue)]?.uint64Value
         else { return nil }
+        let sampleStatus = CTAP2.BioEnrollment.SampleStatus.from(UInt8(statusRaw))
         self.init(sampleStatus: sampleStatus, remainingSamples: UInt(remaining))
     }
 }
