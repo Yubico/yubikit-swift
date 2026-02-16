@@ -61,7 +61,7 @@ struct CredBlobFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [try credBlob.makeCredential.input(blob: testBlob)],
-                options: .init(rk: true)
+                rk: true
             )
 
             print("👆 Touch YubiKey: creating credential with credBlob...")
@@ -137,7 +137,7 @@ struct CredBlobFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [try credBlob.makeCredential.input(blob: testBlob)],
-                options: .init(rk: true)
+                rk: true
             )
 
             print("👆 Touch YubiKey: creating credential with credBlob...")

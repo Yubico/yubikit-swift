@@ -37,6 +37,8 @@
 		6CMINPINLEN2F1116000000001 /* MinPinLengthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */; };
 		B2A73E5DE80348329B8FA710 /* EncryptedFieldsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E3FD736FBE49ECAAAFA28E /* EncryptedFieldsTests.swift */; };
 		583058DA680743A1B11C558F /* CredentialManagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA359818D52447249DB07BD1 /* CredentialManagementTests.swift */; };
+		13BE63C7192C4B728038C6A1 /* BioEnrollmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D7C4A8CBA8427693C73A4D /* BioEnrollmentTests.swift */; };
+		39665FDAD3234C40B63D96C652AF6BDC /* BioUVTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D791282CF7244B319C15DAB12BE8C426 /* BioUVTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,6 +84,8 @@
 		6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinPinLengthTests.swift; sourceTree = "<group>"; };
 		59E3FD736FBE49ECAAAFA28E /* EncryptedFieldsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedFieldsTests.swift; sourceTree = "<group>"; };
 		FA359818D52447249DB07BD1 /* CredentialManagementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialManagementTests.swift; sourceTree = "<group>"; };
+		72D7C4A8CBA8427693C73A4D /* BioEnrollmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BioEnrollmentTests.swift; sourceTree = "<group>"; };
+		D791282CF7244B319C15DAB12BE8C426 /* BioUVTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BioUVTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -170,6 +174,8 @@
 			isa = PBXGroup;
 			children = (
 				CD75D32D2F1114C8000624CB /* Extensions */,
+				72D7C4A8CBA8427693C73A4D /* BioEnrollmentTests.swift */,
+				D791282CF7244B319C15DAB12BE8C426 /* BioUVTests.swift */,
 				CD89AB9B1BB24FA6B5FD79D3 /* ConfigTests.swift */,
 				FA359818D52447249DB07BD1 /* CredentialManagementTests.swift */,
 				6C734BB42EE860E100972E2A /* CredentialTests.swift */,
@@ -350,6 +356,8 @@
 				6CDATAHEX2EF1234500000001 /* Data+Hex.swift in Sources */,
 				B2A73E5DE80348329B8FA710 /* EncryptedFieldsTests.swift in Sources */,
 				583058DA680743A1B11C558F /* CredentialManagementTests.swift in Sources */,
+				13BE63C7192C4B728038C6A1 /* BioEnrollmentTests.swift in Sources */,
+				39665FDAD3234C40B63D96C652AF6BDC /* BioUVTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

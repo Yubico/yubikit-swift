@@ -44,10 +44,6 @@ actor WebAuthnHandler {
             request.authenticatorSelection?.residentKey == "required"
             || request.authenticatorSelection?.residentKey == "preferred"
             || request.authenticatorSelection?.requireResidentKey == true
-        let options = CTAP2.MakeCredential.Parameters.Options(
-            rk: residentKeyRequired,
-            uv: request.authenticatorSelection?.userVerification == "required"
-        )
 
         let (activeSession, pinToken) = try await getPinTokenIfNeeded(
             session: session,
@@ -67,10 +63,16 @@ actor WebAuthnHandler {
             pubKeyCredParams: pubKeyParams,
             excludeList: excludeList,
             extensions: extState.inputs,
-            options: options
+            rk: residentKeyRequired,
+            uv: request.authenticatorSelection?.userVerification == "required" ? true : nil
         )
 
-        let response = try await session.makeCredential(parameters: params, pinToken: pinToken).value
+        let response =
+            if let pinToken {
+                try await session.makeCredential(parameters: params, pinToken: pinToken).value
+            } else {
+                try await session.makeCredential(parameters: params).value
+            }
         let extensionResults = try extractCreateExtensionResults(state: extState, response: response)
 
         let credentials = CredentialResponse(
@@ -93,10 +95,6 @@ actor WebAuthnHandler {
 
         let allowList = request.allowCredentials?.compactMap { $0.toDescriptor() }
 
-        let options = CTAP2.GetAssertion.Parameters.Options(
-            uv: request.userVerification == "required"
-        )
-
         let (activeSession, pinToken) = try await getPinTokenIfNeeded(
             session: session,
             permissions: permissionsForGetAssertion(request: request),
@@ -113,10 +111,15 @@ actor WebAuthnHandler {
             clientDataHash: clientDataHash,
             allowList: allowList,
             extensions: extState.inputs,
-            options: options
+            uv: request.userVerification == "required" ? true : nil
         )
 
-        let response = try await session.getAssertion(parameters: params, pinToken: pinToken).value
+        let response =
+            if let pinToken {
+                try await session.getAssertion(parameters: params, pinToken: pinToken).value
+            } else {
+                try await session.getAssertion(parameters: params).value
+            }
         let extensionResults = try await extractGetExtensionResults(
             state: extState,
             response: response,
