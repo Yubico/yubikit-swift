@@ -68,7 +68,8 @@ struct MinPinLengthFullStackTests {
                     displayName: "MinPinLength Test User"
                 ),
                 pubKeyCredParams: [.es256],
-                extensions: [minPinLength.makeCredential.input()]
+                extensions: [minPinLength.makeCredential.input()],
+                rk: true
             )
 
             print("👆 Touch YubiKey: creating credential with minPinLength extension...")

@@ -250,6 +250,7 @@ extension CTAP2.GetInfo {
 // MARK: - Encrypted Field Decryption
 
 extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.Opaque128 {
+
     /// Decrypts the encrypted field to raw bytes using a persistent pinUvAuthToken.
     ///
     /// - Parameter token: A persistent pinUvAuthToken obtained with

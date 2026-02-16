@@ -41,10 +41,10 @@ extension CTAP2.ClientPin {
         case uv
     }
 
-    /// A PIN/UV auth token obtained from the authenticator for authenticating CTAP operations.
+    /// A PIN/UV auth token for authenticating CTAP2 operations.
     ///
-    /// Use ``CTAP2/Session/getPinUVToken(using:permissions:rpId:protocol:)`` to obtain a token,
-    /// then pass it to operations like ``CTAP2/Session/makeCredential(parameters:pinToken:)``
+    /// Obtain via ``CTAP2/Session/getPinUVToken(using:permissions:rpId:protocol:)``, then pass it to
+    /// operations like ``CTAP2/Session/makeCredential(parameters:pinToken:)``
     /// and ``CTAP2/Session/getAssertion(parameters:pinToken:)``.
     public struct Token: Sendable {
         /// The decrypted PIN token.
@@ -58,17 +58,10 @@ extension CTAP2.ClientPin {
             self.protocolVersion = protocolVersion
         }
 
-        /// Compute the pinUVAuthParam for a given message.
-        ///
-        /// - Parameter message: The data to authenticate (typically clientDataHash).
-        /// - Returns: The authentication parameter to include in the CTAP request.
         func authenticate(message: Data) -> Data {
             protocolVersion.authenticate(key: token, message: message)
         }
 
-        /// Derives an AES key for decrypting encrypted GetInfo fields.
-        ///
-        /// Uses HKDF-SHA-256 with a 32-byte zero salt as specified in CTAP 2.3.
         internal func deriveKey(info: String) -> Data {
             Crypto.KDF.hkdf(token, salt: Data(count: 32), info: info, outputLength: 16)
         }

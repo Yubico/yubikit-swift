@@ -33,7 +33,9 @@ extension CTAP2.Session {
     /// - Returns: Config operations bound to the token.
     /// - Throws: `CTAP2.SessionError.featureNotSupported` if authenticatorConfig is not supported.
     /// - SeeAlso: [CTAP2 authenticatorConfig](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorConfig)
-    public func config(pinToken: CTAP2.ClientPin.Token) async throws(CTAP2.SessionError) -> CTAP2.Config {
+    public func config(
+        pinToken: CTAP2.ClientPin.Token
+    ) async throws(CTAP2.SessionError) -> CTAP2.Config {
         guard try await cachedInfo.options.authenticatorConfig else {
             throw .featureNotSupported(source: .here())
         }
