@@ -43,7 +43,7 @@ extension CTAP2.Session {
     /// Get a PIN auth token from the authenticator.
     ///
     /// The returned token can be used to authenticate subsequent CTAP operations
-    /// like ``makeCredential(parameters:pinToken:requireResidentKey:)`` and ``getAssertion(parameters:pinToken:requireUserPresence:)``.
+    /// like ``makeCredential(parameters:pinToken:)`` and ``getAssertion(parameters:pinToken:)``.
     ///
     /// - Parameters:
     ///   - pin: The PIN to verify.

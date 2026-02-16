@@ -66,7 +66,12 @@ actor WebAuthnHandler {
             rk: residentKeyRequired
         )
 
-        let response = try await session.makeCredential(parameters: params, pinToken: pinToken).value
+        let response =
+            if let pinToken {
+                try await session.makeCredential(parameters: params, pinToken: pinToken).value
+            } else {
+                try await session.makeCredential(parameters: params).value
+            }
         let extensionResults = try extractCreateExtensionResults(state: extState, response: response)
 
         let credentials = CredentialResponse(
@@ -107,7 +112,12 @@ actor WebAuthnHandler {
             extensions: extState.inputs
         )
 
-        let response = try await session.getAssertion(parameters: params, pinToken: pinToken).value
+        let response =
+            if let pinToken {
+                try await session.getAssertion(parameters: params, pinToken: pinToken).value
+            } else {
+                try await session.getAssertion(parameters: params).value
+            }
         let extensionResults = try await extractGetExtensionResults(
             state: extState,
             response: response,
