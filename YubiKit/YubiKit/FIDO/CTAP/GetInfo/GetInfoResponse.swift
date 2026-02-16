@@ -250,13 +250,72 @@ extension CTAP2.GetInfo {
 // MARK: - Encrypted Field Decryption
 
 extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.Opaque128 {
+
     /// Decrypts the encrypted field to raw bytes using a persistent pinUvAuthToken.
     ///
     /// - Parameter token: A persistent pinUvAuthToken obtained with
     ///   the `.persistentCredentialManagement` permission.
     /// - Returns: The decrypted 16-byte value.
     /// - Throws: `CryptoError` if decryption fails.
+    public func decryptedData(using token: CTAP2.ClientPin.PinToken) throws(CryptoError) -> Data {
+        try decryptData(using: token)
+    }
+
+    /// Decrypts the encrypted field to raw bytes using a persistent pinUvAuthToken.
+    ///
+    /// - Parameter token: A persistent pinUvAuthToken obtained with
+    ///   the `.persistentCredentialManagement` permission.
+    /// - Returns: The decrypted 16-byte value.
+    /// - Throws: `CryptoError` if decryption fails.
+    public func decryptedData(using token: CTAP2.ClientPin.UVToken) throws(CryptoError) -> Data {
+        try decryptData(using: token)
+    }
+
+    /// Decrypts the encrypted field to raw bytes using a persistent pinUvAuthToken.
+    ///
+    /// - Deprecated: Use ``decryptedData(using:)`` with `PinToken` or `UVToken` instead.
+    @available(*, deprecated, message: "Use decryptedData(using: PinToken) or decryptedData(using: UVToken)")
     public func decryptedData(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
+        try decryptData(using: token)
+    }
+
+    /// Decrypts the encrypted field using a persistent pinUvAuthToken.
+    ///
+    /// - Parameter token: A persistent pinUvAuthToken obtained with
+    ///   the `.persistentCredentialManagement` permission.
+    /// - Returns: The decrypted 128-bit value.
+    /// - Throws: `CryptoError` if decryption fails.
+    public func decrypted(
+        using token: CTAP2.ClientPin.PinToken
+    ) throws(CryptoError) -> CTAP2.GetInfo.Opaque128 {
+        try decrypt(using: token)
+    }
+
+    /// Decrypts the encrypted field using a persistent pinUvAuthToken.
+    ///
+    /// - Parameter token: A persistent pinUvAuthToken obtained with
+    ///   the `.persistentCredentialManagement` permission.
+    /// - Returns: The decrypted 128-bit value.
+    /// - Throws: `CryptoError` if decryption fails.
+    public func decrypted(
+        using token: CTAP2.ClientPin.UVToken
+    ) throws(CryptoError) -> CTAP2.GetInfo.Opaque128 {
+        try decrypt(using: token)
+    }
+
+    /// Decrypts the encrypted field using a persistent pinUvAuthToken.
+    ///
+    /// - Deprecated: Use ``decrypted(using:)`` with `PinToken` or `UVToken` instead.
+    @available(*, deprecated, message: "Use decrypted(using: PinToken) or decrypted(using: UVToken)")
+    public func decrypted(
+        using token: CTAP2.ClientPin.Token
+    ) throws(CryptoError) -> CTAP2.GetInfo.Opaque128 {
+        try decrypt(using: token)
+    }
+
+    // MARK: - Private
+
+    private func decryptData(using token: some CTAP2.ClientPin.PinUVAuthToken) throws(CryptoError) -> Data {
         let ivSize = Crypto.AES.blockSize
         guard encryptedData.count > ivSize else {
             throw .missingData
@@ -269,16 +328,10 @@ extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.Opaque128 {
         return try Crypto.AES.decrypt(Data(ciphertext), key: aesKey, mode: .cbc(iv: Data(iv)))
     }
 
-    /// Decrypts the encrypted field using a persistent pinUvAuthToken.
-    ///
-    /// - Parameter token: A persistent pinUvAuthToken obtained with
-    ///   the `.persistentCredentialManagement` permission.
-    /// - Returns: The decrypted 128-bit value.
-    /// - Throws: `CryptoError` if decryption fails.
-    public func decrypted(
-        using token: CTAP2.ClientPin.Token
+    private func decrypt(
+        using token: some CTAP2.ClientPin.PinUVAuthToken
     ) throws(CryptoError) -> CTAP2.GetInfo.Opaque128 {
-        let data = try decryptedData(using: token)
+        let data = try decryptData(using: token)
         guard let value = CTAP2.GetInfo.Opaque128(data) else { throw .missingData }
         return value
     }
