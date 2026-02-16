@@ -43,8 +43,8 @@ struct CredBlobFullStackTests {
 
             // 1. Create credential with credBlob extension
             session = try await reconnectWhenOverNFC()
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential],
                 rpId: rpId
             )
@@ -73,8 +73,8 @@ struct CredBlobFullStackTests {
 
             // 2. GetAssertion with credBlob extension to retrieve blob
             session = try await reconnectWhenOverNFC()
-            let gaToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let gaToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.getAssertion],
                 rpId: rpId
             )
@@ -119,8 +119,8 @@ struct CredBlobFullStackTests {
 
             // 1. Create credential with credBlob
             session = try await reconnectWhenOverNFC()
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential],
                 rpId: rpId
             )
@@ -146,8 +146,8 @@ struct CredBlobFullStackTests {
 
             // 2. GetAssertion WITHOUT credBlob extension
             session = try await reconnectWhenOverNFC()
-            let gaToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let gaToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.getAssertion],
                 rpId: rpId
             )

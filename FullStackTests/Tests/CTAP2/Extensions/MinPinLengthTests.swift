@@ -43,16 +43,16 @@ struct MinPinLengthFullStackTests {
             let rpId = "minpinlength-configured-test.example.com"
 
             // Configure the RP ID to receive minPinLength
-            let configToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let configToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.authenticatorConfig]
             )
             let config = try await session.config(pinToken: configToken)
             try await config.setMinPINLength(rpIDs: [rpId])
 
             // Create credential with minPinLength extension
-            let makeCredToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let makeCredToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential],
                 rpId: rpId
             )

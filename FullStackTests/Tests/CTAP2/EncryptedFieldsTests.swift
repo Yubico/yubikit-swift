@@ -28,8 +28,8 @@ struct EncryptedFieldsTests {
             try #require(info.encIdentifier != nil, "encIdentifier not supported")
 
             // Get persistent pinUvAuthToken (PPUAT) with pcmr permission
-            let ppuat = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let ppuat = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.persistentCredentialManagement]
             )
 
@@ -53,8 +53,8 @@ struct EncryptedFieldsTests {
             try #require(info.encCredStoreState != nil, "encCredStoreState not supported")
 
             // Get persistent pinUvAuthToken (PPUAT) with pcmr permission
-            let ppuat = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let ppuat = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.persistentCredentialManagement]
             )
 
@@ -75,13 +75,13 @@ struct EncryptedFieldsTests {
     func testPersistentTokenAcrossReconnects() async throws {
         // First session: get PPUAT and decrypt fields
         typealias Opaque128 = CTAP2.GetInfo.Opaque128
-        let (ppuat, identifier1, credStoreState1): (CTAP2.ClientPin.Token, Opaque128, Opaque128?) =
+        let (ppuat, identifier1, credStoreState1): (CTAP2.ClientPin.PinToken, Opaque128, Opaque128?) =
             try await withCTAP2Session { session in
                 let info = try await session.getInfo()
                 try #require(info.encIdentifier != nil, "encIdentifier not supported")
 
-                let ppuat = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
+                let ppuat = try await session.getPinToken(
+                    defaultTestPin,
                     permissions: [.persistentCredentialManagement]
                 )
 
@@ -129,14 +129,14 @@ struct EncryptedFieldsTests {
             try #require(info.options.clientPin == true, "PIN not set")
 
             // Get PPUAT for decrypting credStoreState
-            let ppuat = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let ppuat = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.persistentCredentialManagement]
             )
 
             // Clean up any existing credentials
-            let cmToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let cmToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.credentialManagement]
             )
             let credMgmt = try await session.credentialManagement(pinToken: cmToken)
@@ -153,8 +153,8 @@ struct EncryptedFieldsTests {
 
             // 2. Create discoverable credential (requires UP)
             session = try await reconnectWhenOverNFC()
-            let makeCredToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let makeCredToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential],
                 rpId: "test.example.com"
             )
@@ -179,8 +179,8 @@ struct EncryptedFieldsTests {
             print("✅ credStoreState changed after credential creation: \(state2)")
 
             // 3. Delete credential via CredentialManagement (re-create after potential NFC reconnect)
-            let deleteToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let deleteToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.credentialManagement]
             )
             let credMgmt2 = try await session.credentialManagement(pinToken: deleteToken)

@@ -160,7 +160,7 @@ actor WebAuthnHandler {
         session: CTAP2.Session,
         permissions: CTAP2.ClientPin.Permission,
         rpId: String
-    ) async throws -> (session: CTAP2.Session, pinToken: CTAP2.ClientPin.Token?) {
+    ) async throws -> (session: CTAP2.Session, pinToken: CTAP2.ClientPin.PinToken?) {
         let info = try await session.getInfo()
         guard info.options.clientPin == true else {
             return (session, nil)
@@ -182,8 +182,8 @@ actor WebAuthnHandler {
             #endif
 
             do throws(CTAP2.SessionError) {
-                let token = try await currentSession.getPinUVToken(
-                    using: .pin(pin),
+                let token = try await currentSession.getPinToken(
+                    pin,
                     permissions: permissions,
                     rpId: rpId
                 )

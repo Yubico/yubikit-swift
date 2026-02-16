@@ -160,7 +160,7 @@ struct CredentialManagementTests {
         // First session: setup and get PPUAT
         let testData:
             (
-                ppuat: CTAP2.ClientPin.Token,
+                ppuat: CTAP2.ClientPin.PinToken,
                 credentialId: WebAuthn.PublicKeyCredential.Descriptor,
                 rpIdHash: Data,
                 identifier: Opaque128?,
@@ -179,8 +179,8 @@ struct CredentialManagementTests {
                 let credentials = try await credMgmt.credentials(for: rps[0].rpIdHash).enumerate()
 
                 // Get PPUAT
-                let ppuat = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
+                let ppuat = try await session.getPinToken(
+                    defaultTestPin,
                     permissions: [.persistentCredentialManagement]
                 )
 
@@ -265,16 +265,16 @@ private func isSupported(_ session: CTAP2.Session) async throws -> Bool {
 }
 
 private func getCredentialManagement(_ session: CTAP2.Session) async throws -> CTAP2.CredentialManagement {
-    let token = try await session.getPinUVToken(
-        using: .pin(defaultTestPin),
+    let token = try await session.getPinToken(
+        defaultTestPin,
         permissions: [.credentialManagement]
     )
     return try await session.credentialManagement(pinToken: token)
 }
 
 private func createTestCredential(_ session: CTAP2.Session) async throws {
-    let pinToken = try await session.getPinUVToken(
-        using: .pin(defaultTestPin),
+    let pinToken = try await session.getPinToken(
+        defaultTestPin,
         permissions: [.makeCredential],
         rpId: testRpId
     )
@@ -300,7 +300,7 @@ private func deleteAllCredentials(_ session: CTAP2.Session) async throws {
 
 private func verifyReadOnlyOperations(
     session: CTAP2.Session,
-    ppuat: CTAP2.ClientPin.Token,
+    ppuat: CTAP2.ClientPin.PinToken,
     rpIdHash: Data
 ) async throws {
     let credMgmt = try await session.credentialManagement(pinToken: ppuat)

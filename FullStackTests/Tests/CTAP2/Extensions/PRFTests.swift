@@ -46,8 +46,8 @@ struct WebAuthnExtensionFullStackTests {
             // 1. Create a credential with PRF enabled (via hmac-secret) (requires UP)
             session = try await reconnectWhenOverNFC()
 
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential],
                 rpId: rpId
             )
@@ -95,8 +95,8 @@ struct WebAuthnExtensionFullStackTests {
             let prf = try await WebAuthn.Extension.PRF(session: session)
             let prfInput1 = try prf.getAssertion.input(first: secret1)
 
-            let pinToken2 = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken2 = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.getAssertion],
                 rpId: rpId
             )
@@ -136,8 +136,8 @@ struct WebAuthnExtensionFullStackTests {
 
             let prfInput2 = try prf2.getAssertion.input(for: credentialId)
 
-            let pinToken3 = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken3 = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.getAssertion],
                 rpId: rpId
             )
@@ -205,8 +205,8 @@ struct WebAuthnExtensionFullStackTests {
             let prf = try await WebAuthn.Extension.PRF(session: session)
             let prfMcInput = try prf.makeCredential.input(first: secret1, second: secret2)
 
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential],
                 rpId: rpId
             )
@@ -259,8 +259,8 @@ struct WebAuthnExtensionFullStackTests {
             let prfGa = try await WebAuthn.Extension.PRF(session: session)
             let prfGaInput = try prfGa.getAssertion.input(first: secret1, second: secret2)
 
-            let pinToken2 = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken2 = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.getAssertion],
                 rpId: rpId
             )

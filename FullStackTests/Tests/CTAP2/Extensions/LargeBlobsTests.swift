@@ -44,8 +44,8 @@ struct LargeBlobsFullStackTests {
             // 1. Create credential with largeBlobKey extension
             // Use a single token with makeCredential + largeBlobWrite permissions.
             session = try await reconnectWhenOverNFC()
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential, .largeBlobWrite],
                 rpId: rpId
             )
@@ -89,8 +89,8 @@ struct LargeBlobsFullStackTests {
 
             // 4. Delete the blob
             session = try await reconnectWhenOverNFC()
-            let deleteToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let deleteToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.largeBlobWrite],
                 rpId: nil
             )
@@ -131,8 +131,8 @@ struct LargeBlobsFullStackTests {
             // 1. Create credential with largeBlobKey and store blob
             // Use makeCredential + largeBlobWrite token for registration flow.
             session = try await reconnectWhenOverNFC()
-            let mcToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let mcToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential, .largeBlobWrite],
                 rpId: rpId
             )
@@ -169,8 +169,8 @@ struct LargeBlobsFullStackTests {
             // 3. GetAssertion with largeBlobKey extension to get the key again
             // Use getAssertion + largeBlobWrite token for authentication flow.
             session = try await reconnectWhenOverNFC()
-            let gaToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let gaToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.getAssertion, .largeBlobWrite],
                 rpId: rpId
             )
@@ -229,8 +229,8 @@ struct LargeBlobsFullStackTests {
 
             // Create first credential and store its blob
             session = try await reconnectWhenOverNFC()
-            let pinToken1 = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken1 = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential, .largeBlobWrite],
                 rpId: rpId
             )
@@ -264,8 +264,8 @@ struct LargeBlobsFullStackTests {
 
             // Create second credential and store its blob
             session = try await reconnectWhenOverNFC()
-            let pinToken2 = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken2 = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential, .largeBlobWrite],
                 rpId: rpId
             )
@@ -306,8 +306,8 @@ struct LargeBlobsFullStackTests {
 
             // Cleanup
             session = try await reconnectWhenOverNFC()
-            let cleanupToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let cleanupToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.largeBlobWrite],
                 rpId: nil
             )
@@ -347,8 +347,8 @@ struct LargeBlobsFullStackTests {
             let randomKey = Data((0..<32).map { _ in UInt8.random(in: 0...255) })
 
             session = try await reconnectWhenOverNFC()
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.largeBlobWrite],
                 rpId: nil
             )

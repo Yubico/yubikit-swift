@@ -226,8 +226,8 @@ struct CTAP2FullStackTests {
             }
 
             // Reset retry counter via successful PIN auth
-            _ = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            _ = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential],
                 rpId: "localhost",
                 protocol: pinProtocol
@@ -257,8 +257,8 @@ struct CTAP2FullStackTests {
             }
 
             // Reset retries before testing
-            _ = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            _ = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential],
                 rpId: "localhost",
                 protocol: pinProtocol
@@ -274,8 +274,8 @@ struct CTAP2FullStackTests {
 
             // Old PIN should fail
             do {
-                _ = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
+                _ = try await session.getPinToken(
+                    defaultTestPin,
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost",
                     protocol: pinProtocol
@@ -293,8 +293,8 @@ struct CTAP2FullStackTests {
             #expect(retriesAfterWrongPin.retries == 7, "Retries should decrement after wrong PIN")
 
             // New PIN should succeed and reset retries
-            _ = try await session.getPinUVToken(
-                using: .pin(otherPin),
+            _ = try await session.getPinToken(
+                otherPin,
                 permissions: [.makeCredential, .getAssertion],
                 rpId: "localhost",
                 protocol: pinProtocol
@@ -321,8 +321,7 @@ struct CTAP2FullStackTests {
             // If device doesn't support pinUvAuthToken, verify it throws featureNotSupported
             guard info.options.pinUVAuthToken == true else {
                 do {
-                    _ = try await session.getPinUVToken(
-                        using: .uv,
+                    _ = try await session.getUVToken(
                         permissions: [.makeCredential, .getAssertion],
                         rpId: "example.com",
                         protocol: pinProtocol
@@ -345,8 +344,7 @@ struct CTAP2FullStackTests {
             }
 
             print("👆 Touch the fingerprint sensor on YubiKey Bio...")
-            let token = try await session.getPinUVToken(
-                using: .uv,
+            let token: CTAP2.ClientPin.UVToken = try await session.getUVToken(
                 permissions: [.makeCredential, .getAssertion],
                 rpId: "example.com",
                 protocol: pinProtocol
@@ -412,8 +410,8 @@ struct CTAP2FullStackTests {
             }
 
             // Reset retries before testing
-            _ = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            _ = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential, .getAssertion],
                 rpId: "localhost",
                 protocol: pinProtocol
@@ -424,8 +422,8 @@ struct CTAP2FullStackTests {
             // Make 3 wrong attempts: 8 → 7 → 6 → 5 (third attempt may soft-lock)
             for expectedRetries in [7, 6, 5] {
                 do {
-                    _ = try await session.getPinUVToken(
-                        using: .pin(wrongPin),
+                    _ = try await session.getPinToken(
+                        wrongPin,
                         permissions: [.makeCredential, .getAssertion],
                         rpId: "localhost",
                         protocol: pinProtocol
@@ -447,8 +445,8 @@ struct CTAP2FullStackTests {
             // Soft-locked - counter should freeze
             let frozenRetries = retriesResponse.retries
             do {
-                _ = try await session.getPinUVToken(
-                    using: .pin(wrongPin),
+                _ = try await session.getPinToken(
+                    wrongPin,
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost",
                     protocol: pinProtocol
@@ -465,8 +463,8 @@ struct CTAP2FullStackTests {
 
             // Even correct PIN is blocked
             do {
-                _ = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
+                _ = try await session.getPinToken(
+                    defaultTestPin,
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost",
                     protocol: pinProtocol

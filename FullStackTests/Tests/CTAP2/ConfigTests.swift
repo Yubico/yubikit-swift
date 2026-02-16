@@ -24,8 +24,8 @@ struct ConfigFullStackTests {
     @Test("Check authenticatorConfig support")
     func testConfigSupport() async throws {
         try await withCTAP2Session { session in
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.authenticatorConfig]
             )
 
@@ -56,8 +56,8 @@ struct ConfigFullStackTests {
 
             let initialAlwaysUV = info.options.alwaysUV ?? false
 
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.authenticatorConfig]
             )
 
@@ -95,8 +95,8 @@ struct ConfigFullStackTests {
                 return
             }
 
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.authenticatorConfig]
             )
 
@@ -125,8 +125,8 @@ struct ConfigFullStackTests {
                 return
             }
 
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.authenticatorConfig]
             )
 
@@ -166,8 +166,8 @@ struct ConfigFullStackTests {
                 return
             }
 
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.authenticatorConfig]
             )
 

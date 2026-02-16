@@ -135,7 +135,7 @@ func extractGetExtensionResults(
     state: GetExtensionState,
     response: CTAP2.GetAssertion.Response,
     session: CTAP2.Session,
-    pinToken: CTAP2.ClientPin.Token?
+    pinToken: CTAP2.ClientPin.PinToken?
 ) async throws -> ExtensionResults {
     var results = ExtensionResults()
 

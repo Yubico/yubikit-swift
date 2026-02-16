@@ -107,8 +107,8 @@ struct CTAP2ExtensionFullStackTests {
                 return
             }
 
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential, .credentialManagement],
                 rpId: rpId
             )
@@ -203,8 +203,8 @@ struct CTAP2ExtensionFullStackTests {
             let hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
             let hmacSecretInput = try hmacSecret.makeCredential.input(salt1: salt1, salt2: salt2)
 
-            let pinToken = try await session.getPinUVToken(
-                using: .pin(defaultTestPin),
+            let pinToken = try await session.getPinToken(
+                defaultTestPin,
                 permissions: [.makeCredential],
                 rpId: "hmac-secret-mc-test.com"
             )
