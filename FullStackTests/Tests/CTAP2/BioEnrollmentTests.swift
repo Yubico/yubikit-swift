@@ -23,7 +23,7 @@ struct BioEnrollmentTests {
 
     @Test("Get fingerprint sensor info")
     func testGetSensorInfo() async throws {
-        try await withBioEnrollment { bio, _ in
+        try await withBioEnrollment { bio in
             let info = try await bio.getFingerprintSensorInfo()
             // fingerprintKind should be touch (1) or swipe (2)
             #expect([.touch, .swipe].contains(info.fingerprintKind))
@@ -38,7 +38,7 @@ struct BioEnrollmentTests {
 
     @Test("Enroll, rename, and delete fingerprint")
     func testEnrollRenameDelete() async throws {
-        try await withBioEnrollment { bio, _ in
+        try await withBioEnrollment { bio in
             // Remove all existing enrollments
             let existing = try await bio.enrollments.enumerate()
             for template in existing {
@@ -113,13 +113,10 @@ struct BioEnrollmentTests {
 // MARK: - Test Fixture
 
 private func withBioEnrollment(
-    _ body: (CTAP2.BioEnrollment, CTAP2.Session) async throws -> Void
+    _ body: (CTAP2.BioEnrollment) async throws -> Void
 ) async throws {
     try await withCTAP2Session { session in
-        guard try await CTAP2.BioEnrollment.isSupported(by: session) else {
-            print("Bio enrollment not supported - skipping")
-            return
-        }
+        try #require(await CTAP2.BioEnrollment.isSupported(by: session), "Bio enrollment not supported")
 
         let info = try await session.getInfo()
         try #require(info.options.clientPin == true, "PIN not set")
@@ -131,6 +128,6 @@ private func withBioEnrollment(
 
         let bio = try await session.bioEnrollment(pinToken: pinToken)
 
-        try await body(bio, session)
+        try await body(bio)
     }
 }

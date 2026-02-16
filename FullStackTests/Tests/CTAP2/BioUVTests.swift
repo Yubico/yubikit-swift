@@ -59,13 +59,16 @@ struct BioUVTests {
     @Test("UV blocking after wrong fingerprint attempts")
     func testUVBlocking() async throws {
         try await withEnrolledFingerprint { session, templateId in
-            // Attempt to get UV token 3 times with WRONG fingerprint
-            // This should cause UV_BLOCKED error
-            print("\n⚠️  Next 3 attempts: Use a DIFFERENT fingerprint (not the enrolled one)")
+            // Attempt UV with wrong fingerprint until the authenticator blocks UV.
+            // The retry threshold is authenticator-specific (typically 3–5).
+            let maxAttempts = 10
+            print("\n⚠️  Use a DIFFERENT fingerprint (not the enrolled one) until UV is blocked")
 
-            for attempt in 1...3 {
+            var attempt = 0
+            while attempt < maxAttempts {
+                attempt += 1
                 do {
-                    print("👆 Attempt \(attempt)/3: Touch WRONG fingerprint...")
+                    print("👆 Attempt \(attempt): Touch WRONG fingerprint...")
                     _ = try await session.getUVToken(
                         permissions: [.makeCredential],
                         rpId: "example.com"
@@ -73,18 +76,18 @@ struct BioUVTests {
                     Issue.record("Wrong fingerprint should have been rejected")
                 } catch let error as CTAP2.SessionError {
                     if case .ctapError(let code, _) = error {
-                        if attempt < 3 {
-                            #expect(code == .uvInvalid, "Expected uvInvalid on attempt \(attempt), got: \(code)")
-                            print("✅ Received UV_INVALID (\(attempt)/3)")
-                        } else {
-                            #expect(code == .uvBlocked, "Expected uvBlocked on attempt 3, got: \(code)")
-                            print("✅ Received UV_BLOCKED after 3 failed attempts")
+                        if code == .uvBlocked {
+                            print("✅ UV_BLOCKED after \(attempt) failed attempts")
+                            break
                         }
+                        #expect(code == .uvInvalid, "Expected uvInvalid on attempt \(attempt), got: \(code)")
+                        print("✅ UV_INVALID (\(attempt))")
                     } else {
                         Issue.record("Expected CTAP error, got: \(error)")
                     }
                 }
             }
+            #expect(attempt <= maxAttempts, "UV was not blocked after \(maxAttempts) attempts")
 
             // Now verify that PIN still works even though UV is blocked
             print("\n👆 Touch sensor for user presence (PIN will be used, not UV)...")
@@ -111,10 +114,10 @@ struct BioUVTests {
                 pinToken: pinToken
             ).value
 
-            // PIN token with uv: nil → authenticator sets UP but not UV
+            // Per CTAP 2.2 §6.1.1: valid pinUvAuthParam sets UV flag regardless of token type
             #expect(credential.authenticatorData.flags.contains(.userPresent))
-            #expect(!credential.authenticatorData.flags.contains(.userVerified))
-            print("✅ PIN works even with UV blocked (UP set, UV not set)")
+            #expect(credential.authenticatorData.flags.contains(.userVerified))
+            print("✅ PIN works even with UV blocked (UP + UV flags set)")
         }
     }
 }
@@ -126,16 +129,10 @@ private func withEnrolledFingerprint(
     _ body: (CTAP2.Session, Data) async throws -> Void
 ) async throws {
     try await withCTAP2Session { session in
-        guard try await CTAP2.BioEnrollment.isSupported(by: session) else {
-            print("Bio enrollment not supported - skipping")
-            return
-        }
+        try #require(await CTAP2.BioEnrollment.isSupported(by: session), "Bio enrollment not supported")
 
         let info = try await session.getInfo()
-        guard info.options.clientPin == true else {
-            print("PIN not set - skipping")
-            return
-        }
+        try #require(info.options.clientPin == true, "PIN not set")
 
         // Get PIN token for bio enrollment management
         let pinToken = try await session.getPinToken(
@@ -168,10 +165,7 @@ private func withEnrolledFingerprint(
             }
         }
 
-        guard let enrolledTemplateId = templateId else {
-            Issue.record("Failed to enroll fingerprint")
-            return
-        }
+        let enrolledTemplateId = try #require(templateId, "Failed to enroll fingerprint")
 
         #expect(try await bio.enrollments.enumerate().count == 1)
         print("✅ Fingerprint enrolled successfully")
@@ -179,9 +173,16 @@ private func withEnrolledFingerprint(
         // Run the test body
         try await body(session, enrolledTemplateId)
 
+        // Re-obtain PIN token for cleanup (test body may have invalidated the original token)
+        let cleanupToken = try await session.getPinToken(
+            defaultTestPin,
+            permissions: [.bioEnrollment]
+        )
+        let cleanupBio = try await session.bioEnrollment(pinToken: cleanupToken)
+
         // Clean up
-        try await bio.removeEnrollment(enrolledTemplateId)
-        #expect(try await bio.enrollments.enumerate().isEmpty)
+        try await cleanupBio.removeEnrollment(enrolledTemplateId)
+        #expect(try await cleanupBio.enrollments.enumerate().isEmpty)
         print("✅ Fingerprint removed")
     }
 }

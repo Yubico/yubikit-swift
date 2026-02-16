@@ -107,7 +107,7 @@ public enum CTAP2 {
     /// specific failure conditions during authenticator operations.
     ///
     /// - SeeAlso: [CTAP 2.2 Status Codes](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#error-responses)
-    public enum Error: Swift.Error, Sendable {
+    public enum Error: Swift.Error, Sendable, Equatable {
         /// The command is not a valid CTAP command.
         case invalidCommand
         /// The command included an invalid parameter.
