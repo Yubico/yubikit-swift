@@ -288,7 +288,7 @@ public enum CTAP2 {
     /// These errors indicate problems at the HID transport level (as opposed to CTAP2 protocol-level errors).
     ///
     /// - SeeAlso: [CTAP 2.2 CTAPHID_ERROR](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#usb-hid-error)
-    public enum HIDError: Swift.Error, Sendable {
+    public enum HIDError: Swift.Error, Sendable, Equatable {
         /// The command in the request is invalid.
         case invalidCmd
         /// The parameter(s) in the request is invalid.

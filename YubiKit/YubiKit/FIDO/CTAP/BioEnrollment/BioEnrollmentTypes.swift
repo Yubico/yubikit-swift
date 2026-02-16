@@ -41,11 +41,21 @@ extension CTAP2.BioEnrollment {
     }
 
     /// The type of fingerprint sensor.
-    public enum FingerprintKind: UInt8, Sendable {
+    public enum FingerprintKind: Sendable, Equatable {
         /// Touch-type sensor (place finger and hold).
-        case touch = 1
+        case touch
         /// Swipe-type sensor (swipe finger across).
-        case swipe = 2
+        case swipe
+        /// Unrecognized sensor type.
+        case other(UInt8)
+
+        internal static func from(_ rawValue: UInt8) -> FingerprintKind {
+            switch rawValue {
+            case 1: return .touch
+            case 2: return .swipe
+            default: return .other(rawValue)
+            }
+        }
     }
 
     /// Feedback status for a fingerprint capture sample.

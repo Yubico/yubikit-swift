@@ -113,9 +113,7 @@ extension CTAP2 {
         }
 
         /// Gets the bio modality supported by the authenticator.
-        ///
-        /// - SeeAlso: [Get bio modality](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#getUserVerificationModality)
-        public static func getModality(
+        static func getModality(
             for session: CTAP2.Session
         ) async throws(CTAP2.SessionError) -> Modality {
             let command = try await commandCode(for: session)
@@ -234,7 +232,7 @@ extension CTAP2 {
                 let response: EnumerateEnrollmentsResponse =
                     try await execute(subcommand: .enumerateEnrollments)
                 return response.templateInfos
-            } catch .ctapError(.invalidOption, _), .ctapError(.noCredentials, _) {
+            } catch .ctapError(.invalidOption, _) {
                 return []
             }
         }
@@ -312,8 +310,25 @@ extension CTAP2 {
 
 extension CTAP2.BioEnrollment {
     /// Bio modality supported by the authenticator.
-    public enum Modality: UInt8, Sendable {
-        case fingerprint = 0x01
+    public enum Modality: Sendable, Equatable {
+        /// Fingerprint modality.
+        case fingerprint
+        /// Unrecognized modality.
+        case other(UInt8)
+
+        internal static func from(_ rawValue: UInt8) -> Modality {
+            switch rawValue {
+            case 0x01: return .fingerprint
+            default: return .other(rawValue)
+            }
+        }
+
+        fileprivate var rawValue: UInt8 {
+            switch self {
+            case .fingerprint: return 0x01
+            case .other(let v): return v
+            }
+        }
     }
 
     enum Subcommand: UInt8, Sendable {

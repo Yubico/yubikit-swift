@@ -46,11 +46,11 @@ extension CTAP2.BioEnrollment.FingerprintSensorInfo: CBOR.Decodable {
 
         guard
             let kindRaw = map[.int(Key.fingerprintKind.rawValue)]?.uint64Value,
-            let kind = CTAP2.BioEnrollment.FingerprintKind(rawValue: UInt8(kindRaw)),
             let maxSamples = map[.int(Key.maxCaptureSamplesRequired.rawValue)]?.uint64Value
         else {
             return nil
         }
+        let kind = CTAP2.BioEnrollment.FingerprintKind.from(UInt8(kindRaw))
 
         let maxName = map[.int(Key.maxTemplateFriendlyName.rawValue)]?.uint64Value.map { UInt($0) }
 
@@ -135,13 +135,10 @@ extension CTAP2.BioEnrollment.GetModalityResponse: CBOR.Decodable {
 
         typealias Key = CTAP2.BioEnrollment.ResponseKey
 
-        guard
-            let raw = map[.int(Key.modality.rawValue)]?.uint64Value,
-            let modality = CTAP2.BioEnrollment.Modality(rawValue: UInt8(raw))
-        else {
+        guard let raw = map[.int(Key.modality.rawValue)]?.uint64Value else {
             return nil
         }
 
-        self.init(modality: modality)
+        self.init(modality: .from(UInt8(raw)))
     }
 }
