@@ -14,6 +14,36 @@
 
 import Foundation
 
+// MARK: - Token
+
+extension CTAP2 {
+    /// A PIN/UV auth token for authenticating CTAP2 operations.
+    ///
+    /// Obtain via ``CTAP2/Session/getPinUVToken(using:permissions:rpId:protocol:)``, then pass it to
+    /// operations like ``CTAP2/Session/makeCredential(parameters:token:)``
+    /// and ``CTAP2/Session/getAssertion(parameters:token:)``.
+    public struct Token: Sendable {
+        /// The decrypted token data.
+        private let tokenData: Data
+
+        /// The PIN/UV auth protocol version used to obtain this token.
+        public let protocolVersion: ClientPin.ProtocolVersion
+
+        internal init(token: Data, protocolVersion: ClientPin.ProtocolVersion) {
+            self.tokenData = token
+            self.protocolVersion = protocolVersion
+        }
+
+        func authenticate(message: Data) -> Data {
+            protocolVersion.authenticate(key: tokenData, message: message)
+        }
+
+        internal func deriveKey(info: String) -> Data {
+            Crypto.KDF.hkdf(tokenData, salt: Data(count: 32), info: info, outputLength: 16)
+        }
+    }
+}
+
 // MARK: - ClientPin Types
 
 extension CTAP2.ClientPin {
@@ -39,31 +69,5 @@ extension CTAP2.ClientPin {
 
         /// Verify using built-in user verification (e.g., fingerprint on YubiKey Bio).
         case uv
-    }
-
-    /// A PIN/UV auth token for authenticating CTAP2 operations.
-    ///
-    /// Obtain via ``CTAP2/Session/getPinUVToken(using:permissions:rpId:protocol:)``, then pass it to
-    /// operations like ``CTAP2/Session/makeCredential(parameters:token:)``
-    /// and ``CTAP2/Session/getAssertion(parameters:token:)``.
-    public struct Token: Sendable {
-        /// The decrypted PIN token.
-        private let token: Data
-
-        /// The PIN/UV auth protocol version used to obtain this token.
-        public let protocolVersion: ProtocolVersion
-
-        internal init(token: Data, protocolVersion: ProtocolVersion) {
-            self.token = token
-            self.protocolVersion = protocolVersion
-        }
-
-        func authenticate(message: Data) -> Data {
-            protocolVersion.authenticate(key: token, message: message)
-        }
-
-        internal func deriveKey(info: String) -> Data {
-            Crypto.KDF.hkdf(token, salt: Data(count: 32), info: info, outputLength: 16)
-        }
     }
 }

@@ -18,6 +18,13 @@ import Foundation
 
 /// This file contains deprecated API overloads for backwards compatibility.
 
+// MARK: - Deprecated Token Type
+
+extension CTAP2.ClientPin {
+    @available(*, deprecated, renamed: "CTAP2.Token")
+    public typealias Token = CTAP2.Token
+}
+
 // MARK: - Deprecated Options Types
 
 extension CTAP2.MakeCredential.Parameters {
@@ -105,7 +112,7 @@ extension CTAP2.Session {
     @available(*, deprecated, message: "Set rk in Parameters init instead")
     public func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
-        pinToken: CTAP2.ClientPin.Token,
+        pinToken: CTAP2.Token,
         requireResidentKey: Bool
     ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
         var params = parameters
@@ -118,7 +125,7 @@ extension CTAP2.Session {
     @available(*, deprecated, message: "Set up in Parameters init instead")
     public func getAssertion(
         parameters: CTAP2.GetAssertion.Parameters,
-        pinToken: CTAP2.ClientPin.Token,
+        pinToken: CTAP2.Token,
         requireUserPresence: Bool?
     ) async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
         var params = parameters
@@ -131,7 +138,7 @@ extension CTAP2.Session {
     @available(*, deprecated, message: "Set up in Parameters init instead")
     public func getAssertions(
         parameters: CTAP2.GetAssertion.Parameters,
-        pinToken: CTAP2.ClientPin.Token,
+        pinToken: CTAP2.Token,
         requireUserPresence: Bool?
     ) async -> CTAP2.GetAssertion.Sequence {
         var params = parameters
@@ -144,7 +151,7 @@ extension CTAP2.Session {
     @available(*, deprecated, renamed: "makeCredential(parameters:token:)")
     public func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
-        pinToken: CTAP2.ClientPin.Token?
+        pinToken: CTAP2.Token?
     ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
         await makeCredential(parameters: parameters, token: pinToken)
     }
@@ -152,7 +159,7 @@ extension CTAP2.Session {
     @available(*, deprecated, renamed: "getAssertion(parameters:token:)")
     public func getAssertion(
         parameters: CTAP2.GetAssertion.Parameters,
-        pinToken: CTAP2.ClientPin.Token?
+        pinToken: CTAP2.Token?
     ) async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
         await getAssertion(parameters: parameters, token: pinToken)
     }
@@ -160,28 +167,28 @@ extension CTAP2.Session {
     @available(*, deprecated, renamed: "getAssertions(parameters:token:)")
     public func getAssertions(
         parameters: CTAP2.GetAssertion.Parameters,
-        pinToken: CTAP2.ClientPin.Token?
+        pinToken: CTAP2.Token?
     ) async -> CTAP2.GetAssertion.Sequence {
         await getAssertions(parameters: parameters, token: pinToken)
     }
 
     @available(*, deprecated, renamed: "config(token:)")
     public func config(
-        pinToken: CTAP2.ClientPin.Token
+        pinToken: CTAP2.Token
     ) async throws(CTAP2.SessionError) -> CTAP2.Config {
         try await config(token: pinToken)
     }
 
     @available(*, deprecated, renamed: "credentialManagement(token:)")
     public func credentialManagement(
-        pinToken: CTAP2.ClientPin.Token
+        pinToken: CTAP2.Token
     ) async throws(CTAP2.SessionError) -> CTAP2.CredentialManagement {
         try await credentialManagement(token: pinToken)
     }
 
     @available(*, deprecated, renamed: "bioEnrollment(token:)")
     public func bioEnrollment(
-        pinToken: CTAP2.ClientPin.Token
+        pinToken: CTAP2.Token
     ) async throws(CTAP2.SessionError) -> CTAP2.BioEnrollment {
         try await bioEnrollment(token: pinToken)
     }
@@ -190,7 +197,7 @@ extension CTAP2.Session {
     public func putBlob(
         key: Data,
         data: Data,
-        pinToken: CTAP2.ClientPin.Token
+        pinToken: CTAP2.Token
     ) async throws(CTAP2.SessionError) {
         try await putBlob(key: key, data: data, token: pinToken)
     }
@@ -198,7 +205,7 @@ extension CTAP2.Session {
     @available(*, deprecated, renamed: "deleteBlob(key:token:)")
     public func deleteBlob(
         key: Data,
-        pinToken: CTAP2.ClientPin.Token
+        pinToken: CTAP2.Token
     ) async throws(CTAP2.SessionError) {
         try await deleteBlob(key: key, token: pinToken)
     }

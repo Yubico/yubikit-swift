@@ -257,7 +257,7 @@ extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.Opaque128 {
     ///   the `.persistentCredentialManagement` permission.
     /// - Returns: The decrypted 16-byte value.
     /// - Throws: `CryptoError` if decryption fails.
-    public func decryptedData(using token: CTAP2.ClientPin.Token) throws(CryptoError) -> Data {
+    public func decryptedData(using token: CTAP2.Token) throws(CryptoError) -> Data {
         let ivSize = Crypto.AES.blockSize
         guard encryptedData.count > ivSize else {
             throw .missingData
@@ -277,7 +277,7 @@ extension CTAP2.GetInfo.Encrypted where Value == CTAP2.GetInfo.Opaque128 {
     /// - Returns: The decrypted 128-bit value.
     /// - Throws: `CryptoError` if decryption fails.
     public func decrypted(
-        using token: CTAP2.ClientPin.Token
+        using token: CTAP2.Token
     ) throws(CryptoError) -> CTAP2.GetInfo.Opaque128 {
         let data = try decryptedData(using: token)
         guard let value = CTAP2.GetInfo.Opaque128(data) else { throw .missingData }

@@ -33,7 +33,7 @@ extension CTAP2.Session {
     /// - Throws: `CTAP2.SessionError.featureNotSupported` if bio enrollment is not supported.
     /// - SeeAlso: [CTAP2 authenticatorBioEnrollment](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorBioEnrollment)
     public func bioEnrollment(
-        token: CTAP2.ClientPin.Token
+        token: CTAP2.Token
     ) async throws(CTAP2.SessionError) -> CTAP2.BioEnrollment {
         guard try await CTAP2.BioEnrollment.isSupported(by: self) else {
             throw .featureNotSupported(source: .here())
@@ -55,12 +55,12 @@ extension CTAP2 {
     public struct BioEnrollment: Sendable {
 
         private let session: CTAP2.Session
-        private let token: CTAP2.ClientPin.Token
+        private let token: CTAP2.Token
         private let command: CTAP2.Command
 
         fileprivate init(
             session: CTAP2.Session,
-            token: CTAP2.ClientPin.Token,
+            token: CTAP2.Token,
             command: CTAP2.Command
         ) {
             self.session = session

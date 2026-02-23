@@ -46,7 +46,7 @@ extension CTAP2.GetAssertion {
         /// Sets the PIN/UV authentication parameters.
         ///
         /// Clears `uv` since it must not coexist with `pinUvAuthParam`.
-        mutating func setAuthentication(token: CTAP2.ClientPin.Token) {
+        mutating func setAuthentication(token: CTAP2.Token) {
             self.uv = nil
             self.pinUVAuthParam = token.authenticate(message: clientDataHash)
             self.pinUVAuthProtocol = token.protocolVersion

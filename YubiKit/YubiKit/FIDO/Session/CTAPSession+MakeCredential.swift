@@ -30,7 +30,7 @@ extension CTAP2.Session {
     /// - SeeAlso: [CTAP 2.2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorMakeCredential)
     public func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
-        token: CTAP2.ClientPin.Token? = nil
+        token: CTAP2.Token? = nil
     ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
         guard let token else {
             return await interface.send(command: .makeCredential, payload: parameters)

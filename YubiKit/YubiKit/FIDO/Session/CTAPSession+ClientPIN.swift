@@ -56,7 +56,7 @@ extension CTAP2.Session {
         permissions: CTAP2.ClientPin.Permission,
         rpId: String? = nil,
         protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion? = nil
-    ) async throws(CTAP2.SessionError) -> CTAP2.ClientPin.Token {
+    ) async throws(CTAP2.SessionError) -> CTAP2.Token {
         let handler = try await clientPinHandler(protocol: pinProtocol)
         return try await handler.getToken(using: method, permissions: permissions, rpId: rpId)
     }
@@ -147,7 +147,7 @@ private struct ClientPinHandler: Sendable {
         using method: CTAP2.ClientPin.Method,
         permissions: CTAP2.ClientPin.Permission,
         rpId: String? = nil
-    ) async throws(CTAP2.SessionError) -> CTAP2.ClientPin.Token {
+    ) async throws(CTAP2.SessionError) -> CTAP2.Token {
         let authenticatorKey = try await getKeyAgreement()
 
         // Generate ephemeral key pair and derive shared secret
@@ -223,7 +223,7 @@ private struct ClientPinHandler: Sendable {
             )
         }
 
-        return CTAP2.ClientPin.Token(token: tokenData, protocolVersion: pinProtocol)
+        return CTAP2.Token(token: tokenData, protocolVersion: pinProtocol)
     }
 
     func set(_ pin: String) async throws(CTAP2.SessionError) {
