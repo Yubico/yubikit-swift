@@ -50,7 +50,7 @@ struct BioEnrollmentTests {
 
             // Enroll fingerprint
             var templateId: Data?
-            print("👆 Press your fingerprint against the sensor now...")
+            print("👆 Starting enrollment...")
             for try await sample in bio.enroll() {
                 switch sample {
                 case .waitingForUser:
