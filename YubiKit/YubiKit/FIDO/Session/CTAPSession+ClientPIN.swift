@@ -43,7 +43,7 @@ extension CTAP2.Session {
     /// Get a PIN/UV auth token from the authenticator.
     ///
     /// The returned token can be used to authenticate subsequent CTAP operations
-    /// like ``makeCredential(parameters:pinToken:)`` and ``getAssertion(parameters:pinToken:)``.
+    /// like ``makeCredential(parameters:token:)`` and ``getAssertion(parameters:token:)``.
     ///
     /// - Parameters:
     ///   - method: The verification method to use (PIN or built-in UV).

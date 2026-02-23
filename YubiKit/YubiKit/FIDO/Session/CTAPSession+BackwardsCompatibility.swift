@@ -110,7 +110,7 @@ extension CTAP2.Session {
     ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
         var params = parameters
         params.rk = requireResidentKey
-        return await makeCredential(parameters: params, pinToken: pinToken)
+        return await makeCredential(parameters: params, token: pinToken)
     }
 
     // MARK: - GetAssertion (Deprecated requireUserPresence parameter)
@@ -123,7 +123,7 @@ extension CTAP2.Session {
     ) async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
         var params = parameters
         params.up = requireUserPresence
-        return await getAssertion(parameters: params, pinToken: pinToken)
+        return await getAssertion(parameters: params, token: pinToken)
     }
 
     // MARK: - GetAssertions Sequence (Deprecated requireUserPresence parameter)
@@ -136,6 +136,70 @@ extension CTAP2.Session {
     ) async -> CTAP2.GetAssertion.Sequence {
         var params = parameters
         params.up = requireUserPresence
-        return await getAssertions(parameters: params, pinToken: pinToken)
+        return await getAssertions(parameters: params, token: pinToken)
+    }
+
+    // MARK: - Deprecated pinToken: parameter name
+
+    @available(*, deprecated, renamed: "makeCredential(parameters:token:)")
+    public func makeCredential(
+        parameters: CTAP2.MakeCredential.Parameters,
+        pinToken: CTAP2.ClientPin.Token?
+    ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
+        await makeCredential(parameters: parameters, token: pinToken)
+    }
+
+    @available(*, deprecated, renamed: "getAssertion(parameters:token:)")
+    public func getAssertion(
+        parameters: CTAP2.GetAssertion.Parameters,
+        pinToken: CTAP2.ClientPin.Token?
+    ) async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
+        await getAssertion(parameters: parameters, token: pinToken)
+    }
+
+    @available(*, deprecated, renamed: "getAssertions(parameters:token:)")
+    public func getAssertions(
+        parameters: CTAP2.GetAssertion.Parameters,
+        pinToken: CTAP2.ClientPin.Token?
+    ) async -> CTAP2.GetAssertion.Sequence {
+        await getAssertions(parameters: parameters, token: pinToken)
+    }
+
+    @available(*, deprecated, renamed: "config(token:)")
+    public func config(
+        pinToken: CTAP2.ClientPin.Token
+    ) async throws(CTAP2.SessionError) -> CTAP2.Config {
+        try await config(token: pinToken)
+    }
+
+    @available(*, deprecated, renamed: "credentialManagement(token:)")
+    public func credentialManagement(
+        pinToken: CTAP2.ClientPin.Token
+    ) async throws(CTAP2.SessionError) -> CTAP2.CredentialManagement {
+        try await credentialManagement(token: pinToken)
+    }
+
+    @available(*, deprecated, renamed: "bioEnrollment(token:)")
+    public func bioEnrollment(
+        pinToken: CTAP2.ClientPin.Token
+    ) async throws(CTAP2.SessionError) -> CTAP2.BioEnrollment {
+        try await bioEnrollment(token: pinToken)
+    }
+
+    @available(*, deprecated, renamed: "putBlob(key:data:token:)")
+    public func putBlob(
+        key: Data,
+        data: Data,
+        pinToken: CTAP2.ClientPin.Token
+    ) async throws(CTAP2.SessionError) {
+        try await putBlob(key: key, data: data, token: pinToken)
+    }
+
+    @available(*, deprecated, renamed: "deleteBlob(key:token:)")
+    public func deleteBlob(
+        key: Data,
+        pinToken: CTAP2.ClientPin.Token
+    ) async throws(CTAP2.SessionError) {
+        try await deleteBlob(key: key, token: pinToken)
     }
 }
