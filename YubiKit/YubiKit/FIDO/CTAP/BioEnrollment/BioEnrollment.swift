@@ -328,8 +328,10 @@ extension CTAP2.BioEnrollment {
                         continuation: continuation
                     )
                 }
-                continuation.onTermination = { _ in
-                    task.cancel()
+                continuation.onTermination = { termination in
+                    if case .cancelled = termination {
+                        task.cancel()
+                    }
                 }
             }
         }
