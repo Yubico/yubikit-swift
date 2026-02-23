@@ -44,7 +44,6 @@ struct BioUVTests {
                 rk: true
             )
 
-            print("👆 Touch enrolled fingerprint to create credential...")
             let credential = try await session.makeCredential(
                 parameters: params,
                 pinToken: uvToken
@@ -151,7 +150,7 @@ private func withEnrolledFingerprint(
 
         // Enroll a fingerprint
         var templateId: Data?
-        print("👆 Press fingerprint against the sensor to enroll...")
+        print("👆 Starting enrollment...")
         for try await sample in bio.enroll() {
             switch sample {
             case .waitingForUser:
