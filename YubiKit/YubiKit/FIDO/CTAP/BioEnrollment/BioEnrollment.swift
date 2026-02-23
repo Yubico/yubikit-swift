@@ -20,27 +20,27 @@ extension CTAP2.Session {
     /// Returns bio enrollment operations bound to a PIN/UV auth token.
     ///
     /// ```swift
-    /// let pinToken = try await session.getPinUVToken(
+    /// let token = try await session.getPinUVToken(
     ///     using: .pin("123456"),
     ///     permissions: [.bioEnrollment]
     /// )
-    /// let bio = try await session.bioEnrollment(pinToken: pinToken)
+    /// let bio = try await session.bioEnrollment(token: token)
     /// let sensor = try await bio.getFingerprintSensorInfo()
     /// ```
     ///
-    /// - Parameter pinToken: PIN/UV auth token with `bioEnrollment` permission.
+    /// - Parameter token: PIN/UV auth token with `bioEnrollment` permission.
     /// - Returns: BioEnrollment operations bound to the token.
     /// - Throws: `CTAP2.SessionError.featureNotSupported` if bio enrollment is not supported.
     /// - SeeAlso: [CTAP2 authenticatorBioEnrollment](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorBioEnrollment)
     public func bioEnrollment(
-        pinToken: CTAP2.ClientPin.Token
+        token: CTAP2.ClientPin.Token
     ) async throws(CTAP2.SessionError) -> CTAP2.BioEnrollment {
         guard try await CTAP2.BioEnrollment.isSupported(by: self) else {
             throw .featureNotSupported(source: .here())
         }
         let command = try await CTAP2.BioEnrollment.commandCode(for: self)
         try await CTAP2.BioEnrollment.verifyFingerprintModality(session: self, command: command)
-        return CTAP2.BioEnrollment(session: self, pinToken: pinToken, command: command)
+        return CTAP2.BioEnrollment(session: self, token: token, command: command)
     }
 }
 
@@ -55,16 +55,16 @@ extension CTAP2 {
     public struct BioEnrollment: Sendable {
 
         private let session: CTAP2.Session
-        private let pinToken: CTAP2.ClientPin.Token
+        private let token: CTAP2.ClientPin.Token
         private let command: CTAP2.Command
 
         fileprivate init(
             session: CTAP2.Session,
-            pinToken: CTAP2.ClientPin.Token,
+            token: CTAP2.ClientPin.Token,
             command: CTAP2.Command
         ) {
             self.session = session
-            self.pinToken = pinToken
+            self.token = token
             self.command = command
         }
 
@@ -269,8 +269,8 @@ extension CTAP2 {
             return RequestParameters(
                 subCommand: subcommand,
                 subCommandParams: params,
-                pinUVAuthProtocol: pinToken.protocolVersion,
-                pinUVAuthParam: pinToken.authenticate(message: message)
+                pinUVAuthProtocol: token.protocolVersion,
+                pinUVAuthParam: token.authenticate(message: message)
             )
         }
     }

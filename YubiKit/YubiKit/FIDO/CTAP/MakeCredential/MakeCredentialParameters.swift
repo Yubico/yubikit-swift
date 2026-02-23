@@ -40,25 +40,25 @@ extension CTAP2.MakeCredential {
         /// Require resident key (discoverable credential).
         public internal(set) var rk: Bool
 
-        /// Require user verification during the command (ignored if pinToken is provided).
+        /// Require user verification during the command (ignored if token is provided).
         public internal(set) var uv: Bool?
 
         /// Enterprise attestation level (1 or 2).
         public let enterpriseAttestation: Int?
 
-        /// PIN/UV auth parameter (populated automatically when using PIN authentication).
+        /// PIN/UV auth parameter (populated automatically when using a PIN/UV token).
         private(set) var pinUVAuthParam: Data?
 
-        /// PIN/UV protocol version (populated automatically when using PIN authentication).
+        /// PIN/UV protocol version (populated automatically when using a PIN/UV token).
         private(set) var pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion?
 
         /// Sets the PIN/UV authentication parameters.
         ///
         /// Clears `uv` since it must not coexist with `pinUvAuthParam`.
-        mutating func setAuthentication(pinToken: CTAP2.ClientPin.Token) {
+        mutating func setAuthentication(token: CTAP2.ClientPin.Token) {
             self.uv = nil
-            self.pinUVAuthParam = pinToken.authenticate(message: clientDataHash)
-            self.pinUVAuthProtocol = pinToken.protocolVersion
+            self.pinUVAuthParam = token.authenticate(message: clientDataHash)
+            self.pinUVAuthProtocol = token.protocolVersion
         }
 
         public init(

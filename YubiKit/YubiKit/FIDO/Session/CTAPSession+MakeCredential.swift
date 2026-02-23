@@ -20,23 +20,23 @@ extension CTAP2.Session {
 
     /// Create a new credential on the authenticator.
     ///
-    /// When a `pinToken` is provided, the `uv` option is automatically cleared.
+    /// When a `token` is provided, the `uv` option is automatically cleared.
     ///
     /// - Parameters:
     ///   - parameters: The credential creation parameters.
-    ///   - pinToken: Optional PIN/UV auth token obtained via ``getPinUVToken(using:permissions:rpId:protocol:)``.
+    ///   - token: Optional PIN/UV auth token obtained via ``getPinUVToken(using:permissions:rpId:protocol:)``.
     /// - Returns: AsyncSequence of status updates, ending with `.finished(response)` containing the credential data
     ///
     /// - SeeAlso: [CTAP 2.2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorMakeCredential)
     public func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
-        pinToken: CTAP2.ClientPin.Token? = nil
+        token: CTAP2.ClientPin.Token? = nil
     ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
-        guard let pinToken else {
+        guard let token else {
             return await interface.send(command: .makeCredential, payload: parameters)
         }
         var params = parameters
-        params.setAuthentication(pinToken: pinToken)
+        params.setAuthentication(token: token)
         return await interface.send(command: .makeCredential, payload: params)
     }
 }
