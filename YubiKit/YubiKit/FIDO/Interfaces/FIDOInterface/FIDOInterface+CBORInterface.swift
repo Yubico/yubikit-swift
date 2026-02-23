@@ -111,7 +111,6 @@ extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
                     // Parse CTAP response and yield final result
                     let result: O = try parse(responsePayload)
                     continuation.yield(.finished(result))
-                    continuation.finish()
                 } catch {
                     continuation.yield(error: error)
                 }
