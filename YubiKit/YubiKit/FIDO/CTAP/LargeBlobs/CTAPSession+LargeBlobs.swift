@@ -67,7 +67,7 @@ extension CTAP2.Session {
     public func putBlob(
         key: Data,
         data: Data,
-        token: CTAP2.ClientPin.Token
+        token: CTAP2.Token
     ) async throws(CTAP2.SessionError) {
         var entries = try await readBlobArray()
 
@@ -94,7 +94,7 @@ extension CTAP2.Session {
     /// - Throws: `CTAP2.SessionError` if the operation fails.
     public func deleteBlob(
         key: Data,
-        token: CTAP2.ClientPin.Token
+        token: CTAP2.Token
     ) async throws(CTAP2.SessionError) {
         var entries = try await readBlobArray()
         let originalCount = entries.count
@@ -158,7 +158,7 @@ extension CTAP2.Session {
     // Writes the entire large blob array with automatic fragmentation.
     private func writeBlobArray(
         _ entries: [CTAP2.LargeBlobs.Entry],
-        token: CTAP2.ClientPin.Token
+        token: CTAP2.Token
     ) async throws(CTAP2.SessionError) {
         let info = try await cachedInfo
         let maxFragment = Int(info.maxMsgSize) - Self.maxFragmentLengthOverhead
@@ -216,7 +216,7 @@ extension CTAP2.Session {
         set: Data,
         offset: UInt,
         length: UInt?,
-        token: CTAP2.ClientPin.Token
+        token: CTAP2.Token
     ) async throws(CTAP2.SessionError) {
         let message = writeAuthMessage(fragment: set, offset: offset)
         let pinUVAuthParam = token.authenticate(message: message)

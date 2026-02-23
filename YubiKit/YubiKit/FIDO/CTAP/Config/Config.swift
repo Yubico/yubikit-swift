@@ -34,7 +34,7 @@ extension CTAP2.Session {
     /// - Throws: `CTAP2.SessionError.featureNotSupported` if authenticatorConfig is not supported.
     /// - SeeAlso: [CTAP2 authenticatorConfig](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorConfig)
     public func config(
-        token: CTAP2.ClientPin.Token
+        token: CTAP2.Token
     ) async throws(CTAP2.SessionError) -> CTAP2.Config {
         guard try await cachedInfo.options.authenticatorConfig else {
             throw .featureNotSupported(source: .here())
@@ -51,9 +51,9 @@ extension CTAP2 {
     /// - SeeAlso: [CTAP2 authenticatorConfig](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorConfig)
     public struct Config: Sendable {
         private let session: CTAP2.Session
-        private let token: CTAP2.ClientPin.Token
+        private let token: CTAP2.Token
 
-        fileprivate init(session: CTAP2.Session, token: CTAP2.ClientPin.Token) {
+        fileprivate init(session: CTAP2.Session, token: CTAP2.Token) {
             self.session = session
             self.token = token
         }

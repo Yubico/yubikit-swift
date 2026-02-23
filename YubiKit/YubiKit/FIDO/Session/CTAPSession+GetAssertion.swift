@@ -30,7 +30,7 @@ extension CTAP2.Session {
     /// - SeeAlso: [CTAP 2.2 authenticatorGetAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorGetAssertion)
     public func getAssertion(
         parameters: CTAP2.GetAssertion.Parameters,
-        token: CTAP2.ClientPin.Token? = nil
+        token: CTAP2.Token? = nil
     ) async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
         guard let token else {
             return await interface.send(command: .getAssertion, payload: parameters)
@@ -76,7 +76,7 @@ extension CTAP2.Session {
     /// - SeeAlso: ``getAssertion(parameters:token:)`` for low-level access to a single assertion.
     public func getAssertions(
         parameters: CTAP2.GetAssertion.Parameters,
-        token: CTAP2.ClientPin.Token? = nil
+        token: CTAP2.Token? = nil
     ) async -> CTAP2.GetAssertion.Sequence {
         guard let token else {
             return .init(session: self, parameters: parameters)
