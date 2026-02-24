@@ -283,7 +283,7 @@ private func createTestCredential(_ session: CTAP2.Session) async throws {
         rp: testRp,
         user: testUser,
         pubKeyCredParams: [.es256],
-        options: .init(rk: true)
+        rk: true
     )
     print("👆 Touch YubiKey: creating test credential...")
     _ = try await session.makeCredential(parameters: params, pinToken: pinToken).value

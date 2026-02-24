@@ -138,8 +138,6 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
                     // Parse and yield final response
                     let result: O = try parse(response.data)
                     continuation.yield(.finished(result))
-                    continuation.finish()
-
                 } catch {
                     continuation.yield(error: error)
                 }

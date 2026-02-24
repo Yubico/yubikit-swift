@@ -34,20 +34,12 @@ extension CTAP2.GetAssertion.Parameters: CBOR.Encodable {
             }
             map[4] = .map(extMap)
         }
-        map[5] = options?.cbor()
+        var optionsMap: [CBOR.Value: CBOR.Value] = [:]
+        optionsMap["up"] = up?.cbor()
+        optionsMap["uv"] = uv?.cbor()
+        if !optionsMap.isEmpty { map[5] = optionsMap.cbor() }
         map[6] = pinUVAuthParam?.cbor()
         map[7] = pinUVAuthProtocol?.cbor()
-        return map.cbor()
-    }
-}
-
-// MARK: - CTAP.GetAssertion.Parameters.Options + CBOR
-
-extension CTAP2.GetAssertion.Parameters.Options: CBOR.Encodable {
-    func cbor() -> CBOR.Value {
-        var map: [CBOR.Value: CBOR.Value] = [:]
-        map["up"] = up?.cbor()
-        map["uv"] = uv?.cbor()
         return map.cbor()
     }
 }

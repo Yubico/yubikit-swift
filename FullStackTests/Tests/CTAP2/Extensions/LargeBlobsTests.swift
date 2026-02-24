@@ -62,7 +62,7 @@ struct LargeBlobsFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [largeBlobKey.makeCredential.input()],
-                options: .init(rk: true)
+                rk: true
             )
 
             print("👆 Touch YubiKey: creating credential with largeBlobKey...")
@@ -149,7 +149,7 @@ struct LargeBlobsFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [largeBlobKey.makeCredential.input()],
-                options: .init(rk: true)
+                rk: true
             )
 
             print("👆 Touch YubiKey: creating credential...")
@@ -247,7 +247,7 @@ struct LargeBlobsFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [largeBlobKey.makeCredential.input()],
-                options: .init(rk: true)
+                rk: true
             )
 
             print("👆 Touch YubiKey: creating first credential...")
@@ -280,7 +280,7 @@ struct LargeBlobsFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [largeBlobKey.makeCredential.input()],
-                options: .init(rk: true)
+                rk: true
             )
 
             print("👆 Touch YubiKey: creating second credential...")

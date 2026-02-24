@@ -20,40 +20,23 @@ extension CTAP2.Session {
 
     /// Create a new credential on the authenticator.
     ///
-    /// This command registers a new FIDO2 credential with the authenticator. The authenticator
-    /// will verify user presence (and optionally user verification via PIN/biometric), generate
-    /// a new credential keypair, and return attestation data.
-    ///
-    /// > Important: This operation requires user interaction (touch) and may require PIN entry
-    /// > if user verification is requested.
-    ///
-    /// > Note: This functionality is available on YubiKey 5.0 or later.
+    /// When a `token` is provided, the `uv` option is automatically cleared.
     ///
     /// - Parameters:
     ///   - parameters: The credential creation parameters.
-    ///   - pinToken: Optional PIN token for user verification. Obtain via ``getPinUVToken(using:permissions:rpId:protocol:)``.
+    ///   - token: Optional PIN/UV auth token obtained via ``getPinUVToken(using:permissions:rpId:protocol:)``.
     /// - Returns: AsyncSequence of status updates, ending with `.finished(response)` containing the credential data
     ///
     /// - SeeAlso: [CTAP 2.2 authenticatorMakeCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorMakeCredential)
     public func makeCredential(
         parameters: CTAP2.MakeCredential.Parameters,
-        pinToken: CTAP2.ClientPin.Token? = nil
+        token: CTAP2.Token? = nil
     ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
-
-        // If no PIN token provided, send parameters as-is
-        guard let pinToken else {
-            return await interface.send(
-                command: .makeCredential,
-                payload: parameters
-            )
+        guard let token else {
+            return await interface.send(command: .makeCredential, payload: parameters)
         }
-
-        var authenticatedParams = parameters
-        authenticatedParams.setAuthentication(pinToken: pinToken)
-
-        return await interface.send(
-            command: .makeCredential,
-            payload: authenticatedParams
-        )
+        var params = parameters
+        params.setAuthentication(token: token)
+        return await interface.send(command: .makeCredential, payload: params)
     }
 }
