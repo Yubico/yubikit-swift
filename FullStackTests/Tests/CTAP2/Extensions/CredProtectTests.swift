@@ -130,7 +130,7 @@ struct CTAP2ExtensionFullStackTests {
                 extensions: [credProtect3.input()],
                 rk: true
             )
-            let level3Response = try await session.makeCredential(parameters: level3Params, pinToken: pinToken).value
+            let level3Response = try await session.makeCredential(parameters: level3Params, token: pinToken).value
             #expect(credProtect3.output(from: level3Response) == .userVerificationRequired)
             print("✅ CredProtect level 3 confirmed")
         }
@@ -223,7 +223,7 @@ struct CTAP2ExtensionFullStackTests {
             )
 
             print("👆 Touch the YubiKey to create credential with hmac-secret-mc...")
-            let response = try await session.makeCredential(parameters: params, pinToken: pinToken).value
+            let response = try await session.makeCredential(parameters: params, token: pinToken).value
 
             if let result = try hmacSecret.makeCredential.output(from: response) {
                 switch result {

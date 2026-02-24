@@ -30,7 +30,7 @@ struct ConfigFullStackTests {
             )
 
             do {
-                _ = try await session.config(pinToken: pinToken)
+                _ = try await session.config(token: pinToken)
                 print("✅ authenticatorConfig is supported")
             } catch CTAP2.SessionError.featureNotSupported {
                 print("ℹ️ authenticatorConfig is not supported by this authenticator")
@@ -61,7 +61,7 @@ struct ConfigFullStackTests {
                 permissions: [.authenticatorConfig]
             )
 
-            let config = try await session.config(pinToken: pinToken)
+            let config = try await session.config(token: pinToken)
             try await config.toggleAlwaysUV()
 
             let newInfo = try await session.getInfo()
@@ -100,7 +100,7 @@ struct ConfigFullStackTests {
                 permissions: [.authenticatorConfig]
             )
 
-            try await session.config(pinToken: pinToken).enableEnterpriseAttestation()
+            try await session.config(token: pinToken).enableEnterpriseAttestation()
 
             let newInfo = try await session.getInfo()
             #expect(newInfo.options.enterpriseAttestation == true)
@@ -130,7 +130,7 @@ struct ConfigFullStackTests {
                 permissions: [.authenticatorConfig]
             )
 
-            try await session.config(pinToken: pinToken).setMinPINLength(forceChangePin: true)
+            try await session.config(token: pinToken).setMinPINLength(forceChangePin: true)
 
             let newInfo = try await session.getInfo()
             #expect(newInfo.forcePinChange == true)
@@ -171,7 +171,7 @@ struct ConfigFullStackTests {
                 permissions: [.authenticatorConfig]
             )
 
-            let config = try await session.config(pinToken: pinToken)
+            let config = try await session.config(token: pinToken)
             try await config.setMinPINLength(newMinPINLength: newMinPinLength)
 
             let newInfo = try await session.getInfo()

@@ -75,7 +75,7 @@ struct EncryptedFieldsTests {
     func testPersistentTokenAcrossReconnects() async throws {
         // First session: get PPUAT and decrypt fields
         typealias Opaque128 = CTAP2.GetInfo.Opaque128
-        let (ppuat, identifier1, credStoreState1): (CTAP2.ClientPin.Token, Opaque128, Opaque128?) =
+        let (ppuat, identifier1, credStoreState1): (CTAP2.Token, Opaque128, Opaque128?) =
             try await withCTAP2Session { session in
                 let info = try await session.getInfo()
                 try #require(info.encIdentifier != nil, "encIdentifier not supported")
@@ -139,7 +139,7 @@ struct EncryptedFieldsTests {
                 using: .pin(defaultTestPin),
                 permissions: [.credentialManagement]
             )
-            let credMgmt = try await session.credentialManagement(pinToken: cmToken)
+            let credMgmt = try await session.credentialManagement(token: cmToken)
             for try await rp in credMgmt.rps {
                 for try await cred in credMgmt.credentials(for: rp.rpIdHash) {
                     try await credMgmt.deleteCredential(cred.credentialId)
@@ -170,7 +170,7 @@ struct EncryptedFieldsTests {
                 rk: true
             )
             print("👆 Touch YubiKey: creating credential...")
-            _ = try await session.makeCredential(parameters: params, pinToken: makeCredToken).value
+            _ = try await session.makeCredential(parameters: params, token: makeCredToken).value
 
             // Verify state changed after credential creation
             let info2 = try await session.getInfo()
@@ -183,7 +183,7 @@ struct EncryptedFieldsTests {
                 using: .pin(defaultTestPin),
                 permissions: [.credentialManagement]
             )
-            let credMgmt2 = try await session.credentialManagement(pinToken: deleteToken)
+            let credMgmt2 = try await session.credentialManagement(token: deleteToken)
             let rps = try await credMgmt2.rps.enumerate()
             let creds = try await credMgmt2.credentials(for: rps[0].rpIdHash).enumerate()
             try await credMgmt2.deleteCredential(creds[0].credentialId)
