@@ -65,7 +65,7 @@ struct CredBlobFullStackTests {
             )
 
             print("👆 Touch YubiKey: creating credential with credBlob...")
-            let credential = try await session.makeCredential(parameters: makeCredParams, pinToken: pinToken).value
+            let credential = try await session.makeCredential(parameters: makeCredParams, token: pinToken).value
 
             let stored = credBlob.makeCredential.output(from: credential)
             #expect(stored == true, "credBlob should indicate successful storage")
@@ -87,7 +87,7 @@ struct CredBlobFullStackTests {
             )
 
             print("👆 Touch YubiKey: authenticating to retrieve credBlob...")
-            let assertion = try await session.getAssertion(parameters: getAssertionParams, pinToken: gaToken).value
+            let assertion = try await session.getAssertion(parameters: getAssertionParams, token: gaToken).value
 
             let retrievedBlob = credBlobGA.getAssertion.output(from: assertion)
             #expect(retrievedBlob == testBlob, "Retrieved blob should match stored blob")
@@ -141,7 +141,7 @@ struct CredBlobFullStackTests {
             )
 
             print("👆 Touch YubiKey: creating credential with credBlob...")
-            _ = try await session.makeCredential(parameters: makeCredParams, pinToken: pinToken).value
+            _ = try await session.makeCredential(parameters: makeCredParams, token: pinToken).value
             print("✅ Credential created")
 
             // 2. GetAssertion WITHOUT credBlob extension
@@ -159,7 +159,7 @@ struct CredBlobFullStackTests {
             )
 
             print("👆 Touch YubiKey: authenticating without credBlob extension...")
-            let assertion = try await session.getAssertion(parameters: getAssertionParams, pinToken: gaToken).value
+            let assertion = try await session.getAssertion(parameters: getAssertionParams, token: gaToken).value
 
             let credBlobGA = try await CTAP2.Extension.CredBlob(session: session)
             let retrievedBlob = credBlobGA.getAssertion.output(from: assertion)

@@ -69,7 +69,7 @@ actor WebAuthnHandler {
 
         let response =
             if let pinToken {
-                try await session.makeCredential(parameters: params, pinToken: pinToken).value
+                try await session.makeCredential(parameters: params, token: pinToken).value
             } else {
                 try await session.makeCredential(parameters: params).value
             }
@@ -116,7 +116,7 @@ actor WebAuthnHandler {
 
         let response =
             if let pinToken {
-                try await session.getAssertion(parameters: params, pinToken: pinToken).value
+                try await session.getAssertion(parameters: params, token: pinToken).value
             } else {
                 try await session.getAssertion(parameters: params).value
             }
@@ -124,7 +124,7 @@ actor WebAuthnHandler {
             state: extState,
             response: response,
             session: session,
-            pinToken: pinToken
+            token: pinToken
         )
 
         let credentials = CredentialResponse(
@@ -172,7 +172,7 @@ actor WebAuthnHandler {
         session: CTAP2.Session,
         permissions: CTAP2.ClientPin.Permission,
         rpId: String
-    ) async throws -> (session: CTAP2.Session, pinToken: CTAP2.ClientPin.Token?) {
+    ) async throws -> (session: CTAP2.Session, token: CTAP2.Token?) {
         let info = try await session.getInfo()
         guard info.options.clientPin == true else {
             return (session, nil)

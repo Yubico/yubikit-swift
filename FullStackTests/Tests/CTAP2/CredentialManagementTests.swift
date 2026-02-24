@@ -160,7 +160,7 @@ struct CredentialManagementTests {
         // First session: setup and get PPUAT
         let testData:
             (
-                ppuat: CTAP2.ClientPin.Token,
+                ppuat: CTAP2.Token,
                 credentialId: WebAuthn.PublicKeyCredential.Descriptor,
                 rpIdHash: Data,
                 identifier: Opaque128?,
@@ -269,7 +269,7 @@ private func getCredentialManagement(_ session: CTAP2.Session) async throws -> C
         using: .pin(defaultTestPin),
         permissions: [.credentialManagement]
     )
-    return try await session.credentialManagement(pinToken: token)
+    return try await session.credentialManagement(token: token)
 }
 
 private func createTestCredential(_ session: CTAP2.Session) async throws {
@@ -286,7 +286,7 @@ private func createTestCredential(_ session: CTAP2.Session) async throws {
         rk: true
     )
     print("👆 Touch YubiKey: creating test credential...")
-    _ = try await session.makeCredential(parameters: params, pinToken: pinToken).value
+    _ = try await session.makeCredential(parameters: params, token: pinToken).value
 }
 
 private func deleteAllCredentials(_ session: CTAP2.Session) async throws {
@@ -300,10 +300,10 @@ private func deleteAllCredentials(_ session: CTAP2.Session) async throws {
 
 private func verifyReadOnlyOperations(
     session: CTAP2.Session,
-    ppuat: CTAP2.ClientPin.Token,
+    ppuat: CTAP2.Token,
     rpIdHash: Data
 ) async throws {
-    let credMgmt = try await session.credentialManagement(pinToken: ppuat)
+    let credMgmt = try await session.credentialManagement(token: ppuat)
 
     // Read operations should work
     let metadata = try await credMgmt.getMetadata()
