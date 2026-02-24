@@ -135,7 +135,7 @@ func extractGetExtensionResults(
     state: GetExtensionState,
     response: CTAP2.GetAssertion.Response,
     session: CTAP2.Session,
-    pinToken: CTAP2.ClientPin.Token?
+    token: CTAP2.Token?
 ) async throws -> ExtensionResults {
     var results = ExtensionResults()
 
@@ -151,7 +151,7 @@ func extractGetExtensionResults(
             let blob = try await session.getBlob(key: key)
             results.largeBlob = .read(blob)
         } else if let writeData = state.largeBlobWrite, let pinToken {
-            try await session.putBlob(key: key, data: writeData, pinToken: pinToken)
+            try await session.putBlob(key: key, data: writeData, token: pinToken)
             results.largeBlob = .written(true)
         }
     } else if state.largeBlobKey != nil {
