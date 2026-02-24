@@ -46,19 +46,6 @@ public struct Response: Sendable {
     public var rawStatus: UInt16 {
         responseStatus.rawStatus
     }
-
-    // NEXTMAJOR: Remove these deprecated properties
-    /// Convenience property to access sw1 directly
-    @available(*, deprecated, message: "Use responseStatus.sw1 instead")
-    public var sw1: UInt8 {
-        responseStatus.sw1
-    }
-
-    /// Convenience property to access sw2 directly
-    @available(*, deprecated, message: "Use responseStatus.sw2 instead")
-    public var sw2: UInt8 {
-        responseStatus.sw2
-    }
 }
 
 extension Response {
@@ -107,13 +94,4 @@ extension Response {
             self.init(sw1: UInt8((value & 0xff00) >> 8), sw2: UInt8(value & 0x00ff))
         }
     }
-}
-
-// NEXTMAJOR: Remove these typealiases
-@available(*, deprecated, renamed: "Response.Status")
-public typealias ResponseStatus = Response.Status
-
-extension Response.Status {
-    @available(*, deprecated, renamed: "Response.Status.Code")
-    public typealias StatusCode = Code
 }
