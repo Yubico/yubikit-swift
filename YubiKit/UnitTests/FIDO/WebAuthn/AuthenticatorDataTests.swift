@@ -208,7 +208,7 @@ struct AuthenticatorDataTests {
         )
 
         // Verify unknown format is preserved
-        if case let .unknown(format) = credData.attestationStatement {
+        if case let .unknown(format) = credData.attestationObject.statement {
             #expect(format == "unknown-format")
         } else {
             Issue.record("Expected .unknown case for unknown format")

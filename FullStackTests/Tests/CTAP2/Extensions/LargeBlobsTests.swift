@@ -66,7 +66,7 @@ struct LargeBlobsFullStackTests {
             )
 
             print("👆 Touch YubiKey: creating credential with largeBlobKey...")
-            let credential = try await session.makeCredential(parameters: makeCredParams, pinToken: pinToken).value
+            let credential = try await session.makeCredential(parameters: makeCredParams, token: pinToken).value
 
             guard let key = largeBlobKey.makeCredential.output(from: credential) else {
                 Issue.record("Expected largeBlobKey in response")
@@ -77,7 +77,7 @@ struct LargeBlobsFullStackTests {
 
             // 2. Store a blob
             session = try await reconnectWhenOverNFC()
-            try await session.putBlob(key: key, data: testData, pinToken: pinToken)
+            try await session.putBlob(key: key, data: testData, token: pinToken)
             print("✅ Blob stored successfully")
 
             // 3. Read back the blob
@@ -95,7 +95,7 @@ struct LargeBlobsFullStackTests {
                 rpId: nil
             )
 
-            try await session.deleteBlob(key: key, pinToken: deleteToken)
+            try await session.deleteBlob(key: key, token: deleteToken)
             print("✅ Blob deleted")
 
             // 5. Verify blob is gone
@@ -153,7 +153,7 @@ struct LargeBlobsFullStackTests {
             )
 
             print("👆 Touch YubiKey: creating credential...")
-            let credential = try await session.makeCredential(parameters: makeCredParams, pinToken: mcToken).value
+            let credential = try await session.makeCredential(parameters: makeCredParams, token: mcToken).value
 
             guard let mcKey = largeBlobKey.makeCredential.output(from: credential) else {
                 Issue.record("Expected largeBlobKey from MakeCredential")
@@ -163,7 +163,7 @@ struct LargeBlobsFullStackTests {
 
             // 2. Store blob
             session = try await reconnectWhenOverNFC()
-            try await session.putBlob(key: mcKey, data: testData, pinToken: mcToken)
+            try await session.putBlob(key: mcKey, data: testData, token: mcToken)
             print("✅ Blob stored")
 
             // 3. GetAssertion with largeBlobKey extension to get the key again
@@ -182,7 +182,7 @@ struct LargeBlobsFullStackTests {
             )
 
             print("👆 Touch YubiKey: authenticating with largeBlobKey...")
-            let assertion = try await session.getAssertion(parameters: getAssertionParams, pinToken: gaToken).value
+            let assertion = try await session.getAssertion(parameters: getAssertionParams, token: gaToken).value
 
             guard let gaKey = largeBlobKey.getAssertion.output(from: assertion) else {
                 Issue.record("Expected largeBlobKey from GetAssertion")
@@ -199,7 +199,7 @@ struct LargeBlobsFullStackTests {
 
             // 5. Cleanup
             session = try await reconnectWhenOverNFC()
-            try await session.deleteBlob(key: gaKey, pinToken: gaToken)
+            try await session.deleteBlob(key: gaKey, token: gaToken)
             print("✅ Cleanup complete")
         }
     }
@@ -251,7 +251,7 @@ struct LargeBlobsFullStackTests {
             )
 
             print("👆 Touch YubiKey: creating first credential...")
-            let cred1 = try await session.makeCredential(parameters: params1, pinToken: pinToken1).value
+            let cred1 = try await session.makeCredential(parameters: params1, token: pinToken1).value
             guard let key1 = largeBlobKey.makeCredential.output(from: cred1) else {
                 Issue.record("Expected largeBlobKey for credential 1")
                 return
@@ -259,7 +259,7 @@ struct LargeBlobsFullStackTests {
             print("✅ First credential created")
 
             session = try await reconnectWhenOverNFC()
-            try await session.putBlob(key: key1, data: testData1, pinToken: pinToken1)
+            try await session.putBlob(key: key1, data: testData1, token: pinToken1)
             print("✅ First blob stored")
 
             // Create second credential and store its blob
@@ -284,7 +284,7 @@ struct LargeBlobsFullStackTests {
             )
 
             print("👆 Touch YubiKey: creating second credential...")
-            let cred2 = try await session.makeCredential(parameters: params2, pinToken: pinToken2).value
+            let cred2 = try await session.makeCredential(parameters: params2, token: pinToken2).value
             guard let key2 = largeBlobKey.makeCredential.output(from: cred2) else {
                 Issue.record("Expected largeBlobKey for credential 2")
                 return
@@ -292,7 +292,7 @@ struct LargeBlobsFullStackTests {
             print("✅ Second credential created")
 
             session = try await reconnectWhenOverNFC()
-            try await session.putBlob(key: key2, data: testData2, pinToken: pinToken2)
+            try await session.putBlob(key: key2, data: testData2, token: pinToken2)
             print("✅ Second blob stored")
 
             // Retrieve and verify each blob
@@ -311,8 +311,8 @@ struct LargeBlobsFullStackTests {
                 permissions: [.largeBlobWrite],
                 rpId: nil
             )
-            try await session.deleteBlob(key: key1, pinToken: cleanupToken)
-            try await session.deleteBlob(key: key2, pinToken: cleanupToken)
+            try await session.deleteBlob(key: key1, token: cleanupToken)
+            try await session.deleteBlob(key: key2, token: cleanupToken)
             print("✅ Cleanup complete")
         }
     }
@@ -355,7 +355,7 @@ struct LargeBlobsFullStackTests {
 
             // Try to store oversized blob - should fail with largeBlobStorageFull
             do {
-                try await session.putBlob(key: randomKey, data: oversizedData, pinToken: pinToken)
+                try await session.putBlob(key: randomKey, data: oversizedData, token: pinToken)
                 Issue.record("Expected largeBlobStorageFull error")
             } catch let error as CTAP2.SessionError {
                 guard case .ctapError(.largeBlobStorageFull, _) = error else {

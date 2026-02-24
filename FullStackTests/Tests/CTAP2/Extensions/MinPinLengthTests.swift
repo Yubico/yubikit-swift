@@ -47,7 +47,7 @@ struct MinPinLengthFullStackTests {
                 using: .pin(defaultTestPin),
                 permissions: [.authenticatorConfig]
             )
-            let config = try await session.config(pinToken: configToken)
+            let config = try await session.config(token: configToken)
             try await config.setMinPINLength(rpIDs: [rpId])
 
             // Create credential with minPinLength extension
@@ -75,7 +75,7 @@ struct MinPinLengthFullStackTests {
             print("👆 Touch YubiKey: creating credential with minPinLength extension...")
             let credential = try await session.makeCredential(
                 parameters: makeCredParams,
-                pinToken: makeCredToken
+                token: makeCredToken
             ).value
 
             let length = minPinLength.makeCredential.output(from: credential)

@@ -46,7 +46,7 @@ struct BioUVTests {
 
             let credential = try await session.makeCredential(
                 parameters: params,
-                pinToken: uvToken
+                token: uvToken
             ).value
 
             // UV token should set BOTH UV and UP flags
@@ -112,7 +112,7 @@ struct BioUVTests {
 
             let credential = try await session.makeCredential(
                 parameters: params,
-                pinToken: pinToken
+                token: pinToken
             ).value
 
             // Per CTAP 2.2 §6.1.1: valid pinUvAuthParam sets UV flag regardless of token type
@@ -140,7 +140,7 @@ private func withEnrolledFingerprint(
             using: .pin(defaultTestPin),
             permissions: [.bioEnrollment]
         )
-        let bio = try await session.bioEnrollment(pinToken: pinToken)
+        let bio = try await session.bioEnrollment(token: pinToken)
 
         // Clean up any existing enrollments
         let existing = try await bio.enrollments.enumerate()
@@ -179,7 +179,7 @@ private func withEnrolledFingerprint(
             using: .pin(defaultTestPin),
             permissions: [.bioEnrollment]
         )
-        let cleanupBio = try await session.bioEnrollment(pinToken: cleanupToken)
+        let cleanupBio = try await session.bioEnrollment(token: cleanupToken)
 
         // Clean up
         try await cleanupBio.removeEnrollment(enrolledTemplateId)

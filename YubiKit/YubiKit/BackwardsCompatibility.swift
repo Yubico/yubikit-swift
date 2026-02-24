@@ -16,16 +16,112 @@ import Foundation
 
 // MARK: - Backwards Compatibility
 
-/// This file contains deprecated API overloads for backwards compatibility.
+/// This file contains deprecated API for backwards compatibility.
+/// These APIs will be removed in the next major version.
 
-// MARK: - Deprecated Token Type
+// MARK: - EC.PublicKey Deprecated API
+
+extension EC.PublicKey {
+
+    /// Initialize a public key from SEC1 uncompressed EC point format (0x04 || X || Y).
+    /// - Parameters:
+    ///   - uncompressedPoint: Data in SEC1 format.
+    ///   - curve: The elliptic curve type (secp256r1 or secp384r1).
+    /// - Returns: PublicKey if valid, otherwise nil.
+    @available(*, deprecated, renamed: "init(x963Representation:curve:)")
+    public init?(uncompressedPoint: Data, curve: EC.Curve) {
+        self.init(x963Representation: uncompressedPoint, curve: curve)
+    }
+
+    /// SEC1 uncompressed EC point representation (0x04 || X || Y).
+    @available(*, deprecated, renamed: "x963Representation")
+    public var uncompressedPoint: Data { x963Representation }
+}
+
+// MARK: - EC.PrivateKey Deprecated API
+
+extension EC.PrivateKey {
+
+    /// Uncompressed representation of private key as 0x04 || X || Y || K.
+    @available(*, deprecated, renamed: "x963Representation")
+    public var uncompressedRepresentation: Data { x963Representation }
+
+    /// Initialize a private key from 0x04 || X || Y || K
+    /// - Parameters:
+    ///   - uncompressedRepresentation: uncompressedPoint + K
+    ///   - curve: The elliptic curve type (secp256r1 or secp384r1).
+    /// - Returns: PrivateKey if valid, otherwise nil.
+    @available(*, deprecated, renamed: "init(x963Representation:curve:)")
+    public init?(uncompressedRepresentation: Data, curve: EC.Curve) {
+        self.init(x963Representation: uncompressedRepresentation, curve: curve)
+    }
+}
+
+// MARK: - Response Deprecated API
+
+extension Response {
+
+    /// Convenience property to access sw1 directly
+    @available(*, deprecated, message: "Use responseStatus.sw1 instead")
+    public var sw1: UInt8 {
+        responseStatus.sw1
+    }
+
+    /// Convenience property to access sw2 directly
+    @available(*, deprecated, message: "Use responseStatus.sw2 instead")
+    public var sw2: UInt8 {
+        responseStatus.sw2
+    }
+}
+
+@available(*, deprecated, renamed: "Response.Status")
+public typealias ResponseStatus = Response.Status
+
+extension Response.Status {
+    @available(*, deprecated, renamed: "Response.Status.Code")
+    public typealias StatusCode = Code
+}
+
+// MARK: - Management Deprecated API
+
+@available(*, deprecated, renamed: "Management.Session")
+public typealias ManagementSession = Management.Session
+
+@available(*, deprecated, renamed: "Management.Feature")
+public typealias ManagementFeature = Management.Feature
+
+// MARK: - PIVSessionError Deprecated API
+
+extension PIVSessionError {
+
+    /// Gzip compression/decompression failed.
+    @available(*, deprecated, renamed: "compression")
+    public static func gzip(_ error: Error, source: SourceLocation) -> PIVSessionError {
+        .compression(error, source: source)
+    }
+}
+
+// MARK: - CTAP2.MakeCredential.Response Deprecated API
+
+extension CTAP2.MakeCredential.Response {
+
+    /// Attestation statement format identifier.
+    @available(*, deprecated, renamed: "attestationObject.format")
+    public var format: String { attestationObject.format }
+
+    /// Parsed attestation statement.
+    @available(*, deprecated, renamed: "attestationObject.statement")
+    public var attestationStatement: WebAuthn.AttestationStatement { attestationObject.statement }
+}
+
+// MARK: - CTAP2.ClientPin Deprecated Token Type
 
 extension CTAP2.ClientPin {
     @available(*, deprecated, renamed: "CTAP2.Token")
     public typealias Token = CTAP2.Token
 }
 
-// MARK: - Deprecated Options Types
+// MARK: - CTAP2.MakeCredential.Parameters Deprecated Options
 
 extension CTAP2.MakeCredential.Parameters {
 
@@ -51,7 +147,7 @@ extension CTAP2.MakeCredential.Parameters {
         pubKeyCredParams: [COSE.Algorithm],
         excludeList: [WebAuthn.PublicKeyCredential.Descriptor]? = nil,
         extensions: [CTAP2.Extension.MakeCredential.Input] = [],
-        options: Options? = nil,
+        options: Options?,
         enterpriseAttestation: Int? = nil
     ) {
         self.init(
@@ -67,6 +163,8 @@ extension CTAP2.MakeCredential.Parameters {
         )
     }
 }
+
+// MARK: - CTAP2.GetAssertion.Parameters Deprecated Options
 
 extension CTAP2.GetAssertion.Parameters {
 
@@ -90,7 +188,7 @@ extension CTAP2.GetAssertion.Parameters {
         clientDataHash: Data,
         allowList: [WebAuthn.PublicKeyCredential.Descriptor]? = nil,
         extensions: [CTAP2.Extension.GetAssertion.Input] = [],
-        options: Options? = nil
+        options: Options?
     ) {
         self.init(
             rpId: rpId,
@@ -103,7 +201,7 @@ extension CTAP2.GetAssertion.Parameters {
     }
 }
 
-// MARK: - Deprecated Session Methods
+// MARK: - CTAP2.Session Deprecated Methods
 
 extension CTAP2.Session {
 

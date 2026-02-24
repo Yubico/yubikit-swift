@@ -71,7 +71,7 @@ struct WebAuthnExtensionFullStackTests {
             print("👆 Touch the YubiKey to create credential with PRF support...")
             let makeCredResponse = try await session.makeCredential(
                 parameters: makeCredParams,
-                pinToken: pinToken
+                token: pinToken
             ).value
 
             // Verify hmac-secret is enabled (PRF enabled = hmac-secret enabled)
@@ -112,7 +112,7 @@ struct WebAuthnExtensionFullStackTests {
             print("👆 Touch the YubiKey for PRF assertion (one secret)...")
             let assertionResponse1 = try await session.getAssertion(
                 parameters: getAssertionParams1,
-                pinToken: pinToken2
+                token: pinToken2
             ).value
 
             guard let secrets1 = try prf.getAssertion.output(from: assertionResponse1) else {
@@ -153,7 +153,7 @@ struct WebAuthnExtensionFullStackTests {
             print("👆 Touch the YubiKey for PRF assertion (two secrets, evalByCredential)...")
             let assertionResponse2 = try await session.getAssertion(
                 parameters: getAssertionParams2,
-                pinToken: pinToken3
+                token: pinToken3
             ).value
 
             guard let secrets2 = try prf2.getAssertion.output(from: assertionResponse2) else {
@@ -227,7 +227,7 @@ struct WebAuthnExtensionFullStackTests {
             print("👆 Touch the YubiKey to create credential with PRF secrets...")
             let makeCredResponse = try await session.makeCredential(
                 parameters: makeCredParams,
-                pinToken: pinToken
+                token: pinToken
             ).value
 
             // Verify we got secrets back at registration
@@ -276,7 +276,7 @@ struct WebAuthnExtensionFullStackTests {
             print("👆 Touch the YubiKey for PRF assertion (verifying determinism)...")
             let assertionResponse = try await session.getAssertion(
                 parameters: getAssertionParams,
-                pinToken: pinToken2
+                token: pinToken2
             ).value
 
             guard let gaSecrets = try prfGa.getAssertion.output(from: assertionResponse) else {

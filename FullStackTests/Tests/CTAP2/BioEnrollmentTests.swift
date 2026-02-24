@@ -126,7 +126,7 @@ private func withBioEnrollment(
             permissions: [.bioEnrollment]
         )
 
-        let bio = try await session.bioEnrollment(pinToken: pinToken)
+        let bio = try await session.bioEnrollment(token: pinToken)
 
         try await body(bio)
     }
