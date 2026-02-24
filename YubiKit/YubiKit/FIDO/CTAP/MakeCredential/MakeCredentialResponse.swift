@@ -47,15 +47,5 @@ extension CTAP2.MakeCredential {
         ///
         /// Use extension-specific `result(from:)` methods for typed access to extension outputs.
         internal let unsignedExtensionOutputs: [String: CBOR.Value]?
-
-        // MARK: - Deprecated
-
-        /// Attestation statement format identifier.
-        @available(*, deprecated, renamed: "attestationObject.format")
-        public var format: String { attestationObject.format }
-
-        /// Parsed attestation statement.
-        @available(*, deprecated, renamed: "attestationObject.statement")
-        public var attestationStatement: WebAuthn.AttestationStatement { attestationObject.statement }
     }
 }

@@ -16,13 +16,6 @@ import CryptoTokenKit
 import Foundation
 import OSLog
 
-// NEXTMAJOR: Remove these typealiases
-@available(*, deprecated, renamed: "Management.Session")
-public typealias ManagementSession = Management.Session
-
-@available(*, deprecated, renamed: "Management.Feature")
-public typealias ManagementFeature = Management.Feature
-
 public enum Management {
 
     /// Management session features.

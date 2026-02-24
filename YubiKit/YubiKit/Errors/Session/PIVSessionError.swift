@@ -57,11 +57,5 @@ public enum PIVSessionError: SmartCardSessionError, Sendable {
     /// Certificate decompression failed (gzip or GIDS zlib).
     case compression(Error, source: SourceLocation)
 
-    /// Gzip compression/decompression failed.
-    @available(*, deprecated, renamed: "compression")
-    static func gzip(_ error: Error, source: SourceLocation) -> PIVSessionError {
-        .compression(error, source: source)
-    }
-
     case other(Error, source: SourceLocation)
 }
