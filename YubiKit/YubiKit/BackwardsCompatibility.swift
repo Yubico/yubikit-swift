@@ -147,7 +147,7 @@ extension CTAP2.MakeCredential.Parameters {
         pubKeyCredParams: [COSE.Algorithm],
         excludeList: [WebAuthn.PublicKeyCredential.Descriptor]? = nil,
         extensions: [CTAP2.Extension.MakeCredential.Input] = [],
-        options: Options? = nil,
+        options: Options?,
         enterpriseAttestation: Int? = nil
     ) {
         self.init(
@@ -188,7 +188,7 @@ extension CTAP2.GetAssertion.Parameters {
         clientDataHash: Data,
         allowList: [WebAuthn.PublicKeyCredential.Descriptor]? = nil,
         extensions: [CTAP2.Extension.GetAssertion.Input] = [],
-        options: Options? = nil
+        options: Options?
     ) {
         self.init(
             rpId: rpId,
