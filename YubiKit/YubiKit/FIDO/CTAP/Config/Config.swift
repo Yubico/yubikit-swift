@@ -20,24 +20,26 @@ extension CTAP2.Session {
     /// Returns authenticatorConfig operations bound to a PIN/UV auth token.
     ///
     /// ```swift
-    /// let pinToken = try await session.getPinUVToken(
+    /// let token = try await session.getPinUVToken(
     ///     using: .pin("123456"),
     ///     permissions: [.authenticatorConfig]
     /// )
-    /// let config = try await session.config(pinToken: pinToken)
+    /// let config = try await session.config(token: token)
     /// try await config.toggleAlwaysUV()
     /// try await config.enableEnterpriseAttestation()
     /// ```
     ///
-    /// - Parameter pinToken: PIN/UV auth token with `authenticatorConfig` permission.
+    /// - Parameter token: PIN/UV auth token with `authenticatorConfig` permission.
     /// - Returns: Config operations bound to the token.
     /// - Throws: `CTAP2.SessionError.featureNotSupported` if authenticatorConfig is not supported.
     /// - SeeAlso: [CTAP2 authenticatorConfig](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorConfig)
-    public func config(pinToken: CTAP2.ClientPin.Token) async throws(CTAP2.SessionError) -> CTAP2.Config {
+    public func config(
+        token: CTAP2.Token
+    ) async throws(CTAP2.SessionError) -> CTAP2.Config {
         guard try await cachedInfo.options.authenticatorConfig else {
             throw .featureNotSupported(source: .here())
         }
-        return CTAP2.Config(session: self, pinToken: pinToken)
+        return CTAP2.Config(session: self, token: token)
     }
 }
 
@@ -49,11 +51,11 @@ extension CTAP2 {
     /// - SeeAlso: [CTAP2 authenticatorConfig](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorConfig)
     public struct Config: Sendable {
         private let session: CTAP2.Session
-        private let pinToken: CTAP2.ClientPin.Token
+        private let token: CTAP2.Token
 
-        fileprivate init(session: CTAP2.Session, pinToken: CTAP2.ClientPin.Token) {
+        fileprivate init(session: CTAP2.Session, token: CTAP2.Token) {
             self.session = session
-            self.pinToken = pinToken
+            self.token = token
         }
 
         /// Checks if the authenticator supports authenticatorConfig.
@@ -114,12 +116,12 @@ extension CTAP2 {
             params: [UInt8: CBOR.Value]? = nil
         ) async throws(CTAP2.SessionError) {
             let message = authMessage(subcommand: subcommand, params: params)
-            let pinUVAuthParam = pinToken.authenticate(message: message)
+            let pinUVAuthParam = token.authenticate(message: message)
 
             let parameters = RequestParameters(
                 subCommand: subcommand,
                 subCommandParams: params,
-                pinUVAuthProtocol: pinToken.protocolVersion,
+                pinUVAuthProtocol: token.protocolVersion,
                 pinUVAuthParam: pinUVAuthParam
             )
 

@@ -61,13 +61,16 @@ struct CTAP2FullStackTests {
                     displayName: "Non-RK User"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: false)
+                rk: false
             )
 
             print("👆 Touch the YubiKey to create a non-resident credential...")
             let nonRkCredential = try await session.makeCredential(parameters: nonRkParams).value
 
-            #expect(["packed", "none"].contains(nonRkCredential.format), "Expected packed or none format")
+            #expect(
+                ["packed", "none"].contains(nonRkCredential.attestationObject.format),
+                "Expected packed or none format"
+            )
             #expect(nonRkCredential.authenticatorData.attestedCredentialData != nil, "Missing attested credential data")
             print("✅ Non-resident credential created")
 
@@ -83,7 +86,7 @@ struct CTAP2FullStackTests {
                     displayName: "RK User"
                 ),
                 pubKeyCredParams: [.es256],
-                options: .init(rk: true)
+                rk: true
             )
 
             print("👆 Touch the YubiKey to create a resident credential...")
@@ -160,7 +163,8 @@ struct CTAP2FullStackTests {
                     name: "cancel-test@example.com",
                     displayName: "Cancel Test User"
                 ),
-                pubKeyCredParams: [.es256]
+                pubKeyCredParams: [.es256],
+                rk: true
             )
 
             print("DO NOT touch the YubiKey - operation will be cancelled...")

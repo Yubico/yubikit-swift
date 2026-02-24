@@ -124,10 +124,14 @@ extension CTAP2.StatusStream {
 
         func yield(_ status: CTAP2.Status<Response>) {
             continuation.yield(.success(status))
+            if case .finished = status {
+                continuation.finish()
+            }
         }
 
         func yield(error: CTAP2.SessionError) {
             continuation.yield(.failure(error))
+            continuation.finish()
         }
 
         func finish() {

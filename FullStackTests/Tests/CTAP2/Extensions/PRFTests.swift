@@ -65,7 +65,7 @@ struct WebAuthnExtensionFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [hmacSecretInput],
-                options: .init(rk: true)
+                rk: true
             )
 
             print("👆 Touch the YubiKey to create credential with PRF support...")
@@ -106,7 +106,7 @@ struct WebAuthnExtensionFullStackTests {
                 clientDataHash: clientDataHash,
                 allowList: [.init(id: credentialId)],
                 extensions: [prfInput1],
-                options: .init(up: true)
+                up: true
             )
 
             print("👆 Touch the YubiKey for PRF assertion (one secret)...")
@@ -147,7 +147,7 @@ struct WebAuthnExtensionFullStackTests {
                 clientDataHash: clientDataHash,
                 allowList: [.init(id: credentialId)],
                 extensions: [prfInput2],
-                options: .init(up: true)
+                up: true
             )
 
             print("👆 Touch the YubiKey for PRF assertion (two secrets, evalByCredential)...")
@@ -221,7 +221,7 @@ struct WebAuthnExtensionFullStackTests {
                 ),
                 pubKeyCredParams: [.es256],
                 extensions: [prfMcInput],
-                options: .init(rk: true)
+                rk: true
             )
 
             print("👆 Touch the YubiKey to create credential with PRF secrets...")
@@ -270,7 +270,7 @@ struct WebAuthnExtensionFullStackTests {
                 clientDataHash: clientDataHash,
                 allowList: [.init(id: credentialId)],
                 extensions: [prfGaInput],
-                options: .init(up: true)
+                up: true
             )
 
             print("👆 Touch the YubiKey for PRF assertion (verifying determinism)...")

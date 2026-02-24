@@ -124,7 +124,7 @@ func handleCreate(_ data: Data) async throws -> String {
         options: options
     )
 
-    let response = try await session.makeCredential(parameters: params, pinToken: pinToken).value
+    let response = try await session.makeCredential(parameters: params, token: pinToken).value
     // Convert response back to WebAuthn format...
 }
 ```
@@ -148,7 +148,7 @@ func handleGet(_ data: Data) async throws -> String {
         options: options
     )
 
-    let response = try await session.getAssertion(parameters: params, pinToken: pinToken).value
+    let response = try await session.getAssertion(parameters: params, token: pinToken).value
     // Convert response back to WebAuthn format...
 }
 ```
