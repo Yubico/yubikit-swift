@@ -9,9 +9,12 @@
 
 ### Cryptographic Operations
 
-- ``sign(_:in:keyType:using:)``
+- ``sign(_:in:keyType:using:)-204it``
+- ``sign(_:in:keyType:using:)-7bmau``
+- ``sign(_:in:keyType:)``
 - ``decrypt(_:in:using:)``
-- ``deriveSharedSecret(in:with:)``
+- ``deriveSharedSecret(in:with:)-72vkx``
+- ``deriveSharedSecret(in:with:)-3o9ip``
 
 ### Key Management
 

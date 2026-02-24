@@ -53,6 +53,7 @@ data to the YubiKey. In most cases it is advised to use one of the supplied Sess
 - ``USBSmartCardConnection``
 - ``LightningSmartCardConnection``
 - ``WiredSmartCardConnection``
+- ``HIDFIDOConnection``
 
 > Note: `NFCSmartCardConnection` and `LightningSmartCardConnection` are available on iOS only.
 
@@ -72,3 +73,4 @@ A Session is created by calling the `makeSession(connection:)` method on the ses
 - ``Management/Session``
 - ``PIVSession``
 - ``SecurityDomainSession``
+- ``CTAP2/Session``

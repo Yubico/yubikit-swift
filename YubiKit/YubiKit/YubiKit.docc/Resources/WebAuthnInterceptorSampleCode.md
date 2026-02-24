@@ -121,7 +121,8 @@ func handleCreate(_ data: Data) async throws -> String {
         pubKeyCredParams: pubKeyParams,
         excludeList: excludeList,
         extensions: extState.inputs,
-        options: options
+        rk: true,
+        uv: nil
     )
 
     let response = try await session.makeCredential(parameters: params, token: pinToken).value
@@ -145,7 +146,8 @@ func handleGet(_ data: Data) async throws -> String {
         clientDataHash: clientDataHash,
         allowList: allowList,
         extensions: extState.inputs,
-        options: options
+        up: true,
+        uv: nil
     )
 
     let response = try await session.getAssertion(parameters: params, token: pinToken).value
