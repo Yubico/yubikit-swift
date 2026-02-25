@@ -224,6 +224,7 @@ extension CTAP2.GetInfo {
     /// Both `encIdentifier` and `encCredStoreState` decrypt to this type.
     /// Values should be compared for equality, not interpreted.
     public struct Opaque128: RawRepresentable, Sendable, Equatable, Hashable {
+        /// The raw 16-byte data.
         public let rawValue: Data
 
         init?(_ data: Data) {
@@ -231,6 +232,10 @@ extension CTAP2.GetInfo {
             self.rawValue = data
         }
 
+        /// Creates an opaque value from raw data.
+        ///
+        /// - Parameter rawValue: Must be exactly 16 bytes.
+        /// - Returns: `nil` if the data is not 16 bytes.
         public init?(rawValue: Data) {
             self.init(rawValue)
         }

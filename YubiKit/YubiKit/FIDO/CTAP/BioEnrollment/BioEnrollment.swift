@@ -430,6 +430,7 @@ extension CTAP2.BioEnrollment {
 
 extension CTAP2.BioEnrollment {
 
+    /// An async sequence of enrolled fingerprint templates.
     public struct EnrollmentSequence: AsyncSequence, Sendable {
         public typealias Element = TemplateInfo
 
