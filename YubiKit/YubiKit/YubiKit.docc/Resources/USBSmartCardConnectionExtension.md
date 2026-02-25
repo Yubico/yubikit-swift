@@ -5,7 +5,7 @@ USB SmartCard (CCID) connection to a YubiKey.
 ## Overview
 
 USBSmartCardConnection establishes a connection to a YubiKey via USB using the SmartCard
-(CCID) interface. This connection type is available on macOS and iOS 16+ (with USB-C).
+(CCID) interface.
 
 USB connections are persistent and remain active until the YubiKey is unplugged or
 the connection is explicitly closed.

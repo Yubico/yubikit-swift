@@ -22,7 +22,7 @@ let response = try await session.makeCredential(parameters: params, token: token
 ```
 
 > Note: This connection type is only available on macOS. On iOS, use ``NFCSmartCardConnection``
-> for CTAP2 operations - the SDK handles CTAP-over-NFC automatically.
+> for CTAP2 operations.
 
 ## Topics
 
