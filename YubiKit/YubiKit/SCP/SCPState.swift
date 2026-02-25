@@ -51,7 +51,10 @@ public actor SCPState: HasSCPLogger {
 
         /* Fix trace: trace(message: "\(decrypted.hexEncodedString)") */
 
-        return unpadData(decrypted)!
+        guard let unpadded = unpadData(decrypted) else {
+            throw .decryptionFailed(nil)  // Invalid padding in decrypted data
+        }
+        return unpadded
     }
 
     func unpadData(_ data: Data) -> Data? {
@@ -74,6 +77,9 @@ public actor SCPState: HasSCPLogger {
     }
 
     func unmac(data: Data, sw: UInt16) throws(SCPError) -> Data {
+        guard data.count >= 8 else {
+            throw SCPError.responseParseError("Response too short for MAC verification", source: .here())
+        }
         let message = data.prefix(data.count - 8) + sw.bigEndian.data
 
         let rmac: Data

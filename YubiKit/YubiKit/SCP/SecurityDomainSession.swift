@@ -380,6 +380,9 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
         guard let scpState = interface.scpState else {
             throw SCPError.secureChannelRequired(source: .here())
         }
+        guard let currentDek = scpState.sessionKeys.dek else {
+            throw SCPError.illegalArgument("This operation requires an SCP03 session", source: .here())
+        }
 
         var data = Data([keyRef.kvn])
         var expected = Data([keyRef.kvn])
@@ -388,9 +391,6 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
 
         for key in [keys.enc, keys.mac, dek] {
             let kcv = try defaultKcvIv.cbcEncrypt(key: key).prefix(3)
-
-            let currentDek = scpState.sessionKeys.dek!
-
             let encryptedKey = try key.cbcEncrypt(key: currentDek)
             data.append(TKBERTLVRecord(tag: 0x88, value: encryptedKey).data)
             data.append(UInt8(kcv.count))
@@ -398,7 +398,13 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             expected.append(kcv)
         }
 
-        assert(data.bytes.count == 1 + 3 * (18 + 4), "Unexpected command data length")
+        let expectedLength = 1 + 3 * (18 + 4)
+        guard data.count == expectedLength else {
+            throw .dataProcessingError(
+                "Unexpected command data length: expected \(expectedLength), got \(data.count)",
+                source: .here()
+            )
+        }
 
         let apdu = APDU(cla: 0x80, ins: 0xD8, p1: kvn, p2: 0x80 | keyRef.kid, command: data)
         let resp = try await process(apdu: apdu)
@@ -469,6 +475,9 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
         guard let scpState = interface.scpState else {
             throw .secureChannelRequired(source: .here())
         }
+        guard let currentDek = scpState.sessionKeys.dek else {
+            throw .illegalArgument("This operation requires an SCP03 session", source: .here())
+        }
 
         // Extract the raw 32-byte secret scalar from the EC private key
         let rawSecret = privateKey.k
@@ -476,9 +485,10 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw .cryptoError("Invalid P256 private key scalar size", error: nil, source: .here())
         }
 
-        let currentDek = scpState.sessionKeys.dek!
         let encryptedSecret = try rawSecret.cbcEncrypt(key: currentDek)
-        precondition(encryptedSecret.count == 32)
+        guard encryptedSecret.count == 32 else {
+            throw .cryptoError("Unexpected encrypted secret size", error: nil, source: .here())
+        }
 
         var data = Data()
         data.append(keyRef.kvn)
