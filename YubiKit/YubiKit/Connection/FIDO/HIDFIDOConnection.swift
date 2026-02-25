@@ -175,6 +175,7 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
             CFRunLoopRun()
         }
 
+        hidThread?.qualityOfService = .userInitiated
         hidThread?.start()
 
         // Wait for thread to start up
