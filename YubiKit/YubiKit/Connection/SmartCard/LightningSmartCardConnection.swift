@@ -378,8 +378,7 @@ extension EASession {
             inputStream?.streamStatus != .opening,
             outputStream?.streamStatus != .opening
         else {
-            assertionFailure("Tried to open streams that was already open or opening.")
-            return
+            return  // Already open or opening - no-op
         }
         inputStream?.schedule(in: .main, forMode: .common)
         inputStream?.open()
@@ -391,8 +390,7 @@ extension EASession {
         guard inputStream?.streamStatus != .closed,
             outputStream?.streamStatus != .closed
         else {
-            assertionFailure("Tried to close streams that already was closed.")
-            return
+            return  // Already closed - no-op
         }
         inputStream?.close()
         outputStream?.close()

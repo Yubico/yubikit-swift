@@ -41,6 +41,9 @@ func withTimeout<T: Sendable, E: Error>(
             return first
         }
     } catch {
+        // Safe cast: operation is throws(E), timer uses try? (never throws).
+        // Only E can be thrown. withThrowingTaskGroup uses untyped throws
+        // so compiler can't verify this, but typed throws guarantees it.
         throw error as! E
     }
 }

@@ -75,6 +75,7 @@ extension FIDOInterface {
             do {
                 responseInitFrame = try await withTimeout(frameTimeout) { try await self.connection.receive() }
             } catch {
+                // Safe cast: receive() is throws(FIDOConnectionError), typed throws guarantees only that type
                 throw .fidoConnectionError(error as! FIDOConnectionError, source: .here())
             }
 
@@ -133,6 +134,7 @@ extension FIDOInterface {
                 do {
                     contFrame = try await withTimeout(frameTimeout) { try await self.connection.receive() }
                 } catch {
+                    // Safe cast: receive() is throws(FIDOConnectionError), typed throws guarantees only that type
                     throw .fidoConnectionError(error as! FIDOConnectionError, source: .here())
                 }
 

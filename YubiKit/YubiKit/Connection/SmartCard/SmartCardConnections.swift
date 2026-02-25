@@ -94,7 +94,11 @@ private enum SmartCardConnections {
                 group.cancelAll()
                 return result
             }
-        } catch { throw error as! SmartCardConnectionError }
+        } catch {
+            // Safe cast: all child tasks use throws(SmartCardConnectionError).
+            // withThrowingTaskGroup uses untyped throws so compiler can't verify.
+            throw error as! SmartCardConnectionError
+        }
     }
 
     private static func any(
@@ -120,6 +124,10 @@ private enum SmartCardConnections {
                 group.cancelAll()
                 return result!
             }
-        } catch { throw error as! SmartCardConnectionError }
+        } catch {
+            // Safe cast: all child tasks use throws(SmartCardConnectionError).
+            // withThrowingTaskGroup uses untyped throws so compiler can't verify.
+            throw error as! SmartCardConnectionError
+        }
     }
 }
