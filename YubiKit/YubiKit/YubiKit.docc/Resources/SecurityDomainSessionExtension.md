@@ -5,13 +5,9 @@ Session for managing SCP (Secure Channel Protocol) keys on the YubiKey.
 ## Overview
 
 SecurityDomainSession provides access to the YubiKey's Security Domain application for
-managing cryptographic keys used in secure channel establishment (SCP03 and SCP11).
+managing cryptographic keys used in secure channel establishment.
 
-This is an advanced API primarily used for:
-- Provisioning SCP11 key pairs for secure NFC communication
-- Managing SCP03 static keys
-- Storing certificate chains for off-card entity verification
-- Factory reset of the Security Domain
+This is an advanced API for provisioning and managing SCP03/SCP11 keys.
 
 ```swift
 let connection = try await USBSmartCardConnection()
