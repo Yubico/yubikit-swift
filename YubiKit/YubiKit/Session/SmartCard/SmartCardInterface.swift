@@ -228,7 +228,13 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
             throw .connectionError(error, source: .here())
         }
 
-        // Parse response status
+        // Parse response status (must have at least 2 bytes for SW1+SW2)
+        guard responseData.count >= 2 else {
+            throw .responseParseError(
+                "Response too short: expected at least 2 bytes, got \(responseData.count)",
+                source: .here()
+            )
+        }
         let response = Response(rawData: responseData)
 
         // Only continue accumulation for 0x61 (more data) or 0x9000 (success)

@@ -19,10 +19,15 @@ public struct Response: Sendable {
     init(rawData: Data) {
         if rawData.count > 2 {
             data = rawData.subdata(in: 0..<rawData.count - 2)
-        } else {
+            responseStatus = Response.Status(data: rawData.subdata(in: rawData.count - 2..<rawData.count))
+        } else if rawData.count == 2 {
             data = Data()
+            responseStatus = Response.Status(data: rawData)
+        } else {
+            // Defensive fallback: callers should validate length before constructing Response
+            data = Data()
+            responseStatus = Response.Status(sw1: 0x00, sw2: 0x00)
         }
-        responseStatus = Response.Status(data: rawData.subdata(in: rawData.count - 2..<rawData.count))
     }
 
     init(data: Data, sw1: UInt8, sw2: UInt8) {

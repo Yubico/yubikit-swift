@@ -234,11 +234,14 @@ public final actor OATHSession: SmartCardSessionInternal {
             guard record.tag == 0x72 else {
                 throw .responseParseError("Unexpected TLV tag in credential list", source: .here())
             }
+            guard record.value.count >= 1 else {
+                throw .responseParseError("Empty credential record", source: .here())
+            }
+            let firstByte = record.value[record.value.startIndex]
             guard let credentialId = CredentialIdParser(data: record.value.dropFirst()) else {
                 throw .responseParseError("Failed to parse credential data from TLV", source: .here())
             }
-            let bytes = record.value.bytes
-            let typeCode = bytes[0] & 0xf0
+            let typeCode = firstByte & 0xf0
             let credentialType: CredentialType
             if CredentialType.isTOTP(typeCode) {
                 credentialType = .totp(period: credentialId.period ?? oathDefaultPeriod)
@@ -248,7 +251,7 @@ public final actor OATHSession: SmartCardSessionInternal {
                 throw .responseParseError("Unexpected credential type value", source: .here())
             }
 
-            guard let hashAlgorithm = HashAlgorithm(rawValue: bytes[0] & 0x0f) else {
+            guard let hashAlgorithm = HashAlgorithm(rawValue: firstByte & 0x0f) else {
                 throw .responseParseError("Invalid hash algorithm value", source: .here())
             }
 
