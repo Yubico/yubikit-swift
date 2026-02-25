@@ -18,7 +18,7 @@ in Swift and SwiftUI based applications. The async/await syntax provides an easy
 creating connections and sending commands to the different applications on the YubiKey.
 
 ```swift
-let connection = try await NFCSmartCardConnection.makeConnection()
+let connection = try await NFCSmartCardConnection()
 let session = try await OATHSession.makeSession(connection: connection)
 let codes = try await session.calculateCredentialCodes()
 ```
