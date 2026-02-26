@@ -31,19 +31,25 @@ extension CTAP2.GetAssertion {
         /// Extension inputs for additional authenticator processing.
         public let extensions: [CTAP2.Extension.GetAssertion.Input]
 
-        /// Authenticator options.
-        public let options: Options?
+        /// Require user presence (default: true when omitted).
+        public internal(set) var up: Bool?
 
-        /// PIN/UV auth parameter (populated automatically when using PIN authentication).
+        /// Require user verification during the command (ignored if token is provided).
+        public internal(set) var uv: Bool?
+
+        /// PIN/UV auth parameter (populated automatically when using a PIN/UV token).
         private(set) var pinUVAuthParam: Data?
 
-        /// PIN/UV protocol version (populated automatically when using PIN authentication).
+        /// PIN/UV protocol version (populated automatically when using a PIN/UV token).
         private(set) var pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion?
 
-        /// Sets the PIN/UV authentication parameters using a PIN token.
-        mutating func setAuthentication(pinToken: CTAP2.ClientPin.Token) {
-            self.pinUVAuthParam = pinToken.authenticate(message: clientDataHash)
-            self.pinUVAuthProtocol = pinToken.protocolVersion
+        /// Sets the PIN/UV authentication parameters.
+        ///
+        /// Clears `uv` since it must not coexist with `pinUvAuthParam`.
+        mutating func setAuthentication(token: CTAP2.Token) {
+            self.uv = nil
+            self.pinUVAuthParam = token.authenticate(message: clientDataHash)
+            self.pinUVAuthProtocol = token.protocolVersion
         }
 
         public init(
@@ -51,27 +57,15 @@ extension CTAP2.GetAssertion {
             clientDataHash: Data,
             allowList: [WebAuthn.PublicKeyCredential.Descriptor]? = nil,
             extensions: [CTAP2.Extension.GetAssertion.Input] = [],
-            options: Options? = nil
+            up: Bool? = nil,
+            uv: Bool? = nil
         ) {
             self.rpId = rpId
             self.clientDataHash = clientDataHash
             self.allowList = allowList
             self.extensions = extensions
-            self.options = options
-        }
-
-        /// Authenticator options for getAssertion.
-        public struct Options: Sendable {
-            /// Require user presence (default: true).
-            public let up: Bool?
-
-            /// Require user verification.
-            public let uv: Bool?
-
-            public init(up: Bool? = nil, uv: Bool? = nil) {
-                self.up = up
-                self.uv = uv
-            }
+            self.up = up
+            self.uv = uv
         }
     }
 }

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import Foundation
 
 // MARK: - HmacSecret Extension
@@ -107,7 +106,7 @@ extension CTAP2.Extension {
             guard try await Self.isSupported(by: session) else {
                 throw .extensionNotSupported(Self.identifier, source: .here())
             }
-            let info = try await session.getInfo()
+            let info = try await session.cachedInfo
             self.supportsMC = info.extensions.contains(Self.mcIdentifier)
             self.sharedSecret = try await SharedSecret.create(session: session)
         }
@@ -116,7 +115,7 @@ extension CTAP2.Extension {
         public static func isSupported(
             by session: CTAP2.Session
         ) async throws(CTAP2.SessionError) -> Bool {
-            let info = try await session.getInfo()
+            let info = try await session.cachedInfo
             return info.extensions.contains(identifier)
         }
 
@@ -302,13 +301,11 @@ extension CTAP2.Extension.HmacSecret {
             let pinProtocol = try await session.preferredClientPinProtocol
             let authenticatorKey = try await getKeyAgreement(session: session, protocol: pinProtocol)
 
-            let keyPair = P256.KeyAgreement.PrivateKey()
-            let sharedSecret = try pinProtocol.sharedSecret(keyPair: keyPair, peerKey: authenticatorKey)
-            let clientKey = pinProtocol.coseKey(from: keyPair)
+            let secretResult = try pinProtocol.establishSharedSecret(peerKey: authenticatorKey)
 
             return SharedSecret(
-                keyAgreement: clientKey,
-                secret: sharedSecret,
+                keyAgreement: secretResult.platformKey,
+                secret: secretResult.sharedSecret,
                 protocolVersion: pinProtocol
             )
         }

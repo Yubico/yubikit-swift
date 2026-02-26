@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import Foundation
 
 /// Static keys for Secure Channel Protocol (SCP) operations.

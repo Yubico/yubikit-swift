@@ -242,6 +242,16 @@ public enum PIV: Sendable {
         /// AES-256
         case aes256 = 0x0c
 
+        /// Decrypts data using this key type's algorithm in ECB mode.
+        internal func decrypt(_ data: Data, key: Data) throws(CryptoError) -> Data {
+            switch self {
+            case .tripleDES:
+                return try data.decrypt3DES(key: key, mode: .ecb)
+            case .aes128, .aes192, .aes256:
+                return try data.decryptAES(key: key, mode: .ecb)
+            }
+        }
+
         /// The length of the key.
         var keyLength: Int {
             switch self {
@@ -332,28 +342,6 @@ public enum PIV: Sendable {
         case prehashed(HashAlgorithm)
         /// Signs a raw message (hashing is performed internally)
         case hash(HashAlgorithm)
-
-        // Maps to the corresponding SecKeyAlgorithm
-        internal var secKeyAlgorithm: SecKeyAlgorithm {
-            switch self {
-            case .prehashed(let hash):
-                switch hash {
-                case .sha1: return .ecdsaSignatureDigestX962SHA1
-                case .sha224: return .ecdsaSignatureDigestX962SHA224
-                case .sha256: return .ecdsaSignatureDigestX962SHA256
-                case .sha384: return .ecdsaSignatureDigestX962SHA384
-                case .sha512: return .ecdsaSignatureDigestX962SHA512
-                }
-            case .hash(let hash):
-                switch hash {
-                case .sha1: return .ecdsaSignatureMessageX962SHA1
-                case .sha224: return .ecdsaSignatureMessageX962SHA224
-                case .sha256: return .ecdsaSignatureMessageX962SHA256
-                case .sha384: return .ecdsaSignatureMessageX962SHA384
-                case .sha512: return .ecdsaSignatureMessageX962SHA512
-                }
-            }
-        }
     }
 
 }

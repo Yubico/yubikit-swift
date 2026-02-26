@@ -13,10 +13,10 @@ Swift SDK for YubiKey integration on iOS and macOS.
 YubiKit provides a native Swift interface with async/await for YubiKey hardware devices.
 
 ```swift
-let connection = try await NFCSmartCardConnection.makeConnection()
+let connection = try await NFCSmartCardConnection()
+// let connection = try await USBSmartCardConnection()
 let session = try await OATHSession.makeSession(connection: connection)
-let codes = try await session.calculateCodes()
-await connection.close(message: "Done")
+let codes = try await session.calculateCredentialCodes()
 ```
 
 ## About
@@ -30,6 +30,8 @@ YubiKit uses a layered architecture where the connection layer handles communica
 **PIV** - Smart card functionality including X.509 certificate management, key generation (RSA, ECDSA, Curve25519), and cryptographic operations
 
 **Management** - Read YubiKey metadata (serial number, firmware version) and configure device settings
+
+**FIDO2/CTAP2** - WebAuthn credential creation, authentication, and device management
 
 **Secure Channel Protocol** - SCP03 and SCP11 for encrypted communication
 
@@ -53,6 +55,7 @@ Learn by example:
 
 - **[OATHSample](Samples/OATHSample)** - SwiftUI authenticator app
 - **[PIVTool](Samples/yubikit-piv-tool)** - Command-line PIV operations
+- **[WebAuthnInterceptorSample](Samples/WebAuthnInterceptorSample)** - FIDO2/WebAuthn in WKWebView
 
 ## Requirements
 

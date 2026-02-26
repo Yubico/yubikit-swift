@@ -12,91 +12,83 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
-import CryptoKit
 import Foundation
 
 // MARK: - Key Agreement
 
 extension CTAP2.ClientPin.ProtocolVersion {
-    /// Perform ECDH key agreement and derive shared secret.
+
+    /// Result of establishing a shared secret with the authenticator.
+    struct SharedSecretResult: Sendable {
+        /// The derived shared secret (32 bytes for v1, 64 bytes for v2).
+        let sharedSecret: Data
+        /// The platform's public key in COSE format to send to the authenticator.
+        let platformKey: COSE.Key
+    }
+
+    /// Establish a shared secret with the authenticator using ECDH.
     ///
-    /// - Parameters:
-    ///   - keyPair: The platform's ephemeral P-256 key pair.
-    ///   - peerKey: The authenticator's public key in COSE format.
-    /// - Returns: The derived shared secret (32 bytes for v1, 64 bytes for v2).
-    /// - Throws: `CTAP2.SessionError.cryptoError` if the peer key is invalid or key agreement fails.
-    func sharedSecret(
-        keyPair: P256.KeyAgreement.PrivateKey,
-        peerKey: COSE.Key
-    ) throws(CTAP2.SessionError) -> Data {
+    /// Generates an ephemeral P-256 key pair, performs ECDH with the authenticator's
+    /// public key, and derives the protocol-specific shared secret.
+    ///
+    /// - Parameter peerKey: The authenticator's public key in COSE format.
+    /// - Returns: The shared secret and platform's COSE key.
+    /// - Throws: `CTAP2.SessionError.cryptoError` if key agreement fails.
+    func establishSharedSecret(peerKey: COSE.Key) throws(CTAP2.SessionError) -> SharedSecretResult {
         guard case .ec2(_, _, let crv, let x, let y) = peerKey, crv == 1 else {
             throw .cryptoError("Invalid authenticator COSE key: expected EC2 P-256", error: nil, source: .here())
         }
 
-        // Parse peer's public key
-        var uncompressedPoint = Data([0x04])
-        uncompressedPoint.append(x)
-        uncompressedPoint.append(y)
-
-        guard let peerPublicKey = try? P256.KeyAgreement.PublicKey(x963Representation: uncompressedPoint) else {
-            throw .cryptoError("Invalid authenticator public key format", error: nil, source: .here())
+        // Generate ephemeral key pair
+        let keyPair: EC.PrivateKey
+        do {
+            keyPair = try EC.PrivateKey.random(curve: .secp256r1)
+        } catch {
+            throw .cryptoError("Failed to generate ephemeral key pair", error: error, source: .here())
         }
 
-        // Perform ECDH
-        guard let sharedSecret = try? keyPair.sharedSecretFromKeyAgreement(with: peerPublicKey) else {
-            throw .cryptoError("ECDH key agreement failed", error: nil, source: .here())
+        // Parse peer's public key and perform ECDH
+        let rawSharedSecret: Data
+        do {
+            let peerPublicKey = try EC.PublicKey(x: x, y: y, curve: .secp256r1)
+            rawSharedSecret = try keyPair.sharedSecret(with: peerPublicKey)
+        } catch {
+            throw .cryptoError("ECDH key agreement failed", error: error, source: .here())
         }
-
-        let sharedSecretData = sharedSecret.withUnsafeBytes { Data($0) }
 
         // Derive protocol-specific shared secret
+        let derivedSecret: Data
         switch self {
         case .v1:
             // V1: SHA-256(shared secret)
-            return Data(SHA256.hash(data: sharedSecretData))
+            derivedSecret = rawSharedSecret.sha256()
 
         case .v2:
             // V2: HKDF-SHA-256 to derive separate HMAC and AES keys
-            let hmacKey = HKDF<SHA256>.deriveKey(
-                inputKeyMaterial: SymmetricKey(data: sharedSecretData),
+            let hmacKey = rawSharedSecret.hkdfDeriveKey(
                 salt: Data(count: 32),
-                info: Data("CTAP2 HMAC key".utf8),
+                info: "CTAP2 HMAC key",
                 outputByteCount: 32
             )
-
-            let aesKey = HKDF<SHA256>.deriveKey(
-                inputKeyMaterial: SymmetricKey(data: sharedSecretData),
+            let aesKey = rawSharedSecret.hkdfDeriveKey(
                 salt: Data(count: 32),
-                info: Data("CTAP2 AES key".utf8),
+                info: "CTAP2 AES key",
                 outputByteCount: 32
             )
-
             // HMAC key || AES key (64 bytes)
-            var combinedKey = Data()
-            hmacKey.withUnsafeBytes { combinedKey.append(contentsOf: $0) }
-            aesKey.withUnsafeBytes { combinedKey.append(contentsOf: $0) }
-            return combinedKey
+            derivedSecret = hmacKey + aesKey
         }
-    }
 
-    /// Encode a P-256 public key in COSE format for sending to the authenticator.
-    ///
-    /// - Parameter keyPair: The platform's ephemeral P-256 key pair.
-    /// - Returns: The public key in COSE EC2 format.
-    func coseKey(from keyPair: P256.KeyAgreement.PrivateKey) -> COSE.Key {
-        let publicKey = keyPair.publicKey
-        let rawRepresentation = publicKey.x963Representation
-        let x = rawRepresentation.dropFirst().prefix(32)
-        let y = rawRepresentation.dropFirst(33)
-
-        return .ec2(
+        // Create COSE key from our public key
+        let platformKey = COSE.Key.ec2(
             alg: .other(-25),  // Per spec: "although this is NOT the algorithm actually used"
             kid: nil,
             crv: 1,
-            x: Data(x),
-            y: Data(y)
+            x: keyPair.publicKey.x,
+            y: keyPair.publicKey.y
         )
+
+        return SharedSecretResult(sharedSecret: derivedSecret, platformKey: platformKey)
     }
 }
 
@@ -110,16 +102,13 @@ extension CTAP2.ClientPin.ProtocolVersion {
             case .v1:
                 // V1: AES-256-CBC with zero IV
                 let iv = Data(count: 16)
-                return try plaintext.encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES), key: key, iv: iv)
+                return try plaintext.encryptAES(key: key, mode: .cbc(iv: iv))
 
             case .v2:
                 // V2: AES-256-CBC with random IV, using AES key (last 32 bytes)
                 let aesKey = key.suffix(32)
-                var iv = Data(count: 16)
-                _ = iv.withUnsafeMutableBytes { buffer in
-                    SecRandomCopyBytes(kSecRandomDefault, 16, buffer.baseAddress!)
-                }
-                let ciphertext = try plaintext.encrypt(algorithm: CCAlgorithm(kCCAlgorithmAES), key: aesKey, iv: iv)
+                let iv = try Data.random(length: 16)
+                let ciphertext = try plaintext.encryptAES(key: Data(aesKey), mode: .cbc(iv: iv))
                 return iv + ciphertext
             }
         } catch {
@@ -134,7 +123,7 @@ extension CTAP2.ClientPin.ProtocolVersion {
             case .v1:
                 // V1: AES-256-CBC with zero IV
                 let iv = Data(count: 16)
-                return try ciphertext.decrypt(algorithm: CCAlgorithm(kCCAlgorithmAES), key: key, iv: iv)
+                return try ciphertext.decryptAES(key: key, mode: .cbc(iv: iv))
 
             case .v2:
                 // V2: Extract IV from ciphertext, use AES key (last 32 bytes)
@@ -145,10 +134,10 @@ extension CTAP2.ClientPin.ProtocolVersion {
                         source: .here()
                     )
                 }
-                let aesKey = key.suffix(32)
-                let iv = ciphertext.prefix(16)
-                let actualCiphertext = ciphertext.dropFirst(16)
-                return try actualCiphertext.decrypt(algorithm: CCAlgorithm(kCCAlgorithmAES), key: aesKey, iv: iv)
+                let aesKey = Data(key.suffix(32))
+                let iv = Data(ciphertext.prefix(16))
+                let actualCiphertext = Data(ciphertext.dropFirst(16))
+                return try actualCiphertext.decryptAES(key: aesKey, mode: .cbc(iv: iv))
             }
         } catch let error as CTAP2.SessionError {
             throw error
@@ -164,11 +153,11 @@ extension CTAP2.ClientPin.ProtocolVersion {
     /// Compute authentication parameter for PIN/UV operations.
     func authenticate(key: Data, message: Data) -> Data {
         // V1 uses full key, V2 uses first 32 bytes (HMAC key)
-        let hmacKey = self == .v1 ? key : key.prefix(32)
+        let hmacKey = self == .v1 ? key : Data(key.prefix(32))
 
-        let hmac = HMAC<SHA256>.authenticationCode(for: message, using: SymmetricKey(data: hmacKey))
+        let hmac = message.hmacSha256(key: hmacKey)
         // V1: truncate to 16 bytes, V2: full 32 bytes
-        return self == .v1 ? Data(hmac.prefix(16)) : Data(hmac)
+        return self == .v1 ? hmac.prefix(16) : hmac
     }
 }
 

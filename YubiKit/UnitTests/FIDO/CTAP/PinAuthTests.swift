@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoKit
 import Foundation
 import Testing
 
@@ -347,30 +346,20 @@ struct PinAuthTests {
         }
     }
 
-    // MARK: - COSE Key
+    // MARK: - EC Key Agreement
 
-    @Test("coseKey produces valid P-256 COSE key from key pair")
-    func testCoseKeyFromKeyPair() {
-        let pinProtocol = CTAP2.ClientPin.ProtocolVersion.v1
-        let keyPair = P256.KeyAgreement.PrivateKey()
-        let coseKey = pinProtocol.coseKey(from: keyPair)
+    @Test("EC.PrivateKey produces valid 32-byte coordinates for P-256")
+    func testECKeyPairCoordinates() throws {
+        let keyPair = try EC.PrivateKey.random(curve: .secp256r1)
 
-        guard case let .ec2(alg, _, crv, x, y) = coseKey else {
-            Issue.record("Expected EC2 key")
-            return
-        }
+        // Verify coordinates are 32 bytes each (P-256)
+        #expect(keyPair.publicKey.x.count == 32)
+        #expect(keyPair.publicKey.y.count == 32)
 
-        #expect(alg.rawValue == -25)  // ECDH-ES+HKDF-256
-        #expect(crv == 1)  // P-256
-        #expect(x.count == 32)
-        #expect(y.count == 32)
+        // Verify ECDH works with the key pair
+        let anotherKeyPair = try EC.PrivateKey.random(curve: .secp256r1)
 
-        // Verify COSE key matches the original key pair
-        var uncompressedPoint = Data([0x04])
-        uncompressedPoint.append(x)
-        uncompressedPoint.append(y)
-        let publicKey = try? P256.KeyAgreement.PublicKey(x963Representation: uncompressedPoint)
-        #expect(publicKey != nil)
-        #expect(publicKey?.x963Representation == keyPair.publicKey.x963Representation)
+        let sharedSecret = try keyPair.sharedSecret(with: anotherKeyPair.publicKey)
+        #expect(sharedSecret.count == 32)  // Raw P-256 shared secret
     }
 }

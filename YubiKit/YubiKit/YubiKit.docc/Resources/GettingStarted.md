@@ -67,7 +67,7 @@ A000000151000000  // Security Domain
 9. Add the "Privacy - NFC Usage Scan Description" key and a string that describes what you will use NFC for in
 the application e.g "The application needs access to NFC reading to communicate with your YubiKey."
 
-![An image showing how to add NFC privacy string tro project.](nfc-privacy.png)
+![An image showing how to add the NFC privacy string to a project.](nfc-privacy.png)
 
 ### SmartCard/USB
 
@@ -121,7 +121,7 @@ import YubiKit
 
 // Start an NFC scan
 do {
-    let connection = try await NFCSmartCardConnection.makeConnection()
+    let connection = try await NFCSmartCardConnection()
 
     // Use the connection quickly - NFC sessions have a timeout
     let session = try await OATHSession.makeSession(connection: connection)
@@ -172,13 +172,13 @@ For more control, you can connect to specific interfaces:
 
 ```swift
 // USB only
-let usbConnection = try await USBSmartCardConnection.makeConnection()
+let usbConnection = try await USBSmartCardConnection()
 
 // Lightning only (iOS)
-let lightningConnection = try await LightningSmartCardConnection.makeConnection()
+let lightningConnection = try await LightningSmartCardConnection()
 
 // NFC with custom message (iOS)
-let nfcConnection = try await NFCSmartCardConnection.makeConnection(
+let nfcConnection = try await NFCSmartCardConnection(
     alertMessage: "Hold your YubiKey near the phone"
 )
 ```
@@ -193,7 +193,7 @@ let nfcConnection = try await NFCSmartCardConnection.makeConnection(
 - **Manual closure required**: Dropping a connection reference does NOT automatically close it - you must call `close()`
 - **Resource blocking**: An unclosed connection prevents new connections (throws `SmartCardConnectionError.busy`)
 
-Connections are value types that act as exclusive access tokens to the underlying hardware resource.
+Each connection is a lightweight value type that identifies an active hardware session. Copying a connection creates another handle to the same session, not a new connection - the hardware is only released when you call `close()`.
 
 ## Working with Sessions
 

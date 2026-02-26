@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CommonCrypto
-import CryptoKit
 import CryptoTokenKit
 import Foundation
 import OSLog
@@ -192,7 +190,7 @@ public final actor PIVSession: SmartCardSessionInternal {
         try await usePrivateKeyInSlot(
             slot: slot,
             keyType: .ec(peerKey.curve),
-            message: peerKey.uncompressedPoint,
+            message: peerKey.x963Representation,
             exponentiation: true
         )
     }
@@ -483,7 +481,7 @@ public final actor PIVSession: SmartCardSessionInternal {
             do {
                 certData = try certData.gzipped()
             } catch {
-                throw .gzip(error, source: .here())
+                throw .compression(error, source: .here())
             }
         }
         var data = Data()
@@ -509,14 +507,16 @@ public final actor PIVSession: SmartCardSessionInternal {
             var certificateData = subRecords.recordWithTag(tagCertificate)?.value
         else { throw .responseParseError("Failed to parse certificate data from object", source: .here()) }
 
+        // certificateInfo byte 0 == 1 indicates compressed certificate (PIV spec).
+        // decompressCertificate() detects format (gzip or GIDS zlib) via header bytes.
         if let certificateInfo = subRecords.recordWithTag(tagCertificateInfo)?.value,
             !certificateInfo.isEmpty,
             certificateInfo.bytes[0] == 1
         {
             do {
-                certificateData = try certificateData.gunzipped()
+                certificateData = try certificateData.decompressCertificate()
             } catch {
-                throw .gzip(error, source: .here())
+                throw .compression(error, source: .here())
             }
         }
         return X509Cert(der: certificateData)
@@ -576,14 +576,6 @@ public final actor PIVSession: SmartCardSessionInternal {
 
         guard keyType.keyLength == managementKey.count else { throw .invalidKeyLength(source: .here()) }
 
-        let ccAlgorithm =
-            switch keyType {
-            case .tripleDES:
-                UInt32(kCCAlgorithm3DES)
-            case .aes128, .aes192, .aes256:
-                UInt32(kCCAlgorithmAES)
-            }
-
         let witness = TKBERTLVRecord(tag: tagAuthWitness, value: Data()).data
         let command = TKBERTLVRecord(tag: tagDynAuth, value: witness).data
         let witnessApdu = APDU(
@@ -602,15 +594,17 @@ public final actor PIVSession: SmartCardSessionInternal {
         else { throw .responseParseError("Response data not in expected TLV format", source: .here()) }
         let decryptedWitness: Data
         do {
-            decryptedWitness = try witnessRecord.value.decrypt(
-                algorithm: ccAlgorithm,
-                key: managementKey
-            )
+            decryptedWitness = try keyType.decrypt(witnessRecord.value, key: managementKey)
         } catch {
             throw .cryptoError("Failed to decrypt witness", error: error, source: .here())
         }
         let decryptedWitnessRecord = TKBERTLVRecord(tag: tagAuthWitness, value: decryptedWitness)
-        let challengeSent = Data.random(length: keyType.challengeLength)
+        let challengeSent: Data
+        do {
+            challengeSent = try Data.random(length: keyType.challengeLength)
+        } catch {
+            throw .cryptoError("Failed to generate challenge", error: error, source: .here())
+        }
         let challengeRecord = TKBERTLVRecord(tag: tagChallenge, value: challengeSent)
         var data = Data()
         data.append(decryptedWitnessRecord.data)
@@ -632,10 +626,7 @@ public final actor PIVSession: SmartCardSessionInternal {
         else { throw .responseParseError("Response data not in expected TLV format", source: .here()) }
         let challengeReturned: Data
         do {
-            challengeReturned = try encryptedChallengeRecord.value.decrypt(
-                algorithm: ccAlgorithm,
-                key: managementKey
-            )
+            challengeReturned = try keyType.decrypt(encryptedChallengeRecord.value, key: managementKey)
         } catch {
             throw .cryptoError("Failed to decrypt challenge", error: error, source: .here())
         }

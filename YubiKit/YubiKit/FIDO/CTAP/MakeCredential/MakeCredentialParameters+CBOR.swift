@@ -44,21 +44,13 @@ extension CTAP2.MakeCredential.Parameters: CBOR.Encodable {
             }
             map[6] = .map(extMap)
         }
-        map[7] = options?.cbor()
+        var optionsMap: [CBOR.Value: CBOR.Value] = [:]
+        if rk { optionsMap["rk"] = true.cbor() }
+        optionsMap["uv"] = uv?.cbor()
+        if !optionsMap.isEmpty { map[7] = optionsMap.cbor() }
         map[8] = pinUVAuthParam?.cbor()
         map[9] = pinUVAuthProtocol?.cbor()
         map[10] = enterpriseAttestation?.cbor()
-        return map.cbor()
-    }
-}
-
-// MARK: - MakeCredentialParameters.Options + CBOR
-
-extension CTAP2.MakeCredential.Parameters.Options: CBOR.Encodable {
-    func cbor() -> CBOR.Value {
-        var map: [CBOR.Value: CBOR.Value] = [:]
-        map["rk"] = rk?.cbor()
-        map["uv"] = uv?.cbor()
         return map.cbor()
     }
 }
