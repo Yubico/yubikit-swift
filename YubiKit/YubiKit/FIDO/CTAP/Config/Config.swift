@@ -163,6 +163,7 @@ extension CTAP2.Config {
         /// Unknown or future subcommand.
         case other(UInt8)
 
+        /// The CTAP2 subcommand byte value.
         public var rawValue: UInt8 {
             switch self {
             case .enableEnterpriseAttestation: return 0x01
@@ -173,6 +174,7 @@ extension CTAP2.Config {
             }
         }
 
+        /// Creates a subcommand from its CTAP2 byte value.
         public init(rawValue: UInt8) {
             switch rawValue {
             case 0x01: self = .enableEnterpriseAttestation

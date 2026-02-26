@@ -18,7 +18,7 @@ in Swift and SwiftUI based applications. The async/await syntax provides an easy
 creating connections and sending commands to the different applications on the YubiKey.
 
 ```swift
-let connection = try await NFCSmartCardConnection.makeConnection()
+let connection = try await NFCSmartCardConnection()
 let session = try await OATHSession.makeSession(connection: connection)
 let codes = try await session.calculateCredentialCodes()
 ```
@@ -43,7 +43,7 @@ let codes = try await session.calculateCredentialCodes()
 
 ### Creating a SmartCardConnection to a YubiKey
 
-The implementations of the SmartCardConnection protocol handle the connection to the YubiKey and can be used to send
+The implementations of the ``SmartCardConnection`` protocol handle the connection to the YubiKey and can be used to send
 data to the YubiKey. In most cases it is advised to use one of the supplied Sessions
 (``OATHSession``, ``Management/Session``) instead of sending raw data to the YubiKey.
 
@@ -55,6 +55,13 @@ data to the YubiKey. In most cases it is advised to use one of the supplied Sess
 - ``WiredSmartCardConnection``
 
 > Note: `NFCSmartCardConnection` and `LightningSmartCardConnection` are available on iOS only.
+
+### Creating a FIDO connection to a YubiKey
+
+The implementations of the ``FIDOConnection`` protocol handle FIDO2/CTAP2 communication with the YubiKey over USB HID.
+
+- ``FIDOConnection``
+- ``HIDFIDOConnection``
 
 ### Sending and receiving data
 
@@ -72,3 +79,11 @@ A Session is created by calling the `makeSession(connection:)` method on the ses
 - ``Management/Session``
 - ``PIVSession``
 - ``SecurityDomainSession``
+
+### FIDO2 / CTAP2 Session
+
+The ``CTAP2/Session`` provides access to the FIDO2/CTAP2 functionality of a YubiKey. It can be created using
+either a ``FIDOConnection`` (such as ``HIDFIDOConnection`` for USB HID) or a ``SmartCardConnection``
+(such as ``NFCSmartCardConnection`` for NFC).
+
+- ``CTAP2/Session``
