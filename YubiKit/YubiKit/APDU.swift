@@ -75,6 +75,25 @@ struct APDU: Sendable, CustomStringConvertible {
         return data
     }
 
+    /* A variable which creates the raw APDU data bytes, 
+    which request the remaining data to be sent by the card, ready for transmission to the card */
+    var remainingDataAPDU: Data {
+        var data = Data()
+        data.append(cla)
+        data.append(ins)
+        data.append(p1)
+        data.append(p2)
+        
+        guard let command = command, command.count > 0 else {
+            // 4 bytes: "Case 1" APDU
+            return data
+        }
+        
+        data.append(command)
+
+        return data
+    }
+    
     /// A string representation of the APDU for debugging purposes.
     var description: String {
         "APDU(cla: \(cla.hexValue), ins: \(ins.hexValue), p1: \(p1.hexValue), p2: \(p2.hexValue), command: \(command?.hexEncodedString ?? "nil")"

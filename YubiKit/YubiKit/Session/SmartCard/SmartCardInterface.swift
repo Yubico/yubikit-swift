@@ -180,7 +180,8 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
             apdu: apdu,
             accumulated: Data(),
             readMoreData: false,
-            insSendRemaining: insSendRemaining
+            insSendRemaining: insSendRemaining,
+            remainingData: Data()
         )
     }
 
@@ -196,7 +197,8 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
             apdu: apdu,
             accumulated: Data(),
             readMoreData: false,
-            insSendRemaining: insSendRemaining
+            insSendRemaining: insSendRemaining,
+            remainingData: Data()
         )
         guard response.status == .ok else {
             throw .failedResponse(response, source: .here())
@@ -211,14 +213,15 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         apdu: APDU,
         accumulated: Data,
         readMoreData: Bool,
-        insSendRemaining: UInt8
+        insSendRemaining: UInt8,
+        remainingData: Data
     ) async throws(Error) -> Response {
         // Send APDU or continuation command
         let responseData: Data
         do {
             if readMoreData {
-                let continueApdu = APDU(cla: 0, ins: insSendRemaining, p1: 0, p2: 0, command: nil)
-                responseData = try await connection.send(data: continueApdu.data)
+                let continueApdu = APDU(cla: 0, ins: insSendRemaining, p1: 0, p2: 0, command: remainingData)
+                responseData = try await connection.send(data: continueApdu.remainingDataAPDU)
             } else {
                 responseData = try await connection.send(data: apdu.data)
             }
@@ -249,7 +252,8 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
                 apdu: apdu,
                 accumulated: newData,
                 readMoreData: true,
-                insSendRemaining: insSendRemaining
+                insSendRemaining: insSendRemaining,
+                remainingData: Data([response.responseStatus.sw2]),
             )
         } else {
             // Return full response with accumulated data and final status
