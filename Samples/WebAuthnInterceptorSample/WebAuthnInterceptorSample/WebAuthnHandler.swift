@@ -1,139 +1,77 @@
-/// Receives WebAuthn requests from JS, manages YubiKey connection and PIN flow,
-/// delegates to WebAuthnClientLogic for extension handling, returns responses.
+/// Receives WebAuthn requests from JS, delegates to WebAuthn.Client.
 
-import CryptoKit
 import Foundation
 import YubiKit
+
+// MARK: - Request Types
+
+struct CreateRequest: Decodable {
+    let origin: String
+    let publicKey: WebAuthn.Registration.Options
+
+    enum CodingKeys: String, CodingKey {
+        case origin
+        case publicKey = "request"
+    }
+}
+
+struct GetRequest: Decodable {
+    let origin: String
+    let publicKey: WebAuthn.Authentication.Options
+
+    enum CodingKeys: String, CodingKey {
+        case origin
+        case publicKey = "request"
+    }
+}
 
 // MARK: - WebAuthnHandler
 
 actor WebAuthnHandler {
 
     private var connection: (any Connection)?
-    private let pinProvider: @Sendable (String?) async -> String?
+    private let pinProvider: WebAuthn.PINProvider
 
-    init(pinProvider: @escaping @Sendable (String?) async -> String?) {
+    // TODO: Add PublicSuffixList integration. For now, we don't validate against PSL.
+    private let isPublicSuffix: WebAuthn.PublicSuffixChecker = { _ in false }
+
+    init(pinProvider: @escaping WebAuthn.PINProvider) {
         self.pinProvider = pinProvider
     }
 
     // MARK: - Public API
 
+    // TODO: iOS NFC needs two-tap flow (close for PIN UI, reconnect). Works on macOS USB only.
     func handleCreate(_ data: Data) async throws -> String {
-        let wrapper = try JSONDecoder().decode(CreateRequestWrapper.self, from: data)
-        let request = wrapper.request
-        let origin = wrapper.origin
-        let rpId = request.rp.effectiveId(origin: origin)
+        let request = try JSONDecoder().decode(CreateRequest.self, from: data)
 
         defer { Task { await closeConnection() } }
-        var session = try await makeSession()
-
-        let rpEntity = WebAuthn.PublicKeyCredential.RPEntity(id: rpId, name: request.rp.name)
-        guard let userId = Data(base64Encoded: request.user.id) else {
-            throw NSError(domain: "WebAuthn", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid user.id"])
-        }
-        let userEntity = WebAuthn.PublicKeyCredential.UserEntity(
-            id: userId,
-            name: request.user.name,
-            displayName: request.user.displayName
-        )
-
-        let pubKeyParams = request.pubKeyCredParams.map { COSE.Algorithm(rawValue: $0.alg) }
-        let excludeList = request.excludeCredentials?.compactMap { $0.toDescriptor() }
-
-        let residentKeyRequired =
-            request.authenticatorSelection?.residentKey == "required"
-            || request.authenticatorSelection?.residentKey == "preferred"
-            || request.authenticatorSelection?.requireResidentKey == true
-
-        let (activeSession, pinToken) = try await getPinTokenIfNeeded(
+        let session = try await makeSession()
+        let client = WebAuthn.Client(
             session: session,
-            permissions: .makeCredential,
-            rpId: rpId
-        )
-        session = activeSession
-
-        let extState = try await buildCreateExtensions(request: request, session: session)
-        let clientDataJSON = try request.clientDataJSON(origin: origin)
-        let clientDataHash = Data(SHA256.hash(data: clientDataJSON))
-
-        let params = CTAP2.MakeCredential.Parameters(
-            clientDataHash: clientDataHash,
-            rp: rpEntity,
-            user: userEntity,
-            pubKeyCredParams: pubKeyParams,
-            excludeList: excludeList,
-            extensions: extState.inputs,
-            rk: residentKeyRequired,
-            uv: request.authenticatorSelection?.userVerification == "required" ? true : nil
+            origin: try .init(request.origin),
+            pinProvider: pinProvider,
+            isPublicSuffix: isPublicSuffix
         )
 
-        let response =
-            if let pinToken {
-                try await session.makeCredential(parameters: params, token: pinToken).value
-            } else {
-                try await session.makeCredential(parameters: params).value
-            }
-        let extensionResults = try extractCreateExtensionResults(state: extState, response: response)
-
-        let credentials = CredentialResponse(
-            clientDataJSON: clientDataJSON,
-            makeCredentialResponse: response,
-            extensionResults: extensionResults
-        )
-        let jsonData = try JSONEncoder().encode(credentials)
-        return String(data: jsonData, encoding: .utf8) ?? ""
+        let response = try await client.makeCredential(request.publicKey).value
+        return String(decoding: try JSONEncoder().encode(response), as: UTF8.self)
     }
 
     func handleGet(_ data: Data) async throws -> String {
-        let wrapper = try JSONDecoder().decode(GetRequestWrapper.self, from: data)
-        let request = wrapper.request
-        let origin = wrapper.origin
-        let rpId = request.effectiveRpId(origin: origin)
+        let request = try JSONDecoder().decode(GetRequest.self, from: data)
 
         defer { Task { await closeConnection() } }
-        var session = try await makeSession()
-
-        let allowList = request.allowCredentials?.compactMap { $0.toDescriptor() }
-
-        let (activeSession, pinToken) = try await getPinTokenIfNeeded(
+        let session = try await makeSession()
+        let client = WebAuthn.Client(
             session: session,
-            permissions: permissionsForGetAssertion(request: request),
-            rpId: rpId
-        )
-        session = activeSession
-
-        let extState = try await buildGetExtensions(request: request, session: session)
-        let clientDataJSON = try request.clientDataJSON(origin: origin)
-        let clientDataHash = Data(SHA256.hash(data: clientDataJSON))
-
-        let params = CTAP2.GetAssertion.Parameters(
-            rpId: rpId,
-            clientDataHash: clientDataHash,
-            allowList: allowList,
-            extensions: extState.inputs,
-            uv: request.userVerification == "required" ? true : nil
+            origin: try .init(request.origin),
+            pinProvider: pinProvider,
+            isPublicSuffix: isPublicSuffix
         )
 
-        let response =
-            if let pinToken {
-                try await session.getAssertion(parameters: params, token: pinToken).value
-            } else {
-                try await session.getAssertion(parameters: params).value
-            }
-        let extensionResults = try await extractGetExtensionResults(
-            state: extState,
-            response: response,
-            session: session,
-            token: pinToken
-        )
-
-        let credentials = CredentialResponse(
-            clientDataJSON: clientDataJSON,
-            getAssertionResponse: response,
-            extensionResults: extensionResults
-        )
-        let jsonData = try JSONEncoder().encode(credentials)
-        return String(data: jsonData, encoding: .utf8) ?? ""
+        let response = try await client.getAssertion(request.publicKey).value
+        return String(decoding: try JSONEncoder().encode(response), as: UTF8.self)
     }
 
     // MARK: - Connection Management
@@ -164,53 +102,4 @@ actor WebAuthnHandler {
         #endif
         connection = nil
     }
-
-    // MARK: - PIN Flow
-
-    /// Get PIN token if device requires PIN. iOS uses two-tap flow (close NFC, ask PIN, reconnect).
-    private func getPinTokenIfNeeded(
-        session: CTAP2.Session,
-        permissions: CTAP2.ClientPin.Permission,
-        rpId: String
-    ) async throws -> (session: CTAP2.Session, token: CTAP2.Token?) {
-        let info = try await session.getInfo()
-        guard info.options.clientPin == true else {
-            return (session, nil)
-        }
-
-        #if os(iOS)
-        await closeConnection(message: "Enter PIN")
-        #endif
-
-        var errorMessage: String?
-        var currentSession = session
-        while true {
-            guard let pin = await pinProvider(errorMessage) else {
-                throw NSError(domain: "WebAuthn", code: 1, userInfo: [NSLocalizedDescriptionKey: "User cancelled"])
-            }
-
-            #if os(iOS)
-            currentSession = try await makeSession(alertMessage: "Tap again to complete")
-            #endif
-
-            do throws(CTAP2.SessionError) {
-                let token = try await currentSession.getPinUVToken(
-                    using: .pin(pin),
-                    permissions: permissions,
-                    rpId: rpId
-                )
-                return (currentSession, token)
-            } catch {
-                if case .ctapError(.pinInvalid, _) = error {
-                    #if os(iOS)
-                    await closeConnection(message: "Invalid PIN")
-                    #endif
-                    errorMessage = "Invalid PIN. Please try again."
-                } else {
-                    throw error
-                }
-            }
-        }
-    }
-
 }
