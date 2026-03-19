@@ -124,6 +124,31 @@ extension Data {
         self.resetBytes(in: 0..<self.count)
         self.removeAll()
     }
+
+    // MARK: - Base64URL
+
+    /// Encode as base64url string (RFC 4648 §5, no padding).
+    internal func base64URLEncodedString() -> String {
+        base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+
+    /// Decode from base64url string.
+    internal init?(base64URLEncoded string: String) {
+        var base64 =
+            string
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+
+        let remainder = base64.count % 4
+        if remainder > 0 {
+            base64 += String(repeating: "=", count: 4 - remainder)
+        }
+
+        self.init(base64Encoded: base64)
+    }
 }
 
 extension Int {

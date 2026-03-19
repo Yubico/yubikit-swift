@@ -135,6 +135,16 @@ public enum COSE {
                 self.cborData = cborData
             }
         }
+
+        /// The COSE algorithm identifier for this key.
+        public var algorithm: Algorithm? {
+            switch self {
+            case .ec2(let alg, _, _, _, _): return alg
+            case .okp(let alg, _, _, _): return alg
+            case .rsa(let alg, _, _, _): return alg
+            case .other: return nil
+            }
+        }
     }
 }
 
