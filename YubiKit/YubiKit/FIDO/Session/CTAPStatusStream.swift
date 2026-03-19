@@ -15,14 +15,14 @@
 import Foundation
 
 extension CTAP2 {
-    /// An async sequence that yields status updates and can throw typed errors.
+
+    /// An async sequence that yields status updates and can throw ``SessionError``.
     ///
-    /// This sequence streams ``CTAP2/Status`` updates during long-running CTAP operations,
-    /// and can throw ``CTAP2/SessionError``.
+    /// This sequence streams ``Status`` updates during long-running CTAP operations.
     ///
     /// ## Usage
     ///
-    /// For simple cases where you don't need status updates, use the ``value`` property:
+    /// For simple cases where you don't need status updates, use the ``StatusStream/value`` property:
     ///
     /// ```swift
     /// let credential = try await session.makeCredential(parameters: params).value
@@ -42,100 +42,5 @@ extension CTAP2 {
     ///     }
     /// }
     /// ```
-    public struct StatusStream<Response: Sendable>: AsyncSequence, @unchecked Sendable {
-        public typealias Element = CTAP2.Status<Response>
-
-        private let stream: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>
-
-        init(_ build: @escaping (Continuation) -> Void) {
-            let baseStream = AsyncStream { continuation in
-                build(Continuation(continuation))
-            }
-            self.stream = baseStream.removeDuplicates { lhs, rhs in
-                switch (lhs, rhs) {
-                case (.success(.processing), .success(.processing)):
-                    return true
-                case (.success(.waitingForUser), .success(.waitingForUser)):
-                    return true
-                case (.success(.finished), .success(.finished)):
-                    return true
-                default:
-                    return false
-                }
-            }
-        }
-
-        /// Consumes the stream and returns the final response value.
-        ///
-        /// This property iterates through all status updates and returns the response
-        /// from the `.finished` case. Intermediate status updates (`.processing`,
-        /// `.waitingForUser`) are ignored.
-        ///
-        /// Use this when you don't need to react to status updates and just want the result.
-        ///
-        /// - Throws: ``CTAP2/SessionError`` if the operation fails.
-        /// - Returns: The response value from the completed operation.
-        public var value: Response {
-            get async throws(CTAP2.SessionError) {
-                for try await status in self {
-                    if case .finished(let response) = status {
-                        return response
-                    }
-                }
-                preconditionFailure("StatusStream must yield .finished before ending")
-            }
-        }
-
-        public func makeAsyncIterator() -> Iterator {
-            Iterator(stream.makeAsyncIterator())
-        }
-
-        public struct Iterator: AsyncIteratorProtocol {
-            private var iterator: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>.AsyncIterator
-
-            fileprivate init(_ iterator: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>.AsyncIterator)
-            {
-                self.iterator = iterator
-            }
-
-            public mutating func next() async throws(CTAP2.SessionError) -> CTAP2.Status<Response>? {
-                guard let result = await iterator.next() else {
-                    return nil
-                }
-                switch result {
-                case .success(let status):
-                    return status
-                case .failure(let error):
-                    throw error
-                }
-            }
-        }
-    }
-}
-
-extension CTAP2.StatusStream {
-    /// Continuation type for building status streams.
-    struct Continuation: Sendable {
-        private let continuation: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>.Continuation
-
-        fileprivate init(_ continuation: AsyncStream<Result<CTAP2.Status<Response>, CTAP2.SessionError>>.Continuation) {
-            self.continuation = continuation
-        }
-
-        func yield(_ status: CTAP2.Status<Response>) {
-            continuation.yield(.success(status))
-            if case .finished = status {
-                continuation.finish()
-            }
-        }
-
-        func yield(error: CTAP2.SessionError) {
-            continuation.yield(.failure(error))
-            continuation.finish()
-        }
-
-        func finish() {
-            continuation.finish()
-        }
-    }
+    public typealias StatusStream<R: Sendable> = StatusStreamBase<R, SessionError>
 }

@@ -21,6 +21,9 @@ extension AsyncSequence where Self: Sendable, Element: Sendable & Equatable {
 
 extension AsyncSequence where Self: Sendable, Element: Sendable {
     /// Creates an async stream that omits repeated elements by testing with a predicate.
+    ///
+    /// - Important: Only use with non-throwing async sequences. Errors from throwing
+    ///   sequences will terminate the stream silently (the returned `AsyncStream` cannot propagate errors).
     func removeDuplicates(
         by predicate: @escaping @Sendable (Element, Element) async -> Bool
     ) -> AsyncStream<Element> {
@@ -37,7 +40,9 @@ extension AsyncSequence where Self: Sendable, Element: Sendable {
                         continuation.yield(element)
                     }
                 } catch {
-                    // Stream ends on error
+                    // Source is expected to be non-throwing (e.g., AsyncStream<Result<…>>).
+                    // If a throwing sequence is used, the stream ends here without propagating the error.
+                    assertionFailure("removeDuplicates used with a throwing sequence: \(error)")
                 }
                 continuation.finish()
             }

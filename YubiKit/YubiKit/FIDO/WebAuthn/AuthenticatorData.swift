@@ -149,8 +149,8 @@ extension WebAuthn {
     ///
     /// - SeeAlso: [WebAuthn Attested Credential Data](https://www.w3.org/TR/webauthn/#sctn-attested-credential-data)
     public struct AttestedCredentialData: Sendable {
-        /// Authenticator Attestation GUID (16 bytes).
-        public let aaguid: Data
+        /// Authenticator Attestation Global Unique ID (128 bits).
+        public let aaguid: AAGUID
 
         /// The credential ID (variable length).
         public let credentialId: Data
@@ -188,7 +188,10 @@ extension WebAuthn.AttestedCredentialData {
         var currentOffset = offset
 
         // MARK: Parse AAGUID
-        let aaguid = data.subdata(in: currentOffset..<(currentOffset + 16))
+        let aaguidData = data.subdata(in: currentOffset..<(currentOffset + 16))
+        guard let aaguid = WebAuthn.AAGUID(aaguidData) else {
+            return nil
+        }
         currentOffset += 16
 
         // MARK: Parse Credential ID Length
