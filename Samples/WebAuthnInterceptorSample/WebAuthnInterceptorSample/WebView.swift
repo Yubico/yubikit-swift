@@ -4,6 +4,10 @@
 import SwiftUI
 import WebKit
 
+private func log(_ message: String) {
+    print("[WebAuthn] \(message)")
+}
+
 private enum WebAuthnMessage: String, CaseIterable {
     case create = "__webauthn_create__"
     case get = "__webauthn_get__"
@@ -126,7 +130,7 @@ extension WebView {
         guard let url = Bundle.main.url(forResource: "Interceptor", withExtension: "js"),
             let script = try? String(contentsOf: url, encoding: .utf8)
         else {
-            logError("Failed to load Interceptor.js!")
+            log("Failed to load Interceptor.js!")
             return nil
         }
         return script
@@ -141,8 +145,8 @@ extension WebView {
         private let handler: WebAuthnHandler
 
         init(pinHandler: PINRequestHandler) {
-            self.handler = WebAuthnHandler { [weak pinHandler] errorMessage in
-                await pinHandler?.requestPIN(errorMessage: errorMessage)
+            self.handler = WebAuthnHandler { [weak pinHandler] in
+                await pinHandler?.requestPIN()
             }
         }
 
@@ -153,7 +157,7 @@ extension WebView {
             guard let base64 = message.body as? String,
                 let data = Data(base64Encoded: base64)
             else {
-                logError("Failed to decode message body")
+                log("Failed to decode message body")
                 return
             }
 
@@ -179,7 +183,7 @@ extension WebView {
                 let encodedResponse = Data(response.utf8).base64EncodedString()
                 _ = try? await webView?.evaluateJavaScript("__webauthn_callback__('\(encodedResponse)')")
             } catch {
-                logError("WebAuthn operation failed: \(error)")
+                log("WebAuthn operation failed: \(error)")
                 let encodedError = Data(error.localizedDescription.utf8).base64EncodedString()
                 _ = try? await webView?.evaluateJavaScript("__webauthn_error__('\(encodedError)')")
             }
