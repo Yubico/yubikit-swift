@@ -48,7 +48,7 @@ struct AuthenticatorDataTests {
         // Verify attested credential data is present
         let attestedData = try #require(authData.attestedCredentialData, "Missing attested credential data")
 
-        #expect(attestedData.aaguid.count == 16)
+        #expect(attestedData.aaguid.rawValue.count == 16)
         #expect(attestedData.credentialId.count > 0)
 
         // Verify we got an EC2 COSE key (ES256 uses P-256)

@@ -101,6 +101,19 @@ extension PIVSessionError {
     }
 }
 
+// MARK: - WebAuthn.PublicKeyCredential Deprecated Typealiases
+
+extension WebAuthn.PublicKeyCredential {
+    @available(*, deprecated, renamed: "WebAuthn.User")
+    public typealias UserEntity = WebAuthn.User
+
+    @available(*, deprecated, renamed: "WebAuthn.CredentialDescriptor")
+    public typealias Descriptor = WebAuthn.CredentialDescriptor
+
+    @available(*, deprecated, renamed: "WebAuthn.RelyingParty")
+    public typealias RPEntity = WebAuthn.RelyingParty
+}
+
 // MARK: - CTAP2.MakeCredential.Response Deprecated API
 
 extension CTAP2.MakeCredential.Response {
@@ -142,10 +155,10 @@ extension CTAP2.MakeCredential.Parameters {
     @available(*, deprecated, message: "Pass rk and uv directly to Parameters init")
     public init(
         clientDataHash: Data,
-        rp: WebAuthn.PublicKeyCredential.RPEntity,
-        user: WebAuthn.PublicKeyCredential.UserEntity,
+        rp: WebAuthn.RelyingParty,
+        user: WebAuthn.User,
         pubKeyCredParams: [COSE.Algorithm],
-        excludeList: [WebAuthn.PublicKeyCredential.Descriptor]? = nil,
+        excludeList: [WebAuthn.CredentialDescriptor]? = nil,
         extensions: [CTAP2.Extension.MakeCredential.Input] = [],
         options: Options?,
         enterpriseAttestation: Int? = nil
@@ -186,7 +199,7 @@ extension CTAP2.GetAssertion.Parameters {
     public init(
         rpId: String,
         clientDataHash: Data,
-        allowList: [WebAuthn.PublicKeyCredential.Descriptor]? = nil,
+        allowList: [WebAuthn.CredentialDescriptor]? = nil,
         extensions: [CTAP2.Extension.GetAssertion.Input] = [],
         options: Options?
     ) {

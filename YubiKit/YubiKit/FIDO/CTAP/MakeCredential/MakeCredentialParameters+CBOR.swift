@@ -55,48 +55,10 @@ extension CTAP2.MakeCredential.Parameters: CBOR.Encodable {
     }
 }
 
-// MARK: - WebAuthn.PublicKeyCredential.RPEntity + CBOR
-
-extension WebAuthn.PublicKeyCredential.RPEntity: CBOR.Encodable {
-    func cbor() -> CBOR.Value {
-        var map: [CBOR.Value: CBOR.Value] = ["id": id.cbor()]
-        map["name"] = name?.cbor()
-        return map.cbor()
-    }
-}
-
-// MARK: - WebAuthn.PublicKeyCredential.UserEntity + CBOR
-
-extension WebAuthn.PublicKeyCredential.UserEntity: CBOR.Encodable {
-    func cbor() -> CBOR.Value {
-        var map: [CBOR.Value: CBOR.Value] = ["id": id.cbor()]
-        map["name"] = name?.cbor()
-        map["displayName"] = displayName?.cbor()
-        return map.cbor()
-    }
-}
-
 // MARK: - COSE.Algorithm + CBOR
 
 extension COSE.Algorithm: CBOR.Encodable {
     func cbor() -> CBOR.Value {
         ["type": "public-key".cbor(), "alg": rawValue.cbor()].cbor()
-    }
-}
-
-// MARK: - WebAuthn.PublicKeyCredential.Descriptor + CBOR
-
-extension WebAuthn.PublicKeyCredential.Descriptor: CBOR.Encodable {
-    func cbor() -> CBOR.Value {
-        var map: [CBOR.Value: CBOR.Value] = [
-            "type": type.cbor(),
-            "id": id.cbor(),
-        ]
-
-        if let transports = transports, !transports.isEmpty {
-            map["transports"] = transports.cbor()
-        }
-
-        return map.cbor()
     }
 }

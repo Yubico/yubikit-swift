@@ -20,4 +20,44 @@ import Foundation
 /// attestation statements, and extension outputs.
 ///
 /// - SeeAlso: [Web Authentication: An API for accessing Public Key Credentials](https://www.w3.org/TR/webauthn/)
-public enum WebAuthn {}
+public enum WebAuthn {
+
+    /// Authenticator Attestation Global Unique ID (128 bits).
+    ///
+    /// Opaque identifier for the authenticator model.
+    public typealias AAGUID = CTAP2.GetInfo.Opaque128
+
+    /// Status updates during WebAuthn operations.
+    ///
+    /// These status values are emitted during operations that may require user interaction
+    /// or extended processing time.
+    public typealias Status = CTAP2.Status
+
+    /// An async sequence that yields status updates during WebAuthn operations.
+    ///
+    /// ## Usage
+    ///
+    /// For simple cases where you don't need status updates, use the ``StatusStream/value`` property:
+    ///
+    /// ```swift
+    /// let response = try await client.makeCredential(options: opts, origin: origin).value
+    /// ```
+    ///
+    /// For UI feedback or cancellation support, iterate the stream:
+    ///
+    /// ```swift
+    /// let stream = client.makeCredential(options: opts, origin: origin)
+    ///
+    /// for try await status in stream {
+    ///     switch status {
+    ///     case .processing:
+    ///         showSpinner()
+    ///     case .waitingForUser(let cancel):
+    ///         showTouchPrompt(onCancel: { Task { await cancel() } })
+    ///     case .finished(let response):
+    ///         return response
+    ///     }
+    /// }
+    /// ```
+    public typealias StatusStream<R: Sendable> = StatusStreamBase<R, ClientError>
+}
