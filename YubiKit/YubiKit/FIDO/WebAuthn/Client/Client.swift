@@ -80,56 +80,92 @@ extension WebAuthn {
         // MARK: - Public API
 
         /// Create a new passkey credential.
+        ///
+        /// Uses the client's origin and validates the RP ID.
         public func makeCredential(
             _ options: Registration.Options
         ) async -> StatusStream<Registration.Response> {
             let rpId = options.rp.id
-            if let error = validateRpId(rpId) {
+            let clientData = ClientData.webauthn(
+                type: "webauthn.create",
+                challenge: options.challenge,
+                origin: origin,
+                rpId: rpId
+            )
+            return await makeCredential(options, clientData: clientData)
+        }
+
+        /// Create a new passkey credential with custom client data.
+        public func makeCredential(
+            _ options: Registration.Options,
+            clientData: ClientData
+        ) async -> StatusStream<Registration.Response> {
+            if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
                 return .error(error)
             }
-            let clientDataJSON = buildClientDataJSON(
-                type: "webauthn.create",
-                challenge: options.challenge
-            )
-            return await backend.makeCredential(options: options, clientDataJSON: clientDataJSON, rpId: rpId)
+            return await backend.makeCredential(options: options, clientData: clientData)
                 .withTimeout(options.timeout)
         }
 
         /// Authenticate with an existing passkey credential.
+        ///
+        /// Uses the client's origin and validates the RP ID.
         public func getAssertion(
             _ options: Authentication.Options
         ) async -> StatusStream<Authentication.Response> {
             let rpId = options.rpId ?? origin.host
-            if let error = validateRpId(rpId) {
+            let clientData = ClientData.webauthn(
+                type: "webauthn.get",
+                challenge: options.challenge,
+                origin: origin,
+                rpId: rpId
+            )
+            return await getAssertion(options, clientData: clientData)
+        }
+
+        /// Authenticate with an existing passkey credential using custom client data.
+        public func getAssertion(
+            _ options: Authentication.Options,
+            clientData: ClientData
+        ) async -> StatusStream<Authentication.Response> {
+            if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
                 return .error(error)
             }
-            let clientDataJSON = buildClientDataJSON(
-                type: "webauthn.get",
-                challenge: options.challenge
-            )
-            return await backend.getAssertion(options: options, clientDataJSON: clientDataJSON, rpId: rpId)
+            return await backend.getAssertion(options: options, clientData: clientData)
                 .withTimeout(options.timeout)
         }
 
         /// Get all matching assertions for credential selection UI.
+        ///
+        /// Uses the client's origin and validates the RP ID.
         public func getAssertions(
             _ options: Authentication.Options
         ) async -> StatusStream<[Authentication.Assertion]> {
             let rpId = options.rpId ?? origin.host
-            if let error = validateRpId(rpId) {
+            let clientData = ClientData.webauthn(
+                type: "webauthn.get",
+                challenge: options.challenge,
+                origin: origin,
+                rpId: rpId
+            )
+            return await getAssertions(options, clientData: clientData)
+        }
+
+        /// Get all matching assertions using custom client data.
+        public func getAssertions(
+            _ options: Authentication.Options,
+            clientData: ClientData
+        ) async -> StatusStream<[Authentication.Assertion]> {
+            if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
                 return .error(error)
             }
-            let clientDataJSON = buildClientDataJSON(
-                type: "webauthn.get",
-                challenge: options.challenge
-            )
-            return await backend.getAssertions(options: options, clientDataJSON: clientDataJSON, rpId: rpId)
+            return await backend.getAssertions(options: options, clientData: clientData)
                 .withTimeout(options.timeout)
         }
 
         // MARK: - Private Helpers
 
-        private func validateRpId(_ rpId: String) -> ClientError? {
+        private func validateRpId(_ rpId: String, origin: Origin) -> ClientError? {
             let rpIdLower = rpId.lowercased()
             let hostLower = origin.host.lowercased()
 
@@ -150,20 +186,6 @@ extension WebAuthn {
             }
             return nil
         }
-
-        private func buildClientDataJSON(type: String, challenge: Data) -> Data {
-            func escape(_ value: String) -> String {
-                let data = try! JSONSerialization.data(withJSONObject: value, options: .fragmentsAllowed)
-                return String(decoding: data, as: UTF8.self)
-            }
-            let json =
-                "{" + #""type":"# + escape(type)
-                + #","challenge":"# + escape(challenge.base64URLEncodedString())
-                + #","origin":"# + escape(origin.stringValue)
-                + #","crossOrigin":"# + String(false)
-                + "}"
-            return Data(json.utf8)
-        }
     }
 
     // MARK: - Type Aliases
@@ -179,20 +201,17 @@ extension WebAuthn {
     protocol Backend: Sendable {
         func makeCredential(
             options: Registration.Options,
-            clientDataJSON: Data,
-            rpId: String
+            clientData: ClientData
         ) async -> StatusStream<Registration.Response>
 
         func getAssertion(
             options: Authentication.Options,
-            clientDataJSON: Data,
-            rpId: String
+            clientData: ClientData
         ) async -> StatusStream<Authentication.Response>
 
         func getAssertions(
             options: Authentication.Options,
-            clientDataJSON: Data,
-            rpId: String
+            clientData: ClientData
         ) async -> StatusStream<[Authentication.Assertion]>
     }
 }
