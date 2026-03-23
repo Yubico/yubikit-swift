@@ -165,7 +165,8 @@ extension WebAuthn {
                     rpId: rpId,
                     userVerification: retry.userVerification,
                     isMakeCredential: true,
-                    allowUV: retry.allowUV
+                    allowUV: retry.allowUV,
+                    requestUVApproval: { await self.awaitUVDecision(from: continuation) }
                 )
 
                 let excludedCred = try await filterCredentials(
@@ -273,13 +274,20 @@ extension WebAuthn {
                 } catch {
                     throw ClientError(error)
                 }
+                let requestUVApproval: (@Sendable () async -> Bool)? =
+                    if let cont = continuation {
+                        { await self.awaitUVDecision(from: cont) }
+                    } else {
+                        nil
+                    }
                 let authParams = try await getAuthParams(
                     info: info,
                     permissions: .getAssertion,
                     rpId: rpId,
                     userVerification: retry.userVerification,
                     isMakeCredential: false,
-                    allowUV: retry.allowUV
+                    allowUV: retry.allowUV,
+                    requestUVApproval: requestUVApproval
                 )
 
                 let selectedCred = try await filterCredentials(
@@ -375,6 +383,18 @@ extension WebAuthn {
         }
 
         // MARK: - Common Helpers
+
+        private func awaitUVDecision<R: Sendable>(
+            from continuation: StatusStream<R>.Continuation
+        ) async -> Bool {
+            await withCheckedContinuation { checkedContinuation in
+                continuation.yield(
+                    .requestingUV { proceed in
+                        checkedContinuation.resume(returning: proceed)
+                    }
+                )
+            }
+        }
 
         private func shouldUseUV(
             info: CTAP2.GetInfo.Response,
@@ -478,7 +498,8 @@ extension WebAuthn {
             rpId: String,
             userVerification: UserVerificationPreference,
             isMakeCredential: Bool,
-            allowUV: Bool = true
+            allowUV: Bool = true,
+            requestUVApproval: (@Sendable () async -> Bool)? = nil
         ) async throws(ClientError) -> AuthParams {
             let uvRequired = try shouldUseUV(
                 info: info,
@@ -497,29 +518,36 @@ extension WebAuthn {
             let uvRetries = hasUV && allowUV ? (try? await session.getUVRetries()) ?? 0 : 0
 
             if uvRetries > 0, info.options.pinUVAuthToken == true {
-                do throws(CTAP2.SessionError) {
-                    let token = try await session.getPinUVToken(
-                        using: .uv,
-                        permissions: permissions,
-                        rpId: rpId
-                    )
-                    return AuthParams(token: token, internalUV: false)
-                } catch {
-                    switch error {
-                    case .ctapError(.uvBlocked, _),
-                        .ctapError(.operationDenied, _),
-                        .ctapError(.unauthorizedPermission, _):
-                        guard hasPin else {
-                            let retries = try? await session.getUVRetries()
-                            throw .userVerificationFailed(
-                                retriesRemaining: retries,
-                                source: .here()
-                            )
+                // Ask user before attempting UV (Python's request_uv pattern)
+                // If no approval callback, default to proceeding with UV
+                let proceedWithUV = await requestUVApproval?() ?? true
+
+                if proceedWithUV {
+                    do throws(CTAP2.SessionError) {
+                        let token = try await session.getPinUVToken(
+                            using: .uv,
+                            permissions: permissions,
+                            rpId: rpId
+                        )
+                        return AuthParams(token: token, internalUV: false)
+                    } catch {
+                        switch error {
+                        case .ctapError(.uvBlocked, _),
+                            .ctapError(.operationDenied, _),
+                            .ctapError(.unauthorizedPermission, _):
+                            guard hasPin else {
+                                let retries = try? await session.getUVRetries()
+                                throw .userVerificationFailed(
+                                    retriesRemaining: retries,
+                                    source: .here()
+                                )
+                            }
+                        default:
+                            throw ClientError(error)
                         }
-                    default:
-                        throw ClientError(error)
                     }
                 }
+                // Fall through to PIN-based authentication
             } else if uvRetries > 0, allowInternalUV {
                 return AuthParams(token: nil, internalUV: true)
             }

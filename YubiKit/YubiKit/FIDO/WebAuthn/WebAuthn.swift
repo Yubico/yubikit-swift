@@ -31,7 +31,27 @@ public enum WebAuthn {
     ///
     /// These status values are emitted during operations that may require user interaction
     /// or extended processing time.
-    public typealias Status = CTAP2.Status
+    public enum Status<Response: Sendable>: Sendable {
+        /// The authenticator is processing the request.
+        case processing
+
+        /// The authenticator is waiting for user interaction.
+        ///
+        /// - Parameter cancel: Closure to cancel the operation.
+        case waitingForUser(cancel: @Sendable () async -> Void)
+
+        /// The client is about to request user verification (biometric).
+        ///
+        /// Call the respond closure with `true` to proceed with UV, or `false` to skip UV
+        /// and use PIN instead. This is called before UV starts, giving the user a chance
+        /// to opt for PIN entry.
+        ///
+        /// - Parameter respond: Closure to call with the user's choice.
+        case requestingUV(respond: @Sendable (Bool) -> Void)
+
+        /// The operation completed successfully with a response.
+        case finished(Response)
+    }
 
     /// An async sequence that yields status updates during WebAuthn operations.
     ///
@@ -54,10 +74,28 @@ public enum WebAuthn {
     ///         showSpinner()
     ///     case .waitingForUser(let cancel):
     ///         showTouchPrompt(onCancel: { Task { await cancel() } })
+    ///     case .requestingUV(let respond):
+    ///         askUserAboutUV { proceed in respond(proceed) }
     ///     case .finished(let response):
     ///         return response
     ///     }
     /// }
     /// ```
-    public typealias StatusStream<R: Sendable> = StatusStreamBase<R, ClientError>
+    public typealias StatusStream<R: Sendable> = StatusStreamBase<Status<R>, ClientError>
+}
+
+extension WebAuthn.Status: StreamStatus {
+    public var finishedResponse: Response? {
+        if case .finished(let response) = self { return response }
+        return nil
+    }
+
+    public static func areDuplicates(_ lhs: Self, _ rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.processing, .processing), (.waitingForUser, .waitingForUser):
+            true
+        default:
+            false
+        }
+    }
 }

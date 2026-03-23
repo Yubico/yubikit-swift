@@ -14,27 +14,35 @@
 
 import Foundation
 
+/// Protocol for status types that can provide a finished response.
+public protocol StreamStatus<Response>: Sendable {
+    associatedtype Response: Sendable
+    /// Returns the response if this is a finished status, nil otherwise.
+    var finishedResponse: Response? { get }
+    /// Returns true if consecutive statuses should be deduplicated.
+    static func areDuplicates(_ lhs: Self, _ rhs: Self) -> Bool
+}
+
 /// An async sequence that yields status updates and can throw typed errors.
 ///
 /// - Note: Use the namespace-specific typealiases ``CTAP2/StatusStream`` and
 ///   ``WebAuthn/StatusStream`` instead of this type directly.
-public struct StatusStreamBase<Response: Sendable, Failure: Error & Sendable>: AsyncSequence, @unchecked Sendable {
-    public typealias Element = CTAP2.Status<Response>
+public struct StatusStreamBase<Status: StreamStatus, Failure: Error & Sendable>: AsyncSequence,
+    @unchecked Sendable
+{
+    public typealias Element = Status
 
-    private let stream: AsyncStream<Result<CTAP2.Status<Response>, Failure>>
+    private let stream: AsyncStream<Result<Status, Failure>>
 
     init(_ build: @escaping (Continuation) -> Void) {
         let baseStream = AsyncStream { continuation in
             build(Continuation(continuation))
         }
         self.stream = baseStream.removeDuplicates { lhs, rhs in
-            switch (lhs, rhs) {
-            case (.success(.processing), .success(.processing)),
-                (.success(.waitingForUser), .success(.waitingForUser)):
-                true
-            default:
-                false
+            if case (.success(let l), .success(let r)) = (lhs, rhs) {
+                return Status.areDuplicates(l, r)
             }
+            return false
         }
     }
 
@@ -45,10 +53,10 @@ public struct StatusStreamBase<Response: Sendable, Failure: Error & Sendable>: A
     ///
     /// - Throws: The `Failure` error type if the operation fails.
     /// - Returns: The response value from the completed operation.
-    public var value: Response {
+    public var value: Status.Response {
         get async throws(Failure) {
             for try await status in self {
-                if case .finished(let response) = status {
+                if let response = status.finishedResponse {
                     return response
                 }
             }
@@ -61,13 +69,13 @@ public struct StatusStreamBase<Response: Sendable, Failure: Error & Sendable>: A
     }
 
     public struct Iterator: AsyncIteratorProtocol {
-        private var iterator: AsyncStream<Result<CTAP2.Status<Response>, Failure>>.AsyncIterator
+        private var iterator: AsyncStream<Result<Status, Failure>>.AsyncIterator
 
-        fileprivate init(_ iterator: AsyncStream<Result<CTAP2.Status<Response>, Failure>>.AsyncIterator) {
+        fileprivate init(_ iterator: AsyncStream<Result<Status, Failure>>.AsyncIterator) {
             self.iterator = iterator
         }
 
-        public mutating func next() async throws(Failure) -> CTAP2.Status<Response>? {
+        public mutating func next() async throws(Failure) -> Status? {
             guard let result = await iterator.next() else { return nil }
             return try result.get()
         }
@@ -125,15 +133,15 @@ extension StatusStreamBase {
     }
 
     struct Continuation: Sendable {
-        private let continuation: AsyncStream<Result<CTAP2.Status<Response>, Failure>>.Continuation
+        private let continuation: AsyncStream<Result<Status, Failure>>.Continuation
 
-        fileprivate init(_ continuation: AsyncStream<Result<CTAP2.Status<Response>, Failure>>.Continuation) {
+        fileprivate init(_ continuation: AsyncStream<Result<Status, Failure>>.Continuation) {
             self.continuation = continuation
         }
 
-        func yield(_ status: CTAP2.Status<Response>) {
+        func yield(_ status: Status) {
             continuation.yield(.success(status))
-            if case .finished = status {
+            if status.finishedResponse != nil {
                 continuation.finish()
             }
         }

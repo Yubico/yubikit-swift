@@ -42,5 +42,5 @@ extension CTAP2 {
     ///     }
     /// }
     /// ```
-    public typealias StatusStream<R: Sendable> = StatusStreamBase<R, SessionError>
+    public typealias StatusStream<R: Sendable> = StatusStreamBase<Status<R>, SessionError>
 }
