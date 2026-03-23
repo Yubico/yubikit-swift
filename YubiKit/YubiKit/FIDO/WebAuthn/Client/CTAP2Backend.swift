@@ -61,16 +61,14 @@ extension WebAuthn {
 
         func makeCredential(
             options: Registration.Options,
-            clientDataJSON: Data,
-            rpId: String
+            clientData: ClientData
         ) async -> StatusStream<Registration.Response> {
             StatusStream { continuation in
                 Task { [self] in
                     do throws(ClientError) {
                         let response = try await performMakeCredential(
                             options: options,
-                            clientDataJSON: clientDataJSON,
-                            rpId: rpId,
+                            clientData: clientData,
                             continuation: continuation
                         )
                         continuation.yield(.finished(response))
@@ -83,16 +81,14 @@ extension WebAuthn {
 
         func getAssertion(
             options: Authentication.Options,
-            clientDataJSON: Data,
-            rpId: String
+            clientData: ClientData
         ) async -> StatusStream<Authentication.Response> {
             StatusStream { continuation in
                 Task { [self] in
                     do throws(ClientError) {
                         let assertions = try await performGetAssertions(
                             options: options,
-                            clientDataJSON: clientDataJSON,
-                            rpId: rpId,
+                            clientData: clientData,
                             continuation: continuation
                         )
                         guard let first = assertions.first else {
@@ -108,16 +104,14 @@ extension WebAuthn {
 
         func getAssertions(
             options: Authentication.Options,
-            clientDataJSON: Data,
-            rpId: String
+            clientData: ClientData
         ) async -> StatusStream<[Authentication.Assertion]> {
             StatusStream { continuation in
                 Task { [self] in
                     do throws(ClientError) {
                         let assertions = try await performGetAssertions(
                             options: options,
-                            clientDataJSON: clientDataJSON,
-                            rpId: rpId,
+                            clientData: clientData,
                             continuation: nil
                         )
                         guard !assertions.isEmpty else {
@@ -135,8 +129,7 @@ extension WebAuthn {
 
         private func performMakeCredential(
             options: Registration.Options,
-            clientDataJSON: Data,
-            rpId: String,
+            clientData: ClientData,
             continuation: StatusStream<Registration.Response>.Continuation
         ) async throws(ClientError) -> Registration.Response {
             let cachedInfo: CTAP2.GetInfo.ImmutableView
@@ -146,6 +139,7 @@ extension WebAuthn {
                 throw ClientError(error)
             }
 
+            let rpId = clientData.rpId
             let rk = try resolveResidentKey(options.residentKey, cachedInfo: cachedInfo)
             let enterpriseAttestation = resolveEnterpriseAttestation(
                 options.attestation,
@@ -154,7 +148,7 @@ extension WebAuthn {
             )
             let permissions: CTAP2.ClientPin.Permission =
                 options.excludeCredentials.isEmpty ? .makeCredential : [.makeCredential, .getAssertion]
-            let clientDataHash = Crypto.Hash.sha256(clientDataJSON)
+            let clientDataHash = clientData.hash
 
             var retry = RetryState(userVerification: options.userVerification)
 
@@ -220,7 +214,7 @@ extension WebAuthn {
                                 authenticatorData: ctapResponse.authenticatorData,
                                 attestationStatement: ctapResponse.attestationObject.statement,
                                 transports: cachedInfo.transports,
-                                clientDataJSON: clientDataJSON
+                                clientDataJSON: clientData.clientDataJSON
                             )
                         }
                     }
@@ -258,8 +252,7 @@ extension WebAuthn {
 
         private func performGetAssertions(
             options: Authentication.Options,
-            clientDataJSON: Data,
-            rpId: String,
+            clientData: ClientData,
             continuation: StatusStream<Authentication.Response>.Continuation?
         ) async throws(ClientError) -> [Authentication.Assertion] {
             let cachedInfo: CTAP2.GetInfo.ImmutableView
@@ -268,7 +261,8 @@ extension WebAuthn {
             } catch {
                 throw ClientError(error)
             }
-            let clientDataHash = Crypto.Hash.sha256(clientDataJSON)
+            let rpId = clientData.rpId
+            let clientDataHash = clientData.hash
 
             var retry = RetryState(userVerification: options.userVerification)
 
@@ -358,7 +352,7 @@ extension WebAuthn {
                                 signature: ctapResponse.signature,
                                 userHandle: ctapResponse.user?.id,
                                 authenticatorData: ctapResponse.authenticatorData,
-                                clientDataJSON: clientDataJSON
+                                clientDataJSON: clientData.clientDataJSON
                             )
                         )
                         assertions.append(assertion)

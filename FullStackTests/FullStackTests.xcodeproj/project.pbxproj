@@ -7,11 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		13BE63C7192C4B728038C6A1 /* BioEnrollmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D7C4A8CBA8427693C73A4D /* BioEnrollmentTests.swift */; };
+		39665FDAD3234C40B63D96C652AF6BDC /* BioUVTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D791282CF7244B319C15DAB12BE8C426 /* BioUVTests.swift */; };
 		51BBE40D273D1AA100DA47CC /* TestHostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE40C273D1AA100DA47CC /* TestHostApp.swift */; };
 		51BBE40F273D1AA100DA47CC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE40E273D1AA100DA47CC /* ContentView.swift */; };
 		51BBE411273D1AA400DA47CC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51BBE410273D1AA400DA47CC /* Assets.xcassets */; };
 		51BBE414273D1AA400DA47CC /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51BBE413273D1AA400DA47CC /* Preview Assets.xcassets */; };
 		51BBE41E273D1AA400DA47CC /* OATHFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51BBE41D273D1AA400DA47CC /* OATHFullStackTests.swift */; };
+		583058DA680743A1B11C558F /* CredentialManagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA359818D52447249DB07BD1 /* CredentialManagementTests.swift */; };
 		6C2AEE0F2DAD52E600C9683A /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C2AEE0E2DAD52E600C9683A /* YubiKit */; };
 		6C2B14512DC8CF4C00B5C482 /* SCP11FullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2B144D2DC8CF4C00B5C482 /* SCP11FullStackTests.swift */; };
 		6C2B14522DC8CF4C00B5C482 /* SCP11TestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2B144E2DC8CF4C00B5C482 /* SCP11TestData.swift */; };
@@ -24,7 +27,10 @@
 		6C734BB92EE861EE00972E2A /* TestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C734BB82EE861EE00972E2A /* TestHelpers.swift */; };
 		6C8465362DADB1C600788FB7 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8465352DADB1C600788FB7 /* YubiKit */; };
 		6CCAB7BA2EEC35EA00A789E7 /* PRFTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCAB7B92EEC35EA00A789E7 /* PRFTests.swift */; };
+		6CCREDBLOB2F1115000000001 /* CredBlobTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCREDBLOB2F1115000000000 /* CredBlobTests.swift */; };
 		6CDATAHEX2EF1234500000001 /* Data+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CDATAHEX2EF1234500000000 /* Data+Hex.swift */; };
+		6CMINPINLEN2F1116000000001 /* MinPinLengthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */; };
+		B2A73E5DE80348329B8FA710 /* EncryptedFieldsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E3FD736FBE49ECAAAFA28E /* EncryptedFieldsTests.swift */; };
 		B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */; };
 		B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */; };
 		B481051F2AAB6029006664AE /* ConnectionFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B481051E2AAB6029006664AE /* ConnectionFullStackTests.swift */; };
@@ -33,12 +39,6 @@
 		B4F937642B51A7DD0007D394 /* PIVFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */; };
 		CD75D32C2F1114C7000624CB /* LargeBlobsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD75D32B2F1114C7000624CB /* LargeBlobsTests.swift */; };
 		DA1BB9E330014BCBBD93BF69 /* ConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD89AB9B1BB24FA6B5FD79D3 /* ConfigTests.swift */; };
-		6CCREDBLOB2F1115000000001 /* CredBlobTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CCREDBLOB2F1115000000000 /* CredBlobTests.swift */; };
-		6CMINPINLEN2F1116000000001 /* MinPinLengthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */; };
-		B2A73E5DE80348329B8FA710 /* EncryptedFieldsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E3FD736FBE49ECAAAFA28E /* EncryptedFieldsTests.swift */; };
-		583058DA680743A1B11C558F /* CredentialManagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA359818D52447249DB07BD1 /* CredentialManagementTests.swift */; };
-		13BE63C7192C4B728038C6A1 /* BioEnrollmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D7C4A8CBA8427693C73A4D /* BioEnrollmentTests.swift */; };
-		39665FDAD3234C40B63D96C652AF6BDC /* BioUVTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D791282CF7244B319C15DAB12BE8C426 /* BioUVTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +59,7 @@
 		51BBE413273D1AA400DA47CC /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		51BBE419273D1AA400DA47CC /* FullStackTestsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FullStackTestsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		51BBE41D273D1AA400DA47CC /* OATHFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHFullStackTests.swift; sourceTree = "<group>"; };
+		59E3FD736FBE49ECAAAFA28E /* EncryptedFieldsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedFieldsTests.swift; sourceTree = "<group>"; };
 		6C2B144C2DC8CF4C00B5C482 /* SCP03FullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCP03FullStackTests.swift; sourceTree = "<group>"; };
 		6C2B144D2DC8CF4C00B5C482 /* SCP11FullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCP11FullStackTests.swift; sourceTree = "<group>"; };
 		6C2B144E2DC8CF4C00B5C482 /* SCP11TestData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCP11TestData.swift; sourceTree = "<group>"; };
@@ -69,7 +70,10 @@
 		6C734BB42EE860E100972E2A /* CredentialTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialTests.swift; sourceTree = "<group>"; };
 		6C734BB82EE861EE00972E2A /* TestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHelpers.swift; sourceTree = "<group>"; };
 		6CCAB7B92EEC35EA00A789E7 /* PRFTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRFTests.swift; sourceTree = "<group>"; };
+		6CCREDBLOB2F1115000000000 /* CredBlobTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredBlobTests.swift; sourceTree = "<group>"; };
 		6CDATAHEX2EF1234500000000 /* Data+Hex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Data+Hex.swift"; sourceTree = "<group>"; };
+		6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinPinLengthTests.swift; sourceTree = "<group>"; };
+		72D7C4A8CBA8427693C73A4D /* BioEnrollmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BioEnrollmentTests.swift; sourceTree = "<group>"; };
 		B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCTestCase+Extensions.swift"; sourceTree = "<group>"; };
 		B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementFullStackTests.swift; sourceTree = "<group>"; };
 		B45C0B6928FEE1250077EE2A /* FullStackTests.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FullStackTests.entitlements; sourceTree = "<group>"; };
@@ -80,12 +84,8 @@
 		B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVFullStackTests.swift; sourceTree = "<group>"; };
 		CD75D32B2F1114C7000624CB /* LargeBlobsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeBlobsTests.swift; sourceTree = "<group>"; };
 		CD89AB9B1BB24FA6B5FD79D3 /* ConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigTests.swift; sourceTree = "<group>"; };
-		6CCREDBLOB2F1115000000000 /* CredBlobTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredBlobTests.swift; sourceTree = "<group>"; };
-		6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinPinLengthTests.swift; sourceTree = "<group>"; };
-		59E3FD736FBE49ECAAAFA28E /* EncryptedFieldsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedFieldsTests.swift; sourceTree = "<group>"; };
-		FA359818D52447249DB07BD1 /* CredentialManagementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialManagementTests.swift; sourceTree = "<group>"; };
-		72D7C4A8CBA8427693C73A4D /* BioEnrollmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BioEnrollmentTests.swift; sourceTree = "<group>"; };
 		D791282CF7244B319C15DAB12BE8C426 /* BioUVTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BioUVTests.swift; sourceTree = "<group>"; };
+		FA359818D52447249DB07BD1 /* CredentialManagementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialManagementTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -186,18 +186,6 @@
 			path = CTAP2;
 			sourceTree = "<group>";
 		};
-		CD75D32D2F1114C8000624CB /* Extensions */ = {
-			isa = PBXGroup;
-			children = (
-				6CCREDBLOB2F1115000000000 /* CredBlobTests.swift */,
-				6C734BB32EE860E100972E2A /* CredProtectTests.swift */,
-				CD75D32B2F1114C7000624CB /* LargeBlobsTests.swift */,
-				6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */,
-				6CCAB7B92EEC35EA00A789E7 /* PRFTests.swift */,
-			);
-			path = Extensions;
-			sourceTree = "<group>";
-		};
 		6CD9DCC52DC2160B00D4DAA5 /* SCP */ = {
 			isa = PBXGroup;
 			children = (
@@ -216,6 +204,18 @@
 				6CDATAHEX2EF1234500000000 /* Data+Hex.swift */,
 				B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */,
 				B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		CD75D32D2F1114C8000624CB /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				6CCREDBLOB2F1115000000000 /* CredBlobTests.swift */,
+				6C734BB32EE860E100972E2A /* CredProtectTests.swift */,
+				CD75D32B2F1114C7000624CB /* LargeBlobsTests.swift */,
+				6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */,
+				6CCAB7B92EEC35EA00A789E7 /* PRFTests.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
