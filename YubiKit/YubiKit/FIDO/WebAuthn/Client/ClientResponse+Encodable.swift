@@ -31,7 +31,7 @@ extension WebAuthn.Registration.Response: Encodable {
             rawAttestationObject.base64URLEncodedString(),
             forKey: .attestationObject
         )
-        try inner.encode(clientDataJSON.base64URLEncodedString(), forKey: .clientDataJSON)
+        try inner.encodeIfPresent(clientDataJSON?.base64URLEncodedString(), forKey: .clientDataJSON)
         try inner.encode(
             authenticatorData.rawData.base64URLEncodedString(),
             forKey: .authenticatorData
@@ -60,7 +60,7 @@ extension WebAuthn.Authentication.Response: Encodable {
             rawAuthenticatorData.base64URLEncodedString(),
             forKey: .authenticatorData
         )
-        try inner.encode(clientDataJSON.base64URLEncodedString(), forKey: .clientDataJSON)
+        try inner.encodeIfPresent(clientDataJSON?.base64URLEncodedString(), forKey: .clientDataJSON)
         try inner.encode(signature.base64URLEncodedString(), forKey: .signature)
         if let userHandle {
             try inner.encode(userHandle.base64URLEncodedString(), forKey: .userHandle)

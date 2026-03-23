@@ -29,7 +29,9 @@ extension WebAuthn.Registration {
         public var aaguid: WebAuthn.AAGUID? { authenticatorData.attestedCredentialData?.aaguid }
 
         /// The clientDataJSON bytes, stored internally for `toJSON()` serialization.
-        internal let clientDataJSON: Data
+        ///
+        /// This is `nil` for credential provider flows where only the hash was provided.
+        internal let clientDataJSON: Data?
     }
 }
 
@@ -47,7 +49,9 @@ extension WebAuthn.Authentication {
         public var signCount: UInt32 { authenticatorData.signCount }
 
         /// The clientDataJSON bytes, stored internally for `toJSON()` serialization.
-        internal let clientDataJSON: Data
+        ///
+        /// This is `nil` for credential provider flows where only the hash was provided.
+        internal let clientDataJSON: Data?
     }
 
     /// A complete assertion with credential info and signed response.

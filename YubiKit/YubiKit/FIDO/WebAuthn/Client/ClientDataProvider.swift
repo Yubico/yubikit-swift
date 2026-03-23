@@ -18,34 +18,27 @@ extension WebAuthn {
 
     /// Client data for WebAuthn operations.
     ///
-    /// Encapsulates the `clientDataJSON` and provides the hash sent to the authenticator.
-    ///
-    /// ```swift
-    /// let clientData = ClientData.webauthn(
-    ///     type: "webauthn.create",
-    ///     challenge: challenge,
-    ///     origin: origin,
-    ///     rpId: "example.com"
-    /// )
-    /// ```
+    /// Encapsulates the client data hash sent to the authenticator, and optionally
+    /// the full `clientDataJSON` for standard WebAuthn flows.
     public struct ClientData: Sendable {
 
-        /// Raw client data JSON bytes.
-        public let clientDataJSON: Data
+        /// Raw client data JSON bytes, if available.
+        ///
+        /// This is `nil` for credential provider flows where only the hash is provided.
+        internal let clientDataJSON: Data?
+
+        /// SHA-256 hash of the client data.
+        internal let clientDataHash: Data
 
         /// The origin for this request.
-        public let origin: Origin
+        internal let origin: Origin
 
         /// The effective RP ID for this request.
-        public let rpId: String
+        internal let rpId: String
 
-        /// SHA-256 hash of the client data JSON.
-        public var hash: Data {
-            Crypto.Hash.sha256(clientDataJSON)
-        }
-
-        init(clientDataJSON: Data, origin: Origin, rpId: String) {
+        internal init(clientDataJSON: Data?, clientDataHash: Data, origin: Origin, rpId: String) {
             self.clientDataJSON = clientDataJSON
+            self.clientDataHash = clientDataHash
             self.origin = origin
             self.rpId = rpId
         }
@@ -74,7 +67,22 @@ extension WebAuthn.ClientData {
         crossOrigin: Bool? = nil
     ) -> WebAuthn.ClientData {
         let json = buildJSON(type: type, challenge: challenge, origin: origin, crossOrigin: crossOrigin)
-        return Self(clientDataJSON: json, origin: origin, rpId: rpId)
+        let hash = Crypto.Hash.sha256(json)
+        return Self(clientDataJSON: json, clientDataHash: hash, origin: origin, rpId: rpId)
+    }
+
+    /// Creates client data from a pre-computed hash (credential provider flows).
+    ///
+    /// - Parameters:
+    ///   - hash: The pre-computed SHA-256 hash of the client data.
+    ///   - origin: The origin URL.
+    ///   - rpId: The relying party ID.
+    public static func hash(
+        _ hash: Data,
+        origin: WebAuthn.Origin,
+        rpId: String
+    ) -> WebAuthn.ClientData {
+        Self(clientDataJSON: nil, clientDataHash: hash, origin: origin, rpId: rpId)
     }
 
     private static func buildJSON(
