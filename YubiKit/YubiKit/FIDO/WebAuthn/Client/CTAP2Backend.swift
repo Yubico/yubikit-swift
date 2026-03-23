@@ -148,7 +148,7 @@ extension WebAuthn {
             )
             let permissions: CTAP2.ClientPin.Permission =
                 options.excludeCredentials.isEmpty ? .makeCredential : [.makeCredential, .getAssertion]
-            let clientDataHash = clientData.hash
+            let clientDataHash = clientData.clientDataHash
 
             var retry = RetryState(userVerification: options.userVerification)
 
@@ -263,7 +263,7 @@ extension WebAuthn {
                 throw ClientError(error)
             }
             let rpId = clientData.rpId
-            let clientDataHash = clientData.hash
+            let clientDataHash = clientData.clientDataHash
 
             var retry = RetryState(userVerification: options.userVerification)
 
