@@ -121,6 +121,22 @@ extension CTAP2 {
     }
 }
 
+extension CTAP2.Status: StreamStatus {
+    public var finishedResponse: Response? {
+        if case .finished(let response) = self { return response }
+        return nil
+    }
+
+    public static func areDuplicates(_ lhs: Self, _ rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.processing, .processing), (.waitingForUser, .waitingForUser):
+            true
+        default:
+            false
+        }
+    }
+}
+
 // MARK: - Cached immutable info
 extension CTAP2.Session {
 
