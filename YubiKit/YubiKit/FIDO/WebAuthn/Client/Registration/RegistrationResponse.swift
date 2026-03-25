@@ -14,6 +14,8 @@
 
 import Foundation
 
+// MARK: - Registration Response
+
 extension WebAuthn.Registration {
 
     /// Authenticator response from a successful credential creation.
@@ -32,38 +34,5 @@ extension WebAuthn.Registration {
         ///
         /// This is `nil` for credential provider flows where only the hash was provided.
         internal let clientDataJSON: Data?
-    }
-}
-
-extension WebAuthn.Authentication {
-
-    /// Authenticator response from a successful credential authentication.
-    public struct Response: Sendable {
-
-        public let credentialId: Data
-        public let rawAuthenticatorData: Data
-        public let signature: Data
-        public let userHandle: Data?
-        public let authenticatorData: WebAuthn.AuthenticatorData
-
-        public var signCount: UInt32 { authenticatorData.signCount }
-
-        /// The clientDataJSON bytes, stored internally for `toJSON()` serialization.
-        ///
-        /// This is `nil` for credential provider flows where only the hash was provided.
-        internal let clientDataJSON: Data?
-    }
-
-    /// A complete assertion with credential info and signed response.
-    ///
-    /// Returned when multiple discoverable credentials match the request.
-    /// Display `userName`/`userDisplayName` for selection UI, then use `response` for the server.
-    public struct Assertion: Sendable {
-
-        public let credentialId: Data
-        public let userHandle: Data?
-        public let userName: String?
-        public let userDisplayName: String?
-        public let response: Response
     }
 }

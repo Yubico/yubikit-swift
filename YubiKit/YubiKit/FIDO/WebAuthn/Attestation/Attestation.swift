@@ -14,6 +14,8 @@
 
 import Foundation
 
+// MARK: - Attestation Format
+
 extension WebAuthn {
     /// WebAuthn attestation statement format identifier.
     ///
@@ -76,19 +78,82 @@ extension WebAuthn {
     }
 }
 
-// MARK: - CBOR Conformance
+// MARK: - Attestation Statement
 
-extension WebAuthn.AttestationFormat: CBOR.Decodable {
-    init?(cbor: CBOR.Value) {
-        guard let string: String = cbor.cborDecoded() else {
-            return nil
+extension WebAuthn {
+    /// Attestation statement from the authenticator.
+    ///
+    /// The structure varies by attestation format. This type provides strongly-typed
+    /// access to common formats, with a fallback for unknown formats.
+    ///
+    /// - SeeAlso: [WebAuthn Attestation Statement Formats](https://www.w3.org/TR/webauthn/#sctn-attestation-formats)
+    public enum AttestationStatement: Sendable {
+        /// Packed attestation format (FIDO2).
+        case packed(Packed)
+
+        /// FIDO U2F attestation format.
+        case fidoU2F(FIDOU2F)
+
+        /// No attestation (self-attestation).
+        case none
+
+        /// Apple anonymous attestation.
+        case apple(Apple)
+
+        /// Unknown or unsupported attestation format.
+        /// The format identifier is preserved for future compatibility.
+        case unknown(format: String)
+
+        /// The attestation format identifier.
+        public var format: AttestationFormat {
+            switch self {
+            case .packed: return .packed
+            case .fidoU2F: return .fidoU2F
+            case .none: return .none
+            case .apple: return .apple
+            case .unknown(let format): return .unknown(format)
+            }
         }
-        self.init(rawValue: string)
     }
 }
 
-extension WebAuthn.AttestationFormat: CBOR.Encodable {
-    func cbor() -> CBOR.Value {
-        .textString(rawValue)
+// MARK: - Format Types
+
+extension WebAuthn.AttestationStatement {
+
+    /// Packed attestation statement.
+    ///
+    /// - SeeAlso: [Packed Attestation Statement Format](https://www.w3.org/TR/webauthn/#sctn-packed-attestation)
+    public struct Packed: Sendable {
+        /// Attestation signature.
+        public let sig: Data
+
+        /// Signature algorithm (COSE algorithm identifier).
+        public let alg: Int
+
+        /// Attestation certificate chain (optional for self-attestation).
+        public let x5c: [Data]?
+
+        /// ECDAA-Issuer public key (optional, rarely used).
+        public let ecdaaKeyId: Data?
+    }
+
+    /// FIDO U2F attestation statement.
+    ///
+    /// - SeeAlso: [FIDO U2F Attestation Statement Format](https://www.w3.org/TR/webauthn/#sctn-fido-u2f-attestation)
+    public struct FIDOU2F: Sendable {
+        /// Attestation signature.
+        public let sig: Data
+
+        /// Attestation certificate chain.
+        public let x5c: [Data]
+    }
+
+    /// Apple anonymous attestation statement.
+    ///
+    /// - SeeAlso: [Apple Anonymous Attestation Statement Format](https://www.w3.org/TR/webauthn/#sctn-apple-anonymous-attestation)
+    public struct Apple: Sendable {
+        /// Attestation certificate chain.
+        public let x5c: [Data]
     }
 }

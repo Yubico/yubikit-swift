@@ -14,16 +14,30 @@
 
 import Foundation
 
+// MARK: - WebAuthn Error
+
 extension WebAuthn {
 
     /// Errors that can occur during WebAuthn client operations.
-    public enum ClientError: Error, Sendable {
+    public enum Error: Swift.Error, Sendable {
+
+        // MARK: - Request Errors
+
         case invalidRequest(_ message: String, source: SourceLocation)
         case unsupportedAlgorithm(source: SourceLocation)
+
+        // MARK: - Credential Errors
+
         case credentialExcluded(source: SourceLocation)
         case noCredentials(source: SourceLocation)
+
+        // MARK: - Operation Errors
+
         case cancelled(source: SourceLocation)
         case timeout(source: SourceLocation)
+
+        // MARK: - PIN/UV Errors
+
         case userVerificationFailed(retriesRemaining: Int?, source: SourceLocation)
         case invalidPIN(retriesRemaining: Int, source: SourceLocation)
         case pinBlocked(source: SourceLocation)
@@ -31,15 +45,23 @@ extension WebAuthn {
         case pinNotSet(source: SourceLocation)
         case pinRequired(source: SourceLocation)
         case pinTokenExpired(source: SourceLocation)
+
+        // MARK: - Capability Errors
+
         case notSupported(_ message: String, source: SourceLocation)
         case storageFull(source: SourceLocation)
         case authenticatorNotAvailable(source: SourceLocation)
+
+        // MARK: - Wrapped Errors
+
         case ctapError(_ error: CTAP2.SessionError, source: SourceLocation)
         case internalError(_ message: String, source: SourceLocation)
     }
 }
 
-extension WebAuthn.ClientError {
+// MARK: - CTAP Error Conversion
+
+extension WebAuthn.Error {
 
     init(_ ctapError: CTAP2.SessionError, source: SourceLocation = .here()) {
         switch ctapError {
