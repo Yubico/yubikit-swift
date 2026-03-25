@@ -55,13 +55,13 @@ extension WebAuthn.Client {
             )
 
             do throws(CTAP2.SessionError) {
-                let response = try await session.getAssertion(parameters: parameters, token: token).value
+                let response = try await backend.getAssertion(parameters: parameters, token: token).value
                 if chunk.count == 1 { return chunk[0] }
-                if let matchedId = response.credential?.id {
-                    return chunk.first { $0.id == matchedId }
+                if let credentialId = response.credential?.id {
+                    return WebAuthn.CredentialDescriptor(id: credentialId)
                 }
                 throw .responseParseError(
-                    "Expecting exactly one credential in allowList when credential ID is omitted",
+                    "Expecting credential ID in response when allowList has multiple credentials",
                     source: .here()
                 )
             } catch {
