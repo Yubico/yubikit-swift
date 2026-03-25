@@ -75,7 +75,7 @@ extension WebAuthn.Client {
         // Fetch cached immutable authenticator capabilities.
         let cachedInfo: CTAP2.GetInfo.ImmutableView
         do throws(CTAP2.SessionError) {
-            cachedInfo = try await session.cachedInfo
+            cachedInfo = try await backend.cachedInfo
         } catch {
             throw WebAuthn.Error(error)
         }
@@ -99,7 +99,7 @@ extension WebAuthn.Client {
             // Re-fetch mutable state (PIN/UV counters) on each attempt.
             let info: CTAP2.GetInfo.Response
             do throws(CTAP2.SessionError) {
-                info = try await session.getInfo()
+                info = try await backend.getInfo()
             } catch {
                 throw WebAuthn.Error(error)
             }
@@ -135,7 +135,7 @@ extension WebAuthn.Client {
             )
 
             do throws(CTAP2.SessionError) {
-                let ctapStream = await session.makeCredential(
+                let ctapStream = await backend.makeCredential(
                     parameters: parameters,
                     token: auth.token
                 )

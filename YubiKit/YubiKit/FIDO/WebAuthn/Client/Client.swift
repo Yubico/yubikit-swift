@@ -46,7 +46,7 @@ extension WebAuthn {
 
         // MARK: - Internal Properties
 
-        let session: CTAP2.Session
+        let backend: any Backend
         let origin: Origin
         let pinProvider: PINProvider?
         let enterpriseRpIds: Set<String>
@@ -72,7 +72,24 @@ extension WebAuthn {
             enterpriseRpIds: Set<String> = [],
             isPublicSuffix: @escaping PublicSuffixChecker
         ) {
-            self.session = session
+            self.init(
+                backend: session,
+                origin: origin,
+                pinProvider: pinProvider,
+                enterpriseRpIds: enterpriseRpIds,
+                isPublicSuffix: isPublicSuffix
+            )
+        }
+
+        /// Internal initializer for testing with a mock backend.
+        init(
+            backend: any Backend,
+            origin: Origin,
+            pinProvider: PINProvider? = nil,
+            enterpriseRpIds: Set<String> = [],
+            isPublicSuffix: @escaping PublicSuffixChecker
+        ) {
+            self.backend = backend
             self.origin = origin
             self.pinProvider = pinProvider
             self.enterpriseRpIds = enterpriseRpIds

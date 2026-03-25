@@ -121,7 +121,7 @@ extension WebAuthn.Client {
 
         let cachedInfo: CTAP2.GetInfo.ImmutableView
         do throws(CTAP2.SessionError) {
-            cachedInfo = try await session.cachedInfo
+            cachedInfo = try await backend.cachedInfo
         } catch {
             throw WebAuthn.Error(error)
         }
@@ -135,7 +135,7 @@ extension WebAuthn.Client {
             // Re-fetch mutable state (PIN/UV counters) on each attempt.
             let info: CTAP2.GetInfo.Response
             do throws(CTAP2.SessionError) {
-                info = try await session.getInfo()
+                info = try await backend.getInfo()
             } catch {
                 throw WebAuthn.Error(error)
             }
@@ -177,7 +177,7 @@ extension WebAuthn.Client {
             )
 
             do throws(CTAP2.SessionError) {
-                let firstStream = await session.getAssertion(
+                let firstStream = await backend.getAssertion(
                     parameters: parameters,
                     token: auth.token
                 )
@@ -204,7 +204,7 @@ extension WebAuthn.Client {
                 var collected = [firstResponse]
                 let total = firstResponse.numberOfCredentials ?? 1
                 for _ in 1..<total {
-                    collected.append(try await session.getNextAssertion().value)
+                    collected.append(try await backend.getNextAssertion().value)
                 }
 
                 var assertions: [WebAuthn.Authentication.Assertion] = []

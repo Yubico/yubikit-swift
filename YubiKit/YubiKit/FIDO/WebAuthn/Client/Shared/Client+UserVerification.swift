@@ -86,7 +86,7 @@ extension WebAuthn.Client {
         // Internal UV only valid for basic operations (mc/ga), not management.
         let allowInternalUV = permissions.subtracting([.makeCredential, .getAssertion]).isEmpty
 
-        let uvRetries = hasUV && allowUV ? (try? await session.getUVRetries()) ?? 0 : 0
+        let uvRetries = hasUV && allowUV ? (try? await backend.getUVRetries()) ?? 0 : 0
 
         // Try UV-based authentication if available.
         if uvRetries > 0, info.options.pinUVAuthToken == true {
@@ -94,7 +94,7 @@ extension WebAuthn.Client {
 
             if proceedWithUV {
                 do throws(CTAP2.SessionError) {
-                    let token = try await session.getPinUVToken(
+                    let token = try await backend.getPinUVToken(
                         using: .uv,
                         permissions: permissions,
                         rpId: rpId
@@ -106,7 +106,7 @@ extension WebAuthn.Client {
                         .ctapError(.operationDenied, _),
                         .ctapError(.unauthorizedPermission, _):
                         guard hasPin else {
-                            let retries = try? await session.getUVRetries()
+                            let retries = try? await backend.getUVRetries()
                             throw .userVerificationFailed(
                                 retriesRemaining: retries,
                                 source: .here()
@@ -132,7 +132,7 @@ extension WebAuthn.Client {
         }
 
         do throws(CTAP2.SessionError) {
-            let token = try await session.getPinUVToken(
+            let token = try await backend.getPinUVToken(
                 using: .pin(pin),
                 permissions: permissions,
                 rpId: rpId
@@ -140,7 +140,7 @@ extension WebAuthn.Client {
             return (token: token, uv: nil)
         } catch {
             if case .ctapError(.pinInvalid, _) = error {
-                let retries = (try? await session.getPinRetries())?.retries ?? 0
+                let retries = (try? await backend.getPinRetries())?.retries ?? 0
                 throw .invalidPIN(retriesRemaining: retries, source: .here())
             }
             throw WebAuthn.Error(error)
