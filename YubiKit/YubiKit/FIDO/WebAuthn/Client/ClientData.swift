@@ -14,6 +14,8 @@
 
 import Foundation
 
+// MARK: - Client Data
+
 extension WebAuthn {
 
     /// Client data for WebAuthn operations.
@@ -21,31 +23,23 @@ extension WebAuthn {
     /// Encapsulates the client data hash sent to the authenticator, and optionally
     /// the full `clientDataJSON` for standard WebAuthn flows.
     public struct ClientData: Sendable {
+        // MARK: - Internal Implementation
 
-        /// Raw client data JSON bytes, if available.
-        ///
-        /// This is `nil` for credential provider flows where only the hash is provided.
+        // This is `nil` for credential provider flows where only the hash is provided.
         internal let clientDataJSON: Data?
 
-        /// SHA-256 hash of the client data.
+        // SHA-256 hash of the client data.
         internal let clientDataHash: Data
 
-        /// The origin for this request.
+        // The origin for this request.
         internal let origin: Origin
 
-        /// The effective RP ID for this request.
+        // The effective RP ID for this request.
         internal let rpId: String
-
-        internal init(clientDataJSON: Data?, clientDataHash: Data, origin: Origin, rpId: String) {
-            self.clientDataJSON = clientDataJSON
-            self.clientDataHash = clientDataHash
-            self.origin = origin
-            self.rpId = rpId
-        }
     }
 }
 
-// MARK: - Factory Methods
+// MARK: - Public Factory Methods
 
 extension WebAuthn.ClientData {
 
@@ -84,6 +78,11 @@ extension WebAuthn.ClientData {
     ) -> WebAuthn.ClientData {
         Self(clientDataJSON: nil, clientDataHash: hash, origin: origin, rpId: rpId)
     }
+}
+
+// MARK: - Private
+
+extension WebAuthn.ClientData {
 
     private static func buildJSON(
         type: String,

@@ -81,8 +81,87 @@ public enum WebAuthn {
     ///     }
     /// }
     /// ```
-    public typealias StatusStream<R: Sendable> = StatusStreamBase<Status<R>, ClientError>
+    public typealias StatusStream<R: Sendable> = StatusStreamBase<Status<R>, Error>
+
+    /// Relying Party entity information.
+    ///
+    /// Identifies the relying party (website or service) that is requesting
+    /// credential registration or authentication.
+    ///
+    /// - SeeAlso: [WebAuthn PublicKeyCredentialRpEntity](https://www.w3.org/TR/webauthn/#dictdef-publickeycredentialrpentity)
+    public struct RelyingParty: Sendable {
+        /// Relying Party identifier (e.g., "example.com").
+        public let id: String
+
+        /// Human-readable relying party name.
+        public let name: String?
+
+        public init(id: String, name: String? = nil) {
+            self.id = id
+            self.name = name
+        }
+    }
+
+    /// User account entity information.
+    ///
+    /// Identifies the user account for which a credential is being registered
+    /// or that owns an existing credential.
+    ///
+    /// - SeeAlso: [WebAuthn PublicKeyCredentialUserEntity](https://www.w3.org/TR/webauthn/#dictdef-publickeycredentialuserentity)
+    public struct User: Sendable {
+        /// User handle (opaque byte sequence).
+        public let id: Data
+
+        /// User identifier (e.g., "alice@example.com").
+        public let name: String?
+
+        /// Display name (e.g., "Alice Smith").
+        public let displayName: String?
+
+        public init(id: Data, name: String? = nil, displayName: String? = nil) {
+            self.id = id
+            self.name = name
+            self.displayName = displayName
+        }
+    }
+
+    /// Public key credential descriptor identifying a specific credential.
+    ///
+    /// Used in `allowList` and `excludeList` parameters to identify credentials
+    /// for authentication or exclusion during registration.
+    ///
+    /// - SeeAlso: [WebAuthn PublicKeyCredentialDescriptor](https://www.w3.org/TR/webauthn/#dictdef-publickeycredentialdescriptor)
+    public struct CredentialDescriptor: Sendable, Hashable {
+        /// Credential type (always "public-key" for FIDO2).
+        public let type: String
+
+        /// Credential ID (opaque byte sequence).
+        public let id: Data
+
+        /// Optional transports hint.
+        public let transports: Set<Transport>?
+
+        public init(type: String = "public-key", id: Data, transports: Set<Transport>? = nil) {
+            self.type = type
+            self.id = id
+            self.transports = transports
+        }
+    }
+
+    public enum ResidentKeyPreference: String, Sendable, Decodable {
+        case required, preferred, discouraged
+    }
+
+    public enum UserVerificationPreference: String, Sendable, Decodable {
+        case required, preferred, discouraged
+    }
+
+    public enum AttestationPreference: String, Sendable, Decodable {
+        case none, indirect, direct, enterprise
+    }
 }
+
+// MARK: - StreamStatus Conformance
 
 extension WebAuthn.Status: StreamStatus {
     public var finishedResponse: Response? {

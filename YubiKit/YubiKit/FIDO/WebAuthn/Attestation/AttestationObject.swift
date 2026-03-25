@@ -32,7 +32,7 @@ extension WebAuthn {
         public let format: String
 
         /// Parsed attestation statement with typed access based on format - 'attStmt'
-        public var statement: AttestationStatement
+        public let statement: AttestationStatement
 
         /// The authenticator data structure - 'authData'
         /// Contains information about the relying party, flags, signature counter, and optionally
@@ -57,7 +57,7 @@ extension WebAuthn {
     }
 }
 
-// MARK: - Private helper
+// MARK: - Private Helpers
 extension WebAuthn.AttestationStatement {
     fileprivate init(format: String, statementCBOR: CBOR.Value) {
         switch format {
