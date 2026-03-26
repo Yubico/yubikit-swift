@@ -29,9 +29,11 @@ extension WebAuthn.Client {
     ) async throws(WebAuthn.Error) -> WebAuthn.CredentialDescriptor? {
         guard !credentials.isEmpty else { return nil }
 
+        // Filter by type (only "public-key" is valid per WebAuthn spec).
         // Filter out IDs exceeding max length.
         let maxLength = cachedInfo.maxCredentialIdLength.map { Int($0) }
         var filtered = credentials.filter { cred in
+            guard cred.type == "public-key" else { return false }
             guard let maxLength else { return true }
             return cred.id.count <= maxLength
         }
