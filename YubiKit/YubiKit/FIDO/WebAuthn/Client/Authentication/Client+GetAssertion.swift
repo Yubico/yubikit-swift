@@ -44,23 +44,7 @@ extension WebAuthn.Client {
         if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
             return .error(error)
         }
-        return WebAuthn.StatusStream { continuation in
-            Task { [self] in
-                do throws(WebAuthn.Error) {
-                    let assertions = try await performGetAssertions(
-                        options: options,
-                        clientData: clientData,
-                        continuation: continuation
-                    )
-                    guard let first = assertions.first else {
-                        throw WebAuthn.Error.noCredentials(source: .here())
-                    }
-                    continuation.yield(.finished(first.response))
-                } catch {
-                    continuation.yield(error: error)
-                }
-            }
-        }.withTimeout(options.timeout)
+        return await getAssertions(options, clientData: clientData).mapResponse { $0[0].response }
     }
 
     /// Get all matching assertions for credential selection UI.
@@ -93,7 +77,7 @@ extension WebAuthn.Client {
                     let assertions = try await performGetAssertions(
                         options: options,
                         clientData: clientData,
-                        continuation: nil
+                        continuation: continuation
                     )
                     guard !assertions.isEmpty else {
                         throw WebAuthn.Error.noCredentials(source: .here())
@@ -112,11 +96,10 @@ extension WebAuthn.Client {
 extension WebAuthn.Client {
 
     // Executes the CTAP2 getAssertion flow with PIN/UV handling and retry logic.
-    // The `continuation` is optional to support streaming (single) vs batch (multiple) modes.
     fileprivate func performGetAssertions(
         options: WebAuthn.Authentication.Options,
         clientData: WebAuthn.ClientData,
-        continuation: WebAuthn.StatusStream<WebAuthn.Authentication.Response>.Continuation?
+        continuation: WebAuthn.StatusStream<[WebAuthn.Authentication.Assertion]>.Continuation
     ) async throws(WebAuthn.Error) -> [WebAuthn.Authentication.Assertion] {
 
         let cachedInfo: CTAP2.GetInfo.ImmutableView
@@ -140,12 +123,9 @@ extension WebAuthn.Client {
                 throw WebAuthn.Error(error)
             }
 
-            let requestUVApproval: (@Sendable () async -> Bool)? =
-                if let cont = continuation {
-                    { await self.awaitUVDecision(from: cont) }
-                } else {
-                    nil
-                }
+            let requestUVApproval: @Sendable () async -> Bool = {
+                await self.awaitUVDecision(from: continuation)
+            }
 
             let auth = try await acquireAuthToken(
                 info: info,
@@ -185,9 +165,9 @@ extension WebAuthn.Client {
                 for try await ctapStatus in firstStream {
                     switch ctapStatus {
                     case .processing:
-                        continuation?.yield(.processing)
+                        continuation.yield(.processing)
                     case .waitingForUser(let cancel):
-                        continuation?.yield(.waitingForUser(cancel: cancel))
+                        continuation.yield(.waitingForUser(cancel: cancel))
                     case .finished(let response):
                         firstResponse = response
                     }
@@ -249,5 +229,37 @@ extension WebAuthn.Client {
         if allowCredentials.isEmpty { return nil }
         if let selectedCred { return [.init(id: selectedCred.id)] }
         return [.init(id: Data([0x00]))]
+    }
+}
+
+// MARK: - Stream Mapping
+
+extension WebAuthn.Status {
+    fileprivate func mapResponse<T: Sendable>(_ transform: (Response) -> T) -> WebAuthn.Status<T> {
+        switch self {
+        case .processing: .processing
+        case .waitingForUser(let cancel): .waitingForUser(cancel: cancel)
+        case .requestingUV(let useUV): .requestingUV(useUV: useUV)
+        case .finished(let response): .finished(transform(response))
+        }
+    }
+}
+
+extension StatusStreamBase {
+    fileprivate func mapResponse<R: Sendable, T: Sendable>(
+        _ transform: @escaping @Sendable (R) -> T
+    ) -> StatusStreamBase<WebAuthn.Status<T>, WebAuthn.Error>
+    where Status == WebAuthn.Status<R>, Failure == WebAuthn.Error {
+        StatusStreamBase<WebAuthn.Status<T>, WebAuthn.Error> { continuation in
+            Task {
+                do {
+                    for try await status in self {
+                        continuation.yield(status.mapResponse(transform))
+                    }
+                } catch let error as WebAuthn.Error {
+                    continuation.yield(error: error)
+                }
+            }
+        }
     }
 }
