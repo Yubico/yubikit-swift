@@ -17,41 +17,65 @@ import Testing
 
 @testable import YubiKit
 
-/// Test parsing of WebAuthn.AuthenticatorData and AttestationStatement decoding.
-@Suite("AuthenticatorData Tests")
-struct AuthenticatorDataTests {
+/// Test parsing of CTAP2 response structures: AuthenticatorData and AttestationStatement.
+/// Uses test data from yubikit-android's SerializationTest.
+@Suite("Response Parsing Tests")
+struct ResponseParsingTests {
 
     // MARK: - WebAuthn.AuthenticatorData Tests
 
     @Test("WebAuthn.AuthenticatorData binary parsing - real example")
     func testAuthenticatorDataParsing() throws {
-        // Real WebAuthn.AuthenticatorData from a YubiKey makeCredential response
-        // This is the same base64 example used in Java's SerializationTest.java:283-287
-        let base64 = """
-            5Yaf4EYzO6ALp/K7s+p+BQLPSCYVYcKLZptoXwxqQztFAAAAAhSaICGO9kEzlriB+NW38fUAMA5hR\
-            7Wj16h/z28qvtukB63QcIhzJ/sUkkJPfsU+KzdCFeaF2mZ80gSROEtELSHniKUBAgMmIAEhWCAOYUe1\
-            o9eof89vKr7bLZhH7nLY4wjKx5oxa66Kv0JjXiJYIKyPUlRxXHJjLrACafd/1stM7DyX120jDO7BlwqYsJyJ
-            """
-
-        let data = try #require(Data(base64Encoded: base64), "Failed to decode base64")
+        // Real AuthenticatorData from a YubiKey makeCredential response
+        // Structure: rpIdHash (32) + flags (1) + signCount (4) + attestedCredentialData
+        let data = Data([
+            // rpIdHash (32 bytes)
+            0xe5, 0x86, 0x9f, 0xe0, 0x46, 0x33, 0x3b, 0xa0, 0x0b, 0xa7, 0xf2, 0xbb,
+            0xb3, 0xea, 0x7e, 0x05, 0x02, 0xcf, 0x48, 0x26, 0x15, 0x61, 0xc2, 0x8b,
+            0x66, 0x9b, 0x68, 0x5f, 0x0c, 0x6a, 0x43, 0x3b,
+            // flags: 0x45 = UP | UV | AT
+            0x45,
+            // signCount: 2 (big-endian)
+            0x00, 0x00, 0x00, 0x02,
+            // aaguid (16 bytes)
+            0x14, 0x9a, 0x20, 0x21, 0x8e, 0xf6, 0x41, 0x33, 0x96, 0xb8, 0x81, 0xf8,
+            0xd5, 0xb7, 0xf1, 0xf5,
+            // credentialIdLength: 48 (big-endian)
+            0x00, 0x30,
+            // credentialId (48 bytes)
+            0x0e, 0x61, 0x47, 0xb5, 0xa3, 0xd7, 0xa8, 0x7f, 0xcf, 0x6f, 0x2a, 0xbe,
+            0xdb, 0xa4, 0x07, 0xad, 0xd0, 0x70, 0x88, 0x73, 0x27, 0xfb, 0x14, 0x92,
+            0x42, 0x4f, 0x7e, 0xc5, 0x3e, 0x2b, 0x37, 0x42, 0x15, 0xe6, 0x85, 0xda,
+            0x66, 0x7c, 0xd2, 0x04, 0x91, 0x38, 0x4b, 0x44, 0x2d, 0x21, 0xe7, 0x88,
+            // credentialPublicKey (COSE_Key EC2 P-256)
+            0xa5,  // map(5)
+            0x01, 0x02,  // kty: EC2
+            0x03, 0x26,  // alg: ES256 (-7)
+            0x20, 0x01,  // crv: P-256 (1)
+            0x21, 0x58, 0x20,  // x: 32 bytes
+            0x0e, 0x61, 0x47, 0xb5, 0xa3, 0xd7, 0xa8, 0x7f, 0xcf, 0x6f, 0x2a, 0xbe,
+            0xdb, 0x2d, 0x98, 0x47, 0xee, 0x72, 0xd8, 0xe3, 0x08, 0xca, 0xc7, 0x9a,
+            0x31, 0x6b, 0xae, 0x8a, 0xbf, 0x42, 0x63, 0x5e,
+            0x22, 0x58, 0x20,  // y: 32 bytes
+            0xac, 0x8f, 0x52, 0x54, 0x71, 0x5c, 0x72, 0x63, 0x2e, 0xb0, 0x02, 0x69,
+            0xf7, 0x7f, 0xd6, 0xcb, 0x4c, 0xec, 0x3c, 0x97, 0xd7, 0x6d, 0x23, 0x0c,
+            0xee, 0xc1, 0x97, 0x0a, 0x98, 0xb0, 0x9c, 0x89,
+        ])
         let authData = try #require(
             WebAuthn.AuthenticatorData(data: data),
             "Failed to parse WebAuthn.AuthenticatorData"
         )
 
-        // Verify basic structure
         #expect(authData.rpIdHash.count == 32)
         #expect(authData.signCount == 2)
         #expect(authData.flags.contains(.userPresent))
         #expect(authData.flags.contains(.attestedCredentialData))
 
-        // Verify attested credential data is present
         let attestedData = try #require(authData.attestedCredentialData, "Missing attested credential data")
 
         #expect(attestedData.aaguid.rawValue.count == 16)
         #expect(attestedData.credentialId.count > 0)
 
-        // Verify we got an EC2 COSE key (ES256 uses P-256)
         guard case .ec2(.es256, _, 1, let x, let y) = attestedData.credentialPublicKey else {
             Issue.record("Expected EC2 ES256 P-256 key")
             return
@@ -92,7 +116,6 @@ struct AuthenticatorDataTests {
         data.append(randomBytes(count: 32))  // rpIdHash
         data.append(0x41)  // flags: UP + AT (claims attested data present)
         data.append(contentsOf: [0x00, 0x00, 0x00, 0x01])  // signCount
-        // But don't include the attested credential data!
 
         #expect(WebAuthn.AuthenticatorData(data: data) == nil)
     }
@@ -185,8 +208,6 @@ struct AuthenticatorDataTests {
 
     @Test("AttestationStatement - unknown format fallback")
     func testAttestationStatementUnknownFormat() throws {
-        // Create a CTAP.MakeCredential.Response with an unknown attestation format
-        // Build valid authData: rpIdHash (32) + flags (1) + signCount (4)
         var authData = Data()
         authData.append(randomBytes(count: 32))  // rpIdHash
         authData.append(0x01)  // flags: user present
@@ -207,7 +228,6 @@ struct AuthenticatorDataTests {
             "Failed to decode CTAP.MakeCredential.Response"
         )
 
-        // Verify unknown format is preserved
         if case let .unknown(format) = credData.attestationObject.statement {
             #expect(format == "unknown-format")
         } else {
