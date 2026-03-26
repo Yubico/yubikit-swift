@@ -128,7 +128,7 @@ extension WebAuthn.Client {
                 user: .init(id: options.user.id, name: options.user.name, displayName: options.user.displayName),
                 pubKeyCredParams: options.pubKeyCredParams,
                 excludeList: excludedCred.map { [.init(id: $0.id)] },
-                extensions: [],  // TODO: credProtect, prf, largeBlob
+                extensions: [],  // TODO: Extensions not yet implemented
                 rk: rk,
                 uv: auth.uv,
                 enterpriseAttestation: enterpriseAttestation

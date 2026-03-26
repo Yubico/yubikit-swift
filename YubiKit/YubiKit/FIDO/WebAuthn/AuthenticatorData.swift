@@ -21,7 +21,7 @@ extension WebAuthn {
     /// It contains information about the relying party, flags, signature counter, and optionally
     /// attested credential data.
     ///
-    /// - SeeAlso: [WebAuthn Authenticator Data](https://www.w3.org/TR/webauthn/#authenticator-data)
+    /// - SeeAlso: [WebAuthn Authenticator Data](https://www.w3.org/TR/webauthn-3/#sctn-authenticator-data)
     public struct AuthenticatorData: Sendable {
         /// The raw authenticator data bytes.
         public let rawData: Data
@@ -147,7 +147,7 @@ extension WebAuthn {
     ///
     /// Contains the AAGUID, credential ID, and credential public key.
     ///
-    /// - SeeAlso: [WebAuthn Attested Credential Data](https://www.w3.org/TR/webauthn/#sctn-attested-credential-data)
+    /// - SeeAlso: [WebAuthn Attested Credential Data](https://www.w3.org/TR/webauthn-3/#sctn-attested-credential-data)
     public struct AttestedCredentialData: Sendable {
         /// Authenticator Attestation Global Unique ID (128 bits).
         public let aaguid: AAGUID
