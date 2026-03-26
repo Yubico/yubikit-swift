@@ -209,11 +209,8 @@ extension WebAuthn.Client {
 
                 var assertions: [WebAuthn.Authentication.Assertion] = []
                 for ctapResponse in collected {
-                    // Credential ID from response, or single-item allow list (may be omitted).
-                    guard
-                        let credentialId = ctapResponse.credential?.id
-                            ?? options.allowCredentials.first?.id
-                    else {
+                    // Credential ID from response, or allowList (may be omitted for single-item).
+                    guard let credentialId = ctapResponse.credential?.id ?? allowList?.first?.id else {
                         throw CTAP2.SessionError.responseParseError(
                             "Missing credential ID in assertion response",
                             source: .here()
