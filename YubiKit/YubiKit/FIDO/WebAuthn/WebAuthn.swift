@@ -42,12 +42,12 @@ public enum WebAuthn {
 
         /// The client is about to request user verification (biometric).
         ///
-        /// Call the respond closure with `true` to proceed with UV, or `false` to skip UV
-        /// and use PIN instead. This is called before UV starts, giving the user a chance
-        /// to opt for PIN entry.
+        /// Call `useUV(true)` to proceed with biometric verification, or `useUV(false)`
+        /// to skip UV and use PIN instead. This is called before UV starts, giving the
+        /// user a chance to opt for PIN entry.
         ///
-        /// - Parameter respond: Closure to call with the user's choice.
-        case requestingUV(respond: @Sendable (Bool) -> Void)
+        /// - Parameter useUV: Closure to call with `true` for UV or `false` for PIN.
+        case requestingUV(useUV: @Sendable (Bool) -> Void)
 
         /// The operation completed successfully with a response.
         case finished(Response)
@@ -74,8 +74,8 @@ public enum WebAuthn {
     ///         showSpinner()
     ///     case .waitingForUser(let cancel):
     ///         showTouchPrompt(onCancel: { Task { await cancel() } })
-    ///     case .requestingUV(let respond):
-    ///         askUserAboutUV { proceed in respond(proceed) }
+    ///     case .requestingUV(let useUV):
+    ///         askUserAboutUV { useUV($0) }
     ///     case .finished(let response):
     ///         return response
     ///     }

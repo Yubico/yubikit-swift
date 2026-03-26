@@ -51,9 +51,9 @@ extension WebAuthn.Client {
         await withCheckedContinuation { checkedContinuation in
             let once = DispatchSemaphore(value: 1)
             continuation.yield(
-                .requestingUV { proceed in
+                .requestingUV { useUV in
                     guard once.wait(timeout: .now()) == .success else { return }
-                    checkedContinuation.resume(returning: proceed)
+                    checkedContinuation.resume(returning: useUV)
                 }
             )
         }
