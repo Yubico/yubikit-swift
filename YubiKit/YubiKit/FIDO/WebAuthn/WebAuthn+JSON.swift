@@ -279,7 +279,7 @@ extension WebAuthn.Authentication.Response: Encodable {
         )
         try inner.encodeIfPresent(clientDataJSON?.base64URLEncodedString(), forKey: .clientDataJSON)
         try inner.encode(signature.base64URLEncodedString(), forKey: .signature)
-        if let userHandle {
+        if let userHandle = user?.id {
             try inner.encode(userHandle.base64URLEncodedString(), forKey: .userHandle)
         }
 
