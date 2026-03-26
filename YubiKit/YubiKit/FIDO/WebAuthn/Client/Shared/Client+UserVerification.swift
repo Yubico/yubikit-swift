@@ -49,8 +49,10 @@ extension WebAuthn.Client {
         from continuation: WebAuthn.StatusStream<R>.Continuation
     ) async -> Bool {
         await withCheckedContinuation { checkedContinuation in
+            let once = DispatchSemaphore(value: 1)
             continuation.yield(
                 .requestingUV { proceed in
+                    guard once.wait(timeout: .now()) == .success else { return }
                     checkedContinuation.resume(returning: proceed)
                 }
             )
