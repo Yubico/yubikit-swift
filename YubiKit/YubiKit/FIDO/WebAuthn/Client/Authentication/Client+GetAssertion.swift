@@ -44,15 +44,15 @@ extension WebAuthn.Client {
         if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
             return .error(error)
         }
-        return await getAssertions(options, clientData: clientData).mapResponse { $0[0].response }
+        return await getAssertions(options, clientData: clientData).mapResponse { $0[0] }
     }
 
-    /// Get all matching assertions for credential selection UI.
+    /// Get all matching responses for credential selection UI.
     ///
     /// Uses the client's origin and validates the RP ID.
     public func getAssertions(
         _ options: WebAuthn.Authentication.Options
-    ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.Assertion]> {
+    ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.Response]> {
         let rpId = options.rpId ?? origin.host
         let clientData = WebAuthn.ClientData.webauthn(
             type: "webauthn.get",
@@ -63,11 +63,11 @@ extension WebAuthn.Client {
         return await getAssertions(options, clientData: clientData)
     }
 
-    /// Get all matching assertions using custom client data.
+    /// Get all matching responses using custom client data.
     public func getAssertions(
         _ options: WebAuthn.Authentication.Options,
         clientData: WebAuthn.ClientData
-    ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.Assertion]> {
+    ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.Response]> {
         if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
             return .error(error)
         }
@@ -99,8 +99,8 @@ extension WebAuthn.Client {
     fileprivate func performGetAssertions(
         options: WebAuthn.Authentication.Options,
         clientData: WebAuthn.ClientData,
-        continuation: WebAuthn.StatusStream<[WebAuthn.Authentication.Assertion]>.Continuation
-    ) async throws(WebAuthn.Error) -> [WebAuthn.Authentication.Assertion] {
+        continuation: WebAuthn.StatusStream<[WebAuthn.Authentication.Response]>.Continuation
+    ) async throws(WebAuthn.Error) -> [WebAuthn.Authentication.Response] {
 
         let cachedInfo: CTAP2.GetInfo.ImmutableView
         do throws(CTAP2.SessionError) {
@@ -187,7 +187,7 @@ extension WebAuthn.Client {
                     collected.append(try await backend.getNextAssertion().value)
                 }
 
-                var assertions: [WebAuthn.Authentication.Assertion] = []
+                var responses: [WebAuthn.Authentication.Response] = []
                 for ctapResponse in collected {
                     // Credential ID from response, or allowList (may be omitted for single-item).
                     guard let credentialId = ctapResponse.credential?.id ?? allowList?.first?.id else {
@@ -196,23 +196,17 @@ extension WebAuthn.Client {
                             source: .here()
                         )
                     }
-                    let assertion = WebAuthn.Authentication.Assertion(
+                    let response = WebAuthn.Authentication.Response(
                         credentialId: credentialId,
-                        userHandle: ctapResponse.user?.id,
-                        userName: ctapResponse.user?.name,
-                        userDisplayName: ctapResponse.user?.displayName,
-                        response: WebAuthn.Authentication.Response(
-                            credentialId: credentialId,
-                            rawAuthenticatorData: ctapResponse.authenticatorData.rawData,
-                            signature: ctapResponse.signature,
-                            userHandle: ctapResponse.user?.id,
-                            authenticatorData: ctapResponse.authenticatorData,
-                            clientDataJSON: clientData.clientDataJSON
-                        )
+                        rawAuthenticatorData: ctapResponse.authenticatorData.rawData,
+                        signature: ctapResponse.signature,
+                        user: ctapResponse.user,
+                        authenticatorData: ctapResponse.authenticatorData,
+                        clientDataJSON: clientData.clientDataJSON
                     )
-                    assertions.append(assertion)
+                    responses.append(response)
                 }
-                return assertions
+                return responses
             } catch {
                 guard retry.shouldRetry(for: error) else { throw WebAuthn.Error(error) }
             }
