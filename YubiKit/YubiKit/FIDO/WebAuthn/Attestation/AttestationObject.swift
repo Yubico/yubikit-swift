@@ -21,7 +21,7 @@ extension WebAuthn {
     /// Contains both the CBOR-encoded data for the WebAuthn API and
     /// parsed access to the attestation statement.
     ///
-    /// - SeeAlso: [WebAuthn Attestation Object](https://www.w3.org/TR/webauthn/#sctn-attestation)
+    /// - SeeAlso: [WebAuthn Attestation Object](https://www.w3.org/TR/webauthn-3/#sctn-attestation)
     public struct AttestationObject: Sendable {
 
         /// CBOR-encoded attestation object for the WebAuthn API.

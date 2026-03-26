@@ -171,7 +171,7 @@ extension WebAuthn.Client {
                 rpId: rpId,
                 clientDataHash: clientDataHash,
                 allowList: allowList,
-                extensions: [],  // TODO: credProtect, prf, largeBlob
+                extensions: [],  // TODO: Extensions not yet implemented
                 up: true,
                 uv: auth.uv
             )

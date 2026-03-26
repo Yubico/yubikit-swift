@@ -20,41 +20,41 @@ extension WebAuthn {
 
     /// Errors that can occur during WebAuthn client operations.
     public enum Error: Swift.Error, Sendable {
-
-        // MARK: - Request Errors
-
+        /// The request parameters are invalid (e.g., RP ID mismatch, public suffix).
         case invalidRequest(_ message: String, source: SourceLocation)
+        /// None of the requested algorithms are supported by the authenticator.
         case unsupportedAlgorithm(source: SourceLocation)
-
-        // MARK: - Credential Errors
-
+        /// A credential in the exclude list already exists on this authenticator.
         case credentialExcluded(source: SourceLocation)
+        /// No credentials match the allow list or RP ID.
         case noCredentials(source: SourceLocation)
-
-        // MARK: - Operation Errors
-
+        /// The operation was cancelled by the user or client.
         case cancelled(source: SourceLocation)
+        /// The operation timed out waiting for user interaction.
         case timeout(source: SourceLocation)
-
-        // MARK: - PIN/UV Errors
-
+        /// User verification failed (biometric mismatch or internal UV error).
         case userVerificationFailed(retriesRemaining: Int?, source: SourceLocation)
+        /// The PIN was incorrect.
         case invalidPIN(retriesRemaining: Int, source: SourceLocation)
+        /// The PIN is blocked due to too many failed attempts. Factory reset required.
         case pinBlocked(source: SourceLocation)
+        /// PIN authentication is temporarily blocked. Reinsert the authenticator.
         case pinAuthBlocked(source: SourceLocation)
+        /// No PIN is configured on this authenticator.
         case pinNotSet(source: SourceLocation)
+        /// A PIN is required but no PIN provider was configured.
         case pinRequired(source: SourceLocation)
+        /// The PIN token expired. Retry the operation.
         case pinTokenExpired(source: SourceLocation)
-
-        // MARK: - Capability Errors
-
+        /// The requested feature is not supported by this authenticator.
         case notSupported(_ message: String, source: SourceLocation)
+        /// The authenticator's credential storage is full.
         case storageFull(source: SourceLocation)
+        /// The authenticator is not available (disconnected or communication error).
         case authenticatorNotAvailable(source: SourceLocation)
-
-        // MARK: - Wrapped Errors
-
+        /// A CTAP2 error not mapped to a specific WebAuthn error.
         case ctapError(_ error: CTAP2.SessionError, source: SourceLocation)
+        /// An unexpected internal error occurred.
         case internalError(_ message: String, source: SourceLocation)
     }
 }
