@@ -35,18 +35,18 @@ struct OriginTests {
     }
 
     @Test(
-        "Valid localhost origins (RFC 6761)",
+        "Valid localhost origins",
         arguments: [
-            ("http://localhost", "http://localhost"),
-            ("https://localhost", "https://localhost"),
-            ("http://localhost:3000", "http://localhost:3000"),
-            ("http://LOCALHOST:3000", "http://LOCALHOST:3000"),
-            ("http://app.localhost:3000", "http://app.localhost:3000"),
+            "http://localhost",
+            "https://localhost",
+            "http://localhost:3000",
+            "http://LOCALHOST:3000",
+            "http://app.localhost:3000",
         ]
     )
-    func testValidLocalhostOrigins(input: String, expectedOrigin: String) throws {
-        let origin = try WebAuthn.Origin(input)
-        #expect(origin.stringValue == expectedOrigin)
+    func testValidLocalhostOrigins(origin: String) throws {
+        let parsed = try WebAuthn.Origin(origin)
+        #expect(parsed.stringValue == origin)
     }
 
     @Test(
