@@ -53,6 +53,8 @@ struct OriginTests {
         "Invalid origins",
         arguments: [
             "http://example.com",  // HTTP non-localhost
+            "http://127.0.0.1",  // Raw IPv4 loopback not allowed (only "localhost")
+            "http://[::1]",  // Raw IPv6 loopback not allowed (only "localhost")
             "not a url",  // Invalid URL
             "example.com",  // Missing scheme
         ]

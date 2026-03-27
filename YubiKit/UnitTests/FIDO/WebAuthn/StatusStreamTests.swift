@@ -59,12 +59,12 @@ struct StatusStreamTests {
             continuation.yield(.processing)
             // Never yields .finished - simulates stall
             Task {
-                try? await Task.sleep(for: .milliseconds(200))
+                try? await Task.sleep(for: .milliseconds(500))
                 continuation.finish()
             }
         }
 
-        let timedStream = stream.withTimeout(.milliseconds(50))
+        let timedStream = stream.withTimeout(.milliseconds(100))
 
         do {
             _ = try await timedStream.value
