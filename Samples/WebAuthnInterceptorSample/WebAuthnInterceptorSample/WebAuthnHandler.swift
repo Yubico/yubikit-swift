@@ -41,7 +41,6 @@ actor WebAuthnHandler {
 
     // MARK: - Public API
 
-    // TODO: iOS NFC needs two-tap flow (close for PIN UI, reconnect). Works on macOS USB only.
     func handleCreate(_ data: Data) async throws -> String {
         let request = try JSONDecoder().decode(CreateRequest.self, from: data)
 

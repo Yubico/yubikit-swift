@@ -27,7 +27,6 @@ extension WebAuthn.Client {
         var allowUV: Bool = true
 
         // Returns true if error is recoverable and state was updated for retry.
-        // TODO: Handle .pinAuthBlocked by reconnecting NFC (see python-fido2)
         mutating func shouldRetry(for error: CTAP2.SessionError) -> Bool {
             switch error {
             case .ctapError(.puatRequired, _) where userVerification == .discouraged:
