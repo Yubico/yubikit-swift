@@ -133,7 +133,7 @@ struct WebAuthnClientFullStackTests {
             do {
                 _ = try await client.getAssertion(requestOptions).value
                 Issue.record("Should have thrown noCredentials error")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .noCredentials = error else {
                     Issue.record("Expected noCredentials error, got: \(error)")
                     return
@@ -182,7 +182,7 @@ struct WebAuthnClientFullStackTests {
             do {
                 _ = try await client.makeCredential(excludeOptions).value
                 Issue.record("Should have thrown credentialExcluded error")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .credentialExcluded = error else {
                     Issue.record("Expected credentialExcluded error, got: \(error)")
                     return
@@ -279,7 +279,7 @@ struct WebAuthnClientFullStackTests {
             do {
                 _ = try await client.makeCredential(options).value
                 Issue.record("Should have thrown invalidRequest error")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .invalidRequest(let message, _) = error else {
                     Issue.record("Expected invalidRequest error, got: \(error)")
                     return
@@ -314,7 +314,7 @@ struct WebAuthnClientFullStackTests {
             do {
                 _ = try await client.makeCredential(options).value
                 Issue.record("Should have thrown invalidRequest error")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .invalidRequest(let message, _) = error else {
                     Issue.record("Expected invalidRequest error, got: \(error)")
                     return
@@ -352,7 +352,7 @@ struct WebAuthnClientFullStackTests {
             do {
                 _ = try await client.makeCredential(options).value
                 Issue.record("Should have thrown invalidPIN error")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .invalidPIN(let retries, _) = error else {
                     Issue.record("Expected invalidPIN error, got: \(error)")
                     return
@@ -455,7 +455,7 @@ struct WebAuthnClientFullStackTests {
                     }
                 }
                 Issue.record("makeCredential should have thrown cancellation error")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .cancelled = error else {
                     Issue.record("Expected cancelled error, got: \(error)")
                     return
@@ -874,7 +874,7 @@ struct WebAuthnExtensionFullStackTests {
             do {
                 _ = try await client.getAssertion(writeOptions).value
                 Issue.record("Expected storageFull error for oversized blob")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .storageFull = error else {
                     Issue.record("Expected storageFull error, got: \(error)")
                     return

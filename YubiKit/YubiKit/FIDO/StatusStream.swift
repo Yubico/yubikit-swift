@@ -94,7 +94,7 @@ extension StatusStreamBase {
     }
 
     /// Wraps this stream with an optional timeout.
-    func withTimeout(_ duration: Duration?) -> StatusStreamBase where Failure == WebAuthn.Error {
+    func withTimeout(_ duration: Duration?) -> StatusStreamBase where Failure == WebAuthn.ClientError {
         guard let duration else { return self }
         return timeout(duration, error: .timeout(source: .here()))
     }

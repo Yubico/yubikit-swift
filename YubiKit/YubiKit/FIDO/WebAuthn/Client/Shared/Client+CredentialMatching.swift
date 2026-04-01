@@ -26,7 +26,7 @@ extension WebAuthn.Client {
         rpId: String,
         cachedInfo: CTAP2.GetInfo.ImmutableView,
         token: CTAP2.Token?
-    ) async throws(WebAuthn.Error) -> WebAuthn.CredentialDescriptor? {
+    ) async throws(WebAuthn.ClientError) -> WebAuthn.CredentialDescriptor? {
         guard !credentials.isEmpty else { return nil }
 
         // Filter by type (only "public-key" is valid per WebAuthn spec).
@@ -73,7 +73,7 @@ extension WebAuthn.Client {
                 case .ctapError(.requestTooLarge, _) where maxChunkSize > 1:
                     maxChunkSize -= 1
                 default:
-                    throw WebAuthn.Error(error)
+                    throw WebAuthn.ClientError(error)
                 }
             }
         }

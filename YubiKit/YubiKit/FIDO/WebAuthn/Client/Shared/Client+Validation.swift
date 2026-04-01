@@ -22,7 +22,7 @@ extension WebAuthn.Client {
     ///
     /// Per WebAuthn spec, the RP ID must be equal to or a registrable suffix of the origin's host,
     /// and must not be a public suffix (e.g., "co.uk", "github.io").
-    func validateRpId(_ rpId: String, origin: WebAuthn.Origin) -> WebAuthn.Error? {
+    func validateRpId(_ rpId: String, origin: WebAuthn.Origin) -> WebAuthn.ClientError? {
         let rpIdLower = rpId.lowercased()
         let hostLower = origin.host.lowercased()
 

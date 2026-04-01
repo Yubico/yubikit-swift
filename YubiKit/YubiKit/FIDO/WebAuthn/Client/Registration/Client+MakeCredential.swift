@@ -46,7 +46,7 @@ extension WebAuthn.Client {
         }
         return WebAuthn.StatusStream { continuation in
             Task { [self] in
-                do throws(WebAuthn.Error) {
+                do throws(WebAuthn.ClientError) {
                     let response = try await performMakeCredential(
                         options: options,
                         clientData: clientData,
@@ -70,14 +70,14 @@ extension WebAuthn.Client {
         options: WebAuthn.Registration.Options,
         clientData: WebAuthn.ClientData,
         continuation: WebAuthn.StatusStream<WebAuthn.Registration.Response>.Continuation
-    ) async throws(WebAuthn.Error) -> WebAuthn.Registration.Response {
+    ) async throws(WebAuthn.ClientError) -> WebAuthn.Registration.Response {
 
         // Fetch cached immutable authenticator capabilities.
         let cachedInfo: CTAP2.GetInfo.ImmutableView
         do throws(CTAP2.SessionError) {
             cachedInfo = try await backend.cachedInfo
         } catch {
-            throw WebAuthn.Error(error)
+            throw WebAuthn.ClientError(error)
         }
 
         let rpId = clientData.rpId
@@ -101,7 +101,7 @@ extension WebAuthn.Client {
             do throws(CTAP2.SessionError) {
                 info = try await backend.getInfo()
             } catch {
-                throw WebAuthn.Error(error)
+                throw WebAuthn.ClientError(error)
             }
 
             let auth = try await acquireAuthToken(
@@ -162,7 +162,7 @@ extension WebAuthn.Client {
                 }
                 ctapResponse = response
             } catch {
-                guard retry.shouldRetry(for: error) else { throw WebAuthn.Error(error) }
+                guard retry.shouldRetry(for: error) else { throw WebAuthn.ClientError(error) }
                 continue
             }
 
@@ -170,7 +170,7 @@ extension WebAuthn.Client {
                 let credentialId = ctapResponse.authenticatorData
                     .attestedCredentialData?.credentialId
             else {
-                throw WebAuthn.Error(
+                throw WebAuthn.ClientError(
                     CTAP2.SessionError.responseParseError(
                         "Missing credential ID in makeCredential response",
                         source: .here()
@@ -198,7 +198,7 @@ extension WebAuthn.Client {
     fileprivate func resolveResidentKey(
         _ preference: WebAuthn.ResidentKeyPreference,
         cachedInfo: CTAP2.GetInfo.ImmutableView
-    ) throws(WebAuthn.Error) -> Bool {
+    ) throws(WebAuthn.ClientError) -> Bool {
         let supported = cachedInfo.options.residentKey
         if preference == .required && !supported {
             throw .notSupported("Resident key not supported", source: .here())
