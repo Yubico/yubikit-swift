@@ -22,7 +22,7 @@ extension WebAuthn.Backend {
 
     func buildMakeCredentialExtensions(
         _ inputs: WebAuthn.Extension.RegistrationInputs?
-    ) async throws(WebAuthn.Error) -> (
+    ) async throws(WebAuthn.ClientError) -> (
         ctapInputs: [CTAP2.Extension.MakeCredential.Input],
         prf: WebAuthn.Extension.PRF?,
         largeBlobRequested: Bool
@@ -77,7 +77,7 @@ extension WebAuthn.Backend {
                 largeBlobRequested = true
             }
         } catch {
-            throw WebAuthn.Error(error)
+            throw WebAuthn.ClientError(error)
         }
 
         if inputs.minPinLength {
@@ -100,7 +100,7 @@ extension WebAuthn.Backend {
         _ inputs: WebAuthn.Extension.AuthenticationInputs?,
         allowCredentials: [WebAuthn.CredentialDescriptor],
         selectedCredentialId: Data?
-    ) async throws(WebAuthn.Error) -> (
+    ) async throws(WebAuthn.ClientError) -> (
         ctapInputs: [CTAP2.Extension.GetAssertion.Input],
         prf: WebAuthn.Extension.PRF?,
         largeBlobAction: WebAuthn.Extension.LargeBlob.AuthenticationInput?
@@ -155,7 +155,7 @@ extension WebAuthn.Backend {
                             ctapInputs.append(prfInput)
                         }
                     } catch {
-                        throw WebAuthn.Error(error)
+                        throw WebAuthn.ClientError(error)
                     }
                 }
             }
@@ -176,7 +176,7 @@ extension WebAuthn.Backend {
                 // For write requests, propagate errors — silent failure is data loss.
                 // For read requests, skip silently (matches spec: "blob member will not be present").
                 if case .write = largeBlobInput {
-                    throw WebAuthn.Error(error)
+                    throw WebAuthn.ClientError(error)
                 }
             }
         }
@@ -190,14 +190,14 @@ extension WebAuthn.Backend {
         from response: CTAP2.MakeCredential.Response,
         prf: WebAuthn.Extension.PRF?,
         largeBlobRequested: Bool
-    ) throws(WebAuthn.Error) -> WebAuthn.Extension.RegistrationOutputs {
+    ) throws(WebAuthn.ClientError) -> WebAuthn.Extension.RegistrationOutputs {
         var prfOutput: WebAuthn.Extension.PRF.RegistrationOutput?
 
         if let prf {
             do throws(CTAP2.SessionError) {
                 prfOutput = try prf.makeCredential.output(from: response)
             } catch {
-                throw WebAuthn.Error(error)
+                throw WebAuthn.ClientError(error)
             }
         }
 
@@ -226,14 +226,14 @@ extension WebAuthn.Backend {
         from response: CTAP2.GetAssertion.Response,
         prf: WebAuthn.Extension.PRF?,
         largeBlobOutput: WebAuthn.Extension.LargeBlob.AuthenticationOutput?
-    ) throws(WebAuthn.Error) -> WebAuthn.Extension.AuthenticationOutputs {
+    ) throws(WebAuthn.ClientError) -> WebAuthn.Extension.AuthenticationOutputs {
         var prfOutput: WebAuthn.Extension.PRF.Results?
 
         if let prf {
             do throws(CTAP2.SessionError) {
                 prfOutput = try prf.getAssertion.output(from: response)
             } catch {
-                throw WebAuthn.Error(error)
+                throw WebAuthn.ClientError(error)
             }
         }
 
@@ -252,7 +252,7 @@ extension WebAuthn.Backend {
         from response: CTAP2.GetAssertion.Response,
         action: WebAuthn.Extension.LargeBlob.AuthenticationInput?,
         token: CTAP2.Token?
-    ) async throws(WebAuthn.Error) -> WebAuthn.Extension.LargeBlob.AuthenticationOutput? {
+    ) async throws(WebAuthn.ClientError) -> WebAuthn.Extension.LargeBlob.AuthenticationOutput? {
         guard let action, let key = response.largeBlobKey else { return nil }
 
         switch action {
@@ -268,7 +268,7 @@ extension WebAuthn.Backend {
                 try await putBlob(key: key, data: data, token: token)
                 return .init(written: true)
             } catch {
-                throw WebAuthn.Error(error)
+                throw WebAuthn.ClientError(error)
             }
         }
     }

@@ -33,7 +33,7 @@ extension WebAuthn.Authentication {
         ///
         /// Processes extensions (PRF decryption, largeBlob read/write) for this
         /// credential only.
-        public let select: @Sendable () async throws(WebAuthn.Error) -> Response
+        public let select: @Sendable () async throws(WebAuthn.ClientError) -> Response
     }
 }
 
