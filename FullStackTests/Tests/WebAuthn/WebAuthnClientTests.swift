@@ -32,7 +32,7 @@ struct WebAuthnClientFullStackTests {
 
     @Test(
         "Reset - Factory Reset",
-        .disabled("Destructive - clears all credentials and PIN")
+        //.disabled("Destructive - clears all credentials and PIN")
     )
     func testReset() async throws {
         try await CTAP2FullStackTests().testReset()
@@ -47,7 +47,7 @@ struct WebAuthnClientFullStackTests {
 
     @Test("Make Credential and Get Assertion")
     func testMakeCredentialGetAssertion() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
             let userId = randomBytes(count: 32)
 
@@ -65,7 +65,7 @@ struct WebAuthnClientFullStackTests {
             #expect(createResponse.authenticatorData.attestedCredentialData != nil)
             print("Credential created")
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             let requestOptions = WebAuthn.Authentication.Options(
                 challenge: randomBytes(count: 32),
@@ -86,7 +86,7 @@ struct WebAuthnClientFullStackTests {
 
     @Test("Get Assertion with Allow Credentials")
     func testGetAssertionWithAllowCredentials() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
 
             let createOptions = WebAuthn.Registration.Options(
@@ -103,7 +103,7 @@ struct WebAuthnClientFullStackTests {
             print("Making credential...")
             let createResponse = try await client.makeCredential(createOptions).value
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             let requestOptions = WebAuthn.Authentication.Options(
                 challenge: randomBytes(count: 32),
@@ -147,7 +147,7 @@ struct WebAuthnClientFullStackTests {
 
     @Test("Make Credential with Exclude Credentials")
     func testMakeCredentialWithExcludeCredentials() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
 
             let createOptions = WebAuthn.Registration.Options(
@@ -164,7 +164,7 @@ struct WebAuthnClientFullStackTests {
             print("Making initial credential...")
             let createResponse = try await client.makeCredential(createOptions).value
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             let excludeOptions = WebAuthn.Registration.Options(
                 challenge: randomBytes(count: 32),
@@ -196,7 +196,7 @@ struct WebAuthnClientFullStackTests {
 
     @Test("Get Assertions - Multiple Discoverable Credentials with Selection")
     func testGetAssertionsMultipleCredentials() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
             let credentialCount = 3
             var userIds: [Data] = []
@@ -218,7 +218,7 @@ struct WebAuthnClientFullStackTests {
 
                 print("Making credential \(i + 1)/\(credentialCount)...")
                 _ = try await client.makeCredential(createOptions).value
-                client = try await reconnect()
+                client = try await reconnect().client
             }
 
             let requestOptions = WebAuthn.Authentication.Options(
@@ -475,9 +475,9 @@ struct WebAuthnExtensionFullStackTests {
 
     @Test("PRF - Enable at Registration and Derive Secrets at Authentication")
     func testPRF() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
-            let rpId = "webauthn-prf-test.example.com"
+            let rpId = "example.com"
 
             // 1. Create credential with PRF enabled
             let createOptions = WebAuthn.Registration.Options(
@@ -502,7 +502,7 @@ struct WebAuthnExtensionFullStackTests {
             print("✅ PRF enabled")
 
             let credentialId = createResponse.credentialId
-            client = try await reconnect()
+            client = try await reconnect().client
 
             // 2. Authenticate with PRF using one secret
             let secret1 = Data(repeating: 0xAA, count: 32)
@@ -524,7 +524,7 @@ struct WebAuthnExtensionFullStackTests {
             #expect(secrets1.first.count == 32)
             print("✅ PRF secrets.first: \(secrets1.first.prefix(8).hexEncodedString)...")
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             // 3. Authenticate again with two secrets using evalByCredential
             let secret2 = Data(repeating: 0xBB, count: 32)
@@ -560,9 +560,9 @@ struct WebAuthnExtensionFullStackTests {
 
     @Test("PRF MC - Derive Secrets at Registration (CTAP2.2)")
     func testPRFMakeCredential() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
-            let rpId = "webauthn-prf-mc-test.example.com"
+            let rpId = "example.com"
 
             let secret1 = Data(repeating: 0xCC, count: 32)
             let secret2 = Data(repeating: 0xDD, count: 32)
@@ -593,7 +593,7 @@ struct WebAuthnExtensionFullStackTests {
             print("✅ PRF MakeCredential derived secrets")
 
             let credentialId = createResponse.credentialId
-            client = try await reconnect()
+            client = try await reconnect().client
 
             // 2. Authenticate with same secrets and verify determinism
             let authOptions = WebAuthn.Authentication.Options(
@@ -620,9 +620,9 @@ struct WebAuthnExtensionFullStackTests {
 
     @Test("LargeBlob - Store and Retrieve")
     func testLargeBlobStoreAndRetrieve() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
-            var client = client
-            let rpId = "webauthn-largeblob-test.example.com"
+        try await withReconnectableWebAuthnClient { client, session, reconnect in
+            var (client, session) = (client, session)
+            let rpId = "example.com"
             let testData = Data("Hello from WebAuthn LargeBlob test!".utf8)
 
             // 1. Create credential with largeBlob support
@@ -648,7 +648,7 @@ struct WebAuthnExtensionFullStackTests {
             print("✅ Credential supports largeBlob")
 
             let credentialId = createResponse.credentialId
-            client = try await reconnect()
+            (client, session) = try await reconnect()
 
             // 2. Write blob
             let writeOptions = WebAuthn.Authentication.Options(
@@ -664,7 +664,7 @@ struct WebAuthnExtensionFullStackTests {
             #expect(writeResponse.clientExtensionResults.largeBlob?.written == true)
             print("✅ Blob written")
 
-            client = try await reconnect()
+            (client, session) = try await reconnect()
 
             // 3. Read blob back
             let readOptions = WebAuthn.Authentication.Options(
@@ -680,52 +680,60 @@ struct WebAuthnExtensionFullStackTests {
             #expect(readResponse.clientExtensionResults.largeBlob?.blob == testData)
             print("✅ Blob retrieved and verified")
 
+            (_, session) = try await reconnect()
+
             // 4. Delete blob via CTAP (WebAuthn API doesn't expose delete)
-            try await withReconnectableCTAP2Session { session, _ in
-                let deleteToken = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
-                    permissions: [.largeBlobWrite],
-                    rpId: nil
-                )
+            let _ = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.largeBlobWrite],
+                rpId: nil
+            )
 
-                // Get the largeBlobKey by authenticating with the extension
-                let largeBlobKey = try await CTAP2.Extension.LargeBlobKey(session: session)
-                let gaParams = CTAP2.GetAssertion.Parameters(
-                    rpId: rpId,
-                    clientDataHash: Data(repeating: 0xCD, count: 32),
-                    allowList: [.init(id: credentialId)],
-                    extensions: [largeBlobKey.getAssertion.input()]
-                )
+            // Get the largeBlobKey by authenticating with the extension
+            let largeBlobKey = try await CTAP2.Extension.LargeBlobKey(session: session)
+            let gaParams = CTAP2.GetAssertion.Parameters(
+                rpId: rpId,
+                clientDataHash: Data(repeating: 0xCD, count: 32),
+                allowList: [.init(id: credentialId)],
+                extensions: [largeBlobKey.getAssertion.input()]
+            )
 
-                let gaToken = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
-                    permissions: [.getAssertion],
-                    rpId: rpId
-                )
+            let gaToken = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.getAssertion],
+                rpId: rpId
+            )
 
-                print("Getting largeBlobKey via CTAP...")
-                let assertion = try await session.getAssertion(parameters: gaParams, token: gaToken).value
-                guard let key = largeBlobKey.getAssertion.output(from: assertion) else {
-                    Issue.record("Expected largeBlobKey from GetAssertion")
-                    return
-                }
-
-                try await session.deleteBlob(key: key, token: deleteToken)
-                print("✅ Blob deleted via CTAP")
-
-                // 5. Verify blob is gone
-                let deletedBlob = try await session.getBlob(key: key)
-                #expect(deletedBlob == nil, "Blob should be deleted")
-                print("✅ Verified blob no longer exists")
+            print("Getting largeBlobKey via CTAP...")
+            let assertion = try await session.getAssertion(parameters: gaParams, token: gaToken).value
+            guard let key = largeBlobKey.getAssertion.output(from: assertion) else {
+                Issue.record("Expected largeBlobKey from GetAssertion")
+                return
             }
+
+            (_, session) = try await reconnect()
+
+            let deleteToken2 = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.largeBlobWrite],
+                rpId: nil
+            )
+
+            try await session.deleteBlob(key: key, token: deleteToken2)
+            print("✅ Blob deleted via CTAP")
+
+            // 5. Verify blob is gone
+            let deletedBlob = try await session.getBlob(key: key)
+            #expect(deletedBlob == nil, "Blob should be deleted")
+            print("✅ Verified blob no longer exists")
         }
     }
 
     @Test("LargeBlob - Multiple Credentials with Independent Blobs")
     func testLargeBlobMultipleCredentials() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
-            let rpId = "webauthn-largeblob-multi.example.com"
+            let rpId = "example.com"
             let testData1 = Data("First credential's blob".utf8)
             let testData2 = Data("Second credential's blob".utf8)
 
@@ -751,7 +759,7 @@ struct WebAuthnExtensionFullStackTests {
             }
 
             let credentialId1 = createResponse1.credentialId
-            client = try await reconnect()
+            client = try await reconnect().client
 
             // Write blob to first credential
             let writeOptions1 = WebAuthn.Authentication.Options(
@@ -763,7 +771,7 @@ struct WebAuthnExtensionFullStackTests {
             _ = try await client.getAssertion(writeOptions1).value
             print("✅ First blob written")
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             // Create second credential
             let createOptions2 = WebAuthn.Registration.Options(
@@ -781,7 +789,7 @@ struct WebAuthnExtensionFullStackTests {
             print("Creating second credential...")
             let createResponse2 = try await client.makeCredential(createOptions2).value
             let credentialId2 = createResponse2.credentialId
-            client = try await reconnect()
+            client = try await reconnect().client
 
             // Write blob to second credential
             let writeOptions2 = WebAuthn.Authentication.Options(
@@ -793,7 +801,7 @@ struct WebAuthnExtensionFullStackTests {
             _ = try await client.getAssertion(writeOptions2).value
             print("✅ Second blob written")
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             // Read back both blobs
             let readOptions1 = WebAuthn.Authentication.Options(
@@ -805,7 +813,7 @@ struct WebAuthnExtensionFullStackTests {
             let readResponse1 = try await client.getAssertion(readOptions1).value
             #expect(readResponse1.clientExtensionResults.largeBlob?.blob == testData1)
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             let readOptions2 = WebAuthn.Authentication.Options(
                 challenge: randomBytes(count: 32),
@@ -822,9 +830,9 @@ struct WebAuthnExtensionFullStackTests {
 
     @Test("LargeBlob - Storage Full Error")
     func testLargeBlobStorageFull() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
-            let rpId = "webauthn-largeblob-full.example.com"
+            let rpId = "example.com"
 
             // First create a credential with largeBlob support
             let createOptions = WebAuthn.Registration.Options(
@@ -848,20 +856,11 @@ struct WebAuthnExtensionFullStackTests {
             }
 
             let credentialId = createResponse.credentialId
-            client = try await reconnect()
+            client = try await reconnect().client
 
-            // Get max size from device info via CTAP
-            let info = try await withCTAP2Session { session in
-                try await session.getInfo()
-            }
-
-            guard let maxSize = info.maxSerializedLargeBlobArray else {
-                print("maxSerializedLargeBlobArray not available - skipping")
-                return
-            }
-
-            // Create random data that won't compress well
-            let oversizedData = Data((0..<Int(maxSize)).map { _ in UInt8.random(in: 0...255) })
+            // Use 1MB of random data - guaranteed to exceed any YubiKey's storage
+            // (YubiKey 5 series has ~4KB max largeBlob storage)
+            let oversizedData = Data((0..<1_000_000).map { _ in UInt8.random(in: 0...255) })
 
             let writeOptions = WebAuthn.Authentication.Options(
                 challenge: randomBytes(count: 32),
@@ -888,9 +887,9 @@ struct WebAuthnExtensionFullStackTests {
 
     @Test("CredProtect - All Protection Levels")
     func testCredProtect() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
-            let rpId = "webauthn-credprotect-test.example.com"
+            let rpId = "example.com"
 
             // Test without extension - should not return credProtect (no extensions parameter)
             let createOptionsNone = WebAuthn.Registration.Options(
@@ -909,7 +908,7 @@ struct WebAuthnExtensionFullStackTests {
             #expect(createResponseNone.clientExtensionResults.credentialProtectionPolicy == nil)
             print("✅ No credProtect in response when not requested")
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             // Test Level 1: userVerificationOptional
             let createOptions1 = WebAuthn.Registration.Options(
@@ -934,7 +933,7 @@ struct WebAuthnExtensionFullStackTests {
             #expect(createResponse1.clientExtensionResults.credentialProtectionPolicy == .userVerificationOptional)
             print("✅ CredProtect level 1 confirmed")
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             // Test Level 2: userVerificationOptionalWithCredentialIDList
             let createOptions2 = WebAuthn.Registration.Options(
@@ -958,7 +957,7 @@ struct WebAuthnExtensionFullStackTests {
             )
             print("✅ CredProtect level 2 confirmed")
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             // Test Level 3: userVerificationRequired (requires resident key)
             let createOptions3 = WebAuthn.Registration.Options(
@@ -985,9 +984,9 @@ struct WebAuthnExtensionFullStackTests {
 
     @Test("CredBlob - Store at Registration and Retrieve at Authentication")
     func testCredBlobStoreAndRetrieve() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
-            let rpId = "webauthn-credblob-test.example.com"
+            let rpId = "example.com"
             let testBlob = Data("Hello from CredBlob!".utf8)
 
             // 1. Create credential with credBlob
@@ -1012,7 +1011,7 @@ struct WebAuthnExtensionFullStackTests {
             }
             print("✅ CredBlob stored")
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             // 2. Retrieve credBlob at authentication
             let authOptions = WebAuthn.Authentication.Options(
@@ -1031,9 +1030,9 @@ struct WebAuthnExtensionFullStackTests {
 
     @Test("CredBlob - Not Returned Without Extension")
     func testCredBlobNotReturnedWithoutExtension() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
-            let rpId = "webauthn-credblob-noext.example.com"
+            let rpId = "example.com"
             let testBlob = Data("This should not be returned".utf8)
 
             // 1. Create credential with credBlob
@@ -1057,7 +1056,7 @@ struct WebAuthnExtensionFullStackTests {
                 return
             }
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             // 2. Authenticate WITHOUT requesting credBlob (no getCredBlob: true)
             let authOptions = WebAuthn.Authentication.Options(
@@ -1087,7 +1086,7 @@ struct WebAuthnExtensionFullStackTests {
                 return
             }
 
-            let rpId = "webauthn-credblob-oversize.example.com"
+            let rpId = "example.com"
             let oversizedBlob = Data(repeating: 0xFF, count: Int(maxLength) + 1)
 
             let client = WebAuthn.Client(
@@ -1143,7 +1142,7 @@ struct WebAuthnExtensionFullStackTests {
                 return
             }
 
-            let rpId = "webauthn-minpinlength-test.example.com"
+            let rpId = "example.com"
 
             // Configure the RP ID to receive minPinLength (requires CTAP direct call)
             let configToken = try await session.getPinUVToken(
@@ -1218,7 +1217,8 @@ private func withWebAuthnClient<T>(
 private func withReconnectableWebAuthnClient<T>(
     _ body: (
         _ client: WebAuthn.Client,
-        _ reconnect: () async throws -> WebAuthn.Client
+        _ session: CTAP2.Session,
+        _ reconnect: () async throws -> (client: WebAuthn.Client, session: CTAP2.Session)
     ) async throws -> T
 ) async throws -> T {
     try await withReconnectableCTAP2Session { session, reconnectSession in
@@ -1229,16 +1229,17 @@ private func withReconnectableWebAuthnClient<T>(
             isPublicSuffix: { _ in false }
         )
 
-        let reconnect: () async throws -> WebAuthn.Client = {
+        let reconnect: () async throws -> (client: WebAuthn.Client, session: CTAP2.Session) = {
             let newSession = try await reconnectSession()
-            return WebAuthn.Client(
+            let newClient = WebAuthn.Client(
                 session: newSession,
                 origin: testOrigin,
                 pinProvider: { defaultTestPin },
                 isPublicSuffix: { _ in false }
             )
+            return (newClient, newSession)
         }
 
-        return try await body(client, reconnect)
+        return try await body(client, session, reconnect)
     }
 }
