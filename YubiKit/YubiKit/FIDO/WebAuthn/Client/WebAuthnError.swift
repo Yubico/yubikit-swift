@@ -76,7 +76,7 @@ extension WebAuthn.Error {
             case .pinNotSet: self = .pinNotSet(source: source)
             case .pinTokenExpired: self = .pinTokenExpired(source: source)
             case .unsupportedAlgorithm: self = .unsupportedAlgorithm(source: source)
-            case .keyStoreFull: self = .storageFull(source: source)
+            case .keyStoreFull, .largeBlobStorageFull: self = .storageFull(source: source)
             default: self = .ctapError(ctapError, source: source)
             }
         case .connectionError:

@@ -28,6 +28,7 @@ extension WebAuthn.Authentication {
         public let signature: Data
         public let user: WebAuthn.User?
         public let authenticatorData: WebAuthn.AuthenticatorData
+        public let clientExtensionResults: WebAuthn.Extension.AuthenticationOutputs
 
         public var signCount: UInt32 { authenticatorData.signCount }
 

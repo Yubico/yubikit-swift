@@ -55,6 +55,41 @@ extension WebAuthn {
         ) async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response>
 
         func getNextAssertion() async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response>
+
+        // MARK: - Extension Factories
+
+        func makePRF() async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF
+
+        func makePRF(
+            first: Data,
+            second: Data?,
+            evalByCredential: [Data: (first: Data, second: Data?)]
+        ) async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF
+
+        func makePRF(
+            evalByCredential: [Data: (first: Data, second: Data?)]
+        ) async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF
+
+        func makeCredProtect(
+            level: WebAuthn.Extension.CredentialProtectionPolicy,
+            enforce: Bool
+        ) async throws(CTAP2.SessionError) -> CTAP2.Extension.CredProtect
+
+        func makeCredBlob() async throws(CTAP2.SessionError) -> CTAP2.Extension.CredBlob
+
+        func isMinPinLengthSupported() async throws(CTAP2.SessionError) -> Bool
+
+        func makeMinPinLength() async throws(CTAP2.SessionError) -> CTAP2.Extension.MinPinLength
+
+        // MARK: - Large Blob
+
+        func makeLargeBlobKey() async throws(CTAP2.SessionError) -> CTAP2.Extension.LargeBlobKey
+
+        func isLargeBlobSupported() async throws(CTAP2.SessionError) -> Bool
+
+        func getBlob(key: Data) async throws(CTAP2.SessionError) -> Data?
+
+        func putBlob(key: Data, data: Data, token: CTAP2.Token) async throws(CTAP2.SessionError)
     }
 }
 
@@ -77,4 +112,59 @@ extension CTAP2.Session: WebAuthn.Backend {
     ) async throws(CTAP2.SessionError) -> CTAP2.Token {
         try await getPinUVToken(using: method, permissions: permissions, rpId: rpId, protocol: nil)
     }
+
+    // MARK: - Extension Factories
+
+    func makePRF() async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF {
+        try await WebAuthn.Extension.PRF(session: self)
+    }
+
+    func makePRF(
+        first: Data,
+        second: Data?,
+        evalByCredential: [Data: (first: Data, second: Data?)]
+    ) async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF {
+        try await WebAuthn.Extension.PRF(
+            first: first,
+            second: second,
+            evalByCredential: evalByCredential,
+            session: self
+        )
+    }
+
+    func makePRF(
+        evalByCredential: [Data: (first: Data, second: Data?)]
+    ) async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF {
+        try await WebAuthn.Extension.PRF(evalByCredential: evalByCredential, session: self)
+    }
+
+    func makeCredProtect(
+        level: WebAuthn.Extension.CredentialProtectionPolicy,
+        enforce: Bool
+    ) async throws(CTAP2.SessionError) -> CTAP2.Extension.CredProtect {
+        try await CTAP2.Extension.CredProtect(level: level, session: self, enforce: enforce)
+    }
+
+    func makeCredBlob() async throws(CTAP2.SessionError) -> CTAP2.Extension.CredBlob {
+        try await CTAP2.Extension.CredBlob(session: self)
+    }
+
+    func isMinPinLengthSupported() async throws(CTAP2.SessionError) -> Bool {
+        try await CTAP2.Extension.MinPinLength.isSupported(by: self)
+    }
+
+    func makeMinPinLength() async throws(CTAP2.SessionError) -> CTAP2.Extension.MinPinLength {
+        try await CTAP2.Extension.MinPinLength(session: self)
+    }
+
+    // MARK: - Large Blob
+
+    func makeLargeBlobKey() async throws(CTAP2.SessionError) -> CTAP2.Extension.LargeBlobKey {
+        try await CTAP2.Extension.LargeBlobKey(session: self)
+    }
+
+    func isLargeBlobSupported() async throws(CTAP2.SessionError) -> Bool {
+        try await CTAP2.Extension.LargeBlobKey.isSupported(by: self)
+    }
+
 }

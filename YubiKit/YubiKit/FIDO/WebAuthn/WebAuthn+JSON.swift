@@ -26,30 +26,14 @@ extension WebAuthn {
         to container: inout KeyedEncodingContainer<CredentialCodingKeys>,
         credentialId: Data
     ) throws {
-        let idString = credentialId.base64URLEncodedString()
-        try container.encode(idString, forKey: .id)
-        try container.encode(idString, forKey: .rawId)
+        try container.encodeBase64URL(credentialId, forKey: .id)
+        try container.encodeBase64URL(credentialId, forKey: .rawId)
         try container.encode("public-key", forKey: .type)
         try container.encode("cross-platform", forKey: .authenticatorAttachment)
     }
 }
 
 // MARK: - Private Helpers
-
-/// Decodes base64url-encoded strings to Data.
-private struct Base64URLData: Decodable {
-    let data: Data
-
-    init(from decoder: Decoder) throws {
-        let string = try decoder.singleValueContainer().decode(String.self)
-        guard let data = Data(base64URLEncoded: string) else {
-            throw DecodingError.dataCorrupted(
-                .init(codingPath: decoder.codingPath, debugDescription: "Invalid base64url string")
-            )
-        }
-        self.data = data
-    }
-}
 
 /// Decodes milliseconds to Duration.
 private struct Milliseconds: Decodable {
@@ -87,7 +71,7 @@ extension WebAuthn.User: Decodable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
-            id: try container.decode(Base64URLData.self, forKey: .id).data,
+            id: try container.decodeBase64URL(forKey: .id),
             name: try container.decodeIfPresent(String.self, forKey: .name),
             displayName: try container.decodeIfPresent(String.self, forKey: .displayName)
         )
@@ -110,7 +94,7 @@ extension WebAuthn.CredentialDescriptor: Decodable {
         }
         self.init(
             type: try container.decodeIfPresent(String.self, forKey: .type) ?? "public-key",
-            id: try container.decode(Base64URLData.self, forKey: .id).data,
+            id: try container.decodeBase64URL(forKey: .id),
             transports: transports
         )
     }
@@ -122,7 +106,7 @@ extension WebAuthn.Registration.Options: Decodable {
 
     private enum CodingKeys: String, CodingKey {
         case challenge, rp, user, excludeCredentials, authenticatorSelection
-        case attestation, pubKeyCredParams, timeout
+        case attestation, pubKeyCredParams, timeout, extensions
     }
 
     public init(from decoder: Decoder) throws {
@@ -134,7 +118,7 @@ extension WebAuthn.Registration.Options: Decodable {
         )
 
         self.init(
-            challenge: try container.decode(Base64URLData.self, forKey: .challenge).data,
+            challenge: try container.decodeBase64URL(forKey: .challenge),
             rp: try container.decode(WebAuthn.RelyingParty.self, forKey: .rp),
             user: try container.decode(WebAuthn.User.self, forKey: .user),
             excludeCredentials: try container.decodeIfPresent(
@@ -148,7 +132,11 @@ extension WebAuthn.Registration.Options: Decodable {
                 forKey: .attestation
             ) ?? .none,
             pubKeyCredParams: try Self.decodePubKeyCredParams(from: container),
-            timeout: try container.decodeIfPresent(Milliseconds.self, forKey: .timeout)?.duration
+            timeout: try container.decodeIfPresent(Milliseconds.self, forKey: .timeout)?.duration,
+            extensions: try container.decodeIfPresent(
+                WebAuthn.Extension.RegistrationInputs.self,
+                forKey: .extensions
+            )
         )
     }
 
@@ -211,21 +199,15 @@ extension WebAuthn.Registration.Response: Encodable {
         try WebAuthn.encodeCredentialEnvelope(to: &container, credentialId: credentialId)
 
         var inner = container.nestedContainer(keyedBy: RegistrationResponseKeys.self, forKey: .response)
-        try inner.encode(
-            rawAttestationObject.base64URLEncodedString(),
-            forKey: .attestationObject
-        )
-        try inner.encodeIfPresent(clientDataJSON?.base64URLEncodedString(), forKey: .clientDataJSON)
-        try inner.encode(
-            authenticatorData.rawData.base64URLEncodedString(),
-            forKey: .authenticatorData
-        )
+        try inner.encodeBase64URL(rawAttestationObject, forKey: .attestationObject)
+        try inner.encodeBase64URLIfPresent(clientDataJSON, forKey: .clientDataJSON)
+        try inner.encodeBase64URL(authenticatorData.rawData, forKey: .authenticatorData)
         try inner.encode(transports.map(\.rawValue), forKey: .transports)
         if let algorithm = publicKey?.algorithm {
             try inner.encode(algorithm.rawValue, forKey: .publicKeyAlgorithm)
         }
 
-        try container.encode([String: String](), forKey: .clientExtensionResults)
+        try container.encode(clientExtensionResults, forKey: .clientExtensionResults)
     }
 }
 
@@ -238,14 +220,14 @@ private enum RegistrationResponseKeys: String, CodingKey {
 extension WebAuthn.Authentication.Options: Decodable {
 
     private enum CodingKeys: String, CodingKey {
-        case challenge, rpId, allowCredentials, userVerification, timeout
+        case challenge, rpId, allowCredentials, userVerification, timeout, extensions
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         self.init(
-            challenge: try container.decode(Base64URLData.self, forKey: .challenge).data,
+            challenge: try container.decodeBase64URL(forKey: .challenge),
             rpId: try container.decodeIfPresent(String.self, forKey: .rpId),
             allowCredentials: try container.decodeIfPresent(
                 [WebAuthn.CredentialDescriptor].self,
@@ -255,7 +237,11 @@ extension WebAuthn.Authentication.Options: Decodable {
                 WebAuthn.UserVerificationPreference.self,
                 forKey: .userVerification
             ) ?? .preferred,
-            timeout: try container.decodeIfPresent(Milliseconds.self, forKey: .timeout)?.duration
+            timeout: try container.decodeIfPresent(Milliseconds.self, forKey: .timeout)?.duration,
+            extensions: try container.decodeIfPresent(
+                WebAuthn.Extension.AuthenticationInputs.self,
+                forKey: .extensions
+            )
         )
     }
 }
@@ -273,17 +259,14 @@ extension WebAuthn.Authentication.Response: Encodable {
         try WebAuthn.encodeCredentialEnvelope(to: &container, credentialId: credentialId)
 
         var inner = container.nestedContainer(keyedBy: AuthenticationResponseKeys.self, forKey: .response)
-        try inner.encode(
-            rawAuthenticatorData.base64URLEncodedString(),
-            forKey: .authenticatorData
-        )
-        try inner.encodeIfPresent(clientDataJSON?.base64URLEncodedString(), forKey: .clientDataJSON)
-        try inner.encode(signature.base64URLEncodedString(), forKey: .signature)
+        try inner.encodeBase64URL(rawAuthenticatorData, forKey: .authenticatorData)
+        try inner.encodeBase64URLIfPresent(clientDataJSON, forKey: .clientDataJSON)
+        try inner.encodeBase64URL(signature, forKey: .signature)
         if let userHandle = user?.id {
-            try inner.encode(userHandle.base64URLEncodedString(), forKey: .userHandle)
+            try inner.encodeBase64URL(userHandle, forKey: .userHandle)
         }
 
-        try container.encode([String: String](), forKey: .clientExtensionResults)
+        try container.encode(clientExtensionResults, forKey: .clientExtensionResults)
     }
 }
 
