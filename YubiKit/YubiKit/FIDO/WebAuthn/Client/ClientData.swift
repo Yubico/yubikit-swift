@@ -100,7 +100,7 @@ extension WebAuthn.ClientData {
             + #","challenge":"# + escape(challenge.base64URLEncodedString())
             + #","origin":"# + escape(origin.stringValue)
         if let crossOrigin {
-            json += #","crossOrigin":"# + String(crossOrigin)
+            json += ",\"crossOrigin\":" + String(crossOrigin)
         }
         json += "}"
         return Data(json.utf8)
