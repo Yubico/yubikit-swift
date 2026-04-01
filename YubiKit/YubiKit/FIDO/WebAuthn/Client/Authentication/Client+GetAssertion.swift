@@ -44,15 +44,18 @@ extension WebAuthn.Client {
         if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
             return .error(error)
         }
-        return await getAssertions(options, clientData: clientData).mapResponse { $0[0] }
+        return await getAssertions(options, clientData: clientData).selectFirst()
     }
 
-    /// Get all matching responses for credential selection UI.
+    /// Get all matching credentials for selection UI.
+    ///
+    /// Returns matched credentials that can be inspected for selection UI.
+    /// Call `select()` on the chosen credential to complete extension processing.
     ///
     /// Uses the client's origin and validates the RP ID.
     public func getAssertions(
         _ options: WebAuthn.Authentication.Options
-    ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.Response]> {
+    ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.MatchedCredential]> {
         let rpId = options.rpId ?? origin.host
         let clientData = WebAuthn.ClientData.webauthn(
             type: "webauthn.get",
@@ -63,26 +66,26 @@ extension WebAuthn.Client {
         return await getAssertions(options, clientData: clientData)
     }
 
-    /// Get all matching responses using custom client data.
+    /// Get all matching credentials using custom client data.
     public func getAssertions(
         _ options: WebAuthn.Authentication.Options,
         clientData: WebAuthn.ClientData
-    ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.Response]> {
+    ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.MatchedCredential]> {
         if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
             return .error(error)
         }
         return WebAuthn.StatusStream { continuation in
             Task { [self] in
                 do throws(WebAuthn.Error) {
-                    let assertions = try await performGetAssertions(
+                    let pendingCredentials = try await performGetAssertions(
                         options: options,
                         clientData: clientData,
                         continuation: continuation
                     )
-                    guard !assertions.isEmpty else {
+                    guard !pendingCredentials.isEmpty else {
                         throw WebAuthn.Error.noCredentials(source: .here())
                     }
-                    continuation.yield(.finished(assertions))
+                    continuation.yield(.finished(pendingCredentials))
                 } catch {
                     continuation.yield(error: error)
                 }
@@ -96,11 +99,12 @@ extension WebAuthn.Client {
 extension WebAuthn.Client {
 
     // Executes the CTAP2 getAssertion flow with PIN/UV handling and retry logic.
+    // Returns matched credentials with deferred extension processing.
     fileprivate func performGetAssertions(
         options: WebAuthn.Authentication.Options,
         clientData: WebAuthn.ClientData,
-        continuation: WebAuthn.StatusStream<[WebAuthn.Authentication.Response]>.Continuation
-    ) async throws(WebAuthn.Error) -> [WebAuthn.Authentication.Response] {
+        continuation: WebAuthn.StatusStream<[WebAuthn.Authentication.MatchedCredential]>.Continuation
+    ) async throws(WebAuthn.Error) -> [WebAuthn.Authentication.MatchedCredential] {
 
         let cachedInfo: CTAP2.GetInfo.ImmutableView
         do throws(CTAP2.SessionError) {
@@ -207,8 +211,9 @@ extension WebAuthn.Client {
                 continue
             }
 
-            var responses: [WebAuthn.Authentication.Response] = []
-            for (index, ctapResponse) in collected.enumerated() {
+            // Build matched credentials with deferred extension processing.
+            var matches: [WebAuthn.Authentication.MatchedCredential] = []
+            for ctapResponse in collected {
                 guard let credentialId = ctapResponse.credential?.id ?? allowList?.first?.id else {
                     throw WebAuthn.Error(
                         CTAP2.SessionError.responseParseError(
@@ -217,41 +222,41 @@ extension WebAuthn.Client {
                         )
                     )
                 }
-                // Process largeBlob: reads for all responses, writes only for first.
-                let shouldProcessLargeBlob: Bool
-                switch largeBlobAction {
-                case .read:
-                    shouldProcessLargeBlob = true
-                case .write:
-                    shouldProcessLargeBlob = index == 0
-                case nil:
-                    shouldProcessLargeBlob = false
-                }
-                let largeBlobOutput: WebAuthn.Extension.LargeBlob.AuthenticationOutput? =
-                    shouldProcessLargeBlob
-                    ? try await backend.processLargeBlob(
-                        from: ctapResponse,
-                        action: largeBlobAction,
-                        token: auth.token
-                    )
-                    : nil
-                let extensionOutputs = try await backend.parseAuthenticationOutputs(
-                    from: ctapResponse,
-                    prf: prf,
-                    largeBlobOutput: largeBlobOutput
-                )
-                let response = WebAuthn.Authentication.Response(
-                    credentialId: credentialId,
-                    rawAuthenticatorData: ctapResponse.authenticatorData.rawData,
-                    signature: ctapResponse.signature,
+
+                // Capture values for the select closure.
+                let backend = self.backend
+                let token = auth.token
+
+                let match = WebAuthn.Authentication.MatchedCredential(
+                    id: credentialId,
                     user: ctapResponse.user,
-                    authenticatorData: ctapResponse.authenticatorData,
-                    clientExtensionResults: extensionOutputs,
-                    clientDataJSON: clientData.clientDataJSON
+                    select: { [ctapResponse, prf, largeBlobAction, clientData] () async throws(WebAuthn.Error) in
+                        // Process largeBlob for this credential.
+                        let largeBlobOutput = try await backend.processLargeBlob(
+                            from: ctapResponse,
+                            action: largeBlobAction,
+                            token: token
+                        )
+                        // Parse extension outputs (PRF decrypt, etc.).
+                        let extensionOutputs = try await backend.parseAuthenticationOutputs(
+                            from: ctapResponse,
+                            prf: prf,
+                            largeBlobOutput: largeBlobOutput
+                        )
+                        return WebAuthn.Authentication.Response(
+                            credentialId: credentialId,
+                            rawAuthenticatorData: ctapResponse.authenticatorData.rawData,
+                            signature: ctapResponse.signature,
+                            user: ctapResponse.user,
+                            authenticatorData: ctapResponse.authenticatorData,
+                            clientExtensionResults: extensionOutputs,
+                            clientDataJSON: clientData.clientDataJSON
+                        )
+                    }
                 )
-                responses.append(response)
+                matches.append(match)
             }
-            return responses
+            return matches
         }
     }
 
@@ -291,6 +296,37 @@ extension StatusStreamBase {
                 do {
                     for try await status in self {
                         continuation.yield(status.mapResponse(transform))
+                    }
+                } catch let error as WebAuthn.Error {
+                    continuation.yield(error: error)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - MatchedCredential Stream Helpers
+
+extension StatusStreamBase
+where Status == WebAuthn.Status<[WebAuthn.Authentication.MatchedCredential]>, Failure == WebAuthn.Error {
+
+    /// Select the first matched credential and complete the assertion.
+    fileprivate func selectFirst() -> WebAuthn.StatusStream<WebAuthn.Authentication.Response> {
+        StatusStreamBase<WebAuthn.Status<WebAuthn.Authentication.Response>, WebAuthn.Error> { continuation in
+            Task {
+                do {
+                    for try await status in self {
+                        switch status {
+                        case .processing:
+                            continuation.yield(.processing)
+                        case .waitingForUser(let cancel):
+                            continuation.yield(.waitingForUser(cancel: cancel))
+                        case .requestingUV(let useUV):
+                            continuation.yield(.requestingUV(useUV: useUV))
+                        case .finished(let matches):
+                            let response = try await matches[0].select()
+                            continuation.yield(.finished(response))
+                        }
                     }
                 } catch let error as WebAuthn.Error {
                     continuation.yield(error: error)

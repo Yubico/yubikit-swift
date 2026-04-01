@@ -194,18 +194,22 @@ struct WebAuthnClientFullStackTests {
 
     // MARK: - Multiple Credentials
 
-    @Test("Get Assertions - Multiple Discoverable Credentials")
+    @Test("Get Assertions - Multiple Discoverable Credentials with Selection")
     func testGetAssertionsMultipleCredentials() async throws {
         try await withReconnectableWebAuthnClient { client, reconnect in
             var client = client
             let credentialCount = 3
+            var userIds: [Data] = []
 
             for i in 0..<credentialCount {
+                let userId = randomBytes(count: 32)
+                userIds.append(userId)
+
                 let createOptions = WebAuthn.Registration.Options(
                     challenge: randomBytes(count: 32),
                     rp: .init(id: testRpId, name: testRpName),
                     user: .init(
-                        id: randomBytes(count: 32),
+                        id: userId,
                         name: "user\(i)@example.com",
                         displayName: "User \(i)"
                     ),
@@ -222,15 +226,30 @@ struct WebAuthnClientFullStackTests {
                 rpId: testRpId
             )
 
-            print("Getting assertions for selection...")
-            let assertions = try await client.getAssertions(requestOptions).value
+            print("Getting matched credentials for selection...")
+            let matches = try await client.getAssertions(requestOptions).value
 
-            #expect(assertions.count >= credentialCount, "Should have at least \(credentialCount) assertions")
-            print("Found \(assertions.count) assertions")
+            #expect(matches.count >= credentialCount, "Should have at least \(credentialCount) matched credentials")
+            print("Found \(matches.count) matched credentials")
 
-            let chosen = assertions[0]
-            #expect(chosen.signature.count > 0)
-            print("Selected credential successfully")
+            // Verify each match has credential info for selection UI
+            for match in matches {
+                #expect(match.id.count > 0, "Credential ID should be present")
+                #expect(match.user != nil, "User info should be present for discoverable credentials")
+            }
+
+            // Select the second credential (not first) to verify selection works
+            let chosenIndex = min(1, matches.count - 1)
+            let chosen = matches[chosenIndex]
+            print("Selecting credential at index \(chosenIndex): \(chosen.user?.name ?? "unknown")")
+
+            let response = try await chosen.select()
+
+            #expect(response.signature.count > 0)
+            #expect(response.rawAuthenticatorData.count > 0)
+            #expect(response.credentialId == chosen.id)
+            #expect(response.user?.id == chosen.user?.id)
+            print("Selection completed successfully")
         }
     }
 
