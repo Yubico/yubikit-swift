@@ -14,6 +14,29 @@
 
 import Foundation
 
+// MARK: - Matched Credential
+
+extension WebAuthn.Authentication {
+
+    /// A credential that matched the authentication request.
+    ///
+    /// Call `select()` to complete the assertion with this credential.
+    /// Extension processing (PRF decryption, largeBlob read/write) is deferred
+    /// until selection.
+    public struct MatchedCredential: Sendable {
+        /// The credential ID.
+        public let id: Data
+        /// User information (for discoverable credentials).
+        public let user: WebAuthn.User?
+
+        /// Complete the assertion with this credential.
+        ///
+        /// Processes extensions (PRF decryption, largeBlob read/write) for this
+        /// credential only.
+        public let select: @Sendable () async throws(WebAuthn.Error) -> Response
+    }
+}
+
 // MARK: - Authentication Response
 
 extension WebAuthn.Authentication {

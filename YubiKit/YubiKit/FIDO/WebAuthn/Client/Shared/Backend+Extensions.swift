@@ -168,10 +168,17 @@ extension WebAuthn.Backend {
             }
         }
 
-        if inputs.largeBlob != nil {
-            if let largeBlobKey = try? await makeLargeBlobKey() {
+        if let largeBlobInput = inputs.largeBlob {
+            do throws(CTAP2.SessionError) {
+                let largeBlobKey = try await makeLargeBlobKey()
                 ctapInputs.append(largeBlobKey.getAssertion.input())
-                largeBlobAction = inputs.largeBlob
+                largeBlobAction = largeBlobInput
+            } catch {
+                // For write requests, propagate errors — silent failure is data loss.
+                // For read requests, skip silently (matches spec: "blob member will not be present").
+                if case .write = largeBlobInput {
+                    throw WebAuthn.Error(error)
+                }
             }
         }
 
