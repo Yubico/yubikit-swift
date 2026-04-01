@@ -103,7 +103,7 @@ extension WebAuthn.Backend {
     ) async throws(WebAuthn.ClientError) -> (
         ctapInputs: [CTAP2.Extension.GetAssertion.Input],
         prf: WebAuthn.Extension.PRF?,
-        largeBlobAction: WebAuthn.Extension.LargeBlob.AuthenticationInput?
+        largeBlobAction: WebAuthn.Extension.LargeBlob.Authentication.Input?
     ) {
         guard let inputs else {
             return ([], nil, nil)
@@ -111,7 +111,7 @@ extension WebAuthn.Backend {
 
         var ctapInputs: [CTAP2.Extension.GetAssertion.Input] = []
         var prf: WebAuthn.Extension.PRF?
-        var largeBlobAction: WebAuthn.Extension.LargeBlob.AuthenticationInput?
+        var largeBlobAction: WebAuthn.Extension.LargeBlob.Authentication.Input?
 
         if let prfInput = inputs.prf {
             let evalByCredential: [Data: (first: Data, second: Data?)] = prfInput.evalByCredential.mapValues {
@@ -191,7 +191,7 @@ extension WebAuthn.Backend {
         prf: WebAuthn.Extension.PRF?,
         largeBlobRequested: Bool
     ) throws(WebAuthn.ClientError) -> WebAuthn.Extension.RegistrationOutputs {
-        var prfOutput: WebAuthn.Extension.PRF.RegistrationOutput?
+        var prfOutput: WebAuthn.Extension.PRF.Registration.Output?
 
         if let prf {
             do throws(CTAP2.SessionError) {
@@ -208,7 +208,7 @@ extension WebAuthn.Backend {
         let credBlob = extensions?[.credBlob]?.boolValue
         let minPinLength = extensions?[.minPinLength]?.uint64Value.map { UInt($0) }
 
-        let largeBlobOutput: WebAuthn.Extension.LargeBlob.RegistrationOutput? =
+        let largeBlobOutput: WebAuthn.Extension.LargeBlob.Registration.Output? =
             largeBlobRequested
             ? .init(supported: response.largeBlobKey != nil)
             : nil
@@ -225,9 +225,9 @@ extension WebAuthn.Backend {
     func parseAuthenticationOutputs(
         from response: CTAP2.GetAssertion.Response,
         prf: WebAuthn.Extension.PRF?,
-        largeBlobOutput: WebAuthn.Extension.LargeBlob.AuthenticationOutput?
+        largeBlobOutput: WebAuthn.Extension.LargeBlob.Authentication.Output?
     ) throws(WebAuthn.ClientError) -> WebAuthn.Extension.AuthenticationOutputs {
-        var prfOutput: WebAuthn.Extension.PRF.Results?
+        var prfOutput: WebAuthn.Extension.PRF.Authentication.Output?
 
         if let prf {
             do throws(CTAP2.SessionError) {
@@ -250,9 +250,9 @@ extension WebAuthn.Backend {
 
     func processLargeBlob(
         from response: CTAP2.GetAssertion.Response,
-        action: WebAuthn.Extension.LargeBlob.AuthenticationInput?,
+        action: WebAuthn.Extension.LargeBlob.Authentication.Input?,
         token: CTAP2.Token?
-    ) async throws(WebAuthn.ClientError) -> WebAuthn.Extension.LargeBlob.AuthenticationOutput? {
+    ) async throws(WebAuthn.ClientError) -> WebAuthn.Extension.LargeBlob.Authentication.Output? {
         guard let action, let key = response.largeBlobKey else { return nil }
 
         switch action {

@@ -51,7 +51,7 @@ extension WebAuthn.Extension {
         ///
         /// Use `.enable` to enable PRF, or `.eval(first:second:)` to derive
         /// secrets at registration (requires hmac-secret-mc support).
-        public let prf: PRF.RegistrationInput?
+        public let prf: PRF.Registration.Input?
 
         /// Credential protection policy.
         ///
@@ -79,15 +79,15 @@ extension WebAuthn.Extension {
         ///
         /// Use `.required` to fail registration if the authenticator doesn't
         /// support large blobs, or `.preferred` to succeed either way.
-        public let largeBlob: LargeBlob.RegistrationInput?
+        public let largeBlob: LargeBlob.Registration.Input?
 
         public init(
-            prf: PRF.RegistrationInput? = nil,
+            prf: PRF.Registration.Input? = nil,
             credentialProtectionPolicy: CredentialProtectionPolicy? = nil,
             enforceCredentialProtectionPolicy: Bool = false,
             credBlob: Data? = nil,
             minPinLength: Bool = false,
-            largeBlob: LargeBlob.RegistrationInput? = nil
+            largeBlob: LargeBlob.Registration.Input? = nil
         ) {
             self.prf = prf
             self.credentialProtectionPolicy = credentialProtectionPolicy
@@ -120,7 +120,7 @@ extension WebAuthn.Extension {
         /// PRF extension input.
         ///
         /// Use `.eval(first:second:)` to derive secrets during authentication.
-        public let prf: PRF.AuthenticationInput?
+        public let prf: PRF.Authentication.Input?
 
         /// Request credential blob retrieval.
         ///
@@ -131,12 +131,12 @@ extension WebAuthn.Extension {
         ///
         /// Use `.read` to retrieve the blob associated with the credential,
         /// or `.write(data)` to store a blob. Read and write are mutually exclusive.
-        public let largeBlob: LargeBlob.AuthenticationInput?
+        public let largeBlob: LargeBlob.Authentication.Input?
 
         public init(
-            prf: PRF.AuthenticationInput? = nil,
+            prf: PRF.Authentication.Input? = nil,
             getCredBlob: Bool = false,
-            largeBlob: LargeBlob.AuthenticationInput? = nil
+            largeBlob: LargeBlob.Authentication.Input? = nil
         ) {
             self.prf = prf
             self.getCredBlob = getCredBlob

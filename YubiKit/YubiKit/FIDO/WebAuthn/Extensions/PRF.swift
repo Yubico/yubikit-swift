@@ -246,7 +246,7 @@ extension WebAuthn.Extension.PRF {
         /// - Returns: The derived secrets, or nil if the extension output is not present.
         public func output(
             from response: CTAP2.GetAssertion.Response
-        ) throws(CTAP2.SessionError) -> Results? {
+        ) throws(CTAP2.SessionError) -> Authentication.Output? {
             try parent.hmacSecret.getAssertion.output(from: response)
         }
     }
@@ -255,59 +255,6 @@ extension WebAuthn.Extension.PRF {
 // MARK: - WebAuthn Client Input/Output Types
 
 extension WebAuthn.Extension.PRF {
-
-    /// Input for PRF extension at registration.
-    ///
-    /// Use `.enable` to enable PRF without deriving secrets, or `.eval(first:second:)`
-    /// to derive secrets at registration (requires hmac-secret-mc support).
-    public struct RegistrationInput: Sendable, Equatable {
-        /// Secrets to derive at registration (hmac-secret-mc).
-        public let eval: Eval?
-
-        init(eval: Eval?) {
-            self.eval = eval
-        }
-
-        /// Enable PRF without deriving secrets at registration.
-        public static var enable: RegistrationInput { .init(eval: nil) }
-
-        /// Derive secrets at registration (requires hmac-secret-mc support).
-        ///
-        /// - Parameters:
-        ///   - first: First PRF secret (any length).
-        ///   - second: Optional second PRF secret (any length).
-        public static func eval(first: Data, second: Data? = nil) -> RegistrationInput {
-            .init(eval: .init(first: first, second: second))
-        }
-    }
-
-    /// Input for PRF extension at authentication.
-    ///
-    /// Use `.eval(first:second:)` to derive secrets for all credentials, or provide
-    /// `evalByCredential` to use different secrets per credential.
-    public struct AuthenticationInput: Sendable, Equatable {
-        /// Default secrets for all credentials.
-        public let eval: Eval?
-        /// Per-credential secrets keyed by credential ID.
-        public let evalByCredential: [Data: Eval]
-
-        /// Derive secrets using the same values for all credentials.
-        ///
-        /// - Parameters:
-        ///   - first: First PRF secret (any length).
-        ///   - second: Optional second PRF secret (any length).
-        public static func eval(first: Data, second: Data? = nil) -> AuthenticationInput {
-            .init(eval: .init(first: first, second: second), evalByCredential: [:])
-        }
-
-        public init(
-            eval: Eval? = nil,
-            evalByCredential: [Data: Eval] = [:]
-        ) {
-            self.eval = eval
-            self.evalByCredential = evalByCredential
-        }
-    }
 
     /// PRF evaluation secrets (first and optional second).
     public struct Eval: Sendable, Equatable {
@@ -320,9 +267,68 @@ extension WebAuthn.Extension.PRF {
         }
     }
 
-    /// Output from PRF extension at registration (alias for hmac-secret result).
-    public typealias RegistrationOutput = CTAP2.Extension.HmacSecret.MakeCredentialOperations.Result
+    /// Namespace for PRF registration types.
+    public enum Registration {
+        /// Input for PRF extension at registration.
+        ///
+        /// Use `.enable` to enable PRF without deriving secrets, or `.eval(first:second:)`
+        /// to derive secrets at registration (requires hmac-secret-mc support).
+        public struct Input: Sendable, Equatable {
+            /// Secrets to derive at registration (hmac-secret-mc).
+            public let eval: Eval?
 
-    /// Derived secrets from PRF (alias for hmac-secret secrets).
-    public typealias Results = CTAP2.Extension.HmacSecret.Secrets
+            init(eval: Eval?) {
+                self.eval = eval
+            }
+
+            /// Enable PRF without deriving secrets at registration.
+            public static var enable: Input { .init(eval: nil) }
+
+            /// Derive secrets at registration (requires hmac-secret-mc support).
+            ///
+            /// - Parameters:
+            ///   - first: First PRF secret (any length).
+            ///   - second: Optional second PRF secret (any length).
+            public static func eval(first: Data, second: Data? = nil) -> Input {
+                .init(eval: .init(first: first, second: second))
+            }
+        }
+
+        /// Output from PRF extension at registration (alias for hmac-secret result).
+        public typealias Output = CTAP2.Extension.HmacSecret.MakeCredentialOperations.Result
+    }
+
+    /// Namespace for PRF authentication types.
+    public enum Authentication {
+        /// Input for PRF extension at authentication.
+        ///
+        /// Use `.eval(first:second:)` to derive secrets for all credentials, or provide
+        /// `evalByCredential` to use different secrets per credential.
+        public struct Input: Sendable, Equatable {
+            /// Default secrets for all credentials.
+            public let eval: Eval?
+            /// Per-credential secrets keyed by credential ID.
+            public let evalByCredential: [Data: Eval]
+
+            /// Derive secrets using the same values for all credentials.
+            ///
+            /// - Parameters:
+            ///   - first: First PRF secret (any length).
+            ///   - second: Optional second PRF secret (any length).
+            public static func eval(first: Data, second: Data? = nil) -> Input {
+                .init(eval: .init(first: first, second: second), evalByCredential: [:])
+            }
+
+            public init(
+                eval: Eval? = nil,
+                evalByCredential: [Data: Eval] = [:]
+            ) {
+                self.eval = eval
+                self.evalByCredential = evalByCredential
+            }
+        }
+
+        /// Output from PRF extension at authentication (alias for hmac-secret secrets).
+        public typealias Output = CTAP2.Extension.HmacSecret.Secrets
+    }
 }

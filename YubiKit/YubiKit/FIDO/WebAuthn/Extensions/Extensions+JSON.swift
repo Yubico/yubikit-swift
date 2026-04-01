@@ -21,7 +21,7 @@ extension WebAuthn.Extension.RegistrationInputs: Decodable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
-            prf: try container.decodeIfPresent(WebAuthn.Extension.PRF.RegistrationInput.self, forKey: .prf),
+            prf: try container.decodeIfPresent(WebAuthn.Extension.PRF.Registration.Input.self, forKey: .prf),
             credentialProtectionPolicy: try container.decodeIfPresent(
                 WebAuthn.Extension.CredentialProtectionPolicy.self,
                 forKey: .credentialProtectionPolicy
@@ -33,7 +33,7 @@ extension WebAuthn.Extension.RegistrationInputs: Decodable {
             credBlob: try container.decodeBase64URLIfPresent(forKey: .credBlob),
             minPinLength: try container.decodeIfPresent(Bool.self, forKey: .minPinLength) ?? false,
             largeBlob: try container.decodeIfPresent(
-                WebAuthn.Extension.LargeBlob.RegistrationInput.self,
+                WebAuthn.Extension.LargeBlob.Registration.Input.self,
                 forKey: .largeBlob
             )
         )
@@ -51,10 +51,10 @@ extension WebAuthn.Extension.AuthenticationInputs: Decodable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
-            prf: try container.decodeIfPresent(WebAuthn.Extension.PRF.AuthenticationInput.self, forKey: .prf),
+            prf: try container.decodeIfPresent(WebAuthn.Extension.PRF.Authentication.Input.self, forKey: .prf),
             getCredBlob: try container.decodeIfPresent(Bool.self, forKey: .getCredBlob) ?? false,
             largeBlob: try container.decodeIfPresent(
-                WebAuthn.Extension.LargeBlob.AuthenticationInput.self,
+                WebAuthn.Extension.LargeBlob.Authentication.Input.self,
                 forKey: .largeBlob
             )
         )
@@ -103,7 +103,7 @@ extension WebAuthn.Extension.AuthenticationOutputs: Encodable {
 
 // MARK: - PRF Registration Input Decodable
 
-extension WebAuthn.Extension.PRF.RegistrationInput: Decodable {
+extension WebAuthn.Extension.PRF.Registration.Input: Decodable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -118,7 +118,7 @@ extension WebAuthn.Extension.PRF.RegistrationInput: Decodable {
 
 // MARK: - PRF Authentication Input Decodable
 
-extension WebAuthn.Extension.PRF.AuthenticationInput: Decodable {
+extension WebAuthn.Extension.PRF.Authentication.Input: Decodable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -286,7 +286,7 @@ extension WebAuthn.Extension.LargeBlob.Support: Codable {
 
 // MARK: - LargeBlob Registration Input Decodable
 
-extension WebAuthn.Extension.LargeBlob.RegistrationInput: Decodable {
+extension WebAuthn.Extension.LargeBlob.Registration.Input: Decodable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -302,7 +302,7 @@ extension WebAuthn.Extension.LargeBlob.RegistrationInput: Decodable {
 
 // MARK: - LargeBlob Registration Output Encodable
 
-extension WebAuthn.Extension.LargeBlob.RegistrationOutput: Encodable {
+extension WebAuthn.Extension.LargeBlob.Registration.Output: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
@@ -316,7 +316,7 @@ extension WebAuthn.Extension.LargeBlob.RegistrationOutput: Encodable {
 
 // MARK: - LargeBlob Authentication Input Decodable
 
-extension WebAuthn.Extension.LargeBlob.AuthenticationInput: Decodable {
+extension WebAuthn.Extension.LargeBlob.Authentication.Input: Decodable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -351,7 +351,7 @@ extension WebAuthn.Extension.LargeBlob.AuthenticationInput: Decodable {
 
 // MARK: - LargeBlob Authentication Output Encodable
 
-extension WebAuthn.Extension.LargeBlob.AuthenticationOutput: Encodable {
+extension WebAuthn.Extension.LargeBlob.Authentication.Output: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
