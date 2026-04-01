@@ -91,29 +91,32 @@ extension WebAuthn.Extension.LargeBlob {
 
 extension WebAuthn.Extension.LargeBlob {
 
-    /// Input for largeBlob extension at registration.
-    public struct RegistrationInput: Sendable, Equatable {
-        /// Whether large blob support is required or preferred.
-        public let support: Support
+    /// Namespace for largeBlob registration types.
+    public enum Registration {
+        /// Input for largeBlob extension at registration.
+        public struct Input: Sendable, Equatable {
+            /// Whether large blob support is required or preferred.
+            public let support: Support
 
-        public init(support: Support) {
-            self.support = support
+            public init(support: Support) {
+                self.support = support
+            }
+
+            /// Require large blob support (registration fails if unsupported).
+            public static let required = Self(support: .required)
+
+            /// Prefer large blob support (registration succeeds either way).
+            public static let preferred = Self(support: .preferred)
         }
 
-        /// Require large blob support (registration fails if unsupported).
-        public static let required = Self(support: .required)
+        /// Output from largeBlob extension at registration.
+        public struct Output: Sendable, Equatable {
+            /// Whether the created credential supports large blob storage.
+            public let supported: Bool
 
-        /// Prefer large blob support (registration succeeds either way).
-        public static let preferred = Self(support: .preferred)
-    }
-
-    /// Output from largeBlob extension at registration.
-    public struct RegistrationOutput: Sendable, Equatable {
-        /// Whether the created credential supports large blob storage.
-        public let supported: Bool
-
-        public init(supported: Bool) {
-            self.supported = supported
+            public init(supported: Bool) {
+                self.supported = supported
+            }
         }
     }
 }
@@ -122,29 +125,32 @@ extension WebAuthn.Extension.LargeBlob {
 
 extension WebAuthn.Extension.LargeBlob {
 
-    /// Input for largeBlob extension at authentication.
-    ///
-    /// Read and write are mutually exclusive, enforced by the enum.
-    public enum AuthenticationInput: Sendable, Equatable {
-        /// Read the blob associated with the asserted credential.
-        case read
-        /// Write a blob to the asserted credential's large blob storage.
-        case write(Data)
-    }
-
-    /// Output from largeBlob extension at authentication.
-    public struct AuthenticationOutput: Sendable, Equatable {
-        /// The retrieved blob data (present when `read` was requested).
+    /// Namespace for largeBlob authentication types.
+    public enum Authentication {
+        /// Input for largeBlob extension at authentication.
         ///
-        /// `nil` if no blob was stored or the read failed.
-        public let blob: Data?
+        /// Read and write are mutually exclusive, enforced by the enum.
+        public enum Input: Sendable, Equatable {
+            /// Read the blob associated with the asserted credential.
+            case read
+            /// Write a blob to the asserted credential's large blob storage.
+            case write(Data)
+        }
 
-        /// Whether the write succeeded (present when `write` was requested).
-        public let written: Bool?
+        /// Output from largeBlob extension at authentication.
+        public struct Output: Sendable, Equatable {
+            /// The retrieved blob data (present when `read` was requested).
+            ///
+            /// `nil` if no blob was stored or the read failed.
+            public let blob: Data?
 
-        public init(blob: Data? = nil, written: Bool? = nil) {
-            self.blob = blob
-            self.written = written
+            /// Whether the write succeeded (present when `write` was requested).
+            public let written: Bool?
+
+            public init(blob: Data? = nil, written: Bool? = nil) {
+                self.blob = blob
+                self.written = written
+            }
         }
     }
 }

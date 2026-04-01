@@ -27,7 +27,7 @@ extension WebAuthn.Extension {
         ///
         /// `.enabled` if PRF is supported, `.secrets` if hmac-secret-mc returned
         /// derived secrets, or `nil` if PRF was not requested or not supported.
-        public let prf: PRF.RegistrationOutput?
+        public let prf: PRF.Registration.Output?
 
         /// Applied credential protection policy.
         ///
@@ -51,14 +51,14 @@ extension WebAuthn.Extension {
         ///
         /// `supported` is `true` if the authenticator supports large blob storage.
         /// `nil` if largeBlob was not requested.
-        public let largeBlob: LargeBlob.RegistrationOutput?
+        public let largeBlob: LargeBlob.Registration.Output?
 
         public init(
-            prf: PRF.RegistrationOutput? = nil,
+            prf: PRF.Registration.Output? = nil,
             credentialProtectionPolicy: CredentialProtectionPolicy? = nil,
             credBlobSet: Bool? = nil,
             minPinLength: UInt? = nil,
-            largeBlob: LargeBlob.RegistrationOutput? = nil
+            largeBlob: LargeBlob.Registration.Output? = nil
         ) {
             self.prf = prf
             self.credentialProtectionPolicy = credentialProtectionPolicy
@@ -85,7 +85,7 @@ extension WebAuthn.Extension {
         ///
         /// Contains the derived 32-byte secrets, or `nil` if PRF was not
         /// requested or the credential doesn't support PRF.
-        public let prf: PRF.Results?
+        public let prf: PRF.Authentication.Output?
 
         /// Retrieved credential blob.
         ///
@@ -98,12 +98,12 @@ extension WebAuthn.Extension {
         /// For reads: `blob` contains the retrieved data (or `nil` if none stored).
         /// For writes: `written` indicates success or failure.
         /// `nil` if largeBlob was not requested.
-        public let largeBlob: LargeBlob.AuthenticationOutput?
+        public let largeBlob: LargeBlob.Authentication.Output?
 
         public init(
-            prf: PRF.Results? = nil,
+            prf: PRF.Authentication.Output? = nil,
             credBlob: Data? = nil,
-            largeBlob: LargeBlob.AuthenticationOutput? = nil
+            largeBlob: LargeBlob.Authentication.Output? = nil
         ) {
             self.prf = prf
             self.credBlob = credBlob
