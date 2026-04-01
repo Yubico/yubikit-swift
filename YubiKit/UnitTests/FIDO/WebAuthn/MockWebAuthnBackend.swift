@@ -16,10 +16,12 @@ import Foundation
 
 @testable import YubiKit
 
-/// Mock backend - set closures to control behavior. Crashes if closure not set.
+// MARK: - MockWebAuthnBackend
+
+/// Mock backend for WebAuthn tests. Set closures to control behavior.
 actor MockWebAuthnBackend: WebAuthn.Backend {
 
-    // MARK: - Closures (must be set before use)
+    // MARK: Configurable Closures
 
     nonisolated(unsafe) var onGetInfo: (() throws(CTAP2.SessionError) -> CTAP2.GetInfo.Response)!
     nonisolated(unsafe) var onGetUVRetries: (() throws(CTAP2.SessionError) -> Int)!
@@ -32,22 +34,14 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
         ((CTAP2.GetAssertion.Parameters) -> CTAP2.StatusStream<CTAP2.GetAssertion.Response>)!
     nonisolated(unsafe) var onGetNextAssertion: (() -> CTAP2.StatusStream<CTAP2.GetAssertion.Response>)!
 
-    // MARK: - Backend Protocol
+    // MARK: WebAuthn.Backend Protocol
 
     var cachedInfo: CTAP2.GetInfo.ImmutableView {
-        get async throws(CTAP2.SessionError) {
-            try CTAP2.GetInfo.ImmutableView(onGetInfo())
-        }
+        get async throws(CTAP2.SessionError) { try CTAP2.GetInfo.ImmutableView(onGetInfo()) }
     }
 
-    func getInfo() async throws(CTAP2.SessionError) -> CTAP2.GetInfo.Response {
-        try onGetInfo()
-    }
-
-    func getUVRetries() async throws(CTAP2.SessionError) -> Int {
-        try onGetUVRetries()
-    }
-
+    func getInfo() async throws(CTAP2.SessionError) -> CTAP2.GetInfo.Response { try onGetInfo() }
+    func getUVRetries() async throws(CTAP2.SessionError) -> Int { try onGetUVRetries() }
     func getPinRetries() async throws(CTAP2.SessionError) -> CTAP2.ClientPin.GetRetries.Response {
         try onGetPinRetries()
     }
@@ -77,18 +71,36 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
     func getNextAssertion() async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
         onGetNextAssertion()
     }
+
+    // MARK: Extension Factories (Not Implemented)
+
+    func makePRF() async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF { fatalError() }
+    func makePRF(
+        first: Data,
+        second: Data?,
+        evalByCredential: [Data: (first: Data, second: Data?)]
+    ) async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF { fatalError() }
+    func makePRF(
+        evalByCredential: [Data: (first: Data, second: Data?)]
+    ) async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF { fatalError() }
+    func makeCredProtect(
+        level: WebAuthn.Extension.CredentialProtectionPolicy,
+        enforce: Bool
+    ) async throws(CTAP2.SessionError) -> CTAP2.Extension.CredProtect { fatalError() }
+    func makeCredBlob() async throws(CTAP2.SessionError) -> CTAP2.Extension.CredBlob { fatalError() }
+    func isMinPinLengthSupported() async throws(CTAP2.SessionError) -> Bool { fatalError() }
+    func makeMinPinLength() async throws(CTAP2.SessionError) -> CTAP2.Extension.MinPinLength { fatalError() }
+    func makeLargeBlobKey() async throws(CTAP2.SessionError) -> CTAP2.Extension.LargeBlobKey { fatalError() }
+    func isLargeBlobSupported() async throws(CTAP2.SessionError) -> Bool { fatalError() }
+    func getBlob(key: Data) async throws(CTAP2.SessionError) -> Data? { fatalError() }
+    func putBlob(key: Data, data: Data, token: CTAP2.Token) async throws(CTAP2.SessionError) { fatalError() }
 }
 
 // MARK: - StatusStream Helpers
 
 extension StatusStreamBase where Failure == CTAP2.SessionError {
-    static func mocked(_ status: Status) -> Self {
-        .init { $0.yield(status) }
-    }
-
-    static func mocked(error: CTAP2.SessionError) -> Self {
-        .init { $0.yield(error: error) }
-    }
+    static func mocked(_ status: Status) -> Self { .init { $0.yield(status) } }
+    static func mocked(error: CTAP2.SessionError) -> Self { .init { $0.yield(error: error) } }
 }
 
 // MARK: - Test Stubs

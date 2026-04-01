@@ -26,6 +26,7 @@ extension WebAuthn.Registration {
         public let authenticatorData: WebAuthn.AuthenticatorData
         public let attestationStatement: WebAuthn.AttestationStatement
         public let transports: [WebAuthn.Transport]
+        public let clientExtensionResults: WebAuthn.Extension.RegistrationOutputs
 
         public var publicKey: COSE.Key? { authenticatorData.attestedCredentialData?.credentialPublicKey }
         public var aaguid: WebAuthn.AAGUID? { authenticatorData.attestedCredentialData?.aaguid }

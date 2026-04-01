@@ -37,6 +37,7 @@ extension WebAuthn.Registration {
         public let attestation: WebAuthn.AttestationPreference
         public let pubKeyCredParams: [COSE.Algorithm]
         public let timeout: Duration?
+        public let extensions: WebAuthn.Extension.RegistrationInputs?
 
         public init(
             challenge: Data,
@@ -47,7 +48,8 @@ extension WebAuthn.Registration {
             userVerification: WebAuthn.UserVerificationPreference = .preferred,
             attestation: WebAuthn.AttestationPreference = .none,
             pubKeyCredParams: [COSE.Algorithm] = [.es256, .edDSA, .rs256],
-            timeout: Duration? = nil
+            timeout: Duration? = nil,
+            extensions: WebAuthn.Extension.RegistrationInputs? = nil
         ) {
             self.challenge = challenge
             self.rp = rp
@@ -58,6 +60,7 @@ extension WebAuthn.Registration {
             self.attestation = attestation
             self.pubKeyCredParams = pubKeyCredParams
             self.timeout = timeout
+            self.extensions = extensions
         }
     }
 }

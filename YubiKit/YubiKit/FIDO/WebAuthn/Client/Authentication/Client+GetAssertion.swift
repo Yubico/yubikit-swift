@@ -127,9 +127,17 @@ extension WebAuthn.Client {
                 await self.awaitUVDecision(from: continuation)
             }
 
+            // Only request largeBlobWrite when supported and a write is requested.
+            var permissions: CTAP2.ClientPin.Permission = .getAssertion
+            if case .write = options.extensions?.largeBlob,
+                (try? await backend.isLargeBlobSupported()) == true
+            {
+                permissions.insert(.largeBlobWrite)
+            }
+
             let auth = try await acquireAuthToken(
                 info: info,
-                permissions: .getAssertion,
+                permissions: permissions,
                 rpId: rpId,
                 userVerification: retry.userVerification,
                 isMakeCredential: false,
@@ -147,15 +155,22 @@ extension WebAuthn.Client {
 
             let allowList = buildAllowList(options.allowCredentials, selectedCred: selectedCred)
 
+            let (ctapExtensions, prf, largeBlobAction) = try await backend.buildGetAssertionExtensions(
+                options.extensions,
+                allowCredentials: options.allowCredentials,
+                selectedCredentialId: selectedCred?.id
+            )
+
             let parameters = CTAP2.GetAssertion.Parameters(
                 rpId: rpId,
                 clientDataHash: clientDataHash,
                 allowList: allowList,
-                extensions: [],  // TODO: Extensions not yet implemented
+                extensions: ctapExtensions,
                 up: true,
                 uv: auth.uv
             )
 
+            let collected: [CTAP2.GetAssertion.Response]
             do throws(CTAP2.SessionError) {
                 let firstStream = await backend.getAssertion(
                     parameters: parameters,
@@ -181,35 +196,62 @@ extension WebAuthn.Client {
                 }
 
                 // Collect additional assertions for discoverable credentials.
-                var collected = [firstResponse]
+                var allResponses = [firstResponse]
                 let total = firstResponse.numberOfCredentials ?? 1
                 for _ in 1..<total {
-                    collected.append(try await backend.getNextAssertion().value)
+                    allResponses.append(try await backend.getNextAssertion().value)
                 }
+                collected = allResponses
+            } catch {
+                guard retry.shouldRetry(for: error) else { throw WebAuthn.Error(error) }
+                continue
+            }
 
-                var responses: [WebAuthn.Authentication.Response] = []
-                for ctapResponse in collected {
-                    // Credential ID from response, or allowList (may be omitted for single-item).
-                    guard let credentialId = ctapResponse.credential?.id ?? allowList?.first?.id else {
-                        throw CTAP2.SessionError.responseParseError(
+            var responses: [WebAuthn.Authentication.Response] = []
+            for (index, ctapResponse) in collected.enumerated() {
+                guard let credentialId = ctapResponse.credential?.id ?? allowList?.first?.id else {
+                    throw WebAuthn.Error(
+                        CTAP2.SessionError.responseParseError(
                             "Missing credential ID in assertion response",
                             source: .here()
                         )
-                    }
-                    let response = WebAuthn.Authentication.Response(
-                        credentialId: credentialId,
-                        rawAuthenticatorData: ctapResponse.authenticatorData.rawData,
-                        signature: ctapResponse.signature,
-                        user: ctapResponse.user,
-                        authenticatorData: ctapResponse.authenticatorData,
-                        clientDataJSON: clientData.clientDataJSON
                     )
-                    responses.append(response)
                 }
-                return responses
-            } catch {
-                guard retry.shouldRetry(for: error) else { throw WebAuthn.Error(error) }
+                // Process largeBlob: reads for all responses, writes only for first.
+                let shouldProcessLargeBlob: Bool
+                switch largeBlobAction {
+                case .read:
+                    shouldProcessLargeBlob = true
+                case .write:
+                    shouldProcessLargeBlob = index == 0
+                case nil:
+                    shouldProcessLargeBlob = false
+                }
+                let largeBlobOutput: WebAuthn.Extension.LargeBlob.AuthenticationOutput? =
+                    shouldProcessLargeBlob
+                    ? try await backend.processLargeBlob(
+                        from: ctapResponse,
+                        action: largeBlobAction,
+                        token: auth.token
+                    )
+                    : nil
+                let extensionOutputs = try await backend.parseAuthenticationOutputs(
+                    from: ctapResponse,
+                    prf: prf,
+                    largeBlobOutput: largeBlobOutput
+                )
+                let response = WebAuthn.Authentication.Response(
+                    credentialId: credentialId,
+                    rawAuthenticatorData: ctapResponse.authenticatorData.rawData,
+                    signature: ctapResponse.signature,
+                    user: ctapResponse.user,
+                    authenticatorData: ctapResponse.authenticatorData,
+                    clientExtensionResults: extensionOutputs,
+                    clientDataJSON: clientData.clientDataJSON
+                )
+                responses.append(response)
             }
+            return responses
         }
     }
 
