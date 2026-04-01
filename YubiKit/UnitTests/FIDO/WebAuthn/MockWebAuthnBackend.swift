@@ -72,8 +72,9 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
         onGetNextAssertion()
     }
 
-    // MARK: Extension Factories (Not Implemented)
+    // MARK: Extensions (Not Implemented)
 
+    // PRF (hmac-secret)
     func makePRF() async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF { fatalError() }
     func makePRF(
         first: Data,
@@ -83,13 +84,21 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
     func makePRF(
         evalByCredential: [Data: (first: Data, second: Data?)]
     ) async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF { fatalError() }
+
+    // credProtect
     func makeCredProtect(
         level: WebAuthn.Extension.CredentialProtectionPolicy,
         enforce: Bool
     ) async throws(CTAP2.SessionError) -> CTAP2.Extension.CredProtect { fatalError() }
+
+    // credBlob
     func makeCredBlob() async throws(CTAP2.SessionError) -> CTAP2.Extension.CredBlob { fatalError() }
+
+    // minPinLength
     func isMinPinLengthSupported() async throws(CTAP2.SessionError) -> Bool { fatalError() }
     func makeMinPinLength() async throws(CTAP2.SessionError) -> CTAP2.Extension.MinPinLength { fatalError() }
+
+    // largeBlob
     func makeLargeBlobKey() async throws(CTAP2.SessionError) -> CTAP2.Extension.LargeBlobKey { fatalError() }
     func isLargeBlobSupported() async throws(CTAP2.SessionError) -> Bool { fatalError() }
     func getBlob(key: Data) async throws(CTAP2.SessionError) -> Data? { fatalError() }

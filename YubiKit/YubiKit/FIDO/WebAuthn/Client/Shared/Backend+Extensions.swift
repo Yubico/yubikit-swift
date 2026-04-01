@@ -65,13 +65,16 @@ extension WebAuthn.Backend {
 
             if let largeBlobInput = inputs.largeBlob {
                 let supported = try await isLargeBlobSupported()
+                if largeBlobInput.support == .required && !supported {
+                    throw CTAP2.SessionError.extensionNotSupported(.largeBlobKey, source: .here())
+                }
+                // Always send the extension when requested (authenticator ignores if unsupported).
+                // Response will indicate supported: true/false based on largeBlobKey presence.
                 if supported {
                     let largeBlobKey = try await makeLargeBlobKey()
                     ctapInputs.append(largeBlobKey.makeCredential.input())
-                    largeBlobRequested = true
-                } else if largeBlobInput.support == .required {
-                    throw CTAP2.SessionError.extensionNotSupported(.largeBlobKey, source: .here())
                 }
+                largeBlobRequested = true
             }
         } catch {
             throw WebAuthn.Error(error)
@@ -116,22 +119,18 @@ extension WebAuthn.Backend {
             }
 
             // Validate evalByCredential against allowCredentials (WebAuthn L3 §10.1.4).
-            if !evalByCredential.isEmpty {
-                if allowCredentials.isEmpty {
-                    throw .invalidRequest(
-                        "evalByCredential requires non-empty allowCredentials",
-                        source: .here()
-                    )
-                }
-                let allowedIds = Set(allowCredentials.map(\.id))
-                for key in evalByCredential.keys {
-                    if !allowedIds.contains(key) {
-                        throw .invalidRequest(
-                            "evalByCredential key is not in allowCredentials",
-                            source: .here()
-                        )
-                    }
-                }
+            if !evalByCredential.isEmpty && allowCredentials.isEmpty {
+                throw .invalidRequest(
+                    "evalByCredential requires non-empty allowCredentials",
+                    source: .here()
+                )
+            }
+            let allowedIds = Set(allowCredentials.map(\.id))
+            for key in evalByCredential.keys where !allowedIds.contains(key) {
+                throw .invalidRequest(
+                    "evalByCredential key is not in allowCredentials",
+                    source: .here()
+                )
             }
 
             guard prfInput.eval != nil || !evalByCredential.isEmpty else {
