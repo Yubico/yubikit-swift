@@ -71,7 +71,7 @@ extension WebAuthn {
 
         // credProtect
         func makeCredProtect(
-            level: WebAuthn.Extension.CredentialProtectionPolicy,
+            level: WebAuthn.Extension.CredProtect.Policy,
             enforce: Bool
         ) async throws(CTAP2.SessionError) -> CTAP2.Extension.CredProtect
 
@@ -136,7 +136,7 @@ extension CTAP2.Session: WebAuthn.Backend {
 
     // credProtect
     func makeCredProtect(
-        level: WebAuthn.Extension.CredentialProtectionPolicy,
+        level: WebAuthn.Extension.CredProtect.Policy,
         enforce: Bool
     ) async throws(CTAP2.SessionError) -> CTAP2.Extension.CredProtect {
         try await CTAP2.Extension.CredProtect(level: level, session: self, enforce: enforce)

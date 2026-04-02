@@ -25,44 +25,43 @@ extension WebAuthn.Extension {
 
         /// PRF extension result.
         ///
-        /// `.enabled` if PRF is supported, `.secrets` if hmac-secret-mc returned
-        /// derived secrets, or `nil` if PRF was not requested or not supported.
+        /// Contains `enabled: true` if PRF is supported. If hmac-secret-mc returned
+        /// derived secrets, `results` will contain them.
         public let prf: PRF.Registration.Output?
 
         /// Applied credential protection policy.
         ///
-        /// The protection level applied to the credential, or `nil` if credProtect
+        /// The `policy` applied to the credential, or `nil` if credProtect
         /// was not requested or not supported.
-        public let credentialProtectionPolicy: CredentialProtectionPolicy?
+        public let credProtect: CredProtect.Registration.Output?
 
-        /// Whether the credential blob was stored successfully.
+        /// Credential blob storage result.
         ///
-        /// `true` if stored, `false` if storage failed, or `nil` if credBlob
-        /// was not requested or not supported.
-        public let credBlobSet: Bool?
+        /// `stored` is `true` if successful, `false` if storage failed,
+        /// or `nil` if credBlob was not requested or not supported.
+        public let credBlob: CredBlob.Registration.Output?
 
         /// Minimum PIN length enforced by the authenticator.
         ///
-        /// Only returned if the RP is configured in the authenticator's
-        /// `minPINLengthRPIDs` list. `nil` if not authorized or not supported.
-        public let minPinLength: UInt?
+        /// `length` contains the minimum PIN length. Only returned if the RP is
+        /// configured in the authenticator's `minPINLengthRPIDs` list.
+        public let minPinLength: MinPinLength.Registration.Output?
 
         /// Large blob support result.
         ///
         /// `supported` is `true` if the authenticator supports large blob storage.
-        /// `nil` if largeBlob was not requested.
         public let largeBlob: LargeBlob.Registration.Output?
 
         public init(
             prf: PRF.Registration.Output? = nil,
-            credentialProtectionPolicy: CredentialProtectionPolicy? = nil,
-            credBlobSet: Bool? = nil,
-            minPinLength: UInt? = nil,
+            credProtect: CredProtect.Registration.Output? = nil,
+            credBlob: CredBlob.Registration.Output? = nil,
+            minPinLength: MinPinLength.Registration.Output? = nil,
             largeBlob: LargeBlob.Registration.Output? = nil
         ) {
             self.prf = prf
-            self.credentialProtectionPolicy = credentialProtectionPolicy
-            self.credBlobSet = credBlobSet
+            self.credProtect = credProtect
+            self.credBlob = credBlob
             self.minPinLength = minPinLength
             self.largeBlob = largeBlob
         }
@@ -83,26 +82,25 @@ extension WebAuthn.Extension {
 
         /// Derived PRF secrets.
         ///
-        /// Contains the derived 32-byte secrets, or `nil` if PRF was not
-        /// requested or the credential doesn't support PRF.
+        /// Contains `results` with the derived 32-byte secrets, or `nil` if PRF
+        /// was not requested or the credential doesn't support PRF.
         public let prf: PRF.Authentication.Output?
 
         /// Retrieved credential blob.
         ///
-        /// The blob data stored during registration, or `nil` if getCredBlob
-        /// was not requested or the credential has no stored blob.
-        public let credBlob: Data?
+        /// Contains `blob` with the data stored during registration, or `nil`
+        /// if credBlob was not requested or the credential has no stored blob.
+        public let credBlob: CredBlob.Authentication.Output?
 
         /// Large blob read/write result.
         ///
         /// For reads: `blob` contains the retrieved data (or `nil` if none stored).
         /// For writes: `written` indicates success or failure.
-        /// `nil` if largeBlob was not requested.
         public let largeBlob: LargeBlob.Authentication.Output?
 
         public init(
             prf: PRF.Authentication.Output? = nil,
-            credBlob: Data? = nil,
+            credBlob: CredBlob.Authentication.Output? = nil,
             largeBlob: LargeBlob.Authentication.Output? = nil
         ) {
             self.prf = prf

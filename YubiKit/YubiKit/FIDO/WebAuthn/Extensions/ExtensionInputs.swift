@@ -21,9 +21,6 @@ extension WebAuthn {
     public enum Extension {
         /// Extension identifier type (shared with CTAP2).
         public typealias Identifier = CTAP2.Extension.Identifier
-
-        /// Credential protection policy (alias for CTAP2 credProtect level).
-        public typealias CredentialProtectionPolicy = CTAP2.Extension.CredProtect.Level
     }
 }
 
@@ -40,8 +37,7 @@ extension WebAuthn.Extension {
     ///     user: .init(id: userId, name: "alice@example.com"),
     ///     extensions: .init(
     ///         prf: .enable,
-    ///         credentialProtectionPolicy: .userVerificationRequired,
-    ///         enforceCredentialProtectionPolicy: true
+    ///         credProtect: .enforced(.userVerificationRequired)
     ///     )
     /// )
     /// ```
@@ -53,27 +49,21 @@ extension WebAuthn.Extension {
         /// secrets at registration (requires hmac-secret-mc support).
         public let prf: PRF.Registration.Input?
 
-        /// Credential protection policy.
+        /// Credential protection policy input.
         ///
         /// Controls when user verification is required to use the credential.
-        public let credentialProtectionPolicy: CredentialProtectionPolicy?
-
-        /// Enforce credential protection policy.
-        ///
-        /// If `true`, registration will fail if the authenticator doesn't support
-        /// the requested `credentialProtectionPolicy`.
-        public let enforceCredentialProtectionPolicy: Bool
+        public let credProtect: CredProtect.Registration.Input?
 
         /// Credential blob to store with the credential.
         ///
         /// Must not exceed `maxCredBlobLength` reported by the authenticator.
-        public let credBlob: Data?
+        public let credBlob: CredBlob.Registration.Input?
 
         /// Request the authenticator's minimum PIN length.
         ///
-        /// If `true` and the authenticator supports the `setMinPINLength` option,
+        /// If set and the authenticator supports the `setMinPINLength` option,
         /// the minimum PIN length will be returned in the registration outputs.
-        public let minPinLength: Bool
+        public let minPinLength: MinPinLength.Registration.Input?
 
         /// Large blob support request.
         ///
@@ -83,15 +73,13 @@ extension WebAuthn.Extension {
 
         public init(
             prf: PRF.Registration.Input? = nil,
-            credentialProtectionPolicy: CredentialProtectionPolicy? = nil,
-            enforceCredentialProtectionPolicy: Bool = false,
-            credBlob: Data? = nil,
-            minPinLength: Bool = false,
+            credProtect: CredProtect.Registration.Input? = nil,
+            credBlob: CredBlob.Registration.Input? = nil,
+            minPinLength: MinPinLength.Registration.Input? = nil,
             largeBlob: LargeBlob.Registration.Input? = nil
         ) {
             self.prf = prf
-            self.credentialProtectionPolicy = credentialProtectionPolicy
-            self.enforceCredentialProtectionPolicy = enforceCredentialProtectionPolicy
+            self.credProtect = credProtect
             self.credBlob = credBlob
             self.minPinLength = minPinLength
             self.largeBlob = largeBlob
@@ -125,7 +113,7 @@ extension WebAuthn.Extension {
         /// Request credential blob retrieval.
         ///
         /// If `true`, the credential blob stored during registration will be returned.
-        public let getCredBlob: Bool
+        public let getCredBlob: CredBlob.Authentication.Input?
 
         /// Large blob read or write request.
         ///
@@ -135,7 +123,7 @@ extension WebAuthn.Extension {
 
         public init(
             prf: PRF.Authentication.Input? = nil,
-            getCredBlob: Bool = false,
+            getCredBlob: CredBlob.Authentication.Input? = nil,
             largeBlob: LargeBlob.Authentication.Input? = nil
         ) {
             self.prf = prf
