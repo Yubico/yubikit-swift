@@ -87,7 +87,7 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
 
     // credProtect
     func makeCredProtect(
-        level: WebAuthn.Extension.CredentialProtectionPolicy,
+        level: WebAuthn.Extension.CredProtect.Policy,
         enforce: Bool
     ) async throws(CTAP2.SessionError) -> CTAP2.Extension.CredProtect { fatalError() }
 
