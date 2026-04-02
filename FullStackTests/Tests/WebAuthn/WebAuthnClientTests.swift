@@ -475,23 +475,6 @@ func randomBytes(count: Int) -> Data {
     return Data(bytes)
 }
 
-/// Extension that auto-responds to `.requestingPIN` and `.requestingUV` stream statuses.
-/// Replaces `.value(pin: defaultTestPin)` for tests that need PIN/UV interaction.
-extension StatusStreamBase {
-    func value<R: Sendable>(pin: String) async throws -> R
-    where Status == WebAuthn.Status<R>, Failure == WebAuthn.ClientError {
-        for try await status in self {
-            switch status {
-            case .requestingPIN(let submitPIN): submitPIN(pin)
-            case .requestingUV(let useUV): useUV(true)
-            case .finished(let response): return response
-            default: break
-            }
-        }
-        preconditionFailure("Stream ended without response")
-    }
-}
-
 private func withWebAuthnClient<T>(
     _ body: (WebAuthn.Client) async throws -> T
 ) async throws -> T {

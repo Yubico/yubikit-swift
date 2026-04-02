@@ -44,3 +44,23 @@ extension CTAP2 {
     /// ```
     public typealias StatusStream<R: Sendable> = StatusStreamBase<Status<R>, SessionError>
 }
+
+// MARK: - CTAP2 Value Accessor
+
+extension StatusStreamBase where Failure == CTAP2.SessionError {
+
+    /// Consumes the stream and returns the final response value.
+    ///
+    /// Iterates through all status updates and returns the response
+    /// from the `.finished` case. Intermediate status updates are ignored.
+    public var value: Status.Response {
+        get async throws(Failure) {
+            for try await status in self {
+                if let response = status.finishedResponse {
+                    return response
+                }
+            }
+            preconditionFailure("StatusStream must yield .finished before ending")
+        }
+    }
+}
