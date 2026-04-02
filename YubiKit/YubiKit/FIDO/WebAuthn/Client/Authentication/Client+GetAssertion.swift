@@ -243,13 +243,15 @@ extension WebAuthn.Client {
                             prf: prf,
                             largeBlobOutput: largeBlobOutput
                         )
+                        let authenticatorData = ctapResponse.authenticatorData
                         return WebAuthn.Authentication.Response(
                             credentialId: credentialId,
-                            rawAuthenticatorData: ctapResponse.authenticatorData.rawData,
+                            rawAuthenticatorData: authenticatorData.rawData,
                             signature: ctapResponse.signature,
                             user: ctapResponse.user,
-                            authenticatorData: ctapResponse.authenticatorData,
                             clientExtensionResults: extensionOutputs,
+                            signCount: authenticatorData.signCount,
+                            authenticatorData: authenticatorData,
                             clientDataJSON: clientData.clientDataJSON
                         )
                     }

@@ -201,9 +201,9 @@ extension WebAuthn.Registration.Response: Encodable {
         var inner = container.nestedContainer(keyedBy: RegistrationResponseKeys.self, forKey: .response)
         try inner.encodeBase64URL(rawAttestationObject, forKey: .attestationObject)
         try inner.encodeBase64URLIfPresent(clientDataJSON, forKey: .clientDataJSON)
-        try inner.encodeBase64URL(authenticatorData.rawData, forKey: .authenticatorData)
+        try inner.encodeBase64URL(rawAuthenticatorData, forKey: .authenticatorData)
         try inner.encode(transports.map(\.rawValue), forKey: .transports)
-        if let algorithm = publicKey?.algorithm {
+        if let algorithm = publicKey.algorithm {
             try inner.encode(algorithm.rawValue, forKey: .publicKeyAlgorithm)
         }
 
