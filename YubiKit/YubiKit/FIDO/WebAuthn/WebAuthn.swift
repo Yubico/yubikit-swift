@@ -198,6 +198,23 @@ public enum WebAuthn {
 
 extension StatusStreamBase where Failure == WebAuthn.ClientError {
 
+    /// Consumes the stream and returns the final response value.
+    ///
+    /// Throws ``WebAuthn/ClientError/pinRequired(source:)`` if the authenticator
+    /// requests a PIN. Use ``value(pin:useUV:)`` instead when a PIN may be needed.
+    public func value<R: Sendable>() async throws(WebAuthn.ClientError) -> R
+    where Status == WebAuthn.Status<R> {
+        for try await status in self {
+            switch status {
+            case .requestingPIN: throw .pinRequired(source: .here())
+            case .requestingUV(let approve): approve(true)
+            case .finished(let response): return response
+            default: break
+            }
+        }
+        preconditionFailure("StatusStream must yield .finished before ending")
+    }
+
     /// Consumes the stream and returns the final response value, auto-responding
     /// to PIN and UV requests.
     ///
