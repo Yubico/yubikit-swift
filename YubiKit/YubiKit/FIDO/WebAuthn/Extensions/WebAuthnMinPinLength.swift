@@ -33,7 +33,7 @@ extension WebAuthn.Extension {
     ///     ...,
     ///     extensions: .init(minPinLength: true)
     /// )
-    /// let response = try await client.makeCredential(options).value
+    /// let response = try await client.makeCredential(options).value(pin: pin)
     /// if let length = response.clientExtensionResults.minPinLength?.length {
     ///     print("Minimum PIN length: \(length)")
     /// }

@@ -64,10 +64,10 @@ public enum WebAuthn {
     ///
     /// ## Usage
     ///
-    /// For simple cases where you don't need status updates, use the ``StatusStream/value`` property:
+    /// For simple cases where you don't need status updates, use the ``StatusStream/value(pin:)`` method:
     ///
     /// ```swift
-    /// let response = try await client.makeCredential(options: opts, origin: origin).value
+    /// let response = try await client.makeCredential(options: opts, origin: origin).value(pin: pin)
     /// ```
     ///
     /// For UI feedback or cancellation support, iterate the stream:
@@ -191,6 +191,32 @@ public enum WebAuthn {
         case direct
         /// Request enterprise attestation (requires authenticator and RP support).
         case enterprise
+    }
+}
+
+// MARK: - WebAuthn Value Accessor
+
+extension StatusStreamBase where Failure == WebAuthn.ClientError {
+
+    /// Consumes the stream and returns the final response value, auto-responding
+    /// to PIN and UV requests.
+    ///
+    /// - Parameters:
+    ///   - pin: The PIN to submit when the authenticator requests it.
+    ///   - useUV: Whether to use biometric verification when available. Defaults to `true`.
+    public func value<R: Sendable>(
+        pin: String,
+        useUV: Bool = true
+    ) async throws(WebAuthn.ClientError) -> R where Status == WebAuthn.Status<R> {
+        for try await status in self {
+            switch status {
+            case .requestingPIN(let submitPIN): submitPIN(pin)
+            case .requestingUV(let approve): approve(useUV)
+            case .finished(let response): return response
+            default: break
+            }
+        }
+        preconditionFailure("StatusStream must yield .finished before ending")
     }
 }
 

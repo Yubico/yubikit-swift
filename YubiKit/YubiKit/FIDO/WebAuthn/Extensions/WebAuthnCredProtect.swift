@@ -34,7 +34,7 @@ extension WebAuthn.Extension {
     ///         credProtect: .enforced(.userVerificationRequired)
     ///     )
     /// )
-    /// let response = try await client.makeCredential(options).value
+    /// let response = try await client.makeCredential(options).value(pin: pin)
     /// if let policy = response.clientExtensionResults.credProtect {
     ///     // Verify the applied protection level
     /// }

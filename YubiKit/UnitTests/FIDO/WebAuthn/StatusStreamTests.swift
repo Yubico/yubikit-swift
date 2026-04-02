@@ -29,7 +29,7 @@ struct StatusStreamTests {
             continuation.yield(.finished("success"))
         }
 
-        let result = try await stream.value
+        let result = try await stream.value(pin: "")
         #expect(result == "success")
     }
 
@@ -41,7 +41,7 @@ struct StatusStreamTests {
         }
 
         do {
-            _ = try await stream.value
+            _ = try await stream.value(pin: "")
             Issue.record("Should have thrown")
         } catch let error {
             guard case .cancelled = error else {
@@ -67,7 +67,7 @@ struct StatusStreamTests {
         let timedStream = stream.withTimeout(.milliseconds(100))
 
         do {
-            _ = try await timedStream.value
+            _ = try await timedStream.value(pin: "")
             Issue.record("Should have timed out")
         } catch let error {
             guard case .timeout = error else {
@@ -85,7 +85,7 @@ struct StatusStreamTests {
         }
 
         let timedStream = stream.withTimeout(.seconds(10))
-        let result = try await timedStream.value
+        let result = try await timedStream.value(pin: "")
         #expect(result == "fast")
     }
 

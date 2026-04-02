@@ -46,24 +46,6 @@ public struct StatusStreamBase<Status: StreamStatus, Failure: Error & Sendable>:
         }
     }
 
-    /// Consumes the stream and returns the final response value.
-    ///
-    /// This property iterates through all status updates and returns the response
-    /// from the `.finished` case. Intermediate status updates are ignored.
-    ///
-    /// - Throws: The `Failure` error type if the operation fails.
-    /// - Returns: The response value from the completed operation.
-    public var value: Status.Response {
-        get async throws(Failure) {
-            for try await status in self {
-                if let response = status.finishedResponse {
-                    return response
-                }
-            }
-            preconditionFailure("StatusStream must yield .finished before ending")
-        }
-    }
-
     public func makeAsyncIterator() -> Iterator {
         Iterator(stream.makeAsyncIterator())
     }
