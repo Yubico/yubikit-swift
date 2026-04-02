@@ -90,19 +90,27 @@ extension WebAuthn.ClientData {
         origin: WebAuthn.Origin,
         crossOrigin: Bool?
     ) -> Data {
-        func escape(_ value: String) -> String {
-            let data = try! JSONSerialization.data(withJSONObject: value, options: .fragmentsAllowed)
-            return String(decoding: data, as: UTF8.self)
-        }
         // Key ordering per WebAuthn spec: type, challenge, origin, crossOrigin
         var json =
-            "{" + #""type":"# + escape(type)
-            + #","challenge":"# + escape(challenge.base64URLEncodedString())
-            + #","origin":"# + escape(origin.stringValue)
-        if let crossOrigin {
-            json += ",\"crossOrigin\":" + String(crossOrigin)
-        }
+            "{" + #""type":"# + type.asJSONString()
+            + #","challenge":"# + challenge.base64URLEncodedString().asJSONString()
+            + #","origin":"# + origin.stringValue.asJSONString()
+        json += #","crossOrigin":"# + (crossOrigin == true ? "true" : "false")
         json += "}"
         return Data(json.utf8)
+    }
+}
+
+// MARK: - Helpers
+
+extension String {
+
+    // Returns a JSON-encoded string value (with surrounding quotes and proper escaping).
+    // Uses JSONSerialization to handle special characters like quotes, backslashes,
+    // and control characters. The `.fragmentsAllowed` option permits encoding a
+    // standalone string rather than requiring an array or dictionary.
+    fileprivate func asJSONString() -> String {
+        let data = try! JSONSerialization.data(withJSONObject: self, options: .fragmentsAllowed)
+        return String(decoding: data, as: UTF8.self)
     }
 }
