@@ -30,12 +30,12 @@ struct GetRequest: Decodable {
 actor WebAuthnHandler {
 
     private var connection: (any Connection)?
-    private let pinProvider: WebAuthn.PINProvider
+    private let pinProvider: @Sendable () async -> String?
 
     // TODO: Add PublicSuffixList integration. For now, we don't validate against PSL.
     private let isPublicSuffix: WebAuthn.PublicSuffixChecker = { _ in false }
 
-    init(pinProvider: @escaping WebAuthn.PINProvider) {
+    init(pinProvider: @escaping @Sendable () async -> String?) {
         self.pinProvider = pinProvider
     }
 
@@ -49,11 +49,11 @@ actor WebAuthnHandler {
         let client = WebAuthn.Client(
             session: session,
             origin: try .init(request.origin),
-            pinProvider: pinProvider,
             isPublicSuffix: isPublicSuffix
         )
 
-        let response = try await client.makeCredential(request.publicKey).value
+        let stream = await client.makeCredential(request.publicKey)
+        let response = try await handleStream(stream)
         return String(decoding: try JSONEncoder().encode(response), as: UTF8.self)
     }
 
@@ -65,12 +65,33 @@ actor WebAuthnHandler {
         let client = WebAuthn.Client(
             session: session,
             origin: try .init(request.origin),
-            pinProvider: pinProvider,
             isPublicSuffix: isPublicSuffix
         )
 
-        let response = try await client.getAssertion(request.publicKey).value
+        let stream = await client.getAssertion(request.publicKey)
+        let response = try await handleStream(stream)
         return String(decoding: try JSONEncoder().encode(response), as: UTF8.self)
+    }
+
+    // MARK: - Stream Handling
+
+    private func handleStream<R: Sendable & Encodable>(
+        _ stream: WebAuthn.StatusStream<R>
+    ) async throws -> R {
+        for try await status in stream {
+            switch status {
+            case .requestingPIN(let submitPIN):
+                let pin = await pinProvider()
+                submitPIN(pin)
+            case .requestingUV(let useUV):
+                useUV(true)
+            case .finished(let response):
+                return response
+            default:
+                break
+            }
+        }
+        preconditionFailure("Stream ended without response")
     }
 
     // MARK: - Connection Management

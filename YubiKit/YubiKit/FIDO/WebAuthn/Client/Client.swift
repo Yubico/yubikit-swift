@@ -23,22 +23,26 @@ extension WebAuthn {
     /// Provides a unified interface for passkey registration and authentication
     /// backed by a YubiKey via CTAP2 protocol (USB/NFC).
     ///
+    /// All user interaction (PIN entry, UV approval) is communicated through the
+    /// status stream. Iterate the stream to handle these requests:
+    ///
     /// ```swift
     /// let session = try await CTAP2.Session(connection: connection)
     /// let client = WebAuthn.Client(
     ///     session: session,
     ///     origin: try .init("https://example.com"),
-    ///     pinProvider: { await promptUserForPIN() },
     ///     isPublicSuffix: { publicSuffixList.contains($0) }
     /// )
     ///
-    /// let credential = try await client.makeCredential(
-    ///     .init(
-    ///         challenge: challenge,
-    ///         rp: .init(id: "example.com", name: "Example"),
-    ///         user: .init(id: userId, name: "alice@example.com", displayName: "Alice")
-    ///     )
-    /// ).value
+    /// for try await status in client.makeCredential(options) {
+    ///     switch status {
+    ///     case .processing: showSpinner()
+    ///     case .waitingForUser(let cancel): showTouchPrompt()
+    ///     case .requestingUV(let useUV): useUV(true)
+    ///     case .requestingPIN(let submitPIN): submitPIN(await askForPIN())
+    ///     case .finished(let response): return response
+    ///     }
+    /// }
     /// ```
     ///
     /// - SeeAlso: [Web Authentication](https://www.w3.org/TR/webauthn-3/)
@@ -48,7 +52,6 @@ extension WebAuthn {
 
         let backend: any Backend
         let origin: Origin
-        let pinProvider: PINProvider?
         let enterpriseRpIds: Set<String>
         let isPublicSuffix: PublicSuffixChecker
 
@@ -59,7 +62,6 @@ extension WebAuthn {
         /// - Parameters:
         ///   - session: The CTAP2 session to use.
         ///   - origin: The origin URL for this client (e.g., `https://example.com`).
-        ///   - pinProvider: Closure called when PIN is required. Return `nil` to cancel.
         ///   - enterpriseRpIds: RP IDs that support platform-facilitated enterprise attestation.
         ///     When a credential is created with `.enterprise` attestation for an RP ID in this set,
         ///     the client uses platform-facilitated mode (value 2). For other RP IDs, it uses
@@ -68,14 +70,12 @@ extension WebAuthn {
         public init(
             session: CTAP2.Session,
             origin: Origin,
-            pinProvider: PINProvider? = nil,
             enterpriseRpIds: Set<String> = [],
             isPublicSuffix: @escaping PublicSuffixChecker
         ) {
             self.init(
                 backend: session,
                 origin: origin,
-                pinProvider: pinProvider,
                 enterpriseRpIds: enterpriseRpIds,
                 isPublicSuffix: isPublicSuffix
             )
@@ -85,22 +85,17 @@ extension WebAuthn {
         init(
             backend: any Backend,
             origin: Origin,
-            pinProvider: PINProvider? = nil,
             enterpriseRpIds: Set<String> = [],
             isPublicSuffix: @escaping PublicSuffixChecker
         ) {
             self.backend = backend
             self.origin = origin
-            self.pinProvider = pinProvider
             self.enterpriseRpIds = enterpriseRpIds
             self.isPublicSuffix = isPublicSuffix
         }
     }
 
     // MARK: - Type Aliases
-
-    /// Closure called when PIN is required. Return `nil` to cancel.
-    public typealias PINProvider = @Sendable () async -> String?
 
     /// Closure that returns `true` if the given domain is in the [Public Suffix List](https://publicsuffix.org/).
     public typealias PublicSuffixChecker = @Sendable (String) -> Bool

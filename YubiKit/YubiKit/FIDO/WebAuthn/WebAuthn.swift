@@ -49,6 +49,13 @@ public enum WebAuthn {
         /// - Parameter useUV: Closure to call with `true` for UV or `false` for PIN.
         case requestingUV(useUV: @Sendable (Bool) -> Void)
 
+        /// The client needs a PIN to proceed.
+        ///
+        /// Call `submitPIN` with the PIN string, or `nil` to cancel the operation.
+        ///
+        /// - Parameter submitPIN: Closure to call with the PIN or `nil` to cancel.
+        case requestingPIN(submitPIN: @Sendable (String?) -> Void)
+
         /// The operation completed successfully with a response.
         case finished(Response)
     }

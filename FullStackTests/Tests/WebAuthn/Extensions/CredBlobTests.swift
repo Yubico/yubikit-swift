@@ -41,7 +41,7 @@ struct WebAuthnCredBlobExtensionTests {
             )
 
             print("Creating credential with credBlob...")
-            let createResponse = try await client.makeCredential(createOptions).value
+            let createResponse = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
 
             guard createResponse.clientExtensionResults.credBlob?.stored == true else {
                 print("credBlob not supported - skipping")
@@ -59,7 +59,7 @@ struct WebAuthnCredBlobExtensionTests {
             )
 
             print("Authenticating to retrieve credBlob...")
-            let authResponse = try await client.getAssertion(authOptions).value
+            let authResponse = try await client.getAssertion(authOptions).value(pin: defaultTestPin)
 
             #expect(authResponse.clientExtensionResults.credBlob?.blob == testBlob)
             print("CredBlob retrieved and verified")
@@ -87,7 +87,7 @@ struct WebAuthnCredBlobExtensionTests {
             )
 
             print("Creating credential with credBlob...")
-            let createResponse = try await client.makeCredential(createOptions).value
+            let createResponse = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
 
             guard createResponse.clientExtensionResults.credBlob?.stored == true else {
                 print("credBlob not supported - skipping")
@@ -103,7 +103,7 @@ struct WebAuthnCredBlobExtensionTests {
             )
 
             print("Authenticating without credBlob extension...")
-            let authResponse = try await client.getAssertion(authOptions).value
+            let authResponse = try await client.getAssertion(authOptions).value(pin: defaultTestPin)
 
             #expect(authResponse.clientExtensionResults.credBlob?.blob == nil)
             print("CredBlob not returned without extension")
@@ -130,7 +130,6 @@ struct WebAuthnCredBlobExtensionTests {
             let client = WebAuthn.Client(
                 session: session,
                 origin: try WebAuthn.Origin("https://\(rpId)"),
-                pinProvider: { defaultTestPin },
                 isPublicSuffix: { _ in false }
             )
 
@@ -148,7 +147,7 @@ struct WebAuthnCredBlobExtensionTests {
 
             print("Attempting credential with oversized credBlob (\(oversizedBlob.count) > \(maxLength))...")
             do {
-                _ = try await client.makeCredential(createOptions).value
+                _ = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
                 Issue.record("Expected error for oversized credBlob")
             } catch {
                 print("Correctly rejected oversized credBlob: \(error)")

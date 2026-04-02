@@ -41,7 +41,7 @@ struct WebAuthnLargeBlobExtensionTests {
             )
 
             print("Creating credential with largeBlob support...")
-            let createResponse = try await client.makeCredential(createOptions).value
+            let createResponse = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
 
             guard createResponse.clientExtensionResults.largeBlob?.supported == true else {
                 print("LargeBlob not supported - skipping")
@@ -61,7 +61,7 @@ struct WebAuthnLargeBlobExtensionTests {
             )
 
             print("Writing blob...")
-            let writeResponse = try await client.getAssertion(writeOptions).value
+            let writeResponse = try await client.getAssertion(writeOptions).value(pin: defaultTestPin)
 
             #expect(writeResponse.clientExtensionResults.largeBlob?.written == true)
             print("Blob written")
@@ -77,7 +77,7 @@ struct WebAuthnLargeBlobExtensionTests {
             )
 
             print("Reading blob...")
-            let readResponse = try await client.getAssertion(readOptions).value
+            let readResponse = try await client.getAssertion(readOptions).value(pin: defaultTestPin)
 
             #expect(readResponse.clientExtensionResults.largeBlob?.blob == testData)
             print("Blob retrieved and verified")
@@ -153,7 +153,7 @@ struct WebAuthnLargeBlobExtensionTests {
             )
 
             print("Creating first credential...")
-            let createResponse1 = try await client.makeCredential(createOptions1).value
+            let createResponse1 = try await client.makeCredential(createOptions1).value(pin: defaultTestPin)
 
             guard createResponse1.clientExtensionResults.largeBlob?.supported == true else {
                 print("LargeBlob not supported - skipping")
@@ -170,7 +170,7 @@ struct WebAuthnLargeBlobExtensionTests {
                 allowCredentials: [.init(id: credentialId1)],
                 extensions: .init(largeBlob: .write(testData1))
             )
-            _ = try await client.getAssertion(writeOptions1).value
+            _ = try await client.getAssertion(writeOptions1).value(pin: defaultTestPin)
             print("First blob written")
 
             client = try await reconnect().client
@@ -189,7 +189,7 @@ struct WebAuthnLargeBlobExtensionTests {
             )
 
             print("Creating second credential...")
-            let createResponse2 = try await client.makeCredential(createOptions2).value
+            let createResponse2 = try await client.makeCredential(createOptions2).value(pin: defaultTestPin)
             let credentialId2 = createResponse2.credentialId
             client = try await reconnect().client
 
@@ -200,7 +200,7 @@ struct WebAuthnLargeBlobExtensionTests {
                 allowCredentials: [.init(id: credentialId2)],
                 extensions: .init(largeBlob: .write(testData2))
             )
-            _ = try await client.getAssertion(writeOptions2).value
+            _ = try await client.getAssertion(writeOptions2).value(pin: defaultTestPin)
             print("Second blob written")
 
             client = try await reconnect().client
@@ -212,7 +212,7 @@ struct WebAuthnLargeBlobExtensionTests {
                 allowCredentials: [.init(id: credentialId1)],
                 extensions: .init(largeBlob: .read)
             )
-            let readResponse1 = try await client.getAssertion(readOptions1).value
+            let readResponse1 = try await client.getAssertion(readOptions1).value(pin: defaultTestPin)
             #expect(readResponse1.clientExtensionResults.largeBlob?.blob == testData1)
 
             client = try await reconnect().client
@@ -223,7 +223,7 @@ struct WebAuthnLargeBlobExtensionTests {
                 allowCredentials: [.init(id: credentialId2)],
                 extensions: .init(largeBlob: .read)
             )
-            let readResponse2 = try await client.getAssertion(readOptions2).value
+            let readResponse2 = try await client.getAssertion(readOptions2).value(pin: defaultTestPin)
             #expect(readResponse2.clientExtensionResults.largeBlob?.blob == testData2)
 
             print("Both blobs retrieved and verified independently")
@@ -250,7 +250,7 @@ struct WebAuthnLargeBlobExtensionTests {
             )
 
             print("Creating credential with largeBlob support...")
-            let createResponse = try await client.makeCredential(createOptions).value
+            let createResponse = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
 
             guard createResponse.clientExtensionResults.largeBlob?.supported == true else {
                 print("LargeBlob not supported - skipping")
@@ -273,7 +273,7 @@ struct WebAuthnLargeBlobExtensionTests {
 
             print("Attempting to write oversized blob (\(oversizedData.count) bytes)...")
             do {
-                _ = try await client.getAssertion(writeOptions).value
+                _ = try await client.getAssertion(writeOptions).value(pin: defaultTestPin)
                 Issue.record("Expected storageFull error for oversized blob")
             } catch let error as WebAuthn.ClientError {
                 guard case .storageFull = error else {

@@ -127,6 +127,9 @@ extension WebAuthn.Client {
                 throw WebAuthn.ClientError(error)
             }
 
+            let requestPIN: @Sendable () async -> String? = {
+                await self.awaitPINEntry(from: continuation)
+            }
             let requestUVApproval: @Sendable () async -> Bool = {
                 await self.awaitUVDecision(from: continuation)
             }
@@ -146,6 +149,7 @@ extension WebAuthn.Client {
                 userVerification: retry.userVerification,
                 isMakeCredential: false,
                 allowUV: retry.allowUV,
+                requestPIN: requestPIN,
                 requestUVApproval: requestUVApproval
             )
 
@@ -283,6 +287,7 @@ extension WebAuthn.Status {
         case .processing: .processing
         case .waitingForUser(let cancel): .waitingForUser(cancel: cancel)
         case .requestingUV(let useUV): .requestingUV(useUV: useUV)
+        case .requestingPIN(let submitPIN): .requestingPIN(submitPIN: submitPIN)
         case .finished(let response): .finished(transform(response))
         }
     }
@@ -325,6 +330,8 @@ where Status == WebAuthn.Status<[WebAuthn.Authentication.MatchedCredential]>, Fa
                             continuation.yield(.waitingForUser(cancel: cancel))
                         case .requestingUV(let useUV):
                             continuation.yield(.requestingUV(useUV: useUV))
+                        case .requestingPIN(let submitPIN):
+                            continuation.yield(.requestingPIN(submitPIN: submitPIN))
                         case .finished(let matches):
                             let response = try await matches[0].select()
                             continuation.yield(.finished(response))

@@ -41,7 +41,7 @@ extension WebAuthn.Client {
         }
     }
 
-    // MARK: - UV Decision Flow
+    // MARK: - Stream Interaction
 
     // Yields `.requestingUV` and waits for user to choose between UV and PIN.
     func awaitUVDecision<R: Sendable>(
@@ -58,6 +58,21 @@ extension WebAuthn.Client {
         }
     }
 
+    // Yields `.requestingPIN` and waits for user to provide a PIN.
+    func awaitPINEntry<R: Sendable>(
+        from continuation: WebAuthn.StatusStream<R>.Continuation
+    ) async -> String? {
+        await withCheckedContinuation { checkedContinuation in
+            let once = DispatchSemaphore(value: 1)
+            continuation.yield(
+                .requestingPIN { pin in
+                    guard once.wait(timeout: .now()) == .success else { return }
+                    checkedContinuation.resume(returning: pin)
+                }
+            )
+        }
+    }
+
     // MARK: - Token Acquisition
 
     // Acquires PIN/UV auth token if required.
@@ -69,6 +84,7 @@ extension WebAuthn.Client {
         userVerification: WebAuthn.UserVerificationPreference,
         isMakeCredential: Bool,
         allowUV: Bool = true,
+        requestPIN: @Sendable () async -> String?,
         requestUVApproval: (@Sendable () async -> Bool)? = nil
     ) async throws(WebAuthn.ClientError) -> (token: CTAP2.Token?, uv: Bool?) {
 
@@ -125,10 +141,7 @@ extension WebAuthn.Client {
         }
 
         // Fall back to PIN.
-        guard let pinProvider else {
-            throw .pinRequired(source: .here())
-        }
-        guard let pin = await pinProvider() else {
+        guard let pin = await requestPIN() else {
             throw .cancelled(source: .here())
         }
 
