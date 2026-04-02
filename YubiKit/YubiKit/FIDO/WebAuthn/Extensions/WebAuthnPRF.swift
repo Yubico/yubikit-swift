@@ -14,16 +14,6 @@
 
 import Foundation
 
-// MARK: - WebAuthn Extension Namespace
-
-extension WebAuthn {
-    /// Namespace for WebAuthn extensions.
-    public enum Extension {
-        /// Extension identifier type (shared with CTAP2).
-        public typealias Identifier = CTAP2.Extension.Identifier
-    }
-}
-
 // MARK: - PRF Extension
 
 extension WebAuthn.Extension {
@@ -86,18 +76,13 @@ extension WebAuthn.Extension {
             self.evalByCredential = [:]
         }
 
-        /// Creates a PRF extension with per-credential secret selection (evalByCredential).
-        ///
-        /// Use this when you have multiple credentials in the allowList and need
-        /// different PRF secrets for each credential.
+        /// Creates a PRF extension with default secrets and optional per-credential overrides.
         ///
         /// - Parameters:
         ///   - first: Default first PRF secret when credential not in evalByCredential.
         ///   - second: Default second PRF secret.
         ///   - evalByCredential: Per-credential PRF secrets keyed by credential ID.
         ///   - session: The CTAP2 session to use for key agreement.
-        // TODO: Per WebAuthn spec, evalByCredential keys must be a subset of allowList.
-        // Validation requires a WebAuthn client layer that has access to the full request.
         public init(
             first: Data,
             second: Data? = nil,
@@ -106,6 +91,23 @@ extension WebAuthn.Extension {
         ) async throws(CTAP2.SessionError) {
             self.hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
             self.defaultSecrets = (first, second)
+            self.evalByCredential = evalByCredential
+        }
+
+        /// Creates a PRF extension with only per-credential secrets (no default fallback).
+        ///
+        /// Use this when `evalByCredential` is provided without `eval`. If the selected
+        /// credential is not in `evalByCredential`, `getAssertion.input(for:)` will throw.
+        ///
+        /// - Parameters:
+        ///   - evalByCredential: Per-credential PRF secrets keyed by credential ID.
+        ///   - session: The CTAP2 session to use for key agreement.
+        public init(
+            evalByCredential: [Data: (first: Data, second: Data?)],
+            session: CTAP2.Session
+        ) async throws(CTAP2.SessionError) {
+            self.hmacSecret = try await CTAP2.Extension.HmacSecret(session: session)
+            self.defaultSecrets = nil
             self.evalByCredential = evalByCredential
         }
 
@@ -120,11 +122,6 @@ extension WebAuthn.Extension {
         public var getAssertion: GetAssertionOperations {
             GetAssertionOperations(parent: self)
         }
-
-        // MARK: - Type Aliases
-
-        /// Derived secrets from PRF.
-        public typealias Secrets = CTAP2.Extension.HmacSecret.Secrets
 
         // MARK: - Salt Transformation
 
@@ -188,15 +185,7 @@ extension WebAuthn.Extension.PRF {
         public func output(
             from response: CTAP2.MakeCredential.Response
         ) throws(CTAP2.SessionError) -> Result? {
-            guard let hmacResult = try parent.hmacSecret.makeCredential.output(from: response) else {
-                return nil
-            }
-            switch hmacResult {
-            case .enabled:
-                return .enabled
-            case .secrets(let secrets):
-                return .secrets(secrets)
-            }
+            try parent.hmacSecret.makeCredential.output(from: response)
         }
 
         /// Result type for PRF MakeCredential extension.
@@ -230,21 +219,22 @@ extension WebAuthn.Extension.PRF {
         /// Creates a GetAssertion input for a specific credential (evalByCredential).
         ///
         /// Uses the credential-specific secrets if available, otherwise falls back
-        /// to the default secrets.
+        /// to the default secrets. Returns `nil` if neither is available, allowing
+        /// the assertion to continue without PRF output (matching WebAuthn spec behavior).
         ///
         /// - Parameter credentialId: The credential ID to look up secrets for,
         ///                           or nil to use default secrets.
-        /// - Returns: A GetAssertion extension input.
+        /// - Returns: A GetAssertion extension input, or `nil` if no secrets are configured
+        ///            for this credential.
         public func input(
             for credentialId: Data?
-        ) throws(CTAP2.SessionError) -> CTAP2.Extension.GetAssertion.Input {
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.GetAssertion.Input? {
             let secrets = credentialId.flatMap { parent.evalByCredential[$0] } ?? parent.defaultSecrets
 
             guard let secrets else {
-                throw .illegalArgument(
-                    "No secrets available for credential",
-                    source: .here()
-                )
+                // No matching credential in evalByCredential and no default eval.
+                // Skip PRF silently and continue assertion (matches python-fido2/YubiKit Android).
+                return nil
             }
 
             return try input(first: secrets.first, second: secrets.second)
@@ -256,8 +246,136 @@ extension WebAuthn.Extension.PRF {
         /// - Returns: The derived secrets, or nil if the extension output is not present.
         public func output(
             from response: CTAP2.GetAssertion.Response
-        ) throws(CTAP2.SessionError) -> Secrets? {
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.HmacSecret.Secrets? {
             try parent.hmacSecret.getAssertion.output(from: response)
+        }
+    }
+}
+
+// MARK: - WebAuthn Client Input/Output Types
+
+extension WebAuthn.Extension.PRF {
+
+    /// PRF evaluation secrets (first and optional second).
+    public struct Eval: Sendable, Equatable {
+        public let first: Data
+        public let second: Data?
+
+        public init(first: Data, second: Data? = nil) {
+            self.first = first
+            self.second = second
+        }
+    }
+
+    /// Namespace for PRF registration types.
+    public enum Registration {
+        /// Input for PRF extension at registration.
+        ///
+        /// Use `.enable` to enable PRF without deriving secrets, or `.eval(first:second:)`
+        /// to derive secrets at registration (requires hmac-secret-mc support).
+        public struct Input: Sendable, Equatable {
+            /// Secrets to derive at registration (hmac-secret-mc).
+            public let eval: Eval?
+
+            init(eval: Eval?) {
+                self.eval = eval
+            }
+
+            /// Enable PRF without deriving secrets at registration.
+            public static var enable: Input { .init(eval: nil) }
+
+            /// Derive secrets at registration (requires hmac-secret-mc support).
+            ///
+            /// - Parameters:
+            ///   - first: First PRF secret (any length).
+            ///   - second: Optional second PRF secret (any length).
+            public static func eval(first: Data, second: Data? = nil) -> Input {
+                .init(eval: .init(first: first, second: second))
+            }
+        }
+
+        /// Output from PRF extension at registration.
+        public struct Output: Sendable, Equatable {
+            /// Whether PRF is enabled for this credential.
+            public let enabled: Bool
+
+            /// Derived secrets from hmac-secret-mc (if supported).
+            public let results: Results?
+
+            public init(enabled: Bool, results: Results? = nil) {
+                self.enabled = enabled
+                self.results = results
+            }
+
+            internal init(ctapResult: CTAP2.Extension.HmacSecret.MakeCredentialOperations.Result) {
+                switch ctapResult {
+                case .enabled:
+                    self.enabled = true
+                    self.results = nil
+                case .secrets(let secrets):
+                    self.enabled = true
+                    self.results = Results(first: secrets.first, second: secrets.second)
+                }
+            }
+        }
+    }
+
+    /// Namespace for PRF authentication types.
+    public enum Authentication {
+        /// Input for PRF extension at authentication.
+        ///
+        /// Use `.eval(first:second:)` to derive secrets for all credentials, or provide
+        /// `evalByCredential` to use different secrets per credential.
+        public struct Input: Sendable, Equatable {
+            /// Default secrets for all credentials.
+            public let eval: Eval?
+            /// Per-credential secrets keyed by credential ID.
+            public let evalByCredential: [Data: Eval]
+
+            /// Derive secrets using the same values for all credentials.
+            ///
+            /// - Parameters:
+            ///   - first: First PRF secret (any length).
+            ///   - second: Optional second PRF secret (any length).
+            public static func eval(first: Data, second: Data? = nil) -> Input {
+                .init(eval: .init(first: first, second: second), evalByCredential: [:])
+            }
+
+            public init(
+                eval: Eval? = nil,
+                evalByCredential: [Data: Eval] = [:]
+            ) {
+                self.eval = eval
+                self.evalByCredential = evalByCredential
+            }
+        }
+
+        /// Output from PRF extension at authentication.
+        public struct Output: Sendable, Equatable {
+            /// The derived PRF secrets.
+            public let results: Results
+
+            public init(results: Results) {
+                self.results = results
+            }
+
+            internal init(ctapSecrets: CTAP2.Extension.HmacSecret.Secrets) {
+                self.results = Results(first: ctapSecrets.first, second: ctapSecrets.second)
+            }
+        }
+    }
+
+    /// Derived PRF secrets (first and optional second).
+    public struct Results: Sendable, Equatable {
+        /// First derived secret (32 bytes).
+        public let first: Data
+
+        /// Second derived secret (32 bytes), if second secret was provided.
+        public let second: Data?
+
+        public init(first: Data, second: Data? = nil) {
+            self.first = first
+            self.second = second
         }
     }
 }

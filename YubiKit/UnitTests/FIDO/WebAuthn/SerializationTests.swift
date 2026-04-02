@@ -330,6 +330,34 @@ struct SerializationTests {
             #expect(options.timeout == nil)
         }
     }
+
+    // MARK: - ClientData Tests
+
+    @Suite("ClientData JSON")
+    struct ClientDataJSONTests {
+
+        @Test("clientDataJSON has correct types")
+        func testClientDataJSONTypes() throws {
+            let origin = try WebAuthn.Origin("https://example.com")
+            let challenge = Data([0x01, 0x02, 0x03])
+
+            let clientData = WebAuthn.ClientData.webauthn(
+                type: "webauthn.create",
+                challenge: challenge,
+                origin: origin,
+                rpId: "example.com",
+                crossOrigin: false
+            )
+
+            let json =
+                try JSONSerialization.jsonObject(with: clientData.clientDataJSON!) as! [String: Any]
+
+            #expect(json["type"] as? String == "webauthn.create")
+            #expect(json["challenge"] as? String == "AQID")  // base64url of [0x01, 0x02, 0x03]
+            #expect(json["origin"] as? String == "https://example.com")
+            #expect(json["crossOrigin"] as? Bool == false)
+        }
+    }
 }
 
 // MARK: - Helpers

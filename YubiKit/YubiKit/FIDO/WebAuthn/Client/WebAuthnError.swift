@@ -19,7 +19,7 @@ import Foundation
 extension WebAuthn {
 
     /// Errors that can occur during WebAuthn client operations.
-    public enum Error: Swift.Error, Sendable {
+    public enum ClientError: Swift.Error, Sendable {
         /// The request parameters are invalid (e.g., RP ID mismatch, public suffix).
         case invalidRequest(_ message: String, source: SourceLocation)
         /// None of the requested algorithms are supported by the authenticator.
@@ -61,7 +61,7 @@ extension WebAuthn {
 
 // MARK: - CTAP Error Conversion
 
-extension WebAuthn.Error {
+extension WebAuthn.ClientError {
 
     init(_ ctapError: CTAP2.SessionError, source: SourceLocation = .here()) {
         switch ctapError {
@@ -76,7 +76,7 @@ extension WebAuthn.Error {
             case .pinNotSet: self = .pinNotSet(source: source)
             case .pinTokenExpired: self = .pinTokenExpired(source: source)
             case .unsupportedAlgorithm: self = .unsupportedAlgorithm(source: source)
-            case .keyStoreFull: self = .storageFull(source: source)
+            case .keyStoreFull, .largeBlobStorageFull: self = .storageFull(source: source)
             default: self = .ctapError(ctapError, source: source)
             }
         case .connectionError:

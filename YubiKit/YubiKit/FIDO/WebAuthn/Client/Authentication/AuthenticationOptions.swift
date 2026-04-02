@@ -33,19 +33,22 @@ extension WebAuthn.Authentication {
         public let allowCredentials: [WebAuthn.CredentialDescriptor]
         public let userVerification: WebAuthn.UserVerificationPreference
         public let timeout: Duration?
+        public let extensions: WebAuthn.Extension.AuthenticationInputs?
 
         public init(
             challenge: Data,
             rpId: String? = nil,
             allowCredentials: [WebAuthn.CredentialDescriptor] = [],
             userVerification: WebAuthn.UserVerificationPreference = .preferred,
-            timeout: Duration? = nil
+            timeout: Duration? = nil,
+            extensions: WebAuthn.Extension.AuthenticationInputs? = nil
         ) {
             self.challenge = challenge
             self.rpId = rpId
             self.allowCredentials = allowCredentials
             self.userVerification = userVerification
             self.timeout = timeout
+            self.extensions = extensions
         }
     }
 }

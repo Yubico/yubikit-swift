@@ -46,7 +46,7 @@ extension WebAuthn.Client {
         }
         return WebAuthn.StatusStream { continuation in
             Task { [self] in
-                do throws(WebAuthn.Error) {
+                do throws(WebAuthn.ClientError) {
                     let response = try await performMakeCredential(
                         options: options,
                         clientData: clientData,
@@ -70,14 +70,14 @@ extension WebAuthn.Client {
         options: WebAuthn.Registration.Options,
         clientData: WebAuthn.ClientData,
         continuation: WebAuthn.StatusStream<WebAuthn.Registration.Response>.Continuation
-    ) async throws(WebAuthn.Error) -> WebAuthn.Registration.Response {
+    ) async throws(WebAuthn.ClientError) -> WebAuthn.Registration.Response {
 
         // Fetch cached immutable authenticator capabilities.
         let cachedInfo: CTAP2.GetInfo.ImmutableView
         do throws(CTAP2.SessionError) {
             cachedInfo = try await backend.cachedInfo
         } catch {
-            throw WebAuthn.Error(error)
+            throw WebAuthn.ClientError(error)
         }
 
         let rpId = clientData.rpId
@@ -101,7 +101,7 @@ extension WebAuthn.Client {
             do throws(CTAP2.SessionError) {
                 info = try await backend.getInfo()
             } catch {
-                throw WebAuthn.Error(error)
+                throw WebAuthn.ClientError(error)
             }
 
             let auth = try await acquireAuthToken(
@@ -122,56 +122,75 @@ extension WebAuthn.Client {
                 token: auth.token
             )
 
+            let (ctapExtensions, prf, largeBlobRequested) =
+                try await backend.buildMakeCredentialExtensions(options.extensions)
+
             let parameters = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
                 rp: .init(id: rpId, name: options.rp.name),
                 user: .init(id: options.user.id, name: options.user.name, displayName: options.user.displayName),
                 pubKeyCredParams: options.pubKeyCredParams,
                 excludeList: excludedCred.map { [.init(id: $0.id)] },
-                extensions: [],  // TODO: Extensions not yet implemented
+                extensions: ctapExtensions,
                 rk: rk,
                 uv: auth.uv,
                 enterpriseAttestation: enterpriseAttestation
             )
 
+            let ctapResponse: CTAP2.MakeCredential.Response
             do throws(CTAP2.SessionError) {
                 let ctapStream = await backend.makeCredential(
                     parameters: parameters,
                     token: auth.token
                 )
+                var receivedResponse: CTAP2.MakeCredential.Response?
                 for try await ctapStatus in ctapStream {
                     switch ctapStatus {
                     case .processing:
                         continuation.yield(.processing)
                     case .waitingForUser(let cancel):
                         continuation.yield(.waitingForUser(cancel: cancel))
-                    case .finished(let ctapResponse):
-                        guard
-                            let credentialId = ctapResponse.authenticatorData
-                                .attestedCredentialData?.credentialId
-                        else {
-                            throw CTAP2.SessionError.responseParseError(
-                                "Missing credential ID in makeCredential response",
-                                source: .here()
-                            )
-                        }
-                        return WebAuthn.Registration.Response(
-                            credentialId: credentialId,
-                            rawAttestationObject: ctapResponse.attestationObject.rawData,
-                            authenticatorData: ctapResponse.authenticatorData,
-                            attestationStatement: ctapResponse.attestationObject.statement,
-                            transports: cachedInfo.transports,
-                            clientDataJSON: clientData.clientDataJSON
-                        )
+                    case .finished(let response):
+                        receivedResponse = response
                     }
                 }
-                throw CTAP2.SessionError.responseParseError(
-                    "No response from makeCredential",
-                    source: .here()
-                )
+                guard let response = receivedResponse else {
+                    throw CTAP2.SessionError.responseParseError(
+                        "No response from makeCredential",
+                        source: .here()
+                    )
+                }
+                ctapResponse = response
             } catch {
-                guard retry.shouldRetry(for: error) else { throw WebAuthn.Error(error) }
+                guard retry.shouldRetry(for: error) else { throw WebAuthn.ClientError(error) }
+                continue
             }
+
+            guard
+                let credentialId = ctapResponse.authenticatorData
+                    .attestedCredentialData?.credentialId
+            else {
+                throw WebAuthn.ClientError(
+                    CTAP2.SessionError.responseParseError(
+                        "Missing credential ID in makeCredential response",
+                        source: .here()
+                    )
+                )
+            }
+            let extensionOutputs = try await backend.parseRegistrationOutputs(
+                from: ctapResponse,
+                prf: prf,
+                largeBlobRequested: largeBlobRequested
+            )
+            return WebAuthn.Registration.Response(
+                credentialId: credentialId,
+                rawAttestationObject: ctapResponse.attestationObject.rawData,
+                authenticatorData: ctapResponse.authenticatorData,
+                attestationStatement: ctapResponse.attestationObject.statement,
+                transports: cachedInfo.transports,
+                clientExtensionResults: extensionOutputs,
+                clientDataJSON: clientData.clientDataJSON
+            )
         }
     }
 
@@ -179,7 +198,7 @@ extension WebAuthn.Client {
     fileprivate func resolveResidentKey(
         _ preference: WebAuthn.ResidentKeyPreference,
         cachedInfo: CTAP2.GetInfo.ImmutableView
-    ) throws(WebAuthn.Error) -> Bool {
+    ) throws(WebAuthn.ClientError) -> Bool {
         let supported = cachedInfo.options.residentKey
         if preference == .required && !supported {
             throw .notSupported("Resident key not supported", source: .here())

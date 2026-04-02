@@ -32,7 +32,7 @@ struct WebAuthnClientFullStackTests {
 
     @Test(
         "Reset - Factory Reset",
-        .disabled("Destructive - clears all credentials and PIN")
+        //.disabled("Destructive - clears all credentials and PIN")
     )
     func testReset() async throws {
         try await CTAP2FullStackTests().testReset()
@@ -47,7 +47,7 @@ struct WebAuthnClientFullStackTests {
 
     @Test("Make Credential and Get Assertion")
     func testMakeCredentialGetAssertion() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
             let userId = randomBytes(count: 32)
 
@@ -65,7 +65,7 @@ struct WebAuthnClientFullStackTests {
             #expect(createResponse.authenticatorData.attestedCredentialData != nil)
             print("Credential created")
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             let requestOptions = WebAuthn.Authentication.Options(
                 challenge: randomBytes(count: 32),
@@ -86,7 +86,7 @@ struct WebAuthnClientFullStackTests {
 
     @Test("Get Assertion with Allow Credentials")
     func testGetAssertionWithAllowCredentials() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
 
             let createOptions = WebAuthn.Registration.Options(
@@ -103,7 +103,7 @@ struct WebAuthnClientFullStackTests {
             print("Making credential...")
             let createResponse = try await client.makeCredential(createOptions).value
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             let requestOptions = WebAuthn.Authentication.Options(
                 challenge: randomBytes(count: 32),
@@ -133,7 +133,7 @@ struct WebAuthnClientFullStackTests {
             do {
                 _ = try await client.getAssertion(requestOptions).value
                 Issue.record("Should have thrown noCredentials error")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .noCredentials = error else {
                     Issue.record("Expected noCredentials error, got: \(error)")
                     return
@@ -147,7 +147,7 @@ struct WebAuthnClientFullStackTests {
 
     @Test("Make Credential with Exclude Credentials")
     func testMakeCredentialWithExcludeCredentials() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
 
             let createOptions = WebAuthn.Registration.Options(
@@ -164,7 +164,7 @@ struct WebAuthnClientFullStackTests {
             print("Making initial credential...")
             let createResponse = try await client.makeCredential(createOptions).value
 
-            client = try await reconnect()
+            client = try await reconnect().client
 
             let excludeOptions = WebAuthn.Registration.Options(
                 challenge: randomBytes(count: 32),
@@ -182,7 +182,7 @@ struct WebAuthnClientFullStackTests {
             do {
                 _ = try await client.makeCredential(excludeOptions).value
                 Issue.record("Should have thrown credentialExcluded error")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .credentialExcluded = error else {
                     Issue.record("Expected credentialExcluded error, got: \(error)")
                     return
@@ -194,18 +194,22 @@ struct WebAuthnClientFullStackTests {
 
     // MARK: - Multiple Credentials
 
-    @Test("Get Assertions - Multiple Discoverable Credentials")
+    @Test("Get Assertions - Multiple Discoverable Credentials with Selection")
     func testGetAssertionsMultipleCredentials() async throws {
-        try await withReconnectableWebAuthnClient { client, reconnect in
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
             var client = client
             let credentialCount = 3
+            var userIds: [Data] = []
 
             for i in 0..<credentialCount {
+                let userId = randomBytes(count: 32)
+                userIds.append(userId)
+
                 let createOptions = WebAuthn.Registration.Options(
                     challenge: randomBytes(count: 32),
                     rp: .init(id: testRpId, name: testRpName),
                     user: .init(
-                        id: randomBytes(count: 32),
+                        id: userId,
                         name: "user\(i)@example.com",
                         displayName: "User \(i)"
                     ),
@@ -214,7 +218,7 @@ struct WebAuthnClientFullStackTests {
 
                 print("Making credential \(i + 1)/\(credentialCount)...")
                 _ = try await client.makeCredential(createOptions).value
-                client = try await reconnect()
+                client = try await reconnect().client
             }
 
             let requestOptions = WebAuthn.Authentication.Options(
@@ -222,15 +226,30 @@ struct WebAuthnClientFullStackTests {
                 rpId: testRpId
             )
 
-            print("Getting assertions for selection...")
-            let assertions = try await client.getAssertions(requestOptions).value
+            print("Getting matched credentials for selection...")
+            let matches = try await client.getAssertions(requestOptions).value
 
-            #expect(assertions.count >= credentialCount, "Should have at least \(credentialCount) assertions")
-            print("Found \(assertions.count) assertions")
+            #expect(matches.count >= credentialCount, "Should have at least \(credentialCount) matched credentials")
+            print("Found \(matches.count) matched credentials")
 
-            let chosen = assertions[0]
-            #expect(chosen.signature.count > 0)
-            print("Selected credential successfully")
+            // Verify each match has credential info for selection UI
+            for match in matches {
+                #expect(match.id.count > 0, "Credential ID should be present")
+                #expect(match.user != nil, "User info should be present for discoverable credentials")
+            }
+
+            // Select the second credential (not first) to verify selection works
+            let chosenIndex = min(1, matches.count - 1)
+            let chosen = matches[chosenIndex]
+            print("Selecting credential at index \(chosenIndex): \(chosen.user?.name ?? "unknown")")
+
+            let response = try await chosen.select()
+
+            #expect(response.signature.count > 0)
+            #expect(response.rawAuthenticatorData.count > 0)
+            #expect(response.credentialId == chosen.id)
+            #expect(response.user?.id == chosen.user?.id)
+            print("Selection completed successfully")
         }
     }
 
@@ -260,7 +279,7 @@ struct WebAuthnClientFullStackTests {
             do {
                 _ = try await client.makeCredential(options).value
                 Issue.record("Should have thrown invalidRequest error")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .invalidRequest(let message, _) = error else {
                     Issue.record("Expected invalidRequest error, got: \(error)")
                     return
@@ -295,7 +314,7 @@ struct WebAuthnClientFullStackTests {
             do {
                 _ = try await client.makeCredential(options).value
                 Issue.record("Should have thrown invalidRequest error")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .invalidRequest(let message, _) = error else {
                     Issue.record("Expected invalidRequest error, got: \(error)")
                     return
@@ -333,7 +352,7 @@ struct WebAuthnClientFullStackTests {
             do {
                 _ = try await client.makeCredential(options).value
                 Issue.record("Should have thrown invalidPIN error")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .invalidPIN(let retries, _) = error else {
                     Issue.record("Expected invalidPIN error, got: \(error)")
                     return
@@ -436,7 +455,7 @@ struct WebAuthnClientFullStackTests {
                     }
                 }
                 Issue.record("makeCredential should have thrown cancellation error")
-            } catch let error as WebAuthn.Error {
+            } catch let error as WebAuthn.ClientError {
                 guard case .cancelled = error else {
                     Issue.record("Expected cancelled error, got: \(error)")
                     return
@@ -472,7 +491,8 @@ private func withWebAuthnClient<T>(
 private func withReconnectableWebAuthnClient<T>(
     _ body: (
         _ client: WebAuthn.Client,
-        _ reconnect: () async throws -> WebAuthn.Client
+        _ session: CTAP2.Session,
+        _ reconnect: () async throws -> (client: WebAuthn.Client, session: CTAP2.Session)
     ) async throws -> T
 ) async throws -> T {
     try await withReconnectableCTAP2Session { session, reconnectSession in
@@ -483,16 +503,17 @@ private func withReconnectableWebAuthnClient<T>(
             isPublicSuffix: { _ in false }
         )
 
-        let reconnect: () async throws -> WebAuthn.Client = {
+        let reconnect: () async throws -> (client: WebAuthn.Client, session: CTAP2.Session) = {
             let newSession = try await reconnectSession()
-            return WebAuthn.Client(
+            let newClient = WebAuthn.Client(
                 session: newSession,
                 origin: testOrigin,
                 pinProvider: { defaultTestPin },
                 isPublicSuffix: { _ in false }
             )
+            return (newClient, newSession)
         }
 
-        return try await body(client, reconnect)
+        return try await body(client, session, reconnect)
     }
 }

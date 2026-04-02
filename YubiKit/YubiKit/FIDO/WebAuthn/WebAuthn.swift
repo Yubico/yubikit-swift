@@ -81,7 +81,7 @@ public enum WebAuthn {
     ///     }
     /// }
     /// ```
-    public typealias StatusStream<R: Sendable> = StatusStreamBase<Status<R>, Error>
+    public typealias StatusStream<R: Sendable> = StatusStreamBase<Status<R>, ClientError>
 
     /// Relying Party entity information.
     ///

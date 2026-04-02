@@ -70,7 +70,7 @@ extension WebAuthn.Client {
         isMakeCredential: Bool,
         allowUV: Bool = true,
         requestUVApproval: (@Sendable () async -> Bool)? = nil
-    ) async throws(WebAuthn.Error) -> (token: CTAP2.Token?, uv: Bool?) {
+    ) async throws(WebAuthn.ClientError) -> (token: CTAP2.Token?, uv: Bool?) {
 
         let uvRequired = try isUserVerificationRequired(
             info: info,
@@ -115,7 +115,7 @@ extension WebAuthn.Client {
                         }
                     // Fall through to PIN.
                     default:
-                        throw WebAuthn.Error(error)
+                        throw WebAuthn.ClientError(error)
                     }
                 }
             }
@@ -144,7 +144,7 @@ extension WebAuthn.Client {
                 let retries = (try? await backend.getPinRetries())?.retries ?? 0
                 throw .invalidPIN(retriesRemaining: retries, source: .here())
             }
-            throw WebAuthn.Error(error)
+            throw WebAuthn.ClientError(error)
         }
     }
 }
@@ -161,7 +161,7 @@ extension WebAuthn.Client {
         userVerification: WebAuthn.UserVerificationPreference,
         permissions: CTAP2.ClientPin.Permission,
         isMakeCredential: Bool
-    ) throws(WebAuthn.Error) -> Bool {
+    ) throws(WebAuthn.ClientError) -> Bool {
         let options = info.options
 
         // Supported = capability exists, Configured = capability is enabled/enrolled.
