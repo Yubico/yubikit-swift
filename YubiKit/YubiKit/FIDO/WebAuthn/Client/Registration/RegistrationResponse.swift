@@ -23,13 +23,22 @@ extension WebAuthn.Registration {
 
         public let credentialId: Data
         public let rawAttestationObject: Data
-        public let authenticatorData: WebAuthn.AuthenticatorData
+        public let rawAuthenticatorData: Data
         public let attestationStatement: WebAuthn.AttestationStatement
         public let transports: [WebAuthn.Transport]
         public let clientExtensionResults: WebAuthn.Extension.RegistrationOutputs
 
-        public var publicKey: COSE.Key? { authenticatorData.attestedCredentialData?.credentialPublicKey }
-        public var aaguid: WebAuthn.AAGUID? { authenticatorData.attestedCredentialData?.aaguid }
+        /// The credential public key.
+        public let publicKey: COSE.Key
+
+        /// Authenticator Attestation Global Unique ID.
+        public let aaguid: WebAuthn.AAGUID
+
+        /// Signature counter value.
+        public let signCount: UInt32
+
+        /// Parsed authenticator data for internal extension processing.
+        internal let authenticatorData: WebAuthn.AuthenticatorData
 
         /// The clientDataJSON bytes, stored internally for `toJSON()` serialization.
         ///

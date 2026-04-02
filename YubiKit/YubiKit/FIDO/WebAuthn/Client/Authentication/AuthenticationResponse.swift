@@ -50,10 +50,13 @@ extension WebAuthn.Authentication {
         public let rawAuthenticatorData: Data
         public let signature: Data
         public let user: WebAuthn.User?
-        public let authenticatorData: WebAuthn.AuthenticatorData
         public let clientExtensionResults: WebAuthn.Extension.AuthenticationOutputs
 
-        public var signCount: UInt32 { authenticatorData.signCount }
+        /// Signature counter value.
+        public let signCount: UInt32
+
+        /// Parsed authenticator data for internal extension processing.
+        internal let authenticatorData: WebAuthn.AuthenticatorData
 
         /// The clientDataJSON bytes, stored internally for `toJSON()` serialization.
         ///

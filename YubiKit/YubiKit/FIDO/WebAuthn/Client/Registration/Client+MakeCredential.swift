@@ -166,13 +166,11 @@ extension WebAuthn.Client {
                 continue
             }
 
-            guard
-                let credentialId = ctapResponse.authenticatorData
-                    .attestedCredentialData?.credentialId
-            else {
+            let authenticatorData = ctapResponse.authenticatorData
+            guard let attestedCredentialData = authenticatorData.attestedCredentialData else {
                 throw WebAuthn.ClientError(
                     CTAP2.SessionError.responseParseError(
-                        "Missing credential ID in makeCredential response",
+                        "Missing attested credential data in makeCredential response",
                         source: .here()
                     )
                 )
@@ -183,12 +181,16 @@ extension WebAuthn.Client {
                 largeBlobRequested: largeBlobRequested
             )
             return WebAuthn.Registration.Response(
-                credentialId: credentialId,
+                credentialId: attestedCredentialData.credentialId,
                 rawAttestationObject: ctapResponse.attestationObject.rawData,
-                authenticatorData: ctapResponse.authenticatorData,
+                rawAuthenticatorData: authenticatorData.rawData,
                 attestationStatement: ctapResponse.attestationObject.statement,
                 transports: cachedInfo.transports,
                 clientExtensionResults: extensionOutputs,
+                publicKey: attestedCredentialData.credentialPublicKey,
+                aaguid: attestedCredentialData.aaguid,
+                signCount: authenticatorData.signCount,
+                authenticatorData: authenticatorData,
                 clientDataJSON: clientData.clientDataJSON
             )
         }
