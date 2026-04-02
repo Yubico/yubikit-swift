@@ -231,7 +231,7 @@ struct SerializationTests {
             #expect(options.user.id == Data("user_id".utf8))
             #expect(options.pubKeyCredParams == [.es256, .edDSA, .rs256])
             #expect(options.timeout == nil)
-            #expect(options.residentKey == .preferred)
+            #expect(options.residentKey == .discouraged)
             #expect(options.userVerification == .preferred)
             #expect(options.attestation == .none)
             #expect(options.excludeCredentials.isEmpty)

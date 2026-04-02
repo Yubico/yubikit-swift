@@ -148,7 +148,7 @@ extension WebAuthn.Registration.Options: Decodable {
         } else if selection?.requireResidentKey == true {
             return .required
         }
-        return .preferred
+        return .discouraged
     }
 
     private static func decodePubKeyCredParams(
