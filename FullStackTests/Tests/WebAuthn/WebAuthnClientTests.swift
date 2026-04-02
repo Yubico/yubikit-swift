@@ -59,7 +59,7 @@ struct WebAuthnClientFullStackTests {
             )
 
             print("Making credential...")
-            let createResponse = try await client.makeCredential(createOptions).value
+            let createResponse = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
 
             #expect(createResponse.credentialId.count > 0)
             #expect(createResponse.authenticatorData.attestedCredentialData != nil)
@@ -73,7 +73,7 @@ struct WebAuthnClientFullStackTests {
             )
 
             print("Getting assertion...")
-            let assertResponse = try await client.getAssertion(requestOptions).value
+            let assertResponse = try await client.getAssertion(requestOptions).value(pin: defaultTestPin)
 
             #expect(assertResponse.rawAuthenticatorData.count > 0)
             #expect(assertResponse.signature.count > 0)
@@ -101,7 +101,7 @@ struct WebAuthnClientFullStackTests {
             )
 
             print("Making credential...")
-            let createResponse = try await client.makeCredential(createOptions).value
+            let createResponse = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
 
             client = try await reconnect().client
 
@@ -112,7 +112,7 @@ struct WebAuthnClientFullStackTests {
             )
 
             print("Getting assertion with allow credentials...")
-            let assertResponse = try await client.getAssertion(requestOptions).value
+            let assertResponse = try await client.getAssertion(requestOptions).value(pin: defaultTestPin)
 
             #expect(assertResponse.credentialId == createResponse.credentialId)
             #expect(assertResponse.signature.count > 0)
@@ -131,7 +131,7 @@ struct WebAuthnClientFullStackTests {
 
             print("Getting assertion with non-existent credential...")
             do {
-                _ = try await client.getAssertion(requestOptions).value
+                _ = try await client.getAssertion(requestOptions).value(pin: defaultTestPin)
                 Issue.record("Should have thrown noCredentials error")
             } catch let error as WebAuthn.ClientError {
                 guard case .noCredentials = error else {
@@ -162,7 +162,7 @@ struct WebAuthnClientFullStackTests {
             )
 
             print("Making initial credential...")
-            let createResponse = try await client.makeCredential(createOptions).value
+            let createResponse = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
 
             client = try await reconnect().client
 
@@ -180,7 +180,7 @@ struct WebAuthnClientFullStackTests {
 
             print("Making credential with exclude list...")
             do {
-                _ = try await client.makeCredential(excludeOptions).value
+                _ = try await client.makeCredential(excludeOptions).value(pin: defaultTestPin)
                 Issue.record("Should have thrown credentialExcluded error")
             } catch let error as WebAuthn.ClientError {
                 guard case .credentialExcluded = error else {
@@ -217,7 +217,7 @@ struct WebAuthnClientFullStackTests {
                 )
 
                 print("Making credential \(i + 1)/\(credentialCount)...")
-                _ = try await client.makeCredential(createOptions).value
+                _ = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
                 client = try await reconnect().client
             }
 
@@ -227,7 +227,7 @@ struct WebAuthnClientFullStackTests {
             )
 
             print("Getting matched credentials for selection...")
-            let matches = try await client.getAssertions(requestOptions).value
+            let matches = try await client.getAssertions(requestOptions).value(pin: defaultTestPin)
 
             #expect(matches.count >= credentialCount, "Should have at least \(credentialCount) matched credentials")
             print("Found \(matches.count) matched credentials")
@@ -261,7 +261,7 @@ struct WebAuthnClientFullStackTests {
             let client = WebAuthn.Client(
                 session: session,
                 origin: try WebAuthn.Origin("https://example.com"),
-                pinProvider: { defaultTestPin },
+
                 isPublicSuffix: { _ in false }
             )
 
@@ -277,7 +277,7 @@ struct WebAuthnClientFullStackTests {
 
             print("Attempting credential with mismatched RP ID...")
             do {
-                _ = try await client.makeCredential(options).value
+                _ = try await client.makeCredential(options).value(pin: defaultTestPin)
                 Issue.record("Should have thrown invalidRequest error")
             } catch let error as WebAuthn.ClientError {
                 guard case .invalidRequest(let message, _) = error else {
@@ -296,7 +296,7 @@ struct WebAuthnClientFullStackTests {
             let client = WebAuthn.Client(
                 session: session,
                 origin: try WebAuthn.Origin("https://mysite.co.uk"),
-                pinProvider: { defaultTestPin },
+
                 isPublicSuffix: { $0 == "co.uk" }
             )
 
@@ -312,7 +312,7 @@ struct WebAuthnClientFullStackTests {
 
             print("Attempting credential with public suffix RP ID...")
             do {
-                _ = try await client.makeCredential(options).value
+                _ = try await client.makeCredential(options).value(pin: defaultTestPin)
                 Issue.record("Should have thrown invalidRequest error")
             } catch let error as WebAuthn.ClientError {
                 guard case .invalidRequest(let message, _) = error else {
@@ -333,7 +333,6 @@ struct WebAuthnClientFullStackTests {
             let client = WebAuthn.Client(
                 session: session,
                 origin: testOrigin,
-                pinProvider: { "wrongpin123" },
                 isPublicSuffix: { _ in false }
             )
 
@@ -350,7 +349,7 @@ struct WebAuthnClientFullStackTests {
 
             print("Attempting credential with wrong PIN...")
             do {
-                _ = try await client.makeCredential(options).value
+                _ = try await client.makeCredential(options).value(pin: "wrongpin123")
                 Issue.record("Should have thrown invalidPIN error")
             } catch let error as WebAuthn.ClientError {
                 guard case .invalidPIN(let retries, _) = error else {
@@ -390,7 +389,7 @@ struct WebAuthnClientFullStackTests {
             )
 
             print("Making credential to verify clientDataJSON...")
-            let response = try await client.makeCredential(options, clientData: clientData).value
+            let response = try await client.makeCredential(options, clientData: clientData).value(pin: defaultTestPin)
 
             guard let clientDataJSON = response.clientDataJSON else {
                 Issue.record("clientDataJSON should not be nil for client-initiated flows")
@@ -450,6 +449,8 @@ struct WebAuthnClientFullStackTests {
                         await cancel()
                     case .requestingUV:
                         print("Requesting UV...")
+                    case .requestingPIN(let submitPIN):
+                        submitPIN(defaultTestPin)
                     case .finished:
                         Issue.record("makeCredential should have been cancelled")
                     }
@@ -474,6 +475,23 @@ func randomBytes(count: Int) -> Data {
     return Data(bytes)
 }
 
+/// Extension that auto-responds to `.requestingPIN` and `.requestingUV` stream statuses.
+/// Replaces `.value(pin: defaultTestPin)` for tests that need PIN/UV interaction.
+extension StatusStreamBase {
+    func value<R: Sendable>(pin: String) async throws -> R
+    where Status == WebAuthn.Status<R>, Failure == WebAuthn.ClientError {
+        for try await status in self {
+            switch status {
+            case .requestingPIN(let submitPIN): submitPIN(pin)
+            case .requestingUV(let useUV): useUV(true)
+            case .finished(let response): return response
+            default: break
+            }
+        }
+        preconditionFailure("Stream ended without response")
+    }
+}
+
 private func withWebAuthnClient<T>(
     _ body: (WebAuthn.Client) async throws -> T
 ) async throws -> T {
@@ -481,7 +499,6 @@ private func withWebAuthnClient<T>(
         let client = WebAuthn.Client(
             session: session,
             origin: testOrigin,
-            pinProvider: { defaultTestPin },
             isPublicSuffix: { _ in false }
         )
         return try await body(client)
@@ -499,7 +516,6 @@ func withReconnectableWebAuthnClient<T>(
         let client = WebAuthn.Client(
             session: session,
             origin: testOrigin,
-            pinProvider: { defaultTestPin },
             isPublicSuffix: { _ in false }
         )
 
@@ -508,7 +524,6 @@ func withReconnectableWebAuthnClient<T>(
             let newClient = WebAuthn.Client(
                 session: newSession,
                 origin: testOrigin,
-                pinProvider: { defaultTestPin },
                 isPublicSuffix: { _ in false }
             )
             return (newClient, newSession)

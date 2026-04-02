@@ -59,7 +59,6 @@ struct WebAuthnMinPinLengthExtensionTests {
             let client = WebAuthn.Client(
                 session: session,
                 origin: try WebAuthn.Origin("https://\(rpId)"),
-                pinProvider: { defaultTestPin },
                 isPublicSuffix: { _ in false }
             )
 
@@ -76,7 +75,7 @@ struct WebAuthnMinPinLengthExtensionTests {
             )
 
             print("Creating credential with minPinLength extension...")
-            let createResponse = try await client.makeCredential(createOptions).value
+            let createResponse = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
 
             guard let length = createResponse.clientExtensionResults.minPinLength?.length else {
                 Issue.record("minPinLength should be returned for configured RP")

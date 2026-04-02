@@ -40,7 +40,7 @@ struct WebAuthnPRFExtensionTests {
             )
 
             print("Creating credential with PRF enabled...")
-            let createResponse = try await client.makeCredential(createOptions).value
+            let createResponse = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
 
             guard createResponse.clientExtensionResults.prf?.enabled == true else {
                 print("PRF not supported - skipping")
@@ -62,7 +62,7 @@ struct WebAuthnPRFExtensionTests {
             )
 
             print("Authenticating with PRF (one secret)...")
-            let authResponse1 = try await client.getAssertion(authOptions1).value
+            let authResponse1 = try await client.getAssertion(authOptions1).value(pin: defaultTestPin)
 
             guard let prfOutput1 = authResponse1.clientExtensionResults.prf else {
                 Issue.record("Expected PRF output in first assertion")
@@ -89,7 +89,7 @@ struct WebAuthnPRFExtensionTests {
             )
 
             print("Authenticating with PRF (two secrets, evalByCredential)...")
-            let authResponse2 = try await client.getAssertion(authOptions2).value
+            let authResponse2 = try await client.getAssertion(authOptions2).value(pin: defaultTestPin)
 
             guard let prfOutput2 = authResponse2.clientExtensionResults.prf else {
                 Issue.record("Expected PRF output in second assertion")
@@ -131,7 +131,7 @@ struct WebAuthnPRFExtensionTests {
             )
 
             print("Creating credential with PRF secrets...")
-            let createResponse = try await client.makeCredential(createOptions).value
+            let createResponse = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
 
             guard let prfOutput = createResponse.clientExtensionResults.prf,
                 let mcSecrets = prfOutput.results
@@ -156,7 +156,7 @@ struct WebAuthnPRFExtensionTests {
             )
 
             print("Authenticating with PRF (verifying determinism)...")
-            let authResponse = try await client.getAssertion(authOptions).value
+            let authResponse = try await client.getAssertion(authOptions).value(pin: defaultTestPin)
 
             guard let gaOutput = authResponse.clientExtensionResults.prf else {
                 Issue.record("Expected PRF output in assertion")

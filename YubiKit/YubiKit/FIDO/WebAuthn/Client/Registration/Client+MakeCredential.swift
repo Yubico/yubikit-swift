@@ -111,6 +111,7 @@ extension WebAuthn.Client {
                 userVerification: retry.userVerification,
                 isMakeCredential: true,
                 allowUV: retry.allowUV,
+                requestPIN: { await self.awaitPINEntry(from: continuation) },
                 requestUVApproval: { await self.awaitUVDecision(from: continuation) }
             )
 

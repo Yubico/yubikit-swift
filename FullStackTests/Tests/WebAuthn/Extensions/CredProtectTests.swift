@@ -39,7 +39,7 @@ struct WebAuthnCredProtectExtensionTests {
             )
 
             print("Creating credential without credProtect extension...")
-            let createResponseNone = try await client.makeCredential(createOptionsNone).value
+            let createResponseNone = try await client.makeCredential(createOptionsNone).value(pin: defaultTestPin)
             #expect(createResponseNone.clientExtensionResults.credProtect?.policy == nil)
             print("No credProtect in response when not requested")
 
@@ -59,7 +59,7 @@ struct WebAuthnCredProtectExtensionTests {
             )
 
             print("Creating credential with credProtect level 1...")
-            let createResponse1 = try await client.makeCredential(createOptions1).value
+            let createResponse1 = try await client.makeCredential(createOptions1).value(pin: defaultTestPin)
 
             if createResponse1.clientExtensionResults.credProtect?.policy == nil {
                 print("credProtect not supported - skipping")
@@ -84,7 +84,7 @@ struct WebAuthnCredProtectExtensionTests {
             )
 
             print("Creating credential with credProtect level 2...")
-            let createResponse2 = try await client.makeCredential(createOptions2).value
+            let createResponse2 = try await client.makeCredential(createOptions2).value(pin: defaultTestPin)
 
             #expect(
                 createResponse2.clientExtensionResults.credProtect?.policy
@@ -108,7 +108,7 @@ struct WebAuthnCredProtectExtensionTests {
             )
 
             print("Creating credential with credProtect level 3...")
-            let createResponse3 = try await client.makeCredential(createOptions3).value
+            let createResponse3 = try await client.makeCredential(createOptions3).value(pin: defaultTestPin)
 
             #expect(createResponse3.clientExtensionResults.credProtect?.policy == .userVerificationRequired)
             print("CredProtect level 3 confirmed")
