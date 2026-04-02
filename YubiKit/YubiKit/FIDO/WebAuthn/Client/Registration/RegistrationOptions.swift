@@ -44,7 +44,7 @@ extension WebAuthn.Registration {
             rp: WebAuthn.RelyingParty,
             user: WebAuthn.User,
             excludeCredentials: [WebAuthn.CredentialDescriptor] = [],
-            residentKey: WebAuthn.ResidentKeyPreference = .preferred,
+            residentKey: WebAuthn.ResidentKeyPreference = .discouraged,
             userVerification: WebAuthn.UserVerificationPreference = .preferred,
             attestation: WebAuthn.AttestationPreference = .none,
             pubKeyCredParams: [COSE.Algorithm] = [.es256, .edDSA, .rs256],
