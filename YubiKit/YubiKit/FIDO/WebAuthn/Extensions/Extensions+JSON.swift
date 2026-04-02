@@ -20,18 +20,24 @@ extension WebAuthn.Extension.RegistrationInputs: Decodable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Parse credProtect from credentialProtectionPolicy + enforceCredentialProtectionPolicy
+        let credProtect: WebAuthn.Extension.CredProtect.Registration.Input?
+        if let policy = try container.decodeIfPresent(
+            WebAuthn.Extension.CredProtect.Policy.self,
+            forKey: .credentialProtectionPolicy
+        ) {
+            let enforce = try container.decodeIfPresent(Bool.self, forKey: .enforceCredentialProtectionPolicy) ?? false
+            credProtect = .init(policy: policy, enforce: enforce)
+        } else {
+            credProtect = nil
+        }
+
         self.init(
             prf: try container.decodeIfPresent(WebAuthn.Extension.PRF.Registration.Input.self, forKey: .prf),
-            credentialProtectionPolicy: try container.decodeIfPresent(
-                WebAuthn.Extension.CredentialProtectionPolicy.self,
-                forKey: .credentialProtectionPolicy
-            ),
-            enforceCredentialProtectionPolicy: try container.decodeIfPresent(
-                Bool.self,
-                forKey: .enforceCredentialProtectionPolicy
-            ) ?? false,
+            credProtect: credProtect,
             credBlob: try container.decodeBase64URLIfPresent(forKey: .credBlob),
-            minPinLength: try container.decodeIfPresent(Bool.self, forKey: .minPinLength) ?? false,
+            minPinLength: try container.decodeIfPresent(Bool.self, forKey: .minPinLength),
             largeBlob: try container.decodeIfPresent(
                 WebAuthn.Extension.LargeBlob.Registration.Input.self,
                 forKey: .largeBlob
@@ -52,7 +58,7 @@ extension WebAuthn.Extension.AuthenticationInputs: Decodable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             prf: try container.decodeIfPresent(WebAuthn.Extension.PRF.Authentication.Input.self, forKey: .prf),
-            getCredBlob: try container.decodeIfPresent(Bool.self, forKey: .getCredBlob) ?? false,
+            getCredBlob: try container.decodeIfPresent(Bool.self, forKey: .getCredBlob),
             largeBlob: try container.decodeIfPresent(
                 WebAuthn.Extension.LargeBlob.Authentication.Input.self,
                 forKey: .largeBlob
@@ -72,9 +78,15 @@ extension WebAuthn.Extension.RegistrationOutputs: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(prf, forKey: .prf)
-        try container.encodeIfPresent(credentialProtectionPolicy, forKey: .credProtect)
-        try container.encodeIfPresent(credBlobSet, forKey: .credBlob)
-        try container.encodeIfPresent(minPinLength, forKey: .minPinLength)
+        if let credProtect {
+            try container.encode(credProtect.policy, forKey: .credProtect)
+        }
+        if let credBlob {
+            try container.encode(credBlob.stored, forKey: .credBlob)
+        }
+        if let minPinLength {
+            try container.encode(minPinLength.length, forKey: .minPinLength)
+        }
         try container.encodeIfPresent(largeBlob, forKey: .largeBlob)
     }
 
@@ -89,10 +101,10 @@ extension WebAuthn.Extension.AuthenticationOutputs: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        if let prf {
-            try container.encode(PRFAuthenticationOutputJSON(results: prf), forKey: .prf)
+        try container.encodeIfPresent(prf, forKey: .prf)
+        if let credBlob {
+            try container.encodeBase64URL(credBlob.blob, forKey: .getCredBlob)
         }
-        try container.encodeBase64URLIfPresent(credBlob, forKey: .getCredBlob)
         try container.encodeIfPresent(largeBlob, forKey: .largeBlob)
     }
 
@@ -173,19 +185,14 @@ extension WebAuthn.Extension.PRF.Eval: Codable {
     }
 }
 
-// MARK: - PRF Registration Output (CTAP type) Encodable
+// MARK: - PRF Registration Output Encodable
 
-extension CTAP2.Extension.HmacSecret.MakeCredentialOperations.Result: Encodable {
+extension WebAuthn.Extension.PRF.Registration.Output: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(true, forKey: .enabled)
-        switch self {
-        case .enabled:
-            break
-        case .secrets(let secrets):
-            try container.encode(secrets, forKey: .results)
-        }
+        try container.encode(enabled, forKey: .enabled)
+        try container.encodeIfPresent(results, forKey: .results)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -193,9 +200,23 @@ extension CTAP2.Extension.HmacSecret.MakeCredentialOperations.Result: Encodable 
     }
 }
 
-// MARK: - PRF Results (CTAP type) Encodable
+// MARK: - PRF Authentication Output Encodable
 
-extension CTAP2.Extension.HmacSecret.Secrets: Encodable {
+extension WebAuthn.Extension.PRF.Authentication.Output: Encodable {
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(results, forKey: .results)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case results
+    }
+}
+
+// MARK: - PRF Results Encodable
+
+extension WebAuthn.Extension.PRF.Results: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
@@ -253,13 +274,6 @@ extension CTAP2.Extension.CredProtect.Level: Codable {
         var container = encoder.singleValueContainer()
         try container.encode(stringValue)
     }
-}
-
-// MARK: - Private JSON Helpers
-
-/// Wrapper for PRF authentication output to match WebAuthn JSON format.
-private struct PRFAuthenticationOutputJSON: Encodable {
-    let results: CTAP2.Extension.HmacSecret.Secrets
 }
 
 // MARK: - LargeBlob Support Codable

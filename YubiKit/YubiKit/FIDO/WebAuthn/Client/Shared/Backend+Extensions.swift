@@ -49,17 +49,17 @@ extension WebAuthn.Backend {
                 }
             }
 
-            if let policy = inputs.credentialProtectionPolicy {
+            if let credProtectInput = inputs.credProtect {
                 let credProtect = try await makeCredProtect(
-                    level: policy,
-                    enforce: inputs.enforceCredentialProtectionPolicy
+                    level: credProtectInput.policy,
+                    enforce: credProtectInput.enforce
                 )
                 ctapInputs.append(credProtect.input())
             }
 
-            if let blob = inputs.credBlob {
+            if let credBlobData = inputs.credBlob {
                 if let credBlob = try? await makeCredBlob() {
-                    ctapInputs.append(try credBlob.makeCredential.input(blob: blob))
+                    ctapInputs.append(try credBlob.makeCredential.input(blob: credBlobData))
                 }
             }
 
@@ -80,7 +80,7 @@ extension WebAuthn.Backend {
             throw WebAuthn.ClientError(error)
         }
 
-        if inputs.minPinLength {
+        if inputs.minPinLength == true {
             do {
                 if try await isMinPinLengthSupported() {
                     let minPinLength = try await makeMinPinLength()
@@ -161,7 +161,7 @@ extension WebAuthn.Backend {
             }
         }
 
-        if inputs.getCredBlob {
+        if inputs.getCredBlob == true {
             if let credBlob = try? await makeCredBlob() {
                 ctapInputs.append(credBlob.getAssertion.input())
             }
@@ -195,18 +195,26 @@ extension WebAuthn.Backend {
 
         if let prf {
             do throws(CTAP2.SessionError) {
-                prfOutput = try prf.makeCredential.output(from: response)
+                if let ctapResult = try prf.makeCredential.output(from: response) {
+                    prfOutput = .init(ctapResult: ctapResult)
+                }
             } catch {
                 throw WebAuthn.ClientError(error)
             }
         }
 
         let extensions = response.authenticatorData.extensions
-        let credProtect = extensions?[.credProtect].flatMap {
-            WebAuthn.Extension.CredentialProtectionPolicy(cbor: $0)
-        }
-        let credBlob = extensions?[.credBlob]?.boolValue
-        let minPinLength = extensions?[.minPinLength]?.uint64Value.map { UInt($0) }
+
+        let credProtectOutput: WebAuthn.Extension.CredProtect.Registration.Output? =
+            extensions?[.credProtect]
+            .flatMap { WebAuthn.Extension.CredProtect.Policy(cbor: $0) }
+            .map { .init(policy: $0) }
+
+        let credBlobOutput: WebAuthn.Extension.CredBlob.Registration.Output? =
+            extensions?[.credBlob]?.boolValue.map { .init(stored: $0) }
+
+        let minPinLengthOutput: WebAuthn.Extension.MinPinLength.Registration.Output? =
+            extensions?[.minPinLength]?.uint64Value.map { .init(length: UInt($0)) }
 
         let largeBlobOutput: WebAuthn.Extension.LargeBlob.Registration.Output? =
             largeBlobRequested
@@ -215,9 +223,9 @@ extension WebAuthn.Backend {
 
         return WebAuthn.Extension.RegistrationOutputs(
             prf: prfOutput,
-            credentialProtectionPolicy: credProtect,
-            credBlobSet: credBlob,
-            minPinLength: minPinLength,
+            credProtect: credProtectOutput,
+            credBlob: credBlobOutput,
+            minPinLength: minPinLengthOutput,
             largeBlob: largeBlobOutput
         )
     }
@@ -231,17 +239,20 @@ extension WebAuthn.Backend {
 
         if let prf {
             do throws(CTAP2.SessionError) {
-                prfOutput = try prf.getAssertion.output(from: response)
+                if let ctapSecrets = try prf.getAssertion.output(from: response) {
+                    prfOutput = .init(ctapSecrets: ctapSecrets)
+                }
             } catch {
                 throw WebAuthn.ClientError(error)
             }
         }
 
-        let credBlob = response.authenticatorData.extensions?[.credBlob]?.dataValue
+        let credBlobOutput: WebAuthn.Extension.CredBlob.Authentication.Output? =
+            response.authenticatorData.extensions?[.credBlob]?.dataValue.map { .init(blob: $0) }
 
         return WebAuthn.Extension.AuthenticationOutputs(
             prf: prfOutput,
-            credBlob: credBlob,
+            credBlob: credBlobOutput,
             largeBlob: largeBlobOutput
         )
     }

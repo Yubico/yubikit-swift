@@ -246,7 +246,7 @@ extension WebAuthn.Extension.PRF {
         /// - Returns: The derived secrets, or nil if the extension output is not present.
         public func output(
             from response: CTAP2.GetAssertion.Response
-        ) throws(CTAP2.SessionError) -> Authentication.Output? {
+        ) throws(CTAP2.SessionError) -> CTAP2.Extension.HmacSecret.Secrets? {
             try parent.hmacSecret.getAssertion.output(from: response)
         }
     }
@@ -294,8 +294,30 @@ extension WebAuthn.Extension.PRF {
             }
         }
 
-        /// Output from PRF extension at registration (alias for hmac-secret result).
-        public typealias Output = CTAP2.Extension.HmacSecret.MakeCredentialOperations.Result
+        /// Output from PRF extension at registration.
+        public struct Output: Sendable, Equatable {
+            /// Whether PRF is enabled for this credential.
+            public let enabled: Bool
+
+            /// Derived secrets from hmac-secret-mc (if supported).
+            public let results: Results?
+
+            public init(enabled: Bool, results: Results? = nil) {
+                self.enabled = enabled
+                self.results = results
+            }
+
+            internal init(ctapResult: CTAP2.Extension.HmacSecret.MakeCredentialOperations.Result) {
+                switch ctapResult {
+                case .enabled:
+                    self.enabled = true
+                    self.results = nil
+                case .secrets(let secrets):
+                    self.enabled = true
+                    self.results = Results(first: secrets.first, second: secrets.second)
+                }
+            }
+        }
     }
 
     /// Namespace for PRF authentication types.
@@ -328,7 +350,32 @@ extension WebAuthn.Extension.PRF {
             }
         }
 
-        /// Output from PRF extension at authentication (alias for hmac-secret secrets).
-        public typealias Output = CTAP2.Extension.HmacSecret.Secrets
+        /// Output from PRF extension at authentication.
+        public struct Output: Sendable, Equatable {
+            /// The derived PRF secrets.
+            public let results: Results
+
+            public init(results: Results) {
+                self.results = results
+            }
+
+            internal init(ctapSecrets: CTAP2.Extension.HmacSecret.Secrets) {
+                self.results = Results(first: ctapSecrets.first, second: ctapSecrets.second)
+            }
+        }
+    }
+
+    /// Derived PRF secrets (first and optional second).
+    public struct Results: Sendable, Equatable {
+        /// First derived secret (32 bytes).
+        public let first: Data
+
+        /// Second derived secret (32 bytes), if second secret was provided.
+        public let second: Data?
+
+        public init(first: Data, second: Data? = nil) {
+            self.first = first
+            self.second = second
+        }
     }
 }
