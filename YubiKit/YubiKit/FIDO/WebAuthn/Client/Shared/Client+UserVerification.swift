@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import os
 
 // MARK: - User Verification
 
@@ -48,10 +49,15 @@ extension WebAuthn.Client {
         from continuation: WebAuthn.StatusStream<R>.Continuation
     ) async -> Bool {
         await withCheckedContinuation { checkedContinuation in
-            let once = DispatchSemaphore(value: 1)
+            let once = OSAllocatedUnfairLock(initialState: false)
             continuation.yield(
                 .requestingUV { useUV in
-                    guard once.wait(timeout: .now()) == .success else { return }
+                    let first = once.withLock {
+                        let old = $0
+                        $0 = true
+                        return !old
+                    }
+                    guard first else { return }
                     checkedContinuation.resume(returning: useUV)
                 }
             )
@@ -63,10 +69,15 @@ extension WebAuthn.Client {
         from continuation: WebAuthn.StatusStream<R>.Continuation
     ) async -> String? {
         await withCheckedContinuation { checkedContinuation in
-            let once = DispatchSemaphore(value: 1)
+            let once = OSAllocatedUnfairLock(initialState: false)
             continuation.yield(
                 .requestingPIN { pin in
-                    guard once.wait(timeout: .now()) == .success else { return }
+                    let first = once.withLock {
+                        let old = $0
+                        $0 = true
+                        return !old
+                    }
+                    guard first else { return }
                     checkedContinuation.resume(returning: pin)
                 }
             )

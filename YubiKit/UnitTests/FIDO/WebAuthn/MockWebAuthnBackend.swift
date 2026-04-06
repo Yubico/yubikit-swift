@@ -107,8 +107,8 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
 
 // MARK: - StatusStream Helpers
 
-extension StatusStreamBase where Failure == CTAP2.SessionError {
-    static func mocked(_ status: Status) -> Self { .init { $0.yield(status) } }
+extension CTAP2.StatusStream {
+    static func mocked(_ status: CTAP2.Status<R>) -> Self { .init { $0.yield(status) } }
     static func mocked(error: CTAP2.SessionError) -> Self { .init { $0.yield(error: error) } }
 }
 

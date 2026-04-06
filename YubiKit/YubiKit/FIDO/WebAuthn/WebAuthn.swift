@@ -64,7 +64,7 @@ public enum WebAuthn {
     ///
     /// ## Usage
     ///
-    /// For simple cases where you don't need status updates, use the ``StatusStream/value(pin:)`` method:
+    /// For simple cases where you don't need status updates, use the ``value(pin:useUV:)`` method:
     ///
     /// ```swift
     /// let response = try await client.makeCredential(options: opts, origin: origin).value(pin: pin)
@@ -83,12 +83,103 @@ public enum WebAuthn {
     ///         showTouchPrompt(onCancel: { Task { await cancel() } })
     ///     case .requestingUV(let useUV):
     ///         askUserAboutUV { useUV($0) }
+    ///     case .requestingPIN(let submitPIN):
+    ///         submitPIN(await askForPIN())
     ///     case .finished(let response):
     ///         return response
     ///     }
     /// }
     /// ```
-    public typealias StatusStream<R: Sendable> = StatusStreamBase<Status<R>, ClientError>
+    public struct StatusStream<R: Sendable>: AsyncSequence, @unchecked Sendable {
+        public typealias Element = Status<R>
+
+        typealias Base = StatusStreamBase<Status<R>, ClientError>
+        typealias Continuation = Base.Continuation
+
+        private let base: Base
+
+        init(_ build: @escaping (Continuation) -> Void) {
+            self.base = Base(build)
+        }
+
+        init(_ base: Base) {
+            self.base = base
+        }
+
+        static func error(_ error: ClientError) -> Self {
+            Self(Base.error(error))
+        }
+
+        func withTimeout(_ duration: Duration?) -> Self {
+            guard let duration else { return self }
+            return Self(base.timeout(duration, error: .timeout(source: .here())))
+        }
+
+        // MARK: - Value Accessors
+
+        /// Consumes the stream and returns the final response value.
+        ///
+        /// Throws ``ClientError/pinRequired(source:)`` if the authenticator
+        /// requests a PIN. Use ``value(pin:useUV:)`` instead when a PIN may be needed.
+        public func value() async throws(ClientError) -> R {
+            for try await status in self {
+                switch status {
+                case .requestingPIN: throw .pinRequired(source: .here())
+                case .requestingUV(let approve): approve(true)
+                case .finished(let response): return response
+                default: break
+                }
+            }
+            preconditionFailure("StatusStream must yield .finished before ending")
+        }
+
+        /// Consumes the stream and returns the final response value, auto-responding
+        /// to PIN and UV requests.
+        ///
+        /// - Parameters:
+        ///   - pin: The PIN to submit when the authenticator requests it.
+        ///   - useUV: Whether to use biometric verification when available. Defaults to `true`.
+        public func value(
+            pin: String,
+            useUV: Bool = true
+        ) async throws(ClientError) -> R {
+            for try await status in self {
+                switch status {
+                case .requestingPIN(let submitPIN): submitPIN(pin)
+                case .requestingUV(let approve): approve(useUV)
+                case .finished(let response): return response
+                default: break
+                }
+            }
+            preconditionFailure("StatusStream must yield .finished before ending")
+        }
+
+        // MARK: - AsyncSequence
+
+        public func makeAsyncIterator() -> Iterator {
+            Iterator(base.makeAsyncIterator())
+        }
+
+        public struct Iterator: AsyncIteratorProtocol {
+            private var base: Base.Iterator
+            private var last: Status<R>?
+
+            fileprivate init(_ base: Base.Iterator) {
+                self.base = base
+            }
+
+            public mutating func next() async throws(ClientError) -> Status<R>? {
+                while true {
+                    guard let status = try await base.next() else { return nil }
+                    if let last, Status<R>.areDuplicates(last, status) {
+                        continue
+                    }
+                    last = status
+                    return status
+                }
+            }
+        }
+    }
 
     /// Relying Party entity information.
     ///
@@ -194,58 +285,19 @@ public enum WebAuthn {
     }
 }
 
-// MARK: - WebAuthn Value Accessor
-
-extension StatusStreamBase where Failure == WebAuthn.ClientError {
-
-    /// Consumes the stream and returns the final response value.
-    ///
-    /// Throws ``WebAuthn/ClientError/pinRequired(source:)`` if the authenticator
-    /// requests a PIN. Use ``value(pin:useUV:)`` instead when a PIN may be needed.
-    public func value<R: Sendable>() async throws(WebAuthn.ClientError) -> R
-    where Status == WebAuthn.Status<R> {
-        for try await status in self {
-            switch status {
-            case .requestingPIN: throw .pinRequired(source: .here())
-            case .requestingUV(let approve): approve(true)
-            case .finished(let response): return response
-            default: break
-            }
-        }
-        preconditionFailure("StatusStream must yield .finished before ending")
-    }
-
-    /// Consumes the stream and returns the final response value, auto-responding
-    /// to PIN and UV requests.
-    ///
-    /// - Parameters:
-    ///   - pin: The PIN to submit when the authenticator requests it.
-    ///   - useUV: Whether to use biometric verification when available. Defaults to `true`.
-    public func value<R: Sendable>(
-        pin: String,
-        useUV: Bool = true
-    ) async throws(WebAuthn.ClientError) -> R where Status == WebAuthn.Status<R> {
-        for try await status in self {
-            switch status {
-            case .requestingPIN(let submitPIN): submitPIN(pin)
-            case .requestingUV(let approve): approve(useUV)
-            case .finished(let response): return response
-            default: break
-            }
-        }
-        preconditionFailure("StatusStream must yield .finished before ending")
-    }
-}
-
 // MARK: - StreamStatus Conformance
 
 extension WebAuthn.Status: StreamStatus {
-    public var finishedResponse: Response? {
+    var finishedResponse: Response? {
         if case .finished(let response) = self { return response }
         return nil
     }
+}
 
-    public static func areDuplicates(_ lhs: Self, _ rhs: Self) -> Bool {
+// MARK: - Deduplication
+
+extension WebAuthn.Status {
+    fileprivate static func areDuplicates(_ lhs: Self, _ rhs: Self) -> Bool {
         switch (lhs, rhs) {
         case (.processing, .processing), (.waitingForUser, .waitingForUser):
             true

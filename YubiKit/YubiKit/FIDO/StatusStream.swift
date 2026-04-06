@@ -14,57 +14,46 @@
 
 import Foundation
 
-/// Protocol for status types that can provide a finished response.
-public protocol StreamStatus<Response>: Sendable {
+/// Protocol for status types that can signal completion.
+protocol StreamStatus<Response>: Sendable {
     associatedtype Response: Sendable
-    /// Returns the response if this is a finished status, nil otherwise.
+    /// Returns the response if this is a terminal status, nil otherwise.
     var finishedResponse: Response? { get }
-    /// Returns true if consecutive statuses should be deduplicated.
-    static func areDuplicates(_ lhs: Self, _ rhs: Self) -> Bool
 }
 
-/// An async sequence that yields status updates and can throw typed errors.
-///
-/// - Note: Use the namespace-specific typealiases ``CTAP2/StatusStream`` and
-///   ``WebAuthn/StatusStream`` instead of this type directly.
-public struct StatusStreamBase<Status: StreamStatus, Failure: Error & Sendable>: AsyncSequence,
+/// Async sequence that yields status updates with typed errors.
+struct StatusStreamBase<Status: StreamStatus, Failure: Error & Sendable>: AsyncSequence,
     @unchecked Sendable
 {
-    public typealias Element = Status
+    typealias Element = Status
 
     private let stream: AsyncStream<Result<Status, Failure>>
 
     init(_ build: @escaping (Continuation) -> Void) {
-        let baseStream = AsyncStream { continuation in
+        self.stream = AsyncStream { continuation in
             build(Continuation(continuation))
-        }
-        self.stream = baseStream.removeDuplicates { lhs, rhs in
-            if case (.success(let l), .success(let r)) = (lhs, rhs) {
-                return Status.areDuplicates(l, r)
-            }
-            return false
         }
     }
 
-    public func makeAsyncIterator() -> Iterator {
+    func makeAsyncIterator() -> Iterator {
         Iterator(stream.makeAsyncIterator())
     }
 
-    public struct Iterator: AsyncIteratorProtocol {
+    struct Iterator: AsyncIteratorProtocol {
         private var iterator: AsyncStream<Result<Status, Failure>>.AsyncIterator
 
         fileprivate init(_ iterator: AsyncStream<Result<Status, Failure>>.AsyncIterator) {
             self.iterator = iterator
         }
 
-        public mutating func next() async throws(Failure) -> Status? {
+        mutating func next() async throws(Failure) -> Status? {
             guard let result = await iterator.next() else { return nil }
             return try result.get()
         }
     }
 }
 
-// MARK: - Internal
+// MARK: - Helpers
 
 extension StatusStreamBase {
 
@@ -75,14 +64,8 @@ extension StatusStreamBase {
         }
     }
 
-    /// Wraps this stream with an optional timeout.
-    func withTimeout(_ duration: Duration?) -> StatusStreamBase where Failure == WebAuthn.ClientError {
-        guard let duration else { return self }
-        return timeout(duration, error: .timeout(source: .here()))
-    }
-
-    /// Wraps this stream with a timeout.
-    private func timeout(_ duration: Duration, error timeoutError: Failure) -> StatusStreamBase {
+    /// Wraps this stream with a timeout that yields the given error.
+    func timeout(_ duration: Duration, error timeoutError: Failure) -> StatusStreamBase {
         StatusStreamBase { continuation in
             Task {
                 let completed = await withTaskGroup(of: Bool.self) { group in

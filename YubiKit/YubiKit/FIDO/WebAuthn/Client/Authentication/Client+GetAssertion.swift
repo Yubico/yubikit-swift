@@ -279,47 +279,13 @@ extension WebAuthn.Client {
     }
 }
 
-// MARK: - Stream Mapping
-
-extension WebAuthn.Status {
-    fileprivate func mapResponse<T: Sendable>(_ transform: (Response) -> T) -> WebAuthn.Status<T> {
-        switch self {
-        case .processing: .processing
-        case .waitingForUser(let cancel): .waitingForUser(cancel: cancel)
-        case .requestingUV(let useUV): .requestingUV(useUV: useUV)
-        case .requestingPIN(let submitPIN): .requestingPIN(submitPIN: submitPIN)
-        case .finished(let response): .finished(transform(response))
-        }
-    }
-}
-
-extension StatusStreamBase {
-    fileprivate func mapResponse<R: Sendable, T: Sendable>(
-        _ transform: @escaping @Sendable (R) -> T
-    ) -> StatusStreamBase<WebAuthn.Status<T>, WebAuthn.ClientError>
-    where Status == WebAuthn.Status<R>, Failure == WebAuthn.ClientError {
-        StatusStreamBase<WebAuthn.Status<T>, WebAuthn.ClientError> { continuation in
-            Task {
-                do {
-                    for try await status in self {
-                        continuation.yield(status.mapResponse(transform))
-                    }
-                } catch let error as WebAuthn.ClientError {
-                    continuation.yield(error: error)
-                }
-            }
-        }
-    }
-}
-
 // MARK: - MatchedCredential Stream Helpers
 
-extension StatusStreamBase
-where Status == WebAuthn.Status<[WebAuthn.Authentication.MatchedCredential]>, Failure == WebAuthn.ClientError {
+extension WebAuthn.StatusStream where R == [WebAuthn.Authentication.MatchedCredential] {
 
     /// Select the first matched credential and complete the assertion.
     fileprivate func selectFirst() -> WebAuthn.StatusStream<WebAuthn.Authentication.Response> {
-        StatusStreamBase<WebAuthn.Status<WebAuthn.Authentication.Response>, WebAuthn.ClientError> { continuation in
+        WebAuthn.StatusStream<WebAuthn.Authentication.Response> { continuation in
             Task {
                 do {
                     for try await status in self {
