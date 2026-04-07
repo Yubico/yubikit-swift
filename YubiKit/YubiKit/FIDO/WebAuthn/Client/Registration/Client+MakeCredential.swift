@@ -176,10 +176,12 @@ extension WebAuthn.Client {
                     )
                 )
             }
+            let credPropsRk: Bool? = options.extensions?.credProps == true ? rk : nil
             let extensionOutputs = try await backend.parseRegistrationOutputs(
                 from: ctapResponse,
                 prf: prf,
-                largeBlobRequested: largeBlobRequested
+                largeBlobRequested: largeBlobRequested,
+                credPropsRk: credPropsRk
             )
             return WebAuthn.Registration.Response(
                 credentialId: attestedCredentialData.credentialId,

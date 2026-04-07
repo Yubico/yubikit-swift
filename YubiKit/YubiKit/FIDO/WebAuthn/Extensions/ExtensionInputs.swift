@@ -37,7 +37,8 @@ extension WebAuthn.Extension {
     ///     user: .init(id: userId, name: "alice@example.com"),
     ///     extensions: .init(
     ///         prf: .enable,
-    ///         credProtect: .enforced(.userVerificationRequired)
+    ///         credProtect: .enforced(.userVerificationRequired),
+    ///         credProps: true
     ///     )
     /// )
     /// ```
@@ -71,18 +72,26 @@ extension WebAuthn.Extension {
         /// support large blobs, or `.preferred` to succeed either way.
         public let largeBlob: LargeBlob.Registration.Input?
 
+        /// Request credential properties in the response.
+        ///
+        /// If `true`, the response will include whether the credential is
+        /// discoverable (resident key).
+        public let credProps: CredProps.Registration.Input?
+
         public init(
             prf: PRF.Registration.Input? = nil,
             credProtect: CredProtect.Registration.Input? = nil,
             credBlob: CredBlob.Registration.Input? = nil,
             minPinLength: MinPinLength.Registration.Input? = nil,
-            largeBlob: LargeBlob.Registration.Input? = nil
+            largeBlob: LargeBlob.Registration.Input? = nil,
+            credProps: CredProps.Registration.Input? = nil
         ) {
             self.prf = prf
             self.credProtect = credProtect
             self.credBlob = credBlob
             self.minPinLength = minPinLength
             self.largeBlob = largeBlob
+            self.credProps = credProps
         }
     }
 }

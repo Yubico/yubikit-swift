@@ -52,18 +52,25 @@ extension WebAuthn.Extension {
         /// `supported` is `true` if the authenticator supports large blob storage.
         public let largeBlob: LargeBlob.Registration.Output?
 
+        /// Credential properties result.
+        ///
+        /// `rk` indicates whether the credential is discoverable (resident key).
+        public let credProps: CredProps.Registration.Output?
+
         public init(
             prf: PRF.Registration.Output? = nil,
             credProtect: CredProtect.Registration.Output? = nil,
             credBlob: CredBlob.Registration.Output? = nil,
             minPinLength: MinPinLength.Registration.Output? = nil,
-            largeBlob: LargeBlob.Registration.Output? = nil
+            largeBlob: LargeBlob.Registration.Output? = nil,
+            credProps: CredProps.Registration.Output? = nil
         ) {
             self.prf = prf
             self.credProtect = credProtect
             self.credBlob = credBlob
             self.minPinLength = minPinLength
             self.largeBlob = largeBlob
+            self.credProps = credProps
         }
 
         /// Empty extension outputs (no extensions requested or supported).

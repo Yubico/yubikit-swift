@@ -189,7 +189,8 @@ extension WebAuthn.Backend {
     func parseRegistrationOutputs(
         from response: CTAP2.MakeCredential.Response,
         prf: WebAuthn.Extension.PRF?,
-        largeBlobRequested: Bool
+        largeBlobRequested: Bool,
+        credPropsRk: Bool?
     ) throws(WebAuthn.ClientError) -> WebAuthn.Extension.RegistrationOutputs {
         var prfOutput: WebAuthn.Extension.PRF.Registration.Output?
 
@@ -221,12 +222,16 @@ extension WebAuthn.Backend {
             ? .init(supported: response.largeBlobKey != nil)
             : nil
 
+        let credPropsOutput: WebAuthn.Extension.CredProps.Registration.Output? =
+            credPropsRk.map { .init(rk: $0) }
+
         return WebAuthn.Extension.RegistrationOutputs(
             prf: prfOutput,
             credProtect: credProtectOutput,
             credBlob: credBlobOutput,
             minPinLength: minPinLengthOutput,
-            largeBlob: largeBlobOutput
+            largeBlob: largeBlobOutput,
+            credProps: credPropsOutput
         )
     }
 
