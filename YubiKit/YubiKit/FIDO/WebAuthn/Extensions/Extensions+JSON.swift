@@ -41,12 +41,14 @@ extension WebAuthn.Extension.RegistrationInputs: Decodable {
             largeBlob: try container.decodeIfPresent(
                 WebAuthn.Extension.LargeBlob.Registration.Input.self,
                 forKey: .largeBlob
-            )
+            ),
+            credProps: try container.decodeIfPresent(Bool.self, forKey: .credProps)
         )
     }
 
     private enum CodingKeys: String, CodingKey {
         case prf, credentialProtectionPolicy, enforceCredentialProtectionPolicy, credBlob, minPinLength, largeBlob
+        case credProps
     }
 }
 
@@ -88,10 +90,11 @@ extension WebAuthn.Extension.RegistrationOutputs: Encodable {
             try container.encode(minPinLength.length, forKey: .minPinLength)
         }
         try container.encodeIfPresent(largeBlob, forKey: .largeBlob)
+        try container.encodeIfPresent(credProps, forKey: .credProps)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case prf, credProtect, credBlob, minPinLength, largeBlob
+        case prf, credProtect, credBlob, minPinLength, largeBlob, credProps
     }
 }
 
@@ -375,5 +378,19 @@ extension WebAuthn.Extension.LargeBlob.Authentication.Output: Encodable {
 
     private enum CodingKeys: String, CodingKey {
         case blob, written
+    }
+}
+
+// MARK: - CredProps Registration Output Encodable
+
+extension WebAuthn.Extension.CredProps.Registration.Output: Encodable {
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(rk, forKey: .rk)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case rk
     }
 }

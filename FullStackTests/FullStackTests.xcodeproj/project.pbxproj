@@ -38,6 +38,7 @@
 		B4F9375A2B518A8B0007D394 /* AllowedConnections.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937592B518A8B0007D394 /* AllowedConnections.swift */; };
 		B4F9375F2B519D940007D394 /* Logger+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */; };
 		B4F937642B51A7DD0007D394 /* PIVFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */; };
+		CD676F172F84F19F00923D24 /* CredPropsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD676F162F84F19F00923D24 /* CredPropsTests.swift */; };
 		CD75D32C2F1114C7000624CB /* LargeBlobsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD75D32B2F1114C7000624CB /* LargeBlobsTests.swift */; };
 		DA1BB9E330014BCBBD93BF69 /* ConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD89AB9B1BB24FA6B5FD79D3 /* ConfigTests.swift */; };
 /* End PBXBuildFile section */
@@ -84,6 +85,7 @@
 		B4F937592B518A8B0007D394 /* AllowedConnections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllowedConnections.swift; sourceTree = SOURCE_ROOT; };
 		B4F9375D2B519D8E0007D394 /* Logger+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Extensions.swift"; sourceTree = "<group>"; };
 		B4F937632B51A7DD0007D394 /* PIVFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVFullStackTests.swift; sourceTree = "<group>"; };
+		CD676F162F84F19F00923D24 /* CredPropsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredPropsTests.swift; sourceTree = "<group>"; };
 		CD75D32B2F1114C7000624CB /* LargeBlobsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeBlobsTests.swift; sourceTree = "<group>"; };
 		CD89AB9B1BB24FA6B5FD79D3 /* ConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigTests.swift; sourceTree = "<group>"; };
 		D791282CF7244B319C15DAB12BE8C426 /* BioUVTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BioUVTests.swift; sourceTree = "<group>"; };
@@ -222,6 +224,7 @@
 		CD75D32D2F1114C8000624CB /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
+				CD676F162F84F19F00923D24 /* CredPropsTests.swift */,
 				6CCREDBLOB2F1115000000000 /* CredBlobTests.swift */,
 				6C734BB32EE860E100972E2A /* CredProtectTests.swift */,
 				CD75D32B2F1114C7000624CB /* LargeBlobsTests.swift */,
@@ -367,6 +370,7 @@
 				6C2B14552DC8CF4C00B5C482 /* XCTestCase+SCP.swift in Sources */,
 				6CDATAHEX2EF1234500000001 /* Data+Hex.swift in Sources */,
 				B2A73E5DE80348329B8FA710 /* EncryptedFieldsTests.swift in Sources */,
+				CD676F172F84F19F00923D24 /* CredPropsTests.swift in Sources */,
 				583058DA680743A1B11C558F /* CredentialManagementTests.swift in Sources */,
 				13BE63C7192C4B728038C6A1 /* BioEnrollmentTests.swift in Sources */,
 				39665FDAD3234C40B63D96C652AF6BDC /* BioUVTests.swift in Sources */,
