@@ -20,37 +20,12 @@ extension WebAuthn.Client {
 
     // MARK: - Public API
 
-    /// Authenticate with an existing passkey credential.
-    ///
-    /// Uses the client's origin and validates the RP ID.
-    public func getAssertion(
-        _ options: WebAuthn.Authentication.Options
-    ) async -> WebAuthn.StatusStream<WebAuthn.Authentication.Response> {
-        let rpId = options.rpId ?? origin.host
-        let clientData = WebAuthn.ClientData.webauthn(
-            type: "webauthn.get",
-            challenge: options.challenge,
-            origin: origin,
-            rpId: rpId
-        )
-        return await getAssertion(options, clientData: clientData)
-    }
-
-    /// Authenticate with an existing passkey credential using custom client data.
-    public func getAssertion(
-        _ options: WebAuthn.Authentication.Options,
-        clientData: WebAuthn.ClientData
-    ) async -> WebAuthn.StatusStream<WebAuthn.Authentication.Response> {
-        if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
-            return .error(error)
-        }
-        return await getAssertions(options, clientData: clientData).selectFirst()
-    }
-
     /// Get all matching credentials for selection UI.
     ///
     /// Returns matched credentials that can be inspected for selection UI.
     /// Call `select()` on the chosen credential to complete extension processing.
+    /// On success, the returned array is guaranteed to be non-empty. If no matching
+    /// credentials exist, throws ``WebAuthn/ClientError/noCredentials(source:)``.
     ///
     /// Uses the client's origin and validates the RP ID.
     public func getAssertions(
@@ -67,6 +42,9 @@ extension WebAuthn.Client {
     }
 
     /// Get all matching credentials using custom client data.
+    ///
+    /// On success, the returned array is guaranteed to be non-empty. If no matching
+    /// credentials exist, throws ``WebAuthn/ClientError/noCredentials(source:)``.
     public func getAssertions(
         _ options: WebAuthn.Authentication.Options,
         clientData: WebAuthn.ClientData
@@ -77,15 +55,12 @@ extension WebAuthn.Client {
         return WebAuthn.StatusStream { continuation in
             Task { [self] in
                 do throws(WebAuthn.ClientError) {
-                    let pendingCredentials = try await performGetAssertions(
+                    let matches = try await self.performGetAssertions(
                         options: options,
                         clientData: clientData,
                         continuation: continuation
                     )
-                    guard !pendingCredentials.isEmpty else {
-                        throw WebAuthn.ClientError.noCredentials(source: .here())
-                    }
-                    continuation.yield(.finished(pendingCredentials))
+                    continuation.yield(.finished(matches))
                 } catch {
                     continuation.yield(error: error)
                 }
@@ -99,47 +74,40 @@ extension WebAuthn.Client {
 extension WebAuthn.Client {
 
     // Executes the CTAP2 getAssertion flow with PIN/UV handling and retry logic.
-    // Returns matched credentials with deferred extension processing.
+    // For allow-list requests, silently probes to find a matching credential.
+    // Throws noCredentials if none exist (after user presence to prevent timing leaks).
+    // For discoverable requests, collects all matching assertions from the authenticator.
     fileprivate func performGetAssertions(
         options: WebAuthn.Authentication.Options,
         clientData: WebAuthn.ClientData,
         continuation: WebAuthn.StatusStream<[WebAuthn.Authentication.MatchedCredential]>.Continuation
     ) async throws(WebAuthn.ClientError) -> [WebAuthn.Authentication.MatchedCredential] {
 
-        let cachedInfo: CTAP2.GetInfo.ImmutableView
-        do throws(CTAP2.SessionError) {
-            cachedInfo = try await backend.cachedInfo
-        } catch {
-            throw WebAuthn.ClientError(error)
-        }
         let rpId = clientData.rpId
         let clientDataHash = clientData.clientDataHash
 
+        let requestPIN: @Sendable () async -> String? = {
+            await self.awaitPINEntry(from: continuation)
+        }
+        let requestUVApproval: @Sendable () async -> Bool = {
+            await self.awaitUVDecision(from: continuation)
+        }
+
+        var permissions: CTAP2.ClientPin.Permission = .getAssertion
+        if case .write = options.extensions?.largeBlob,
+            (try? await backend.isLargeBlobSupported()) == true
+        {
+            permissions.insert(.largeBlobWrite)
+        }
+
         var retry = RetryContext(userVerification: options.userVerification)
 
-        // Retry loop for recoverable UV/PIN errors.
         while true {
-            // Re-fetch mutable state (PIN/UV counters) on each attempt.
             let info: CTAP2.GetInfo.Response
             do throws(CTAP2.SessionError) {
                 info = try await backend.getInfo()
             } catch {
                 throw WebAuthn.ClientError(error)
-            }
-
-            let requestPIN: @Sendable () async -> String? = {
-                await self.awaitPINEntry(from: continuation)
-            }
-            let requestUVApproval: @Sendable () async -> Bool = {
-                await self.awaitUVDecision(from: continuation)
-            }
-
-            // Only request largeBlobWrite when supported and a write is requested.
-            var permissions: CTAP2.ClientPin.Permission = .getAssertion
-            if case .write = options.extensions?.largeBlob,
-                (try? await backend.isLargeBlobSupported()) == true
-            {
-                permissions.insert(.largeBlobWrite)
             }
 
             let auth = try await acquireAuthToken(
@@ -153,15 +121,31 @@ extension WebAuthn.Client {
                 requestUVApproval: requestUVApproval
             )
 
-            // Silently probe allow list to find which credential exists.
-            let selectedCred = try await findMatchingCredential(
-                from: options.allowCredentials,
-                rpId: rpId,
-                cachedInfo: cachedInfo,
-                token: auth.token
-            )
-
-            let allowList = buildAllowList(options.allowCredentials, selectedCred: selectedCred)
+            // For allow-list requests, silently probe to find a matching credential.
+            // If none found, send a dummy credential to ensure user presence is required
+            // before revealing "no credentials" - prevents timing side-channel attacks.
+            var selectedCred: WebAuthn.CredentialDescriptor?
+            if !options.allowCredentials.isEmpty {
+                let cachedInfo: CTAP2.GetInfo.ImmutableView
+                do throws(CTAP2.SessionError) {
+                    cachedInfo = try await backend.cachedInfo
+                } catch {
+                    throw WebAuthn.ClientError(error)
+                }
+                selectedCred = try await findMatchingCredential(
+                    from: options.allowCredentials,
+                    rpId: rpId,
+                    cachedInfo: cachedInfo,
+                    token: auth.token
+                )
+                if selectedCred == nil {
+                    // Send dummy credential to force UP before revealing no match
+                    selectedCred = WebAuthn.CredentialDescriptor(
+                        type: options.allowCredentials.first?.type ?? "public-key",
+                        id: Data([0x00])
+                    )
+                }
+            }
 
             let (ctapExtensions, prf, largeBlobAction) = try await backend.buildGetAssertionExtensions(
                 options.extensions,
@@ -172,7 +156,7 @@ extension WebAuthn.Client {
             let parameters = CTAP2.GetAssertion.Parameters(
                 rpId: rpId,
                 clientDataHash: clientDataHash,
-                allowList: allowList,
+                allowList: selectedCred.map { [.init(id: $0.id)] },
                 extensions: ctapExtensions,
                 up: true,
                 uv: auth.uv
@@ -180,30 +164,12 @@ extension WebAuthn.Client {
 
             let collected: [CTAP2.GetAssertion.Response]
             do throws(CTAP2.SessionError) {
-                let firstStream = await backend.getAssertion(
+                let firstResponse = try await sendAssertion(
                     parameters: parameters,
-                    token: auth.token
+                    token: auth.token,
+                    continuation: continuation
                 )
-                var firstResponse: CTAP2.GetAssertion.Response?
-                for try await ctapStatus in firstStream {
-                    switch ctapStatus {
-                    case .processing:
-                        continuation.yield(.processing)
-                    case .waitingForUser(let cancel):
-                        continuation.yield(.waitingForUser(cancel: cancel))
-                    case .finished(let response):
-                        firstResponse = response
-                    }
-                }
 
-                guard let firstResponse else {
-                    throw CTAP2.SessionError.responseParseError(
-                        "Missing response from getAssertion",
-                        source: .here()
-                    )
-                }
-
-                // Collect additional assertions for discoverable credentials.
                 var allResponses = [firstResponse]
                 let total = firstResponse.numberOfCredentials ?? 1
                 for _ in 1..<total {
@@ -211,102 +177,108 @@ extension WebAuthn.Client {
                 }
                 collected = allResponses
             } catch {
+                if case .ctapError(.noCredentials, _) = error {
+                    throw .noCredentials(source: .here())
+                }
                 guard retry.shouldRetry(for: error) else { throw WebAuthn.ClientError(error) }
                 continue
             }
 
-            // Build matched credentials with deferred extension processing.
             var matches: [WebAuthn.Authentication.MatchedCredential] = []
             for ctapResponse in collected {
-                guard let credentialId = ctapResponse.credential?.id ?? allowList?.first?.id else {
-                    throw WebAuthn.ClientError(
-                        CTAP2.SessionError.responseParseError(
-                            "Missing credential ID in assertion response",
-                            source: .here()
-                        )
+                matches.append(
+                    try buildMatchedCredential(
+                        from: ctapResponse,
+                        fallbackCredentialId: selectedCred?.id,
+                        prf: prf,
+                        largeBlobAction: largeBlobAction,
+                        clientData: clientData,
+                        token: auth.token
                     )
-                }
-
-                // Capture values for the select closure.
-                let backend = self.backend
-                let token = auth.token
-
-                let match = WebAuthn.Authentication.MatchedCredential(
-                    id: credentialId,
-                    user: ctapResponse.user,
-                    select: { [ctapResponse, prf, largeBlobAction, clientData] () async throws(WebAuthn.ClientError) in
-                        // Process largeBlob for this credential.
-                        let largeBlobOutput = try await backend.processLargeBlob(
-                            from: ctapResponse,
-                            action: largeBlobAction,
-                            token: token
-                        )
-                        // Parse extension outputs (PRF decrypt, etc.).
-                        let extensionOutputs = try await backend.parseAuthenticationOutputs(
-                            from: ctapResponse,
-                            prf: prf,
-                            largeBlobOutput: largeBlobOutput
-                        )
-                        let authenticatorData = ctapResponse.authenticatorData
-                        return WebAuthn.Authentication.Response(
-                            credentialId: credentialId,
-                            rawAuthenticatorData: authenticatorData.rawData,
-                            signature: ctapResponse.signature,
-                            user: ctapResponse.user,
-                            clientExtensionResults: extensionOutputs,
-                            signCount: authenticatorData.signCount,
-                            authenticatorData: authenticatorData,
-                            clientDataJSON: clientData.clientDataJSON
-                        )
-                    }
                 )
-                matches.append(match)
             }
             return matches
         }
     }
-
-    // Builds allow list: nil for discoverable, single match if found, dummy ID otherwise.
-    // We still need to send a dummy value if there was an allowCredentials list but no matches
-    // were found.
-    fileprivate func buildAllowList(
-        _ allowCredentials: [WebAuthn.CredentialDescriptor],
-        selectedCred: WebAuthn.CredentialDescriptor?
-    ) -> [WebAuthn.CredentialDescriptor]? {
-        if allowCredentials.isEmpty { return nil }
-        if let selectedCred { return [.init(id: selectedCred.id)] }
-        return [.init(id: Data([0x00]))]
-    }
 }
 
-// MARK: - MatchedCredential Stream Helpers
+// MARK: - Shared Helpers
 
-extension WebAuthn.StatusStream where R == [WebAuthn.Authentication.MatchedCredential] {
+extension WebAuthn.Client {
 
-    /// Select the first matched credential and complete the assertion.
-    fileprivate func selectFirst() -> WebAuthn.StatusStream<WebAuthn.Authentication.Response> {
-        WebAuthn.StatusStream<WebAuthn.Authentication.Response> { continuation in
-            Task {
-                do {
-                    for try await status in self {
-                        switch status {
-                        case .processing:
-                            continuation.yield(.processing)
-                        case .waitingForUser(let cancel):
-                            continuation.yield(.waitingForUser(cancel: cancel))
-                        case .requestingUV(let useUV):
-                            continuation.yield(.requestingUV(useUV: useUV))
-                        case .requestingPIN(let submitPIN):
-                            continuation.yield(.requestingPIN(submitPIN: submitPIN))
-                        case .finished(let matches):
-                            let response = try await matches[0].select()
-                            continuation.yield(.finished(response))
-                        }
-                    }
-                } catch let error as WebAuthn.ClientError {
-                    continuation.yield(error: error)
-                }
+    // Sends a getAssertion command and forwards status updates to the continuation.
+    fileprivate func sendAssertion(
+        parameters: CTAP2.GetAssertion.Parameters,
+        token: CTAP2.Token?,
+        continuation: WebAuthn.StatusStream<[WebAuthn.Authentication.MatchedCredential]>.Continuation
+    ) async throws(CTAP2.SessionError) -> CTAP2.GetAssertion.Response {
+        let stream = await backend.getAssertion(parameters: parameters, token: token)
+        var response: CTAP2.GetAssertion.Response?
+        for try await ctapStatus in stream {
+            switch ctapStatus {
+            case .processing:
+                continuation.yield(.processing)
+            case .waitingForUser(let cancel):
+                continuation.yield(.waitingForUser(cancel: cancel))
+            case .finished(let r):
+                response = r
             }
         }
+        guard let response else {
+            throw CTAP2.SessionError.responseParseError(
+                "Missing response from getAssertion",
+                source: .here()
+            )
+        }
+        return response
+    }
+
+    // Builds a MatchedCredential from a CTAP response with deferred extension processing.
+    fileprivate func buildMatchedCredential(
+        from ctapResponse: CTAP2.GetAssertion.Response,
+        fallbackCredentialId: Data?,
+        prf: WebAuthn.Extension.PRF?,
+        largeBlobAction: WebAuthn.Extension.LargeBlob.Authentication.Input?,
+        clientData: WebAuthn.ClientData,
+        token: CTAP2.Token?
+    ) throws(WebAuthn.ClientError) -> WebAuthn.Authentication.MatchedCredential {
+        guard let credentialId = ctapResponse.credential?.id ?? fallbackCredentialId else {
+            throw WebAuthn.ClientError(
+                CTAP2.SessionError.responseParseError(
+                    "Missing credential ID in assertion response",
+                    source: .here()
+                )
+            )
+        }
+
+        let backend = self.backend
+
+        return WebAuthn.Authentication.MatchedCredential(
+            id: credentialId,
+            user: ctapResponse.user,
+            select: { [ctapResponse, prf, largeBlobAction, clientData] () async throws(WebAuthn.ClientError) in
+                let largeBlobOutput = try await backend.processLargeBlob(
+                    from: ctapResponse,
+                    action: largeBlobAction,
+                    token: token
+                )
+                let extensionOutputs = try await backend.parseAuthenticationOutputs(
+                    from: ctapResponse,
+                    prf: prf,
+                    largeBlobOutput: largeBlobOutput
+                )
+                let authenticatorData = ctapResponse.authenticatorData
+                return WebAuthn.Authentication.Response(
+                    credentialId: credentialId,
+                    rawAuthenticatorData: authenticatorData.rawData,
+                    signature: ctapResponse.signature,
+                    user: ctapResponse.user,
+                    clientExtensionResults: extensionOutputs,
+                    signCount: authenticatorData.signCount,
+                    authenticatorData: authenticatorData,
+                    clientDataJSON: clientData.clientDataJSON
+                )
+            }
+        )
     }
 }

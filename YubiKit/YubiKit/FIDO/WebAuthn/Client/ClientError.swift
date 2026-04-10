@@ -26,8 +26,6 @@ extension WebAuthn {
         case unsupportedAlgorithm(source: SourceLocation)
         /// A credential in the exclude list already exists on this authenticator.
         case credentialExcluded(source: SourceLocation)
-        /// No credentials match the allow list or RP ID.
-        case noCredentials(source: SourceLocation)
         /// The operation was cancelled by the user or client.
         case cancelled(source: SourceLocation)
         /// The operation timed out waiting for user interaction.
@@ -50,6 +48,8 @@ extension WebAuthn {
         case notSupported(_ message: String, source: SourceLocation)
         /// The authenticator's credential storage is full.
         case storageFull(source: SourceLocation)
+        /// No matching credentials exist on this authenticator.
+        case noCredentials(source: SourceLocation)
         /// The authenticator is not available (disconnected or communication error).
         case authenticatorNotAvailable(source: SourceLocation)
         /// A CTAP2 error not mapped to a specific WebAuthn error.

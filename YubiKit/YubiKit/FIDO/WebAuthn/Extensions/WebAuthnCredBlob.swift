@@ -49,7 +49,8 @@ extension WebAuthn.Extension {
     ///     ...,
     ///     extensions: .init(getCredBlob: true)
     /// )
-    /// let response = try await client.getAssertion(options).value(pin: pin)
+    /// let matches = try await client.getAssertions(options).value(pin: pin)
+    /// let response = try await matches[0].select()
     /// if let blob = response.clientExtensionResults.credBlob?.blob {
     ///     // Use the retrieved blob data
     /// }
