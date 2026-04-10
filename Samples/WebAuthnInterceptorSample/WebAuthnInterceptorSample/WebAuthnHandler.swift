@@ -30,18 +30,22 @@ struct GetRequest: Decodable {
 actor WebAuthnHandler {
 
     private var connection: (any Connection)?
-    private let pinProvider: WebAuthn.PINProvider
+    private let pinProvider: @Sendable () async -> String?
+    private let accountPicker: @Sendable ([WebAuthn.Authentication.MatchedCredential]) async -> Int
 
     // TODO: Add PublicSuffixList integration. For now, we don't validate against PSL.
     private let isPublicSuffix: WebAuthn.PublicSuffixChecker = { _ in false }
 
-    init(pinProvider: @escaping WebAuthn.PINProvider) {
+    init(
+        pinProvider: @escaping @Sendable () async -> String?,
+        accountPicker: @escaping @Sendable ([WebAuthn.Authentication.MatchedCredential]) async -> Int = { _ in 0 }
+    ) {
         self.pinProvider = pinProvider
+        self.accountPicker = accountPicker
     }
 
     // MARK: - Public API
 
-    // TODO: iOS NFC needs two-tap flow (close for PIN UI, reconnect). Works on macOS USB only.
     func handleCreate(_ data: Data) async throws -> String {
         let request = try JSONDecoder().decode(CreateRequest.self, from: data)
 
@@ -50,12 +54,12 @@ actor WebAuthnHandler {
         let client = WebAuthn.Client(
             session: session,
             origin: try .init(request.origin),
-            pinProvider: pinProvider,
             isPublicSuffix: isPublicSuffix
         )
 
-        let response = try await client.makeCredential(request.publicKey).value
-        return String(decoding: try JSONEncoder().encode(response), as: UTF8.self)
+        let stream = await client.makeCredential(request.publicKey)
+        let response = try await handleStream(stream)
+        return String(decoding: try response.toJSON(), as: UTF8.self)
     }
 
     func handleGet(_ data: Data) async throws -> String {
@@ -66,12 +70,36 @@ actor WebAuthnHandler {
         let client = WebAuthn.Client(
             session: session,
             origin: try .init(request.origin),
-            pinProvider: pinProvider,
             isPublicSuffix: isPublicSuffix
         )
 
-        let response = try await client.getAssertion(request.publicKey).value
-        return String(decoding: try JSONEncoder().encode(response), as: UTF8.self)
+        let stream = await client.getAssertion(request.publicKey)
+        let matches = try await handleStream(stream)
+        // On success, matches is guaranteed non-empty (throws noCredentials otherwise)
+        let selected = matches.count == 1 ? 0 : await accountPicker(matches)
+        let response = try await matches[selected].select()
+        return String(decoding: try response.toJSON(), as: UTF8.self)
+    }
+
+    // MARK: - Stream Handling
+
+    private func handleStream<R: Sendable>(
+        _ stream: WebAuthn.StatusStream<R>
+    ) async throws -> R {
+        for try await status in stream {
+            switch status {
+            case .requestingPIN(let submitPIN):
+                let pin = await pinProvider()
+                submitPIN(pin)
+            case .requestingUV(let useUV):
+                useUV(true)
+            case .finished(let response):
+                return response
+            default:
+                break
+            }
+        }
+        preconditionFailure("Stream ended without response")
     }
 
     // MARK: - Connection Management

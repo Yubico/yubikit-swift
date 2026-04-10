@@ -14,6 +14,8 @@
 
 import Foundation
 
+// MARK: - WebAuthn Client
+
 extension WebAuthn {
 
     /// Client for performing WebAuthn passkey operations.
@@ -21,32 +23,37 @@ extension WebAuthn {
     /// Provides a unified interface for passkey registration and authentication
     /// backed by a YubiKey via CTAP2 protocol (USB/NFC).
     ///
+    /// All user interaction (PIN entry, UV approval) is communicated through the
+    /// status stream. Iterate the stream to handle these requests:
+    ///
     /// ```swift
     /// let session = try await CTAP2.Session(connection: connection)
     /// let client = WebAuthn.Client(
     ///     session: session,
     ///     origin: try .init("https://example.com"),
-    ///     pinProvider: { await promptUserForPIN() },
     ///     isPublicSuffix: { publicSuffixList.contains($0) }
     /// )
     ///
-    /// let credential = try await client.makeCredential(
-    ///     .init(
-    ///         challenge: challenge,
-    ///         rp: .init(id: "example.com", name: "Example"),
-    ///         user: .init(id: userId, name: "alice@example.com", displayName: "Alice")
-    ///     )
-    /// ).value
+    /// for try await status in client.makeCredential(options) {
+    ///     switch status {
+    ///     case .processing: showSpinner()
+    ///     case .waitingForUser(let cancel): showTouchPrompt()
+    ///     case .requestingUV(let useUV): useUV(true)
+    ///     case .requestingPIN(let submitPIN): submitPIN(await askForPIN())
+    ///     case .finished(let response): return response
+    ///     }
+    /// }
     /// ```
     ///
     /// - SeeAlso: [Web Authentication](https://www.w3.org/TR/webauthn-3/)
-    public struct Client: Sendable {
+    public actor Client {
 
-        // MARK: - Properties
+        // MARK: - Internal Properties
 
-        private let backend: any Backend
-        private let origin: Origin
-        private let isPublicSuffix: PublicSuffixChecker
+        let backend: any Backend
+        let origin: Origin
+        let enterpriseRpIds: Set<String>
+        let isPublicSuffix: PublicSuffixChecker
 
         // MARK: - Initialization
 
@@ -55,7 +62,6 @@ extension WebAuthn {
         /// - Parameters:
         ///   - session: The CTAP2 session to use.
         ///   - origin: The origin URL for this client (e.g., `https://example.com`).
-        ///   - pinProvider: Closure called when PIN is required. Return `nil` to cancel.
         ///   - enterpriseRpIds: RP IDs that support platform-facilitated enterprise attestation.
         ///     When a credential is created with `.enterprise` attestation for an RP ID in this set,
         ///     the client uses platform-facilitated mode (value 2). For other RP IDs, it uses
@@ -64,135 +70,33 @@ extension WebAuthn {
         public init(
             session: CTAP2.Session,
             origin: Origin,
-            pinProvider: PINProvider? = nil,
             enterpriseRpIds: Set<String> = [],
             isPublicSuffix: @escaping PublicSuffixChecker
         ) {
-            self.backend = CTAP2Backend(
-                session: session,
-                pinProvider: pinProvider,
-                enterpriseRpIds: enterpriseRpIds
+            self.init(
+                backend: session,
+                origin: origin,
+                enterpriseRpIds: enterpriseRpIds,
+                isPublicSuffix: isPublicSuffix
             )
+        }
+
+        /// Internal initializer for testing with a mock backend.
+        init(
+            backend: any Backend,
+            origin: Origin,
+            enterpriseRpIds: Set<String> = [],
+            isPublicSuffix: @escaping PublicSuffixChecker
+        ) {
+            self.backend = backend
             self.origin = origin
+            self.enterpriseRpIds = enterpriseRpIds
             self.isPublicSuffix = isPublicSuffix
-        }
-
-        // MARK: - Public API
-
-        /// Create a new passkey credential.
-        public func makeCredential(
-            _ options: Registration.Options
-        ) async -> StatusStream<Registration.Response> {
-            let rpId = options.rp.id
-            if let error = validateRpId(rpId) {
-                return .error(error)
-            }
-            let clientDataJSON = buildClientDataJSON(
-                type: "webauthn.create",
-                challenge: options.challenge
-            )
-            return await backend.makeCredential(options: options, clientDataJSON: clientDataJSON, rpId: rpId)
-                .withTimeout(options.timeout)
-        }
-
-        /// Authenticate with an existing passkey credential.
-        public func getAssertion(
-            _ options: Authentication.Options
-        ) async -> StatusStream<Authentication.Response> {
-            let rpId = options.rpId ?? origin.host
-            if let error = validateRpId(rpId) {
-                return .error(error)
-            }
-            let clientDataJSON = buildClientDataJSON(
-                type: "webauthn.get",
-                challenge: options.challenge
-            )
-            return await backend.getAssertion(options: options, clientDataJSON: clientDataJSON, rpId: rpId)
-                .withTimeout(options.timeout)
-        }
-
-        /// Get all matching assertions for credential selection UI.
-        public func getAssertions(
-            _ options: Authentication.Options
-        ) async -> StatusStream<[Authentication.Assertion]> {
-            let rpId = options.rpId ?? origin.host
-            if let error = validateRpId(rpId) {
-                return .error(error)
-            }
-            let clientDataJSON = buildClientDataJSON(
-                type: "webauthn.get",
-                challenge: options.challenge
-            )
-            return await backend.getAssertions(options: options, clientDataJSON: clientDataJSON, rpId: rpId)
-                .withTimeout(options.timeout)
-        }
-
-        // MARK: - Private Helpers
-
-        private func validateRpId(_ rpId: String) -> ClientError? {
-            let rpIdLower = rpId.lowercased()
-            let hostLower = origin.host.lowercased()
-
-            // RP ID cannot be a public suffix (e.g., "co.uk", "github.io")
-            if isPublicSuffix(rpIdLower) {
-                return .invalidRequest(
-                    "RP ID '\(rpId)' is a public suffix",
-                    source: .here()
-                )
-            }
-
-            // RP ID must be equal to or a registrable suffix of the origin's host
-            guard hostLower == rpIdLower || hostLower.hasSuffix("." + rpIdLower) else {
-                return .invalidRequest(
-                    "RP ID '\(rpId)' is not valid for origin '\(origin)'",
-                    source: .here()
-                )
-            }
-            return nil
-        }
-
-        private func buildClientDataJSON(type: String, challenge: Data) -> Data {
-            func escape(_ value: String) -> String {
-                let data = try! JSONSerialization.data(withJSONObject: value, options: .fragmentsAllowed)
-                return String(decoding: data, as: UTF8.self)
-            }
-            let json =
-                "{" + #""type":"# + escape(type)
-                + #","challenge":"# + escape(challenge.base64URLEncodedString())
-                + #","origin":"# + escape(origin.stringValue)
-                + #","crossOrigin":"# + String(false)
-                + "}"
-            return Data(json.utf8)
         }
     }
 
     // MARK: - Type Aliases
 
-    /// Closure called when PIN is required. Return `nil` to cancel.
-    public typealias PINProvider = @Sendable () async -> String?
-
     /// Closure that returns `true` if the given domain is in the [Public Suffix List](https://publicsuffix.org/).
     public typealias PublicSuffixChecker = @Sendable (String) -> Bool
-
-    // MARK: - Backend Protocol
-
-    protocol Backend: Sendable {
-        func makeCredential(
-            options: Registration.Options,
-            clientDataJSON: Data,
-            rpId: String
-        ) async -> StatusStream<Registration.Response>
-
-        func getAssertion(
-            options: Authentication.Options,
-            clientDataJSON: Data,
-            rpId: String
-        ) async -> StatusStream<Authentication.Response>
-
-        func getAssertions(
-            options: Authentication.Options,
-            clientDataJSON: Data,
-            rpId: String
-        ) async -> StatusStream<[Authentication.Assertion]>
-    }
 }

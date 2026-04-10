@@ -21,7 +21,7 @@ extension WebAuthn {
     /// It contains information about the relying party, flags, signature counter, and optionally
     /// attested credential data.
     ///
-    /// - SeeAlso: [WebAuthn Authenticator Data](https://www.w3.org/TR/webauthn/#authenticator-data)
+    /// - SeeAlso: [WebAuthn Authenticator Data](https://www.w3.org/TR/webauthn-3/#sctn-authenticator-data)
     public struct AuthenticatorData: Sendable {
         /// The raw authenticator data bytes.
         public let rawData: Data
@@ -90,21 +90,21 @@ extension WebAuthn.AuthenticatorData {
 
         var offset = 0
 
-        // MARK: Parse RP ID Hash
+        // Parse RP ID Hash
         self.rpIdHash = data.subdata(in: offset..<(offset + 32))
         offset += 32
 
-        // MARK: Parse Flags
+        // Parse Flags
         let flagsByte = data[offset]
         self.flags = Flags(rawValue: flagsByte)
         offset += 1
 
-        // MARK: Parse Signature Counter
+        // Parse Signature Counter
         let signCountData = data.subdata(in: offset..<(offset + 4))
         self.signCount = signCountData.withUnsafeBytes { $0.loadUnaligned(as: UInt32.self).bigEndian }
         offset += 4
 
-        // MARK: Parse Attested Credential Data (optional)
+        // Parse Attested Credential Data (optional)
         if flags.contains(.attestedCredentialData) {
             guard let (attestedData, newOffset) = WebAuthn.AttestedCredentialData.parse(from: data, startingAt: offset)
             else {
@@ -116,7 +116,7 @@ extension WebAuthn.AuthenticatorData {
             self.attestedCredentialData = nil
         }
 
-        // MARK: Parse Extensions (optional)
+        // Parse Extensions (optional)
         if flags.contains(.extensionData) {
             // Extensions are CBOR-encoded as a map with string keys
             let extensionsData = data.subdata(in: offset..<data.count)
@@ -147,7 +147,7 @@ extension WebAuthn {
     ///
     /// Contains the AAGUID, credential ID, and credential public key.
     ///
-    /// - SeeAlso: [WebAuthn Attested Credential Data](https://www.w3.org/TR/webauthn/#sctn-attested-credential-data)
+    /// - SeeAlso: [WebAuthn Attested Credential Data](https://www.w3.org/TR/webauthn-3/#sctn-attested-credential-data)
     public struct AttestedCredentialData: Sendable {
         /// Authenticator Attestation Global Unique ID (128 bits).
         public let aaguid: AAGUID
@@ -187,26 +187,26 @@ extension WebAuthn.AttestedCredentialData {
 
         var currentOffset = offset
 
-        // MARK: Parse AAGUID
+        // Parse AAGUID
         let aaguidData = data.subdata(in: currentOffset..<(currentOffset + 16))
         guard let aaguid = WebAuthn.AAGUID(aaguidData) else {
             return nil
         }
         currentOffset += 16
 
-        // MARK: Parse Credential ID Length
+        // Parse Credential ID Length
         let credIdLengthData = data.subdata(in: currentOffset..<(currentOffset + 2))
         let credIdLength = Int(credIdLengthData[0]) << 8 | Int(credIdLengthData[1])
         currentOffset += 2
 
-        // MARK: Parse Credential ID
+        // Parse Credential ID
         guard data.count >= currentOffset + credIdLength else {
             return nil
         }
         let credentialId = data.subdata(in: currentOffset..<(currentOffset + credIdLength))
         currentOffset += credIdLength
 
-        // MARK: Parse Credential Public Key (CBOR)
+        // Parse Credential Public Key (CBOR)
         let cborData = data.subdata(in: currentOffset..<data.count)
         var remaining = Data()
         guard let coseKey: COSE.Key = try? cborData.decode(remaining: &remaining) else {

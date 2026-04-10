@@ -14,67 +14,46 @@
 
 import Foundation
 
-/// An async sequence that yields status updates and can throw typed errors.
-///
-/// - Note: Use the namespace-specific typealiases ``CTAP2/StatusStream`` and
-///   ``WebAuthn/StatusStream`` instead of this type directly.
-public struct StatusStreamBase<Response: Sendable, Failure: Error & Sendable>: AsyncSequence, @unchecked Sendable {
-    public typealias Element = CTAP2.Status<Response>
+/// Protocol for status types that can signal completion.
+protocol StreamStatus<Response>: Sendable {
+    associatedtype Response: Sendable
+    /// Returns the response if this is a terminal status, nil otherwise.
+    var finishedResponse: Response? { get }
+}
 
-    private let stream: AsyncStream<Result<CTAP2.Status<Response>, Failure>>
+/// Async sequence that yields status updates with typed errors.
+struct StatusStreamBase<Status: StreamStatus, Failure: Error & Sendable>: AsyncSequence,
+    @unchecked Sendable
+{
+    typealias Element = Status
+
+    private let stream: AsyncStream<Result<Status, Failure>>
 
     init(_ build: @escaping (Continuation) -> Void) {
-        let baseStream = AsyncStream { continuation in
+        self.stream = AsyncStream { continuation in
             build(Continuation(continuation))
         }
-        self.stream = baseStream.removeDuplicates { lhs, rhs in
-            switch (lhs, rhs) {
-            case (.success(.processing), .success(.processing)),
-                (.success(.waitingForUser), .success(.waitingForUser)):
-                true
-            default:
-                false
-            }
-        }
     }
 
-    /// Consumes the stream and returns the final response value.
-    ///
-    /// This property iterates through all status updates and returns the response
-    /// from the `.finished` case. Intermediate status updates are ignored.
-    ///
-    /// - Throws: The `Failure` error type if the operation fails.
-    /// - Returns: The response value from the completed operation.
-    public var value: Response {
-        get async throws(Failure) {
-            for try await status in self {
-                if case .finished(let response) = status {
-                    return response
-                }
-            }
-            preconditionFailure("StatusStream must yield .finished before ending")
-        }
-    }
-
-    public func makeAsyncIterator() -> Iterator {
+    func makeAsyncIterator() -> Iterator {
         Iterator(stream.makeAsyncIterator())
     }
 
-    public struct Iterator: AsyncIteratorProtocol {
-        private var iterator: AsyncStream<Result<CTAP2.Status<Response>, Failure>>.AsyncIterator
+    struct Iterator: AsyncIteratorProtocol {
+        private var iterator: AsyncStream<Result<Status, Failure>>.AsyncIterator
 
-        fileprivate init(_ iterator: AsyncStream<Result<CTAP2.Status<Response>, Failure>>.AsyncIterator) {
+        fileprivate init(_ iterator: AsyncStream<Result<Status, Failure>>.AsyncIterator) {
             self.iterator = iterator
         }
 
-        public mutating func next() async throws(Failure) -> CTAP2.Status<Response>? {
+        mutating func next() async throws(Failure) -> Status? {
             guard let result = await iterator.next() else { return nil }
             return try result.get()
         }
     }
 }
 
-// MARK: - Internal
+// MARK: - Helpers
 
 extension StatusStreamBase {
 
@@ -85,14 +64,8 @@ extension StatusStreamBase {
         }
     }
 
-    /// Wraps this stream with an optional timeout.
-    func withTimeout(_ duration: Duration?) -> StatusStreamBase where Failure == WebAuthn.ClientError {
-        guard let duration else { return self }
-        return timeout(duration, error: .timeout(source: .here()))
-    }
-
-    /// Wraps this stream with a timeout.
-    private func timeout(_ duration: Duration, error timeoutError: Failure) -> StatusStreamBase {
+    /// Wraps this stream with a timeout that yields the given error.
+    func timeout(_ duration: Duration, error timeoutError: Failure) -> StatusStreamBase {
         StatusStreamBase { continuation in
             Task {
                 let completed = await withTaskGroup(of: Bool.self) { group in
@@ -125,15 +98,15 @@ extension StatusStreamBase {
     }
 
     struct Continuation: Sendable {
-        private let continuation: AsyncStream<Result<CTAP2.Status<Response>, Failure>>.Continuation
+        private let continuation: AsyncStream<Result<Status, Failure>>.Continuation
 
-        fileprivate init(_ continuation: AsyncStream<Result<CTAP2.Status<Response>, Failure>>.Continuation) {
+        fileprivate init(_ continuation: AsyncStream<Result<Status, Failure>>.Continuation) {
             self.continuation = continuation
         }
 
-        func yield(_ status: CTAP2.Status<Response>) {
+        func yield(_ status: Status) {
             continuation.yield(.success(status))
-            if case .finished = status {
+            if status.finishedResponse != nil {
                 continuation.finish()
             }
         }

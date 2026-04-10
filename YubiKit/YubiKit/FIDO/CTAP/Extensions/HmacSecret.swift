@@ -208,7 +208,7 @@ extension CTAP2.Extension.HmacSecret {
         }
 
         /// Result type for hmac-secret MakeCredential extension.
-        public enum Result: Sendable {
+        public enum Result: Sendable, Equatable {
             /// hmac-secret is enabled for this credential.
             case enabled
 

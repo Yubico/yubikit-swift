@@ -14,30 +14,52 @@
 
 import Foundation
 
+// MARK: - WebAuthn Error
+
 extension WebAuthn {
 
     /// Errors that can occur during WebAuthn client operations.
-    public enum ClientError: Error, Sendable {
+    public enum ClientError: Swift.Error, Sendable {
+        /// The request parameters are invalid (e.g., RP ID mismatch, public suffix).
         case invalidRequest(_ message: String, source: SourceLocation)
+        /// None of the requested algorithms are supported by the authenticator.
         case unsupportedAlgorithm(source: SourceLocation)
+        /// A credential in the exclude list already exists on this authenticator.
         case credentialExcluded(source: SourceLocation)
-        case noCredentials(source: SourceLocation)
+        /// The operation was cancelled by the user or client.
         case cancelled(source: SourceLocation)
+        /// The operation timed out waiting for user interaction.
         case timeout(source: SourceLocation)
+        /// User verification failed (biometric mismatch or internal UV error).
         case userVerificationFailed(retriesRemaining: Int?, source: SourceLocation)
+        /// The PIN was incorrect.
         case invalidPIN(retriesRemaining: Int, source: SourceLocation)
+        /// The PIN is blocked due to too many failed attempts. Factory reset required.
         case pinBlocked(source: SourceLocation)
+        /// PIN authentication is temporarily blocked. Reinsert the authenticator.
         case pinAuthBlocked(source: SourceLocation)
+        /// No PIN is configured on this authenticator.
         case pinNotSet(source: SourceLocation)
+        /// A PIN is required but no PIN provider was configured.
         case pinRequired(source: SourceLocation)
+        /// The PIN token expired. Retry the operation.
         case pinTokenExpired(source: SourceLocation)
+        /// The requested feature is not supported by this authenticator.
         case notSupported(_ message: String, source: SourceLocation)
+        /// The authenticator's credential storage is full.
         case storageFull(source: SourceLocation)
+        /// No matching credentials exist on this authenticator.
+        case noCredentials(source: SourceLocation)
+        /// The authenticator is not available (disconnected or communication error).
         case authenticatorNotAvailable(source: SourceLocation)
+        /// A CTAP2 error not mapped to a specific WebAuthn error.
         case ctapError(_ error: CTAP2.SessionError, source: SourceLocation)
+        /// An unexpected internal error occurred.
         case internalError(_ message: String, source: SourceLocation)
     }
 }
+
+// MARK: - CTAP Error Conversion
 
 extension WebAuthn.ClientError {
 
@@ -54,7 +76,7 @@ extension WebAuthn.ClientError {
             case .pinNotSet: self = .pinNotSet(source: source)
             case .pinTokenExpired: self = .pinTokenExpired(source: source)
             case .unsupportedAlgorithm: self = .unsupportedAlgorithm(source: source)
-            case .keyStoreFull: self = .storageFull(source: source)
+            case .keyStoreFull, .largeBlobStorageFull: self = .storageFull(source: source)
             default: self = .ctapError(ctapError, source: source)
             }
         case .connectionError:
