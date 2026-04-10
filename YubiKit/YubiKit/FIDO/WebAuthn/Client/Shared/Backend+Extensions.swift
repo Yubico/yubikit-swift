@@ -138,7 +138,6 @@ extension WebAuthn.Backend {
             }
 
             // No matching credential and no default eval — skip PRF entirely.
-            // The authenticator will return noCredentials on the dummy allowList.
             if prfInput.eval != nil || selectedCredentialId != nil {
                 if let eval = prfInput.eval {
                     prf = try? await makePRF(

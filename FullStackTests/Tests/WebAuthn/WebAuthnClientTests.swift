@@ -73,7 +73,8 @@ struct WebAuthnClientFullStackTests {
             )
 
             print("Getting assertion...")
-            let assertResponse = try await client.getAssertion(requestOptions).value(pin: defaultTestPin)
+            let matches = try await client.getAssertions(requestOptions).value(pin: defaultTestPin)
+            let assertResponse = try await matches[0].select()
 
             #expect(assertResponse.rawAuthenticatorData.count > 0)
             #expect(assertResponse.signature.count > 0)
@@ -112,7 +113,8 @@ struct WebAuthnClientFullStackTests {
             )
 
             print("Getting assertion with allow credentials...")
-            let assertResponse = try await client.getAssertion(requestOptions).value(pin: defaultTestPin)
+            let matches = try await client.getAssertions(requestOptions).value(pin: defaultTestPin)
+            let assertResponse = try await matches[0].select()
 
             #expect(assertResponse.credentialId == createResponse.credentialId)
             #expect(assertResponse.signature.count > 0)
@@ -120,8 +122,8 @@ struct WebAuthnClientFullStackTests {
         }
     }
 
-    @Test("Get Assertion - No Matching Credentials")
-    func testGetAssertionNoCredentials() async throws {
+    @Test("Get Assertions - Allow List No Match")
+    func testGetAssertionsAllowListNoMatch() async throws {
         try await withWebAuthnClient { client in
             let requestOptions = WebAuthn.Authentication.Options(
                 challenge: randomBytes(count: 32),
@@ -131,7 +133,7 @@ struct WebAuthnClientFullStackTests {
 
             print("Getting assertion with non-existent credential...")
             do {
-                _ = try await client.getAssertion(requestOptions).value(pin: defaultTestPin)
+                _ = try await client.getAssertions(requestOptions).value(pin: defaultTestPin)
                 Issue.record("Should have thrown noCredentials error")
             } catch let error as WebAuthn.ClientError {
                 guard case .noCredentials = error else {
@@ -418,6 +420,104 @@ struct WebAuthnClientFullStackTests {
             #expect(originIndex < crossOriginIndex, "origin should come before crossOrigin")
 
             print("clientDataJSON format verified")
+        }
+    }
+
+    // MARK: - Status Stream
+
+    @Test("Get Assertions - Status Stream delivers PIN and user presence events")
+    func testGetAssertionStatusStream() async throws {
+        try await withReconnectableWebAuthnClient { client, _, reconnect in
+            var client = client
+
+            let createOptions = WebAuthn.Registration.Options(
+                challenge: randomBytes(count: 32),
+                rp: .init(id: testRpId, name: testRpName),
+                user: .init(
+                    id: randomBytes(count: 32),
+                    name: "stream@example.com",
+                    displayName: "Stream User"
+                ),
+                residentKey: .required
+            )
+
+            print("Making credential...")
+            _ = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
+            client = try await reconnect().client
+
+            let requestOptions = WebAuthn.Authentication.Options(
+                challenge: randomBytes(count: 32),
+                rpId: testRpId
+            )
+
+            print("Iterating getAssertions status stream...")
+            var sawPINRequest = false
+            var sawWaitingForUser = false
+            var matches: [WebAuthn.Authentication.MatchedCredential]?
+
+            for try await status in await client.getAssertions(requestOptions) {
+                switch status {
+                case .processing:
+                    print("Processing...")
+                case .waitingForUser:
+                    print("Waiting for user...")
+                    sawWaitingForUser = true
+                case .requestingUV(let useUV):
+                    print("Requesting UV - declining to force PIN path")
+                    useUV(false)
+                case .requestingPIN(let submitPIN):
+                    print("PIN requested - submitting")
+                    sawPINRequest = true
+                    submitPIN(defaultTestPin)
+                case .finished(let result):
+                    matches = result
+                }
+            }
+
+            #expect(sawPINRequest, "Stream should have delivered a PIN request")
+            #expect(sawWaitingForUser, "Stream should have delivered waitingForUser")
+            guard let matches else {
+                Issue.record("Stream should have delivered .finished with matches")
+                return
+            }
+            #expect(!matches.isEmpty, "Should have at least one matched credential")
+
+            let response = try await matches[0].select()
+            #expect(response.signature.count > 0)
+            print("Status stream assertion completed successfully")
+        }
+    }
+
+    // MARK: - Discoverable - No Credentials
+
+    @Test("Get Assertions - Discoverable with no credentials for RP")
+    func testGetAssertionsDiscoverableNoCredentials() async throws {
+        let unusedRpId = "no-creds-\(UUID().uuidString.prefix(8)).example.com"
+        let unusedOrigin = try WebAuthn.Origin("https://\(unusedRpId)")
+
+        try await withCTAP2Session { session in
+            let client = WebAuthn.Client(
+                session: session,
+                origin: unusedOrigin,
+                isPublicSuffix: { _ in false }
+            )
+
+            let requestOptions = WebAuthn.Authentication.Options(
+                challenge: randomBytes(count: 32),
+                rpId: unusedRpId
+            )
+
+            print("Getting discoverable assertions for RP with no credentials...")
+            do {
+                _ = try await client.getAssertions(requestOptions).value(pin: defaultTestPin)
+                Issue.record("Should have thrown noCredentials error")
+            } catch let error as WebAuthn.ClientError {
+                guard case .noCredentials = error else {
+                    Issue.record("Expected noCredentials error, got: \(error)")
+                    return
+                }
+                print("Correctly received noCredentials error for discoverable path")
+            }
         }
     }
 

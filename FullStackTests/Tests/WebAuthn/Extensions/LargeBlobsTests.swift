@@ -61,7 +61,7 @@ struct WebAuthnLargeBlobExtensionTests {
             )
 
             print("Writing blob...")
-            let writeResponse = try await client.getAssertion(writeOptions).value(pin: defaultTestPin)
+            let writeResponse = try await client.getAssertions(writeOptions).value(pin: defaultTestPin)[0].select()
 
             #expect(writeResponse.clientExtensionResults.largeBlob?.written == true)
             print("Blob written")
@@ -77,7 +77,7 @@ struct WebAuthnLargeBlobExtensionTests {
             )
 
             print("Reading blob...")
-            let readResponse = try await client.getAssertion(readOptions).value(pin: defaultTestPin)
+            let readResponse = try await client.getAssertions(readOptions).value(pin: defaultTestPin)[0].select()
 
             #expect(readResponse.clientExtensionResults.largeBlob?.blob == testData)
             print("Blob retrieved and verified")
@@ -170,7 +170,7 @@ struct WebAuthnLargeBlobExtensionTests {
                 allowCredentials: [.init(id: credentialId1)],
                 extensions: .init(largeBlob: .write(testData1))
             )
-            _ = try await client.getAssertion(writeOptions1).value(pin: defaultTestPin)
+            _ = try await client.getAssertions(writeOptions1).value(pin: defaultTestPin)[0].select()
             print("First blob written")
 
             client = try await reconnect().client
@@ -200,7 +200,7 @@ struct WebAuthnLargeBlobExtensionTests {
                 allowCredentials: [.init(id: credentialId2)],
                 extensions: .init(largeBlob: .write(testData2))
             )
-            _ = try await client.getAssertion(writeOptions2).value(pin: defaultTestPin)
+            _ = try await client.getAssertions(writeOptions2).value(pin: defaultTestPin)[0].select()
             print("Second blob written")
 
             client = try await reconnect().client
@@ -212,7 +212,7 @@ struct WebAuthnLargeBlobExtensionTests {
                 allowCredentials: [.init(id: credentialId1)],
                 extensions: .init(largeBlob: .read)
             )
-            let readResponse1 = try await client.getAssertion(readOptions1).value(pin: defaultTestPin)
+            let readResponse1 = try await client.getAssertions(readOptions1).value(pin: defaultTestPin)[0].select()
             #expect(readResponse1.clientExtensionResults.largeBlob?.blob == testData1)
 
             client = try await reconnect().client
@@ -223,7 +223,7 @@ struct WebAuthnLargeBlobExtensionTests {
                 allowCredentials: [.init(id: credentialId2)],
                 extensions: .init(largeBlob: .read)
             )
-            let readResponse2 = try await client.getAssertion(readOptions2).value(pin: defaultTestPin)
+            let readResponse2 = try await client.getAssertions(readOptions2).value(pin: defaultTestPin)[0].select()
             #expect(readResponse2.clientExtensionResults.largeBlob?.blob == testData2)
 
             print("Both blobs retrieved and verified independently")
@@ -273,7 +273,7 @@ struct WebAuthnLargeBlobExtensionTests {
 
             print("Attempting to write oversized blob (\(oversizedData.count) bytes)...")
             do {
-                _ = try await client.getAssertion(writeOptions).value(pin: defaultTestPin)
+                _ = try await client.getAssertions(writeOptions).value(pin: defaultTestPin)[0].select()
                 Issue.record("Expected storageFull error for oversized blob")
             } catch let error as WebAuthn.ClientError {
                 guard case .storageFull = error else {

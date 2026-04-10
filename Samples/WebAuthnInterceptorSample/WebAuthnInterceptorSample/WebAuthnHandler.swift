@@ -31,12 +31,17 @@ actor WebAuthnHandler {
 
     private var connection: (any Connection)?
     private let pinProvider: @Sendable () async -> String?
+    private let accountPicker: @Sendable ([WebAuthn.Authentication.MatchedCredential]) async -> Int
 
     // TODO: Add PublicSuffixList integration. For now, we don't validate against PSL.
     private let isPublicSuffix: WebAuthn.PublicSuffixChecker = { _ in false }
 
-    init(pinProvider: @escaping @Sendable () async -> String?) {
+    init(
+        pinProvider: @escaping @Sendable () async -> String?,
+        accountPicker: @escaping @Sendable ([WebAuthn.Authentication.MatchedCredential]) async -> Int = { _ in 0 }
+    ) {
         self.pinProvider = pinProvider
+        self.accountPicker = accountPicker
     }
 
     // MARK: - Public API
@@ -68,14 +73,17 @@ actor WebAuthnHandler {
             isPublicSuffix: isPublicSuffix
         )
 
-        let stream = await client.getAssertion(request.publicKey)
-        let response = try await handleStream(stream)
+        let stream = await client.getAssertions(request.publicKey)
+        let matches = try await handleStream(stream)
+        // On success, matches is guaranteed non-empty (throws noCredentials otherwise)
+        let selected = matches.count == 1 ? 0 : await accountPicker(matches)
+        let response = try await matches[selected].select()
         return String(decoding: try response.toJSON(), as: UTF8.self)
     }
 
     // MARK: - Stream Handling
 
-    private func handleStream<R: Sendable & Encodable>(
+    private func handleStream<R: Sendable>(
         _ stream: WebAuthn.StatusStream<R>
     ) async throws -> R {
         for try await status in stream {
