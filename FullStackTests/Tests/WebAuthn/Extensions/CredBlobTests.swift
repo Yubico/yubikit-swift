@@ -59,7 +59,7 @@ struct WebAuthnCredBlobExtensionTests {
             )
 
             print("Authenticating to retrieve credBlob...")
-            let authResponse = try await client.getAssertions(authOptions).value(pin: defaultTestPin)[0].select()
+            let authResponse = try await client.getAssertion(authOptions).value(pin: defaultTestPin)[0].select()
 
             #expect(authResponse.clientExtensionResults.credBlob?.blob == testBlob)
             print("CredBlob retrieved and verified")
@@ -103,7 +103,7 @@ struct WebAuthnCredBlobExtensionTests {
             )
 
             print("Authenticating without credBlob extension...")
-            let authResponse = try await client.getAssertions(authOptions).value(pin: defaultTestPin)[0].select()
+            let authResponse = try await client.getAssertion(authOptions).value(pin: defaultTestPin)[0].select()
 
             #expect(authResponse.clientExtensionResults.credBlob?.blob == nil)
             print("CredBlob not returned without extension")

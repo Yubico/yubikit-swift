@@ -73,7 +73,7 @@ actor WebAuthnHandler {
             isPublicSuffix: isPublicSuffix
         )
 
-        let stream = await client.getAssertions(request.publicKey)
+        let stream = await client.getAssertion(request.publicKey)
         let matches = try await handleStream(stream)
         // On success, matches is guaranteed non-empty (throws noCredentials otherwise)
         let selected = matches.count == 1 ? 0 : await accountPicker(matches)

@@ -28,7 +28,7 @@ extension WebAuthn.Client {
     /// credentials exist, throws ``WebAuthn/ClientError/noCredentials(source:)``.
     ///
     /// Uses the client's origin and validates the RP ID.
-    public func getAssertions(
+    public func getAssertion(
         _ options: WebAuthn.Authentication.Options
     ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.MatchedCredential]> {
         let rpId = options.rpId ?? origin.host
@@ -38,14 +38,14 @@ extension WebAuthn.Client {
             origin: origin,
             rpId: rpId
         )
-        return await getAssertions(options, clientData: clientData)
+        return await getAssertion(options, clientData: clientData)
     }
 
     /// Get all matching credentials using custom client data.
     ///
     /// On success, the returned array is guaranteed to be non-empty. If no matching
     /// credentials exist, throws ``WebAuthn/ClientError/noCredentials(source:)``.
-    public func getAssertions(
+    public func getAssertion(
         _ options: WebAuthn.Authentication.Options,
         clientData: WebAuthn.ClientData
     ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.MatchedCredential]> {
