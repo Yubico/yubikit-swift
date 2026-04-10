@@ -54,7 +54,7 @@ actor WebAuthnHandler {
 
         let stream = await client.makeCredential(request.publicKey)
         let response = try await handleStream(stream)
-        return String(decoding: try JSONEncoder().encode(response), as: UTF8.self)
+        return String(decoding: try response.toJSON(), as: UTF8.self)
     }
 
     func handleGet(_ data: Data) async throws -> String {
@@ -70,7 +70,7 @@ actor WebAuthnHandler {
 
         let stream = await client.getAssertion(request.publicKey)
         let response = try await handleStream(stream)
-        return String(decoding: try JSONEncoder().encode(response), as: UTF8.self)
+        return String(decoding: try response.toJSON(), as: UTF8.self)
     }
 
     // MARK: - Stream Handling

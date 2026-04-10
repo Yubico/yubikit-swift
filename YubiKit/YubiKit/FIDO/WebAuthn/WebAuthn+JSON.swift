@@ -14,6 +14,36 @@
 
 import Foundation
 
+// MARK: - JSON Convenience Methods
+
+extension WebAuthn.Registration.Options {
+    /// Parses registration options from JSON data received from a relying party.
+    public static func from(json data: Data) throws -> Self {
+        try JSONDecoder().decode(Self.self, from: data)
+    }
+}
+
+extension WebAuthn.Registration.Response {
+    /// Encodes this response as JSON to send to a relying party.
+    public func toJSON() throws -> Data {
+        try JSONEncoder().encode(self)
+    }
+}
+
+extension WebAuthn.Authentication.Options {
+    /// Parses authentication options from JSON data received from a relying party.
+    public static func from(json data: Data) throws -> Self {
+        try JSONDecoder().decode(Self.self, from: data)
+    }
+}
+
+extension WebAuthn.Authentication.Response {
+    /// Encodes this response as JSON to send to a relying party.
+    public func toJSON() throws -> Data {
+        try JSONEncoder().encode(self)
+    }
+}
+
 // MARK: - Shared Encoding Helpers
 
 extension WebAuthn {
