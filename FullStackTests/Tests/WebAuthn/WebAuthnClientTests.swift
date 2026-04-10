@@ -73,7 +73,7 @@ struct WebAuthnClientFullStackTests {
             )
 
             print("Getting assertion...")
-            let matches = try await client.getAssertions(requestOptions).value(pin: defaultTestPin)
+            let matches = try await client.getAssertion(requestOptions).value(pin: defaultTestPin)
             let assertResponse = try await matches[0].select()
 
             #expect(assertResponse.rawAuthenticatorData.count > 0)
@@ -113,7 +113,7 @@ struct WebAuthnClientFullStackTests {
             )
 
             print("Getting assertion with allow credentials...")
-            let matches = try await client.getAssertions(requestOptions).value(pin: defaultTestPin)
+            let matches = try await client.getAssertion(requestOptions).value(pin: defaultTestPin)
             let assertResponse = try await matches[0].select()
 
             #expect(assertResponse.credentialId == createResponse.credentialId)
@@ -133,7 +133,7 @@ struct WebAuthnClientFullStackTests {
 
             print("Getting assertion with non-existent credential...")
             do {
-                _ = try await client.getAssertions(requestOptions).value(pin: defaultTestPin)
+                _ = try await client.getAssertion(requestOptions).value(pin: defaultTestPin)
                 Issue.record("Should have thrown noCredentials error")
             } catch let error as WebAuthn.ClientError {
                 guard case .noCredentials = error else {
@@ -229,7 +229,7 @@ struct WebAuthnClientFullStackTests {
             )
 
             print("Getting matched credentials for selection...")
-            let matches = try await client.getAssertions(requestOptions).value(pin: defaultTestPin)
+            let matches = try await client.getAssertion(requestOptions).value(pin: defaultTestPin)
 
             #expect(matches.count >= credentialCount, "Should have at least \(credentialCount) matched credentials")
             print("Found \(matches.count) matched credentials")
@@ -455,7 +455,7 @@ struct WebAuthnClientFullStackTests {
             var sawWaitingForUser = false
             var matches: [WebAuthn.Authentication.MatchedCredential]?
 
-            for try await status in await client.getAssertions(requestOptions) {
+            for try await status in await client.getAssertion(requestOptions) {
                 switch status {
                 case .processing:
                     print("Processing...")
@@ -509,7 +509,7 @@ struct WebAuthnClientFullStackTests {
 
             print("Getting discoverable assertions for RP with no credentials...")
             do {
-                _ = try await client.getAssertions(requestOptions).value(pin: defaultTestPin)
+                _ = try await client.getAssertion(requestOptions).value(pin: defaultTestPin)
                 Issue.record("Should have thrown noCredentials error")
             } catch let error as WebAuthn.ClientError {
                 guard case .noCredentials = error else {

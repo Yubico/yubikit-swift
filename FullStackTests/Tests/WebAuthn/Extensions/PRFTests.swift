@@ -62,7 +62,7 @@ struct WebAuthnPRFExtensionTests {
             )
 
             print("Authenticating with PRF (one secret)...")
-            let authResponse1 = try await client.getAssertions(authOptions1).value(pin: defaultTestPin)[0].select()
+            let authResponse1 = try await client.getAssertion(authOptions1).value(pin: defaultTestPin)[0].select()
 
             guard let prfOutput1 = authResponse1.clientExtensionResults.prf else {
                 Issue.record("Expected PRF output in first assertion")
@@ -89,7 +89,7 @@ struct WebAuthnPRFExtensionTests {
             )
 
             print("Authenticating with PRF (two secrets, evalByCredential)...")
-            let authResponse2 = try await client.getAssertions(authOptions2).value(pin: defaultTestPin)[0].select()
+            let authResponse2 = try await client.getAssertion(authOptions2).value(pin: defaultTestPin)[0].select()
 
             guard let prfOutput2 = authResponse2.clientExtensionResults.prf else {
                 Issue.record("Expected PRF output in second assertion")
@@ -156,7 +156,7 @@ struct WebAuthnPRFExtensionTests {
             )
 
             print("Authenticating with PRF (verifying determinism)...")
-            let authResponse = try await client.getAssertions(authOptions).value(pin: defaultTestPin)[0].select()
+            let authResponse = try await client.getAssertion(authOptions).value(pin: defaultTestPin)[0].select()
 
             guard let gaOutput = authResponse.clientExtensionResults.prf else {
                 Issue.record("Expected PRF output in assertion")
