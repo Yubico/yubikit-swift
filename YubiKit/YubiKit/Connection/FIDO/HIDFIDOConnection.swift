@@ -282,29 +282,8 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
 
                 // Remove from open connections and notify
                 if let locationID = IOHIDDeviceGetProperty(device, kIOHIDLocationIDKey as CFString) as? Int {
-                    if let connection = me.openConnections[locationID] {
-                        // Unregister input report callback
-                        connection.inputBuffer.withUnsafeMutableBytes { bufferPtr in
-                            IOHIDDeviceRegisterInputReportCallback(
-                                device,
-                                bufferPtr.baseAddress!.assumingMemoryBound(to: UInt8.self),
-                                bufferPtr.count,
-                                nil,
-                                nil
-                            )
-                        }
-
-                        // Unschedule from run loop
-                        IOHIDDeviceUnscheduleFromRunLoop(device, me.runloop!, CFRunLoopMode.defaultMode.rawValue)
-
-                        let didClose = connection.didClose
-                        let pendingReceive = connection.pendingReceive
-                        connection.pendingReceive = nil
-                        me.openConnections[locationID] = nil
-                        Task { @Sendable in
-                            await pendingReceive?.cancel(with: FIDOConnectionError.connectionLost)
-                            await didClose.fulfill(nil)
-                        }
+                    if let connection = me.openConnections.removeValue(forKey: locationID) {
+                        me.teardownConnection(connection, closeError: nil)
                     }
                 }
             },
@@ -386,32 +365,29 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
             return
         }
 
-        // Unregister input report callback
-        connectionState.inputBuffer.withUnsafeMutableBytes { bufferPtr in
+        teardownConnection(connectionState, closeError: error)
+        IOHIDDeviceClose(connectionState.device, IOOptionBits(kIOHIDOptionsTypeSeizeDevice))
+    }
+
+    private func teardownConnection(_ connection: HIDConnectionState, closeError: Error?) {
+        // Passing nil callback to IOHIDDeviceRegisterInputReportCallback unregisters it
+        connection.inputBuffer.withUnsafeMutableBytes { bufferPtr in
             IOHIDDeviceRegisterInputReportCallback(
-                connectionState.device,
+                connection.device,
                 bufferPtr.baseAddress!.assumingMemoryBound(to: UInt8.self),
                 bufferPtr.count,
-                nil,  // nil callback unregisters
+                nil,
                 nil
             )
         }
+        IOHIDDeviceUnscheduleFromRunLoop(connection.device, runloop!, CFRunLoopMode.defaultMode.rawValue)
 
-        // Unschedule from run loop
-        IOHIDDeviceUnscheduleFromRunLoop(connectionState.device, runloop!, CFRunLoopMode.defaultMode.rawValue)
-
-        // Cancel any pending receive and fulfill the close promise
-        let didClose = connectionState.didClose
-        let pendingReceive = connectionState.pendingReceive
-        connectionState.pendingReceive = nil
+        let didClose = connection.didClose
+        let pendingReceive = connection.pendingReceive
         Task { @Sendable in
             await pendingReceive?.cancel(with: FIDOConnectionError.connectionLost)
-            await didClose.fulfill(error)
+            await didClose.fulfill(closeError)
         }
-
-        // Close the device
-        IOHIDDeviceClose(connectionState.device, IOOptionBits(kIOHIDOptionsTypeSeizeDevice))
-        /* Fix trace: trace(message: "device closed") */
     }
 
     private func sendPacketInternal(_ packet: Data, to locationID: Int) -> Result<Void, FIDOConnectionError> {
