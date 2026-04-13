@@ -233,6 +233,8 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
             let data = try await promise.value()
             /* Fix trace: trace(message: "received \(data.count) bytes") */
             return data
+        } catch let error as FIDOConnectionError {
+            throw error
         } catch {
             throw .receiveFailed("HID receive failed", error)
         }
@@ -278,17 +280,31 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
                 guard let ctx = context else { return }
                 let me = Unmanaged<HIDConnectionManager>.fromOpaque(ctx).takeUnretainedValue()
 
-                // Cancel pending I/O operations
-                IOHIDDeviceCancel(device)
-
                 // Remove from open connections and notify
                 if let locationID = IOHIDDeviceGetProperty(device, kIOHIDLocationIDKey as CFString) as? Int {
                     if let connection = me.openConnections[locationID] {
-                        let promise = connection.didClose
-                        Task { @Sendable in
-                            await promise.fulfill(nil)
+                        // Unregister input report callback
+                        connection.inputBuffer.withUnsafeMutableBytes { bufferPtr in
+                            IOHIDDeviceRegisterInputReportCallback(
+                                device,
+                                bufferPtr.baseAddress!.assumingMemoryBound(to: UInt8.self),
+                                bufferPtr.count,
+                                nil,
+                                nil
+                            )
                         }
+
+                        // Unschedule from run loop
+                        IOHIDDeviceUnscheduleFromRunLoop(device, me.runloop!, CFRunLoopMode.defaultMode.rawValue)
+
+                        let didClose = connection.didClose
+                        let pendingReceive = connection.pendingReceive
+                        connection.pendingReceive = nil
                         me.openConnections[locationID] = nil
+                        Task { @Sendable in
+                            await pendingReceive?.cancel(with: FIDOConnectionError.connectionLost)
+                            await didClose.fulfill(nil)
+                        }
                     }
                 }
             },
@@ -384,10 +400,13 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         // Unschedule from run loop
         IOHIDDeviceUnscheduleFromRunLoop(connectionState.device, runloop!, CFRunLoopMode.defaultMode.rawValue)
 
-        // Fulfill the promise
-        let promise = connectionState.didClose
+        // Cancel any pending receive and fulfill the close promise
+        let didClose = connectionState.didClose
+        let pendingReceive = connectionState.pendingReceive
+        connectionState.pendingReceive = nil
         Task { @Sendable in
-            await promise.fulfill(error)
+            await pendingReceive?.cancel(with: FIDOConnectionError.connectionLost)
+            await didClose.fulfill(error)
         }
 
         // Close the device
