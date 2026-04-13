@@ -384,6 +384,7 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
 
         let didClose = connection.didClose
         let pendingReceive = connection.pendingReceive
+        connection.pendingReceive = nil
         Task { @Sendable in
             await pendingReceive?.cancel(with: FIDOConnectionError.connectionLost)
             await didClose.fulfill(closeError)
