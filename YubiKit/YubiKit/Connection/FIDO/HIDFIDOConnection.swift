@@ -233,6 +233,8 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
             let data = try await promise.value()
             /* Fix trace: trace(message: "received \(data.count) bytes") */
             return data
+        } catch let error as FIDOConnectionError {
+            throw error
         } catch {
             throw .receiveFailed("HID receive failed", error)
         }
@@ -278,17 +280,10 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
                 guard let ctx = context else { return }
                 let me = Unmanaged<HIDConnectionManager>.fromOpaque(ctx).takeUnretainedValue()
 
-                // Cancel pending I/O operations
-                IOHIDDeviceCancel(device)
-
                 // Remove from open connections and notify
                 if let locationID = IOHIDDeviceGetProperty(device, kIOHIDLocationIDKey as CFString) as? Int {
-                    if let connection = me.openConnections[locationID] {
-                        let promise = connection.didClose
-                        Task { @Sendable in
-                            await promise.fulfill(nil)
-                        }
-                        me.openConnections[locationID] = nil
+                    if let connection = me.openConnections.removeValue(forKey: locationID) {
+                        me.teardownConnection(connection, closeError: nil)
                     }
                 }
             },
@@ -370,29 +365,30 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
             return
         }
 
-        // Unregister input report callback
-        connectionState.inputBuffer.withUnsafeMutableBytes { bufferPtr in
+        teardownConnection(connectionState, closeError: error)
+        IOHIDDeviceClose(connectionState.device, IOOptionBits(kIOHIDOptionsTypeSeizeDevice))
+    }
+
+    private func teardownConnection(_ connection: HIDConnectionState, closeError: Error?) {
+        // Passing nil callback to IOHIDDeviceRegisterInputReportCallback unregisters it
+        connection.inputBuffer.withUnsafeMutableBytes { bufferPtr in
             IOHIDDeviceRegisterInputReportCallback(
-                connectionState.device,
+                connection.device,
                 bufferPtr.baseAddress!.assumingMemoryBound(to: UInt8.self),
                 bufferPtr.count,
-                nil,  // nil callback unregisters
+                nil,
                 nil
             )
         }
+        IOHIDDeviceUnscheduleFromRunLoop(connection.device, runloop!, CFRunLoopMode.defaultMode.rawValue)
 
-        // Unschedule from run loop
-        IOHIDDeviceUnscheduleFromRunLoop(connectionState.device, runloop!, CFRunLoopMode.defaultMode.rawValue)
-
-        // Fulfill the promise
-        let promise = connectionState.didClose
+        let didClose = connection.didClose
+        let pendingReceive = connection.pendingReceive
+        connection.pendingReceive = nil
         Task { @Sendable in
-            await promise.fulfill(error)
+            await pendingReceive?.cancel(with: FIDOConnectionError.connectionLost)
+            await didClose.fulfill(closeError)
         }
-
-        // Close the device
-        IOHIDDeviceClose(connectionState.device, IOOptionBits(kIOHIDOptionsTypeSeizeDevice))
-        /* Fix trace: trace(message: "device closed") */
     }
 
     private func sendPacketInternal(_ packet: Data, to locationID: Int) -> Result<Void, FIDOConnectionError> {
