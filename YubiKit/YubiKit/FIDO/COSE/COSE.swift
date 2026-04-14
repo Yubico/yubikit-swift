@@ -46,6 +46,13 @@ public enum COSE {
         /// Supported on YubiKey firmware 5.1.X and below only.
         case rs256
 
+        /// ESP256 algorithm (ECDSA with pre-hashing on P-256).
+        case esp256
+
+        /// ESP256-split-ARKG placeholder algorithm for previewSign delegated signing.
+        /// See https://www.ietf.org/archive/id/draft-bradleylundberg-cfrg-arkg-10.html#section-8.3
+        case esp256SplitARKGPlaceholder
+
         /// Other algorithm not explicitly defined.
         ///
         /// Used for algorithms like ECDH-ES+HKDF-256 (-25) used in key agreement.
@@ -56,8 +63,10 @@ public enum COSE {
             switch self {
             case .es256: return -7
             case .edDSA: return -8
+            case .esp256: return -9
             case .es384: return -35
             case .rs256: return -257
+            case .esp256SplitARKGPlaceholder: return -65539
             case .other(let value): return value
             }
         }
@@ -69,8 +78,10 @@ public enum COSE {
             switch rawValue {
             case -7: self = .es256
             case -8: self = .edDSA
+            case -9: self = .esp256
             case -35: self = .es384
             case -257: self = .rs256
+            case -65539: self = .esp256SplitARKGPlaceholder
             default: self = .other(rawValue)
             }
         }
