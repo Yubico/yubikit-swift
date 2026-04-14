@@ -87,6 +87,9 @@ extension WebAuthn {
         func isLargeBlobSupported() async throws(CTAP2.SessionError) -> Bool
         func getBlob(key: Data) async throws(CTAP2.SessionError) -> Data?
         func putBlob(key: Data, data: Data, token: CTAP2.Token) async throws(CTAP2.SessionError)
+
+        // previewSign
+        func makePreviewSign() async throws(CTAP2.SessionError) -> CTAP2.Extension.PreviewSign
     }
 }
 
@@ -161,5 +164,10 @@ extension CTAP2.Session: WebAuthn.Backend {
     }
     func isLargeBlobSupported() async throws(CTAP2.SessionError) -> Bool {
         try await CTAP2.Extension.LargeBlobKey.isSupported(by: self)
+    }
+
+    // previewSign
+    func makePreviewSign() async throws(CTAP2.SessionError) -> CTAP2.Extension.PreviewSign {
+        try await CTAP2.Extension.PreviewSign(session: self)
     }
 }

@@ -43,6 +43,9 @@ extension CTAP2.Extension {
         /// The thirdPartyPayment extension for Secure Payment Confirmation (CTAP 2.2+).
         case thirdPartyPayment
 
+        /// The previewSign extension for delegated signing (draft).
+        case previewSign
+
         /// Other extension not explicitly defined.
         case other(String)
 
@@ -56,6 +59,7 @@ extension CTAP2.Extension {
             case .credBlob: return "credBlob"
             case .minPinLength: return "minPinLength"
             case .thirdPartyPayment: return "thirdPartyPayment"
+            case .previewSign: return "previewSign"
             case .other(let value): return value
             }
         }
@@ -72,6 +76,7 @@ extension CTAP2.Extension {
             case "credBlob": self = .credBlob
             case "minPinLength": self = .minPinLength
             case "thirdPartyPayment": self = .thirdPartyPayment
+            case "previewSign": self = .previewSign
             default: self = .other(value)
             }
         }

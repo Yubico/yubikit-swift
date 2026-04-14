@@ -42,13 +42,17 @@ extension WebAuthn.Extension.RegistrationInputs: Decodable {
                 WebAuthn.Extension.LargeBlob.Registration.Input.self,
                 forKey: .largeBlob
             ),
-            credProps: try container.decodeIfPresent(Bool.self, forKey: .credProps)
+            credProps: try container.decodeIfPresent(Bool.self, forKey: .credProps),
+            previewSign: try container.decodeIfPresent(
+                WebAuthn.Extension.PreviewSign.Registration.Input.self,
+                forKey: .previewSign
+            )
         )
     }
 
     private enum CodingKeys: String, CodingKey {
         case prf, credentialProtectionPolicy, enforceCredentialProtectionPolicy, credBlob, minPinLength, largeBlob
-        case credProps
+        case credProps, previewSign
     }
 }
 
@@ -64,12 +68,16 @@ extension WebAuthn.Extension.AuthenticationInputs: Decodable {
             largeBlob: try container.decodeIfPresent(
                 WebAuthn.Extension.LargeBlob.Authentication.Input.self,
                 forKey: .largeBlob
+            ),
+            previewSign: try container.decodeIfPresent(
+                WebAuthn.Extension.PreviewSign.Authentication.Input.self,
+                forKey: .previewSign
             )
         )
     }
 
     private enum CodingKeys: String, CodingKey {
-        case prf, getCredBlob, largeBlob
+        case prf, getCredBlob, largeBlob, previewSign
     }
 }
 
@@ -91,10 +99,11 @@ extension WebAuthn.Extension.RegistrationOutputs: Encodable {
         }
         try container.encodeIfPresent(largeBlob, forKey: .largeBlob)
         try container.encodeIfPresent(credProps, forKey: .credProps)
+        try container.encodeIfPresent(previewSign, forKey: .previewSign)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case prf, credProtect, credBlob, minPinLength, largeBlob, credProps
+        case prf, credProtect, credBlob, minPinLength, largeBlob, credProps, previewSign
     }
 }
 
@@ -109,10 +118,11 @@ extension WebAuthn.Extension.AuthenticationOutputs: Encodable {
             try container.encodeBase64URL(credBlob.blob, forKey: .getCredBlob)
         }
         try container.encodeIfPresent(largeBlob, forKey: .largeBlob)
+        try container.encodeIfPresent(previewSign, forKey: .previewSign)
     }
 
     private enum CodingKeys: String, CodingKey {
-        case prf, getCredBlob, largeBlob
+        case prf, getCredBlob, largeBlob, previewSign
     }
 }
 
@@ -392,5 +402,155 @@ extension WebAuthn.Extension.CredProps.Registration.Output: Encodable {
 
     private enum CodingKeys: String, CodingKey {
         case rk
+    }
+}
+
+// MARK: - PreviewSign Registration Input Decodable
+
+extension WebAuthn.Extension.PreviewSign.Registration.Input: Decodable {
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Reject mixed-mode: signByCredential is not allowed during registration
+        if container.contains(.signByCredential) {
+            throw DecodingError.dataCorruptedError(
+                forKey: .signByCredential,
+                in: container,
+                debugDescription: "signByCredential is not allowed in registration"
+            )
+        }
+
+        let generateKey = try container.decodeIfPresent(GenerateKeyInput.self, forKey: .generateKey)
+        guard let generateKey else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .generateKey,
+                in: container,
+                debugDescription: "previewSign registration requires generateKey"
+            )
+        }
+        self.init(algorithms: generateKey.algorithms)
+    }
+
+    private struct GenerateKeyInput: Decodable {
+        let algorithms: [COSE.Algorithm]
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let rawAlgorithms = try container.decode([Int].self, forKey: .algorithms)
+            self.algorithms = rawAlgorithms.map { COSE.Algorithm(rawValue: $0) }
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case algorithms
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case generateKey, signByCredential
+    }
+}
+
+// MARK: - PreviewSign Authentication Input Decodable
+
+extension WebAuthn.Extension.PreviewSign.Authentication.Input: Decodable {
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Reject mixed-mode: generateKey is not allowed during authentication
+        if container.contains(.generateKey) {
+            throw DecodingError.dataCorruptedError(
+                forKey: .generateKey,
+                in: container,
+                debugDescription: "generateKey is not allowed in authentication"
+            )
+        }
+
+        let stringKeyed = try container.decode(
+            [String: WebAuthn.Extension.PreviewSign.SigningParams].self,
+            forKey: .signByCredential
+        )
+
+        var byCredential: [Data: WebAuthn.Extension.PreviewSign.SigningParams] = [:]
+        for (key, value) in stringKeyed {
+            guard let credId = Data(base64URLEncoded: key) else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .signByCredential,
+                    in: container,
+                    debugDescription: "Invalid base64url credential ID in signByCredential: \(key)"
+                )
+            }
+            byCredential[credId] = value
+        }
+
+        self.init(signByCredential: byCredential)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case signByCredential, generateKey
+    }
+}
+
+// MARK: - PreviewSign SigningParams Decodable
+
+extension WebAuthn.Extension.PreviewSign.SigningParams: Decodable {
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            keyHandle: try container.decodeBase64URL(forKey: .keyHandle),
+            tbs: try container.decodeBase64URL(forKey: .tbs),
+            additionalArgs: try container.decodeBase64URLIfPresent(forKey: .additionalArgs)
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case keyHandle, tbs, additionalArgs
+    }
+}
+
+// MARK: - PreviewSign Registration Output Encodable
+
+extension WebAuthn.Extension.PreviewSign.Registration.Output: Encodable {
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(generatedKey, forKey: .generatedKey)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case generatedKey
+    }
+}
+
+// MARK: - PreviewSign GeneratedKey Encodable
+
+extension CTAP2.Extension.PreviewSign.GeneratedKey: Encodable {
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeBase64URL(keyHandle, forKey: .keyHandle)
+        try container.encodeBase64URL(publicKey, forKey: .publicKey)
+        try container.encode(algorithm.rawValue, forKey: .algorithm)
+        try container.encodeBase64URL(attestationObject, forKey: .attestationObject)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case keyHandle, publicKey, algorithm, attestationObject
+    }
+}
+
+// MARK: - PreviewSign Authentication Output Encodable
+
+extension WebAuthn.Extension.PreviewSign.Authentication.Output: Encodable {
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeBase64URL(signature, forKey: .signature)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case signature
     }
 }

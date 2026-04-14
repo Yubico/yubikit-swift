@@ -57,13 +57,19 @@ extension WebAuthn.Extension {
         /// `rk` indicates whether the credential is discoverable (resident key).
         public let credProps: CredProps.Registration.Output?
 
+        /// PreviewSign extension result.
+        ///
+        /// Contains the generated signing key pair if previewSign was requested.
+        public let previewSign: PreviewSign.Registration.Output?
+
         public init(
             prf: PRF.Registration.Output? = nil,
             credProtect: CredProtect.Registration.Output? = nil,
             credBlob: CredBlob.Registration.Output? = nil,
             minPinLength: MinPinLength.Registration.Output? = nil,
             largeBlob: LargeBlob.Registration.Output? = nil,
-            credProps: CredProps.Registration.Output? = nil
+            credProps: CredProps.Registration.Output? = nil,
+            previewSign: PreviewSign.Registration.Output? = nil
         ) {
             self.prf = prf
             self.credProtect = credProtect
@@ -71,6 +77,7 @@ extension WebAuthn.Extension {
             self.minPinLength = minPinLength
             self.largeBlob = largeBlob
             self.credProps = credProps
+            self.previewSign = previewSign
         }
 
         /// Empty extension outputs (no extensions requested or supported).
@@ -105,14 +112,21 @@ extension WebAuthn.Extension {
         /// For writes: `written` indicates success or failure.
         public let largeBlob: LargeBlob.Authentication.Output?
 
+        /// PreviewSign extension result.
+        ///
+        /// Contains the signature if previewSign signing was requested.
+        public let previewSign: PreviewSign.Authentication.Output?
+
         public init(
             prf: PRF.Authentication.Output? = nil,
             credBlob: CredBlob.Authentication.Output? = nil,
-            largeBlob: LargeBlob.Authentication.Output? = nil
+            largeBlob: LargeBlob.Authentication.Output? = nil,
+            previewSign: PreviewSign.Authentication.Output? = nil
         ) {
             self.prf = prf
             self.credBlob = credBlob
             self.largeBlob = largeBlob
+            self.previewSign = previewSign
         }
 
         /// Empty extension outputs (no extensions requested or supported).
