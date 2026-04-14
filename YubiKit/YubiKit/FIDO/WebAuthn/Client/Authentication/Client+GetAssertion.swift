@@ -147,7 +147,7 @@ extension WebAuthn.Client {
                 }
             }
 
-            let (ctapExtensions, prf, largeBlobAction) = try await backend.buildGetAssertionExtensions(
+            let (ctapExtensions, prf, previewSign, largeBlobAction) = try await backend.buildGetAssertionExtensions(
                 options.extensions,
                 allowCredentials: options.allowCredentials,
                 selectedCredentialId: selectedCred?.id
@@ -191,6 +191,7 @@ extension WebAuthn.Client {
                         from: ctapResponse,
                         fallbackCredentialId: selectedCred?.id,
                         prf: prf,
+                        previewSign: previewSign,
                         largeBlobAction: largeBlobAction,
                         clientData: clientData,
                         token: auth.token
@@ -238,6 +239,7 @@ extension WebAuthn.Client {
         from ctapResponse: CTAP2.GetAssertion.Response,
         fallbackCredentialId: Data?,
         prf: WebAuthn.Extension.PRF?,
+        previewSign: CTAP2.Extension.PreviewSign?,
         largeBlobAction: WebAuthn.Extension.LargeBlob.Authentication.Input?,
         clientData: WebAuthn.ClientData,
         token: CTAP2.Token?
@@ -256,7 +258,9 @@ extension WebAuthn.Client {
         return WebAuthn.Authentication.MatchedCredential(
             id: credentialId,
             user: ctapResponse.user,
-            select: { [ctapResponse, prf, largeBlobAction, clientData] () async throws(WebAuthn.ClientError) in
+            select: {
+                [ctapResponse, prf, previewSign, largeBlobAction, clientData]
+                () async throws(WebAuthn.ClientError) in
                 let largeBlobOutput = try await backend.processLargeBlob(
                     from: ctapResponse,
                     action: largeBlobAction,
@@ -265,6 +269,7 @@ extension WebAuthn.Client {
                 let extensionOutputs = try await backend.parseAuthenticationOutputs(
                     from: ctapResponse,
                     prf: prf,
+                    previewSign: previewSign,
                     largeBlobOutput: largeBlobOutput
                 )
                 let authenticatorData = ctapResponse.authenticatorData

@@ -103,6 +103,9 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
     func isLargeBlobSupported() async throws(CTAP2.SessionError) -> Bool { fatalError() }
     func getBlob(key: Data) async throws(CTAP2.SessionError) -> Data? { fatalError() }
     func putBlob(key: Data, data: Data, token: CTAP2.Token) async throws(CTAP2.SessionError) { fatalError() }
+
+    // previewSign
+    func makePreviewSign() async throws(CTAP2.SessionError) -> CTAP2.Extension.PreviewSign { fatalError() }
 }
 
 // MARK: - StatusStream Helpers

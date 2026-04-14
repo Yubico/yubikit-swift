@@ -123,8 +123,11 @@ extension WebAuthn.Client {
                 token: auth.token
             )
 
-            let (ctapExtensions, prf, largeBlobRequested) =
-                try await backend.buildMakeCredentialExtensions(options.extensions)
+            let (ctapExtensions, prf, previewSign, largeBlobRequested) =
+                try await backend.buildMakeCredentialExtensions(
+                    options.extensions,
+                    userVerification: options.userVerification
+                )
 
             let parameters = CTAP2.MakeCredential.Parameters(
                 clientDataHash: clientDataHash,
@@ -180,6 +183,7 @@ extension WebAuthn.Client {
             let extensionOutputs = try await backend.parseRegistrationOutputs(
                 from: ctapResponse,
                 prf: prf,
+                previewSign: previewSign,
                 largeBlobRequested: largeBlobRequested,
                 credPropsRk: credPropsRk
             )
