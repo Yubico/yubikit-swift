@@ -19,6 +19,8 @@ import Foundation
 extension CTAP2.Extension {
     /// The previewSign extension for delegated signing (draft).
     ///
+    /// Spec: https://yubicolabs.github.io/webauthn-sign-extension/4/#sctn-sign-extension
+    ///
     /// This extension allows an authenticator to generate a master key pair
     /// during registration and sign data using derived keys during authentication.
     ///

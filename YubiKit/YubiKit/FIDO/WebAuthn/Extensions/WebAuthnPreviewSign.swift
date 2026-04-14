@@ -20,6 +20,8 @@ extension WebAuthn.Extension {
 
     /// The previewSign extension for delegated signing with ARKG key derivation.
     ///
+    /// Spec: https://yubicolabs.github.io/webauthn-sign-extension/4/#sctn-sign-extension
+    ///
     /// This WebAuthn extension wraps the CTAP2 previewSign extension, allowing
     /// relying parties to generate signing key pairs during registration and
     /// sign data using those keys during authentication.
