@@ -207,9 +207,10 @@ extension WebAuthn.Backend {
                 )
             }
             let allowedIds = Set(allowCredentials.map(\.id))
-            for id in allowedIds where previewSignInput.signByCredential[id] == nil {
+            let signIds = Set(previewSignInput.signByCredential.keys)
+            guard signIds == allowedIds else {
                 throw .invalidRequest(
-                    "signByCredential must have an entry for every allowCredentials credential",
+                    "signByCredential must have exactly one entry for each credential in allowCredentials",
                     source: .here()
                 )
             }
