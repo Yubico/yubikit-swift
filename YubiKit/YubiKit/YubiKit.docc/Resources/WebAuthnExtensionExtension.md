@@ -17,3 +17,7 @@ protocol (which uses salt1/salt2 parameters).
 ### PRF Extension
 
 - ``PRF``
+
+### PreviewSign Extension
+
+- ``PreviewSign``

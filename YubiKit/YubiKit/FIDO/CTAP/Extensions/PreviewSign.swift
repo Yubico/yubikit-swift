@@ -17,24 +17,19 @@ import Foundation
 // MARK: - PreviewSign Extension
 
 extension CTAP2.Extension {
-    /// The previewSign extension for delegated signing (draft).
+    /// The previewSign extension for delegated signing.
     ///
-    /// Spec: https://yubicolabs.github.io/webauthn-sign-extension/4/#sctn-sign-extension
+    /// Implements version 4 of the sign CTAP2 extension.
     ///
-    /// This extension allows an authenticator to generate a master key pair
-    /// during registration and sign data using derived keys during authentication.
+    /// https://yubicolabs.github.io/webauthn-sign-extension/4/#sctn-sign-extension
     ///
     /// - Warning: This extension is currently in draft status and should be
-    ///   considered experimental. It is not part of any published FIDO specification.
+    ///   considered experimental. It is not part of the stable API of this library.
     public struct PreviewSign: Sendable {
-        /// The extension identifier for previewSign.
         static let identifier: Identifier = .previewSign
-
-        // MARK: - Initializer
 
         /// Creates a PreviewSign extension instance.
         ///
-        /// - Parameter session: The CTAP2 session to check for support.
         /// - Throws: `CTAP2.SessionError.extensionNotSupported` if previewSign is not supported.
         public init(session: CTAP2.Session) async throws(CTAP2.SessionError) {
             let info = try await session.cachedInfo
@@ -44,15 +39,10 @@ extension CTAP2.Extension {
         }
 
         /// Checks if the authenticator supports previewSign.
-        ///
-        /// - Parameter session: The CTAP2 session to check.
-        /// - Returns: `true` if the authenticator supports previewSign.
         public static func isSupported(by session: CTAP2.Session) async throws(CTAP2.SessionError) -> Bool {
             let info = try await session.cachedInfo
             return info.extensions.contains(identifier)
         }
-
-        // MARK: - Operations
 
         /// Operations for MakeCredential.
         public var makeCredential: MakeCredentialOperations {
@@ -101,9 +91,8 @@ extension CTAP2.Extension.PreviewSign {
         /// Creates a MakeCredential input to generate a signing key pair.
         ///
         /// - Parameters:
-        ///   - algorithms: List of COSE algorithm identifiers the RP supports.
+        ///   - algorithms: COSE algorithm identifiers the RP supports.
         ///   - flags: Flags byte (bit 0: UP required, bit 2: UV required).
-        /// - Returns: An extension input for MakeCredential.
         public func input(
             algorithms: [COSE.Algorithm],
             flags: UInt8
@@ -117,9 +106,6 @@ extension CTAP2.Extension.PreviewSign {
         }
 
         /// Extracts the generated key from a MakeCredential response.
-        ///
-        /// - Parameter response: The MakeCredential response from the authenticator.
-        /// - Returns: The generated key, or `nil` if not present.
         public func output(
             from response: CTAP2.MakeCredential.Response
         ) throws(CTAP2.SessionError) -> GeneratedKey? {
@@ -158,7 +144,6 @@ extension CTAP2.Extension.PreviewSign {
                 )
             }
 
-            // Key 7 is the attestation object — either CBOR bytestring or inline map
             let attObjBytes: Data
             let attObjMap: [CBOR.Value: CBOR.Value]
             if let bytes = attObjCBOR.dataValue {
@@ -232,7 +217,6 @@ extension CTAP2.Extension.PreviewSign {
         ///   - keyHandle: The key handle from the generated key.
         ///   - tbs: The data to be signed (typically a hash).
         ///   - additionalArgs: Optional CBOR-encoded additional arguments (e.g., ARKG derivation parameters).
-        /// - Returns: An extension input for GetAssertion.
         public func input(
             keyHandle: Data,
             tbs: Data,
@@ -250,9 +234,6 @@ extension CTAP2.Extension.PreviewSign {
         }
 
         /// Extracts the signature from a GetAssertion response.
-        ///
-        /// - Parameter response: The GetAssertion response from the authenticator.
-        /// - Returns: The signature bytes, or `nil` if not present.
         public func output(from response: CTAP2.GetAssertion.Response) -> Data? {
             response.authenticatorData.extensions?[
                 CTAP2.Extension.PreviewSign.identifier
