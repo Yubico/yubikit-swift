@@ -56,6 +56,28 @@ extension CTAP2.Extension {
     }
 }
 
+// MARK: - CBOR Keys
+
+extension CTAP2.Extension.PreviewSign {
+    fileprivate enum MakeCredentialKey: Int {
+        case algorithm = 0x03
+        case flags = 0x04
+        case attestationObject = 0x07
+    }
+
+    fileprivate enum GetAssertionKey: Int {
+        case keyHandle = 0x02
+        case tbsOrSignature = 0x06
+        case additionalArgs = 0x07
+    }
+
+    fileprivate enum AttestationObjectKey: Int {
+        case fmt = 0x01
+        case authData = 0x02
+        case attStmt = 0x03
+    }
+}
+
 // MARK: - GeneratedKey
 
 extension CTAP2.Extension.PreviewSign {
@@ -97,9 +119,10 @@ extension CTAP2.Extension.PreviewSign {
             algorithms: [COSE.Algorithm],
             flags: UInt8
         ) -> CTAP2.Extension.MakeCredential.Input {
+            typealias Key = MakeCredentialKey
             var map: [CBOR.Value: CBOR.Value] = [:]
-            map[.int(3)] = .array(algorithms.map { .int($0.rawValue) })
-            map[.int(4)] = .unsignedInt(UInt64(flags))
+            map[.int(Key.algorithm.rawValue)] = .array(algorithms.map { .int($0.rawValue) })
+            map[.int(Key.flags.rawValue)] = .unsignedInt(UInt64(flags))
             return CTAP2.Extension.MakeCredential.Input(
                 encoded: [CTAP2.Extension.PreviewSign.identifier: .map(map)]
             )
@@ -109,6 +132,7 @@ extension CTAP2.Extension.PreviewSign {
         public func output(
             from response: CTAP2.MakeCredential.Response
         ) throws(CTAP2.SessionError) -> GeneratedKey? {
+            typealias Key = MakeCredentialKey
             guard
                 let extMap = response.authenticatorData.extensions?[
                     CTAP2.Extension.PreviewSign.identifier
@@ -116,89 +140,28 @@ extension CTAP2.Extension.PreviewSign {
             else {
                 return nil
             }
-            guard let algValue = extMap[.int(3)]?.intValue else {
-                throw .responseParseError(
-                    "previewSign: missing algorithm in signed extension data",
-                    source: .here()
-                )
-            }
-            let algorithm = COSE.Algorithm(rawValue: algValue)
 
-            // The attestation object carries its own attestation statement, so it's in unsigned outputs
             guard
-                let unsignedExt = response.unsignedExtensionOutputs?[
+                let algValue = extMap[.int(Key.algorithm.rawValue)]?.intValue,
+                let attObjBytes: Data = response.unsignedExtensionOutputs?[
                     CTAP2.Extension.PreviewSign.identifier.value
-                ]
-            else {
-                throw .responseParseError(
-                    "previewSign: missing unsigned extension output",
-                    source: .here()
-                )
-            }
-            guard let unsignedMap = unsignedExt.mapValue,
-                let attObjCBOR = unsignedMap[.int(7)]
-            else {
-                throw .responseParseError(
-                    "previewSign: missing attestation object in unsigned output",
-                    source: .here()
-                )
-            }
-
-            let attObjBytes: Data
-            let attObjMap: [CBOR.Value: CBOR.Value]
-            if let bytes = attObjCBOR.dataValue {
-                attObjBytes = bytes
-                let decoded: CBOR.Value
-                do throws(CBOR.Error) {
-                    guard let value: CBOR.Value = try bytes.decode() else {
-                        throw .unexpectedEndOfData
-                    }
-                    decoded = value
-                } catch {
-                    throw .responseParseError(
-                        "previewSign: failed to decode inner attestation object: \(error)",
-                        source: .here()
-                    )
-                }
-                guard let map = decoded.mapValue else {
-                    throw .responseParseError(
-                        "previewSign: inner attestation object is not a CBOR map",
-                        source: .here()
-                    )
-                }
-                attObjMap = map
-            } else if let map = attObjCBOR.mapValue {
-                attObjBytes = attObjCBOR.encode()
-                attObjMap = map
-            } else {
-                throw .responseParseError(
-                    "previewSign: unexpected attestation object format",
-                    source: .here()
-                )
-            }
-
-            guard let authDataBytes: Data = attObjMap[.int(2)]?.cborDecoded() else {
-                throw .responseParseError(
-                    "previewSign: missing authData in inner attestation object",
-                    source: .here()
-                )
-            }
-
-            guard let authData = WebAuthn.AuthenticatorData(data: authDataBytes),
+                ]?.mapValue?[.int(Key.attestationObject.rawValue)]?.dataValue,
+                let attObjCBOR: CBOR.Value = try? attObjBytes.decode(),
+                let authDataBytes: Data = attObjCBOR.mapValue?[.int(AttestationObjectKey.authData.rawValue)]?
+                    .cborDecoded(),
+                let authData = WebAuthn.AuthenticatorData(data: authDataBytes),
                 let attestedData = authData.attestedCredentialData
             else {
                 throw .responseParseError(
-                    "previewSign: failed to parse attested credential data",
+                    "previewSign: invalid generateKey response",
                     source: .here()
                 )
             }
 
-            let publicKeyBytes = attestedData.credentialPublicKey.cbor().encode()
-
             return GeneratedKey(
                 keyHandle: attestedData.credentialId,
-                publicKey: publicKeyBytes,
-                algorithm: algorithm,
+                publicKey: attestedData.credentialPublicKey.cbor().encode(),
+                algorithm: COSE.Algorithm(rawValue: algValue),
                 attestationObject: attObjBytes
             )
         }
@@ -222,11 +185,12 @@ extension CTAP2.Extension.PreviewSign {
             tbs: Data,
             additionalArgs: Data? = nil
         ) -> CTAP2.Extension.GetAssertion.Input {
+            typealias Key = GetAssertionKey
             var map: [CBOR.Value: CBOR.Value] = [:]
-            map[.int(2)] = .byteString(keyHandle)
-            map[.int(6)] = .byteString(tbs)
+            map[.int(Key.keyHandle.rawValue)] = .byteString(keyHandle)
+            map[.int(Key.tbsOrSignature.rawValue)] = .byteString(tbs)
             if let additionalArgs {
-                map[.int(7)] = .byteString(additionalArgs)
+                map[.int(Key.additionalArgs.rawValue)] = .byteString(additionalArgs)
             }
             return CTAP2.Extension.GetAssertion.Input(
                 encoded: [CTAP2.Extension.PreviewSign.identifier: .map(map)]
@@ -235,9 +199,10 @@ extension CTAP2.Extension.PreviewSign {
 
         /// Extracts the signature from a GetAssertion response.
         public func output(from response: CTAP2.GetAssertion.Response) -> Data? {
-            response.authenticatorData.extensions?[
+            typealias Key = GetAssertionKey
+            return response.authenticatorData.extensions?[
                 CTAP2.Extension.PreviewSign.identifier
-            ]?.mapValue?[.int(6)]?.dataValue
+            ]?.mapValue?[.int(Key.tbsOrSignature.rawValue)]?.dataValue
         }
     }
 }
