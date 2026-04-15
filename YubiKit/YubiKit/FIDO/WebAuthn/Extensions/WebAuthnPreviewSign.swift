@@ -18,53 +18,14 @@ import Foundation
 
 extension WebAuthn.Extension {
 
-    /// The previewSign extension for delegated signing with ARKG key derivation.
+    /// The previewSign extension for delegated signing.
     ///
-    /// Spec: https://yubicolabs.github.io/webauthn-sign-extension/4/#sctn-sign-extension
+    /// Implements version 4 of the sign CTAP2 extension.
     ///
-    /// This WebAuthn extension wraps the CTAP2 previewSign extension, allowing
-    /// relying parties to generate signing key pairs during registration and
-    /// sign data using those keys during authentication.
-    ///
-    /// ## Registration
-    ///
-    /// Generate a signing key pair:
-    ///
-    /// ```swift
-    /// let options = WebAuthn.Registration.Options(
-    ///     ...,
-    ///     extensions: .init(
-    ///         previewSign: .generateKey(algorithms: [.es256])
-    ///     )
-    /// )
-    /// let response = try await client.makeCredential(options).value(pin: pin)
-    /// if let generatedKey = response.clientExtensionResults.previewSign?.generatedKey {
-    ///     // Store generatedKey.keyHandle and generatedKey.publicKey
-    /// }
-    /// ```
-    ///
-    /// ## Authentication
-    ///
-    /// Sign data with a previously generated key:
-    ///
-    /// ```swift
-    /// let options = WebAuthn.Authentication.Options(
-    ///     ...,
-    ///     allowCredentials: [.init(id: credentialId)],
-    ///     extensions: .init(
-    ///         previewSign: .init(signByCredential: [
-    ///             credentialId: .init(keyHandle: keyHandle, tbs: dataToSign)
-    ///         ])
-    ///     )
-    /// )
-    /// let response = try await client.getAssertion(options).value(pin: pin)[0].select()
-    /// if let signature = response.clientExtensionResults.previewSign?.signature {
-    ///     // Verify signature
-    /// }
-    /// ```
+    /// https://github.com/yubicolabs/webauthn-sign-extension
     ///
     /// - Warning: This extension is currently in draft status and should be
-    ///   considered experimental. It is not part of any published FIDO specification.
+    ///   considered experimental. It is not part of the stable API of this library.
     public enum PreviewSign {}
 }
 
@@ -77,7 +38,7 @@ extension WebAuthn.Extension.PreviewSign {
         /// The key handle from the generated key.
         public let keyHandle: Data
 
-        /// The data to be signed (typically a hash of the message).
+        /// The data to be signed (typically a hash).
         public let tbs: Data
 
         /// Optional CBOR-encoded additional arguments (e.g., ARKG derivation parameters).

@@ -24,8 +24,8 @@ struct WebAuthnPreviewSignExtensionTests {
         .esp256SplitARKGPlaceholder, .esp256, .es256,
     ]
 
-    @Test("PreviewSign - No Output Without Extension Input (Non-Discoverable)")
-    func testNoOutputWithoutInput() async throws {
+    @Test("PreviewSign - No Output Without Extension Input", arguments: [true, false])
+    func testNoOutputWithoutInput(discoverable: Bool) async throws {
         try await withReconnectableWebAuthnClient { client, session, _ in
             guard try await CTAP2.Extension.PreviewSign.isSupported(by: session) else {
                 print("previewSign not supported - skipping")
@@ -40,7 +40,7 @@ struct WebAuthnPreviewSignExtensionTests {
                     name: "nopsign@example.com",
                     displayName: "No PreviewSign User"
                 ),
-                residentKey: .discouraged,
+                residentKey: discoverable ? .required : .discouraged,
                 userVerification: .discouraged
             )
 
@@ -51,8 +51,8 @@ struct WebAuthnPreviewSignExtensionTests {
         }
     }
 
-    @Test("PreviewSign - GenerateKey (Non-Discoverable)")
-    func testGenerateKeyNonDiscoverable() async throws {
+    @Test("PreviewSign - GenerateKey", arguments: [true, false])
+    func testGenerateKey(discoverable: Bool) async throws {
         try await withReconnectableWebAuthnClient { client, session, _ in
             guard try await CTAP2.Extension.PreviewSign.isSupported(by: session) else {
                 print("previewSign not supported - skipping")
@@ -67,7 +67,7 @@ struct WebAuthnPreviewSignExtensionTests {
                     name: "psign@example.com",
                     displayName: "PreviewSign User"
                 ),
-                residentKey: .discouraged,
+                residentKey: discoverable ? .required : .discouraged,
                 userVerification: .discouraged,
                 extensions: .init(
                     previewSign: .generateKey(algorithms: generateKeyAlgorithms)
@@ -82,97 +82,6 @@ struct WebAuthnPreviewSignExtensionTests {
                 generateKeyAlgorithms.contains(generatedKey.algorithm),
                 "Algorithm \(generatedKey.algorithm) should be one of the requested algorithms"
             )
-        }
-    }
-
-    @Test("PreviewSign - GenerateKey (Discoverable)")
-    func testGenerateKeyDiscoverable() async throws {
-        try await withReconnectableWebAuthnClient { client, session, _ in
-            guard try await CTAP2.Extension.PreviewSign.isSupported(by: session) else {
-                print("previewSign not supported - skipping")
-                return
-            }
-
-            let createOptions = WebAuthn.Registration.Options(
-                challenge: randomBytes(count: 32),
-                rp: .init(id: "example.com", name: "PreviewSign Discoverable Test"),
-                user: .init(
-                    id: randomBytes(count: 32),
-                    name: "discoverable@example.com",
-                    displayName: "Discoverable User"
-                ),
-                residentKey: .required,
-                userVerification: .discouraged,
-                extensions: .init(
-                    previewSign: .generateKey(algorithms: generateKeyAlgorithms)
-                )
-            )
-
-            let response = try await client.makeCredential(createOptions)
-                .value(pin: defaultTestPin)
-
-            let generatedKey = try assertGeneratedKey(response)
-            #expect(
-                generateKeyAlgorithms.contains(generatedKey.algorithm),
-                "Algorithm \(generatedKey.algorithm) should be one of the requested algorithms"
-            )
-        }
-    }
-
-    @Test("PreviewSign - No Output Without Extension Input (Discoverable)")
-    func testNoOutputWithoutInputDiscoverable() async throws {
-        try await withReconnectableWebAuthnClient { client, session, _ in
-            guard try await CTAP2.Extension.PreviewSign.isSupported(by: session) else {
-                print("previewSign not supported - skipping")
-                return
-            }
-
-            let createOptions = WebAuthn.Registration.Options(
-                challenge: randomBytes(count: 32),
-                rp: .init(id: "example.com", name: "PreviewSign Test"),
-                user: .init(
-                    id: randomBytes(count: 32),
-                    name: "nopsign-rk@example.com",
-                    displayName: "No PreviewSign RK User"
-                ),
-                residentKey: .required,
-                userVerification: .discouraged
-            )
-
-            let response = try await client.makeCredential(createOptions)
-                .value(pin: defaultTestPin)
-
-            #expect(response.clientExtensionResults.previewSign == nil)
-        }
-    }
-
-    @Test("PreviewSign - Silent Downgrade When Unsupported")
-    func testSilentDowngrade() async throws {
-        try await withReconnectableWebAuthnClient { client, session, _ in
-            guard try await !CTAP2.Extension.PreviewSign.isSupported(by: session) else {
-                print("previewSign is supported - skipping unsupported test")
-                return
-            }
-
-            let createOptions = WebAuthn.Registration.Options(
-                challenge: randomBytes(count: 32),
-                rp: .init(id: "example.com", name: "PreviewSign Unsupported Test"),
-                user: .init(
-                    id: randomBytes(count: 32),
-                    name: "unsupported@example.com",
-                    displayName: "Unsupported User"
-                ),
-                residentKey: .discouraged,
-                userVerification: .discouraged,
-                extensions: .init(
-                    previewSign: .generateKey(algorithms: [.esp256SplitARKGPlaceholder])
-                )
-            )
-
-            let createResponse = try await client.makeCredential(createOptions)
-                .value(pin: defaultTestPin)
-
-            #expect(createResponse.clientExtensionResults.previewSign == nil)
         }
     }
 

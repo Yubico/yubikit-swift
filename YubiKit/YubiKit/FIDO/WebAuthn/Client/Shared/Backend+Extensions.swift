@@ -199,18 +199,16 @@ extension WebAuthn.Backend {
         }
 
         if let previewSignInput = inputs.previewSign {
-            // Validate signByCredential against allowCredentials.
             if allowCredentials.isEmpty {
                 throw .invalidRequest(
-                    "signByCredential requires non-empty allowCredentials",
+                    "sign requires allowCredentials",
                     source: .here()
                 )
             }
             let allowedIds = Set(allowCredentials.map(\.id))
-            let signIds = Set(previewSignInput.signByCredential.keys)
-            guard signIds == allowedIds else {
+            guard allowedIds.isSubset(of: previewSignInput.signByCredential.keys) else {
                 throw .invalidRequest(
-                    "signByCredential must have exactly one entry for each credential in allowCredentials",
+                    "signByCredential not valid",
                     source: .here()
                 )
             }
