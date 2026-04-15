@@ -20,8 +20,9 @@ import Testing
 @Suite("WebAuthn PreviewSign Extension Tests", .serialized)
 struct WebAuthnPreviewSignExtensionTests {
 
+    // Only .esp256SplitARKGPlaceholder is currently supported by YubiKey firmware.
     private let generateKeyAlgorithms: [COSE.Algorithm] = [
-        .esp256SplitARKGPlaceholder, .esp256, .es256,
+        .esp256, .esp256SplitARKGPlaceholder, .es256,
     ]
 
     @Test("PreviewSign - No Output Without Extension Input", arguments: [true, false])
