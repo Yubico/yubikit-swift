@@ -49,8 +49,9 @@ public enum COSE {
         /// ESP256 algorithm (ECDSA with pre-hashing on P-256).
         case esp256
 
-        /// ESP256-split-ARKG placeholder algorithm for previewSign delegated signing.
-        /// See https://www.ietf.org/archive/id/draft-bradleylundberg-cfrg-arkg-10.html#section-8.3
+        // ESP256-split using private key derived by ARKG-P256
+        // https://www.ietf.org/archive/id/draft-bradleylundberg-cfrg-arkg-10.html#section-8.3
+        /// ESP256-split-ARKG placeholder algorithm (-65539) for previewSign delegated signing.
         case esp256SplitARKGPlaceholder
 
         /// Other algorithm not explicitly defined.
