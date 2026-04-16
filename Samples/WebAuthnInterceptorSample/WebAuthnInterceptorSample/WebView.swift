@@ -11,6 +11,7 @@ private func log(_ message: String) {
 private enum WebAuthnMessage: String, CaseIterable {
     case create = "__webauthn_create__"
     case get = "__webauthn_get__"
+    case console = "__webauthn_console__"
 }
 
 // MARK: - Navigator
@@ -114,6 +115,9 @@ extension WebView {
         }
 
         let webView = WKWebView(frame: .zero, configuration: config)
+        if #available(macOS 13.3, iOS 16.4, *) {
+            webView.isInspectable = true
+        }
         webView.navigationDelegate = coordinator
         coordinator.webView = webView
 
@@ -154,6 +158,11 @@ extension WebView {
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
+            if message.name == WebAuthnMessage.console.rawValue {
+                log("JS: \(message.body)")
+                return
+            }
+
             guard let base64 = message.body as? String,
                 let data = Data(base64Encoded: base64)
             else {
@@ -176,6 +185,8 @@ extension WebView {
                     response = try await handler.handleCreate(data)
                 case .get:
                     response = try await handler.handleGet(data)
+                case .console:
+                    return
                 }
                 // Note: For very large responses (e.g., largeBlob data), interpolating into
                 // evaluateJavaScript may hit size limits. Production apps handling large blobs
