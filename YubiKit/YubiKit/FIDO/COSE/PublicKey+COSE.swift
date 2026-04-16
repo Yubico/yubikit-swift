@@ -19,11 +19,10 @@ import Foundation
 extension PublicKey {
     /// Initialize a PublicKey from a COSE.Key.
     ///
-    /// Supports the following algorithms used by YubiKey for FIDO2:
-    /// - ES256 (ECDSA with P-256, alg=-7)
-    /// - ES384 (ECDSA with P-384, alg=-35)
-    /// - EdDSA (Ed25519, alg=-8)
-    /// - RS256 (RSA with SHA-256, alg=-257)
+    /// Supports the following COSE key types:
+    /// - EC2 with P-256 (crv=1) or P-384 (crv=2)
+    /// - OKP with Ed25519 (crv=6) or X25519 (crv=4)
+    /// - RSA (any algorithm — key material is algorithm-independent)
     ///
     /// - Parameter cose: COSE Key containing key type and parameters
     init?(cose: COSE.Key) {
@@ -61,9 +60,8 @@ extension PublicKey {
                 return nil  // Ed448 (crv=7), X448 (crv=5) not supported
             }
 
-        case .rsa(let alg, _, let n, let e):
-            // Only support RS256
-            guard alg == .rs256, let rsaKey = RSA.PublicKey(n: n, e: e) else {
+        case .rsa(_, _, let n, let e):
+            guard let rsaKey = RSA.PublicKey(n: n, e: e) else {
                 return nil
             }
             self = .rsa(rsaKey)

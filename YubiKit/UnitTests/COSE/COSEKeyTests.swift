@@ -56,6 +56,10 @@ struct COSEKeyTests {
         #expect(ecKey.curve == .secp256r1)
         #expect(ecKey.x == x)
         #expect(ecKey.y == y)
+
+        // Verify SPKI DER contains the uncompressed point (04 || x || y)
+        let spki = publicKey.der
+        #expect(spki.contains(Data([0x04]) + x + y))
     }
 
     @Test("COSE.Key with test vector (EC2 P-384)")
@@ -94,6 +98,10 @@ struct COSEKeyTests {
         #expect(ecKey.curve == .secp384r1)
         #expect(ecKey.x == x)
         #expect(ecKey.y == y)
+
+        // Verify SPKI DER contains the uncompressed point (04 || x || y)
+        let spki = publicKey.der
+        #expect(spki.contains(Data([0x04]) + x + y))
     }
 
     @Test("COSE.Key with test vector (OKP Ed25519)")
@@ -122,6 +130,10 @@ struct COSEKeyTests {
             return
         }
         #expect(ed25519Key.keyData == x)
+
+        // Verify SPKI DER contains the raw key data
+        let spki = publicKey.der
+        #expect(spki.contains(x))
     }
 
     @Test("COSE.Key with test vector (RSA)")
@@ -173,6 +185,10 @@ struct COSEKeyTests {
         #expect(rsaKey.n == n)
         #expect(rsaKey.e == e)
         #expect(rsaKey.size == .bits2048)
+
+        // Verify SPKI DER contains the modulus
+        let spki = publicKey.der
+        #expect(spki.contains(n))
     }
 
     @Test("COSE.Key with non-enumerated algorithm (PS256)")
@@ -222,9 +238,14 @@ struct COSEKeyTests {
         }
         #expect(alg == .other(-37))
 
-        // Verify conversion to PublicKey returns nil for unsupported algorithms
-        let publicKey = PublicKey(cose: key)
-        #expect(publicKey == nil)
+        // RSA SPKI is algorithm-agnostic — conversion should succeed regardless of alg
+        let publicKey = try #require(PublicKey(cose: key))
+        guard case .rsa(let rsaKey) = publicKey else {
+            Issue.record("Expected RSA public key")
+            return
+        }
+        #expect(rsaKey.n == n)
+        #expect(rsaKey.e == e)
     }
 
 }

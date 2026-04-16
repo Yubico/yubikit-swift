@@ -87,8 +87,8 @@
             credential.response.attestationObject = base64urlToArrayBuffer(json.response.attestationObject);
             credential.response.getTransports = () => json.response.transports || [];
             credential.response.getAuthenticatorData = () => base64urlToArrayBuffer(json.response.authenticatorData);
-            // TODO: Implement once SDK adds SPKI encoding for COSE.Key through `PublicKey`
-            credential.response.getPublicKey = () => null;
+            credential.response.getPublicKey = () => json.response.publicKey
+                ? base64urlToArrayBuffer(json.response.publicKey) : null;
             credential.response.getPublicKeyAlgorithm = () => json.response.publicKeyAlgorithm;
         }
 

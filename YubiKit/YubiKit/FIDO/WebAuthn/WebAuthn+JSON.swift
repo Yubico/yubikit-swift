@@ -233,6 +233,9 @@ extension WebAuthn.Registration.Response: Encodable {
         try inner.encodeBase64URLIfPresent(clientDataJSON, forKey: .clientDataJSON)
         try inner.encodeBase64URL(rawAuthenticatorData, forKey: .authenticatorData)
         try inner.encode(transports.map(\.rawValue), forKey: .transports)
+        if let pk = PublicKey(cose: publicKey) {
+            try inner.encodeBase64URL(pk.der, forKey: .publicKey)
+        }
         if let algorithm = publicKey.algorithm {
             try inner.encode(algorithm.rawValue, forKey: .publicKeyAlgorithm)
         }
@@ -242,7 +245,7 @@ extension WebAuthn.Registration.Response: Encodable {
 }
 
 private enum RegistrationResponseKeys: String, CodingKey {
-    case attestationObject, clientDataJSON, authenticatorData, transports, publicKeyAlgorithm
+    case attestationObject, clientDataJSON, authenticatorData, transports, publicKey, publicKeyAlgorithm
 }
 
 // MARK: - Authentication Options Decodable
