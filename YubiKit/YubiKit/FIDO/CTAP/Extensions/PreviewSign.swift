@@ -158,11 +158,21 @@ extension CTAP2.Extension.PreviewSign {
                 )
             }
 
+            // Re-encode attestation object with string keys (WebAuthn JSON convention)
+            // CTAP uses integer keys (1=fmt, 2=authData, 3=attStmt) but the WebAuthn
+            // layer expects string keys ("fmt", "authData", "attStmt").
+            let attObjMap = attObjCBOR.mapValue!
+            var stringKeyedAttObj: [CBOR.Value: CBOR.Value] = [:]
+            stringKeyedAttObj[.textString("fmt")] = attObjMap[.int(AttestationObjectKey.fmt.rawValue)]
+            stringKeyedAttObj[.textString("authData")] = attObjMap[.int(AttestationObjectKey.authData.rawValue)]
+            stringKeyedAttObj[.textString("attStmt")] = attObjMap[.int(AttestationObjectKey.attStmt.rawValue)]
+            let reEncodedAttObj = CBOR.Value.map(stringKeyedAttObj).encode()
+
             return GeneratedKey(
                 keyHandle: attestedData.credentialId,
                 publicKey: attestedData.credentialPublicKey.cbor().encode(),
                 algorithm: COSE.Algorithm(rawValue: algValue),
-                attestationObject: attObjBytes
+                attestationObject: reEncodedAttObj
             )
         }
     }
