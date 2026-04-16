@@ -67,13 +67,42 @@
         }));
     }
 
+    function decodeExtensionResults(ext) {
+        if (!ext) return {};
+
+        if (ext.prf && ext.prf.results) {
+            if (ext.prf.results.first) ext.prf.results.first = base64urlToArrayBuffer(ext.prf.results.first);
+            if (ext.prf.results.second) ext.prf.results.second = base64urlToArrayBuffer(ext.prf.results.second);
+        }
+
+        if (ext.largeBlob && ext.largeBlob.blob) {
+            ext.largeBlob.blob = base64urlToArrayBuffer(ext.largeBlob.blob);
+        }
+
+        if (ext.previewSign) {
+            if (ext.previewSign.generatedKey) {
+                const gk = ext.previewSign.generatedKey;
+                if (gk.keyHandle) gk.keyHandle = base64urlToArrayBuffer(gk.keyHandle);
+                if (gk.publicKey) gk.publicKey = base64urlToArrayBuffer(gk.publicKey);
+                if (gk.attestationObject) gk.attestationObject = base64urlToArrayBuffer(gk.attestationObject);
+            }
+            if (ext.previewSign.signature) {
+                ext.previewSign.signature = base64urlToArrayBuffer(ext.previewSign.signature);
+            }
+        }
+
+        return ext;
+    }
+
     function parsePublicKeyCredentialFromJSON(json) {
+        const extensionResults = decodeExtensionResults(json.clientExtensionResults || {});
+
         const credential = {
             id: json.id,
             rawId: base64urlToArrayBuffer(json.rawId),
             type: json.type,
             authenticatorAttachment: json.authenticatorAttachment,
-            getClientExtensionResults: () => json.clientExtensionResults || {},
+            getClientExtensionResults: () => extensionResults,
             toJSON: () => json  // WebAuthn Level 3: returns base64url strings directly
         };
 
@@ -158,6 +187,23 @@
         window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable = () => Promise.resolve(false);
         window.PublicKeyCredential.isConditionalMediationAvailable = () => Promise.resolve(false);
     }
+
+    // Forward console.log to native for debugging
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    console.log = function(...args) {
+        originalLog.apply(console, args);
+        window.webkit.messageHandlers.__webauthn_console__.postMessage(args.map(String).join(' '));
+    };
+    console.error = function(...args) {
+        originalError.apply(console, args);
+        window.webkit.messageHandlers.__webauthn_console__.postMessage('[ERROR] ' + args.map(String).join(' '));
+    };
+    console.warn = function(...args) {
+        originalWarn.apply(console, args);
+        window.webkit.messageHandlers.__webauthn_console__.postMessage('[WARN] ' + args.map(String).join(' '));
+    };
 
     console.log('[WebAuthn] Interceptor installed');
 })();
