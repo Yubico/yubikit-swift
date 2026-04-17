@@ -108,7 +108,10 @@ extension WebAuthn.Backend {
             }
         }
 
-        if let payment = inputs.thirdPartyPayment, payment.isPayment {
+        if allowedExtensions.contains(.thirdPartyPayment),
+            let payment = inputs.thirdPartyPayment,
+            payment.isPayment
+        {
             // Best-effort: if the authenticator doesn't advertise the extension
             // we simply don't send it (matches minPinLength behavior).
             if let ext = try? await makeThirdPartyPayment() {
@@ -237,7 +240,10 @@ extension WebAuthn.Backend {
             }
         }
 
-        if let payment = inputs.thirdPartyPayment, payment.isPayment {
+        if allowedExtensions.contains(.thirdPartyPayment),
+            let payment = inputs.thirdPartyPayment,
+            payment.isPayment
+        {
             if let ext = try? await makeThirdPartyPayment() {
                 ctapInputs.append(ext.getAssertion.input())
             }

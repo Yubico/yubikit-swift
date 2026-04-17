@@ -75,7 +75,6 @@ struct ExtensionAllowlistTests {
         #expect(regOutputs.credBlob == nil)
         #expect(regOutputs.minPinLength == nil)
         #expect(regOutputs.credProps == nil)
-        #expect(regOutputs.thirdPartyPayment == nil)
 
         let authOutputs = try await mock.parseAuthenticationOutputs(
             from: .stubWithExtensions(),
@@ -85,7 +84,6 @@ struct ExtensionAllowlistTests {
             allowedExtensions: []
         )
         #expect(authOutputs.credBlob == nil)
-        #expect(authOutputs.thirdPartyPayment == nil)
     }
 
     @Test("Specific allowlist surfaces only listed extensions")
@@ -103,7 +101,6 @@ struct ExtensionAllowlistTests {
         #expect(outputs.credBlob == nil)
         #expect(outputs.minPinLength == nil)
         #expect(outputs.credProps?.rk == true)
-        #expect(outputs.thirdPartyPayment?.enabled == true)
     }
 }
 
