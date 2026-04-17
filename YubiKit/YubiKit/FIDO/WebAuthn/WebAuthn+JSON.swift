@@ -18,8 +18,16 @@ import Foundation
 
 extension WebAuthn.Registration.Options {
     /// Parses registration options from JSON data received from a relying party.
+    ///
+    /// Accepts either the bare `PublicKeyCredentialCreationOptions` JSON
+    /// (as consumed by `PublicKeyCredential.parseCreationOptionsFromJSON`)
+    /// or the `{"publicKey": {...}}` envelope used as the argument to
+    /// `navigator.credentials.create()`.
     public static func from(json data: Data) throws -> Self {
-        try JSONDecoder().decode(Self.self, from: data)
+        if let wrapped = try? JSONDecoder().decode(PublicKeyEnvelope<Self>.self, from: data) {
+            return wrapped.publicKey
+        }
+        return try JSONDecoder().decode(Self.self, from: data)
     }
 }
 
@@ -32,8 +40,47 @@ extension WebAuthn.Registration.Response {
 
 extension WebAuthn.Authentication.Options {
     /// Parses authentication options from JSON data received from a relying party.
+    ///
+    /// Accepts either the bare `PublicKeyCredentialRequestOptions` JSON
+    /// (as consumed by `PublicKeyCredential.parseRequestOptionsFromJSON`)
+    /// or the `{"publicKey": {...}}` envelope used as the argument to
+    /// `navigator.credentials.get()`.
     public static func from(json data: Data) throws -> Self {
-        try JSONDecoder().decode(Self.self, from: data)
+        if let wrapped = try? JSONDecoder().decode(PublicKeyEnvelope<Self>.self, from: data) {
+            return wrapped.publicKey
+        }
+        return try JSONDecoder().decode(Self.self, from: data)
+    }
+}
+
+/// Unwraps a `{"publicKey": {...}}` envelope. Strict: the root object must
+/// contain *only* the `publicKey` key, so a bare options blob that happens
+/// to have a stray `publicKey` field alongside others cannot be mis-detected.
+///
+/// Uses a dynamic-keys container to see *every* key present in the JSON
+/// (a static CodingKeys enum would silently drop unknown keys and let
+/// non-envelope JSON pass the guard).
+private struct PublicKeyEnvelope<T: Decodable>: Decodable {
+    let publicKey: T
+
+    private struct AnyKey: CodingKey {
+        let stringValue: String
+        var intValue: Int? { nil }
+        init(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { nil }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: AnyKey.self)
+        guard container.allKeys.count == 1,
+            let key = container.allKeys.first,
+            key.stringValue == "publicKey"
+        else {
+            throw DecodingError.dataCorrupted(
+                .init(codingPath: [], debugDescription: "not a publicKey envelope")
+            )
+        }
+        self.publicKey = try container.decode(T.self, forKey: key)
     }
 }
 
