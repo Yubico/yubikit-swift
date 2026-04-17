@@ -174,6 +174,61 @@ extension SerializationTests {
             #expect(options.excludeCredentials.isEmpty)
         }
 
+        @Test("Registration.Options JSON decoding - {\"publicKey\": {...}} envelope")
+        func testRegistrationOptionsJSONPublicKeyEnvelope() throws {
+            let json = """
+                {
+                    "publicKey": {
+                        "challenge": "Y2hhbGxlbmdl",
+                        "rp": {"id": "example.com", "name": "Example"},
+                        "user": {"id": "dXNlcl9pZA", "name": "user"}
+                    }
+                }
+                """
+
+            let options = try WebAuthn.Registration.Options.from(json: Data(json.utf8))
+            #expect(options.challenge == Data("challenge".utf8))
+            #expect(options.rp.id == "example.com")
+            #expect(options.user.id == Data("user_id".utf8))
+        }
+
+        @Test("Registration.Options JSON decoding - strict envelope rejects extra top-level keys")
+        func testRegistrationOptionsJSONStrictEnvelopeRejectsExtras() throws {
+            // Envelope with a sibling key — must NOT be treated as an envelope.
+            // The bare parser will then also fail because the root has no
+            // required fields, so from(json:) should throw.
+            let json = """
+                {
+                    "publicKey": {
+                        "challenge": "Y2hhbGxlbmdl",
+                        "rp": {"id": "example.com", "name": "Example"},
+                        "user": {"id": "dXNlcl9pZA", "name": "user"}
+                    },
+                    "stray": "x"
+                }
+                """
+
+            #expect(throws: (any Error).self) {
+                try WebAuthn.Registration.Options.from(json: Data(json.utf8))
+            }
+        }
+
+        @Test("Authentication.Options JSON decoding - {\"publicKey\": {...}} envelope")
+        func testAuthenticationOptionsJSONPublicKeyEnvelope() throws {
+            let json = """
+                {
+                    "publicKey": {
+                        "challenge": "Y2hhbGxlbmdl",
+                        "rpId": "example.com"
+                    }
+                }
+                """
+
+            let options = try WebAuthn.Authentication.Options.from(json: Data(json.utf8))
+            #expect(options.challenge == Data("challenge".utf8))
+            #expect(options.rpId == "example.com")
+        }
+
         @Test("Registration.Options JSON decoding - requireResidentKey fallback")
         func testRegistrationOptionsJSONRequireResidentKey() throws {
             let json = """
