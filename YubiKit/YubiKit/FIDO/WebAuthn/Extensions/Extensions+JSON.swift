@@ -46,6 +46,10 @@ extension WebAuthn.Extension.RegistrationInputs: Decodable {
             previewSign: try container.decodeIfPresent(
                 WebAuthn.Extension.PreviewSign.Registration.Input.self,
                 forKey: .previewSign
+            ),
+            thirdPartyPayment: try container.decodeIfPresent(
+                WebAuthn.Extension.ThirdPartyPayment.Registration.Input.self,
+                forKey: .payment
             )
         )
     }
@@ -53,6 +57,7 @@ extension WebAuthn.Extension.RegistrationInputs: Decodable {
     private enum CodingKeys: String, CodingKey {
         case prf, credentialProtectionPolicy, enforceCredentialProtectionPolicy, credBlob, minPinLength, largeBlob
         case credProps, previewSign
+        case payment
     }
 }
 
@@ -72,12 +77,17 @@ extension WebAuthn.Extension.AuthenticationInputs: Decodable {
             previewSign: try container.decodeIfPresent(
                 WebAuthn.Extension.PreviewSign.Authentication.Input.self,
                 forKey: .previewSign
+            ),
+            thirdPartyPayment: try container.decodeIfPresent(
+                WebAuthn.Extension.ThirdPartyPayment.Authentication.Input.self,
+                forKey: .payment
             )
         )
     }
 
     private enum CodingKeys: String, CodingKey {
         case prf, getCredBlob, largeBlob, previewSign
+        case payment
     }
 }
 
@@ -552,5 +562,27 @@ extension WebAuthn.Extension.PreviewSign.Authentication.Output: Encodable {
 
     private enum CodingKeys: String, CodingKey {
         case signature
+    }
+}
+
+// MARK: - ThirdPartyPayment Codable
+
+extension WebAuthn.Extension.ThirdPartyPayment.Registration.Input: Decodable {
+    private enum CodingKeys: String, CodingKey { case isPayment }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // Absent `isPayment` means the RP didn't actually request payment capability
+        // — match python-fido2 / yubikit-android, which skip the extension in that case.
+        self.init(isPayment: try c.decodeIfPresent(Bool.self, forKey: .isPayment) ?? false)
+    }
+}
+
+extension WebAuthn.Extension.ThirdPartyPayment.Authentication.Input: Decodable {
+    private enum CodingKeys: String, CodingKey { case isPayment }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(isPayment: try c.decodeIfPresent(Bool.self, forKey: .isPayment) ?? false)
     }
 }

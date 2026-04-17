@@ -90,6 +90,9 @@ extension WebAuthn {
 
         // previewSign
         func makePreviewSign() async throws(CTAP2.SessionError) -> CTAP2.Extension.PreviewSign
+
+        // thirdPartyPayment
+        func makeThirdPartyPayment() async throws(CTAP2.SessionError) -> CTAP2.Extension.ThirdPartyPayment
     }
 }
 
@@ -169,5 +172,10 @@ extension CTAP2.Session: WebAuthn.Backend {
     // previewSign
     func makePreviewSign() async throws(CTAP2.SessionError) -> CTAP2.Extension.PreviewSign {
         try await CTAP2.Extension.PreviewSign(session: self)
+    }
+
+    // thirdPartyPayment
+    func makeThirdPartyPayment() async throws(CTAP2.SessionError) -> CTAP2.Extension.ThirdPartyPayment {
+        try await CTAP2.Extension.ThirdPartyPayment(session: self)
     }
 }

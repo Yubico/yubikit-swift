@@ -213,6 +213,52 @@ extension SerializationTests {
             }
         }
 
+        @Test("Registration.Options JSON decoding - thirdPartyPayment (payment) extension")
+        func testRegistrationOptionsJSONThirdPartyPayment() throws {
+            let json = """
+                {
+                    "challenge": "Y2hhbGxlbmdl",
+                    "rp": {"id": "example.com", "name": "Example"},
+                    "user": {"id": "dXNlcl9pZA", "name": "user"},
+                    "extensions": {"payment": {"isPayment": true}}
+                }
+                """
+
+            let options = try WebAuthn.Registration.Options.from(json: Data(json.utf8))
+            #expect(options.extensions?.thirdPartyPayment?.isPayment == true)
+        }
+
+        @Test("Authentication.Options JSON decoding - thirdPartyPayment ignores SPC metadata")
+        func testAuthenticationOptionsJSONThirdPartyPayment() throws {
+            // RP servers may send the full SPC payment dictionary; we read only
+            // `isPayment` (matches yubikit-android / python-fido2 CTAP layer)
+            // and must decode the rest without failing.
+            let json = """
+                {
+                    "challenge": "Y2hhbGxlbmdl",
+                    "rpId": "example.com",
+                    "extensions": {
+                        "payment": {
+                            "isPayment": true,
+                            "rpId": "example.com",
+                            "topOrigin": "https://shop.example",
+                            "payeeName": "Example Shop",
+                            "payeeOrigin": "https://shop.example",
+                            "total": {"currency": "USD", "value": "10.00"},
+                            "instrument": {
+                                "displayName": "Visa card",
+                                "icon": "https://example.com/icon.png"
+                            }
+                        }
+                    }
+                }
+                """
+
+            let options = try WebAuthn.Authentication.Options.from(json: Data(json.utf8))
+            let payment = try #require(options.extensions?.thirdPartyPayment)
+            #expect(payment.isPayment == true)
+        }
+
         @Test("Authentication.Options JSON decoding - {\"publicKey\": {...}} envelope")
         func testAuthenticationOptionsJSONPublicKeyEnvelope() throws {
             let json = """
