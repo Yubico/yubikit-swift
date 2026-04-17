@@ -150,7 +150,8 @@ extension WebAuthn.Client {
             let (ctapExtensions, prf, previewSign, largeBlobAction) = try await backend.buildGetAssertionExtensions(
                 options.extensions,
                 allowCredentials: options.allowCredentials,
-                selectedCredentialId: selectedCred?.id
+                selectedCredentialId: selectedCred?.id,
+                allowedExtensions: allowedExtensions
             )
 
             let parameters = CTAP2.GetAssertion.Parameters(
@@ -254,12 +255,13 @@ extension WebAuthn.Client {
         }
 
         let backend = self.backend
+        let allowedExtensions = self.allowedExtensions
 
         return WebAuthn.Authentication.MatchedCredential(
             id: credentialId,
             user: ctapResponse.user,
             select: {
-                [ctapResponse, prf, previewSign, largeBlobAction, clientData]
+                [ctapResponse, prf, previewSign, largeBlobAction, clientData, allowedExtensions]
                 () async throws(WebAuthn.ClientError) in
                 let largeBlobOutput = try await backend.processLargeBlob(
                     from: ctapResponse,
@@ -270,7 +272,8 @@ extension WebAuthn.Client {
                     from: ctapResponse,
                     prf: prf,
                     previewSign: previewSign,
-                    largeBlobOutput: largeBlobOutput
+                    largeBlobOutput: largeBlobOutput,
+                    allowedExtensions: allowedExtensions
                 )
                 let authenticatorData = ctapResponse.authenticatorData
                 return WebAuthn.Authentication.Response(

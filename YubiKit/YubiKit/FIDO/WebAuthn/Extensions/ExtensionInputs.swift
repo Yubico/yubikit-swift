@@ -19,9 +19,29 @@ import Foundation
 extension WebAuthn {
     /// Namespace for WebAuthn extensions.
     public enum Extension {
-        /// Extension identifier type (shared with CTAP2).
-        public typealias Identifier = CTAP2.Extension.Identifier
+        /// Identifier for a WebAuthn-level extension.
+        ///
+        /// One case per typed field on ``RegistrationInputs`` /
+        /// ``AuthenticationInputs``. Distinct from the CTAP wire vocabulary
+        /// in ``CTAP2/Extension/Identifier``.
+        public enum Identifier: Hashable, Sendable, CaseIterable {
+            /// WebAuthn wrapper over CTAP2 hmac-secret.
+            case prf
+            case credProtect
+            case credBlob
+            /// Client-side only; not echoed by the authenticator.
+            case credProps
+            case largeBlob
+            case minPinLength
+            /// WebAuthn JSON key is `payment`.
+            case thirdPartyPayment
+        }
     }
+}
+
+extension Array where Element == WebAuthn.Extension.Identifier {
+    /// Every WebAuthn extension identifier the SDK supports.
+    public static var all: [Element] { Element.allCases }
 }
 
 // MARK: - Registration Extension Inputs

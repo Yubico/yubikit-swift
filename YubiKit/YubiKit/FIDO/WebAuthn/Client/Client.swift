@@ -53,6 +53,7 @@ extension WebAuthn {
         let backend: any Backend
         let origin: Origin
         let enterpriseRpIds: Set<String>
+        let allowedExtensions: [WebAuthn.Extension.Identifier]
         let isPublicSuffix: PublicSuffixChecker
 
         // MARK: - Initialization
@@ -66,17 +67,22 @@ extension WebAuthn {
         ///     When a credential is created with `.enterprise` attestation for an RP ID in this set,
         ///     the client uses platform-facilitated mode (value 2). For other RP IDs, it uses
         ///     vendor-facilitated mode (value 1). See CTAP 2.2 §6.1.1.
+        ///   - allowedExtensions: Extensions this client will process. Anything the RP sends
+        ///     that isn't in this list is silently dropped. Pass `.all` for every supported
+        ///     extension, `[]` to ignore them all, or a subset.
         ///   - isPublicSuffix: Returns `true` if the domain is in the Public Suffix List.
         public init(
             session: CTAP2.Session,
             origin: Origin,
             enterpriseRpIds: Set<String> = [],
+            allowedExtensions: [WebAuthn.Extension.Identifier],
             isPublicSuffix: @escaping PublicSuffixChecker
         ) {
             self.init(
                 backend: session,
                 origin: origin,
                 enterpriseRpIds: enterpriseRpIds,
+                allowedExtensions: allowedExtensions,
                 isPublicSuffix: isPublicSuffix
             )
         }
@@ -86,11 +92,13 @@ extension WebAuthn {
             backend: any Backend,
             origin: Origin,
             enterpriseRpIds: Set<String> = [],
+            allowedExtensions: [WebAuthn.Extension.Identifier] = .all,
             isPublicSuffix: @escaping PublicSuffixChecker
         ) {
             self.backend = backend
             self.origin = origin
             self.enterpriseRpIds = enterpriseRpIds
+            self.allowedExtensions = allowedExtensions
             self.isPublicSuffix = isPublicSuffix
         }
     }
