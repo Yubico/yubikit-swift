@@ -106,6 +106,9 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
 
     // previewSign
     func makePreviewSign() async throws(CTAP2.SessionError) -> CTAP2.Extension.PreviewSign { fatalError() }
+
+    // thirdPartyPayment
+    func makeThirdPartyPayment() async throws(CTAP2.SessionError) -> CTAP2.Extension.ThirdPartyPayment { fatalError() }
 }
 
 // MARK: - StatusStream Helpers

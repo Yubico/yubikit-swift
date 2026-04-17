@@ -104,6 +104,12 @@ extension WebAuthn.Extension {
         /// during credential registration.
         public let previewSign: PreviewSign.Registration.Input?
 
+        /// Mark the credential as usable for Secure Payment Confirmation.
+        ///
+        /// When set, the authenticator flags the credential as payment-capable
+        /// via the CTAP2 `thirdPartyPayment` extension.
+        public let thirdPartyPayment: ThirdPartyPayment.Registration.Input?
+
         public init(
             prf: PRF.Registration.Input? = nil,
             credProtect: CredProtect.Registration.Input? = nil,
@@ -111,7 +117,8 @@ extension WebAuthn.Extension {
             minPinLength: MinPinLength.Registration.Input? = nil,
             largeBlob: LargeBlob.Registration.Input? = nil,
             credProps: CredProps.Registration.Input? = nil,
-            previewSign: PreviewSign.Registration.Input? = nil
+            previewSign: PreviewSign.Registration.Input? = nil,
+            thirdPartyPayment: ThirdPartyPayment.Registration.Input? = nil
         ) {
             self.prf = prf
             self.credProtect = credProtect
@@ -120,6 +127,7 @@ extension WebAuthn.Extension {
             self.largeBlob = largeBlob
             self.credProps = credProps
             self.previewSign = previewSign
+            self.thirdPartyPayment = thirdPartyPayment
         }
     }
 }
@@ -163,16 +171,22 @@ extension WebAuthn.Extension {
         /// Maps credential IDs to signing parameters for delegated signing.
         public let previewSign: PreviewSign.Authentication.Input?
 
+        /// Signal that this assertion is a Secure Payment Confirmation payment
+        /// assertion, and optionally carry the RP-supplied payment metadata.
+        public let thirdPartyPayment: ThirdPartyPayment.Authentication.Input?
+
         public init(
             prf: PRF.Authentication.Input? = nil,
             getCredBlob: CredBlob.Authentication.Input? = nil,
             largeBlob: LargeBlob.Authentication.Input? = nil,
-            previewSign: PreviewSign.Authentication.Input? = nil
+            previewSign: PreviewSign.Authentication.Input? = nil,
+            thirdPartyPayment: ThirdPartyPayment.Authentication.Input? = nil
         ) {
             self.prf = prf
             self.getCredBlob = getCredBlob
             self.largeBlob = largeBlob
             self.previewSign = previewSign
+            self.thirdPartyPayment = thirdPartyPayment
         }
     }
 }
