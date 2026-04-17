@@ -62,6 +62,13 @@ extension WebAuthn.Extension {
         /// Contains the generated signing key pair if previewSign was requested.
         public let previewSign: PreviewSign.Registration.Output?
 
+        /// ThirdPartyPayment extension result.
+        ///
+        /// `isPaymentEnabled` is `true` if the credential was registered as
+        /// third-party payment enabled, or `nil` if the authenticator did not
+        /// echo the bit.
+        public let thirdPartyPayment: ThirdPartyPayment.Registration.Output?
+
         public init(
             prf: PRF.Registration.Output? = nil,
             credProtect: CredProtect.Registration.Output? = nil,
@@ -69,7 +76,8 @@ extension WebAuthn.Extension {
             minPinLength: MinPinLength.Registration.Output? = nil,
             largeBlob: LargeBlob.Registration.Output? = nil,
             credProps: CredProps.Registration.Output? = nil,
-            previewSign: PreviewSign.Registration.Output? = nil
+            previewSign: PreviewSign.Registration.Output? = nil,
+            thirdPartyPayment: ThirdPartyPayment.Registration.Output? = nil
         ) {
             self.prf = prf
             self.credProtect = credProtect
@@ -78,6 +86,7 @@ extension WebAuthn.Extension {
             self.largeBlob = largeBlob
             self.credProps = credProps
             self.previewSign = previewSign
+            self.thirdPartyPayment = thirdPartyPayment
         }
 
         /// Empty extension outputs (no extensions requested or supported).
@@ -117,16 +126,26 @@ extension WebAuthn.Extension {
         /// Contains the signature if previewSign signing was requested.
         public let previewSign: PreviewSign.Authentication.Output?
 
+        /// ThirdPartyPayment extension result.
+        ///
+        /// `isPaymentEnabled` is `true` if the credential is third-party payment
+        /// enabled, `false` if the authenticator supports the extension but the
+        /// credential was not registered as such, or `nil` if the authenticator
+        /// did not echo the bit.
+        public let thirdPartyPayment: ThirdPartyPayment.Authentication.Output?
+
         public init(
             prf: PRF.Authentication.Output? = nil,
             credBlob: CredBlob.Authentication.Output? = nil,
             largeBlob: LargeBlob.Authentication.Output? = nil,
-            previewSign: PreviewSign.Authentication.Output? = nil
+            previewSign: PreviewSign.Authentication.Output? = nil,
+            thirdPartyPayment: ThirdPartyPayment.Authentication.Output? = nil
         ) {
             self.prf = prf
             self.credBlob = credBlob
             self.largeBlob = largeBlob
             self.previewSign = previewSign
+            self.thirdPartyPayment = thirdPartyPayment
         }
 
         /// Empty extension outputs (no extensions requested or supported).
