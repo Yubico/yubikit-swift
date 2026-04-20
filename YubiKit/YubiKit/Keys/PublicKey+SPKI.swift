@@ -62,11 +62,7 @@ extension EC.PublicKey {
             value: oidECPublicKey + curveOID
         ).data
 
-        var bitStringValue = Data([0x00])
-        bitStringValue.append(x963)
-        let subjectPublicKey = TKBERTLVRecord(tag: 0x03, value: bitStringValue).data
-
-        return TKBERTLVRecord(tag: 0x30, value: algorithmIdentifier + subjectPublicKey).data
+        return makeSPKI(algorithmIdentifier: algorithmIdentifier, rawKey: x963)
     }
 }
 
@@ -91,11 +87,7 @@ extension RSA.PublicKey {
             value: oidRSAEncryption + nullParams
         ).data
 
-        var bitStringValue = Data([0x00])
-        bitStringValue.append(pkcs1)
-        let subjectPublicKey = TKBERTLVRecord(tag: 0x03, value: bitStringValue).data
-
-        return TKBERTLVRecord(tag: 0x30, value: algorithmIdentifier + subjectPublicKey).data
+        return makeSPKI(algorithmIdentifier: algorithmIdentifier, rawKey: pkcs1)
     }
 }
 
@@ -115,11 +107,7 @@ extension Ed25519.PublicKey {
             value: oidEd25519
         ).data
 
-        var bitStringValue = Data([0x00])
-        bitStringValue.append(keyData)
-        let subjectPublicKey = TKBERTLVRecord(tag: 0x03, value: bitStringValue).data
-
-        return TKBERTLVRecord(tag: 0x30, value: algorithmIdentifier + subjectPublicKey).data
+        return makeSPKI(algorithmIdentifier: algorithmIdentifier, rawKey: keyData)
     }
 }
 
@@ -139,10 +127,15 @@ extension X25519.PublicKey {
             value: oidX25519
         ).data
 
-        var bitStringValue = Data([0x00])
-        bitStringValue.append(keyData)
-        let subjectPublicKey = TKBERTLVRecord(tag: 0x03, value: bitStringValue).data
-
-        return TKBERTLVRecord(tag: 0x30, value: algorithmIdentifier + subjectPublicKey).data
+        return makeSPKI(algorithmIdentifier: algorithmIdentifier, rawKey: keyData)
     }
+}
+
+// MARK: - DER Helpers
+
+private func makeSPKI(algorithmIdentifier: Data, rawKey: Data) -> Data {
+    var bitStringValue = Data([0x00])
+    bitStringValue.append(rawKey)
+    let subjectPublicKey = TKBERTLVRecord(tag: 0x03, value: bitStringValue).data
+    return TKBERTLVRecord(tag: 0x30, value: algorithmIdentifier + subjectPublicKey).data
 }
