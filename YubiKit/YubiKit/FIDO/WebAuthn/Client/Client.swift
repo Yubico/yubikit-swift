@@ -68,14 +68,15 @@ extension WebAuthn {
         ///     the client uses platform-facilitated mode (value 2). For other RP IDs, it uses
         ///     vendor-facilitated mode (value 1). See CTAP 2.2 §6.1.1.
         ///   - allowedExtensions: Extensions this client will process. Anything the RP sends
-        ///     that isn't in this list is silently dropped. Pass `.all` for every supported
-        ///     extension, `[]` to ignore them all, or a subset.
+        ///     that isn't in this list is silently dropped. Defaults to ``Swift/Array/standard``.
+        ///     Pass ``Swift/Array/all`` for every supported extension, `[]` to ignore them all,
+        ///     or a custom subset.
         ///   - isPublicSuffix: Returns `true` if the domain is in the Public Suffix List.
         public init(
             session: CTAP2.Session,
             origin: Origin,
             enterpriseRpIds: Set<String> = [],
-            allowedExtensions: [WebAuthn.Extension.Identifier],
+            allowedExtensions: [WebAuthn.Extension.Identifier] = .standard,
             isPublicSuffix: @escaping PublicSuffixChecker
         ) {
             self.init(

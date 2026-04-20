@@ -42,6 +42,14 @@ extension WebAuthn {
 extension Array where Element == WebAuthn.Extension.Identifier {
     /// Every WebAuthn extension identifier the SDK supports.
     public static var all: [Element] { Element.allCases }
+
+    /// Extensions enabled by default.
+    ///
+    /// Excludes ``WebAuthn/Extension/Identifier/thirdPartyPayment``, which has
+    /// payment semantics that callers should opt into explicitly.
+    public static var standard: [Element] {
+        [.prf, .credProtect, .credBlob, .credProps, .largeBlob, .minPinLength]
+    }
 }
 
 // MARK: - Registration Extension Inputs

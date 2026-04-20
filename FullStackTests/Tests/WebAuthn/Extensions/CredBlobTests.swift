@@ -130,6 +130,7 @@ struct WebAuthnCredBlobExtensionTests {
             let client = WebAuthn.Client(
                 session: session,
                 origin: try WebAuthn.Origin("https://\(rpId)"),
+                allowedExtensions: [.credBlob],
                 isPublicSuffix: { _ in false }
             )
 
