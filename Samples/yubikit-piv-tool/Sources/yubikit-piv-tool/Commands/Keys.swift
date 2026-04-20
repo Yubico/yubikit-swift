@@ -179,7 +179,7 @@ struct Generate: AsyncParsableCommand {
         switch format.uppercased() {
         case "PEM":
             // PEM format: Base64-encoded DER with BEGIN/END markers
-            let pemString = PEMDocument(type: "PUBLIC KEY", derBytes: [UInt8](generatedKey.der)).pemString
+            let pemString = PEMDocument(type: "PUBLIC KEY", derBytes: [UInt8](generatedKey.spki)).pemString
             if publicKey != "-" {
                 // Write to file
                 do {
@@ -193,7 +193,7 @@ struct Generate: AsyncParsableCommand {
             }
 
         case "DER":
-            let derData = generatedKey.der
+            let derData = generatedKey.spki
 
             if publicKey != "-" {
                 // Write binary to file

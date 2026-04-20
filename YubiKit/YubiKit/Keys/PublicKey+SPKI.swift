@@ -26,12 +26,12 @@ import Foundation
 
 extension PublicKey {
     /// DER-encoded SubjectPublicKeyInfo (SPKI) representation of this public key.
-    public var der: Data {
+    public var spki: Data {
         switch self {
-        case .ec(let key): key.der
-        case .rsa(let key): key.der
-        case .ed25519(let key): key.der
-        case .x25519(let key): key.der
+        case .ec(let key): key.spki
+        case .rsa(let key): key.spki
+        case .ed25519(let key): key.spki
+        case .x25519(let key): key.spki
         }
     }
 }
@@ -40,7 +40,7 @@ extension PublicKey {
 
 extension EC.PublicKey {
     /// DER-encoded SubjectPublicKeyInfo (SPKI) for this EC public key.
-    public var der: Data {
+    public var spki: Data {
         let curveOID: Data
         switch curve {
         case .secp256r1:
@@ -74,7 +74,10 @@ extension EC.PublicKey {
 
 extension RSA.PublicKey {
     /// DER-encoded SubjectPublicKeyInfo (SPKI) for this RSA public key.
-    public var der: Data {
+    ///
+    /// This is the SPKI wrapping (`AlgorithmIdentifier` + BIT STRING of PKCS #1
+    /// `RSAPublicKey`). For the bare `SEQUENCE { n, e }` encoding, use ``pkcs1``.
+    public var spki: Data {
         // rsaEncryption OID (1.2.840.113549.1.1.1)
         let oidRSAEncryption = TKBERTLVRecord(
             tag: 0x06,
@@ -100,7 +103,7 @@ extension RSA.PublicKey {
 
 extension Ed25519.PublicKey {
     /// DER-encoded SubjectPublicKeyInfo (SPKI) for this Ed25519 public key.
-    public var der: Data {
+    public var spki: Data {
         // Ed25519 OID (1.3.101.112)
         let oidEd25519 = TKBERTLVRecord(
             tag: 0x06,
@@ -124,7 +127,7 @@ extension Ed25519.PublicKey {
 
 extension X25519.PublicKey {
     /// DER-encoded SubjectPublicKeyInfo (SPKI) for this X25519 public key.
-    public var der: Data {
+    public var spki: Data {
         // X25519 OID (1.3.101.110)
         let oidX25519 = TKBERTLVRecord(
             tag: 0x06,
