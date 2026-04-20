@@ -63,7 +63,7 @@ extension EC.PublicKey {
         ).data
 
         var bitStringValue = Data([0x00])
-        bitStringValue.append(x963Representation)
+        bitStringValue.append(x963)
         let subjectPublicKey = TKBERTLVRecord(tag: 0x03, value: bitStringValue).data
 
         return TKBERTLVRecord(tag: 0x30, value: algorithmIdentifier + subjectPublicKey).data

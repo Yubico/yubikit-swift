@@ -23,38 +23,74 @@ import Foundation
 
 extension EC.PublicKey {
 
+    // Legacy names (pre-x963Representation era)
+
     /// Initialize a public key from SEC1 uncompressed EC point format (0x04 || X || Y).
     /// - Parameters:
     ///   - uncompressedPoint: Data in SEC1 format.
     ///   - curve: The elliptic curve type (secp256r1 or secp384r1).
     /// - Returns: PublicKey if valid, otherwise nil.
-    @available(*, deprecated, renamed: "init(x963Representation:curve:)")
+    @available(*, deprecated, renamed: "init(x963:curve:)")
     public init?(uncompressedPoint: Data, curve: EC.Curve) {
-        self.init(x963Representation: uncompressedPoint, curve: curve)
+        self.init(x963: uncompressedPoint, curve: curve)
     }
 
     /// SEC1 uncompressed EC point representation (0x04 || X || Y).
-    @available(*, deprecated, renamed: "x963Representation")
-    public var uncompressedPoint: Data { x963Representation }
+    @available(*, deprecated, renamed: "x963")
+    public var uncompressedPoint: Data { x963 }
+
+    // Deprecated in favor of shorter `x963`
+
+    /// Initialize a public key from X9.63 format (0x04 || X || Y).
+    /// - Parameters:
+    ///   - x963Representation: The X9.63 encoded public key data.
+    ///   - curve: The elliptic curve type (secp256r1 or secp384r1).
+    /// - Returns: PublicKey if valid, otherwise nil.
+    @available(*, deprecated, renamed: "init(x963:curve:)")
+    public init?(x963Representation: Data, curve: EC.Curve) {
+        self.init(x963: x963Representation, curve: curve)
+    }
+
+    /// X9.63 representation (0x04 || X || Y).
+    @available(*, deprecated, renamed: "x963")
+    public var x963Representation: Data { x963 }
 }
 
 // MARK: - EC.PrivateKey Deprecated API
 
 extension EC.PrivateKey {
 
-    /// Uncompressed representation of private key as 0x04 || X || Y || K.
-    @available(*, deprecated, renamed: "x963Representation")
-    public var uncompressedRepresentation: Data { x963Representation }
+    // Legacy names (pre-x963Representation era)
 
     /// Initialize a private key from 0x04 || X || Y || K
     /// - Parameters:
     ///   - uncompressedRepresentation: uncompressedPoint + K
     ///   - curve: The elliptic curve type (secp256r1 or secp384r1).
     /// - Returns: PrivateKey if valid, otherwise nil.
-    @available(*, deprecated, renamed: "init(x963Representation:curve:)")
+    @available(*, deprecated, renamed: "init(x963:curve:)")
     public init?(uncompressedRepresentation: Data, curve: EC.Curve) {
-        self.init(x963Representation: uncompressedRepresentation, curve: curve)
+        self.init(x963: uncompressedRepresentation, curve: curve)
     }
+
+    /// Uncompressed representation of private key as 0x04 || X || Y || K.
+    @available(*, deprecated, renamed: "x963")
+    public var uncompressedRepresentation: Data { x963 }
+
+    // Deprecated in favor of shorter `x963`
+
+    /// Initialize a private key from X9.63 format (0x04 || X || Y || K).
+    /// - Parameters:
+    ///   - x963Representation: The X9.63 encoded private key data.
+    ///   - curve: The elliptic curve type (secp256r1 or secp384r1).
+    /// - Returns: PrivateKey if valid, otherwise nil.
+    @available(*, deprecated, renamed: "init(x963:curve:)")
+    public init?(x963Representation: Data, curve: EC.Curve) {
+        self.init(x963: x963Representation, curve: curve)
+    }
+
+    /// X9.63 representation of private key as 0x04 || X || Y || K.
+    @available(*, deprecated, renamed: "x963")
+    public var x963Representation: Data { x963 }
 }
 
 // MARK: - Response Deprecated API

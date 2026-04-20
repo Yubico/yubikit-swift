@@ -1120,6 +1120,6 @@ extension EC.PublicKey {
             kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
             kSecAttrKeySizeInBits: curve.keySizeInBits,
         ]
-        return SecKeyCreateWithData(x963Representation as CFData, attributes as CFDictionary, nil)
+        return SecKeyCreateWithData(x963 as CFData, attributes as CFDictionary, nil)
     }
 }
