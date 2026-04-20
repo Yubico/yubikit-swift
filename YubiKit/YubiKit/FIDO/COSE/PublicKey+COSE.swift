@@ -25,7 +25,7 @@ extension PublicKey {
     /// - RSA (any algorithm — key material is algorithm-independent)
     ///
     /// - Parameter cose: COSE Key containing key type and parameters
-    init?(cose: COSE.Key) {
+    public init?(cose: COSE.Key) {
         switch cose {
         case .ec2(_, _, let crv, let x, let y):
             // Support P-256 and P-384
@@ -36,6 +36,12 @@ extension PublicKey {
             case 2:  // P-384
                 curve = .secp384r1
             default:
+                return nil
+            }
+
+            guard x.count == curve.keySizeInBytes,
+                y.count == curve.keySizeInBytes
+            else {
                 return nil
             }
 
