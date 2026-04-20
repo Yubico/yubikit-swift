@@ -111,12 +111,12 @@ extension Crypto.EC {
         do {
             switch privateKey.curve {
             case .secp256r1:
-                let priv = try P256.KeyAgreement.PrivateKey(x963Representation: privateKey.x963Representation)
-                let pub = try P256.KeyAgreement.PublicKey(x963Representation: publicKey.x963Representation)
+                let priv = try P256.KeyAgreement.PrivateKey(x963Representation: privateKey.x963)
+                let pub = try P256.KeyAgreement.PublicKey(x963Representation: publicKey.x963)
                 return try priv.sharedSecretFromKeyAgreement(with: pub).withUnsafeBytes { Data($0) }
             case .secp384r1:
-                let priv = try P384.KeyAgreement.PrivateKey(x963Representation: privateKey.x963Representation)
-                let pub = try P384.KeyAgreement.PublicKey(x963Representation: publicKey.x963Representation)
+                let priv = try P384.KeyAgreement.PrivateKey(x963Representation: privateKey.x963)
+                let pub = try P384.KeyAgreement.PublicKey(x963Representation: publicKey.x963)
                 return try priv.sharedSecretFromKeyAgreement(with: pub).withUnsafeBytes { Data($0) }
             }
         } catch {
@@ -318,7 +318,7 @@ private enum SecKeyHelpers {
 
         } else if isECKey(secKey) {
             return [EC.Curve.secp256r1, EC.Curve.secp384r1]
-                .compactMap { EC.PublicKey(x963Representation: blob, curve: $0) }
+                .compactMap { EC.PublicKey(x963: blob, curve: $0) }
                 .map { PublicKey.ec($0) }
                 .first
 
