@@ -31,7 +31,7 @@ extension RSA.PublicKey: SecKeyRepresentable {
         attrs[kSecAttrKeySizeInBits as String] = size.bitCount
 
         // RSA keys use full SPKI DER structure
-        let keyData = der
+        let keyData = spki
 
         var err: Unmanaged<CFError>?
         return SecKeyCreateWithData(keyData as CFData, attrs as CFDictionary, &err)

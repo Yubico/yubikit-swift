@@ -234,7 +234,7 @@ extension WebAuthn.Registration.Response: Encodable {
         try inner.encodeBase64URL(rawAuthenticatorData, forKey: .authenticatorData)
         try inner.encode(transports.map(\.rawValue), forKey: .transports)
         if let pk = PublicKey(cose: publicKey) {
-            try inner.encodeBase64URL(pk.der, forKey: .publicKey)
+            try inner.encodeBase64URL(pk.spki, forKey: .publicKey)
         }
         if let algorithm = publicKey.algorithm {
             try inner.encode(algorithm.rawValue, forKey: .publicKeyAlgorithm)
