@@ -14,50 +14,118 @@
 
 import Foundation
 
+// MARK: - Extension CodingKey
+
+// Routes every WebAuthn extension JSON key through `Identifier`: the typed
+// init requires an Identifier, so new keys can't be added without going
+// through the enum.
+private struct ExtensionKey: CodingKey {
+    let stringValue: String
+    var intValue: Int? { nil }
+    init(_ id: WebAuthn.Extension.Identifier, at context: WebAuthn.Extension.Identifier.JSONContext) {
+        // nil `jsonKey(at:)` here is a programmer error, not runtime data.
+        stringValue = id.jsonKey(at: context)!
+    }
+    init(stringValue: String) { self.stringValue = stringValue }
+    init?(intValue: Int) { nil }
+}
+
+extension KeyedDecodingContainer where Key == ExtensionKey {
+    fileprivate func decodeIfPresent<T: Decodable>(
+        _ type: T.Type,
+        for identifier: WebAuthn.Extension.Identifier,
+        at context: WebAuthn.Extension.Identifier.JSONContext
+    ) throws -> T? {
+        try decodeIfPresent(type, forKey: .init(identifier, at: context))
+    }
+
+    fileprivate func decodeBase64URLIfPresent(
+        for identifier: WebAuthn.Extension.Identifier,
+        at context: WebAuthn.Extension.Identifier.JSONContext
+    ) throws -> Data? {
+        try decodeBase64URLIfPresent(forKey: .init(identifier, at: context))
+    }
+}
+
+extension KeyedEncodingContainer where Key == ExtensionKey {
+    fileprivate mutating func encodeIfPresent<T: Encodable>(
+        _ value: T?,
+        for identifier: WebAuthn.Extension.Identifier,
+        at context: WebAuthn.Extension.Identifier.JSONContext
+    ) throws {
+        try encodeIfPresent(value, forKey: .init(identifier, at: context))
+    }
+
+    fileprivate mutating func encode<T: Encodable>(
+        _ value: T,
+        for identifier: WebAuthn.Extension.Identifier,
+        at context: WebAuthn.Extension.Identifier.JSONContext
+    ) throws {
+        try encode(value, forKey: .init(identifier, at: context))
+    }
+
+    fileprivate mutating func encodeBase64URL(
+        _ value: Data,
+        for identifier: WebAuthn.Extension.Identifier,
+        at context: WebAuthn.Extension.Identifier.JSONContext
+    ) throws {
+        try encodeBase64URL(value, forKey: .init(identifier, at: context))
+    }
+}
+
 // MARK: - Registration Inputs Decodable
 
 extension WebAuthn.Extension.RegistrationInputs: Decodable {
 
     public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let container = try decoder.container(keyedBy: ExtensionKey.self)
+        let context = WebAuthn.Extension.Identifier.JSONContext.registrationInput
 
-        // Parse credProtect from credentialProtectionPolicy + enforceCredentialProtectionPolicy
+        // credProtect registration is composite: credentialProtectionPolicy (primary,
+        // from Identifier.jsonKey) + enforceCredentialProtectionPolicy (companion).
         let credProtect: WebAuthn.Extension.CredProtect.Registration.Input?
         if let policy = try container.decodeIfPresent(
             WebAuthn.Extension.CredProtect.Policy.self,
-            forKey: .credentialProtectionPolicy
+            for: .credProtect,
+            at: context
         ) {
-            let enforce = try container.decodeIfPresent(Bool.self, forKey: .enforceCredentialProtectionPolicy) ?? false
+            // credProtect's sole composite companion; lives inline because it's the only one.
+            let enforce =
+                try container.decodeIfPresent(
+                    Bool.self,
+                    forKey: .init(stringValue: "enforceCredentialProtectionPolicy")
+                ) ?? false
             credProtect = .init(policy: policy, enforce: enforce)
         } else {
             credProtect = nil
         }
 
         self.init(
-            prf: try container.decodeIfPresent(WebAuthn.Extension.PRF.Registration.Input.self, forKey: .prf),
+            prf: try container.decodeIfPresent(
+                WebAuthn.Extension.PRF.Registration.Input.self,
+                for: .prf,
+                at: context
+            ),
             credProtect: credProtect,
-            credBlob: try container.decodeBase64URLIfPresent(forKey: .credBlob),
-            minPinLength: try container.decodeIfPresent(Bool.self, forKey: .minPinLength),
+            credBlob: try container.decodeBase64URLIfPresent(for: .credBlob, at: context),
+            minPinLength: try container.decodeIfPresent(Bool.self, for: .minPinLength, at: context),
             largeBlob: try container.decodeIfPresent(
                 WebAuthn.Extension.LargeBlob.Registration.Input.self,
-                forKey: .largeBlob
+                for: .largeBlob,
+                at: context
             ),
-            credProps: try container.decodeIfPresent(Bool.self, forKey: .credProps),
+            credProps: try container.decodeIfPresent(Bool.self, for: .credProps, at: context),
             previewSign: try container.decodeIfPresent(
                 WebAuthn.Extension.PreviewSign.Registration.Input.self,
-                forKey: .previewSign
+                for: .previewSign,
+                at: context
             ),
             thirdPartyPayment: try container.decodeIfPresent(
                 WebAuthn.Extension.ThirdPartyPayment.Registration.Input.self,
-                forKey: .payment
+                for: .thirdPartyPayment,
+                at: context
             )
         )
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case prf, credentialProtectionPolicy, enforceCredentialProtectionPolicy, credBlob, minPinLength, largeBlob
-        case credProps, previewSign
-        case payment
     }
 }
 
@@ -66,28 +134,31 @@ extension WebAuthn.Extension.RegistrationInputs: Decodable {
 extension WebAuthn.Extension.AuthenticationInputs: Decodable {
 
     public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let container = try decoder.container(keyedBy: ExtensionKey.self)
+        let context = WebAuthn.Extension.Identifier.JSONContext.authenticationInput
         self.init(
-            prf: try container.decodeIfPresent(WebAuthn.Extension.PRF.Authentication.Input.self, forKey: .prf),
-            getCredBlob: try container.decodeIfPresent(Bool.self, forKey: .getCredBlob),
+            prf: try container.decodeIfPresent(
+                WebAuthn.Extension.PRF.Authentication.Input.self,
+                for: .prf,
+                at: context
+            ),
+            getCredBlob: try container.decodeIfPresent(Bool.self, for: .credBlob, at: context),
             largeBlob: try container.decodeIfPresent(
                 WebAuthn.Extension.LargeBlob.Authentication.Input.self,
-                forKey: .largeBlob
+                for: .largeBlob,
+                at: context
             ),
             previewSign: try container.decodeIfPresent(
                 WebAuthn.Extension.PreviewSign.Authentication.Input.self,
-                forKey: .previewSign
+                for: .previewSign,
+                at: context
             ),
             thirdPartyPayment: try container.decodeIfPresent(
                 WebAuthn.Extension.ThirdPartyPayment.Authentication.Input.self,
-                forKey: .payment
+                for: .thirdPartyPayment,
+                at: context
             )
         )
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case prf, getCredBlob, largeBlob, previewSign
-        case payment
     }
 }
 
@@ -96,24 +167,21 @@ extension WebAuthn.Extension.AuthenticationInputs: Decodable {
 extension WebAuthn.Extension.RegistrationOutputs: Encodable {
 
     public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encodeIfPresent(prf, forKey: .prf)
+        var container = encoder.container(keyedBy: ExtensionKey.self)
+        let context = WebAuthn.Extension.Identifier.JSONContext.registrationOutput
+        try container.encodeIfPresent(prf, for: .prf, at: context)
         if let credProtect {
-            try container.encode(credProtect.policy, forKey: .credProtect)
+            try container.encode(credProtect.policy, for: .credProtect, at: context)
         }
         if let credBlob {
-            try container.encode(credBlob.stored, forKey: .credBlob)
+            try container.encode(credBlob.stored, for: .credBlob, at: context)
         }
         if let minPinLength {
-            try container.encode(minPinLength.length, forKey: .minPinLength)
+            try container.encode(minPinLength.length, for: .minPinLength, at: context)
         }
-        try container.encodeIfPresent(largeBlob, forKey: .largeBlob)
-        try container.encodeIfPresent(credProps, forKey: .credProps)
-        try container.encodeIfPresent(previewSign, forKey: .previewSign)
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case prf, credProtect, credBlob, minPinLength, largeBlob, credProps, previewSign
+        try container.encodeIfPresent(largeBlob, for: .largeBlob, at: context)
+        try container.encodeIfPresent(credProps, for: .credProps, at: context)
+        try container.encodeIfPresent(previewSign, for: .previewSign, at: context)
     }
 }
 
@@ -122,17 +190,14 @@ extension WebAuthn.Extension.RegistrationOutputs: Encodable {
 extension WebAuthn.Extension.AuthenticationOutputs: Encodable {
 
     public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encodeIfPresent(prf, forKey: .prf)
+        var container = encoder.container(keyedBy: ExtensionKey.self)
+        let context = WebAuthn.Extension.Identifier.JSONContext.authenticationOutput
+        try container.encodeIfPresent(prf, for: .prf, at: context)
         if let credBlob {
-            try container.encodeBase64URL(credBlob.blob, forKey: .getCredBlob)
+            try container.encodeBase64URL(credBlob.blob, for: .credBlob, at: context)
         }
-        try container.encodeIfPresent(largeBlob, forKey: .largeBlob)
-        try container.encodeIfPresent(previewSign, forKey: .previewSign)
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case prf, getCredBlob, largeBlob, previewSign
+        try container.encodeIfPresent(largeBlob, for: .largeBlob, at: context)
+        try container.encodeIfPresent(previewSign, for: .previewSign, at: context)
     }
 }
 

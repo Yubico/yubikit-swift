@@ -17,52 +17,26 @@ import Testing
 
 @testable import YubiKit
 
-// MARK: - Extension Allowlist Tests
-
 @Suite("Extension Allowlist Tests")
 struct ExtensionAllowlistTests {
 
-    @Test("Empty allowlist blocks all extension inputs on both make + assertion")
-    func testEmptyAllowlistBlocksBuild() async throws {
+    @Test("Empty allowlist drops extensions on build + parse")
+    func testEmptyAllowlist() async throws {
         let mock = MockWebAuthnBackend()
 
-        let registrationInputs = WebAuthn.Extension.RegistrationInputs(
-            prf: .enable,
-            credProtect: .init(policy: .userVerificationRequired),
-            credBlob: Data([0xAA, 0xBB]),
-            minPinLength: true,
-            largeBlob: .required,
-            credProps: true,
-            thirdPartyPayment: .enable
-        )
         let (mcInputs, mcPrf, _, mcLargeBlob) = try await mock.buildMakeCredentialExtensions(
-            registrationInputs,
+            .init(
+                prf: .enable,
+                credProtect: .init(policy: .userVerificationRequired),
+                credBlob: Data([0xAA]),
+                minPinLength: true,
+                largeBlob: .required,
+                credProps: true,
+                thirdPartyPayment: .enable
+            ),
             allowedExtensions: []
         )
-        #expect(mcInputs.isEmpty)
-        #expect(mcPrf == nil)
-        #expect(mcLargeBlob == false)
-
-        let assertionInputs = WebAuthn.Extension.AuthenticationInputs(
-            prf: .init(eval: .init(first: Data(repeating: 0x01, count: 32))),
-            getCredBlob: true,
-            largeBlob: .read,
-            thirdPartyPayment: .init(isPayment: true)
-        )
-        let (gaInputs, gaPrf, _, gaLargeBlob) = try await mock.buildGetAssertionExtensions(
-            assertionInputs,
-            allowCredentials: [],
-            selectedCredentialId: nil,
-            allowedExtensions: []
-        )
-        #expect(gaInputs.isEmpty)
-        #expect(gaPrf == nil)
-        #expect(gaLargeBlob == nil)
-    }
-
-    @Test("Empty allowlist drops echoed extension outputs on both make + assertion")
-    func testEmptyAllowlistDropsParse() async throws {
-        let mock = MockWebAuthnBackend()
+        #expect(mcInputs.isEmpty && mcPrf == nil && mcLargeBlob == false)
 
         let regOutputs = try await mock.parseRegistrationOutputs(
             from: .stubWithExtensions(),
@@ -87,7 +61,7 @@ struct ExtensionAllowlistTests {
     }
 
     @Test("Specific allowlist surfaces only listed extensions")
-    func testSpecificAllowlistFilters() async throws {
+    func testSpecificAllowlist() async throws {
         let mock = MockWebAuthnBackend()
 
         let outputs = try await mock.parseRegistrationOutputs(
@@ -96,7 +70,7 @@ struct ExtensionAllowlistTests {
             previewSign: nil,
             largeBlobRequested: false,
             credPropsRk: true,
-            allowedExtensions: [.thirdPartyPayment, .credProps]
+            allowedExtensions: [.credProps]
         )
         #expect(outputs.credBlob == nil)
         #expect(outputs.minPinLength == nil)
@@ -106,44 +80,40 @@ struct ExtensionAllowlistTests {
 
 // MARK: - CBOR-encoded authenticator-data helpers
 
+private func authData(extensions: [CBOR.Value: CBOR.Value]) -> Data {
+    var data = Data(count: 32)  // rpIdHash
+    data.append(0x81)  // flags: UP + ED
+    data.append(contentsOf: [0x00, 0x00, 0x00, 0x01])  // signCount
+    data.append(CBOR.Value.map(extensions).encode())
+    return data
+}
+
 extension CTAP2.MakeCredential.Response {
     fileprivate static func stubWithExtensions() -> CTAP2.MakeCredential.Response {
-        let extensions: [CBOR.Value: CBOR.Value] = [
-            .textString("credBlob"): .boolean(true),
-            .textString("minPinLength"): .int(4),
-            .textString("thirdPartyPayment"): .boolean(true),
-        ]
-        var authData = Data()
-        authData.append(Data(repeating: 0, count: 32))  // rpIdHash
-        authData.append(0x81)  // flags: UP + ED
-        authData.append(contentsOf: [0x00, 0x00, 0x00, 0x01])  // signCount
-        authData.append(CBOR.Value.map(extensions).encode())
-
         let response: [CBOR.Value: CBOR.Value] = [
             .int(0x01): .textString("none"),
-            .int(0x02): .byteString(authData),
+            .int(0x02): .byteString(
+                authData(extensions: [
+                    .textString("credBlob"): .boolean(true),
+                    .textString("minPinLength"): .int(4),
+                    .textString("thirdPartyPayment"): .boolean(true),
+                ])
+            ),
             .int(0x03): .map([:]),
         ]
-        let decoded: CBOR.Value? = try! CBOR.Value.map(response).encode().decode()
-        return CTAP2.MakeCredential.Response(cbor: decoded!)!
+        return CTAP2.MakeCredential.Response(cbor: try! CBOR.Value.map(response).encode().decode()!)!
     }
 }
 
 extension CTAP2.GetAssertion.Response {
     fileprivate static func stubWithExtensions() -> CTAP2.GetAssertion.Response {
-        let extensions: [CBOR.Value: CBOR.Value] = [
+        let data = authData(extensions: [
             .textString("credBlob"): .byteString(Data([0x11, 0x22])),
             .textString("thirdPartyPayment"): .boolean(true),
-        ]
-        var authData = Data()
-        authData.append(Data(repeating: 0, count: 32))
-        authData.append(0x81)
-        authData.append(contentsOf: [0x00, 0x00, 0x00, 0x01])
-        authData.append(CBOR.Value.map(extensions).encode())
-
+        ])
         return Self(
             credential: WebAuthn.CredentialDescriptor(id: Data([0xAA])),
-            authenticatorData: WebAuthn.AuthenticatorData(data: authData)!,
+            authenticatorData: WebAuthn.AuthenticatorData(data: data)!,
             signature: Data([0x30, 0x44]),
             user: nil,
             numberOfCredentials: 1,

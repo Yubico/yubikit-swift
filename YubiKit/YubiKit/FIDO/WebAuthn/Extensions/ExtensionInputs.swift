@@ -35,6 +35,40 @@ extension WebAuthn {
             case minPinLength
             /// WebAuthn JSON key is `payment`.
             case thirdPartyPayment
+            /// Experimental; see ``WebAuthn/Extension/PreviewSign``.
+            case previewSign
+        }
+    }
+}
+
+extension WebAuthn.Extension.Identifier {
+    enum JSONContext: Sendable {
+        case registrationInput
+        case registrationOutput
+        case authenticationInput
+        case authenticationOutput
+    }
+
+    // Single source of truth for WebAuthn JSON extension keys. Returns nil when
+    // the extension isn't used in `context` (e.g. credProps at auth, thirdPartyPayment
+    // as an output). For composite keys (credProtect at registration input) returns
+    // the primary; the companion is handled in the decoder.
+    func jsonKey(at context: JSONContext) -> String? {
+        switch (self, context) {
+        case (.prf, _): return "prf"
+        case (.credProtect, .registrationInput): return "credentialProtectionPolicy"
+        case (.credProtect, .registrationOutput): return "credProtect"
+        case (.credProtect, .authenticationInput), (.credProtect, .authenticationOutput): return nil
+        case (.credBlob, .registrationInput), (.credBlob, .registrationOutput): return "credBlob"
+        case (.credBlob, .authenticationInput), (.credBlob, .authenticationOutput): return "getCredBlob"
+        case (.credProps, .registrationInput), (.credProps, .registrationOutput): return "credProps"
+        case (.credProps, .authenticationInput), (.credProps, .authenticationOutput): return nil
+        case (.largeBlob, _): return "largeBlob"
+        case (.minPinLength, .registrationInput), (.minPinLength, .registrationOutput): return "minPinLength"
+        case (.minPinLength, .authenticationInput), (.minPinLength, .authenticationOutput): return nil
+        case (.thirdPartyPayment, .registrationInput), (.thirdPartyPayment, .authenticationInput): return "payment"
+        case (.thirdPartyPayment, .registrationOutput), (.thirdPartyPayment, .authenticationOutput): return nil
+        case (.previewSign, _): return "previewSign"
         }
     }
 }
@@ -45,8 +79,9 @@ extension Array where Element == WebAuthn.Extension.Identifier {
 
     /// Extensions enabled by default.
     ///
-    /// Excludes ``WebAuthn/Extension/Identifier/thirdPartyPayment``, which has
-    /// payment semantics that callers should opt into explicitly.
+    /// Excludes ``WebAuthn/Extension/Identifier/thirdPartyPayment`` (payment
+    /// semantics — opt in explicitly) and ``WebAuthn/Extension/Identifier/previewSign``
+    /// (experimental).
     public static var standard: [Element] {
         [.prf, .credProtect, .credBlob, .credProps, .largeBlob, .minPinLength]
     }

@@ -81,7 +81,7 @@ extension WebAuthn.Backend {
                 largeBlobRequested = true
             }
 
-            if let previewSignInput = inputs.previewSign {
+            if allowedExtensions.contains(.previewSign), let previewSignInput = inputs.previewSign {
                 if let ps = try? await makePreviewSign() {
                     let flags: UInt8 = userVerification == .required ? 0b101 : 0b001
                     ctapInputs.append(
@@ -211,7 +211,7 @@ extension WebAuthn.Backend {
             }
         }
 
-        if let previewSignInput = inputs.previewSign {
+        if allowedExtensions.contains(.previewSign), let previewSignInput = inputs.previewSign {
             if allowCredentials.isEmpty {
                 throw .invalidRequest(
                     "sign requires allowCredentials",
@@ -275,7 +275,7 @@ extension WebAuthn.Backend {
         }
 
         var previewSignOutput: WebAuthn.Extension.PreviewSign.Registration.Output?
-        if let previewSign {
+        if allowedExtensions.contains(.previewSign), let previewSign {
             do throws(CTAP2.SessionError) {
                 if let generatedKey = try previewSign.makeCredential.output(from: response) {
                     previewSignOutput = .init(generatedKey: generatedKey)
@@ -350,7 +350,7 @@ extension WebAuthn.Backend {
             : nil
 
         var previewSignOutput: WebAuthn.Extension.PreviewSign.Authentication.Output?
-        if let previewSign {
+        if allowedExtensions.contains(.previewSign), let previewSign {
             if let signature = previewSign.getAssertion.output(from: response) {
                 previewSignOutput = .init(signature: signature)
             }
