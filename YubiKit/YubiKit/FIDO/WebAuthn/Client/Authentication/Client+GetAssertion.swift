@@ -144,7 +144,13 @@ extension WebAuthn.Client {
                 userVerification: retry.userVerification,
                 isMakeCredential: false,
                 allowUV: retry.allowUV,
-                authorization: authorization
+                authorization: authorization,
+                yieldProcessing: { continuation.yield(.processing) },
+                yieldUVWaiting: { cancel, fallback in
+                    continuation.yield(
+                        .waitingForUserVerification(cancel: cancel, fallbackToPIN: fallback)
+                    )
+                }
             )
 
             // For allow-list requests, silently probe to find a matching credential.

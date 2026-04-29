@@ -53,6 +53,9 @@ extension WebAuthn.Client {
     // `.uvBlocked` under `uv: .required` / no PIN). PIN failures
     // (`pinInvalid`) throw `.pinRejected` with the remaining retry count.
     //
+    // `yieldUVWaiting` exposes the CTAP cancel handle plus an optional
+    // `fallbackToPIN` closure (nil under `uv: .required` or no PIN).
+    //
     // Returns: (nil, nil) = no auth needed, (token, nil) = use token, (nil, true) = internal UV.
     func acquireAuthToken(
         info: CTAP2.GetInfo.Response,
@@ -61,7 +64,13 @@ extension WebAuthn.Client {
         userVerification: WebAuthn.UserVerificationPreference,
         isMakeCredential: Bool,
         allowUV: Bool = true,
-        authorization: WebAuthn.Authorization
+        authorization: WebAuthn.Authorization,
+        yieldProcessing: @Sendable () -> Void = {},
+        yieldUVWaiting:
+            @Sendable (
+                _ cancel: @Sendable @escaping () async -> Void,
+                _ fallbackToPIN: (@Sendable () async -> Void)?
+            ) -> Void = { _, _ in }
     ) async throws(WebAuthn.ClientError) -> (token: CTAP2.Token?, uv: Bool?) {
 
         let uvRequired = try isUserVerificationRequired(
@@ -83,30 +92,19 @@ extension WebAuthn.Client {
 
         // External UV path: authenticator supports pinUVAuthToken.
         if initialUVRetries > 0, info.options.pinUVAuthToken == true {
-            do throws(CTAP2.SessionError) {
-                let token = try await backend.getPinUVToken(
-                    using: .uv,
-                    permissions: permissions,
-                    rpId: rpId
-                )
+            let canFallback = authorization.uv != .required && hasPin
+            let result = try await runExternalUV(
+                permissions: permissions,
+                rpId: rpId,
+                canFallback: canFallback,
+                yieldProcessing: yieldProcessing,
+                yieldUVWaiting: yieldUVWaiting
+            )
+            switch result {
+            case .token(let token):
                 return (token: token, uv: nil)
-            } catch {
-                switch error {
-                case .ctapError(.uvInvalid, _):
-                    // Surface to caller with retries left (yubikit-android parity).
-                    // Never silently fall through to PIN: the caller decides
-                    // whether to re-prompt UV or switch to PIN.
-                    throw try await translateUVInvalid()
-                case .ctapError(.uvBlocked, _):
-                    // .required → strict UV-only, never fall through.
-                    // Otherwise: fall through to PIN if available.
-                    if authorization.uv == .required || !hasPin {
-                        throw .uvBlocked(source: .here())
-                    }
-                // Fall through to PIN path below.
-                default:
-                    throw WebAuthn.ClientError(error)
-                }
+            case .fallbackToPIN:
+                break
             }
         } else if initialUVRetries > 0, allowInternalUV {
             // Internal UV (authenticator handles UV during MC/GA itself).
@@ -152,6 +150,82 @@ extension WebAuthn.Client {
             throw .pinRejected(retriesRemaining: retries, source: .here())
         }
     }
+}
+
+// MARK: - External UV Path
+
+extension WebAuthn.Client {
+
+    enum UVOutcome {
+        case token(CTAP2.Token)
+        case fallbackToPIN
+    }
+
+    fileprivate func runExternalUV(
+        permissions: CTAP2.ClientPin.Permission,
+        rpId: String,
+        canFallback: Bool,
+        yieldProcessing: @Sendable () -> Void,
+        yieldUVWaiting:
+            @Sendable (
+                _ cancel: @Sendable @escaping () async -> Void,
+                _ fallbackToPIN: (@Sendable () async -> Void)?
+            ) -> Void
+    ) async throws(WebAuthn.ClientError) -> UVOutcome {
+        let signal = FallbackSignal()
+
+        do throws(CTAP2.SessionError) {
+            let stream = try await backend.getPinUVTokenUpdates(
+                using: .uv,
+                permissions: permissions,
+                rpId: rpId
+            )
+            for try await status in stream {
+                switch status {
+                case .processing:
+                    yieldProcessing()
+                case .waitingForUser(let cancel):
+                    let fallback: (@Sendable () async -> Void)? =
+                        canFallback
+                        ? { @Sendable in
+                            await signal.request()
+                            await cancel()
+                        }
+                        : nil
+                    yieldUVWaiting(cancel, fallback)
+                case .finished(let token):
+                    return .token(token)
+                }
+            }
+            // Stream ended without `.finished` — should be unreachable.
+            throw CTAP2.SessionError.responseParseError(
+                "getPinUVTokenUpdates ended without a token",
+                source: .here()
+            )
+        } catch {
+            if case .ctapError(.keepaliveCancel, _) = error, await signal.isRequested {
+                return .fallbackToPIN
+            }
+            switch error {
+            case .ctapError(.uvInvalid, _):
+                // yubikit-android parity: surface retries left rather than silently
+                // falling through — the caller chooses re-prompt vs PIN.
+                throw try await translateUVInvalid()
+            case .ctapError(.uvBlocked, _):
+                if !canFallback {
+                    throw .uvBlocked(source: .here())
+                }
+                return .fallbackToPIN
+            default:
+                throw WebAuthn.ClientError(error)
+            }
+        }
+    }
+}
+
+private actor FallbackSignal {
+    private(set) var isRequested = false
+    func request() { isRequested = true }
 }
 
 // MARK: - UV Error Translation

@@ -26,8 +26,17 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
     nonisolated(unsafe) var onGetInfo: (() throws(CTAP2.SessionError) -> CTAP2.GetInfo.Response)!
     nonisolated(unsafe) var onGetUVRetries: (() throws(CTAP2.SessionError) -> Int)!
     nonisolated(unsafe) var onGetPinRetries: (() throws(CTAP2.SessionError) -> CTAP2.ClientPin.GetRetries.Response)!
+    /// Set one of these. Use the updates form to drive `.waitingForUser` keep-alives.
     nonisolated(unsafe) var onGetPinUVToken:
-        ((CTAP2.ClientPin.Method, CTAP2.ClientPin.Permission, String?) throws(CTAP2.SessionError) -> CTAP2.Token)!
+        (
+            (CTAP2.ClientPin.Method, CTAP2.ClientPin.Permission, String?)
+                throws(CTAP2.SessionError) -> CTAP2.Token
+        )?
+    nonisolated(unsafe) var onGetPinUVTokenUpdates:
+        (
+            (CTAP2.ClientPin.Method, CTAP2.ClientPin.Permission, String?)
+                throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.Token>
+        )?
     nonisolated(unsafe) var onMakeCredential:
         ((CTAP2.MakeCredential.Parameters) -> CTAP2.StatusStream<CTAP2.MakeCredential.Response>)!
     nonisolated(unsafe) var onGetAssertion:
@@ -46,12 +55,23 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
         try onGetPinRetries()
     }
 
-    func getPinUVToken(
+    func getPinUVTokenUpdates(
         using method: CTAP2.ClientPin.Method,
         permissions: CTAP2.ClientPin.Permission,
         rpId: String?
-    ) async throws(CTAP2.SessionError) -> CTAP2.Token {
-        try onGetPinUVToken(method, permissions, rpId)
+    ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.Token> {
+        if let onGetPinUVTokenUpdates {
+            return try onGetPinUVTokenUpdates(method, permissions, rpId)
+        }
+        guard let onGetPinUVToken else {
+            preconditionFailure("Set onGetPinUVToken or onGetPinUVTokenUpdates")
+        }
+        do throws(CTAP2.SessionError) {
+            let token = try onGetPinUVToken(method, permissions, rpId)
+            return .mocked(.finished(token))
+        } catch {
+            return .mocked(error: error)
+        }
     }
 
     func makeCredential(

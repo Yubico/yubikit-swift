@@ -132,7 +132,13 @@ extension WebAuthn.Client {
                 userVerification: retry.userVerification,
                 isMakeCredential: true,
                 allowUV: retry.allowUV,
-                authorization: authorization
+                authorization: authorization,
+                yieldProcessing: { continuation.yield(.processing) },
+                yieldUVWaiting: { cancel, fallback in
+                    continuation.yield(
+                        .waitingForUserVerification(cancel: cancel, fallbackToPIN: fallback)
+                    )
+                }
             )
 
             // Silently check if user already has a credential (exclude list).

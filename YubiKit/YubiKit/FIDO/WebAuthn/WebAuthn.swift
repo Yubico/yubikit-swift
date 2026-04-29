@@ -38,6 +38,20 @@ public enum WebAuthn {
         /// The authenticator is processing the request.
         case processing
 
+        /// The authenticator is performing built-in user verification (e.g.
+        /// fingerprint capture on a YubiKey Bio).
+        ///
+        /// - Parameters:
+        ///   - cancel: Cancel the ceremony — surfaces as ``ClientError/cancelled(source:)``.
+        ///   - fallbackToPIN: Abandon UV and route into the PIN path within the
+        ///     same ceremony, calling ``Authorization/providePIN`` for the PIN.
+        ///     `nil` under ``Authorization/UVPolicy/required`` or when no
+        ///     `clientPin` is configured.
+        case waitingForUserVerification(
+            cancel: @Sendable () async -> Void,
+            fallbackToPIN: (@Sendable () async -> Void)?
+        )
+
         /// The authenticator is waiting for user interaction.
         ///
         /// - Parameter cancel: Closure to cancel the operation.
@@ -261,7 +275,9 @@ extension WebAuthn.Status: StreamStatus {
 extension WebAuthn.Status {
     fileprivate static func areDuplicates(_ lhs: Self, _ rhs: Self) -> Bool {
         switch (lhs, rhs) {
-        case (.processing, .processing), (.waitingForUser, .waitingForUser):
+        case (.processing, .processing),
+            (.waitingForUser, .waitingForUser),
+            (.waitingForUserVerification, .waitingForUserVerification):
             true
         default:
             false
