@@ -40,10 +40,10 @@ extension WebAuthn {
     /// let response = try await client.makeCredential(options, authorization: .pin("1234")).value()
     ///
     /// // Custom — bridge into a UI:
-    /// let auth = WebAuthn.Authorization(
-    ///     requestPIN: { retries in .submit(await askForPIN(retries)) },
-    ///     requestUV:  { _ in .attempt }
-    /// )
+    /// let auth = WebAuthn.Authorization(providePIN: {
+    ///     guard let pin = await viewModel.askForPIN() else { return .cancel }
+    ///     return .pin(pin)
+    /// })
     /// for try await status in await client.makeCredential(options, authorization: auth) {
     ///     switch status {
     ///     case .processing: showSpinner()
@@ -53,11 +53,11 @@ extension WebAuthn {
     /// }
     /// ```
     ///
-    /// On a PIN/UV rejection the SDK re-invokes the corresponding closure on
-    /// the supplied ``Authorization`` with a non-`nil` `retriesRemaining`.
-    /// Returning ``PINResponse/unavailable`` surfaces
-    /// ``ClientError/pinRequired(source:)`` /
-    /// ``ClientError/pinRejected(retriesRemaining:source:)``.
+    /// PIN attempts are one-shot: a wrong PIN throws
+    /// ``ClientError/pinRejected(retriesRemaining:source:)`` and the caller
+    /// decides whether to re-prompt and retry with a fresh ``Authorization``.
+    /// Returning ``Authorization/PINReply/cancel`` from `providePIN` aborts
+    /// the ceremony with ``ClientError/cancelled(source:)``.
     ///
     /// - SeeAlso: [Web Authentication](https://www.w3.org/TR/webauthn-3/)
     public actor Client {

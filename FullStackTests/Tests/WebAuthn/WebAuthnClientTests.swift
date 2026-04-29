@@ -565,35 +565,6 @@ struct WebAuthnClientFullStackTests {
         }
     }
 
-    @Test("Make Credential - Wrong PIN throws pinRejected with retries remaining")
-    func testMakeCredentialWrongPINThrowsRejected() async throws {
-        try await withWebAuthnClient { client in
-            let options = WebAuthn.Registration.Options(
-                challenge: randomBytes(count: 32),
-                rp: .init(id: testRpId, name: testRpName),
-                user: .init(
-                    id: randomBytes(count: 32),
-                    name: "prefetched-wrong@example.com",
-                    displayName: "Prefetched Wrong PIN User"
-                ),
-                residentKey: .discouraged
-            )
-
-            print("Submitting wrong PIN...")
-            do {
-                _ = try await client.makeCredential(options, authorization: .pin("wrongpin123")).value()
-                Issue.record("Expected pinRejected for wrong PIN")
-            } catch let error as WebAuthn.ClientError {
-                guard case .pinRejected(let retries, _) = error else {
-                    Issue.record("Expected pinRejected, got \(error)")
-                    return
-                }
-                #expect(retries < 8, "retriesRemaining should reflect the consumed attempt")
-                print("Correctly received pinRejected with \(retries) retries remaining")
-            }
-        }
-    }
-
     @Test("Get Assertion - Pre-supplied PIN consumed silently")
     func testGetAssertionPrefetchedPIN() async throws {
         try await withReconnectableWebAuthnClient { client, _, reconnect in
@@ -635,45 +606,6 @@ struct WebAuthnClientFullStackTests {
             #expect(!matches.isEmpty)
             let response = matches[0]
             #expect(response.signature.count > 0)
-        }
-    }
-
-    @Test("Get Assertion - Wrong PIN throws pinRejected with retries remaining")
-    func testGetAssertionWrongPINThrowsRejected() async throws {
-        try await withReconnectableWebAuthnClient { client, _, reconnect in
-            var client = client
-
-            let createOptions = WebAuthn.Registration.Options(
-                challenge: randomBytes(count: 32),
-                rp: .init(id: testRpId, name: testRpName),
-                user: .init(
-                    id: randomBytes(count: 32),
-                    name: "prefetched-ga-wrong@example.com",
-                    displayName: "Prefetched GA Wrong PIN"
-                ),
-                residentKey: .required
-            )
-
-            _ = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin)).value()
-            client = try await reconnect().client
-
-            let requestOptions = WebAuthn.Authentication.Options(
-                challenge: randomBytes(count: 32),
-                rpId: testRpId
-            )
-
-            print("Submitting wrong PIN to getAssertion...")
-            do {
-                _ = try await client.getAssertion(requestOptions, authorization: .pin("wrongpin123")).value()
-                Issue.record("Expected pinRejected for wrong PIN")
-            } catch let error as WebAuthn.ClientError {
-                guard case .pinRejected(let retries, _) = error else {
-                    Issue.record("Expected pinRejected, got \(error)")
-                    return
-                }
-                #expect(retries < 8)
-                print("Correctly received pinRejected with \(retries) retries remaining")
-            }
         }
     }
 

@@ -32,15 +32,16 @@ extension WebAuthn.Client {
     ///
     /// Uses the client's origin and validates the RP ID. PIN/UV is supplied
     /// via the ``WebAuthn/Authorization`` parameter; the SDK invokes its
-    /// closures whenever it needs a PIN or a UV decision and re-invokes them
-    /// with `retriesRemaining` after a rejection.
+    /// `providePIN` closure when a PIN is needed. PIN attempts are one-shot:
+    /// a wrong PIN throws ``WebAuthn/ClientError/pinRejected(retriesRemaining:source:)``
+    /// and the caller re-invokes with a fresh ``WebAuthn/Authorization``.
     ///
     /// - Parameters:
     ///   - options: WebAuthn authentication options.
     ///   - authorization: PIN/UV policy for this ceremony. Use
-    ///     ``WebAuthn/Authorization/pin(_:useUV:)`` for the trivial
-    ///     pre-supplied case, ``WebAuthn/Authorization/uvOnly`` for
-    ///     biometric-only, or build a custom instance to bridge into a UI.
+    ///     ``WebAuthn/Authorization/pin(_:)`` for the trivial pre-supplied
+    ///     case, ``WebAuthn/Authorization/uvOnly`` for biometric-only, or
+    ///     build a custom instance to bridge into a UI.
     public func getAssertion(
         _ options: WebAuthn.Authentication.Options,
         authorization: WebAuthn.Authorization

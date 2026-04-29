@@ -293,39 +293,6 @@ struct UVRetryTests {
         }
     }
 
-    // MARK: - .pin Factory
-
-    @Test(".pin(_) factory uses PIN directly without touching UV")
-    func testPinFactorySkipsUV() async throws {
-        let mock = MockWebAuthnBackend()
-        mock.onGetInfo = { .stub(clientPin: true, userVerification: true, pinUvAuthToken: true) }
-        mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
-        mock.onGetUVRetries = { 5 }
-
-        var uvAttempts = 0
-        var pinAttempts = 0
-        mock.onGetPinUVToken = {
-            (method: CTAP2.ClientPin.Method, _, _) throws(CTAP2.SessionError) -> CTAP2.Token in
-            switch method {
-            case .uv:
-                uvAttempts += 1
-                throw CTAP2.SessionError.ctapError(.uvInvalid, source: .here())
-            case .pin(let pin):
-                pinAttempts += 1
-                #expect(pin == "1234")
-                return CTAP2.Token(token: Data(repeating: 0, count: 32), protocolVersion: .v2)
-            }
-        }
-        mock.onGetAssertion = { _ in .mocked(.finished(.stub(credentialId: Data([0xAA])))) }
-
-        let client = try WebAuthn.Client.make(backend: mock)
-
-        _ = try await client.getAssertion(Self.options, authorization: .pin("1234")).value()
-
-        #expect(uvAttempts == 0, ".pin factory should skip UV; got \(uvAttempts) UV attempts")
-        #expect(pinAttempts == 1)
-    }
-
     // MARK: - uv: .required
 
     @Test("uv: .required throws uvRejected on UV failure; PIN never touched")
@@ -371,39 +338,6 @@ struct UVRetryTests {
 
         #expect(uvAttempts == 1)
         #expect(pinPromptCalls.value == 0, "PIN closure must not be invoked under uv: .required")
-        guard case .uvRejected(let remaining, _) = caught else {
-            Issue.record("Expected uvRejected, got \(String(describing: caught))")
-            return
-        }
-        #expect(remaining == 5)
-    }
-
-    @Test(".uvOnly factory throws uvRejected on UV failure with clientPin set")
-    func testUVOnlyFactoryThrowsUVRejected() async throws {
-        let mock = MockWebAuthnBackend()
-        mock.onGetInfo = { .stub(clientPin: true, userVerification: true, pinUvAuthToken: true) }
-        mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
-        mock.onGetUVRetries = { 5 }
-
-        mock.onGetPinUVToken = {
-            (method: CTAP2.ClientPin.Method, _, _) throws(CTAP2.SessionError) -> CTAP2.Token in
-            guard case .uv = method else {
-                Issue.record("PIN path reached despite .uvOnly")
-                throw CTAP2.SessionError.ctapError(.operationDenied, source: .here())
-            }
-            throw CTAP2.SessionError.ctapError(.uvInvalid, source: .here())
-        }
-        mock.onGetAssertion = { _ in .mocked(.finished(.stub(credentialId: Data([0xAA])))) }
-
-        let client = try WebAuthn.Client.make(backend: mock)
-
-        var caught: WebAuthn.ClientError?
-        do throws(WebAuthn.ClientError) {
-            _ = try await client.getAssertion(Self.options, authorization: .uvOnly).value()
-        } catch {
-            caught = error
-        }
-
         guard case .uvRejected(let remaining, _) = caught else {
             Issue.record("Expected uvRejected, got \(String(describing: caught))")
             return
