@@ -45,12 +45,13 @@ extension WebAuthn.Client {
 
     // Acquires a PIN/UV auth token if required.
     //
-    // PIN and UV are both one-shot. UV failures (`uvInvalid` / `uvBlocked`)
-    // fall through to PIN when `clientPin` is configured, otherwise throw
-    // `.uvBlocked`. PIN failures (`pinInvalid`) throw `.pinRejected` with
-    // the remaining retry count so the caller can re-prompt and restart
-    // the ceremony with a fresh PIN. `forcePinChange` is informational on
-    // `cachedInfo` — mirroring python-fido2 and yubikit-android.
+    // PIN and UV are both one-shot. `uvInvalid` surfaces as `.uvRejected`
+    // with the remaining retry count so the caller can re-prompt the user
+    // (matches yubikit-android's `AuthInvalidClientError(UV, retries)`);
+    // when retries are exhausted it surfaces as `.uvBlocked`. `uvBlocked`
+    // falls through to PIN when `clientPin` is configured (or throws
+    // `.uvBlocked` under `uv: .required` / no PIN). PIN failures
+    // (`pinInvalid`) throw `.pinRejected` with the remaining retry count.
     //
     // Returns: (nil, nil) = no auth needed, (token, nil) = use token, (nil, true) = internal UV.
     func acquireAuthToken(
@@ -91,7 +92,12 @@ extension WebAuthn.Client {
                 return (token: token, uv: nil)
             } catch {
                 switch error {
-                case .ctapError(.uvInvalid, _), .ctapError(.uvBlocked, _):
+                case .ctapError(.uvInvalid, _):
+                    // Surface to caller with retries left (yubikit-android parity).
+                    // Never silently fall through to PIN: the caller decides
+                    // whether to re-prompt UV or switch to PIN.
+                    throw try await translateUVInvalid()
+                case .ctapError(.uvBlocked, _):
                     // .required → strict UV-only, never fall through.
                     // Otherwise: fall through to PIN if available.
                     if authorization.uv == .required || !hasPin {
@@ -145,6 +151,32 @@ extension WebAuthn.Client {
             }
             throw .pinRejected(retriesRemaining: retries, source: .here())
         }
+    }
+}
+
+// MARK: - UV Error Translation
+
+extension WebAuthn.Client {
+
+    // Translates a `uvInvalid` CTAP error into the public retry-aware contract.
+    // Used by both the external pinUVAuthToken path (in `acquireAuthToken`) and
+    // the internal-UV path (where `uvInvalid` surfaces from the makeCredential
+    // / getAssertion command itself, after `acquireAuthToken` returned `uv: true`).
+    //
+    // Returns `.uvRejected(retriesRemaining:)` while retries are left, `.uvBlocked`
+    // when exhausted. A failure to read the retry counter bubbles as the underlying
+    // transport error rather than being misreported as UV lockout — mirrors the
+    // PIN path's `getPinRetries` failure handling.
+    func translateUVInvalid() async throws(WebAuthn.ClientError) -> WebAuthn.ClientError {
+        let retries: Int
+        do {
+            retries = try await backend.getUVRetries()
+        } catch {
+            throw WebAuthn.ClientError(error)
+        }
+        return retries > 0
+            ? .uvRejected(retriesRemaining: retries, source: .here())
+            : .uvBlocked(source: .here())
     }
 }
 

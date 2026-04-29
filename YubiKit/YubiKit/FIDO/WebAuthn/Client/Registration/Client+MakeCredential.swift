@@ -186,7 +186,12 @@ extension WebAuthn.Client {
                 }
                 ctapResponse = response
             } catch {
-                guard retry.shouldRetry(for: error) else { throw WebAuthn.ClientError(error) }
+                guard retry.shouldRetry(for: error) else {
+                    if case .ctapError(.uvInvalid, _) = error {
+                        throw try await translateUVInvalid()
+                    }
+                    throw WebAuthn.ClientError(error)
+                }
                 continue
             }
 

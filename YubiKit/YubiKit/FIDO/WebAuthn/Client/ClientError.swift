@@ -33,6 +33,10 @@ extension WebAuthn {
         /// A PIN attempt was rejected but retries are still available on the
         /// authenticator. Re-invoke the operation with a fresh PIN.
         case pinRejected(retriesRemaining: Int, source: SourceLocation)
+        /// A built-in UV attempt failed but retries are still available on
+        /// the authenticator. Re-invoke the operation to retry UV (or supply
+        /// a PIN via a fresh ``Authorization``).
+        case uvRejected(retriesRemaining: Int, source: SourceLocation)
         /// Built-in UV is locked out for this authenticator. Per CTAP spec,
         /// this is recoverable via a correct PIN entry on a subsequent
         /// invocation that uses the PIN path.
