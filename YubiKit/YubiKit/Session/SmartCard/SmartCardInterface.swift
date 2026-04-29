@@ -204,7 +204,9 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         return response.data
     }
 
-    // Send APDU and handle continuation responses (0x61).
+    // Send APDU and handle continuation responses (SW1=0x61).
+    // When a card responds with 0x61, SW2 indicates the number of remaining bytes.
+    // We issue a GET RESPONSE APDU (ISO 7816-4 Case 2 Short) with Le=SW2 to retrieve them.
     // Used during actor init before instance methods are available.
     private static func sendWithContinuationStatic(
         connection: SmartCardConnection,
@@ -213,12 +215,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         readMoreData: Bool,
         insSendRemaining: UInt8
     ) async throws(Error) -> Response {
-        // Send APDU or continuation command
         let responseData: Data
         do {
             if readMoreData {
-                let continueApdu = APDU(cla: 0, ins: insSendRemaining, p1: 0, p2: 0, command: nil)
-                responseData = try await connection.send(data: continueApdu.data)
+                // Continuation APDU (Case 2 Short): CLA=00 INS P1=00 P2=00 Le=00
+                let getResponse = Data([0x00, insSendRemaining, 0x00, 0x00, 0x00])
+                responseData = try await connection.send(data: getResponse)
             } else {
                 responseData = try await connection.send(data: apdu.data)
             }
