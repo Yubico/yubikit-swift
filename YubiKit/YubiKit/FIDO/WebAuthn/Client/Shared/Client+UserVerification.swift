@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import Foundation
-import os
 
 // MARK: - User Verification
 
@@ -42,51 +41,17 @@ extension WebAuthn.Client {
         }
     }
 
-    // MARK: - Stream Interaction
-
-    // Yields `.requestingUV` and waits for user to choose between UV and PIN.
-    func awaitUVDecision<R: Sendable>(
-        from continuation: WebAuthn.StatusStream<R>.Continuation
-    ) async -> Bool {
-        await withCheckedContinuation { checkedContinuation in
-            let once = OSAllocatedUnfairLock(initialState: false)
-            continuation.yield(
-                .requestingUV { useUV in
-                    let first = once.withLock {
-                        let old = $0
-                        $0 = true
-                        return !old
-                    }
-                    guard first else { return }
-                    checkedContinuation.resume(returning: useUV)
-                }
-            )
-        }
-    }
-
-    // Yields `.requestingPIN` and waits for user to provide a PIN.
-    func awaitPINEntry<R: Sendable>(
-        from continuation: WebAuthn.StatusStream<R>.Continuation
-    ) async -> String? {
-        await withCheckedContinuation { checkedContinuation in
-            let once = OSAllocatedUnfairLock(initialState: false)
-            continuation.yield(
-                .requestingPIN { pin in
-                    let first = once.withLock {
-                        let old = $0
-                        $0 = true
-                        return !old
-                    }
-                    guard first else { return }
-                    checkedContinuation.resume(returning: pin)
-                }
-            )
-        }
-    }
-
     // MARK: - Token Acquisition
 
-    // Acquires PIN/UV auth token if required.
+    // Acquires a PIN/UV auth token if required.
+    //
+    // PIN and UV are both one-shot. UV failures (`uvInvalid` / `uvBlocked`)
+    // fall through to PIN when `clientPin` is configured, otherwise throw
+    // `.uvBlocked`. PIN failures (`pinInvalid`) throw `.pinRejected` with
+    // the remaining retry count so the caller can re-prompt and restart
+    // the ceremony with a fresh PIN. `forcePinChange` is informational on
+    // `cachedInfo` — mirroring python-fido2 and yubikit-android.
+    //
     // Returns: (nil, nil) = no auth needed, (token, nil) = use token, (nil, true) = internal UV.
     func acquireAuthToken(
         info: CTAP2.GetInfo.Response,
@@ -95,8 +60,7 @@ extension WebAuthn.Client {
         userVerification: WebAuthn.UserVerificationPreference,
         isMakeCredential: Bool,
         allowUV: Bool = true,
-        requestPIN: @Sendable () async -> String?,
-        requestUVApproval: (@Sendable () async -> Bool)? = nil
+        authorization: WebAuthn.Authorization
     ) async throws(WebAuthn.ClientError) -> (token: CTAP2.Token?, uv: Bool?) {
 
         let uvRequired = try isUserVerificationRequired(
@@ -109,50 +73,53 @@ extension WebAuthn.Client {
             return (token: nil, uv: nil)
         }
 
-        let hasPin = info.options.clientPin == true
         let hasUV = info.options.userVerification == true
+        let hasPin = info.options.clientPin == true
         // Internal UV only valid for basic operations (mc/ga), not management.
         let allowInternalUV = permissions.subtracting([.makeCredential, .getAssertion]).isEmpty
+        let canTryUV = authorization.uv != .skipped && hasUV && allowUV
+        let initialUVRetries = canTryUV ? ((try? await backend.getUVRetries()) ?? 0) : 0
 
-        let uvRetries = hasUV && allowUV ? (try? await backend.getUVRetries()) ?? 0 : 0
-
-        // Try UV-based authentication if available.
-        if uvRetries > 0, info.options.pinUVAuthToken == true {
-            let proceedWithUV = await requestUVApproval?() ?? true
-
-            if proceedWithUV {
-                do throws(CTAP2.SessionError) {
-                    let token = try await backend.getPinUVToken(
-                        using: .uv,
-                        permissions: permissions,
-                        rpId: rpId
-                    )
-                    return (token: token, uv: nil)
-                } catch {
-                    switch error {
-                    case .ctapError(.uvBlocked, _),
-                        .ctapError(.operationDenied, _),
-                        .ctapError(.unauthorizedPermission, _):
-                        guard hasPin else {
-                            let retries = try? await backend.getUVRetries()
-                            throw .userVerificationFailed(
-                                retriesRemaining: retries,
-                                source: .here()
-                            )
-                        }
-                    // Fall through to PIN.
-                    default:
-                        throw WebAuthn.ClientError(error)
+        // External UV path: authenticator supports pinUVAuthToken.
+        if initialUVRetries > 0, info.options.pinUVAuthToken == true {
+            do throws(CTAP2.SessionError) {
+                let token = try await backend.getPinUVToken(
+                    using: .uv,
+                    permissions: permissions,
+                    rpId: rpId
+                )
+                return (token: token, uv: nil)
+            } catch {
+                switch error {
+                case .ctapError(.uvInvalid, _), .ctapError(.uvBlocked, _):
+                    // .required → strict UV-only, never fall through.
+                    // Otherwise: fall through to PIN if available.
+                    if authorization.uv == .required || !hasPin {
+                        throw .uvBlocked(source: .here())
                     }
+                // Fall through to PIN path below.
+                default:
+                    throw WebAuthn.ClientError(error)
                 }
             }
-        } else if uvRetries > 0, allowInternalUV {
-            // Use internal UV (authenticator handles UV during command).
+        } else if initialUVRetries > 0, allowInternalUV {
+            // Internal UV (authenticator handles UV during MC/GA itself).
             return (token: nil, uv: true)
+        } else if authorization.uv == .required {
+            // UV requested as strict-only but unavailable → uvBlocked.
+            throw .uvBlocked(source: .here())
         }
 
-        // Fall back to PIN.
-        guard let pin = await requestPIN() else {
+        // PIN path: requires clientPin to be configured.
+        guard hasPin else {
+            throw .pinNotSet(source: .here())
+        }
+
+        let pin: String
+        switch await authorization.providePIN() {
+        case .pin(let value):
+            pin = value
+        case .cancel:
             throw .cancelled(source: .here())
         }
 
@@ -164,11 +131,19 @@ extension WebAuthn.Client {
             )
             return (token: token, uv: nil)
         } catch {
-            if case .ctapError(.pinInvalid, _) = error {
-                let retries = (try? await backend.getPinRetries())?.retries ?? 0
-                throw .invalidPIN(retriesRemaining: retries, source: .here())
+            guard case .ctapError(.pinInvalid, _) = error else {
+                throw WebAuthn.ClientError(error)
             }
-            throw WebAuthn.ClientError(error)
+            let retries: Int
+            do {
+                retries = try await backend.getPinRetries().retries
+            } catch {
+                throw WebAuthn.ClientError(error)
+            }
+            guard retries > 0 else {
+                throw .pinBlocked(source: .here())
+            }
+            throw .pinRejected(retriesRemaining: retries, source: .here())
         }
     }
 }
@@ -205,6 +180,12 @@ extension WebAuthn.Client {
             || options.alwaysUV == true
         {
             guard uvConfigured else {
+                // PIN capability present but not configured: surface as
+                // `.pinNotSet` so callers can route into a PIN-setup flow
+                // instead of treating it as an unrecoverable failure.
+                if options.clientPin != nil {
+                    throw .pinNotSet(source: .here())
+                }
                 throw .notSupported("User verification not configured/supported", source: .here())
             }
             return true

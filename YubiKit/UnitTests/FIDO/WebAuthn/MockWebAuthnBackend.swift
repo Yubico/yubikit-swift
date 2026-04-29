@@ -118,17 +118,40 @@ extension CTAP2.StatusStream {
     static func mocked(error: CTAP2.SessionError) -> Self { .init { $0.yield(error: error) } }
 }
 
+// MARK: - Client Helpers
+
+extension WebAuthn.Client {
+    static func make(
+        backend: WebAuthn.Backend,
+        origin: String = "https://example.com"
+    ) throws -> WebAuthn.Client {
+        WebAuthn.Client(
+            backend: backend,
+            origin: try WebAuthn.Origin(origin),
+            isPublicSuffix: { _ in false }
+        )
+    }
+}
+
 // MARK: - Test Stubs
 
 extension CTAP2.GetInfo.Response {
     static func stub(
         maxCredentialIdLength: UInt? = nil,
-        maxCredentialCountInList: UInt? = nil
+        maxCredentialCountInList: UInt? = nil,
+        clientPin: Bool = false,
+        userVerification: Bool = false,
+        pinUvAuthToken: Bool = false,
+        forcePinChange: Bool? = nil
     ) -> Self {
-        let options: CTAP2.GetInfo.Options = CBOR.Value.map([
+        var optionsMap: [CBOR.Value: CBOR.Value] = [
             .textString("up"): .boolean(true),
             .textString("rk"): .boolean(true),
-        ]).cborDecoded()!
+        ]
+        if clientPin { optionsMap[.textString("clientPin")] = .boolean(true) }
+        if userVerification { optionsMap[.textString("uv")] = .boolean(true) }
+        if pinUvAuthToken { optionsMap[.textString("pinUvAuthToken")] = .boolean(true) }
+        let options: CTAP2.GetInfo.Options = CBOR.Value.map(optionsMap).cborDecoded()!
 
         return Self(
             versions: [.fido2_1],
@@ -142,7 +165,7 @@ extension CTAP2.GetInfo.Response {
             transports: [.usb],
             algorithms: [.es256],
             maxSerializedLargeBlobArray: nil,
-            forcePinChange: nil,
+            forcePinChange: forcePinChange,
             minPinLength: nil,
             firmwareVersion: nil,
             maxCredBlobLength: nil,

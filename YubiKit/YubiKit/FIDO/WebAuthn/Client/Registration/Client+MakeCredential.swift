@@ -22,9 +22,20 @@ extension WebAuthn.Client {
 
     /// Create a new passkey credential.
     ///
-    /// Uses the client's origin and validates the RP ID.
+    /// Uses the client's origin and validates the RP ID. PIN/UV is supplied
+    /// via the ``WebAuthn/Authorization`` parameter; the SDK invokes its
+    /// closures whenever it needs a PIN or a UV decision and re-invokes them
+    /// with `retriesRemaining` after a rejection.
+    ///
+    /// - Parameters:
+    ///   - options: WebAuthn registration options.
+    ///   - authorization: PIN/UV policy for this ceremony. Use
+    ///     ``WebAuthn/Authorization/pin(_:useUV:)`` for the trivial
+    ///     pre-supplied case, ``WebAuthn/Authorization/uvOnly`` for
+    ///     biometric-only, or build a custom instance to bridge into a UI.
     public func makeCredential(
-        _ options: WebAuthn.Registration.Options
+        _ options: WebAuthn.Registration.Options,
+        authorization: WebAuthn.Authorization
     ) async -> WebAuthn.StatusStream<WebAuthn.Registration.Response> {
         let rpId = options.rp.id
         let clientData = WebAuthn.ClientData.webauthn(
@@ -33,13 +44,20 @@ extension WebAuthn.Client {
             origin: origin,
             rpId: rpId
         )
-        return await makeCredential(options, clientData: clientData)
+        return await makeCredential(
+            options,
+            clientData: clientData,
+            authorization: authorization
+        )
     }
 
     /// Create a new passkey credential with custom client data.
+    ///
+    /// See ``makeCredential(_:authorization:)`` for `authorization` semantics.
     public func makeCredential(
         _ options: WebAuthn.Registration.Options,
-        clientData: WebAuthn.ClientData
+        clientData: WebAuthn.ClientData,
+        authorization: WebAuthn.Authorization
     ) async -> WebAuthn.StatusStream<WebAuthn.Registration.Response> {
         if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
             return .error(error)
@@ -50,6 +68,7 @@ extension WebAuthn.Client {
                     let response = try await performMakeCredential(
                         options: options,
                         clientData: clientData,
+                        authorization: authorization,
                         continuation: continuation
                     )
                     continuation.yield(.finished(response))
@@ -69,6 +88,7 @@ extension WebAuthn.Client {
     fileprivate func performMakeCredential(
         options: WebAuthn.Registration.Options,
         clientData: WebAuthn.ClientData,
+        authorization: WebAuthn.Authorization,
         continuation: WebAuthn.StatusStream<WebAuthn.Registration.Response>.Continuation
     ) async throws(WebAuthn.ClientError) -> WebAuthn.Registration.Response {
 
@@ -111,8 +131,7 @@ extension WebAuthn.Client {
                 userVerification: retry.userVerification,
                 isMakeCredential: true,
                 allowUV: retry.allowUV,
-                requestPIN: { await self.awaitPINEntry(from: continuation) },
-                requestUVApproval: { await self.awaitUVDecision(from: continuation) }
+                authorization: authorization
             )
 
             // Silently check if user already has a credential (exclude list).

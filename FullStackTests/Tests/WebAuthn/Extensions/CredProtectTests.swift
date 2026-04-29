@@ -39,7 +39,10 @@ struct WebAuthnCredProtectExtensionTests {
             )
 
             print("Creating credential without credProtect extension...")
-            let createResponseNone = try await client.makeCredential(createOptionsNone).value(pin: defaultTestPin)
+            let createResponseNone = try await client.makeCredential(
+                createOptionsNone,
+                authorization: .pin(defaultTestPin)
+            ).value()
             #expect(createResponseNone.clientExtensionResults.credProtect?.policy == nil)
             print("No credProtect in response when not requested")
 
@@ -59,7 +62,8 @@ struct WebAuthnCredProtectExtensionTests {
             )
 
             print("Creating credential with credProtect level 1...")
-            let createResponse1 = try await client.makeCredential(createOptions1).value(pin: defaultTestPin)
+            let createResponse1 = try await client.makeCredential(createOptions1, authorization: .pin(defaultTestPin))
+                .value()
 
             if createResponse1.clientExtensionResults.credProtect?.policy == nil {
                 print("credProtect not supported - skipping")
@@ -84,7 +88,8 @@ struct WebAuthnCredProtectExtensionTests {
             )
 
             print("Creating credential with credProtect level 2...")
-            let createResponse2 = try await client.makeCredential(createOptions2).value(pin: defaultTestPin)
+            let createResponse2 = try await client.makeCredential(createOptions2, authorization: .pin(defaultTestPin))
+                .value()
 
             #expect(
                 createResponse2.clientExtensionResults.credProtect?.policy
@@ -108,7 +113,8 @@ struct WebAuthnCredProtectExtensionTests {
             )
 
             print("Creating credential with credProtect level 3...")
-            let createResponse3 = try await client.makeCredential(createOptions3).value(pin: defaultTestPin)
+            let createResponse3 = try await client.makeCredential(createOptions3, authorization: .pin(defaultTestPin))
+                .value()
 
             #expect(createResponse3.clientExtensionResults.credProtect?.policy == .userVerificationRequired)
             print("CredProtect level 3 confirmed")
