@@ -49,6 +49,8 @@ extension WebAuthn {
         case pinNotSet(source: SourceLocation)
         /// The PIN does not meet the authenticator's complexity policy.
         case pinComplexity(source: SourceLocation)
+        /// The authenticator requires a PIN change before further PIN-using operations.
+        case forcePinChange(source: SourceLocation)
         /// A PIN is required but no PIN provider was configured.
         case pinRequired(source: SourceLocation)
         /// The PIN token expired. Retry the operation.

@@ -119,6 +119,12 @@ extension WebAuthn.Client {
             throw .pinNotSet(source: .here())
         }
 
+        // CTAP 2.2 §6.5.5.7: getPinUVToken rejects even a correct PIN
+        // here, so surface upfront before the user enters one.
+        if info.forcePinChange == true {
+            throw .forcePinChange(source: .here())
+        }
+
         let pin: String
         switch await authorization.providePIN() {
         case .pin(let value):
