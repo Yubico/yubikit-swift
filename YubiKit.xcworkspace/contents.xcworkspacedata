@@ -16,4 +16,7 @@
    <FileRef
       location = "group:Samples/WebAuthnInterceptorSample/WebAuthnInterceptorSample.xcodeproj">
    </FileRef>
+   <FileRef
+      location = "group:Samples/WebAuthnInterceptorSample/FidoUI">
+   </FileRef>
 </Workspace>

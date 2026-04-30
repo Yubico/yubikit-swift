@@ -1,13 +1,15 @@
-/// Receives WebAuthn requests from JS, delegates to WebAuthn.Client.
-
+import FidoUI
 import Foundation
 import YubiKit
 
-// MARK: - Request Types
+private func log(_ message: String) {
+    print("[WebAuthnHandler] \(message)")
+}
 
-struct CreateRequest: Decodable {
+/// JSON envelope posted by Interceptor.js: `{origin, request: <publicKey>}`.
+struct WebAuthnRequest<Options: Decodable>: Decodable {
     let origin: String
-    let publicKey: WebAuthn.Registration.Options
+    let publicKey: Options
 
     enum CodingKeys: String, CodingKey {
         case origin
@@ -15,119 +17,78 @@ struct CreateRequest: Decodable {
     }
 }
 
-struct GetRequest: Decodable {
-    let origin: String
-    let publicKey: WebAuthn.Authentication.Options
+/// `@MainActor` because FidoUI itself is `@MainActor` and the handler's
+/// only state is the FidoUI instance — there's no mutable connection
+/// state on the handler since FidoUI now owns the transport lifecycle.
+@MainActor
+final class WebAuthnHandler {
 
-    enum CodingKeys: String, CodingKey {
-        case origin
-        case publicKey = "request"
-    }
-}
-
-// MARK: - WebAuthnHandler
-
-actor WebAuthnHandler {
-
-    private var connection: (any Connection)?
-    private let pinProvider: @Sendable () async -> String?
-    private let accountPicker: @Sendable ([WebAuthn.Authentication.MatchedCredential]) async -> Int
-
-    // TODO: Add PublicSuffixList integration. For now, we don't validate against PSL.
+    // TODO: Add PublicSuffixList integration.
     private let isPublicSuffix: WebAuthn.PublicSuffixChecker = { _ in false }
 
-    init(
-        pinProvider: @escaping @Sendable () async -> String?,
-        accountPicker: @escaping @Sendable ([WebAuthn.Authentication.MatchedCredential]) async -> Int = { _ in 0 }
-    ) {
-        self.pinProvider = pinProvider
-        self.accountPicker = accountPicker
+    /// FidoUI owns the connection lifecycle (eager wired open, lazy NFC,
+    /// HID polling on macOS). One instance is reused across ceremonies;
+    /// origin is passed per-call.
+    private let fidoUI: FidoUI
+
+    init() {
+        self.fidoUI = FidoUI(isPublicSuffix: self.isPublicSuffix)
     }
 
-    // MARK: - Public API
+    /// Aborts any in-flight ceremony. WebView calls this on dismiss /
+    /// new-message arrival to close any open transport so a blocking
+    /// NFC/HID open unwinds before the next ceremony starts.
+    func cancelActiveCeremony() async {
+        log("cancelActiveCeremony")
+        await fidoUI.cancel()
+    }
 
     func handleCreate(_ data: Data) async throws -> String {
-        let request = try JSONDecoder().decode(CreateRequest.self, from: data)
-
-        defer { Task { await closeConnection() } }
-        let session = try await makeSession()
-        let client = WebAuthn.Client(
-            session: session,
-            origin: try .init(request.origin),
-            isPublicSuffix: isPublicSuffix
+        let request = try JSONDecoder().decode(
+            WebAuthnRequest<WebAuthn.Registration.Options>.self,
+            from: data
         )
-
-        let stream = await client.makeCredential(request.publicKey)
-        let response = try await handleStream(stream)
-        return String(decoding: try response.toJSON(), as: UTF8.self)
+        let origin = try WebAuthn.Origin(request.origin)
+        // Display the validated origin host, not page-supplied `rp.name` /
+        // `rp.id`. Those strings are attacker-controlled and would otherwise
+        // appear in the waiting/PIN panels before the SDK rejects an
+        // origin/rp.id mismatch.
+        log("handleCreate origin=\(request.origin) rp=\(request.publicKey.rp.id)")
+        do {
+            let response = try await fidoUI.makeCredential(
+                request.publicKey,
+                origin: origin,
+                serviceName: origin.host
+            )
+            log("handleCreate succeeded")
+            return String(decoding: try response.toJSON(), as: UTF8.self)
+        } catch {
+            log("handleCreate failed: \(error)")
+            throw error
+        }
     }
 
     func handleGet(_ data: Data) async throws -> String {
-        let request = try JSONDecoder().decode(GetRequest.self, from: data)
-
-        defer { Task { await closeConnection() } }
-        let session = try await makeSession()
-        let client = WebAuthn.Client(
-            session: session,
-            origin: try .init(request.origin),
-            isPublicSuffix: isPublicSuffix
+        let request = try JSONDecoder().decode(
+            WebAuthnRequest<WebAuthn.Authentication.Options>.self,
+            from: data
         )
-
-        let stream = await client.getAssertion(request.publicKey)
-        let matches = try await handleStream(stream)
-        // On success, matches is guaranteed non-empty (throws noCredentials otherwise)
-        let selected = matches.count == 1 ? 0 : await accountPicker(matches)
-        let response = try await matches[selected].select()
-        return String(decoding: try response.toJSON(), as: UTF8.self)
-    }
-
-    // MARK: - Stream Handling
-
-    private func handleStream<R: Sendable>(
-        _ stream: WebAuthn.StatusStream<R>
-    ) async throws -> R {
-        for try await status in stream {
-            switch status {
-            case .requestingPIN(let submitPIN):
-                let pin = await pinProvider()
-                submitPIN(pin)
-            case .requestingUV(let useUV):
-                useUV(true)
-            case .finished(let response):
-                return response
-            default:
-                break
-            }
+        let origin = try WebAuthn.Origin(request.origin)
+        // Display the validated origin host. Page-supplied `rpId` is not
+        // trustworthy as a user-facing label until the SDK has matched it
+        // against the origin (see `handleCreate`).
+        log("handleGet origin=\(request.origin) rpId=\(request.publicKey.rpId ?? "<none>")")
+        do {
+            let response = try await fidoUI.getAssertion(
+                request.publicKey,
+                origin: origin,
+                serviceName: origin.host
+            )
+            log("handleGet succeeded")
+            return String(decoding: try response.toJSON(), as: UTF8.self)
+        } catch {
+            log("handleGet failed: \(error)")
+            throw error
         }
-        preconditionFailure("Stream ended without response")
-    }
-
-    // MARK: - Connection Management
-
-    #if os(iOS)
-    private func makeSession(alertMessage: String = "Tap your YubiKey") async throws -> CTAP2.Session {
-        let conn = try await NFCSmartCardConnection(alertMessage: alertMessage)
-        connection = conn
-        return try await CTAP2.Session.makeSession(connection: conn)
-    }
-    #else
-    private func makeSession() async throws -> CTAP2.Session {
-        let conn = try await HIDFIDOConnection()
-        connection = conn
-        return try await CTAP2.Session.makeSession(connection: conn)
-    }
-    #endif
-
-    private func closeConnection(message: String? = nil) async {
-        #if os(iOS)
-        if let nfc = connection as? NFCSmartCardConnection {
-            await nfc.close(message: message)
-        } else {
-            await connection?.close(error: nil)
-        }
-        #else
-        await connection?.close(error: nil)
-        #endif
-        connection = nil
     }
 }
