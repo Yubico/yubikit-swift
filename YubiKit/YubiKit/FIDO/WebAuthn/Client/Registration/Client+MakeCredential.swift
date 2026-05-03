@@ -126,6 +126,7 @@ extension WebAuthn.Client {
             let (ctapExtensions, prf, previewSign, largeBlobRequested) =
                 try await backend.buildMakeCredentialExtensions(
                     options.extensions,
+                    allowedExtensions: allowedExtensions,
                     userVerification: options.userVerification
                 )
 
@@ -185,7 +186,8 @@ extension WebAuthn.Client {
                 prf: prf,
                 previewSign: previewSign,
                 largeBlobRequested: largeBlobRequested,
-                credPropsRk: credPropsRk
+                credPropsRk: credPropsRk,
+                allowedExtensions: allowedExtensions
             )
             return WebAuthn.Registration.Response(
                 credentialId: attestedCredentialData.credentialId,

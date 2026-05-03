@@ -651,6 +651,7 @@ private func makeClient(
     WebAuthn.Client(
         backend: mock,
         origin: try WebAuthn.Origin("https://\(rpId)"),
+        allowedExtensions: .all,
         isPublicSuffix: { _ in false }
     )
 }

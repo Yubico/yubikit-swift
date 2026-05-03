@@ -53,6 +53,7 @@ extension WebAuthn {
         let backend: any Backend
         let origin: Origin
         let enterpriseRpIds: Set<String>
+        let allowedExtensions: Set<WebAuthn.Extension.Identifier>
         let isPublicSuffix: PublicSuffixChecker
 
         // MARK: - Initialization
@@ -66,31 +67,43 @@ extension WebAuthn {
         ///     When a credential is created with `.enterprise` attestation for an RP ID in this set,
         ///     the client uses platform-facilitated mode (value 2). For other RP IDs, it uses
         ///     vendor-facilitated mode (value 1). See CTAP 2.2 §6.1.1.
+        ///   - allowedExtensions: Extensions this client will process. Anything the RP sends
+        ///     that isn't in this list is silently dropped. Defaults to `.standard`
+        ///     (every extension except `thirdPartyPayment` and `previewSign`).
+        ///     Pass `.all` for every supported extension, `[]` to ignore them all,
+        ///     or a custom subset.
         ///   - isPublicSuffix: Returns `true` if the domain is in the Public Suffix List.
         public init(
             session: CTAP2.Session,
             origin: Origin,
             enterpriseRpIds: Set<String> = [],
+            allowedExtensions: Set<WebAuthn.Extension.Identifier> = .standard,
             isPublicSuffix: @escaping PublicSuffixChecker
         ) {
             self.init(
                 backend: session,
                 origin: origin,
                 enterpriseRpIds: enterpriseRpIds,
+                allowedExtensions: allowedExtensions,
                 isPublicSuffix: isPublicSuffix
             )
         }
 
         /// Internal initializer for testing with a mock backend.
+        ///
+        /// `allowedExtensions` has no default here on purpose: tests must opt in
+        /// explicitly so the suite never silently drifts from the public `.standard`.
         init(
             backend: any Backend,
             origin: Origin,
             enterpriseRpIds: Set<String> = [],
+            allowedExtensions: Set<WebAuthn.Extension.Identifier>,
             isPublicSuffix: @escaping PublicSuffixChecker
         ) {
             self.backend = backend
             self.origin = origin
             self.enterpriseRpIds = enterpriseRpIds
+            self.allowedExtensions = allowedExtensions
             self.isPublicSuffix = isPublicSuffix
         }
     }
