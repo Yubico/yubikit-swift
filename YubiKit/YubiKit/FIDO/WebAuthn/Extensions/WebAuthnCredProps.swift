@@ -35,7 +35,7 @@ extension WebAuthn.Extension {
     ///     residentKey: .preferred,
     ///     extensions: .init(credProps: true)
     /// )
-    /// let response = try await client.makeCredential(options).value(pin: pin)
+    /// let response = try await client.makeCredential(options, authorization: .pin(pin)).value()
     /// if response.clientExtensionResults.credProps?.rk == true {
     ///     // Credential is discoverable - user can sign in without typing username
     /// } else {

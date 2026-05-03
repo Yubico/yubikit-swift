@@ -76,7 +76,8 @@ struct WebAuthnMinPinLengthExtensionTests {
             )
 
             print("Creating credential with minPinLength extension...")
-            let createResponse = try await client.makeCredential(createOptions).value(pin: defaultTestPin)
+            let createResponse = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin))
+                .value()
 
             guard let length = createResponse.clientExtensionResults.minPinLength?.length else {
                 Issue.record("minPinLength should be returned for configured RP")

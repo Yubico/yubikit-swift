@@ -23,8 +23,10 @@ extension WebAuthn {
     /// Provides a unified interface for passkey registration and authentication
     /// backed by a YubiKey via CTAP2 protocol (USB/NFC).
     ///
-    /// All user interaction (PIN entry, UV approval) is communicated through the
-    /// status stream. Iterate the stream to handle these requests:
+    /// PIN entry and UV decisions are supplied per ceremony via the
+    /// ``Authorization`` parameter on ``makeCredential(_:authorization:)`` and
+    /// ``getAssertion(_:authorization:)``. The status stream reports ceremony
+    /// progress (`.processing`, `.waitingForUser`, `.finished`) only.
     ///
     /// ```swift
     /// let session = try await CTAP2.Session(connection: connection)
@@ -34,16 +36,28 @@ extension WebAuthn {
     ///     isPublicSuffix: { publicSuffixList.contains($0) }
     /// )
     ///
-    /// for try await status in client.makeCredential(options) {
+    /// // Trivial — pre-supplied PIN:
+    /// let response = try await client.makeCredential(options, authorization: .pin("1234")).value()
+    ///
+    /// // Custom — bridge into a UI:
+    /// let auth = WebAuthn.Authorization(providePIN: {
+    ///     guard let pin = await viewModel.askForPIN() else { return .cancel }
+    ///     return .pin(pin)
+    /// })
+    /// for try await status in await client.makeCredential(options, authorization: auth) {
     ///     switch status {
     ///     case .processing: showSpinner()
-    ///     case .waitingForUser(let cancel): showTouchPrompt()
-    ///     case .requestingUV(let useUV): useUV(true)
-    ///     case .requestingPIN(let submitPIN): submitPIN(await askForPIN())
+    ///     case .waitingForUser(let cancel): showTouchPrompt(onCancel: cancel)
     ///     case .finished(let response): return response
     ///     }
     /// }
     /// ```
+    ///
+    /// PIN attempts are one-shot: a wrong PIN throws
+    /// ``ClientError/pinRejected(retriesRemaining:source:)`` and the caller
+    /// decides whether to re-prompt and retry with a fresh ``Authorization``.
+    /// Returning ``Authorization/PINReply/cancel`` from `providePIN` aborts
+    /// the ceremony with ``ClientError/cancelled(source:)``.
     ///
     /// - SeeAlso: [Web Authentication](https://www.w3.org/TR/webauthn-3/)
     public actor Client {

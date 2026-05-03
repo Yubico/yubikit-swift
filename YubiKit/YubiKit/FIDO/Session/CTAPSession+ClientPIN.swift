@@ -51,14 +51,30 @@ extension CTAP2.Session {
     ///   - rpId: Optional relying party ID (required for mc/ga permissions).
     ///   - pinProtocol: The PIN/UV auth protocol version to use. If nil, auto-selects.
     /// - Returns: A PIN/UV auth token that can be used to authenticate CTAP operations.
+    // NEXTMAJOR: Promote `getPinUVTokenUpdates` to public under this name; the
+    // scalar form drops keep-alive frames. Callers without UI use `.value`.
     public func getPinUVToken(
         using method: CTAP2.ClientPin.Method,
         permissions: CTAP2.ClientPin.Permission,
         rpId: String? = nil,
         protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion? = nil
     ) async throws(CTAP2.SessionError) -> CTAP2.Token {
+        try await getPinUVTokenUpdates(
+            using: method,
+            permissions: permissions,
+            rpId: rpId,
+            protocol: pinProtocol
+        ).value
+    }
+
+    func getPinUVTokenUpdates(
+        using method: CTAP2.ClientPin.Method,
+        permissions: CTAP2.ClientPin.Permission,
+        rpId: String? = nil,
+        protocol pinProtocol: CTAP2.ClientPin.ProtocolVersion? = nil
+    ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.Token> {
         let handler = try await clientPinHandler(protocol: pinProtocol)
-        return try await handler.getToken(using: method, permissions: permissions, rpId: rpId)
+        return try await handler.getTokenUpdates(using: method, permissions: permissions, rpId: rpId)
     }
 
     /// Set a new PIN on the authenticator (must not already have a PIN).
@@ -143,11 +159,11 @@ private struct ClientPinHandler: Sendable {
         return try await stream.value.keyAgreement
     }
 
-    func getToken(
+    func getTokenUpdates(
         using method: CTAP2.ClientPin.Method,
         permissions: CTAP2.ClientPin.Permission,
         rpId: String? = nil
-    ) async throws(CTAP2.SessionError) -> CTAP2.Token {
+    ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.Token> {
         let authenticatorKey = try await getKeyAgreement()
 
         // Generate ephemeral key pair and derive shared secret
@@ -155,7 +171,7 @@ private struct ClientPinHandler: Sendable {
         let sharedSecret = secretResult.sharedSecret
         let platformKey = secretResult.platformKey
 
-        let response: CTAP2.ClientPin.GetToken.Response
+        let inner: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response>
         switch method {
         case .pin(let pin):
             // Hash and encrypt PIN
@@ -172,11 +188,7 @@ private struct ClientPinHandler: Sendable {
                     permissions: permissions,
                     rpId: rpId
                 )
-                let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
-                    command: .clientPin,
-                    payload: params
-                )
-                response = try await stream.value
+                inner = await interface.send(command: .clientPin, payload: params)
             } else {
                 // Fall back to 0x05 (legacy getPinToken)
                 let params = CTAP2.ClientPin.GetToken.Parameters(
@@ -184,11 +196,7 @@ private struct ClientPinHandler: Sendable {
                     keyAgreement: platformKey,
                     pinHashEnc: pinHashEnc
                 )
-                let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
-                    command: .clientPin,
-                    payload: params
-                )
-                response = try await stream.value
+                inner = await interface.send(command: .clientPin, payload: params)
             }
 
         case .uv:
@@ -204,26 +212,47 @@ private struct ClientPinHandler: Sendable {
                 permissions: permissions,
                 rpId: rpId
             )
-            let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response> = await interface.send(
-                command: .clientPin,
-                payload: params
-            )
-            response = try await stream.value
+            inner = await interface.send(command: .clientPin, payload: params)
         }
 
-        let tokenData = try pinProtocol.decrypt(key: sharedSecret, ciphertext: response.pinUVAuthToken)
-
-        // Validate token size: V1 allows 16 or 32 bytes, V2 requires exactly 32 bytes
-        let validSize =
-            pinProtocol == .v1 ? (tokenData.count == 16 || tokenData.count == 32) : tokenData.count == 32
-        guard validSize else {
-            throw CTAP2.SessionError.responseParseError(
-                "Invalid token size: expected \(pinProtocol == .v1 ? "16 or 32" : "32") bytes, got \(tokenData.count)",
-                source: .here()
-            )
+        let pinProtocol = self.pinProtocol
+        return CTAP2.StatusStream { continuation in
+            Task {
+                do throws(CTAP2.SessionError) {
+                    for try await status in inner {
+                        switch status {
+                        case .processing:
+                            continuation.yield(.processing)
+                        case .waitingForUser(let cancel):
+                            continuation.yield(.waitingForUser(cancel: cancel))
+                        case .finished(let response):
+                            let tokenData = try pinProtocol.decrypt(
+                                key: sharedSecret,
+                                ciphertext: response.pinUVAuthToken
+                            )
+                            // Validate token size: V1 allows 16 or 32 bytes, V2 requires exactly 32.
+                            let validSize =
+                                pinProtocol == .v1
+                                ? (tokenData.count == 16 || tokenData.count == 32)
+                                : tokenData.count == 32
+                            guard validSize else {
+                                throw CTAP2.SessionError.responseParseError(
+                                    "Invalid token size: expected "
+                                        + "\(pinProtocol == .v1 ? "16 or 32" : "32") bytes, "
+                                        + "got \(tokenData.count)",
+                                    source: .here()
+                                )
+                            }
+                            continuation.yield(
+                                .finished(CTAP2.Token(token: tokenData, protocolVersion: pinProtocol))
+                            )
+                        }
+                    }
+                } catch {
+                    continuation.yield(error: error)
+                }
+            }
         }
-
-        return CTAP2.Token(token: tokenData, protocolVersion: pinProtocol)
     }
 
     func set(_ pin: String) async throws(CTAP2.SessionError) {

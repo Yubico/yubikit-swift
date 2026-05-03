@@ -29,32 +29,33 @@ public enum WebAuthn {
 
     /// Status updates during WebAuthn operations.
     ///
-    /// These status values are emitted during operations that may require user interaction
-    /// or extended processing time.
+    /// These status values report progress of an in-flight ceremony. PIN
+    /// entry and UV decisions are handled out-of-band via the
+    /// ``Authorization`` parameter on ``Client/makeCredential(_:authorization:)``
+    /// and ``Client/getAssertion(_:authorization:)`` — they do not appear
+    /// on this stream.
     public enum Status<Response: Sendable>: Sendable {
         /// The authenticator is processing the request.
         case processing
+
+        /// The authenticator is performing built-in user verification (e.g.
+        /// fingerprint capture on a YubiKey Bio).
+        ///
+        /// - Parameters:
+        ///   - cancel: Cancel the ceremony — surfaces as ``ClientError/cancelled(source:)``.
+        ///   - fallbackToPIN: Abandon UV and route into the PIN path within the
+        ///     same ceremony, calling ``Authorization/providePIN`` for the PIN.
+        ///     `nil` under ``Authorization/UVPolicy/required`` or when no
+        ///     `clientPin` is configured.
+        case waitingForUserVerification(
+            cancel: @Sendable () async -> Void,
+            fallbackToPIN: (@Sendable () async -> Void)?
+        )
 
         /// The authenticator is waiting for user interaction.
         ///
         /// - Parameter cancel: Closure to cancel the operation.
         case waitingForUser(cancel: @Sendable () async -> Void)
-
-        /// The client is about to request user verification (biometric).
-        ///
-        /// Call `useUV(true)` to proceed with biometric verification, or `useUV(false)`
-        /// to skip UV and use PIN instead. This is called before UV starts, giving the
-        /// user a chance to opt for PIN entry.
-        ///
-        /// - Parameter useUV: Closure to call with `true` for UV or `false` for PIN.
-        case requestingUV(useUV: @Sendable (Bool) -> Void)
-
-        /// The client needs a PIN to proceed.
-        ///
-        /// Call `submitPIN` with the PIN string, or `nil` to cancel the operation.
-        ///
-        /// - Parameter submitPIN: Closure to call with the PIN or `nil` to cancel.
-        case requestingPIN(submitPIN: @Sendable (String?) -> Void)
 
         /// The operation completed successfully with a response.
         case finished(Response)
@@ -64,16 +65,16 @@ public enum WebAuthn {
     ///
     /// ## Usage
     ///
-    /// For simple cases where you don't need status updates, use the ``value(pin:useUV:)`` method:
+    /// For simple cases without UI feedback, drain the stream with ``value()``:
     ///
     /// ```swift
-    /// let response = try await client.makeCredential(options: opts, origin: origin).value(pin: pin)
+    /// let response = try await client.makeCredential(opts, authorization: .pin(pin)).value()
     /// ```
     ///
     /// For UI feedback or cancellation support, iterate the stream:
     ///
     /// ```swift
-    /// let stream = client.makeCredential(options: opts, origin: origin)
+    /// let stream = await client.makeCredential(opts, authorization: .pin(pin))
     ///
     /// for try await status in stream {
     ///     switch status {
@@ -81,15 +82,15 @@ public enum WebAuthn {
     ///         showSpinner()
     ///     case .waitingForUser(let cancel):
     ///         showTouchPrompt(onCancel: { Task { await cancel() } })
-    ///     case .requestingUV(let useUV):
-    ///         askUserAboutUV { useUV($0) }
-    ///     case .requestingPIN(let submitPIN):
-    ///         submitPIN(await askForPIN())
     ///     case .finished(let response):
     ///         return response
     ///     }
     /// }
     /// ```
+    ///
+    /// PIN entry and UV decisions are handled out-of-band via the
+    /// ``Authorization`` parameter on ``Client/makeCredential(_:authorization:)``
+    /// and ``Client/getAssertion(_:authorization:)``.
     public struct StatusStream<R: Sendable>: AsyncSequence, @unchecked Sendable {
         public typealias Element = Status<R>
 
@@ -115,41 +116,16 @@ public enum WebAuthn {
             return Self(base.timeout(duration, error: .timeout(source: .here())))
         }
 
-        // MARK: - Value Accessors
+        // MARK: - Value Accessor
 
         /// Consumes the stream and returns the final response value.
         ///
-        /// Throws ``ClientError/pinRequired(source:)`` if the authenticator
-        /// requests a PIN. Use ``value(pin:useUV:)`` instead when a PIN may be needed.
+        /// Errors raised by the ceremony (including
+        /// ``ClientError/pinRequired(source:)`` when no PIN was supplied)
+        /// propagate as thrown errors.
         public func value() async throws(ClientError) -> R {
             for try await status in self {
-                switch status {
-                case .requestingPIN: throw .pinRequired(source: .here())
-                case .requestingUV(let approve): approve(true)
-                case .finished(let response): return response
-                default: break
-                }
-            }
-            preconditionFailure("StatusStream must yield .finished before ending")
-        }
-
-        /// Consumes the stream and returns the final response value, auto-responding
-        /// to PIN and UV requests.
-        ///
-        /// - Parameters:
-        ///   - pin: The PIN to submit when the authenticator requests it.
-        ///   - useUV: Whether to use biometric verification when available. Defaults to `true`.
-        public func value(
-            pin: String,
-            useUV: Bool = true
-        ) async throws(ClientError) -> R {
-            for try await status in self {
-                switch status {
-                case .requestingPIN(let submitPIN): submitPIN(pin)
-                case .requestingUV(let approve): approve(useUV)
-                case .finished(let response): return response
-                default: break
-                }
+                if case .finished(let response) = status { return response }
             }
             preconditionFailure("StatusStream must yield .finished before ending")
         }
@@ -299,7 +275,9 @@ extension WebAuthn.Status: StreamStatus {
 extension WebAuthn.Status {
     fileprivate static func areDuplicates(_ lhs: Self, _ rhs: Self) -> Bool {
         switch (lhs, rhs) {
-        case (.processing, .processing), (.waitingForUser, .waitingForUser):
+        case (.processing, .processing),
+            (.waitingForUser, .waitingForUser),
+            (.waitingForUserVerification, .waitingForUserVerification):
             true
         default:
             false
