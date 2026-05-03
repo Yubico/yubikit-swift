@@ -263,7 +263,6 @@ struct WebAuthnClientFullStackTests {
             let client = WebAuthn.Client(
                 session: session,
                 origin: try WebAuthn.Origin("https://example.com"),
-
                 isPublicSuffix: { _ in false }
             )
 
@@ -298,7 +297,6 @@ struct WebAuthnClientFullStackTests {
             let client = WebAuthn.Client(
                 session: session,
                 origin: try WebAuthn.Origin("https://mysite.co.uk"),
-
                 isPublicSuffix: { $0 == "co.uk" }
             )
 

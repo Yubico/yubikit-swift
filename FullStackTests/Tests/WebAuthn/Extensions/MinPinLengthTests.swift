@@ -59,6 +59,7 @@ struct WebAuthnMinPinLengthExtensionTests {
             let client = WebAuthn.Client(
                 session: session,
                 origin: try WebAuthn.Origin("https://\(rpId)"),
+                allowedExtensions: [.minPinLength],
                 isPublicSuffix: { _ in false }
             )
 

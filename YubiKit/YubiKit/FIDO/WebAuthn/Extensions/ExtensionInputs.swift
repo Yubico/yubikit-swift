@@ -19,8 +19,71 @@ import Foundation
 extension WebAuthn {
     /// Namespace for WebAuthn extensions.
     public enum Extension {
-        /// Extension identifier type (shared with CTAP2).
-        public typealias Identifier = CTAP2.Extension.Identifier
+        /// Identifier for a WebAuthn-level extension.
+        ///
+        /// One case per typed field on ``RegistrationInputs`` /
+        /// ``AuthenticationInputs``. Distinct from the CTAP wire vocabulary
+        /// in ``CTAP2/Extension/Identifier``.
+        public enum Identifier: Hashable, Sendable, CaseIterable {
+            /// WebAuthn wrapper over CTAP2 hmac-secret.
+            case prf
+            case credProtect
+            case credBlob
+            /// Client-side only; not echoed by the authenticator.
+            case credProps
+            case largeBlob
+            case minPinLength
+            /// WebAuthn JSON key is `payment`.
+            case thirdPartyPayment
+            /// Experimental; see ``WebAuthn/Extension/PreviewSign``.
+            case previewSign
+        }
+    }
+}
+
+extension WebAuthn.Extension.Identifier {
+    enum JSONContext: Sendable {
+        case registrationInput
+        case registrationOutput
+        case authenticationInput
+        case authenticationOutput
+    }
+
+    // Single source of truth for WebAuthn JSON extension keys. Returns nil when
+    // the extension isn't used in `context` (e.g. credProps at auth, thirdPartyPayment
+    // as an output). For composite keys (credProtect at registration input) returns
+    // the primary; the companion is handled in the decoder.
+    func jsonKey(at context: JSONContext) -> String? {
+        switch (self, context) {
+        case (.prf, _): return "prf"
+        case (.credProtect, .registrationInput): return "credentialProtectionPolicy"
+        case (.credProtect, .registrationOutput): return "credProtect"
+        case (.credProtect, .authenticationInput), (.credProtect, .authenticationOutput): return nil
+        case (.credBlob, .registrationInput), (.credBlob, .registrationOutput): return "credBlob"
+        case (.credBlob, .authenticationInput), (.credBlob, .authenticationOutput): return "getCredBlob"
+        case (.credProps, .registrationInput), (.credProps, .registrationOutput): return "credProps"
+        case (.credProps, .authenticationInput), (.credProps, .authenticationOutput): return nil
+        case (.largeBlob, _): return "largeBlob"
+        case (.minPinLength, .registrationInput), (.minPinLength, .registrationOutput): return "minPinLength"
+        case (.minPinLength, .authenticationInput), (.minPinLength, .authenticationOutput): return nil
+        case (.thirdPartyPayment, .registrationInput), (.thirdPartyPayment, .authenticationInput): return "payment"
+        case (.thirdPartyPayment, .registrationOutput), (.thirdPartyPayment, .authenticationOutput): return nil
+        case (.previewSign, _): return "previewSign"
+        }
+    }
+}
+
+extension Array where Element == WebAuthn.Extension.Identifier {
+    /// Every WebAuthn extension identifier the SDK supports.
+    public static var all: [Element] { Element.allCases }
+
+    /// Extensions enabled by default.
+    ///
+    /// Excludes ``WebAuthn/Extension/Identifier/thirdPartyPayment`` (payment
+    /// semantics — opt in explicitly) and ``WebAuthn/Extension/Identifier/previewSign``
+    /// (experimental).
+    public static var standard: [Element] {
+        [.prf, .credProtect, .credBlob, .credProps, .largeBlob, .minPinLength]
     }
 }
 

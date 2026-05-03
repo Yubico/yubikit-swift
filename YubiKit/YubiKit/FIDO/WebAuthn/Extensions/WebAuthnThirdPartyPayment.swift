@@ -29,8 +29,9 @@ extension WebAuthn.Extension {
     /// > `clientDataJSON` with `type: "payment.get"` and the SPC payment
     /// > dictionary — YubiKit does not currently provide that. RPs that need
     /// > end-to-end SPC binding must layer it themselves, and must verify the
-    /// > echoed `thirdPartyPayment` bit in the authenticator data (see
-    /// > ``Registration/Output/enabled`` and ``Authentication/Output/enabled``).
+    /// > echoed `thirdPartyPayment` bit directly from the authenticator data
+    /// > extensions (this library does not surface it in `clientExtensionResults`,
+    /// > matching python-fido2 and yubikit-android).
     ///
     /// - SeeAlso: [Secure Payment Confirmation](https://www.w3.org/TR/secure-payment-confirmation/)
     /// - SeeAlso: [CTAP 2.2 thirdPartyPayment](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#sctn-thirdPartyPayment-extension)
@@ -55,16 +56,6 @@ extension WebAuthn.Extension.ThirdPartyPayment {
             /// Convenience: request payment capability.
             public static let enable = Input(isPayment: true)
         }
-
-        /// Output from thirdPartyPayment at registration.
-        public struct Output: Sendable, Equatable {
-            /// `true` if the authenticator marked the credential as payment-capable.
-            public let enabled: Bool
-
-            public init(enabled: Bool) {
-                self.enabled = enabled
-            }
-        }
     }
 }
 
@@ -84,16 +75,6 @@ extension WebAuthn.Extension.ThirdPartyPayment {
 
             public init(isPayment: Bool = true) {
                 self.isPayment = isPayment
-            }
-        }
-
-        /// Output from thirdPartyPayment at authentication.
-        public struct Output: Sendable, Equatable {
-            /// `true` if the authenticator produced a payment assertion.
-            public let enabled: Bool
-
-            public init(enabled: Bool) {
-                self.enabled = enabled
             }
         }
     }

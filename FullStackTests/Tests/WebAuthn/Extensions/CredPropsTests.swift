@@ -100,6 +100,7 @@ private func withWebAuthnClient<T>(
         let client = WebAuthn.Client(
             session: session,
             origin: try WebAuthn.Origin("https://example.com"),
+            allowedExtensions: [.credProps],
             isPublicSuffix: { _ in false }
         )
         return try await body(client)
