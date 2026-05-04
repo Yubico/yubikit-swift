@@ -83,11 +83,13 @@ private struct Milliseconds: Decodable {
 
 private func decodeOptions<T: Decodable>(from data: Data) throws -> T {
     let decoder = JSONDecoder()
-    let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-    if root?["publicKey"] is [String: Any] {
+    do {
         return try decoder.decode(PublicKeyEnvelope<T>.self, from: data).publicKey
+    } catch DecodingError.keyNotFound(let key, let context)
+        where key.stringValue == "publicKey" && context.codingPath.isEmpty
+    {
+        return try decoder.decode(T.self, from: data)
     }
-    return try decoder.decode(T.self, from: data)
 }
 
 private struct PublicKeyEnvelope<T: Decodable>: Decodable {
