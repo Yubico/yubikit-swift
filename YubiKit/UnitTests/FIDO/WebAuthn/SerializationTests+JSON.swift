@@ -192,23 +192,15 @@ extension SerializationTests {
             #expect(options.user.id == Data("user_id".utf8))
         }
 
-        @Test("Registration.Options JSON decoding - strict envelope rejects extra top-level keys")
-        func testRegistrationOptionsJSONStrictEnvelopeRejectsExtras() throws {
-            // Envelope with a sibling key — must NOT be treated as an envelope.
-            // The bare parser will then also fail because the root has no
-            // required fields, so from(json:) should throw.
+        @Test("Registration.Options JSON decoding - envelope inner DecodingError is preserved")
+        func testRegistrationOptionsJSONEnvelopeInnerError() throws {
+            // Envelope shape is valid; inner publicKey is missing required `challenge`.
+            // The inner DecodingError must surface, not a vague "envelope failed".
             let json = """
-                {
-                    "publicKey": {
-                        "challenge": "Y2hhbGxlbmdl",
-                        "rp": {"id": "example.com", "name": "Example"},
-                        "user": {"id": "dXNlcl9pZA", "name": "user"}
-                    },
-                    "stray": "x"
-                }
+                {"publicKey": {"rp": {"id": "example.com"}}}
                 """
 
-            #expect(throws: (any Error).self) {
+            #expect(throws: DecodingError.self) {
                 try WebAuthn.Registration.Options.from(json: Data(json.utf8))
             }
         }
@@ -221,6 +213,23 @@ extension SerializationTests {
                         "challenge": "Y2hhbGxlbmdl",
                         "rpId": "example.com"
                     }
+                }
+                """
+
+            let options = try WebAuthn.Authentication.Options.from(json: Data(json.utf8))
+            #expect(options.challenge == Data("challenge".utf8))
+            #expect(options.rpId == "example.com")
+        }
+
+        @Test("Authentication.Options JSON decoding - envelope tolerates siblings (mediation)")
+        func testAuthenticationOptionsJSONEnvelopeWithSiblings() throws {
+            let json = """
+                {
+                    "publicKey": {
+                        "challenge": "Y2hhbGxlbmdl",
+                        "rpId": "example.com"
+                    },
+                    "mediation": "conditional"
                 }
                 """
 
