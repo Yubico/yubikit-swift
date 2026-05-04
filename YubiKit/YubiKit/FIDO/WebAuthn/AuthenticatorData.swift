@@ -125,7 +125,7 @@ extension WebAuthn.AuthenticatorData {
             else {
                 return nil
             }
-            // Convert CBOR map to [Identifier: CBOR.Value]
+            // Convert CBOR map to [CTAP2.Extension.Identifier: CBOR.Value]
             var extensions: [CTAP2.Extension.Identifier: CBOR.Value] = [:]
             for (key, value) in map {
                 guard let identifier: CTAP2.Extension.Identifier = key.cborDecoded() else {

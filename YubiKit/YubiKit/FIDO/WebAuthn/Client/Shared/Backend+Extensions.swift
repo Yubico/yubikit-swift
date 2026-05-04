@@ -293,10 +293,10 @@ extension WebAuthn.Backend {
         let minPinLengthOutput = allowedExtensions.allow(.minPinLength, extensions?[.minPinLength]?.uint64Value)
             .map { WebAuthn.Extension.MinPinLength.Registration.Output(length: UInt($0)) }
 
-        let largeBlobOutput: WebAuthn.Extension.LargeBlob.Registration.Output? =
-            allowedExtensions.contains(.largeBlob) && largeBlobRequested
-            ? .init(supported: response.largeBlobKey != nil)
-            : nil
+        let largeBlobOutput =
+            allowedExtensions
+            .allow(.largeBlob, largeBlobRequested ? response.largeBlobKey != nil : nil)
+            .map { WebAuthn.Extension.LargeBlob.Registration.Output(supported: $0) }
 
         let credPropsOutput = allowedExtensions.allow(.credProps, credPropsRk)
             .map { WebAuthn.Extension.CredProps.Registration.Output(rk: $0) }

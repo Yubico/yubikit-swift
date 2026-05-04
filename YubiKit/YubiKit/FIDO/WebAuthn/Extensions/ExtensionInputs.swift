@@ -21,9 +21,8 @@ extension WebAuthn {
     public enum Extension {
         /// Identifier for a WebAuthn-level extension.
         ///
-        /// One case per typed field on ``RegistrationInputs`` /
-        /// ``AuthenticationInputs``. Distinct from the CTAP wire vocabulary
-        /// in ``CTAP2/Extension/Identifier``.
+        /// One case per supported WebAuthn extension. Distinct from the CTAP
+        /// wire vocabulary in ``CTAP2/Extension/Identifier``.
         public enum Identifier: Hashable, Sendable, CaseIterable {
             /// WebAuthn wrapper over CTAP2 hmac-secret.
             case prf
