@@ -36,6 +36,9 @@ extension WebAuthn.Extension {
                 public init(isPayment: Bool) {
                     self.isPayment = isPayment
                 }
+
+                /// Mark the credential as usable for Secure Payment Confirmation.
+                public static let enabled = Self(isPayment: true)
             }
 
             /// Output from thirdPartyPayment extension at registration.
@@ -56,6 +59,9 @@ extension WebAuthn.Extension {
                 public init(isPayment: Bool) {
                     self.isPayment = isPayment
                 }
+
+                /// Signal that this assertion is a Secure Payment Confirmation payment assertion.
+                public static let enabled = Self(isPayment: true)
             }
 
             /// Output from thirdPartyPayment extension at authentication.

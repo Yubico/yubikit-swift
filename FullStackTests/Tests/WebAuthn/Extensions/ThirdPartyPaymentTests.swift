@@ -62,7 +62,7 @@ struct WebAuthnThirdPartyPaymentExtensionTests {
                 residentKey: discoverable ? .required : .discouraged,
                 userVerification: .discouraged,
                 extensions: registerWithPayment
-                    ? .init(thirdPartyPayment: .init(isPayment: true))
+                    ? .init(thirdPartyPayment: .enabled)
                     : nil
             )
 
@@ -74,7 +74,7 @@ struct WebAuthnThirdPartyPaymentExtensionTests {
                 challenge: randomBytes(count: 32),
                 rpId: rpId,
                 allowCredentials: discoverable ? [] : [.init(id: createResponse.credentialId)],
-                extensions: .init(thirdPartyPayment: .init(isPayment: true))
+                extensions: .init(thirdPartyPayment: .enabled)
             )
 
             let authResponse = try await client.getAssertion(authOptions).value(pin: defaultTestPin)[0].select()
