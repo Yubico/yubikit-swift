@@ -36,7 +36,7 @@ struct WebAuthnCredPropsExtensionTests {
             )
 
             print("Making discoverable credential with credProps...")
-            let response = try await client.makeCredential(options).value(pin: defaultTestPin)
+            let response = try await client.makeCredential(options, authorization: .pin(defaultTestPin)).value()
 
             #expect(response.clientExtensionResults.credProps != nil, "credProps should be present")
             #expect(response.clientExtensionResults.credProps?.rk == true, "rk should be true for discoverable")
@@ -60,7 +60,7 @@ struct WebAuthnCredPropsExtensionTests {
             )
 
             print("Making non-discoverable credential with credProps...")
-            let response = try await client.makeCredential(options).value(pin: defaultTestPin)
+            let response = try await client.makeCredential(options, authorization: .pin(defaultTestPin)).value()
 
             #expect(response.clientExtensionResults.credProps != nil, "credProps should be present")
             #expect(response.clientExtensionResults.credProps?.rk == false, "rk should be false for non-discoverable")
@@ -83,7 +83,7 @@ struct WebAuthnCredPropsExtensionTests {
             )
 
             print("Making credential without credProps extension...")
-            let response = try await client.makeCredential(options).value(pin: defaultTestPin)
+            let response = try await client.makeCredential(options, authorization: .pin(defaultTestPin)).value()
 
             #expect(response.clientExtensionResults.credProps == nil, "credProps should be nil when not requested")
             print("credProps correctly nil")

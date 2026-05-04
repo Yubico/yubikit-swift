@@ -20,6 +20,14 @@ import Foundation
 // MARK: - CTAP2 Test Configuration
 let defaultTestPin = "11234567"
 
+/// Reference-typed state container for `@Sendable` closures (e.g. PIN/UV
+/// callbacks supplied to a WebAuthn ceremony) that need to mutate
+/// captured state across invocations.
+final class Box<T>: @unchecked Sendable {
+    var value: T
+    init(_ value: T) { self.value = value }
+}
+
 #if os(macOS)
 let ctap2Transport: CTAP2Transport = .hid
 #elseif os(iOS)

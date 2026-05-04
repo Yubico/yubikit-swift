@@ -34,7 +34,7 @@ extension WebAuthn.Extension {
     ///     residentKey: .required,
     ///     extensions: .init(credBlob: myBlobData)
     /// )
-    /// let response = try await client.makeCredential(options).value(pin: pin)
+    /// let response = try await client.makeCredential(options, authorization: .pin(pin)).value()
     /// if response.clientExtensionResults.credBlob?.stored == true {
     ///     // Blob was stored successfully
     /// }
@@ -49,8 +49,8 @@ extension WebAuthn.Extension {
     ///     ...,
     ///     extensions: .init(getCredBlob: true)
     /// )
-    /// let matches = try await client.getAssertion(options).value(pin: pin)
-    /// let response = try await matches[0].select()
+    /// let matches = try await client.getAssertion(options, authorization: .pin(pin)).value()
+    /// let response = matches[0]
     /// if let blob = response.clientExtensionResults.credBlob?.blob {
     ///     // Use the retrieved blob data
     /// }

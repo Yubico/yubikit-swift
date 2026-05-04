@@ -30,18 +30,27 @@ extension WebAuthn {
         case cancelled(source: SourceLocation)
         /// The operation timed out waiting for user interaction.
         case timeout(source: SourceLocation)
-        /// User verification failed (biometric mismatch or internal UV error).
-        case userVerificationFailed(retriesRemaining: Int?, source: SourceLocation)
-        /// The PIN was incorrect.
-        case invalidPIN(retriesRemaining: Int, source: SourceLocation)
+        /// A PIN attempt was rejected but retries are still available on the
+        /// authenticator. Re-invoke the operation with a fresh PIN.
+        case pinRejected(retriesRemaining: Int, source: SourceLocation)
+        /// A built-in UV attempt failed but retries are still available on
+        /// the authenticator. Re-invoke the operation to retry UV (or supply
+        /// a PIN via a fresh ``Authorization``).
+        case uvRejected(retriesRemaining: Int, source: SourceLocation)
+        /// Built-in UV is locked out for this authenticator. Per CTAP spec,
+        /// this is recoverable via a correct PIN entry on a subsequent
+        /// invocation that uses the PIN path.
+        case uvBlocked(source: SourceLocation)
         /// The PIN is blocked due to too many failed attempts. Factory reset required.
         case pinBlocked(source: SourceLocation)
         /// PIN authentication is temporarily blocked. Reinsert the authenticator.
         case pinAuthBlocked(source: SourceLocation)
         /// No PIN is configured on this authenticator.
         case pinNotSet(source: SourceLocation)
-        /// A PIN is required but no PIN provider was configured.
-        case pinRequired(source: SourceLocation)
+        /// The PIN does not meet the authenticator's complexity policy.
+        case pinComplexity(source: SourceLocation)
+        /// The authenticator requires a PIN change before further PIN-using operations.
+        case forcePinChange(source: SourceLocation)
         /// The PIN token expired. Retry the operation.
         case pinTokenExpired(source: SourceLocation)
         /// The requested feature is not supported by this authenticator.
@@ -71,12 +80,16 @@ extension WebAuthn.ClientError {
             case .noCredentials: self = .noCredentials(source: source)
             case .operationDenied, .keepaliveCancel: self = .cancelled(source: source)
             case .actionTimeout, .userActionTimeout: self = .timeout(source: source)
+            case .uvBlocked: self = .uvBlocked(source: source)
             case .pinBlocked: self = .pinBlocked(source: source)
             case .pinAuthBlocked: self = .pinAuthBlocked(source: source)
+            case .pinPolicyViolation: self = .pinComplexity(source: source)
             case .pinNotSet: self = .pinNotSet(source: source)
             case .pinTokenExpired: self = .pinTokenExpired(source: source)
             case .unsupportedAlgorithm: self = .unsupportedAlgorithm(source: source)
             case .keyStoreFull, .largeBlobStorageFull: self = .storageFull(source: source)
+            case .pinInvalid, .uvInvalid, .puatRequired:
+                preconditionFailure("CTAP \(code) must be resolved by Client+UserVerification, not here")
             default: self = .ctapError(ctapError, source: source)
             }
         case .connectionError:
