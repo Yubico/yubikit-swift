@@ -46,3 +46,15 @@ extension except `thirdPartyPayment` and `previewSign`).
 
 - ``getAssertion(_:authorization:)``
 - ``getAssertion(_:clientData:authorization:)``
+
+### Related Types
+
+- ``WebAuthn/Authorization``
+- ``WebAuthn/Origin``
+- ``WebAuthn/StatusStream``
+- ``WebAuthn/ClientData``
+- ``WebAuthn/PublicSuffixChecker``
+
+### Errors
+
+- ``WebAuthn/ClientError``
