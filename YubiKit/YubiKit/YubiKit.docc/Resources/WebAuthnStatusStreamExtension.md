@@ -19,7 +19,7 @@ for try await status in await client.makeCredential(opts, authorization: auth) {
     case .processing:
         showSpinner()
     case .waitingForUser(let cancel):
-        showTouchPrompt(onCancel: { Task { await cancel() } })
+        showTouchPrompt(onCancel: cancel)
     case .waitingForUserVerification(let cancel, let fallbackToPIN):
         showBiometricPrompt(onCancel: cancel, fallbackToPIN: fallbackToPIN)
     case .finished(let response):

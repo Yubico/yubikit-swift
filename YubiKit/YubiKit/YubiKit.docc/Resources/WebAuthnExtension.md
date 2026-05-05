@@ -92,7 +92,3 @@ let assertions = try await client.getAssertion(
 ### Extensions
 
 - ``Extension``
-
-### Deprecated
-
-- ``PublicKeyCredential``

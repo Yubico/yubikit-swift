@@ -8,7 +8,8 @@ Namespace for credential authentication (`getAssertion`) request and response ty
 types used by ``WebAuthn/Client/getAssertion(_:authorization:)``. ``Options``
 is also exposed as the typealias ``PublicKeyCredentialRequestOptions`` for
 code that mirrors the JavaScript API. A discoverable-credential request
-(empty `allowCredentials`) returns one ``Response`` per matching credential.
+(empty `allowCredentials`) returns an array containing one ``Response`` per
+matching credential.
 
 ## Topics
 
