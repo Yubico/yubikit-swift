@@ -10,8 +10,9 @@ between WebAuthn API semantics and CTAP2 protocol details — for example,
 ``PRF`` wraps the CTAP2 `hmac-secret` extension.
 
 ``WebAuthn/Client`` filters which extensions it will process via the
-`allowedExtensions` parameter; pass ``Identifier`` values or one of the
-`Set<Identifier>` static helpers (``Swift/Set/standard``, ``Swift/Set/all``).
+`allowedExtensions` parameter, a `Set<Identifier>`. Pass an array literal
+(e.g. `[.prf, .credProps]`) or one of the static helpers
+(``Swift/Set/standard``, ``Swift/Set/all``).
 
 ```swift
 let opts = WebAuthn.Registration.Options(

@@ -48,9 +48,13 @@ extension WebAuthn {
     /// for try await status in await client.makeCredential(options, authorization: auth) {
     ///     switch status {
     ///     case .processing: showSpinner()
-    ///     case .waitingForUser(let cancel): showTouchPrompt(onCancel: cancel)
+    ///     case .waitingForUser(let cancel):
+    ///         showTouchPrompt(onCancel: { Task { await cancel() } })
     ///     case .waitingForUserVerification(let cancel, let fallbackToPIN):
-    ///         showBiometricPrompt(onCancel: cancel, fallbackToPIN: fallbackToPIN)
+    ///         showBiometricPrompt(
+    ///             onCancel: { Task { await cancel() } },
+    ///             onFallbackToPIN: fallbackToPIN.map { fallback in { Task { await fallback() } } }
+    ///         )
     ///     case .finished(let response): return response
     ///     }
     /// }
