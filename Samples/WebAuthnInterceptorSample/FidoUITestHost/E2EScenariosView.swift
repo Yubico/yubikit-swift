@@ -222,7 +222,7 @@ extension Scenario {
         Scenario(
             id: "flow_uv_exhaustion_pin_fallback",
             title: "UV exhaustion → PIN fallback",
-            summary: "UV retries hit 0, Client auto-switches to PIN — user never taps Use PIN.",
+            summary: "UV retries hit 0 → locked panel → Use PIN → success.",
             run: Runner.flowUVExhaustionPINFallback
         ),
         Scenario(
