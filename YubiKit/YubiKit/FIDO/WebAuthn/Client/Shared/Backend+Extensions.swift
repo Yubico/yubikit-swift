@@ -22,6 +22,7 @@ extension WebAuthn.Backend {
 
     func buildMakeCredentialExtensions(
         _ inputs: WebAuthn.Extension.RegistrationInputs?,
+        allowedExtensions: Set<WebAuthn.Extension.Identifier>,
         userVerification: WebAuthn.UserVerificationPreference = .preferred
     ) async throws(WebAuthn.ClientError) -> (
         ctapInputs: [CTAP2.Extension.MakeCredential.Input],
@@ -39,7 +40,7 @@ extension WebAuthn.Backend {
         var largeBlobRequested = false
 
         do throws(CTAP2.SessionError) {
-            if let prfInput = inputs.prf {
+            if let prfInput = allowedExtensions.allow(.prf, inputs.prf) {
                 if let p = try? await makePRF() {
                     if let eval = prfInput.eval {
                         ctapInputs.append(
@@ -52,7 +53,7 @@ extension WebAuthn.Backend {
                 }
             }
 
-            if let credProtectInput = inputs.credProtect {
+            if let credProtectInput = allowedExtensions.allow(.credProtect, inputs.credProtect) {
                 let credProtect = try await makeCredProtect(
                     level: credProtectInput.policy,
                     enforce: credProtectInput.enforce
@@ -60,13 +61,13 @@ extension WebAuthn.Backend {
                 ctapInputs.append(credProtect.input())
             }
 
-            if let credBlobData = inputs.credBlob {
+            if let credBlobData = allowedExtensions.allow(.credBlob, inputs.credBlob) {
                 if let credBlob = try? await makeCredBlob() {
                     ctapInputs.append(try credBlob.makeCredential.input(blob: credBlobData))
                 }
             }
 
-            if let largeBlobInput = inputs.largeBlob {
+            if let largeBlobInput = allowedExtensions.allow(.largeBlob, inputs.largeBlob) {
                 let supported = try await isLargeBlobSupported()
                 if largeBlobInput.support == .required && !supported {
                     throw CTAP2.SessionError.extensionNotSupported(.largeBlobKey, source: .here())
@@ -80,7 +81,7 @@ extension WebAuthn.Backend {
                 largeBlobRequested = true
             }
 
-            if let previewSignInput = inputs.previewSign {
+            if let previewSignInput = allowedExtensions.allow(.previewSign, inputs.previewSign) {
                 if let ps = try? await makePreviewSign() {
                     let flags: UInt8 = userVerification == .required ? 0b101 : 0b001
                     ctapInputs.append(
@@ -96,7 +97,7 @@ extension WebAuthn.Backend {
             throw WebAuthn.ClientError(error)
         }
 
-        if inputs.minPinLength == true {
+        if allowedExtensions.allow(.minPinLength, inputs.minPinLength) == true {
             do {
                 if try await isMinPinLengthSupported() {
                     let minPinLength = try await makeMinPinLength()
@@ -107,7 +108,9 @@ extension WebAuthn.Backend {
             }
         }
 
-        if let payment = inputs.thirdPartyPayment, payment.isPayment {
+        if let payment = allowedExtensions.allow(.thirdPartyPayment, inputs.thirdPartyPayment),
+            payment.isPayment
+        {
             if let ext = try? await makeThirdPartyPayment() {
                 ctapInputs.append(ext.makeCredential.input())
             }
@@ -121,7 +124,8 @@ extension WebAuthn.Backend {
     func buildGetAssertionExtensions(
         _ inputs: WebAuthn.Extension.AuthenticationInputs?,
         allowCredentials: [WebAuthn.CredentialDescriptor],
-        selectedCredentialId: Data?
+        selectedCredentialId: Data?,
+        allowedExtensions: Set<WebAuthn.Extension.Identifier>
     ) async throws(WebAuthn.ClientError) -> (
         ctapInputs: [CTAP2.Extension.GetAssertion.Input],
         prf: WebAuthn.Extension.PRF?,
@@ -137,7 +141,7 @@ extension WebAuthn.Backend {
         var previewSign: CTAP2.Extension.PreviewSign?
         var largeBlobAction: WebAuthn.Extension.LargeBlob.Authentication.Input?
 
-        if let prfInput = inputs.prf {
+        if let prfInput = allowedExtensions.allow(.prf, inputs.prf) {
             let evalByCredential: [Data: (first: Data, second: Data?)] = prfInput.evalByCredential.mapValues {
                 ($0.first, $0.second)
             }
@@ -184,13 +188,13 @@ extension WebAuthn.Backend {
             }
         }
 
-        if inputs.getCredBlob == true {
+        if allowedExtensions.allow(.credBlob, inputs.getCredBlob) == true {
             if let credBlob = try? await makeCredBlob() {
                 ctapInputs.append(credBlob.getAssertion.input())
             }
         }
 
-        if let largeBlobInput = inputs.largeBlob {
+        if let largeBlobInput = allowedExtensions.allow(.largeBlob, inputs.largeBlob) {
             do throws(CTAP2.SessionError) {
                 let largeBlobKey = try await makeLargeBlobKey()
                 ctapInputs.append(largeBlobKey.getAssertion.input())
@@ -204,7 +208,7 @@ extension WebAuthn.Backend {
             }
         }
 
-        if let previewSignInput = inputs.previewSign {
+        if let previewSignInput = allowedExtensions.allow(.previewSign, inputs.previewSign) {
             if allowCredentials.isEmpty {
                 throw .invalidRequest(
                     "sign requires allowCredentials",
@@ -233,7 +237,9 @@ extension WebAuthn.Backend {
             }
         }
 
-        if let payment = inputs.thirdPartyPayment, payment.isPayment {
+        if let payment = allowedExtensions.allow(.thirdPartyPayment, inputs.thirdPartyPayment),
+            payment.isPayment
+        {
             if let ext = try? await makeThirdPartyPayment() {
                 ctapInputs.append(ext.getAssertion.input())
             }
@@ -249,11 +255,12 @@ extension WebAuthn.Backend {
         prf: WebAuthn.Extension.PRF?,
         previewSign: CTAP2.Extension.PreviewSign?,
         largeBlobRequested: Bool,
-        credPropsRk: Bool?
+        credPropsRk: Bool?,
+        allowedExtensions: Set<WebAuthn.Extension.Identifier>
     ) throws(WebAuthn.ClientError) -> WebAuthn.Extension.RegistrationOutputs {
         var prfOutput: WebAuthn.Extension.PRF.Registration.Output?
 
-        if let prf {
+        if let prf = allowedExtensions.allow(.prf, prf) {
             do throws(CTAP2.SessionError) {
                 if let ctapResult = try prf.makeCredential.output(from: response) {
                     prfOutput = .init(ctapResult: ctapResult)
@@ -264,7 +271,7 @@ extension WebAuthn.Backend {
         }
 
         var previewSignOutput: WebAuthn.Extension.PreviewSign.Registration.Output?
-        if let previewSign {
+        if let previewSign = allowedExtensions.allow(.previewSign, previewSign) {
             do throws(CTAP2.SessionError) {
                 if let generatedKey = try previewSign.makeCredential.output(from: response) {
                     previewSignOutput = .init(generatedKey: generatedKey)
@@ -276,27 +283,28 @@ extension WebAuthn.Backend {
 
         let extensions = response.authenticatorData.extensions
 
-        let credProtectOutput: WebAuthn.Extension.CredProtect.Registration.Output? =
-            extensions?[.credProtect]
+        let credProtectOutput = allowedExtensions.allow(.credProtect, extensions?[.credProtect])
             .flatMap { WebAuthn.Extension.CredProtect.Policy(cbor: $0) }
-            .map { .init(policy: $0) }
+            .map { WebAuthn.Extension.CredProtect.Registration.Output(policy: $0) }
 
-        let credBlobOutput: WebAuthn.Extension.CredBlob.Registration.Output? =
-            extensions?[.credBlob]?.boolValue.map { .init(stored: $0) }
+        let credBlobOutput = allowedExtensions.allow(.credBlob, extensions?[.credBlob]?.boolValue)
+            .map { WebAuthn.Extension.CredBlob.Registration.Output(stored: $0) }
 
-        let minPinLengthOutput: WebAuthn.Extension.MinPinLength.Registration.Output? =
-            extensions?[.minPinLength]?.uint64Value.map { .init(length: UInt($0)) }
+        let minPinLengthOutput = allowedExtensions.allow(.minPinLength, extensions?[.minPinLength]?.uint64Value)
+            .map { WebAuthn.Extension.MinPinLength.Registration.Output(length: UInt($0)) }
 
-        let largeBlobOutput: WebAuthn.Extension.LargeBlob.Registration.Output? =
-            largeBlobRequested
-            ? .init(supported: response.largeBlobKey != nil)
-            : nil
+        let largeBlobOutput =
+            allowedExtensions
+            .allow(.largeBlob, largeBlobRequested ? response.largeBlobKey != nil : nil)
+            .map { WebAuthn.Extension.LargeBlob.Registration.Output(supported: $0) }
 
-        let credPropsOutput: WebAuthn.Extension.CredProps.Registration.Output? =
-            credPropsRk.map { .init(rk: $0) }
+        let credPropsOutput = allowedExtensions.allow(.credProps, credPropsRk)
+            .map { WebAuthn.Extension.CredProps.Registration.Output(rk: $0) }
 
-        let thirdPartyPaymentOutput: WebAuthn.Extension.ThirdPartyPayment.Registration.Output? =
-            extensions?[.thirdPartyPayment]?.boolValue.map { .init(isPaymentEnabled: $0) }
+        let thirdPartyPaymentOutput =
+            allowedExtensions
+            .allow(.thirdPartyPayment, extensions?[.thirdPartyPayment]?.boolValue)
+            .map { WebAuthn.Extension.ThirdPartyPayment.Registration.Output(isPaymentEnabled: $0) }
 
         return WebAuthn.Extension.RegistrationOutputs(
             prf: prfOutput,
@@ -314,11 +322,12 @@ extension WebAuthn.Backend {
         from response: CTAP2.GetAssertion.Response,
         prf: WebAuthn.Extension.PRF?,
         previewSign: CTAP2.Extension.PreviewSign?,
-        largeBlobOutput: WebAuthn.Extension.LargeBlob.Authentication.Output?
+        largeBlobOutput: WebAuthn.Extension.LargeBlob.Authentication.Output?,
+        allowedExtensions: Set<WebAuthn.Extension.Identifier>
     ) throws(WebAuthn.ClientError) -> WebAuthn.Extension.AuthenticationOutputs {
         var prfOutput: WebAuthn.Extension.PRF.Authentication.Output?
 
-        if let prf {
+        if let prf = allowedExtensions.allow(.prf, prf) {
             do throws(CTAP2.SessionError) {
                 if let ctapSecrets = try prf.getAssertion.output(from: response) {
                     prfOutput = .init(ctapSecrets: ctapSecrets)
@@ -328,24 +337,27 @@ extension WebAuthn.Backend {
             }
         }
 
-        let credBlobOutput: WebAuthn.Extension.CredBlob.Authentication.Output? =
-            response.authenticatorData.extensions?[.credBlob]?.dataValue.map { .init(blob: $0) }
+        let credBlobOutput =
+            allowedExtensions
+            .allow(.credBlob, response.authenticatorData.extensions?[.credBlob]?.dataValue)
+            .map { WebAuthn.Extension.CredBlob.Authentication.Output(blob: $0) }
 
         var previewSignOutput: WebAuthn.Extension.PreviewSign.Authentication.Output?
-        if let previewSign {
+        if let previewSign = allowedExtensions.allow(.previewSign, previewSign) {
             if let signature = previewSign.getAssertion.output(from: response) {
                 previewSignOutput = .init(signature: signature)
             }
         }
 
-        let thirdPartyPaymentOutput: WebAuthn.Extension.ThirdPartyPayment.Authentication.Output? =
-            response.authenticatorData.extensions?[.thirdPartyPayment]?.boolValue
-            .map { .init(isPaymentEnabled: $0) }
+        let thirdPartyPaymentOutput =
+            allowedExtensions
+            .allow(.thirdPartyPayment, response.authenticatorData.extensions?[.thirdPartyPayment]?.boolValue)
+            .map { WebAuthn.Extension.ThirdPartyPayment.Authentication.Output(isPaymentEnabled: $0) }
 
         return WebAuthn.Extension.AuthenticationOutputs(
             prf: prfOutput,
             credBlob: credBlobOutput,
-            largeBlob: largeBlobOutput,
+            largeBlob: allowedExtensions.allow(.largeBlob, largeBlobOutput),
             previewSign: previewSignOutput,
             thirdPartyPayment: thirdPartyPaymentOutput
         )
@@ -376,5 +388,11 @@ extension WebAuthn.Backend {
                 throw WebAuthn.ClientError(error)
             }
         }
+    }
+}
+
+extension Set where Element == WebAuthn.Extension.Identifier {
+    fileprivate func allow<T>(_ id: Element, _ value: T?) -> T? {
+        contains(id) ? value : nil
     }
 }
