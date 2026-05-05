@@ -26,7 +26,7 @@ extension CTAP2.GetAssertion {
         public let clientDataHash: Data
 
         /// List of credentials acceptable to the RP (omit for resident key discovery).
-        public let allowList: [WebAuthn.PublicKeyCredential.Descriptor]?
+        public let allowList: [WebAuthn.CredentialDescriptor]?
 
         /// Extension inputs for additional authenticator processing.
         public let extensions: [CTAP2.Extension.GetAssertion.Input]
@@ -55,7 +55,7 @@ extension CTAP2.GetAssertion {
         public init(
             rpId: String,
             clientDataHash: Data,
-            allowList: [WebAuthn.PublicKeyCredential.Descriptor]? = nil,
+            allowList: [WebAuthn.CredentialDescriptor]? = nil,
             extensions: [CTAP2.Extension.GetAssertion.Input] = [],
             up: Bool? = nil,
             uv: Bool? = nil

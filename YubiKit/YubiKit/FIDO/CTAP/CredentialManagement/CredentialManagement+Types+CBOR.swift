@@ -69,7 +69,7 @@ extension CTAP2.CredentialManagement.EnumerateRPsResponse: CBOR.Decodable {
         let totalRPs = map[.int(Key.totalRPs.rawValue)]?.uint64Value.map { UInt($0) }
 
         guard let rpCbor = map[.int(Key.rp.rawValue)],
-            let rp: WebAuthn.PublicKeyCredential.RPEntity = rpCbor.cborDecoded(),
+            let rp: WebAuthn.RelyingParty = rpCbor.cborDecoded(),
             let rpIdHash = map[.int(Key.rpIdHash.rawValue)]?.dataValue
         else {
             return nil
@@ -93,9 +93,9 @@ extension CTAP2.CredentialManagement.EnumerateCredentialsResponse: CBOR.Decodabl
         let totalCredentials = map[.int(Key.totalCredentials.rawValue)]?.uint64Value.map { UInt($0) }
 
         guard let userCbor = map[.int(Key.user.rawValue)],
-            let user: WebAuthn.PublicKeyCredential.UserEntity = userCbor.cborDecoded(),
+            let user: WebAuthn.User = userCbor.cborDecoded(),
             let credIdCbor = map[.int(Key.credentialId.rawValue)],
-            let credentialId: WebAuthn.PublicKeyCredential.Descriptor = credIdCbor.cborDecoded(),
+            let credentialId: WebAuthn.CredentialDescriptor = credIdCbor.cborDecoded(),
             let publicKeyCbor = map[.int(Key.publicKey.rawValue)],
             let publicKey: COSE.Key = publicKeyCbor.cborDecoded()
         else {

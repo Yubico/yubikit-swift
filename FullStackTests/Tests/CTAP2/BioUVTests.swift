@@ -34,8 +34,8 @@ struct BioUVTests {
 
             let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: Data(repeating: 0xCD, count: 32),
-                rp: WebAuthn.PublicKeyCredential.RPEntity(id: "example.com", name: "Example"),
-                user: WebAuthn.PublicKeyCredential.UserEntity(
+                rp: WebAuthn.RelyingParty(id: "example.com", name: "Example"),
+                user: WebAuthn.User(
                     id: Data(repeating: 0x10, count: 32),
                     name: "uv-user@example.com",
                     displayName: "UV User"
@@ -100,8 +100,8 @@ struct BioUVTests {
 
             let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: Data(repeating: 0xCD, count: 32),
-                rp: WebAuthn.PublicKeyCredential.RPEntity(id: "example.com", name: "Example"),
-                user: WebAuthn.PublicKeyCredential.UserEntity(
+                rp: WebAuthn.RelyingParty(id: "example.com", name: "Example"),
+                user: WebAuthn.User(
                     id: Data(repeating: 0x01, count: 32),
                     name: "pin-user@example.com",
                     displayName: "PIN User"

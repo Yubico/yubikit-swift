@@ -137,7 +137,14 @@ extension PIVSessionError {
     }
 }
 
-// MARK: - WebAuthn.PublicKeyCredential Deprecated Typealiases
+// MARK: - WebAuthn.PublicKeyCredential Deprecated Namespace
+
+extension WebAuthn {
+    /// Deprecated host for the legacy nested entity types. Use
+    /// ``WebAuthn/User``, ``WebAuthn/RelyingParty``, and
+    /// ``WebAuthn/CredentialDescriptor`` directly.
+    public enum PublicKeyCredential {}
+}
 
 extension WebAuthn.PublicKeyCredential {
     @available(*, deprecated, renamed: "WebAuthn.User")
