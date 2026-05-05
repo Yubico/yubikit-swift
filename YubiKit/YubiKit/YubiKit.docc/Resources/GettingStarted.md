@@ -228,6 +228,37 @@ let deviceInfo = try await session.getDeviceInfo()
 print("Device info: \(deviceInfo)")
 ```
 
+### WebAuthn Client (FIDO2 / passkeys)
+
+For passkey registration and authentication, ``WebAuthn/Client`` wraps a
+``CTAP2/Session`` and runs the W3C ceremonies end-to-end. CTAP2 sessions can
+use ``HIDFIDOConnection`` (USB HID on macOS) or any ``SmartCardConnection``
+(NFC / USB CCID).
+
+```swift
+let connection = try await HIDFIDOConnection()
+let session = try await CTAP2.Session.makeSession(connection: connection)
+
+let client = WebAuthn.Client(
+    session: session,
+    origin: try .init("https://example.com"),
+    isPublicSuffix: { publicSuffixList.contains($0) }
+)
+
+let response = try await client.makeCredential(
+    .init(
+        challenge: challenge,
+        rp: .init(id: "example.com", name: "Example"),
+        user: .init(id: userId, name: "alice@example.com")
+    ),
+    authorization: .pin("1234")
+).value()
+```
+
+PIN and UV are supplied per ceremony via ``WebAuthn/Authorization``. For raw
+CTAP2 access (credential management, bio enrollment, large blobs), use
+``CTAP2/Session`` directly.
+
 ## Connection Management Patterns
 
 ### For UI Applications
@@ -244,6 +275,7 @@ Now you're ready to build YubiKey applications! Check out the sample projects to
 
 - **OATHSample**: Shows how to build a TOTP authenticator app with SwiftUI
 - **PIVTool**: Demonstrates PIV operations for certificates and digital signatures
+- **WebAuthnInterceptorSample**: Routes WebAuthn calls from a `WKWebView` through ``WebAuthn/Client`` to a YubiKey
 
 ### Build SDK documentation
 
