@@ -36,11 +36,11 @@ extension WebAuthn {
 
         func getPinRetries() async throws(CTAP2.SessionError) -> CTAP2.ClientPin.GetRetries.Response
 
-        func getPinUVToken(
+        func getPinUVTokenUpdates(
             using method: CTAP2.ClientPin.Method,
             permissions: CTAP2.ClientPin.Permission,
             rpId: String?
-        ) async throws(CTAP2.SessionError) -> CTAP2.Token
+        ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.Token>
 
         // MARK: - Credentials
 
@@ -96,6 +96,19 @@ extension WebAuthn {
     }
 }
 
+// MARK: - Default Implementations
+
+extension WebAuthn.Backend {
+
+    func getPinUVToken(
+        using method: CTAP2.ClientPin.Method,
+        permissions: CTAP2.ClientPin.Permission,
+        rpId: String?
+    ) async throws(CTAP2.SessionError) -> CTAP2.Token {
+        try await getPinUVTokenUpdates(using: method, permissions: permissions, rpId: rpId).value
+    }
+}
+
 // MARK: - CTAP2.Session Conformance
 
 extension CTAP2.Session: WebAuthn.Backend {
@@ -108,12 +121,12 @@ extension CTAP2.Session: WebAuthn.Backend {
         try await getUVRetries(protocol: nil)
     }
 
-    func getPinUVToken(
+    func getPinUVTokenUpdates(
         using method: CTAP2.ClientPin.Method,
         permissions: CTAP2.ClientPin.Permission,
         rpId: String?
-    ) async throws(CTAP2.SessionError) -> CTAP2.Token {
-        try await getPinUVToken(using: method, permissions: permissions, rpId: rpId, protocol: nil)
+    ) async throws(CTAP2.SessionError) -> CTAP2.StatusStream<CTAP2.Token> {
+        try await getPinUVTokenUpdates(using: method, permissions: permissions, rpId: rpId, protocol: nil)
     }
 
     // MARK: - Extensions

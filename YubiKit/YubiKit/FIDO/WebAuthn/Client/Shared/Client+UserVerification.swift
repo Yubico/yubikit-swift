@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import Foundation
-import os
 
 // MARK: - User Verification
 
@@ -42,51 +41,20 @@ extension WebAuthn.Client {
         }
     }
 
-    // MARK: - Stream Interaction
-
-    // Yields `.requestingUV` and waits for user to choose between UV and PIN.
-    func awaitUVDecision<R: Sendable>(
-        from continuation: WebAuthn.StatusStream<R>.Continuation
-    ) async -> Bool {
-        await withCheckedContinuation { checkedContinuation in
-            let once = OSAllocatedUnfairLock(initialState: false)
-            continuation.yield(
-                .requestingUV { useUV in
-                    let first = once.withLock {
-                        let old = $0
-                        $0 = true
-                        return !old
-                    }
-                    guard first else { return }
-                    checkedContinuation.resume(returning: useUV)
-                }
-            )
-        }
-    }
-
-    // Yields `.requestingPIN` and waits for user to provide a PIN.
-    func awaitPINEntry<R: Sendable>(
-        from continuation: WebAuthn.StatusStream<R>.Continuation
-    ) async -> String? {
-        await withCheckedContinuation { checkedContinuation in
-            let once = OSAllocatedUnfairLock(initialState: false)
-            continuation.yield(
-                .requestingPIN { pin in
-                    let first = once.withLock {
-                        let old = $0
-                        $0 = true
-                        return !old
-                    }
-                    guard first else { return }
-                    checkedContinuation.resume(returning: pin)
-                }
-            )
-        }
-    }
-
     // MARK: - Token Acquisition
 
-    // Acquires PIN/UV auth token if required.
+    // Acquires a PIN/UV auth token if required.
+    //
+    // PIN and UV are both one-shot. `uvInvalid` surfaces as `.uvRejected`
+    // with the remaining retry count so the caller can re-prompt the user;
+    // when retries are exhausted it surfaces as `.uvBlocked`. `uvBlocked`
+    // falls through to PIN when `clientPin` is configured (or throws
+    // `.uvBlocked` under `uv: .required` / no PIN). PIN failures
+    // (`pinInvalid`) throw `.pinRejected` with the remaining retry count.
+    //
+    // `yieldUVWaiting` exposes the CTAP cancel handle plus an optional
+    // `fallbackToPIN` closure (nil under `uv: .required` or no PIN).
+    //
     // Returns: (nil, nil) = no auth needed, (token, nil) = use token, (nil, true) = internal UV.
     func acquireAuthToken(
         info: CTAP2.GetInfo.Response,
@@ -95,8 +63,13 @@ extension WebAuthn.Client {
         userVerification: WebAuthn.UserVerificationPreference,
         isMakeCredential: Bool,
         allowUV: Bool = true,
-        requestPIN: @Sendable () async -> String?,
-        requestUVApproval: (@Sendable () async -> Bool)? = nil
+        authorization: WebAuthn.Authorization,
+        yieldProcessing: @Sendable () -> Void = {},
+        yieldUVWaiting:
+            @Sendable (
+                _ cancel: @Sendable @escaping () async -> Void,
+                _ fallbackToPIN: (@Sendable () async -> Void)?
+            ) -> Void = { _, _ in }
     ) async throws(WebAuthn.ClientError) -> (token: CTAP2.Token?, uv: Bool?) {
 
         let uvRequired = try isUserVerificationRequired(
@@ -109,50 +82,62 @@ extension WebAuthn.Client {
             return (token: nil, uv: nil)
         }
 
-        let hasPin = info.options.clientPin == true
         let hasUV = info.options.userVerification == true
+        let hasPin = info.options.clientPin == true
         // Internal UV only valid for basic operations (mc/ga), not management.
         let allowInternalUV = permissions.subtracting([.makeCredential, .getAssertion]).isEmpty
-
-        let uvRetries = hasUV && allowUV ? (try? await backend.getUVRetries()) ?? 0 : 0
-
-        // Try UV-based authentication if available.
-        if uvRetries > 0, info.options.pinUVAuthToken == true {
-            let proceedWithUV = await requestUVApproval?() ?? true
-
-            if proceedWithUV {
-                do throws(CTAP2.SessionError) {
-                    let token = try await backend.getPinUVToken(
-                        using: .uv,
-                        permissions: permissions,
-                        rpId: rpId
-                    )
-                    return (token: token, uv: nil)
-                } catch {
-                    switch error {
-                    case .ctapError(.uvBlocked, _),
-                        .ctapError(.operationDenied, _),
-                        .ctapError(.unauthorizedPermission, _):
-                        guard hasPin else {
-                            let retries = try? await backend.getUVRetries()
-                            throw .userVerificationFailed(
-                                retriesRemaining: retries,
-                                source: .here()
-                            )
-                        }
-                    // Fall through to PIN.
-                    default:
-                        throw WebAuthn.ClientError(error)
-                    }
-                }
+        let canTryUV = authorization.uv != .skipped && hasUV && allowUV
+        let initialUVRetries: Int
+        if canTryUV {
+            do throws(CTAP2.SessionError) {
+                initialUVRetries = try await backend.getUVRetries()
+            } catch {
+                throw WebAuthn.ClientError(error)
             }
-        } else if uvRetries > 0, allowInternalUV {
-            // Use internal UV (authenticator handles UV during command).
-            return (token: nil, uv: true)
+        } else {
+            initialUVRetries = 0
         }
 
-        // Fall back to PIN.
-        guard let pin = await requestPIN() else {
+        // External UV path: authenticator supports pinUVAuthToken.
+        if initialUVRetries > 0, info.options.pinUVAuthToken == true {
+            let canFallback = authorization.uv != .required && hasPin
+            let result = try await runExternalUV(
+                permissions: permissions,
+                rpId: rpId,
+                canFallback: canFallback,
+                yieldProcessing: yieldProcessing,
+                yieldUVWaiting: yieldUVWaiting
+            )
+            switch result {
+            case .token(let token):
+                return (token: token, uv: nil)
+            case .fallbackToPIN:
+                break
+            }
+        } else if initialUVRetries > 0, allowInternalUV {
+            // Internal UV (authenticator handles UV during MC/GA itself).
+            return (token: nil, uv: true)
+        } else if authorization.uv == .required {
+            // UV requested as strict-only but unavailable → uvBlocked.
+            throw .uvBlocked(source: .here())
+        }
+
+        // PIN path: requires clientPin to be configured.
+        guard hasPin else {
+            throw .pinNotSet(source: .here())
+        }
+
+        // CTAP 2.2 §6.5.5.7: getPinUVToken rejects even a correct PIN
+        // here, so surface upfront before the user enters one.
+        if info.forcePinChange == true {
+            throw .forcePinChange(source: .here())
+        }
+
+        let pin: String
+        switch await authorization.providePIN() {
+        case .pin(let value):
+            pin = value
+        case .cancel:
             throw .cancelled(source: .here())
         }
 
@@ -164,12 +149,122 @@ extension WebAuthn.Client {
             )
             return (token: token, uv: nil)
         } catch {
-            if case .ctapError(.pinInvalid, _) = error {
-                let retries = (try? await backend.getPinRetries())?.retries ?? 0
-                throw .invalidPIN(retriesRemaining: retries, source: .here())
+            guard case .ctapError(.pinInvalid, _) = error else {
+                throw WebAuthn.ClientError(error)
             }
+            let retries: Int
+            do {
+                retries = try await backend.getPinRetries().retries
+            } catch {
+                throw WebAuthn.ClientError(error)
+            }
+            guard retries > 0 else {
+                throw .pinBlocked(source: .here())
+            }
+            throw .pinRejected(retriesRemaining: retries, source: .here())
+        }
+    }
+}
+
+// MARK: - External UV Path
+
+extension WebAuthn.Client {
+
+    enum UVOutcome {
+        case token(CTAP2.Token)
+        case fallbackToPIN
+    }
+
+    fileprivate func runExternalUV(
+        permissions: CTAP2.ClientPin.Permission,
+        rpId: String,
+        canFallback: Bool,
+        yieldProcessing: @Sendable () -> Void,
+        yieldUVWaiting:
+            @Sendable (
+                _ cancel: @Sendable @escaping () async -> Void,
+                _ fallbackToPIN: (@Sendable () async -> Void)?
+            ) -> Void
+    ) async throws(WebAuthn.ClientError) -> UVOutcome {
+        let signal = FallbackSignal()
+
+        do throws(CTAP2.SessionError) {
+            let stream = try await backend.getPinUVTokenUpdates(
+                using: .uv,
+                permissions: permissions,
+                rpId: rpId
+            )
+            for try await status in stream {
+                switch status {
+                case .processing:
+                    yieldProcessing()
+                case .waitingForUser(let cancel):
+                    let fallback: (@Sendable () async -> Void)? =
+                        canFallback
+                        ? { @Sendable in
+                            await signal.request()
+                            await cancel()
+                        }
+                        : nil
+                    yieldUVWaiting(cancel, fallback)
+                case .finished(let token):
+                    return .token(token)
+                }
+            }
+            // Stream ended without `.finished` — should be unreachable.
+            throw CTAP2.SessionError.responseParseError(
+                "getPinUVTokenUpdates ended without a token",
+                source: .here()
+            )
+        } catch {
+            if case .ctapError(.keepaliveCancel, _) = error, await signal.isRequested {
+                return .fallbackToPIN
+            }
+            switch error {
+            case .ctapError(.uvInvalid, _):
+                // Surface retries left rather than silently falling through —
+                // the caller chooses re-prompt vs PIN.
+                throw try await translateUVInvalid()
+            case .ctapError(.uvBlocked, _):
+                if !canFallback {
+                    throw .uvBlocked(source: .here())
+                }
+                return .fallbackToPIN
+            default:
+                throw WebAuthn.ClientError(error)
+            }
+        }
+    }
+}
+
+private actor FallbackSignal {
+    private(set) var isRequested = false
+    func request() { isRequested = true }
+}
+
+// MARK: - UV Error Translation
+
+extension WebAuthn.Client {
+
+    // Translates a `uvInvalid` CTAP error into the public retry-aware contract.
+    // Used by both the external pinUVAuthToken path (in `acquireAuthToken`) and
+    // the internal-UV path (where `uvInvalid` surfaces from the makeCredential
+    // / getAssertion command itself, after `acquireAuthToken` returned `uv: true`).
+    //
+    // Returns `.uvRejected(retriesRemaining:)` while retries are left, `.uvBlocked`
+    // when exhausted. A failure to read the retry counter bubbles as the underlying
+    // transport error rather than being misreported as UV lockout — mirrors the
+    // PIN path's `getPinRetries` failure handling.
+    func translateUVInvalid() async throws(WebAuthn.ClientError) -> WebAuthn.ClientError {
+        let retries: Int
+        do {
+            retries = try await backend.getUVRetries()
+        } catch {
             throw WebAuthn.ClientError(error)
         }
+        return retries > 0
+            ? .uvRejected(retriesRemaining: retries, source: .here())
+            : .uvBlocked(source: .here())
     }
 }
 
@@ -205,6 +300,12 @@ extension WebAuthn.Client {
             || options.alwaysUV == true
         {
             guard uvConfigured else {
+                // PIN capability present but not configured: surface as
+                // `.pinNotSet` so callers can route into a PIN-setup flow
+                // instead of treating it as an unrecoverable failure.
+                if options.clientPin != nil {
+                    throw .pinNotSet(source: .here())
+                }
                 throw .notSupported("User verification not configured/supported", source: .here())
             }
             return true

@@ -22,9 +22,21 @@ extension WebAuthn.Client {
 
     /// Create a new passkey credential.
     ///
-    /// Uses the client's origin and validates the RP ID.
+    /// Uses the client's origin and validates the RP ID. PIN/UV is supplied
+    /// via the ``WebAuthn/Authorization`` parameter; the SDK invokes its
+    /// `providePIN` closure when a PIN is needed. PIN attempts are one-shot:
+    /// a wrong PIN throws ``WebAuthn/ClientError/pinRejected(retriesRemaining:source:)``
+    /// and the caller re-invokes with a fresh ``WebAuthn/Authorization``.
+    ///
+    /// - Parameters:
+    ///   - options: WebAuthn registration options.
+    ///   - authorization: PIN/UV policy for this ceremony. Use
+    ///     ``WebAuthn/Authorization/pin(_:)`` for the trivial pre-supplied
+    ///     case, ``WebAuthn/Authorization/uvOnly`` for biometric-only, or
+    ///     build a custom instance to bridge into a UI.
     public func makeCredential(
-        _ options: WebAuthn.Registration.Options
+        _ options: WebAuthn.Registration.Options,
+        authorization: WebAuthn.Authorization
     ) async -> WebAuthn.StatusStream<WebAuthn.Registration.Response> {
         let rpId = options.rp.id
         let clientData = WebAuthn.ClientData.webauthn(
@@ -33,13 +45,20 @@ extension WebAuthn.Client {
             origin: origin,
             rpId: rpId
         )
-        return await makeCredential(options, clientData: clientData)
+        return await makeCredential(
+            options,
+            clientData: clientData,
+            authorization: authorization
+        )
     }
 
     /// Create a new passkey credential with custom client data.
+    ///
+    /// See ``makeCredential(_:authorization:)`` for `authorization` semantics.
     public func makeCredential(
         _ options: WebAuthn.Registration.Options,
-        clientData: WebAuthn.ClientData
+        clientData: WebAuthn.ClientData,
+        authorization: WebAuthn.Authorization
     ) async -> WebAuthn.StatusStream<WebAuthn.Registration.Response> {
         if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
             return .error(error)
@@ -50,6 +69,7 @@ extension WebAuthn.Client {
                     let response = try await performMakeCredential(
                         options: options,
                         clientData: clientData,
+                        authorization: authorization,
                         continuation: continuation
                     )
                     continuation.yield(.finished(response))
@@ -65,14 +85,13 @@ extension WebAuthn.Client {
 
 extension WebAuthn.Client {
 
-    // Executes the CTAP2 makeCredential flow with PIN/UV handling and retry logic.
     fileprivate func performMakeCredential(
         options: WebAuthn.Registration.Options,
         clientData: WebAuthn.ClientData,
+        authorization: WebAuthn.Authorization,
         continuation: WebAuthn.StatusStream<WebAuthn.Registration.Response>.Continuation
     ) async throws(WebAuthn.ClientError) -> WebAuthn.Registration.Response {
 
-        // Fetch cached immutable authenticator capabilities.
         let cachedInfo: CTAP2.GetInfo.ImmutableView
         do throws(CTAP2.SessionError) {
             cachedInfo = try await backend.cachedInfo
@@ -94,7 +113,6 @@ extension WebAuthn.Client {
 
         var retry = RetryContext(userVerification: options.userVerification)
 
-        // Retry loop for recoverable UV/PIN errors.
         while true {
             // Re-fetch mutable state (PIN/UV counters) on each attempt.
             let info: CTAP2.GetInfo.Response
@@ -111,11 +129,15 @@ extension WebAuthn.Client {
                 userVerification: retry.userVerification,
                 isMakeCredential: true,
                 allowUV: retry.allowUV,
-                requestPIN: { await self.awaitPINEntry(from: continuation) },
-                requestUVApproval: { await self.awaitUVDecision(from: continuation) }
+                authorization: authorization,
+                yieldProcessing: { continuation.yield(.processing) },
+                yieldUVWaiting: { cancel, fallback in
+                    continuation.yield(
+                        .waitingForUserVerification(cancel: cancel, fallbackToPIN: fallback)
+                    )
+                }
             )
 
-            // Silently check if user already has a credential (exclude list).
             let excludedCred = try await findMatchingCredential(
                 from: options.excludeCredentials,
                 rpId: rpId,
@@ -167,7 +189,12 @@ extension WebAuthn.Client {
                 }
                 ctapResponse = response
             } catch {
-                guard retry.shouldRetry(for: error) else { throw WebAuthn.ClientError(error) }
+                guard retry.shouldRetry(for: error) else {
+                    if case .ctapError(.uvInvalid, _) = error {
+                        throw try await translateUVInvalid()
+                    }
+                    throw WebAuthn.ClientError(error)
+                }
                 continue
             }
 
