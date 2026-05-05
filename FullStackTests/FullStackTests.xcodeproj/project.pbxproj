@@ -32,6 +32,7 @@
 		6CMINPINLEN2F1116000000001 /* MinPinLengthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */; };
 		6CPRFTESTS2F1117000000001 /* PRFTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CPRFTESTS2F1117000000000 /* PRFTests.swift */; };
 		779EBC62B6E784C5C1320407 /* PreviewSignTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BC40A418A935EF93F6F5521 /* PreviewSignTests.swift */; };
+		EE0A8A7057516B37293D73DC /* ThirdPartyPaymentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A87E8C8C603A7CC6C29061C /* ThirdPartyPaymentTests.swift */; };
 		B2A73E5DE80348329B8FA710 /* EncryptedFieldsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59E3FD736FBE49ECAAAFA28E /* EncryptedFieldsTests.swift */; };
 		B41B618C274443BE004C37BF /* XCTestCase+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */; };
 		B4235A48297048FD00BCD126 /* ManagementFullStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */; };
@@ -78,6 +79,7 @@
 		6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinPinLengthTests.swift; sourceTree = "<group>"; };
 		6CPRFTESTS2F1117000000000 /* PRFTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRFTests.swift; sourceTree = "<group>"; };
 		4BC40A418A935EF93F6F5521 /* PreviewSignTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewSignTests.swift; sourceTree = "<group>"; };
+		6A87E8C8C603A7CC6C29061C /* ThirdPartyPaymentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThirdPartyPaymentTests.swift; sourceTree = "<group>"; };
 		72D7C4A8CBA8427693C73A4D /* BioEnrollmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BioEnrollmentTests.swift; sourceTree = "<group>"; };
 		B41B618A27444373004C37BF /* XCTestCase+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCTestCase+Extensions.swift"; sourceTree = "<group>"; };
 		B4235A47297048FD00BCD126 /* ManagementFullStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementFullStackTests.swift; sourceTree = "<group>"; };
@@ -233,6 +235,7 @@
 				6CMINPINLEN2F1116000000000 /* MinPinLengthTests.swift */,
 				4BC40A418A935EF93F6F5521 /* PreviewSignTests.swift */,
 				6CPRFTESTS2F1117000000000 /* PRFTests.swift */,
+				6A87E8C8C603A7CC6C29061C /* ThirdPartyPaymentTests.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -370,6 +373,7 @@
 				6CCREDBLOB2F1115000000001 /* CredBlobTests.swift in Sources */,
 				6CMINPINLEN2F1116000000001 /* MinPinLengthTests.swift in Sources */,
 				779EBC62B6E784C5C1320407 /* PreviewSignTests.swift in Sources */,
+				EE0A8A7057516B37293D73DC /* ThirdPartyPaymentTests.swift in Sources */,
 				6CPRFTESTS2F1117000000001 /* PRFTests.swift in Sources */,
 				6C2B14552DC8CF4C00B5C482 /* XCTestCase+SCP.swift in Sources */,
 				6CDATAHEX2EF1234500000001 /* Data+Hex.swift in Sources */,

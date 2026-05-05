@@ -107,6 +107,12 @@ extension WebAuthn.Backend {
             }
         }
 
+        if let payment = inputs.thirdPartyPayment, payment.isPayment {
+            if let ext = try? await makeThirdPartyPayment() {
+                ctapInputs.append(ext.makeCredential.input())
+            }
+        }
+
         return (ctapInputs, prf, previewSign, largeBlobRequested)
     }
 
@@ -227,6 +233,12 @@ extension WebAuthn.Backend {
             }
         }
 
+        if let payment = inputs.thirdPartyPayment, payment.isPayment {
+            if let ext = try? await makeThirdPartyPayment() {
+                ctapInputs.append(ext.getAssertion.input())
+            }
+        }
+
         return (ctapInputs, prf, previewSign, largeBlobAction)
     }
 
@@ -283,6 +295,9 @@ extension WebAuthn.Backend {
         let credPropsOutput: WebAuthn.Extension.CredProps.Registration.Output? =
             credPropsRk.map { .init(rk: $0) }
 
+        let thirdPartyPaymentOutput: WebAuthn.Extension.ThirdPartyPayment.Registration.Output? =
+            extensions?[.thirdPartyPayment]?.boolValue.map { .init(isPaymentEnabled: $0) }
+
         return WebAuthn.Extension.RegistrationOutputs(
             prf: prfOutput,
             credProtect: credProtectOutput,
@@ -290,7 +305,8 @@ extension WebAuthn.Backend {
             minPinLength: minPinLengthOutput,
             largeBlob: largeBlobOutput,
             credProps: credPropsOutput,
-            previewSign: previewSignOutput
+            previewSign: previewSignOutput,
+            thirdPartyPayment: thirdPartyPaymentOutput
         )
     }
 
@@ -322,11 +338,16 @@ extension WebAuthn.Backend {
             }
         }
 
+        let thirdPartyPaymentOutput: WebAuthn.Extension.ThirdPartyPayment.Authentication.Output? =
+            response.authenticatorData.extensions?[.thirdPartyPayment]?.boolValue
+            .map { .init(isPaymentEnabled: $0) }
+
         return WebAuthn.Extension.AuthenticationOutputs(
             prf: prfOutput,
             credBlob: credBlobOutput,
             largeBlob: largeBlobOutput,
-            previewSign: previewSignOutput
+            previewSign: previewSignOutput,
+            thirdPartyPayment: thirdPartyPaymentOutput
         )
     }
 
