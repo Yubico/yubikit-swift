@@ -30,7 +30,7 @@ extension WebAuthn {
     /// `.waitingForUserVerification`, `.finished`) only.
     ///
     /// ```swift
-    /// let session = try await CTAP2.Session(connection: connection)
+    /// let session = try await CTAP2.Session.makeSession(connection: connection)
     /// let client = WebAuthn.Client(
     ///     session: session,
     ///     origin: try .init("https://example.com"),

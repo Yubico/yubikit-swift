@@ -1,20 +1,16 @@
 # ``YubiKit/WebAuthn/PublicKeyCredential``
 
-WebAuthn credential entity types for FIDO2 operations.
+Deprecated namespace kept for source compatibility.
 
 ## Overview
 
-PublicKeyCredential contains the entity types used in CTAP2 credential operations:
-
-- ``UserEntity``: User account information (id, name, displayName)
-- ``RPEntity``: Relying party information (id, name)
-- ``Descriptor``: Credential identifier with type and optional transports
-
-These types are used when creating credentials (MakeCredential) and authenticating (GetAssertion).
+The aliases below remain only so existing call sites compile. Use
+``WebAuthn/RelyingParty``, ``WebAuthn/User``, and ``WebAuthn/CredentialDescriptor``
+instead.
 
 ## Topics
 
-### Credential Entities
+### Deprecated Aliases
 
 - ``UserEntity``
 - ``RPEntity``

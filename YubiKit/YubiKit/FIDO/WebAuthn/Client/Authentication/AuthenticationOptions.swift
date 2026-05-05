@@ -28,11 +28,30 @@ extension WebAuthn.Authentication {
     ///
     /// Equivalent to `PublicKeyCredentialRequestOptions` in the WebAuthn spec.
     public struct Options: Sendable {
+        /// Cryptographic challenge from the relying party. Signed into the
+        /// returned assertion to prove freshness.
         public let challenge: Data
+
+        /// Relying party identifier. When `nil`, the client falls back to
+        /// the host of its ``WebAuthn/Origin``.
         public let rpId: String?
+
+        /// Credentials the authenticator may use. An empty array requests a
+        /// discoverable-credential lookup; a non-empty array narrows to
+        /// specific credentials.
         public let allowCredentials: [WebAuthn.CredentialDescriptor]
+
+        /// Relying-party preference for built-in user verification (PIN /
+        /// biometric). The per-ceremony ``WebAuthn/Authorization`` `uv`
+        /// policy decides what the SDK actually attempts.
         public let userVerification: WebAuthn.UserVerificationPreference
+
+        /// SDK-side ceremony timeout. `nil` means no SDK timeout — only the
+        /// authenticator's own user-presence timeout applies.
         public let timeout: Duration?
+
+        /// Extension inputs. The client filters these against its
+        /// `allowedExtensions` set before sending to the authenticator.
         public let extensions: WebAuthn.Extension.AuthenticationInputs?
 
         public init(
