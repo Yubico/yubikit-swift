@@ -174,6 +174,70 @@ extension SerializationTests {
             #expect(options.excludeCredentials.isEmpty)
         }
 
+        @Test("Registration.Options JSON decoding - {\"publicKey\": {...}} envelope")
+        func testRegistrationOptionsJSONPublicKeyEnvelope() throws {
+            let json = """
+                {
+                    "publicKey": {
+                        "challenge": "Y2hhbGxlbmdl",
+                        "rp": {"id": "example.com", "name": "Example"},
+                        "user": {"id": "dXNlcl9pZA", "name": "user"}
+                    }
+                }
+                """
+
+            let options = try WebAuthn.Registration.Options.from(json: Data(json.utf8))
+            #expect(options.challenge == Data("challenge".utf8))
+            #expect(options.rp.id == "example.com")
+            #expect(options.user.id == Data("user_id".utf8))
+        }
+
+        @Test("Registration.Options JSON decoding - envelope inner DecodingError is preserved")
+        func testRegistrationOptionsJSONEnvelopeInnerError() throws {
+            // Envelope shape is valid; inner publicKey is missing required `challenge`.
+            // The inner DecodingError must surface, not a vague "envelope failed".
+            let json = """
+                {"publicKey": {"rp": {"id": "example.com"}}}
+                """
+
+            #expect(throws: DecodingError.self) {
+                try WebAuthn.Registration.Options.from(json: Data(json.utf8))
+            }
+        }
+
+        @Test("Authentication.Options JSON decoding - {\"publicKey\": {...}} envelope")
+        func testAuthenticationOptionsJSONPublicKeyEnvelope() throws {
+            let json = """
+                {
+                    "publicKey": {
+                        "challenge": "Y2hhbGxlbmdl",
+                        "rpId": "example.com"
+                    }
+                }
+                """
+
+            let options = try WebAuthn.Authentication.Options.from(json: Data(json.utf8))
+            #expect(options.challenge == Data("challenge".utf8))
+            #expect(options.rpId == "example.com")
+        }
+
+        @Test("Authentication.Options JSON decoding - envelope tolerates siblings (mediation)")
+        func testAuthenticationOptionsJSONEnvelopeWithSiblings() throws {
+            let json = """
+                {
+                    "publicKey": {
+                        "challenge": "Y2hhbGxlbmdl",
+                        "rpId": "example.com"
+                    },
+                    "mediation": "conditional"
+                }
+                """
+
+            let options = try WebAuthn.Authentication.Options.from(json: Data(json.utf8))
+            #expect(options.challenge == Data("challenge".utf8))
+            #expect(options.rpId == "example.com")
+        }
+
         @Test("Registration.Options JSON decoding - requireResidentKey fallback")
         func testRegistrationOptionsJSONRequireResidentKey() throws {
             let json = """

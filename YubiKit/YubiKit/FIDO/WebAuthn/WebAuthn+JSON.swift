@@ -18,8 +18,10 @@ import Foundation
 
 extension WebAuthn.Registration.Options {
     /// Parses registration options from JSON data received from a relying party.
+    /// Accepts the bare `PublicKeyCredentialCreationOptions` JSON or the
+    /// `{"publicKey": {...}}` envelope passed to `navigator.credentials.create()`.
     public static func from(json data: Data) throws -> Self {
-        try JSONDecoder().decode(Self.self, from: data)
+        try decodeOptions(from: data)
     }
 }
 
@@ -32,8 +34,10 @@ extension WebAuthn.Registration.Response {
 
 extension WebAuthn.Authentication.Options {
     /// Parses authentication options from JSON data received from a relying party.
+    /// Accepts the bare `PublicKeyCredentialRequestOptions` JSON or the
+    /// `{"publicKey": {...}}` envelope passed to `navigator.credentials.get()`.
     public static func from(json data: Data) throws -> Self {
-        try JSONDecoder().decode(Self.self, from: data)
+        try decodeOptions(from: data)
     }
 }
 
@@ -73,6 +77,23 @@ private struct Milliseconds: Decodable {
         let ms = try decoder.singleValueContainer().decode(Int.self)
         duration = .milliseconds(ms)
     }
+}
+
+// MARK: - Options Envelope
+
+private func decodeOptions<T: Decodable>(from data: Data) throws -> T {
+    let decoder = JSONDecoder()
+    do {
+        return try decoder.decode(PublicKeyEnvelope<T>.self, from: data).publicKey
+    } catch DecodingError.keyNotFound(let key, let context)
+        where key.stringValue == "publicKey" && context.codingPath.isEmpty
+    {
+        return try decoder.decode(T.self, from: data)
+    }
+}
+
+private struct PublicKeyEnvelope<T: Decodable>: Decodable {
+    let publicKey: T
 }
 
 // MARK: - Entity Decodable
