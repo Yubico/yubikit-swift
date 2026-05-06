@@ -38,7 +38,7 @@ extension WebAuthn {
     /// )
     ///
     /// // Trivial — pre-supplied PIN:
-    /// let response = try await client.makeCredential(options, authorization: .pin("1234")).value()
+    /// let response = try await client.makeCredential(options, authorization: .pin("1234")).value
     ///
     /// // Custom — bridge into a UI:
     /// let auth = WebAuthn.Authorization(providePIN: {

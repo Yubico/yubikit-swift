@@ -28,7 +28,7 @@ extension WebAuthn {
     /// Use a built-in factory for trivial cases:
     ///
     /// ```swift
-    /// let r = try await client.makeCredential(opts, authorization: .pin("1234")).value()
+    /// let r = try await client.makeCredential(opts, authorization: .pin("1234")).value
     /// ```
     ///
     /// Or build a custom instance to bridge into a UI:
@@ -38,7 +38,7 @@ extension WebAuthn {
     ///     guard let pin = await viewModel.askForPIN() else { return .cancel }
     ///     return .pin(pin)
     /// })
-    /// let r = try await client.makeCredential(opts, authorization: auth).value()
+    /// let r = try await client.makeCredential(opts, authorization: auth).value
     /// ```
     ///
     /// PIN attempts are one-shot: a wrong PIN throws

@@ -62,7 +62,7 @@ struct UVRetryTests {
 
         var caught: WebAuthn.ClientError?
         do throws(WebAuthn.ClientError) {
-            _ = try await client.getAssertion(Self.options, authorization: auth).value()
+            _ = try await client.getAssertion(Self.options, authorization: auth).value
         } catch {
             caught = error
         }
@@ -95,7 +95,7 @@ struct UVRetryTests {
 
         var caught: WebAuthn.ClientError?
         do throws(WebAuthn.ClientError) {
-            _ = try await client.getAssertion(Self.options, authorization: .uvOnly).value()
+            _ = try await client.getAssertion(Self.options, authorization: .uvOnly).value
         } catch {
             caught = error
         }
@@ -139,7 +139,7 @@ struct UVRetryTests {
             _ = try await client.getAssertion(
                 Self.options,
                 authorization: .init(providePIN: { .pin("ignored") }, uv: .preferred)
-            ).value()
+            ).value
         } catch {
             caught = error
         }
@@ -180,7 +180,7 @@ struct UVRetryTests {
             _ = try await client.getAssertion(
                 Self.options,
                 authorization: .init(providePIN: { .pin("nope") }, uv: .preferred)
-            ).value()
+            ).value
         } catch {
             caught = error
         }
@@ -251,7 +251,7 @@ struct UVRetryTests {
 
         var caught: WebAuthn.ClientError?
         do throws(WebAuthn.ClientError) {
-            _ = try await client.getAssertion(Self.options, authorization: .uvOnly).value()
+            _ = try await client.getAssertion(Self.options, authorization: .uvOnly).value
         } catch {
             caught = error
         }
@@ -282,7 +282,7 @@ struct UVRetryTests {
 
         var caught: WebAuthn.ClientError?
         do throws(WebAuthn.ClientError) {
-            _ = try await client.getAssertion(Self.options, authorization: .uvOnly).value()
+            _ = try await client.getAssertion(Self.options, authorization: .uvOnly).value
         } catch {
             caught = error
         }
@@ -331,7 +331,7 @@ struct UVRetryTests {
 
         var caught: WebAuthn.ClientError?
         do throws(WebAuthn.ClientError) {
-            _ = try await client.getAssertion(Self.options, authorization: auth).value()
+            _ = try await client.getAssertion(Self.options, authorization: auth).value
         } catch {
             caught = error
         }

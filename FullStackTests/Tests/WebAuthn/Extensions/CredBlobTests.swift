@@ -42,7 +42,7 @@ struct WebAuthnCredBlobExtensionTests {
 
             print("Creating credential with credBlob...")
             let createResponse = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin))
-                .value()
+                .value
 
             guard createResponse.clientExtensionResults.credBlob?.stored == true else {
                 print("credBlob not supported - skipping")
@@ -60,7 +60,7 @@ struct WebAuthnCredBlobExtensionTests {
             )
 
             print("Authenticating to retrieve credBlob...")
-            let authResponse = try await client.getAssertion(authOptions, authorization: .pin(defaultTestPin)).value()[
+            let authResponse = try await client.getAssertion(authOptions, authorization: .pin(defaultTestPin)).value[
                 0
             ]
 
@@ -91,7 +91,7 @@ struct WebAuthnCredBlobExtensionTests {
 
             print("Creating credential with credBlob...")
             let createResponse = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin))
-                .value()
+                .value
 
             guard createResponse.clientExtensionResults.credBlob?.stored == true else {
                 print("credBlob not supported - skipping")
@@ -107,7 +107,7 @@ struct WebAuthnCredBlobExtensionTests {
             )
 
             print("Authenticating without credBlob extension...")
-            let authResponse = try await client.getAssertion(authOptions, authorization: .pin(defaultTestPin)).value()[
+            let authResponse = try await client.getAssertion(authOptions, authorization: .pin(defaultTestPin)).value[
                 0
             ]
 
@@ -154,7 +154,7 @@ struct WebAuthnCredBlobExtensionTests {
 
             print("Attempting credential with oversized credBlob (\(oversizedBlob.count) > \(maxLength))...")
             do {
-                _ = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin)).value()
+                _ = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin)).value
                 Issue.record("Expected error for oversized credBlob")
             } catch {
                 print("Correctly rejected oversized credBlob: \(error)")

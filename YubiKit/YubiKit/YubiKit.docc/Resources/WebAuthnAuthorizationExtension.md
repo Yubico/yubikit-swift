@@ -22,10 +22,10 @@ aborts with ``WebAuthn/ClientError/cancelled(source:)``.
 
 ```swift
 // Pre-supplied PIN — skips built-in UV.
-let r = try await client.makeCredential(opts, authorization: .pin("1234")).value()
+let r = try await client.makeCredential(opts, authorization: .pin("1234")).value
 
 // Built-in UV only — the PIN closure is never invoked.
-let r = try await client.makeCredential(opts, authorization: .uvOnly).value()
+let r = try await client.makeCredential(opts, authorization: .uvOnly).value
 
 // Custom — bridge into a UI.
 let auth = WebAuthn.Authorization(providePIN: {

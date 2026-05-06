@@ -65,10 +65,10 @@ public enum WebAuthn {
     ///
     /// ## Usage
     ///
-    /// For simple cases without UI feedback, drain the stream with ``value()``:
+    /// For simple cases without UI feedback, drain the stream with ``value``:
     ///
     /// ```swift
-    /// let response = try await client.makeCredential(opts, authorization: .pin(pin)).value()
+    /// let response = try await client.makeCredential(opts, authorization: .pin(pin)).value
     /// ```
     ///
     /// For UI feedback or cancellation support, iterate the stream:
@@ -121,11 +121,13 @@ public enum WebAuthn {
         /// Consumes the stream and returns the final response value.
         ///
         /// Errors raised by the ceremony propagate as thrown errors.
-        public func value() async throws(ClientError) -> R {
-            for try await status in self {
-                if case .finished(let response) = status { return response }
+        public var value: R {
+            get async throws(ClientError) {
+                for try await status in self {
+                    if case .finished(let response) = status { return response }
+                }
+                preconditionFailure("StatusStream must yield .finished before ending")
             }
-            preconditionFailure("StatusStream must yield .finished before ending")
         }
 
         // MARK: - AsyncSequence
