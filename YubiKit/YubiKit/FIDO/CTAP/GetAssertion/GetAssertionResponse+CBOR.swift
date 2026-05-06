@@ -23,7 +23,7 @@ extension CTAP2.GetAssertion.Response: CBOR.Decodable {
         }
 
         // Optional: credential (0x01)
-        let credential: WebAuthn.PublicKeyCredential.Descriptor? = map[.int(0x01)]?.cborDecoded()
+        let credential: WebAuthn.CredentialDescriptor? = map[.int(0x01)]?.cborDecoded()
 
         // Required: authData (0x02)
         guard let authDataBytes: Data = map[.int(0x02)]?.cborDecoded(),
@@ -38,7 +38,7 @@ extension CTAP2.GetAssertion.Response: CBOR.Decodable {
         }
 
         // Optional: user (0x04)
-        let user: WebAuthn.PublicKeyCredential.UserEntity? = map[.int(0x04)]?.cborDecoded()
+        let user: WebAuthn.User? = map[.int(0x04)]?.cborDecoded()
 
         // Optional: numberOfCredentials (0x05)
         let numberOfCredentials: Int? = map[.int(0x05)]?.cborDecoded()

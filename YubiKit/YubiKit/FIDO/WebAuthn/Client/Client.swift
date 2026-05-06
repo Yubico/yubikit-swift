@@ -30,7 +30,7 @@ extension WebAuthn {
     /// `.waitingForUserVerification`, `.finished`) only.
     ///
     /// ```swift
-    /// let session = try await CTAP2.Session(connection: connection)
+    /// let session = try await CTAP2.Session.makeSession(connection: connection)
     /// let client = WebAuthn.Client(
     ///     session: session,
     ///     origin: try .init("https://example.com"),
@@ -48,9 +48,13 @@ extension WebAuthn {
     /// for try await status in await client.makeCredential(options, authorization: auth) {
     ///     switch status {
     ///     case .processing: showSpinner()
-    ///     case .waitingForUser(let cancel): showTouchPrompt(onCancel: cancel)
+    ///     case .waitingForUser(let cancel):
+    ///         showTouchPrompt(onCancel: { Task { await cancel() } })
     ///     case .waitingForUserVerification(let cancel, let fallbackToPIN):
-    ///         showBiometricPrompt(onCancel: cancel, fallbackToPIN: fallbackToPIN)
+    ///         showBiometricPrompt(
+    ///             onCancel: { Task { await cancel() } },
+    ///             onFallbackToPIN: fallbackToPIN.map { fallback in { Task { await fallback() } } }
+    ///         )
     ///     case .finished(let response): return response
     ///     }
     /// }
@@ -61,8 +65,6 @@ extension WebAuthn {
     /// decides whether to re-prompt and retry with a fresh ``Authorization``.
     /// Returning ``Authorization/PINReply/cancel`` from `providePIN` aborts
     /// the ceremony with ``ClientError/cancelled(source:)``.
-    ///
-    /// - SeeAlso: [Web Authentication](https://www.w3.org/TR/webauthn-3/)
     public actor Client {
 
         // MARK: - Internal Properties
@@ -80,10 +82,10 @@ extension WebAuthn {
         /// - Parameters:
         ///   - session: The CTAP2 session to use.
         ///   - origin: The origin URL for this client (e.g., `https://example.com`).
-        ///   - enterpriseRpIds: RP IDs that support platform-facilitated enterprise attestation.
+        ///   - enterpriseRpIds: RP IDs allowed to receive platform-managed enterprise attestation.
         ///     When a credential is created with `.enterprise` attestation for an RP ID in this set,
-        ///     the client uses platform-facilitated mode (value 2). For other RP IDs, it uses
-        ///     vendor-facilitated mode (value 1). See CTAP 2.2 §6.1.1.
+        ///     the client uses platform-managed mode (level 2); for other RP IDs it uses
+        ///     vendor-facilitated mode (level 1).
         ///   - allowedExtensions: Extensions this client will process. Anything the RP sends
         ///     that isn't in this list is silently dropped. Defaults to `.standard`
         ///     (every extension except `thirdPartyPayment` and `previewSign`).

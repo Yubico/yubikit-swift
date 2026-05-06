@@ -18,7 +18,8 @@ import Foundation
 
 extension WebAuthn.Extension {
 
-    /// The credBlob extension for storing small data blobs with credentials.
+    /// The [credBlob extension](https://www.w3.org/TR/webauthn-3/#sctn-credBlob-extension)
+    /// for storing small data blobs with credentials.
     ///
     /// This WebAuthn extension wraps the CTAP2 credBlob extension, allowing
     /// relying parties to store and retrieve small amounts of data with
@@ -57,7 +58,6 @@ extension WebAuthn.Extension {
     /// ```
     ///
     /// - Note: credBlob requires discoverable credentials (`residentKey: .required`).
-    /// - SeeAlso: [WebAuthn credBlob Extension](https://www.w3.org/TR/webauthn-3/#sctn-credBlob-extension)
     public enum CredBlob {}
 }
 

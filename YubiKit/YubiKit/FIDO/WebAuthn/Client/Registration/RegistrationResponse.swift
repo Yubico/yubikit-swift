@@ -21,11 +21,25 @@ extension WebAuthn.Registration {
     /// Authenticator response from a successful credential creation.
     public struct Response: Sendable {
 
+        /// Identifier for the newly created credential. Send to the relying
+        /// party so it can address this credential in future ceremonies.
         public let credentialId: Data
+
+        /// CBOR-encoded attestation object — ship verbatim to the relying
+        /// party for server-side verification.
         public let rawAttestationObject: Data
+
+        /// Raw authenticator data bytes (RP ID hash, flags, signCount,
+        /// attested credential data, extension outputs).
         public let rawAuthenticatorData: Data
+
+        /// Parsed attestation statement with typed access by format.
         public let attestationStatement: WebAuthn.AttestationStatement
+
+        /// Hint of transports the authenticator supports for this credential.
         public let transports: [WebAuthn.Transport]
+
+        /// Outputs from extensions the client processed for this ceremony.
         public let clientExtensionResults: WebAuthn.Extension.RegistrationOutputs
 
         /// The credential public key.

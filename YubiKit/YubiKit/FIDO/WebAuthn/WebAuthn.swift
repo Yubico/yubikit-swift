@@ -16,10 +16,10 @@ import Foundation
 
 /// WebAuthn (Web Authentication) namespace.
 ///
-/// Contains types for WebAuthn protocol structures including authenticator data,
-/// attestation statements, and extension outputs.
-///
-/// - SeeAlso: [Web Authentication Level 3](https://www.w3.org/TR/webauthn-3/)
+/// Contains the high-level passkey ``Client`` and the request, response, and
+/// data-model types defined by the
+/// [W3C Web Authentication Level 3](https://www.w3.org/TR/webauthn-3/)
+/// specification.
 public enum WebAuthn {
 
     /// Authenticator Attestation Global Unique ID (128 bits).
@@ -157,10 +157,9 @@ public enum WebAuthn {
 
     /// Relying Party entity information.
     ///
-    /// Identifies the relying party (website or service) that is requesting
-    /// credential registration or authentication.
-    ///
-    /// - SeeAlso: [WebAuthn PublicKeyCredentialRpEntity](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialrpentity)
+    /// Identifies the relying party (website or service) requesting credential
+    /// registration or authentication. Mirrors the W3C
+    /// [PublicKeyCredentialRpEntity](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialrpentity).
     public struct RelyingParty: Sendable {
         /// Relying Party identifier (e.g., "example.com").
         public let id: String
@@ -177,9 +176,8 @@ public enum WebAuthn {
     /// User account entity information.
     ///
     /// Identifies the user account for which a credential is being registered
-    /// or that owns an existing credential.
-    ///
-    /// - SeeAlso: [WebAuthn PublicKeyCredentialUserEntity](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialuserentity)
+    /// or that owns an existing credential. Mirrors the W3C
+    /// [PublicKeyCredentialUserEntity](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialuserentity).
     public struct User: Sendable {
         /// User handle (opaque byte sequence).
         public let id: Data
@@ -200,9 +198,8 @@ public enum WebAuthn {
     /// Public key credential descriptor identifying a specific credential.
     ///
     /// Used in `allowList` and `excludeList` parameters to identify credentials
-    /// for authentication or exclusion during registration.
-    ///
-    /// - SeeAlso: [WebAuthn PublicKeyCredentialDescriptor](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialdescriptor)
+    /// for authentication or exclusion during registration. Mirrors the W3C
+    /// [PublicKeyCredentialDescriptor](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialdescriptor).
     public struct CredentialDescriptor: Sendable, Hashable {
         /// Credential type (always "public-key" for FIDO2).
         public let type: String
@@ -222,7 +219,8 @@ public enum WebAuthn {
 
     /// Preference for creating a discoverable (resident) credential.
     ///
-    /// - SeeAlso: [WebAuthn ResidentKeyRequirement](https://www.w3.org/TR/webauthn-3/#enumdef-residentkeyrequirement)
+    /// Mirrors the W3C
+    /// [ResidentKeyRequirement](https://www.w3.org/TR/webauthn-3/#enumdef-residentkeyrequirement).
     public enum ResidentKeyPreference: String, Sendable, Decodable {
         /// Require a discoverable credential. Fails if the authenticator doesn't support it.
         case required
@@ -234,7 +232,8 @@ public enum WebAuthn {
 
     /// Preference for user verification during an operation.
     ///
-    /// - SeeAlso: [WebAuthn UserVerificationRequirement](https://www.w3.org/TR/webauthn-3/#enumdef-userverificationrequirement)
+    /// Mirrors the W3C
+    /// [UserVerificationRequirement](https://www.w3.org/TR/webauthn-3/#enumdef-userverificationrequirement).
     public enum UserVerificationPreference: String, Sendable, Decodable {
         /// Require user verification (PIN or biometric). Fails if not possible.
         case required
@@ -246,11 +245,14 @@ public enum WebAuthn {
 
     /// Preference for attestation statement conveyance.
     ///
-    /// - SeeAlso: [WebAuthn AttestationConveyancePreference](https://www.w3.org/TR/webauthn-3/#enumdef-attestationconveyancepreference)
+    /// Mirrors the W3C
+    /// [AttestationConveyancePreference](https://www.w3.org/TR/webauthn-3/#enumdef-attestationconveyancepreference).
     public enum AttestationPreference: String, Sendable, Decodable {
-        /// No attestation statement required.
+        /// The relying party doesn't want attestation. The client requests
+        /// a `none`-format (empty) attestation statement from the authenticator.
         case none
-        /// Client may replace direct attestation with an anonymized version.
+        /// The relying party allows the client to mediate attestation —
+        /// passing it through, anonymizing it, or replacing it.
         case indirect
         /// Return the authenticator's attestation statement unmodified.
         case direct

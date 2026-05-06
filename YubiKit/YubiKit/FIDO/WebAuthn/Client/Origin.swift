@@ -19,7 +19,10 @@ extension WebAuthn {
     /// A validated WebAuthn origin.
     ///
     /// Extracts `scheme://host[:port]` from any URL. Path, query, and fragment are stripped.
-    /// The URL must be a secure context (`https://` or `http://localhost`).
+    /// Enforces the [W3C secure-context rule](https://w3c.github.io/webappsec-secure-contexts/):
+    /// only `https://` is accepted, with an exception for `http://localhost` (and
+    /// `*.localhost`) for local development. The origin concept itself is defined by
+    /// [RFC 6454](https://tools.ietf.org/html/rfc6454).
     ///
     /// ```swift
     /// let origin = try WebAuthn.Origin("https://example.com/login?foo=bar")
@@ -32,9 +35,6 @@ extension WebAuthn {
     ///
     /// let insecure = try WebAuthn.Origin("http://example.com")  // throws .insecureContext
     /// ```
-    ///
-    /// - SeeAlso: [RFC 6454 - The Web Origin Concept](https://tools.ietf.org/html/rfc6454)
-    /// - SeeAlso: [W3C Secure Contexts](https://w3c.github.io/webappsec-secure-contexts/)
     public struct Origin: Sendable, Hashable, CustomStringConvertible {
 
         /// Errors that can occur when creating an Origin.
@@ -45,7 +45,8 @@ extension WebAuthn {
             case missingScheme
             /// The URL is missing a host.
             case missingHost
-            /// The URL is not a secure context (must be `https` or `http://localhost`).
+            /// The URL is not a secure context (must be `https` or `http://localhost`,
+            /// including `*.localhost`).
             case insecureContext(String)
         }
 
@@ -60,8 +61,8 @@ extension WebAuthn {
         /// Creates an origin from a string.
         ///
         /// - Parameter string: A URL string.
-        /// - Throws: `Origin.Error` if the string is not a valid secure origin.
-        public init(_ string: String) throws {
+        /// - Throws: ``Error`` if the string is not a valid secure origin.
+        public init(_ string: String) throws(Error) {
             guard let url = URL(string: string) else {
                 throw Error.invalidURL(string)
             }
@@ -73,8 +74,8 @@ extension WebAuthn {
         /// Path, query, and fragment are stripped.
         ///
         /// - Parameter url: A URL.
-        /// - Throws: `Origin.Error` if the URL is not a secure context.
-        public init(_ url: URL) throws {
+        /// - Throws: ``Error`` if the URL is not a secure context.
+        public init(_ url: URL) throws(Error) {
             guard let scheme = url.scheme?.lowercased() else {
                 throw Error.missingScheme
             }

@@ -28,15 +28,43 @@ extension WebAuthn.Registration {
     ///
     /// Equivalent to `PublicKeyCredentialCreationOptions` in the WebAuthn spec.
     public struct Options: Sendable {
+        /// Cryptographic challenge from the relying party. Signed into the
+        /// returned attestation to prove freshness.
         public let challenge: Data
+
+        /// Relying party the credential is being created for.
         public let rp: WebAuthn.RelyingParty
+
+        /// User account the credential is being created for.
         public let user: WebAuthn.User
+
+        /// Credentials the relying party already has for this user. The
+        /// authenticator refuses to create a duplicate, throwing
+        /// ``WebAuthn/ClientError/credentialExcluded(source:)``.
         public let excludeCredentials: [WebAuthn.CredentialDescriptor]
+
+        /// Whether to create a discoverable (resident) credential.
         public let residentKey: WebAuthn.ResidentKeyPreference
+
+        /// Relying-party preference for built-in user verification (PIN /
+        /// biometric). The per-ceremony ``WebAuthn/Authorization`` `uv`
+        /// policy decides what the SDK actually attempts.
         public let userVerification: WebAuthn.UserVerificationPreference
+
+        /// Whether (and how) the authenticator should attest its identity.
+        /// ``WebAuthn/AttestationPreference/none`` disables attestation for
+        /// user privacy; the others request progressively stronger forms.
         public let attestation: WebAuthn.AttestationPreference
+
+        /// Acceptable signing algorithms, in the relying party's order of preference.
         public let pubKeyCredParams: [COSE.Algorithm]
+
+        /// SDK-side ceremony timeout. `nil` means no SDK timeout — only the
+        /// authenticator's own user-presence timeout applies.
         public let timeout: Duration?
+
+        /// Extension inputs. The client filters these against its
+        /// `allowedExtensions` set before sending to the authenticator.
         public let extensions: WebAuthn.Extension.RegistrationInputs?
 
         public init(
@@ -65,7 +93,9 @@ extension WebAuthn.Registration {
     }
 }
 
-/// WebAuthn Level 3 type alias for credential creation options.
-///
-/// - SeeAlso: [WebAuthn PublicKeyCredentialCreationOptions](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialcreationoptions)
-public typealias PublicKeyCredentialCreationOptions = WebAuthn.Registration.Options
+extension WebAuthn {
+    /// Type alias matching the W3C
+    /// [PublicKeyCredentialCreationOptions](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialcreationoptions)
+    /// dictionary name, for code that mirrors the JavaScript API.
+    public typealias PublicKeyCredentialCreationOptions = Registration.Options
+}

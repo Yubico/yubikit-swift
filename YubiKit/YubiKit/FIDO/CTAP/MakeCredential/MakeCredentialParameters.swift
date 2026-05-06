@@ -23,16 +23,16 @@ extension CTAP2.MakeCredential {
         public let clientDataHash: Data
 
         /// Relying Party information.
-        public let rp: WebAuthn.PublicKeyCredential.RPEntity
+        public let rp: WebAuthn.RelyingParty
 
         /// User account information.
-        public let user: WebAuthn.PublicKeyCredential.UserEntity
+        public let user: WebAuthn.User
 
         /// Supported public key algorithms in order of preference.
         public let pubKeyCredParams: [COSE.Algorithm]
 
         /// Credentials to exclude (already registered).
-        public let excludeList: [WebAuthn.PublicKeyCredential.Descriptor]?
+        public let excludeList: [WebAuthn.CredentialDescriptor]?
 
         /// Extension inputs for additional authenticator processing.
         public let extensions: [CTAP2.Extension.MakeCredential.Input]
@@ -63,10 +63,10 @@ extension CTAP2.MakeCredential {
 
         public init(
             clientDataHash: Data,
-            rp: WebAuthn.PublicKeyCredential.RPEntity,
-            user: WebAuthn.PublicKeyCredential.UserEntity,
+            rp: WebAuthn.RelyingParty,
+            user: WebAuthn.User,
             pubKeyCredParams: [COSE.Algorithm],
-            excludeList: [WebAuthn.PublicKeyCredential.Descriptor]? = nil,
+            excludeList: [WebAuthn.CredentialDescriptor]? = nil,
             extensions: [CTAP2.Extension.MakeCredential.Input] = [],
             rk: Bool,
             uv: Bool? = nil,

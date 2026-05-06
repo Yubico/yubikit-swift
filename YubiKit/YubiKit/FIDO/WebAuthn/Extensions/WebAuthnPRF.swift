@@ -17,7 +17,8 @@ import Foundation
 // MARK: - PRF Extension
 
 extension WebAuthn.Extension {
-    /// The PRF (Pseudo-Random Function) extension for deriving symmetric keys.
+    /// The [PRF (Pseudo-Random Function) extension](https://www.w3.org/TR/webauthn-3/#prf-extension)
+    /// for deriving symmetric keys.
     ///
     /// This WebAuthn extension wraps the CTAP2 hmac-secret extension, transforming
     /// PRF secrets into hmac-secret salts using `SHA-256("WebAuthn PRF\0" + secret)`.
@@ -51,8 +52,6 @@ extension WebAuthn.Extension {
     ///     // Use derived keys
     /// }
     /// ```
-    ///
-    /// - SeeAlso: [WebAuthn PRF Extension](https://www.w3.org/TR/webauthn-3/#prf-extension)
     public struct PRF: Sendable {
         /// The underlying hmac-secret extension.
         private let hmacSecret: CTAP2.Extension.HmacSecret

@@ -17,12 +17,11 @@ import Foundation
 // MARK: - Attestation Format
 
 extension WebAuthn {
-    /// WebAuthn attestation statement format identifier.
+    /// WebAuthn [attestation statement format](https://www.w3.org/TR/webauthn-3/#sctn-defined-attestation-formats)
+    /// identifier.
     ///
     /// Identifies the format of an attestation statement, either in a
     /// `MakeCredential` response or as a supported format in `GetInfo`.
-    ///
-    /// - SeeAlso: [WebAuthn Attestation Statement Formats](https://www.w3.org/TR/webauthn-3/#sctn-defined-attestation-formats)
     public enum AttestationFormat: Sendable, Hashable {
         /// Packed attestation format - WebAuthn-optimized, compact encoding.
         case packed
@@ -81,12 +80,11 @@ extension WebAuthn {
 // MARK: - Attestation Statement
 
 extension WebAuthn {
-    /// Attestation statement from the authenticator.
+    /// [Attestation statement](https://www.w3.org/TR/webauthn-3/#sctn-defined-attestation-formats)
+    /// from the authenticator.
     ///
     /// The structure varies by attestation format. This type provides strongly-typed
     /// access to common formats, with a fallback for unknown formats.
-    ///
-    /// - SeeAlso: [WebAuthn Attestation Statement Formats](https://www.w3.org/TR/webauthn-3/#sctn-defined-attestation-formats)
     public enum AttestationStatement: Sendable {
         /// Packed attestation format (FIDO2).
         case packed(Packed)
@@ -121,9 +119,7 @@ extension WebAuthn {
 
 extension WebAuthn.AttestationStatement {
 
-    /// Packed attestation statement.
-    ///
-    /// - SeeAlso: [Packed Attestation Statement Format](https://www.w3.org/TR/webauthn-3/#sctn-packed-attestation)
+    /// [Packed attestation statement](https://www.w3.org/TR/webauthn-3/#sctn-packed-attestation).
     public struct Packed: Sendable {
         /// Attestation signature.
         public let sig: Data
@@ -138,9 +134,7 @@ extension WebAuthn.AttestationStatement {
         public let ecdaaKeyId: Data?
     }
 
-    /// FIDO U2F attestation statement.
-    ///
-    /// - SeeAlso: [FIDO U2F Attestation Statement Format](https://www.w3.org/TR/webauthn-3/#sctn-fido-u2f-attestation)
+    /// [FIDO U2F attestation statement](https://www.w3.org/TR/webauthn-3/#sctn-fido-u2f-attestation).
     public struct FIDOU2F: Sendable {
         /// Attestation signature.
         public let sig: Data
@@ -149,9 +143,7 @@ extension WebAuthn.AttestationStatement {
         public let x5c: [Data]
     }
 
-    /// Apple anonymous attestation statement.
-    ///
-    /// - SeeAlso: [Apple Anonymous Attestation Statement Format](https://www.w3.org/TR/webauthn-3/#sctn-apple-anonymous-attestation)
+    /// [Apple anonymous attestation statement](https://www.w3.org/TR/webauthn-3/#sctn-apple-anonymous-attestation).
     public struct Apple: Sendable {
         /// Attestation certificate chain.
         public let x5c: [Data]

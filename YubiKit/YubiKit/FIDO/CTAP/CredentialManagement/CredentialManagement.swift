@@ -115,7 +115,7 @@ extension CTAP2 {
         /// - Parameter credentialId: The credential descriptor identifying the credential to delete.
         /// - SeeAlso: [DeleteCredential](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#deleteCredential)
         public func deleteCredential(
-            _ credentialId: WebAuthn.PublicKeyCredential.Descriptor
+            _ credentialId: WebAuthn.CredentialDescriptor
         ) async throws(CTAP2.SessionError) {
             let params: [UInt8: CBOR.Value] = [
                 Parameter.credentialId.rawValue: credentialId.cbor()
@@ -135,8 +135,8 @@ extension CTAP2 {
         /// - Throws: `CTAP2.SessionError.featureNotSupported` if update is not supported.
         /// - SeeAlso: [Updating user information](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#updateUserInformation)
         public func updateUserInformation(
-            credentialId: WebAuthn.PublicKeyCredential.Descriptor,
-            user: WebAuthn.PublicKeyCredential.UserEntity
+            credentialId: WebAuthn.CredentialDescriptor,
+            user: WebAuthn.User
         ) async throws(CTAP2.SessionError) {
             guard try await Self.isUpdateSupported(by: session) else {
                 throw .featureNotSupported(source: .here())

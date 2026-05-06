@@ -23,7 +23,7 @@ extension CTAP2.GetAssertion {
     public struct Response: Sendable {
         /// The credential that was used to generate this assertion.
         /// Only present when multiple credentials match or when using resident keys.
-        public let credential: WebAuthn.PublicKeyCredential.Descriptor?
+        public let credential: WebAuthn.CredentialDescriptor?
 
         /// Authenticator data for this assertion.
         public let authenticatorData: WebAuthn.AuthenticatorData
@@ -33,7 +33,7 @@ extension CTAP2.GetAssertion {
 
         /// User information associated with this credential.
         /// Only present when the credential is a resident key.
-        public let user: WebAuthn.PublicKeyCredential.UserEntity?
+        public let user: WebAuthn.User?
 
         /// Total number of credentials available for this RP.
         /// When present and > 1, use getNextAssertion to retrieve additional assertions.
@@ -47,10 +47,10 @@ extension CTAP2.GetAssertion {
         public let largeBlobKey: Data?
 
         init(
-            credential: WebAuthn.PublicKeyCredential.Descriptor? = nil,
+            credential: WebAuthn.CredentialDescriptor? = nil,
             authenticatorData: WebAuthn.AuthenticatorData,
             signature: Data,
-            user: WebAuthn.PublicKeyCredential.UserEntity? = nil,
+            user: WebAuthn.User? = nil,
             numberOfCredentials: Int? = nil,
             userSelected: Bool? = nil,
             largeBlobKey: Data? = nil

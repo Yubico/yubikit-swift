@@ -18,7 +18,8 @@ import Foundation
 
 extension WebAuthn.Extension {
 
-    /// The largeBlob extension for storing arbitrary data with credentials.
+    /// The [largeBlob extension](https://www.w3.org/TR/webauthn-3/#sctn-large-blob-extension)
+    /// for storing arbitrary data with credentials.
     ///
     /// This WebAuthn extension wraps the CTAP2 largeBlobKey extension and the
     /// LargeBlobs API, allowing relying parties to store and retrieve opaque
@@ -71,8 +72,6 @@ extension WebAuthn.Extension {
     ///     // Blob stored successfully
     /// }
     /// ```
-    ///
-    /// - SeeAlso: [WebAuthn largeBlob Extension](https://www.w3.org/TR/webauthn-3/#sctn-large-blob-extension)
     public enum LargeBlob {}
 }
 

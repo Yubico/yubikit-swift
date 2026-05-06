@@ -23,10 +23,23 @@ extension WebAuthn.Authentication {
     /// For discoverable credentials, use `user?.name` and `user?.displayName` for selection UI.
     public struct Response: Sendable {
 
+        /// Identifier of the credential that produced this assertion.
         public let credentialId: Data
+
+        /// Raw authenticator data bytes signed alongside the client data hash.
         public let rawAuthenticatorData: Data
+
+        /// Signature over `rawAuthenticatorData || clientDataHash` produced by
+        /// the credential's private key. Verify against ``credentialId``'s
+        /// public key on the server.
         public let signature: Data
+
+        /// User identity for discoverable credentials. `nil` when the
+        /// ceremony used an allow-list (the relying party already knows the
+        /// user).
         public let user: WebAuthn.User?
+
+        /// Outputs from extensions the client processed for this ceremony.
         public let clientExtensionResults: WebAuthn.Extension.AuthenticationOutputs
 
         /// Signature counter value.

@@ -15,13 +15,12 @@
 import Foundation
 
 extension WebAuthn {
-    /// Parsed authenticator data from FIDO2/WebAuthn operations.
+    /// Parsed [authenticator data](https://www.w3.org/TR/webauthn-3/#sctn-authenticator-data)
+    /// from FIDO2/WebAuthn operations.
     ///
-    /// The authenticator data structure encodes contextual bindings made by the authenticator.
-    /// It contains information about the relying party, flags, signature counter, and optionally
-    /// attested credential data.
-    ///
-    /// - SeeAlso: [WebAuthn Authenticator Data](https://www.w3.org/TR/webauthn-3/#sctn-authenticator-data)
+    /// The authenticator data structure encodes contextual bindings made by the authenticator —
+    /// the relying-party identifier, flags, signature counter, and optionally attested
+    /// credential data and extension outputs.
     public struct AuthenticatorData: Sendable {
         /// The raw authenticator data bytes.
         public let rawData: Data
@@ -143,11 +142,10 @@ extension WebAuthn.AuthenticatorData {
 // MARK: - Attested Credential Data
 
 extension WebAuthn {
-    /// Attested credential data included in authenticator data during credential creation.
+    /// [Attested credential data](https://www.w3.org/TR/webauthn-3/#sctn-attested-credential-data)
+    /// included in authenticator data during credential creation.
     ///
     /// Contains the AAGUID, credential ID, and credential public key.
-    ///
-    /// - SeeAlso: [WebAuthn Attested Credential Data](https://www.w3.org/TR/webauthn-3/#sctn-attested-credential-data)
     public struct AttestedCredentialData: Sendable {
         /// Authenticator Attestation Global Unique ID (128 bits).
         public let aaguid: AAGUID
@@ -155,7 +153,7 @@ extension WebAuthn {
         /// The credential ID (variable length).
         public let credentialId: Data
 
-        /// The credential public key as a COSE Key.
+        /// The credential public key as a [COSE Key](https://www.rfc-editor.org/rfc/rfc8152.html#section-7).
         ///
         /// Structured representation of the COSE key from the authenticator.
         /// Unknown or unsupported algorithms are preserved in the `.other` case.
@@ -164,8 +162,6 @@ extension WebAuthn {
         /// - ES256 (ECDSA with P-256, alg=-7)
         /// - EdDSA (Ed25519, alg=-8)
         /// - RS256 (RSA with SHA-256, alg=-257)
-        ///
-        /// - SeeAlso: [COSE Key Structure](https://www.rfc-editor.org/rfc/rfc8152.html#section-7)
         public let credentialPublicKey: COSE.Key
     }
 }

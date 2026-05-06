@@ -16,12 +16,11 @@ import Foundation
 
 extension WebAuthn {
 
-    /// Attestation object from a credential creation operation.
+    /// [Attestation object](https://www.w3.org/TR/webauthn-3/#sctn-attestation)
+    /// from a credential creation operation.
     ///
-    /// Contains both the CBOR-encoded data for the WebAuthn API and
-    /// parsed access to the attestation statement.
-    ///
-    /// - SeeAlso: [WebAuthn Attestation Object](https://www.w3.org/TR/webauthn-3/#sctn-attestation)
+    /// Contains both the CBOR-encoded data for the WebAuthn API and parsed access
+    /// to the attestation statement.
     public struct AttestationObject: Sendable {
 
         /// CBOR-encoded attestation object for the WebAuthn API.

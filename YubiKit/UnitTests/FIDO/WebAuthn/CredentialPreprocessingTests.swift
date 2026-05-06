@@ -528,7 +528,7 @@ struct CredentialPreprocessingTests {
     func testStripsTransports() async throws {
         let cred = randomCredentialId(length: 32)
 
-        var sentDescriptors: [WebAuthn.PublicKeyCredential.Descriptor] = []
+        var sentDescriptors: [WebAuthn.CredentialDescriptor] = []
         let mock = MockWebAuthnBackend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { params in

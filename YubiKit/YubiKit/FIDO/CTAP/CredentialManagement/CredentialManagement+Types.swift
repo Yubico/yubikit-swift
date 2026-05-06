@@ -38,12 +38,12 @@ extension CTAP2.CredentialManagement {
     /// Information about a relying party with stored credentials.
     public struct RPData: Sendable {
         /// The relying party entity.
-        public let rp: WebAuthn.PublicKeyCredential.RPEntity
+        public let rp: WebAuthn.RelyingParty
 
         /// SHA-256 hash of the RP ID.
         public let rpIdHash: Data
 
-        internal init(rp: WebAuthn.PublicKeyCredential.RPEntity, rpIdHash: Data) {
+        internal init(rp: WebAuthn.RelyingParty, rpIdHash: Data) {
             self.rp = rp
             self.rpIdHash = rpIdHash
         }
@@ -52,10 +52,10 @@ extension CTAP2.CredentialManagement {
     /// Information about a stored credential.
     public struct CredentialData: Sendable {
         /// The user entity associated with this credential.
-        public let user: WebAuthn.PublicKeyCredential.UserEntity
+        public let user: WebAuthn.User
 
         /// The credential identifier.
-        public let credentialId: WebAuthn.PublicKeyCredential.Descriptor
+        public let credentialId: WebAuthn.CredentialDescriptor
 
         /// The credential's public key.
         public let publicKey: COSE.Key
@@ -73,8 +73,8 @@ extension CTAP2.CredentialManagement {
         public let thirdPartyPayment: Bool?
 
         internal init(
-            user: WebAuthn.PublicKeyCredential.UserEntity,
-            credentialId: WebAuthn.PublicKeyCredential.Descriptor,
+            user: WebAuthn.User,
+            credentialId: WebAuthn.CredentialDescriptor,
             publicKey: COSE.Key,
             credProtect: CTAP2.Extension.CredProtect.Level?,
             largeBlobKey: Data?,
