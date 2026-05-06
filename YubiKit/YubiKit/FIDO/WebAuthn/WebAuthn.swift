@@ -248,8 +248,8 @@ public enum WebAuthn {
     /// Mirrors the W3C
     /// [AttestationConveyancePreference](https://www.w3.org/TR/webauthn-3/#enumdef-attestationconveyancepreference).
     public enum AttestationPreference: String, Sendable, Decodable {
-        /// The relying party doesn't want an attestation statement; the
-        /// authenticator may still emit a `none`-format statement.
+        /// The relying party doesn't want attestation. The client requests
+        /// a `none`-format (empty) attestation statement from the authenticator.
         case none
         /// The relying party allows the client to mediate attestation —
         /// passing it through, anonymizing it, or replacing it.
