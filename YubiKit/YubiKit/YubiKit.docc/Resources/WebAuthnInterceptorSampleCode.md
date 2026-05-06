@@ -1,6 +1,6 @@
 # WebAuthnInterceptorSample: FIDO2/WebAuthn client for WKWebView
 
-This sample shows how to build a FIDO2 client that intercepts WebAuthn API calls in a WKWebView and routes them to a YubiKey via NFC (iOS) or USB HID (macOS). The app demonstrates using ``CTAP2/Session`` for FIDO2 operations and handling the PRF extension for deriving secrets.
+This sample shows how to build a FIDO2/WebAuthn client that intercepts `navigator.credentials.{create,get}` calls inside a `WKWebView` and routes them to a YubiKey. It uses the high-level ``WebAuthn/Client`` API and delegates the entire ceremony — transport, PIN/UV prompts, errors, cancellation — to a small `FidoUI` companion module.
 
 @Metadata {
     @CallToAction(
@@ -10,61 +10,57 @@ This sample shows how to build a FIDO2 client that intercepts WebAuthn API calls
     @PageColor(yellow)
 }
 
-The WebAuthn interceptor shows how to build applications that:
-- Intercept `navigator.credentials.create()` and `navigator.credentials.get()` in a WKWebView
-- Convert between WebAuthn API types and CTAP2 protocol structures
-- Handle PIN entry with retry logic
-- Support the PRF extension (hmac-secret) for deriving cryptographic secrets
-- Connect via NFC on iOS or USB HID on macOS
+The interceptor demonstrates how to:
+- Intercept `navigator.credentials.create()` and `navigator.credentials.get()` in a `WKWebView`.
+- Round-trip WebAuthn Level 3 JSON directly into the SDK's ``WebAuthn/Registration/Options`` / ``WebAuthn/Authentication/Options`` types.
+- Drive the SDK's high-level ``WebAuthn/Client`` ceremony without hand-rolling CTAP2 plumbing, PIN retry, or extension wiring.
+- Use the bundled `FidoUI` module for transport selection (USB-C / Lightning / NFC on iOS, HID on macOS) and for the PIN, UV, error, and success panels.
 
-This sample bypasses the WebKit WebAuthn implementation and uses the YubiKit SDK instead, giving you full control over the authentication flow, PIN UI, and access to extensions like PRF.
+By bypassing WebKit's built-in WebAuthn implementation you get full control over which authenticator handles the request, the look and feel of the prompts, and access to extensions that the platform doesn't otherwise surface.
 
 ## Architecture Overview
 
-The sample consists of the following components:
+The sample itself is intentionally thin:
 
-- **Interceptor.js**: Injected into the WKWebView to intercept WebAuthn API calls
-- **WebView.swift**: Sets up the WKWebView with the interceptor and message handlers
-- **WebAuthnHandler.swift**: Manages YubiKey connection and PIN flow, delegates to client logic
-- **WebAuthnClientLogic.swift**: Builds CTAP2 extension inputs and extracts results
-- **WebAuthnTypes.swift**: Request/response types for JSON serialization between JS and Swift
-- **PINEntryView.swift**: SwiftUI PIN entry UI and async handler
-- **ContentView.swift**: Main UI with URL bar and navigation controls
+- **Interceptor.js** — injected into the `WKWebView` to monkey-patch `navigator.credentials.{create,get}` and shuttle requests/responses through `WKScriptMessageHandler`.
+- **WebView.swift** — `UIViewRepresentable` / `NSViewRepresentable` wrapper that installs the script, registers message handlers, and coordinates ceremony lifecycle (cancel on dismiss, cancel-and-replace on a new request).
+- **WebAuthnHandler.swift** — decodes the JSON envelope, builds a ``WebAuthn/Origin``, and calls `FidoUI.makeCredential` / `FidoUI.getAssertion`.
+- **ContentView.swift** — minimal SwiftUI shell with a URL bar and back button.
+- **FidoUI** (separate Swift package under `Samples/WebAuthnInterceptorSample/FidoUI`) — the reusable UI + transport layer described below.
 
-The flow works as follows:
-1. JavaScript intercepts `navigator.credentials.create()` or `navigator.credentials.get()`
-2. The request is serialized and sent to Swift via `WKScriptMessageHandler`
-3. Swift converts the request to CTAP2 format and communicates with the YubiKey
-4. The response is converted back to WebAuthn format and returned to JavaScript
+The end-to-end flow:
+1. Page JS calls `navigator.credentials.create()` / `.get()`; the interceptor serializes the options as WebAuthn Level 3 JSON and posts it to Swift.
+2. `WebAuthnHandler` decodes the JSON straight into the SDK's strongly-typed `Options` and hands them to `FidoUI`.
+3. `FidoUI` opens a transport, runs the ceremony via ``WebAuthn/Client``, and shows PIN / UV / error / success panels as needed.
+4. The resulting ``WebAuthn/Registration/Response`` or ``WebAuthn/Authentication/Response`` is serialized via its built-in `toJSON()` and posted back to JS.
 
 ## Intercepting WebAuthn Calls
 
 ### JavaScript Injection
 
-The interceptor replaces the browser's WebAuthn API with custom implementations:
+`Interceptor.js` replaces `navigator.credentials.create` and `navigator.credentials.get` with versions that forward to Swift. Binary fields (`challenge`, `user.id`, `rawId`, …) are serialized to **base64url** strings via `JSON.stringify` with a replacer — this matches the WebAuthn Level 3 JSON format the SDK consumes natively, so no custom binary-wrapping protocol is needed.
 
 ```javascript
-const originalCreate = navigator.credentials.create.bind(navigator.credentials);
-const originalGet = navigator.credentials.get.bind(navigator.credentials);
+function interceptWebAuthn(type, options, originalFn) {
+    if (!shouldIntercept(options)) return originalFn(options);
 
-navigator.credentials.create = function(options) {
-    console.log('[WebAuthn] Intercepting create');
     return new Promise((resolve, reject) => {
         pendingResolve = resolve;
         pendingReject = reject;
 
-        const request = {
-            type: 'create',
-            origin: window.location.origin,
-            request: encodeRequest(options.publicKey)
-        };
-        // Base64 encode to safely pass through the JS/Swift bridge
-        window.webkit.messageHandlers.__webauthn_create__.postMessage(btoa(JSON.stringify(request)));
+        const publicKey = serializePublicKeyOptionsToJSON(options.publicKey);
+        if (type === 'create' && publicKey.rp && !publicKey.rp.id) {
+            publicKey.rp.id = window.location.hostname;
+        }
+
+        const request = { type, origin: window.location.origin, request: publicKey };
+        window.webkit.messageHandlers[`__webauthn_${type}__`]
+            .postMessage(btoa(JSON.stringify(request)));
     });
-};
+}
 ```
 
-The script is injected at document start to ensure it runs before any website code:
+The script is injected at document start so it runs before any page code:
 
 ```swift
 let script = WKUserScript(
@@ -75,208 +71,92 @@ let script = WKUserScript(
 config.userContentController.addUserScript(script)
 ```
 
+`shouldIntercept` returns `true` for any `publicKey`-bearing request, but is the natural seam for narrower policies (e.g. only intercept when `publicKey.hints` includes `"security-key"`).
+
 ### Receiving Messages in Swift
 
-The `Coordinator` class implements `WKScriptMessageHandler` to receive the intercepted requests:
+The `Coordinator` is both `WKNavigationDelegate` and `WKScriptMessageHandler`. Each incoming message starts a fresh ceremony, cancelling any in-flight one first:
 
 ```swift
-func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-    // Decode the base64-encoded request from JavaScript
+func userContentController(
+    _ userContentController: WKUserContentController,
+    didReceive message: WKScriptMessage
+) {
     guard let base64 = message.body as? String,
           let data = Data(base64Encoded: base64) else { return }
 
-    Task {
-        await handleWebAuthnMessage(name: message.name, data: data)
+    ceremonyGeneration += 1
+    let generation = ceremonyGeneration
+    activeTask?.cancel()
+    activeTask = Task {
+        await handler.cancelActiveCeremony()
+        await handleWebAuthnMessage(name: message.name, data: data, generation: generation)
     }
 }
 ```
 
-## CTAP2 Communication
+`shutdown()` is called from `dismantle{UI,NS}View` so navigating away mid-ceremony unwinds the open NFC/HID handle.
 
-### Creating Credentials
+## Driving the Ceremony
 
-The `handleCreate` method converts WebAuthn `PublicKeyCredentialCreationOptions` to CTAP2 `MakeCredential` parameters:
+`WebAuthnHandler` is intentionally tiny — it decodes the envelope, builds a typed `Origin`, and delegates to `FidoUI`. There is no manual CTAP2 code, no PIN loop, and no extension plumbing in the sample itself.
 
 ```swift
+struct WebAuthnRequest<Options: Decodable>: Decodable {
+    let origin: String
+    let publicKey: Options
+    enum CodingKeys: String, CodingKey { case origin; case publicKey = "request" }
+}
+
 func handleCreate(_ data: Data) async throws -> String {
-    let wrapper = try JSONDecoder().decode(CreateRequestWrapper.self, from: data)
-    let request = wrapper.request
-
-    let session = try await makeSession()
-
-    let rpEntity = WebAuthn.PublicKeyCredential.RPEntity(
-        id: request.rp.id,
-        name: request.rp.name
+    let request = try JSONDecoder().decode(
+        WebAuthnRequest<WebAuthn.Registration.Options>.self,
+        from: data
     )
-    let userEntity = WebAuthn.PublicKeyCredential.UserEntity(
-        id: Data(base64Encoded: request.user.id) ?? Data(),
-        name: request.user.name,
-        displayName: request.user.displayName
+    let origin = try WebAuthn.Origin(request.origin)
+    let response = try await fidoUI.makeCredential(
+        request.publicKey,
+        origin: origin,
+        serviceName: origin.host
     )
-
-    let params = CTAP2.MakeCredential.Parameters(
-        clientDataHash: clientDataHash,
-        rp: rpEntity,
-        user: userEntity,
-        pubKeyCredParams: pubKeyParams,
-        excludeList: excludeList,
-        extensions: extState.inputs,
-        rk: true
-    )
-
-    let response = try await session.makeCredential(parameters: params, token: pinToken).value
-    // Convert response back to WebAuthn format...
+    return String(decoding: try response.toJSON(), as: UTF8.self)
 }
 ```
 
-### Getting Assertions
+`handleGet` is the symmetric counterpart that decodes ``WebAuthn/Authentication/Options`` and calls `fidoUI.getAssertion`. The response JSON produced by `toJSON()` is already in WebAuthn Level 3 format with base64url-encoded binary fields, so the JS side just decodes those back to `ArrayBuffer` when it materializes the credential.
 
-Similarly, `handleGet` converts `PublicKeyCredentialRequestOptions` to CTAP2 `GetAssertion`:
+## Returning the Response to JavaScript
 
-```swift
-func handleGet(_ data: Data) async throws -> String {
-    let wrapper = try JSONDecoder().decode(GetRequestWrapper.self, from: data)
-    let request = wrapper.request
-
-    let session = try await makeSession()
-
-    let params = CTAP2.GetAssertion.Parameters(
-        rpId: request.rpId,
-        clientDataHash: clientDataHash,
-        allowList: allowList,
-        extensions: extState.inputs
-    )
-
-    let response = try await session.getAssertion(parameters: params, token: pinToken).value
-    // Convert response back to WebAuthn format...
-}
-```
-
-## PIN Handling
-
-The sample implements a PIN retry loop that prompts the user when verification fails. If the YubiKey has a PIN configured, it requests a PIN token using `session.getPinUVToken()` before performing CTAP2 operations. Invalid PIN attempts are caught and the user is prompted to retry.
-
-## PRF Extension (hmac-secret)
-
-The PRF extension allows deriving cryptographic secrets from credentials. This is useful for encryption keys that are bound to both the credential and user-provided salts.
-
-### Requesting PRF During Credential Creation
-
-```swift
-if let prfEval = request.extensions?.prf?.eval,
-   let firstData = Data(base64Encoded: prfEval.first) {
-    let prf = try await WebAuthn.Extension.PRF(session: session)
-    let secondData = prfEval.second.flatMap { Data(base64Encoded: $0) }
-    state.inputs.append(try prf.makeCredential.input(first: firstData, second: secondData))
-    state.prf = prf
-} else if request.extensions?.prf != nil {
-    // Just enable PRF without evaluating
-    let prf = try await WebAuthn.Extension.PRF(session: session)
-    state.inputs.append(prf.makeCredential.input())
-    state.prf = prf
-}
-```
-
-### Extracting PRF Results
-
-During credential creation, you typically get confirmation that PRF is enabled:
-
-```swift
-if let prf = state.prf, let prfResult = try prf.makeCredential.output(from: response) {
-    results.prf = PRFOutput(prfResult)
-}
-```
-
-During assertion (authentication), you get the actual derived secrets:
-
-```swift
-if let prf = state.prf, let secrets = try prf.getAssertion.output(from: response) {
-    results.prf = PRFOutput(secrets)
-}
-```
-
-The secrets are 32-byte HMAC-SHA256 outputs derived from the credential's secret key and the provided salt values. These are deterministic - the same salts always produce the same outputs for a given credential.
-
-## Platform-Specific Connections
-
-The sample handles iOS and macOS differently:
-
-```swift
-private func makeSession() async throws -> CTAP2.Session {
-    #if os(iOS)
-    let conn = try await NFCSmartCardConnection(alertMessage: "Tap your YubiKey")
-    #else
-    let conn = try await HIDFIDOConnection()
-    #endif
-
-    connection = conn
-    let session = try await CTAP2.Session.makeSession(connection: conn)
-    return session
-}
-```
-
-On iOS, NFC provides a system dialog prompting the user to tap their YubiKey. On macOS, USB HID waits for a FIDO-capable device to be connected.
-
-## Binary Encoding
-
-The WebAuthn API uses `ArrayBuffer` for binary fields, but WebKit's Swift-to-JavaScript bridge only supports JSON, which has no binary type. The sample uses standard base64 encoding in both directions for simplicity. The entire message is then wrapped in standard base64 for transport.
-
-### Requests (JS → Swift)
-
-WebAuthn request options contain `ArrayBuffer` fields like `challenge` and `user.id`. The `encodeRequest` function recursively converts these to base64 strings before JSON serialization:
-
-```javascript
-function encodeRequest(obj) {
-    if (obj instanceof ArrayBuffer) {
-        return base64Encode(obj);
-    }
-    // recurse into objects/arrays...
-}
-```
-
-### Responses (Swift → JS)
-
-Swift wraps binary data as `{"__binary__": "<base64>"}`. On the JavaScript side, a recursive function finds all `__binary__` markers and decodes them to `ArrayBuffer`:
-
-```swift
-struct BinaryValue: Codable {
-    let __binary__: String
-    init(_ data: Data) {
-        self.__binary__ = data.base64EncodedString()
-    }
-}
-```
-
-This allows Swift to wrap any `Data` in `BinaryValue` without needing to know which specific fields the WebAuthn API expects as binary.
-
-## Response Structure
-
-The sample converts CTAP2 responses back to the expected WebAuthn structure:
-
-```swift
-struct CredentialResponse: Codable {
-    let type: String
-    let id: String?
-    let rawId: BinaryValue?
-    let response: AuthenticatorResponse
-    let clientExtensionResults: ExtensionResults?
-    let authenticatorAttachment: String?
-
-    init(clientDataJSON: Data, makeCredentialResponse: CTAP2.MakeCredential.Response, extensionResults: ExtensionResults? = nil) {
-        let credentialId = makeCredentialResponse.authenticatorData.attestedCredentialData?.credentialId
-        self.type = "public-key"
-        self.id = credentialId?.base64urlEncodedString()
-        self.rawId = BinaryValue(credentialId)
-        self.response = AuthenticatorResponse(clientDataJSON: clientDataJSON, makeCredentialResponse: makeCredentialResponse)
-        self.clientExtensionResults = extensionResults
-        self.authenticatorAttachment = "cross-platform"
-    }
-}
-```
-
-The response is then JSON-encoded and passed back to JavaScript via a callback:
+The Swift-side response is JSON-encoded, base64-wrapped for the bridge, and handed back via a callback installed by the interceptor:
 
 ```swift
 let encodedResponse = Data(response.utf8).base64EncodedString()
-_ = try? await webView?.evaluateJavaScript("__webauthn_callback__('\(encodedResponse)')")
+_ = try? await webView?.evaluateJavaScript(
+    "__webauthn_callback__('\(encodedResponse)')"
+)
 ```
+
+JavaScript decodes the JSON and rebuilds a `PublicKeyCredential`-shaped object — converting the base64url binary fields back to `ArrayBuffer`s and wiring up `getClientExtensionResults`, `getAuthenticatorData`, `getPublicKey`, `toJSON`, and the rest. Errors travel through a parallel `__webauthn_error__` channel and surface to the page as a `DOMException` with name `NotAllowedError`.
+
+## The FidoUI Module
+
+`FidoUI` is a `@MainActor` Swift package shipped alongside the sample, and it does most of the work. Intercepting `navigator.credentials.*` means giving up the platform's built-in WebAuthn sheets (tap prompt, PIN entry, errors, success) — `FidoUI` replaces them end-to-end with a complete ceremony UI: connect / touch, PIN entry with retry counters, PIN change, first-time PIN setup, forced PIN-change recovery, fingerprint enrollment, credential picker, and error / success results. The host app stays a thin shell.
+
+Beyond the panels, it owns the moving parts that you'd otherwise re-implement per app:
+
+- **Transport selection.** On iOS it tries wired (USB-C / Lightning) first and falls back to NFC; on macOS it uses HID FIDO. Connections are polled and reused across a ceremony.
+- **Ceremony serialization.** Concurrent calls on the same `FidoUI` instance are queued so they don't fight over the alert window, transport, or shared panel state.
+- **Cancellation.** A single `cancel()` call (used by the WebView coordinator on dismiss / new message) tears down the active transport and dismisses any visible panel.
+
+The host code only needs to construct one `FidoUI` instance and call `makeCredential` / `getAssertion` per request — everything else (PIN prompts, UV policy, transport lifecycle, error UI) is handled internally. See `Samples/WebAuthnInterceptorSample/FidoUI/` for the full source.
+
+## Platform Notes
+
+- **iOS.** The wired path goes through CryptoTokenKit (`WiredSmartCardConnection` — USB-C or Lightning), and the NFC path through `NFCSmartCardConnection`. The sample's `Info.plist` declares `NFCReaderUsageDescription` and lists the FIDO applet AID (`A0000006472F0001`) under `com.apple.developer.nfc.readersession.iso7816.select-identifiers`; the entitlements turn on `com.apple.developer.nfc.readersession.formats` (`TAG`) and `com.apple.security.smartcard`.
+- **macOS.** `FidoUI` uses ``HIDFIDOConnection`` directly. The HID path itself doesn't need the smart-card entitlement, but the sample enables `com.apple.security.smartcard` and `com.apple.security.device.usb` so the same target builds cleanly for both platforms.
+
+## Where to Customize
+
+- **Which requests get intercepted.** Edit `shouldIntercept` in `Interceptor.js` to scope by hint, RP ID, or any other heuristic.
+- **Origin verification.** `WebAuthnHandler` builds a ``WebAuthn/Origin`` from `window.location.origin`. Replace the `isPublicSuffix` closure passed to `FidoUI` with a real public-suffix-list check before shipping.
+- **UI.** Swap or restyle the panels in `FidoUI/Sources/FidoUI/Views/` — the rest of the module is UI-agnostic.

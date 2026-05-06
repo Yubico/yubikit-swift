@@ -1,23 +1,20 @@
-// Interceptor.js - WebAuthn API Interceptor
-//
-// Monkey-patches navigator.credentials.create() and navigator.credentials.get()
-// to route WebAuthn requests through native Swift via WebKit message handlers.
-//
-// WebAuthn Level 3 only provides JSON serialization in one direction (credential.toJSON()).
-// This interceptor implements the inverse: options → JSON and JSON → credential.
+// Monkey-patches navigator.credentials.{create,get} so WebAuthn requests
+// route through native Swift via WebKit message handlers. WebAuthn Level 3
+// only ships JSON → credential via toJSON(); this file also implements the
+// inverse (options → JSON and JSON → credential).
 
 (function() {
     'use strict';
 
-    // MARK: - Setup
+    // Set to true to forward all console.log/warn/error to Swift. Chatty on
+    // real sites, so off by default.
+    const FORWARD_CONSOLE = false;
 
     const originalCreate = navigator.credentials.create.bind(navigator.credentials);
     const originalGet = navigator.credentials.get.bind(navigator.credentials);
 
     let pendingResolve = null;
     let pendingReject = null;
-
-    // MARK: - Native Callbacks
 
     window.__webauthn_callback__ = function(encoded) {
         console.log('[WebAuthn] Received success callback');
@@ -43,8 +40,6 @@
             pendingReject = null;
         }
     };
-
-    // MARK: - Base64URL Encoding
 
     function base64urlToArrayBuffer(str) {
         let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
@@ -95,7 +90,11 @@
     }
 
     function parsePublicKeyCredentialFromJSON(json) {
-        const extensionResults = decodeExtensionResults(json.clientExtensionResults || {});
+        // Deep-clone before decoding so toJSON() still returns the pristine
+        // base64url-encoded payload (decodeExtensionResults mutates in place).
+        const extensionResults = decodeExtensionResults(
+            JSON.parse(JSON.stringify(json.clientExtensionResults || {}))
+        );
 
         const credential = {
             id: json.id,
@@ -134,8 +133,6 @@
         return credential;
     }
 
-    // MARK: - Interception
-
     function shouldIntercept(options) {
         // Intercept all WebAuthn requests and route them to the YubiKey.
         // To only intercept when security-key hint is present, use:
@@ -152,6 +149,11 @@
         console.log(`[WebAuthn] Intercepting ${type}`);
 
         return new Promise((resolve, reject) => {
+            if (pendingReject) {
+                console.warn('[WebAuthn] Concurrent WebAuthn call — rejecting previous request');
+                pendingReject(new DOMException('Superseded by a new WebAuthn request', 'AbortError'));
+            }
+
             pendingResolve = resolve;
             pendingReject = reject;
 
@@ -172,8 +174,6 @@
         });
     }
 
-    // MARK: - API Patching
-
     navigator.credentials.create = function(options) {
         return interceptWebAuthn('create', options, originalCreate);
     };
@@ -182,28 +182,22 @@
         return interceptWebAuthn('get', options, originalGet);
     };
 
-    // Override platform authenticator checks since we route to YubiKey
+    // We route to a YubiKey, not the platform authenticator.
     if (window.PublicKeyCredential) {
         window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable = () => Promise.resolve(false);
         window.PublicKeyCredential.isConditionalMediationAvailable = () => Promise.resolve(false);
     }
 
-    // Forward console.log to native for debugging
-    const originalLog = console.log;
-    const originalError = console.error;
-    const originalWarn = console.warn;
-    console.log = function(...args) {
-        originalLog.apply(console, args);
-        window.webkit.messageHandlers.__webauthn_console__.postMessage(args.map(String).join(' '));
-    };
-    console.error = function(...args) {
-        originalError.apply(console, args);
-        window.webkit.messageHandlers.__webauthn_console__.postMessage('[ERROR] ' + args.map(String).join(' '));
-    };
-    console.warn = function(...args) {
-        originalWarn.apply(console, args);
-        window.webkit.messageHandlers.__webauthn_console__.postMessage('[WARN] ' + args.map(String).join(' '));
-    };
+    if (FORWARD_CONSOLE) {
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        const post = (prefix, args) =>
+            window.webkit.messageHandlers.__webauthn_console__.postMessage(prefix + args.map(String).join(' '));
+        console.log = function(...args) { originalLog.apply(console, args); post('', args); };
+        console.error = function(...args) { originalError.apply(console, args); post('[ERROR] ', args); };
+        console.warn = function(...args) { originalWarn.apply(console, args); post('[WARN] ', args); };
+    }
 
     console.log('[WebAuthn] Interceptor installed');
 })();
