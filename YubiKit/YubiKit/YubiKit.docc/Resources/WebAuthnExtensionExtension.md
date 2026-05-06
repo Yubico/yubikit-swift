@@ -5,14 +5,18 @@ WebAuthn-level extensions that wrap CTAP2 extensions for web compatibility.
 ## Overview
 
 WebAuthn extensions provide a higher-level API that matches the W3C WebAuthn
-specification. They wrap the underlying ``CTAP2/Extension``s and translate
-between WebAuthn API semantics and CTAP2 protocol details — for example,
-``PRF`` wraps the CTAP2 `hmac-secret` extension.
+specification. They are built on the underlying ``CTAP2/Extension``s and adapt
+them to WebAuthn API semantics. For example, ``PRF`` is built on the CTAP2
+`hmac-secret` extension but adds input hashing for domain separation and
+exposes a single UV-scoped PRF rather than `hmac-secret`'s UV/non-UV pair.
 
 ``WebAuthn/Client`` filters which extensions it will process via the
-`allowedExtensions` parameter, a `Set<Identifier>`. Pass an array literal
-(e.g. `[.prf, .credProps]`) or one of the static helpers
-(``Swift/Set/standard``, ``Swift/Set/all``).
+`allowedExtensions` parameter, a `Set<Identifier>`. Pass an array literal (e.g.
+`[.prf, .credProps]`) or one of the static helpers (``Swift/Set/standard``,
+``Swift/Set/all``). Extensions are configured per ceremony on
+``WebAuthn/Registration/Options/extensions`` or
+``WebAuthn/Authentication/Options/extensions``, and outputs come back on
+`clientExtensionResults` of the corresponding `Response`.
 
 ```swift
 let opts = WebAuthn.Registration.Options(

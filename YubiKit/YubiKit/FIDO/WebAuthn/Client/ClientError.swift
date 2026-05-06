@@ -37,9 +37,9 @@ extension WebAuthn {
         /// the authenticator. Re-invoke the operation to retry UV (or supply
         /// a PIN via a fresh ``Authorization``).
         case uvRejected(retriesRemaining: Int, source: SourceLocation)
-        /// Built-in UV is locked out for this authenticator. Per CTAP spec,
-        /// this is recoverable via a correct PIN entry on a subsequent
-        /// invocation that uses the PIN path.
+        /// Built-in UV is locked out for this authenticator. Re-invoke using
+        /// the PIN path; a successful PIN validation via ClientPin unlocks
+        /// built-in UV (only that or a factory reset will).
         case uvBlocked(source: SourceLocation)
         /// The PIN is blocked due to too many failed attempts. Factory reset required.
         case pinBlocked(source: SourceLocation)

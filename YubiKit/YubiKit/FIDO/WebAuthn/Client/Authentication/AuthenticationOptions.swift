@@ -72,7 +72,7 @@ extension WebAuthn.Authentication {
     }
 }
 
-/// WebAuthn Level 3 type alias for credential request options.
-///
-/// - SeeAlso: [WebAuthn PublicKeyCredentialRequestOptions](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialrequestoptions)
+/// Type alias matching the W3C
+/// [PublicKeyCredentialRequestOptions](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialrequestoptions)
+/// dictionary name, for code that mirrors the JavaScript API.
 public typealias PublicKeyCredentialRequestOptions = WebAuthn.Authentication.Options

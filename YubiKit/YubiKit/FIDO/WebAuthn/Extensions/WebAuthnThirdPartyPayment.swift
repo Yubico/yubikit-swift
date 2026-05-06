@@ -18,15 +18,14 @@ extension WebAuthn.Extension {
 
     /// The `thirdPartyPayment` (WebAuthn JSON: `payment`) CTAP2 extension.
     ///
-    /// Marks a credential as usable for Secure Payment Confirmation (SPC) and
-    /// reports back whether a credential was registered with that mark.
+    /// Marks a credential as usable for
+    /// [Secure Payment Confirmation (SPC)](https://www.w3.org/TR/secure-payment-confirmation)
+    /// and reports back whether a credential was registered with that mark.
     ///
     /// This SDK forwards the `thirdPartyPayment` flag to the authenticator only.
     /// It does **not** synthesize the SPC `clientDataJSON` (`type: "payment.get"`,
     /// embedded `payment` member) required by W3C SPC; consumers wanting full
     /// SPC support must build that out-of-band.
-    ///
-    /// - SeeAlso: [Secure Payment Confirmation](https://www.w3.org/TR/secure-payment-confirmation)
     public enum ThirdPartyPayment {
 
         public enum Registration {

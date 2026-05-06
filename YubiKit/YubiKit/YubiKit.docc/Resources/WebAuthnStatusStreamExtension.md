@@ -7,11 +7,14 @@ Async sequence yielding progress updates during a WebAuthn ceremony.
 ``WebAuthn/Client/makeCredential(_:authorization:)`` and
 ``WebAuthn/Client/getAssertion(_:authorization:)`` return a `StatusStream` that
 yields ``WebAuthn/Status`` values as the ceremony progresses. PIN entry and UV
-decisions are handled out-of-band via ``WebAuthn/Authorization`` — they do
-*not* appear on this stream.
+decisions are handled out-of-band via ``WebAuthn/Authorization`` — they do *not*
+appear on this stream.
 
-For non-UI callers, drain with ``value()`` and ignore progress. For UI
-integration, iterate to drive cancel buttons, biometric prompts, or a spinner:
+For non-UI callers, drain with ``value()`` and ignore progress. For UI integration,
+iterate to drive cancel buttons, biometric prompts, or a spinner. The stream
+deduplicates consecutive identical
+`.processing` / `.waitingForUser` / `.waitingForUserVerification` events, so each
+emission reflects a real state change.
 
 ```swift
 for try await status in await client.makeCredential(opts, authorization: auth) {
@@ -30,10 +33,6 @@ for try await status in await client.makeCredential(opts, authorization: auth) {
     }
 }
 ```
-
-The stream deduplicates consecutive identical `.processing` /
-`.waitingForUser` / `.waitingForUserVerification` events, so each emission
-reflects a real state change.
 
 ## Topics
 

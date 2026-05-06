@@ -18,7 +18,8 @@ import Foundation
 
 extension WebAuthn.Extension {
 
-    /// The minPinLength extension for retrieving authenticator PIN length requirements.
+    /// The [minPinLength extension](https://www.w3.org/TR/webauthn-3/#sctn-minpinlength-extension)
+    /// for retrieving authenticator PIN length requirements.
     ///
     /// This WebAuthn extension wraps the CTAP2 minPinLength extension, allowing
     /// authorized relying parties to retrieve the minimum PIN length enforced
@@ -41,7 +42,6 @@ extension WebAuthn.Extension {
     ///
     /// - Note: The RP ID must be configured in the authenticator's `minPINLengthRPIDs`
     ///   list for the minimum PIN length to be returned.
-    /// - SeeAlso: [WebAuthn minPinLength Extension](https://www.w3.org/TR/webauthn-3/#sctn-minpinlength-extension)
     public enum MinPinLength {}
 }
 

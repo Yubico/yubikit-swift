@@ -93,7 +93,7 @@ extension WebAuthn.Registration {
     }
 }
 
-/// WebAuthn Level 3 type alias for credential creation options.
-///
-/// - SeeAlso: [WebAuthn PublicKeyCredentialCreationOptions](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialcreationoptions)
+/// Type alias matching the W3C
+/// [PublicKeyCredentialCreationOptions](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialcreationoptions)
+/// dictionary name, for code that mirrors the JavaScript API.
 public typealias PublicKeyCredentialCreationOptions = WebAuthn.Registration.Options

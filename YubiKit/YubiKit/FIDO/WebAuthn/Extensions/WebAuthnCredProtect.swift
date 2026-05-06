@@ -18,7 +18,8 @@ import Foundation
 
 extension WebAuthn.Extension {
 
-    /// The credentialProtectionPolicy extension for controlling credential protection.
+    /// The [credentialProtectionPolicy extension](https://www.w3.org/TR/webauthn-3/#sctn-credential-protection-extension)
+    /// for controlling credential protection.
     ///
     /// This WebAuthn extension wraps the CTAP2 credProtect extension, allowing
     /// relying parties to specify when user verification is required.
@@ -39,8 +40,6 @@ extension WebAuthn.Extension {
     ///     // Verify the applied protection level
     /// }
     /// ```
-    ///
-    /// - SeeAlso: [WebAuthn credProtect Extension](https://www.w3.org/TR/webauthn-3/#sctn-credential-protection-extension)
     public enum CredProtect {}
 }
 

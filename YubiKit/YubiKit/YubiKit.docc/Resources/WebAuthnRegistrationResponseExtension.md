@@ -1,14 +1,23 @@
 # ``YubiKit/WebAuthn/Registration/Response``
 
-Authenticator response from a successful credential registration.
+Authenticator answer to a credential registration request.
 
 ## Overview
 
-`Response` is the result of ``WebAuthn/Client/makeCredential(_:authorization:)``.
-It carries the new credential's identifier, public key, attestation, and any
-extension outputs the authenticator returned. The raw bytes (``rawAttestationObject``,
-``rawAuthenticatorData``) are kept alongside the parsed forms so callers can
-ship them to a relying party verbatim.
+`Response` is the result of ``WebAuthn/Client/makeCredential(_:authorization:)``. It
+carries the new credential's identifier, public key, attestation statement, and any
+extension outputs the authenticator returned. The raw bytes
+(``rawAttestationObject``, ``rawAuthenticatorData``) are kept alongside the parsed
+forms so callers can ship them to the relying party verbatim.
+
+The relying party verifies a registration by hashing `clientDataJSON`, running
+the attestation statement format's verification procedure (`none`, `packed`,
+`fido-u2f`, `tpm`, …) to obtain a trust path if the format provides one, and
+assessing the trust path against policy — for `none`, that the format is
+policy-acceptable; for others, that the path chains to a trusted root. It then
+stores ``credentialId`` and ``publicKey`` against the user account for future
+assertions. Use ``toJSON()`` to encode the response in the
+`PublicKeyCredential.toJSON()` shape the relying party expects.
 
 ## Topics
 
@@ -32,3 +41,7 @@ ship them to a relying party verbatim.
 ### Extensions
 
 - ``clientExtensionResults``
+
+### Serialization
+
+- ``toJSON()``

@@ -18,11 +18,11 @@ import Foundation
 
 extension WebAuthn.Extension {
 
-    /// The Credential Properties (credProps) extension.
+    /// The [Credential Properties (credProps) extension](https://www.w3.org/TR/webauthn-3/#sctn-authenticator-credential-properties-extension).
     ///
     /// This is a client-side WebAuthn extension that reports whether the created
     /// credential is discoverable (resident key). Unlike other extensions, `credProps`
-    /// does not require authenticator support - the client computes the result based
+    /// does not require authenticator support — the client computes the result based
     /// on the requested options and authenticator capabilities.
     ///
     /// ## Registration
@@ -42,8 +42,6 @@ extension WebAuthn.Extension {
     ///     // Credential is not discoverable - store credential ID server-side
     /// }
     /// ```
-    ///
-    /// - SeeAlso: [WebAuthn credProps Extension](https://www.w3.org/TR/webauthn-3/#sctn-authenticator-credential-properties-extension)
     public enum CredProps {}
 }
 

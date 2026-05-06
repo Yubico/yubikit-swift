@@ -19,7 +19,10 @@ extension WebAuthn {
     /// A validated WebAuthn origin.
     ///
     /// Extracts `scheme://host[:port]` from any URL. Path, query, and fragment are stripped.
-    /// The URL must be a secure context (`https://` or `http://localhost`).
+    /// Enforces the [W3C secure-context rule](https://w3c.github.io/webappsec-secure-contexts/):
+    /// only `https://` is accepted, with an exception for `http://localhost` for local
+    /// development. The origin concept itself is defined by
+    /// [RFC 6454](https://tools.ietf.org/html/rfc6454).
     ///
     /// ```swift
     /// let origin = try WebAuthn.Origin("https://example.com/login?foo=bar")
@@ -32,9 +35,6 @@ extension WebAuthn {
     ///
     /// let insecure = try WebAuthn.Origin("http://example.com")  // throws .insecureContext
     /// ```
-    ///
-    /// - SeeAlso: [RFC 6454 - The Web Origin Concept](https://tools.ietf.org/html/rfc6454)
-    /// - SeeAlso: [W3C Secure Contexts](https://w3c.github.io/webappsec-secure-contexts/)
     public struct Origin: Sendable, Hashable, CustomStringConvertible {
 
         /// Errors that can occur when creating an Origin.
