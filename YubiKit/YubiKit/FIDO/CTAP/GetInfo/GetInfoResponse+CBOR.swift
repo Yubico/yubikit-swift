@@ -29,7 +29,7 @@ extension CTAP2.GetInfo.Response: CBOR.Decodable {
         let versions = versionStrings.map { CTAP2.GetInfo.AuthenticatorVersion($0) }
 
         // Required: aaguid (0x03) - 16-byte byte string
-        guard let aaguid: UUID = map[.int(0x03)]?.cborDecoded() else {
+        guard let aaguid: CTAP2.GetInfo.AAGUID = map[.int(0x03)]?.cborDecoded() else {
             return nil
         }
 
@@ -89,10 +89,10 @@ extension CTAP2.Extension.Identifier: CBOR.Decodable {
     }
 }
 
-extension UUID: CBOR.Decodable {
+extension CTAP2.GetInfo.Opaque128: CBOR.Decodable {
     init?(cbor: CBOR.Value) {
-        guard let data = cbor.dataValue, data.count == 16 else { return nil }
-        self = data.withUnsafeBytes { UUID(uuid: $0.load(as: uuid_t.self)) }
+        guard let data = cbor.dataValue else { return nil }
+        self.init(rawValue: data)
     }
 }
 

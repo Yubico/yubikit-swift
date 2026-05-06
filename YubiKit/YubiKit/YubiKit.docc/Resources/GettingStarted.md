@@ -252,7 +252,7 @@ let response = try await client.makeCredential(
         user: .init(id: userId, name: "alice@example.com")
     ),
     authorization: .pin("1234")
-).value()
+).value
 ```
 
 PIN and UV are supplied per ceremony via ``WebAuthn/Authorization``. For raw

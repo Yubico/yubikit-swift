@@ -51,13 +51,13 @@ let registration = try await client.makeCredential(
         user: .init(id: userId, name: "alice@example.com")
     ),
     authorization: .pin("1234")
-).value()
+).value
 
 // Authenticate
 let assertions = try await client.getAssertion(
     .init(challenge: challenge, rpId: "example.com"),
     authorization: .pin("1234")
-).value()
+).value
 ```
 
 Most apps start with ``Client``. For lower-level CTAP2 access — raw `makeCredential` /

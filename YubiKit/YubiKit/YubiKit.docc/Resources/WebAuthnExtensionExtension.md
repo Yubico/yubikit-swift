@@ -29,7 +29,7 @@ let opts = WebAuthn.Registration.Options(
         credProps: true
     )
 )
-let response = try await client.makeCredential(opts, authorization: auth).value()
+let response = try await client.makeCredential(opts, authorization: auth).value
 ```
 
 ## Topics

@@ -27,7 +27,7 @@ let regOpts = WebAuthn.Registration.Options(
     user: .init(id: userId, name: "alice@example.com"),
     extensions: .init(prf: .enable)
 )
-let registration = try await client.makeCredential(regOpts, authorization: auth).value()
+let registration = try await client.makeCredential(regOpts, authorization: auth).value
 
 // Authentication: derive a secret bound to the credential
 let authOpts = WebAuthn.Authentication.Options(
@@ -36,7 +36,7 @@ let authOpts = WebAuthn.Authentication.Options(
     allowCredentials: [.init(id: storedCredentialId)],
     extensions: .init(prf: .eval(first: encryptionSeed))
 )
-let assertions = try await client.getAssertion(authOpts, authorization: auth).value()
+let assertions = try await client.getAssertion(authOpts, authorization: auth).value
 let derived = assertions.first?.clientExtensionResults.prf?.results.first
 ```
 

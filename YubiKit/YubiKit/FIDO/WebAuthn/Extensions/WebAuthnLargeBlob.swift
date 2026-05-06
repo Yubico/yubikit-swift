@@ -34,7 +34,7 @@ extension WebAuthn.Extension {
     ///     ...,
     ///     extensions: .init(largeBlob: .required)
     /// )
-    /// let response = try await client.makeCredential(options, authorization: .pin(pin)).value()
+    /// let response = try await client.makeCredential(options, authorization: .pin(pin)).value
     /// if response.clientExtensionResults.largeBlob?.supported == true {
     ///     // Credential supports large blob storage
     /// }
@@ -49,7 +49,7 @@ extension WebAuthn.Extension {
     ///     ...,
     ///     extensions: .init(largeBlob: .read)
     /// )
-    /// let matches = try await client.getAssertion(options, authorization: .pin(pin)).value()
+    /// let matches = try await client.getAssertion(options, authorization: .pin(pin)).value
     /// let response = matches[0]
     /// if let blob = response.clientExtensionResults.largeBlob?.blob {
     ///     // Use the retrieved blob data
@@ -66,7 +66,7 @@ extension WebAuthn.Extension {
     ///     allowCredentials: [.init(id: credentialId)],
     ///     extensions: .init(largeBlob: .write(myData))
     /// )
-    /// let matches = try await client.getAssertion(options, authorization: .pin(pin)).value()
+    /// let matches = try await client.getAssertion(options, authorization: .pin(pin)).value
     /// let response = matches[0]
     /// if response.clientExtensionResults.largeBlob?.written == true {
     ///     // Blob stored successfully

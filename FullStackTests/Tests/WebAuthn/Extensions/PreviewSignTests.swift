@@ -45,7 +45,7 @@ struct WebAuthnPreviewSignExtensionTests {
                 userVerification: .discouraged
             )
 
-            let response = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin)).value()
+            let response = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin)).value
 
             #expect(response.clientExtensionResults.previewSign == nil)
         }
@@ -74,7 +74,7 @@ struct WebAuthnPreviewSignExtensionTests {
                 )
             )
 
-            let response = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin)).value()
+            let response = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin)).value
 
             let generatedKey = try assertGeneratedKey(response)
             #expect(

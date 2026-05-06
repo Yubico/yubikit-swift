@@ -50,7 +50,7 @@ struct PINRetryTests {
 
         var caught: WebAuthn.ClientError?
         do throws(WebAuthn.ClientError) {
-            _ = try await client.getAssertion(Self.options, authorization: .pin("wrong")).value()
+            _ = try await client.getAssertion(Self.options, authorization: .pin("wrong")).value
         } catch {
             caught = error
         }
@@ -82,7 +82,7 @@ struct PINRetryTests {
 
         var caught: WebAuthn.ClientError?
         do throws(WebAuthn.ClientError) {
-            _ = try await client.getAssertion(Self.options, authorization: .pin("bad")).value()
+            _ = try await client.getAssertion(Self.options, authorization: .pin("bad")).value
         } catch {
             caught = error
         }
@@ -116,7 +116,7 @@ struct PINRetryTests {
 
         var caught: WebAuthn.ClientError?
         do throws(WebAuthn.ClientError) {
-            _ = try await client.getAssertion(Self.options, authorization: .pin("wrong")).value()
+            _ = try await client.getAssertion(Self.options, authorization: .pin("wrong")).value
         } catch {
             caught = error
         }
@@ -155,7 +155,7 @@ struct PINRetryTests {
 
         var caught: WebAuthn.ClientError?
         do throws(WebAuthn.ClientError) {
-            _ = try await client.getAssertion(Self.options, authorization: auth).value()
+            _ = try await client.getAssertion(Self.options, authorization: auth).value
         } catch {
             caught = error
         }
@@ -193,7 +193,7 @@ struct PINRetryTests {
 
         var caught: WebAuthn.ClientError?
         do throws(WebAuthn.ClientError) {
-            _ = try await client.getAssertion(Self.options, authorization: auth).value()
+            _ = try await client.getAssertion(Self.options, authorization: auth).value
         } catch {
             caught = error
         }

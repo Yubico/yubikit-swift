@@ -67,7 +67,7 @@ struct WebAuthnThirdPartyPaymentExtensionTests {
             )
 
             let createResponse = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin))
-                .value()
+                .value
 
             client = try await reconnect().client
 
@@ -79,7 +79,7 @@ struct WebAuthnThirdPartyPaymentExtensionTests {
             )
 
             let authResponse = try await client.getAssertion(authOptions, authorization: .pin(defaultTestPin))
-                .value()[0]
+                .value[0]
 
             let echoedBit = authResponse.clientExtensionResults.thirdPartyPayment?.isPaymentEnabled
             #expect(echoedBit == expectedEcho)

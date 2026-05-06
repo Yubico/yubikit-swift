@@ -245,10 +245,13 @@ extension WebAuthn.Extension.PRF {
         /// - Returns: The derived secrets, or nil if the extension output is not present.
         public func output(
             from response: CTAP2.GetAssertion.Response
-        ) throws(CTAP2.SessionError) -> CTAP2.Extension.HmacSecret.Secrets? {
+        ) throws(CTAP2.SessionError) -> Secrets? {
             try parent.hmacSecret.getAssertion.output(from: response)
         }
     }
+
+    /// Derived PRF secrets returned from a GetAssertion ceremony.
+    public typealias Secrets = CTAP2.Extension.HmacSecret.Secrets
 }
 
 // MARK: - WebAuthn Client Input/Output Types
