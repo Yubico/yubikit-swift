@@ -72,7 +72,9 @@ extension WebAuthn.Authentication {
     }
 }
 
-/// Type alias matching the W3C
-/// [PublicKeyCredentialRequestOptions](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialrequestoptions)
-/// dictionary name, for code that mirrors the JavaScript API.
-public typealias PublicKeyCredentialRequestOptions = WebAuthn.Authentication.Options
+extension WebAuthn {
+    /// Type alias matching the W3C
+    /// [PublicKeyCredentialRequestOptions](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialrequestoptions)
+    /// dictionary name, for code that mirrors the JavaScript API.
+    public typealias PublicKeyCredentialRequestOptions = Authentication.Options
+}

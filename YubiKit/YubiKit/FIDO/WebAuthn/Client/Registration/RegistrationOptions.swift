@@ -93,7 +93,9 @@ extension WebAuthn.Registration {
     }
 }
 
-/// Type alias matching the W3C
-/// [PublicKeyCredentialCreationOptions](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialcreationoptions)
-/// dictionary name, for code that mirrors the JavaScript API.
-public typealias PublicKeyCredentialCreationOptions = WebAuthn.Registration.Options
+extension WebAuthn {
+    /// Type alias matching the W3C
+    /// [PublicKeyCredentialCreationOptions](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialcreationoptions)
+    /// dictionary name, for code that mirrors the JavaScript API.
+    public typealias PublicKeyCredentialCreationOptions = Registration.Options
+}

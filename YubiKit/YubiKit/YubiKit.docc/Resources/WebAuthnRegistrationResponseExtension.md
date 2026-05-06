@@ -12,12 +12,10 @@ forms so callers can ship them to the relying party verbatim.
 
 The relying party verifies a registration by hashing `clientDataJSON`, running
 the attestation statement format's verification procedure (`none`, `packed`,
-`fido-u2f`, `tpm`, …) to obtain a trust path if the format provides one, and
-assessing the trust path against policy — for `none`, that the format is
-policy-acceptable; for others, that the path chains to a trusted root. It then
-stores ``credentialId`` and ``publicKey`` against the user account for future
-assertions. Use ``toJSON()`` to encode the response in the
-`PublicKeyCredential.toJSON()` shape the relying party expects.
+`fido-u2f`, `tpm`, …), and applying its attestation policy. It then stores
+``credentialId`` and ``publicKey`` against the user account for future assertions.
+Use ``toJSON()`` to encode the response in the `PublicKeyCredential.toJSON()`
+shape the relying party expects.
 
 ## Topics
 

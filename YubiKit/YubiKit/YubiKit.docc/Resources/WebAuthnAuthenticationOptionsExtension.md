@@ -6,8 +6,8 @@ Parameters for a credential assertion request.
 
 `Options` is the input to ``WebAuthn/Client/getAssertion(_:authorization:)``. It mirrors
 the W3C [PublicKeyCredentialRequestOptions](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialrequestoptions)
-dictionary and is also exposed as the top-level typealias
-``PublicKeyCredentialRequestOptions`` for code that mirrors the JavaScript API.
+dictionary and is also exposed as the typealias
+``WebAuthn/PublicKeyCredentialRequestOptions`` for code that mirrors the JavaScript API.
 
 The shape of `allowCredentials` decides the ceremony's flavour. An empty array
 requests a **discoverable-credential** lookup — the call resolves to an array

@@ -14,10 +14,9 @@ Use `Client` for any app that runs passkey ceremonies. Reach for ``CTAP2/Session
 directly only when you need lower-level access — raw `makeCredential` /
 `getAssertion`, credential management, or bio enrollment.
 
-`Client` is an actor: ceremonies on a single client are serialized, and a client's
-lifetime is bound to the underlying ``CTAP2/Session``.
+`Client` is an actor; a client's lifetime is bound to the underlying ``CTAP2/Session``.
 
-A ceremony is configured by three constructor knobs:
+The constructor takes four parameters that shape every ceremony:
 
 - `origin` — the secure origin the client is bound to. ``WebAuthn/Origin`` enforces
   the W3C secure-context rule; the client refuses to sign for relying parties whose

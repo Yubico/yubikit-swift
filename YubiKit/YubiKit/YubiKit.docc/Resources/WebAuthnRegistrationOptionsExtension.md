@@ -6,8 +6,8 @@ Parameters for a credential registration request.
 
 `Options` is the input to ``WebAuthn/Client/makeCredential(_:authorization:)``. It
 mirrors the W3C [PublicKeyCredentialCreationOptions](https://www.w3.org/TR/webauthn-3/#dictdef-publickeycredentialcreationoptions)
-dictionary and is also exposed as the top-level typealias
-``PublicKeyCredentialCreationOptions`` for code that mirrors the JavaScript API.
+dictionary and is also exposed as the typealias
+``WebAuthn/PublicKeyCredentialCreationOptions`` for code that mirrors the JavaScript API.
 
 The most consequential fields are ``residentKey`` (whether the credential is
 discoverable on the authenticator), ``userVerification`` (whether the ceremony
