@@ -1,13 +1,14 @@
-// Interceptor.js - WebAuthn API Interceptor
-//
-// Monkey-patches navigator.credentials.create() and navigator.credentials.get()
-// to route WebAuthn requests through native Swift via WebKit message handlers.
-// Data is base64-encoded in both directions to avoid escaping issues.
+// Monkey-patches navigator.credentials.{create,get} so WebAuthn requests
+// route through native Swift via WebKit message handlers. WebAuthn Level 3
+// only ships JSON → credential via toJSON(); this file also implements the
+// inverse (options → JSON and JSON → credential).
 
 (function() {
     'use strict';
 
-    // MARK: - Setup
+    // Set to true to forward all console.log/warn/error to Swift. Chatty on
+    // real sites, so off by default.
+    const FORWARD_CONSOLE = false;
 
     const originalCreate = navigator.credentials.create.bind(navigator.credentials);
     const originalGet = navigator.credentials.get.bind(navigator.credentials);
@@ -15,14 +16,12 @@
     let pendingResolve = null;
     let pendingReject = null;
 
-    // MARK: - Native Callbacks
-
     window.__webauthn_callback__ = function(encoded) {
         console.log('[WebAuthn] Received success callback');
         if (pendingResolve) {
             try {
                 const response = JSON.parse(atob(encoded));
-                const credential = decodeCredential(response);
+                const credential = parsePublicKeyCredentialFromJSON(response);
                 pendingResolve(credential);
             } catch (e) {
                 pendingReject(new DOMException(e.message, 'NotAllowedError'));
@@ -42,99 +41,97 @@
         }
     };
 
-    // MARK: - Binary Decoding (Swift → JS)
-
-    function base64Decode(str) {
-        return Uint8Array.from(atob(str), c => c.charCodeAt(0)).buffer;
+    function base64urlToArrayBuffer(str) {
+        let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) base64 += '=';
+        return Uint8Array.from(atob(base64), c => c.charCodeAt(0)).buffer;
     }
-
-    // Recursively decode all {"__binary__": "..."} markers to ArrayBuffer
-    function decodeBinaryValues(obj) {
-        if (obj === null || obj === undefined) return obj;
-        if (typeof obj !== 'object') return obj;
-        if (Array.isArray(obj)) return obj.map(decodeBinaryValues);
-        if (obj.__binary__ !== undefined) return base64Decode(obj.__binary__);
-        const result = {};
-        for (const key of Object.keys(obj)) {
-            result[key] = decodeBinaryValues(obj[key]);
-        }
-        return result;
-    }
-
-    // MARK: - Binary Encoding (JS → Swift)
 
     // Note: Spread operator may hit stack limits for very large ArrayBuffers.
     // Typical WebAuthn payloads are well under this limit.
-    function base64Encode(buffer) {
-        return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+    function arrayBufferToBase64url(buffer) {
+        return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
-    function encodeRequest(options) {
+    function serializePublicKeyOptionsToJSON(options) {
         return JSON.parse(JSON.stringify(options, (key, value) => {
-            if (value instanceof ArrayBuffer) {
-                return base64Encode(value);
-            }
-            if (value instanceof Uint8Array) {
-                return base64Encode(value.buffer);
-            }
+            if (value instanceof ArrayBuffer) return arrayBufferToBase64url(value);
+            if (value instanceof Uint8Array) return arrayBufferToBase64url(value.buffer);
             return value;
         }));
     }
 
-    // MARK: - Credential Decoding
+    function decodeExtensionResults(ext) {
+        if (!ext) return {};
 
-    function decodeCredential(response) {
-        // Decode all binary fields in one pass
-        const decoded = decodeBinaryValues(response);
-
-        const credential = {
-            id: response.id,
-            rawId: decoded.rawId,
-            type: decoded.type,
-            authenticatorAttachment: decoded.authenticatorAttachment,
-            getClientExtensionResults: function() {
-                return decoded.clientExtensionResults || {};
-            }
-        };
-
-        // Build response object
-        credential.response = {
-            clientDataJSON: decoded.response.clientDataJSON
-        };
-
-        // MakeCredential response fields
-        if (decoded.response.attestationObject) {
-            credential.response.attestationObject = decoded.response.attestationObject;
-            credential.response.getTransports = function() {
-                return response.response.transports || [];
-            };
-            credential.response.getAuthenticatorData = function() {
-                return decoded.response.authenticatorData;
-            };
-            credential.response.getPublicKey = function() {
-                // This sample does not implement SPKI encoding for getPublicKey().
-                // RPs that require the public key should extract it from attestationObject
-                // or extend the native implementation to provide SPKI-encoded key data.
-                console.warn('[WebAuthn] getPublicKey() is not implemented in this sample and returns null');
-                return null;
-            };
-            credential.response.getPublicKeyAlgorithm = function() {
-                return response.response.publicKeyAlgorithm || -7;
-            };
+        if (ext.prf && ext.prf.results) {
+            if (ext.prf.results.first) ext.prf.results.first = base64urlToArrayBuffer(ext.prf.results.first);
+            if (ext.prf.results.second) ext.prf.results.second = base64urlToArrayBuffer(ext.prf.results.second);
         }
 
-        // GetAssertion response fields
-        if (decoded.response.signature) {
-            credential.response.authenticatorData = decoded.response.authenticatorData;
-            credential.response.signature = decoded.response.signature;
+        if (ext.largeBlob && ext.largeBlob.blob) {
+            ext.largeBlob.blob = base64urlToArrayBuffer(ext.largeBlob.blob);
+        }
+
+        if (ext.previewSign) {
+            if (ext.previewSign.generatedKey) {
+                const gk = ext.previewSign.generatedKey;
+                if (gk.keyHandle) gk.keyHandle = base64urlToArrayBuffer(gk.keyHandle);
+                if (gk.publicKey) gk.publicKey = base64urlToArrayBuffer(gk.publicKey);
+                if (gk.attestationObject) gk.attestationObject = base64urlToArrayBuffer(gk.attestationObject);
+            }
+            if (ext.previewSign.signature) {
+                ext.previewSign.signature = base64urlToArrayBuffer(ext.previewSign.signature);
+            }
+        }
+
+        return ext;
+    }
+
+    function parsePublicKeyCredentialFromJSON(json) {
+        // Deep-clone before decoding so toJSON() still returns the pristine
+        // base64url-encoded payload (decodeExtensionResults mutates in place).
+        const extensionResults = decodeExtensionResults(
+            JSON.parse(JSON.stringify(json.clientExtensionResults || {}))
+        );
+
+        const credential = {
+            id: json.id,
+            rawId: base64urlToArrayBuffer(json.rawId),
+            type: json.type,
+            authenticatorAttachment: json.authenticatorAttachment,
+            getClientExtensionResults: () => extensionResults,
+            toJSON: () => json  // WebAuthn Level 3: returns base64url strings directly
+        };
+
+        credential.response = {
+            clientDataJSON: base64urlToArrayBuffer(json.response.clientDataJSON),
+            toJSON: () => json.response
+        };
+
+        // Registration response
+        if (json.response.attestationObject) {
+            credential.response.attestationObject = base64urlToArrayBuffer(json.response.attestationObject);
+            credential.response.getTransports = () => json.response.transports || [];
+            credential.response.getAuthenticatorData = () => base64urlToArrayBuffer(json.response.authenticatorData);
+            credential.response.getPublicKey = () => json.response.publicKey
+                ? base64urlToArrayBuffer(json.response.publicKey) : null;
+            credential.response.getPublicKeyAlgorithm = () => json.response.publicKeyAlgorithm;
+        }
+
+        // Authentication response
+        if (json.response.signature) {
+            credential.response.authenticatorData = base64urlToArrayBuffer(json.response.authenticatorData);
+            credential.response.signature = base64urlToArrayBuffer(json.response.signature);
             // Per spec, userHandle should be null (not undefined) when absent
-            credential.response.userHandle = decoded.response.userHandle ?? null;
+            credential.response.userHandle = json.response.userHandle
+                ? base64urlToArrayBuffer(json.response.userHandle)
+                : null;
         }
 
         return credential;
     }
-
-    // MARK: - Interception
 
     function shouldIntercept(options) {
         // Intercept all WebAuthn requests and route them to the YubiKey.
@@ -152,20 +149,30 @@
         console.log(`[WebAuthn] Intercepting ${type}`);
 
         return new Promise((resolve, reject) => {
+            if (pendingReject) {
+                console.warn('[WebAuthn] Concurrent WebAuthn call — rejecting previous request');
+                pendingReject(new DOMException('Superseded by a new WebAuthn request', 'AbortError'));
+            }
+
             pendingResolve = resolve;
             pendingReject = reject;
+
+            const publicKey = serializePublicKeyOptionsToJSON(options.publicKey);
+
+            // Per WebAuthn spec: rp.id defaults to origin's effective domain
+            if (type === 'create' && publicKey.rp && !publicKey.rp.id) {
+                publicKey.rp.id = window.location.hostname;
+            }
 
             const request = {
                 type: type,
                 origin: window.location.origin,
-                request: encodeRequest(options.publicKey)
+                request: publicKey
             };
 
             window.webkit.messageHandlers[`__webauthn_${type}__`].postMessage(btoa(JSON.stringify(request)));
         });
     }
-
-    // MARK: - API Patching
 
     navigator.credentials.create = function(options) {
         return interceptWebAuthn('create', options, originalCreate);
@@ -175,14 +182,21 @@
         return interceptWebAuthn('get', options, originalGet);
     };
 
-    // Override platform authenticator checks since we route to YubiKey
+    // We route to a YubiKey, not the platform authenticator.
     if (window.PublicKeyCredential) {
-        window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable = function() {
-            return Promise.resolve(false);
-        };
-        window.PublicKeyCredential.isConditionalMediationAvailable = function() {
-            return Promise.resolve(false);
-        };
+        window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable = () => Promise.resolve(false);
+        window.PublicKeyCredential.isConditionalMediationAvailable = () => Promise.resolve(false);
+    }
+
+    if (FORWARD_CONSOLE) {
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        const post = (prefix, args) =>
+            window.webkit.messageHandlers.__webauthn_console__.postMessage(prefix + args.map(String).join(' '));
+        console.log = function(...args) { originalLog.apply(console, args); post('', args); };
+        console.error = function(...args) { originalError.apply(console, args); post('[ERROR] ', args); };
+        console.warn = function(...args) { originalWarn.apply(console, args); post('[WARN] ', args); };
     }
 
     console.log('[WebAuthn] Interceptor installed');

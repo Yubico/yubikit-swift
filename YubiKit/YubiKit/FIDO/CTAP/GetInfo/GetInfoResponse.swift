@@ -16,7 +16,7 @@ import Foundation
 
 extension CTAP2.GetInfo {
     /// Authenticator Attestation Global Unique ID (128-bit identifier).
-    public typealias AAGUID = UUID
+    public typealias AAGUID = Opaque128
 
     /// CTAP/FIDO protocol version supported by an authenticator.
     ///

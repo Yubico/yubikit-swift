@@ -1,0 +1,35 @@
+{
+  "configurations" : [
+    {
+      "id" : "E3C7B6EB-48D9-4BAF-BE0E-21490CB3BB55",
+      "name" : "macOS",
+      "options" : {
+
+      }
+    },
+    {
+      "id" : "F1C3E1E9-946C-457B-BC18-1F2C62772511",
+      "name" : "iOS",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:WebAuthnInterceptorSample.xcodeproj",
+      "identifier" : "F7FB312B1A268EDAE3B7BD98",
+      "name" : "FidoUITestHost"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:WebAuthnInterceptorSample.xcodeproj",
+        "identifier" : "EB161E672C239BE4DBE5D1F1",
+        "name" : "FidoUITestHostUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

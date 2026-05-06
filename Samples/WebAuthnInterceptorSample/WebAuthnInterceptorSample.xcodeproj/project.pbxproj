@@ -11,13 +11,33 @@
 		AA000002273D537500F999A4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000012273D537500F999A4 /* ContentView.swift */; };
 		AA000003273D537500F999A4 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000013273D537500F999A4 /* WebView.swift */; };
 		AA000004273D537500F999A4 /* WebAuthnHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000014273D537500F999A4 /* WebAuthnHandler.swift */; };
-		AA000005273D537500F999A4 /* WebAuthnTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000015273D537500F999A4 /* WebAuthnTypes.swift */; };
 		AA000006273D537500F999A4 /* Interceptor.js in Resources */ = {isa = PBXBuildFile; fileRef = AA000016273D537500F999A4 /* Interceptor.js */; };
 		AA000007273D537800F999A4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000017273D537800F999A4 /* Assets.xcassets */; };
 		AA000008273D537800F999A4 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA000031273D537800F999A4 /* YubiKit */; };
-		AA000009273D537500F999A4 /* PINEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001A273D537500F999A4 /* PINEntryView.swift */; };
-		AA00000A273D537500F999A4 /* WebAuthnClientLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001B273D537500F999A4 /* WebAuthnClientLogic.swift */; };
-		AA00000B273D537500F999A4 /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00001C273D537500F999A4 /* Log.swift */; };
+		E99378AE8D66930E05BE0D87 /* FidoUI in Frameworks */ = {isa = PBXBuildFile; productRef = E8FBC664576487DA2F0A74C0 /* FidoUI */; };
+		CE1A6145B37327FC7F5AFD4B /* FidoUITestHostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 731D064324DC7B4EF8B6D85A /* FidoUITestHostApp.swift */; };
+		CC71497A35E54E1754B672DF /* E2EScenariosView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9342B601F90D49C15E0536EC /* E2EScenariosView.swift */; };
+		623220E7211BA6E3DE9562BB /* MockWebAuthnBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45FD93953D99177304B41B3F /* MockWebAuthnBackend.swift */; };
+		B7BE26B0D6C5CEA6745DD827 /* MockTransportController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7928B6FBDFEA3FFB544BE4BA /* MockTransportController.swift */; };
+		F25033C920826B2CBF61D594 /* Scenarios+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DFA459EC45AB39B59DAEAC2 /* Scenarios+Helpers.swift */; };
+		9DC6B700262FF06BAC9944E6 /* Scenarios+PINSetupRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31064A4D00B0222D01F584F6 /* Scenarios+PINSetupRecovery.swift */; };
+		585274C536EFAE5817F2C68D /* Scenarios+ForcePINChange.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8F33970D79CCB978B8A39F /* Scenarios+ForcePINChange.swift */; };
+		7D58D8E84CFB849F6DA48282 /* Scenarios+PINEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5456AA6E7F16DFEFD0850F6 /* Scenarios+PINEntry.swift */; };
+		95093FCE6E78E77FC8919A79 /* Scenarios+UserVerification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65966EE1EDE60570D7D6706D /* Scenarios+UserVerification.swift */; };
+		5DCAF77EA1FC117B148586D9 /* Scenarios+CeremonyShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2815CE7DB7FD237EFCFFE05E /* Scenarios+CeremonyShape.swift */; };
+		CD114A38B54F1C83D2624688 /* Scenarios+Cancellation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBEF5DAEC1C9A788DB8BC3D /* Scenarios+Cancellation.swift */; };
+		9206AA79EFE889E0CDD43DAA /* Scenarios+CredentialErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95DBDE6E7B126F63B7591F88 /* Scenarios+CredentialErrors.swift */; };
+		D6573F7894CC8FF192816353 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = CC40AC725C14FD1309EC04ED /* YubiKit */; };
+		355FCB252276C8153F91CAEB /* FidoUI in Frameworks */ = {isa = PBXBuildFile; productRef = 81E95DD3D24DEBAED34F4038 /* FidoUI */; };
+		4CB41F87489F464082ECF9A3 /* FidoUITestBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9983674B94A1C744FFFA11D7 /* FidoUITestBase.swift */; };
+		15BB6833184A004B9A380731 /* PINSetupRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 893EBC70B1EF1DC833EE067D /* PINSetupRecoveryTests.swift */; };
+		6D69A33E70F320FFD4DDC317 /* ForcePINChangeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 992BF0632EA95651243F1459 /* ForcePINChangeTests.swift */; };
+		CA6C7844A96B5A465B96901A /* PINEntryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9BD6D7857FE70594756C2F4 /* PINEntryTests.swift */; };
+		E9451F591EB65BB93E854AAA /* UserVerificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA5FA251B0680DB945997AC /* UserVerificationTests.swift */; };
+		CCD8DC41D80C9CAD9FAAFB13 /* CeremonyShapeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81BAEE37F37EFFE5844B8036 /* CeremonyShapeTests.swift */; };
+		0F470D3BF6737E14997F34C9 /* CancellationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55DAF51A79B6C2EA45D08F6D /* CancellationTests.swift */; };
+		9CB8546AE154BC80617707CE /* CredentialErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75BD8B1083FE8B8464C3E698 /* CredentialErrorTests.swift */; };
+		90268CC26AFD34FD1AD8EC3E /* NFCPrefetchPINTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C977DAD41559AD8AC530FA /* NFCPrefetchPINTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,14 +46,33 @@
 		AA000012273D537500F999A4 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AA000013273D537500F999A4 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
 		AA000014273D537500F999A4 /* WebAuthnHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAuthnHandler.swift; sourceTree = "<group>"; };
-		AA000015273D537500F999A4 /* WebAuthnTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAuthnTypes.swift; sourceTree = "<group>"; };
 		AA000016273D537500F999A4 /* Interceptor.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Interceptor.js; sourceTree = "<group>"; };
 		AA000017273D537800F999A4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA000018273D537800F999A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		AA000019273D537800F999A4 /* WebAuthnInterceptorSample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WebAuthnInterceptorSample.entitlements; sourceTree = "<group>"; };
-		AA00001A273D537500F999A4 /* PINEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PINEntryView.swift; sourceTree = "<group>"; };
-		AA00001B273D537500F999A4 /* WebAuthnClientLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAuthnClientLogic.swift; sourceTree = "<group>"; };
-		AA00001C273D537500F999A4 /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
+		731D064324DC7B4EF8B6D85A /* FidoUITestHostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FidoUITestHostApp.swift; sourceTree = "<group>"; };
+		9342B601F90D49C15E0536EC /* E2EScenariosView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E2EScenariosView.swift; sourceTree = "<group>"; };
+		45FD93953D99177304B41B3F /* MockWebAuthnBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockWebAuthnBackend.swift; sourceTree = "<group>"; };
+		7928B6FBDFEA3FFB544BE4BA /* MockTransportController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockTransportController.swift; sourceTree = "<group>"; };
+		8DFA459EC45AB39B59DAEAC2 /* Scenarios+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Scenarios+Helpers.swift"; sourceTree = "<group>"; };
+		31064A4D00B0222D01F584F6 /* Scenarios+PINSetupRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Scenarios+PINSetupRecovery.swift"; sourceTree = "<group>"; };
+		FA8F33970D79CCB978B8A39F /* Scenarios+ForcePINChange.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Scenarios+ForcePINChange.swift"; sourceTree = "<group>"; };
+		A5456AA6E7F16DFEFD0850F6 /* Scenarios+PINEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Scenarios+PINEntry.swift"; sourceTree = "<group>"; };
+		65966EE1EDE60570D7D6706D /* Scenarios+UserVerification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Scenarios+UserVerification.swift"; sourceTree = "<group>"; };
+		2815CE7DB7FD237EFCFFE05E /* Scenarios+CeremonyShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Scenarios+CeremonyShape.swift"; sourceTree = "<group>"; };
+		ACBEF5DAEC1C9A788DB8BC3D /* Scenarios+Cancellation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Scenarios+Cancellation.swift"; sourceTree = "<group>"; };
+		95DBDE6E7B126F63B7591F88 /* Scenarios+CredentialErrors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Scenarios+CredentialErrors.swift"; sourceTree = "<group>"; };
+		54B0FF0173A10FAEDE04DCBE /* FidoUITestHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FidoUITestHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9983674B94A1C744FFFA11D7 /* FidoUITestBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FidoUITestBase.swift; sourceTree = "<group>"; };
+		893EBC70B1EF1DC833EE067D /* PINSetupRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PINSetupRecoveryTests.swift; sourceTree = "<group>"; };
+		992BF0632EA95651243F1459 /* ForcePINChangeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForcePINChangeTests.swift; sourceTree = "<group>"; };
+		A9BD6D7857FE70594756C2F4 /* PINEntryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PINEntryTests.swift; sourceTree = "<group>"; };
+		FFA5FA251B0680DB945997AC /* UserVerificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserVerificationTests.swift; sourceTree = "<group>"; };
+		81BAEE37F37EFFE5844B8036 /* CeremonyShapeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CeremonyShapeTests.swift; sourceTree = "<group>"; };
+		55DAF51A79B6C2EA45D08F6D /* CancellationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellationTests.swift; sourceTree = "<group>"; };
+		75BD8B1083FE8B8464C3E698 /* CredentialErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialErrorTests.swift; sourceTree = "<group>"; };
+		F7C977DAD41559AD8AC530FA /* NFCPrefetchPINTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCPrefetchPINTests.swift; sourceTree = "<group>"; };
+		77CB5050CB315448C015BD49 /* FidoUITestHostUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FidoUITestHostUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -42,6 +81,23 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA000008273D537800F999A4 /* YubiKit in Frameworks */,
+				E99378AE8D66930E05BE0D87 /* FidoUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5E855524F1CC09FC24C25F5D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6573F7894CC8FF192816353 /* YubiKit in Frameworks */,
+				355FCB252276C8153F91CAEB /* FidoUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A8A743D071E5F68BBE9139A7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -52,6 +108,7 @@
 			isa = PBXGroup;
 			children = (
 				AA000021273D537500F999A4 /* WebAuthnInterceptorSample */,
+				3ED0BA2A27E87417CA961D6D /* FidoUITestHost */,
 				AA000022273D537500F999A4 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -64,21 +121,55 @@
 				AA000011273D537500F999A4 /* WebAuthnInterceptorSampleApp.swift */,
 				AA000012273D537500F999A4 /* ContentView.swift */,
 				AA000013273D537500F999A4 /* WebView.swift */,
-				AA00001A273D537500F999A4 /* PINEntryView.swift */,
 				AA000014273D537500F999A4 /* WebAuthnHandler.swift */,
-				AA000015273D537500F999A4 /* WebAuthnTypes.swift */,
-				AA00001B273D537500F999A4 /* WebAuthnClientLogic.swift */,
-				AA00001C273D537500F999A4 /* Log.swift */,
 				AA000016273D537500F999A4 /* Interceptor.js */,
 				AA000017273D537800F999A4 /* Assets.xcassets */,
 			);
 			path = WebAuthnInterceptorSample;
 			sourceTree = "<group>";
 		};
+		3ED0BA2A27E87417CA961D6D /* FidoUITestHost */ = {
+			isa = PBXGroup;
+			children = (
+				731D064324DC7B4EF8B6D85A /* FidoUITestHostApp.swift */,
+				9342B601F90D49C15E0536EC /* E2EScenariosView.swift */,
+				45FD93953D99177304B41B3F /* MockWebAuthnBackend.swift */,
+				7928B6FBDFEA3FFB544BE4BA /* MockTransportController.swift */,
+				8DFA459EC45AB39B59DAEAC2 /* Scenarios+Helpers.swift */,
+				ACBEF5DAEC1C9A788DB8BC3D /* Scenarios+Cancellation.swift */,
+				2815CE7DB7FD237EFCFFE05E /* Scenarios+CeremonyShape.swift */,
+				95DBDE6E7B126F63B7591F88 /* Scenarios+CredentialErrors.swift */,
+				FA8F33970D79CCB978B8A39F /* Scenarios+ForcePINChange.swift */,
+				A5456AA6E7F16DFEFD0850F6 /* Scenarios+PINEntry.swift */,
+				31064A4D00B0222D01F584F6 /* Scenarios+PINSetupRecovery.swift */,
+				65966EE1EDE60570D7D6706D /* Scenarios+UserVerification.swift */,
+				B12BDB8D69F97E9D2CDEC20A /* UITests */,
+			);
+			path = FidoUITestHost;
+			sourceTree = "<group>";
+		};
+		B12BDB8D69F97E9D2CDEC20A /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				9983674B94A1C744FFFA11D7 /* FidoUITestBase.swift */,
+				55DAF51A79B6C2EA45D08F6D /* CancellationTests.swift */,
+				81BAEE37F37EFFE5844B8036 /* CeremonyShapeTests.swift */,
+				75BD8B1083FE8B8464C3E698 /* CredentialErrorTests.swift */,
+				992BF0632EA95651243F1459 /* ForcePINChangeTests.swift */,
+				F7C977DAD41559AD8AC530FA /* NFCPrefetchPINTests.swift */,
+				A9BD6D7857FE70594756C2F4 /* PINEntryTests.swift */,
+				893EBC70B1EF1DC833EE067D /* PINSetupRecoveryTests.swift */,
+				FFA5FA251B0680DB945997AC /* UserVerificationTests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
 		AA000022273D537500F999A4 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				AA000010273D537500F999A4 /* WebAuthnInterceptorSample.app */,
+				54B0FF0173A10FAEDE04DCBE /* FidoUITestHost.app */,
+				77CB5050CB315448C015BD49 /* FidoUITestHostUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -101,10 +192,49 @@
 			name = WebAuthnInterceptorSample;
 			packageProductDependencies = (
 				AA000031273D537800F999A4 /* YubiKit */,
+				E8FBC664576487DA2F0A74C0 /* FidoUI */,
 			);
 			productName = WebAuthnInterceptorSample;
 			productReference = AA000010273D537500F999A4 /* WebAuthnInterceptorSample.app */;
 			productType = "com.apple.product-type.application";
+		};
+		F7FB312B1A268EDAE3B7BD98 /* FidoUITestHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7757B6A3413E8BF01EB16AD2 /* Build configuration list for PBXNativeTarget "FidoUITestHost" */;
+			buildPhases = (
+				02D54C464C863D7E83F0FDFE /* Sources */,
+				5E855524F1CC09FC24C25F5D /* Frameworks */,
+				BE9F03D0915042DE9A28E212 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FidoUITestHost;
+			packageProductDependencies = (
+				CC40AC725C14FD1309EC04ED /* YubiKit */,
+				81E95DD3D24DEBAED34F4038 /* FidoUI */,
+			);
+			productName = FidoUITestHost;
+			productReference = 54B0FF0173A10FAEDE04DCBE /* FidoUITestHost.app */;
+			productType = "com.apple.product-type.application";
+		};
+		EB161E672C239BE4DBE5D1F1 /* FidoUITestHostUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 47FFF27C5F8F4545877253B5 /* Build configuration list for PBXNativeTarget "FidoUITestHostUITests" */;
+			buildPhases = (
+				7802E677705521267FEB0B21 /* Sources */,
+				A8A743D071E5F68BBE9139A7 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C388D101A5EEE8C82471BD8C /* PBXTargetDependency */,
+			);
+			name = FidoUITestHostUITests;
+			productName = FidoUITestHostUITests;
+			productReference = 77CB5050CB315448C015BD49 /* FidoUITestHostUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
@@ -119,6 +249,13 @@
 					AA00000F273D537500F999A4 = {
 						CreatedOnToolsVersion = 15.0;
 					};
+					F7FB312B1A268EDAE3B7BD98 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					EB161E672C239BE4DBE5D1F1 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = F7FB312B1A268EDAE3B7BD98;
+					};
 				};
 			};
 			buildConfigurationList = AA000024273D537500F999A4 /* Build configuration list for PBXProject "WebAuthnInterceptorSample" */;
@@ -132,12 +269,15 @@
 			mainGroup = AA000020273D537500F999A4;
 			packageReferences = (
 				AA000030273D537800F999A4 /* XCLocalSwiftPackageReference "../../" */,
+				F790B2E9E0272364036C4514 /* XCLocalSwiftPackageReference "FidoUI" */,
 			);
 			productRefGroup = AA000022273D537500F999A4 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				AA00000F273D537500F999A4 /* WebAuthnInterceptorSample */,
+				F7FB312B1A268EDAE3B7BD98 /* FidoUITestHost */,
+				EB161E672C239BE4DBE5D1F1 /* FidoUITestHostUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -152,6 +292,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BE9F03D0915042DE9A28E212 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -162,15 +309,64 @@
 				AA000001273D537500F999A4 /* WebAuthnInterceptorSampleApp.swift in Sources */,
 				AA000002273D537500F999A4 /* ContentView.swift in Sources */,
 				AA000003273D537500F999A4 /* WebView.swift in Sources */,
-				AA000009273D537500F999A4 /* PINEntryView.swift in Sources */,
 				AA000004273D537500F999A4 /* WebAuthnHandler.swift in Sources */,
-				AA000005273D537500F999A4 /* WebAuthnTypes.swift in Sources */,
-				AA00000A273D537500F999A4 /* WebAuthnClientLogic.swift in Sources */,
-				AA00000B273D537500F999A4 /* Log.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		02D54C464C863D7E83F0FDFE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CE1A6145B37327FC7F5AFD4B /* FidoUITestHostApp.swift in Sources */,
+				CC71497A35E54E1754B672DF /* E2EScenariosView.swift in Sources */,
+				623220E7211BA6E3DE9562BB /* MockWebAuthnBackend.swift in Sources */,
+				B7BE26B0D6C5CEA6745DD827 /* MockTransportController.swift in Sources */,
+				F25033C920826B2CBF61D594 /* Scenarios+Helpers.swift in Sources */,
+				CD114A38B54F1C83D2624688 /* Scenarios+Cancellation.swift in Sources */,
+				5DCAF77EA1FC117B148586D9 /* Scenarios+CeremonyShape.swift in Sources */,
+				9206AA79EFE889E0CDD43DAA /* Scenarios+CredentialErrors.swift in Sources */,
+				585274C536EFAE5817F2C68D /* Scenarios+ForcePINChange.swift in Sources */,
+				7D58D8E84CFB849F6DA48282 /* Scenarios+PINEntry.swift in Sources */,
+				9DC6B700262FF06BAC9944E6 /* Scenarios+PINSetupRecovery.swift in Sources */,
+				95093FCE6E78E77FC8919A79 /* Scenarios+UserVerification.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7802E677705521267FEB0B21 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CB41F87489F464082ECF9A3 /* FidoUITestBase.swift in Sources */,
+				0F470D3BF6737E14997F34C9 /* CancellationTests.swift in Sources */,
+				CCD8DC41D80C9CAD9FAAFB13 /* CeremonyShapeTests.swift in Sources */,
+				9CB8546AE154BC80617707CE /* CredentialErrorTests.swift in Sources */,
+				6D69A33E70F320FFD4DDC317 /* ForcePINChangeTests.swift in Sources */,
+				90268CC26AFD34FD1AD8EC3E /* NFCPrefetchPINTests.swift in Sources */,
+				CA6C7844A96B5A465B96901A /* PINEntryTests.swift in Sources */,
+				15BB6833184A004B9A380731 /* PINSetupRecoveryTests.swift in Sources */,
+				E9451F591EB65BB93E854AAA /* UserVerificationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C388D101A5EEE8C82471BD8C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F7FB312B1A268EDAE3B7BD98 /* FidoUITestHost */;
+			targetProxy = 0BEC334697918800B607103E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXContainerItemProxy section */
+		0BEC334697918800B607103E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA000023273D537500F999A4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F7FB312B1A268EDAE3B7BD98;
+			remoteInfo = FidoUITestHost;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin XCBuildConfiguration section */
 		AA000025273D537900F999A4 /* Debug */ = {
@@ -226,7 +422,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -284,7 +480,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -314,12 +510,12 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.yubico.ios.WebAuthnInterceptorSample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -351,12 +547,12 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.yubico.ios.WebAuthnInterceptorSample;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -366,6 +562,118 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		CB889DF3C89D7E93F29F08F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LQA3CS5MM7;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NFCReaderUsageDescription = "This app uses NFC to communicate with your YubiKey for WebAuthn operations.";
+				"INFOPLIST_KEY_NSPrincipalClass[sdk=macosx*]" = NSApplication;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yubico.ios.FidoUITestHost;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1E9715C50C374CFF6F1AC888 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LQA3CS5MM7;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NFCReaderUsageDescription = "This app uses NFC to communicate with your YubiKey for WebAuthn operations.";
+				"INFOPLIST_KEY_NSPrincipalClass[sdk=macosx*]" = NSApplication;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yubico.ios.FidoUITestHost;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		5D46E2E81907D5B4BD6ECDE0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LQA3CS5MM7;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yubico.ios.FidoUITestHostUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FidoUITestHost;
+			};
+			name = Debug;
+		};
+		6AF2A81920F365A9075F0DCF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = LQA3CS5MM7;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yubico.ios.FidoUITestHostUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = FidoUITestHost;
 			};
 			name = Release;
 		};
@@ -390,12 +698,34 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		7757B6A3413E8BF01EB16AD2 /* Build configuration list for PBXNativeTarget "FidoUITestHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CB889DF3C89D7E93F29F08F5 /* Debug */,
+				1E9715C50C374CFF6F1AC888 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		47FFF27C5F8F4545877253B5 /* Build configuration list for PBXNativeTarget "FidoUITestHostUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5D46E2E81907D5B4BD6ECDE0 /* Debug */,
+				6AF2A81920F365A9075F0DCF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
 		AA000030273D537800F999A4 /* XCLocalSwiftPackageReference "../../" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../../;
+		};
+		F790B2E9E0272364036C4514 /* XCLocalSwiftPackageReference "FidoUI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = FidoUI;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -404,6 +734,21 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA000030273D537800F999A4 /* XCLocalSwiftPackageReference "../../" */;
 			productName = YubiKit;
+		};
+		E8FBC664576487DA2F0A74C0 /* FidoUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F790B2E9E0272364036C4514 /* XCLocalSwiftPackageReference "FidoUI" */;
+			productName = FidoUI;
+		};
+		CC40AC725C14FD1309EC04ED /* YubiKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA000030273D537800F999A4 /* XCLocalSwiftPackageReference "../../" */;
+			productName = YubiKit;
+		};
+		81E95DD3D24DEBAED34F4038 /* FidoUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F790B2E9E0272364036C4514 /* XCLocalSwiftPackageReference "FidoUI" */;
+			productName = FidoUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

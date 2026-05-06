@@ -124,6 +124,7 @@ extension Data {
         self.resetBytes(in: 0..<self.count)
         self.removeAll()
     }
+
 }
 
 extension Int {

@@ -23,7 +23,7 @@ extension CTAP2.GetAssertion.Response: CBOR.Decodable {
         }
 
         // Optional: credential (0x01)
-        let credential: WebAuthn.PublicKeyCredential.Descriptor? = map[.int(0x01)]?.cborDecoded()
+        let credential: WebAuthn.CredentialDescriptor? = map[.int(0x01)]?.cborDecoded()
 
         // Required: authData (0x02)
         guard let authDataBytes: Data = map[.int(0x02)]?.cborDecoded(),
@@ -38,7 +38,7 @@ extension CTAP2.GetAssertion.Response: CBOR.Decodable {
         }
 
         // Optional: user (0x04)
-        let user: WebAuthn.PublicKeyCredential.UserEntity? = map[.int(0x04)]?.cborDecoded()
+        let user: WebAuthn.User? = map[.int(0x04)]?.cborDecoded()
 
         // Optional: numberOfCredentials (0x05)
         let numberOfCredentials: Int? = map[.int(0x05)]?.cborDecoded()
@@ -58,63 +58,5 @@ extension CTAP2.GetAssertion.Response: CBOR.Decodable {
             userSelected: userSelected,
             largeBlobKey: largeBlobKey
         )
-    }
-}
-
-// MARK: - WebAuthn.PublicKeyCredential.Descriptor + CBOR Decoding
-
-extension WebAuthn.PublicKeyCredential.Descriptor: CBOR.Decodable {
-    init?(cbor: CBOR.Value) {
-        guard let map = cbor.mapValue else {
-            return nil
-        }
-
-        guard let type = map["type"]?.stringValue,
-            let id = map["id"]?.dataValue
-        else {
-            return nil
-        }
-
-        let transports: [String]?
-        if let transportsArray = map["transports"]?.arrayValue {
-            transports = transportsArray.compactMap { $0.stringValue }
-        } else {
-            transports = nil
-        }
-
-        self.init(type: type, id: id, transports: transports)
-    }
-}
-
-// MARK: - WebAuthn.PublicKeyCredential.UserEntity + CBOR Decoding
-
-extension WebAuthn.PublicKeyCredential.UserEntity: CBOR.Decodable {
-    init?(cbor: CBOR.Value) {
-        guard let map = cbor.mapValue else {
-            return nil
-        }
-
-        guard let id = map["id"]?.dataValue else {
-            return nil
-        }
-
-        let name = map["name"]?.stringValue
-        let displayName = map["displayName"]?.stringValue
-        self.init(id: id, name: name, displayName: displayName)
-    }
-}
-
-// MARK: - WebAuthn.PublicKeyCredential.RPEntity + CBOR Decoding
-
-extension WebAuthn.PublicKeyCredential.RPEntity: CBOR.Decodable {
-    init?(cbor: CBOR.Value) {
-        guard let map = cbor.mapValue,
-            let id = map["id"]?.stringValue
-        else {
-            return nil
-        }
-
-        let name = map["name"]?.stringValue
-        self.init(id: id, name: name)
     }
 }

@@ -87,3 +87,12 @@ either a ``FIDOConnection`` (such as ``HIDFIDOConnection`` for USB HID) or a ``S
 (such as ``NFCSmartCardConnection`` for NFC).
 
 - ``CTAP2/Session``
+
+### WebAuthn Client
+
+The ``WebAuthn/Client`` is a high-level passkey client built on top of ``CTAP2/Session``. It implements
+the W3C Web Authentication ceremonies (registration and authentication), handles client-data construction,
+RP-ID validation, PIN/UV selection, and extension processing.
+
+- ``WebAuthn``
+- ``WebAuthn/Client``

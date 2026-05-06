@@ -160,8 +160,8 @@ struct EncryptedFieldsTests {
             )
             let params = CTAP2.MakeCredential.Parameters(
                 clientDataHash: Data(repeating: 0xCD, count: 32),
-                rp: WebAuthn.PublicKeyCredential.RPEntity(id: "test.example.com", name: "Test"),
-                user: WebAuthn.PublicKeyCredential.UserEntity(
+                rp: WebAuthn.RelyingParty(id: "test.example.com", name: "Test"),
+                user: WebAuthn.User(
                     id: Data([0x01, 0x02, 0x03]),
                     name: "test",
                     displayName: "Test"

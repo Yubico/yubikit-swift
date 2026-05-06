@@ -121,6 +121,13 @@ extension CTAP2 {
     }
 }
 
+extension CTAP2.Status: StreamStatus {
+    var finishedResponse: Response? {
+        if case .finished(let response) = self { return response }
+        return nil
+    }
+}
+
 // MARK: - Cached immutable info
 extension CTAP2.Session {
 

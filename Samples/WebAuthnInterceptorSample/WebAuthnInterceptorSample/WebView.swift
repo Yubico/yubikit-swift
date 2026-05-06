@@ -1,41 +1,28 @@
-/// WKWebView wrapper that injects the WebAuthn interceptor script and handles
-/// message passing between JavaScript and Swift.
-
 import SwiftUI
 import WebKit
+
+private func log(_ message: String) {
+    print("[WebAuthn] \(message)")
+}
 
 private enum WebAuthnMessage: String, CaseIterable {
     case create = "__webauthn_create__"
     case get = "__webauthn_get__"
+    case console = "__webauthn_console__"
 }
 
-// MARK: - Navigator
-
 @MainActor
-class WebViewNavigator: ObservableObject {
-    @Published var canGoBack = false
-
-    weak var webView: WKWebView? {
-        didSet {
-            observation = webView?.observe(\.canGoBack, options: [.initial, .new]) { [weak self] webView, _ in
-                Task { @MainActor in self?.canGoBack = webView.canGoBack }
-            }
-        }
-    }
-
-    private var observation: NSKeyValueObservation?
+final class WebViewNavigator {
+    weak var webView: WKWebView?
 
     func goBack() {
         webView?.goBack()
     }
 }
 
-// MARK: - WebView (Platform-Specific)
-
 #if os(iOS)
 struct WebView: UIViewRepresentable {
     let url: URL
-    let pinHandler: PINRequestHandler
     let navigator: WebViewNavigator
 
     func makeUIView(context: Context) -> WKWebView {
@@ -48,18 +35,21 @@ struct WebView: UIViewRepresentable {
         updateWebView(webView)
     }
 
-    static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
+    static func dismantleUIView(
+        _ webView: WKWebView,
+        coordinator: Coordinator
+    ) {
+        MainActor.assumeIsolated { coordinator.shutdown() }
         cleanupWebView(webView)
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(pinHandler: pinHandler)
+        Coordinator()
     }
 }
 #else
 struct WebView: NSViewRepresentable {
     let url: URL
-    let pinHandler: PINRequestHandler
     let navigator: WebViewNavigator
 
     func makeNSView(context: Context) -> WKWebView {
@@ -72,17 +62,19 @@ struct WebView: NSViewRepresentable {
         updateWebView(webView)
     }
 
-    static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
+    static func dismantleNSView(
+        _ webView: WKWebView,
+        coordinator: Coordinator
+    ) {
+        MainActor.assumeIsolated { coordinator.shutdown() }
         cleanupWebView(webView)
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(pinHandler: pinHandler)
+        Coordinator()
     }
 }
 #endif
-
-// MARK: - WebView Configuration
 
 extension WebView {
     static func cleanupWebView(_ webView: WKWebView) {
@@ -106,10 +98,16 @@ extension WebView {
         }
 
         for message in WebAuthnMessage.allCases {
-            config.userContentController.add(coordinator, name: message.rawValue)
+            config.userContentController.add(
+                coordinator,
+                name: message.rawValue
+            )
         }
 
         let webView = WKWebView(frame: .zero, configuration: config)
+        if #available(macOS 13.3, iOS 16.4, *) {
+            webView.isInspectable = true
+        }
         webView.navigationDelegate = coordinator
         coordinator.webView = webView
 
@@ -123,48 +121,85 @@ extension WebView {
     }
 
     private func loadInterceptorScript() -> String? {
-        guard let url = Bundle.main.url(forResource: "Interceptor", withExtension: "js"),
+        guard
+            let url = Bundle.main.url(
+                forResource: "Interceptor",
+                withExtension: "js"
+            ),
             let script = try? String(contentsOf: url, encoding: .utf8)
         else {
-            logError("Failed to load Interceptor.js!")
+            log("Failed to load Interceptor.js!")
             return nil
         }
         return script
     }
 }
 
-// MARK: - Coordinator
-
 extension WebView {
-    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+    @MainActor
+    class Coordinator: NSObject, WKNavigationDelegate,
+        WKScriptMessageHandler
+    {
         weak var webView: WKWebView?
         private let handler: WebAuthnHandler
+        private var activeTask: Task<Void, Never>?
+        private var ceremonyGeneration: UInt64 = 0
 
-        init(pinHandler: PINRequestHandler) {
-            self.handler = WebAuthnHandler { [weak pinHandler] errorMessage in
-                await pinHandler?.requestPIN(errorMessage: errorMessage)
-            }
+        override init() {
+            self.handler = WebAuthnHandler()
+            super.init()
+        }
+
+        /// Cancels any in-flight ceremony task and closes the underlying
+        /// transport. Called from `dismantle{UI,NS}View` so navigating away
+        /// from the WebView mid-ceremony doesn't leave a HID/NFC handle open
+        /// (the coordinator is otherwise pinned by `activeTask`'s self-capture
+        /// until the SDK call eventually unwinds).
+        func shutdown() {
+            activeTask?.cancel()
+            activeTask = nil
+            let handler = self.handler
+            Task { await handler.cancelActiveCeremony() }
         }
 
         func userContentController(
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
-            guard let base64 = message.body as? String,
-                let data = Data(base64Encoded: base64)
-            else {
-                logError("Failed to decode message body")
+            if message.name == WebAuthnMessage.console.rawValue {
+                log("JS: \(message.body)")
                 return
             }
 
-            Task {
-                await handleWebAuthnMessage(name: message.name, data: data)
+            guard let base64 = message.body as? String,
+                let data = Data(base64Encoded: base64)
+            else {
+                log("Failed to decode message body")
+                return
+            }
+
+            ceremonyGeneration += 1
+            let generation = ceremonyGeneration
+            activeTask?.cancel()
+            activeTask = Task {
+                await handler.cancelActiveCeremony()
+                await handleWebAuthnMessage(
+                    name: message.name,
+                    data: data,
+                    generation: generation
+                )
             }
         }
 
         @MainActor
-        private func handleWebAuthnMessage(name: String, data: Data) async {
-            guard let message = WebAuthnMessage(rawValue: name) else { return }
+        private func handleWebAuthnMessage(
+            name: String,
+            data: Data,
+            generation: UInt64
+        ) async {
+            guard let message = WebAuthnMessage(rawValue: name) else {
+                return
+            }
             do {
                 let response: String
                 switch message {
@@ -172,16 +207,24 @@ extension WebView {
                     response = try await handler.handleCreate(data)
                 case .get:
                     response = try await handler.handleGet(data)
+                case .console:
+                    return
                 }
-                // Note: For very large responses (e.g., largeBlob data), interpolating into
-                // evaluateJavaScript may hit size limits. Production apps handling large blobs
-                // should consider using WKScriptMessage for bidirectional communication.
-                let encodedResponse = Data(response.utf8).base64EncodedString()
-                _ = try? await webView?.evaluateJavaScript("__webauthn_callback__('\(encodedResponse)')")
+                guard generation == ceremonyGeneration else { return }
+                let encodedResponse = Data(response.utf8)
+                    .base64EncodedString()
+                _ = try? await webView?.evaluateJavaScript(
+                    "__webauthn_callback__('\(encodedResponse)')"
+                )
             } catch {
-                logError("WebAuthn operation failed: \(error)")
-                let encodedError = Data(error.localizedDescription.utf8).base64EncodedString()
-                _ = try? await webView?.evaluateJavaScript("__webauthn_error__('\(encodedError)')")
+                guard generation == ceremonyGeneration else { return }
+                log("WebAuthn operation failed: \(error)")
+                let encodedError = Data(
+                    error.localizedDescription.utf8
+                ).base64EncodedString()
+                _ = try? await webView?.evaluateJavaScript(
+                    "__webauthn_error__('\(encodedError)')"
+                )
             }
         }
     }

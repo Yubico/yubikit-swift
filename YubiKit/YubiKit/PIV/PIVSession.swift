@@ -190,7 +190,7 @@ public final actor PIVSession: SmartCardSessionInternal {
         try await usePrivateKeyInSlot(
             slot: slot,
             keyType: .ec(peerKey.curve),
-            message: peerKey.x963Representation,
+            message: peerKey.x963,
             exponentiation: true
         )
     }

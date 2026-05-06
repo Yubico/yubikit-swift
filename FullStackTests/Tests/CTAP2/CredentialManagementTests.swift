@@ -20,11 +20,11 @@ import YubiKit
 
 private let testClientDataHash = Data(repeating: 0xCD, count: 32)
 private let testRpId = "test.example.com"
-private let testRp = WebAuthn.PublicKeyCredential.RPEntity(id: testRpId, name: "Test RP")
+private let testRp = WebAuthn.RelyingParty(id: testRpId, name: "Test RP")
 private let testUserId = Data([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08])
 private let testUserName = "testuser@example.com"
 private let testUserDisplayName = "Test User"
-private let testUser = WebAuthn.PublicKeyCredential.UserEntity(
+private let testUser = WebAuthn.User(
     id: testUserId,
     name: testUserName,
     displayName: testUserDisplayName
@@ -123,7 +123,7 @@ struct CredentialManagementTests {
             let credentialId = credentials[0].credentialId
 
             // Update user info
-            let updatedUser = WebAuthn.PublicKeyCredential.UserEntity(
+            let updatedUser = WebAuthn.User(
                 id: testUserId,
                 name: "UPDATED NAME",
                 displayName: "UPDATED DISPLAY NAME"
@@ -161,7 +161,7 @@ struct CredentialManagementTests {
         let testData:
             (
                 ppuat: CTAP2.Token,
-                credentialId: WebAuthn.PublicKeyCredential.Descriptor,
+                credentialId: WebAuthn.CredentialDescriptor,
                 rpIdHash: Data,
                 identifier: Opaque128?,
                 credStoreState: Opaque128?
@@ -319,7 +319,7 @@ private func verifyReadOnlyOperations(
 
     // Write operations should fail with pinAuthInvalid
     do {
-        let user = WebAuthn.PublicKeyCredential.UserEntity(
+        let user = WebAuthn.User(
             id: Data([0x01, 0x02, 0x03]),
             name: "X",
             displayName: "X"

@@ -60,11 +60,11 @@ public enum EC: Sendable {
 
         /// Initialize a public key from X9.63 format (0x04 || X || Y).
         /// - Parameters:
-        ///   - x963Representation: The X9.63 encoded public key data.
+        ///   - x963: The X9.63 encoded public key data.
         ///   - curve: The elliptic curve type (secp256r1 or secp384r1).
         /// - Returns: PublicKey if valid, otherwise nil.
-        public init?(x963Representation: Data, curve: Curve) {
-            var data = x963Representation
+        public init?(x963: Data, curve: Curve) {
+            var data = x963
             guard data.extract(1)?.bytes == [0x04] else {
                 // invalid representation
                 return nil
@@ -82,7 +82,7 @@ public enum EC: Sendable {
         }
 
         /// X9.63 representation (0x04 || X || Y).
-        public var x963Representation: Data {
+        public var x963: Data {
             var result = Data([0x04])
             result.append(contentsOf: x)
             result.append(contentsOf: y)
@@ -102,17 +102,17 @@ public enum EC: Sendable {
         public let k: Data  // secret scalar
 
         /// X9.63 representation of private key as 0x04 || X || Y || K.
-        public var x963Representation: Data {
-            publicKey.x963Representation + k
+        public var x963: Data {
+            publicKey.x963 + k
         }
 
         /// Initialize a private key from X9.63 format (0x04 || X || Y || K).
         /// - Parameters:
-        ///   - x963Representation: The X9.63 encoded private key data.
+        ///   - x963: The X9.63 encoded private key data.
         ///   - curve: The elliptic curve type (secp256r1 or secp384r1).
         /// - Returns: PrivateKey if valid, otherwise nil.
-        public init?(x963Representation: Data, curve: Curve) {
-            var data = x963Representation
+        public init?(x963: Data, curve: Curve) {
+            var data = x963
             guard data.extract(1)?.bytes == [0x04] else {
                 // invalid representation
                 return nil

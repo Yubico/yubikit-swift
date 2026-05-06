@@ -41,3 +41,4 @@ let secret = try hmacSecret.getAssertion.output(from: response)
 - ``LargeBlobKey``
 - ``MinPinLength``
 - ``ThirdPartyPayment``
+- ``PreviewSign``
