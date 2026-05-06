@@ -176,7 +176,7 @@ extension CTAP2.GetInfo.Response {
 
         return Self(
             versions: [.fido2_1],
-            aaguid: UUID(),
+            aaguid: CTAP2.GetInfo.AAGUID(rawValue: Data(repeating: 0, count: 16))!,
             extensions: [],
             options: options,
             maxMsgSize: 1200,
