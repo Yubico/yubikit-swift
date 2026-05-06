@@ -32,7 +32,7 @@ struct WebAuthnClientFullStackTests {
 
     @Test(
         "Reset - Factory Reset",
-        //.disabled("Destructive - clears all credentials and PIN")
+        .disabled("Destructive - clears all credentials and PIN")
     )
     func testReset() async throws {
         try await CTAP2FullStackTests().testReset()
