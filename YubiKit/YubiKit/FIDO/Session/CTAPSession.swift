@@ -132,7 +132,7 @@ extension CTAP2.Status: StreamStatus {
 extension CTAP2.Session {
 
     /// Cached immutable authenticator info, lazily populated on first access.
-    var cachedInfo: CTAP2.GetInfo.ImmutableView {
+    public var cachedInfo: CTAP2.GetInfo.ImmutableView {
         get async throws(CTAP2.SessionError) {
             if let _cachedInfo {
                 return _cachedInfo

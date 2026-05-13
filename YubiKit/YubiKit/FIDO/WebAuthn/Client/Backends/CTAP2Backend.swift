@@ -18,11 +18,13 @@ import Foundation
 
 extension WebAuthn {
 
-    /// Internal protocol abstracting CTAP2.Session for testability.
+    /// Protocol abstracting ``CTAP2/Session`` for use as a ``Client`` backend.
     ///
-    /// This protocol defines the CTAP2 operations required by WebAuthn.Client,
-    /// allowing the client logic to be tested with mock implementations.
-    protocol Backend: Actor {
+    /// This protocol defines the CTAP2 operations required by ``Client``,
+    /// allowing the client logic to be driven by alternative implementations
+    /// (mocks, remote authenticators, etc.). ``CTAP2/Session`` conforms by
+    /// default.
+    public protocol Backend: Actor {
 
         // MARK: - Authenticator Info
 
@@ -113,15 +115,15 @@ extension WebAuthn.Backend {
 
 extension CTAP2.Session: WebAuthn.Backend {
 
-    func getPinRetries() async throws(CTAP2.SessionError) -> CTAP2.ClientPin.GetRetries.Response {
+    public func getPinRetries() async throws(CTAP2.SessionError) -> CTAP2.ClientPin.GetRetries.Response {
         try await getPinRetries(protocol: nil)
     }
 
-    func getUVRetries() async throws(CTAP2.SessionError) -> Int {
+    public func getUVRetries() async throws(CTAP2.SessionError) -> Int {
         try await getUVRetries(protocol: nil)
     }
 
-    func getPinUVTokenUpdates(
+    public func getPinUVTokenUpdates(
         using method: CTAP2.ClientPin.Method,
         permissions: CTAP2.ClientPin.Permission,
         rpId: String?
@@ -132,10 +134,10 @@ extension CTAP2.Session: WebAuthn.Backend {
     // MARK: - Extensions
 
     // PRF (hmac-secret)
-    func makePRF() async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF {
+    public func makePRF() async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF {
         try await WebAuthn.Extension.PRF(session: self)
     }
-    func makePRF(
+    public func makePRF(
         first: Data,
         second: Data?,
         evalByCredential: [Data: (first: Data, second: Data?)]
@@ -147,14 +149,14 @@ extension CTAP2.Session: WebAuthn.Backend {
             session: self
         )
     }
-    func makePRF(
+    public func makePRF(
         evalByCredential: [Data: (first: Data, second: Data?)]
     ) async throws(CTAP2.SessionError) -> WebAuthn.Extension.PRF {
         try await WebAuthn.Extension.PRF(evalByCredential: evalByCredential, session: self)
     }
 
     // credProtect
-    func makeCredProtect(
+    public func makeCredProtect(
         level: WebAuthn.Extension.CredProtect.Policy,
         enforce: Bool
     ) async throws(CTAP2.SessionError) -> CTAP2.Extension.CredProtect {
@@ -162,33 +164,33 @@ extension CTAP2.Session: WebAuthn.Backend {
     }
 
     // credBlob
-    func makeCredBlob() async throws(CTAP2.SessionError) -> CTAP2.Extension.CredBlob {
+    public func makeCredBlob() async throws(CTAP2.SessionError) -> CTAP2.Extension.CredBlob {
         try await CTAP2.Extension.CredBlob(session: self)
     }
 
     // minPinLength
-    func isMinPinLengthSupported() async throws(CTAP2.SessionError) -> Bool {
+    public func isMinPinLengthSupported() async throws(CTAP2.SessionError) -> Bool {
         try await CTAP2.Extension.MinPinLength.isSupported(by: self)
     }
-    func makeMinPinLength() async throws(CTAP2.SessionError) -> CTAP2.Extension.MinPinLength {
+    public func makeMinPinLength() async throws(CTAP2.SessionError) -> CTAP2.Extension.MinPinLength {
         try await CTAP2.Extension.MinPinLength(session: self)
     }
 
     // largeBlob
-    func makeLargeBlobKey() async throws(CTAP2.SessionError) -> CTAP2.Extension.LargeBlobKey {
+    public func makeLargeBlobKey() async throws(CTAP2.SessionError) -> CTAP2.Extension.LargeBlobKey {
         try await CTAP2.Extension.LargeBlobKey(session: self)
     }
-    func isLargeBlobSupported() async throws(CTAP2.SessionError) -> Bool {
+    public func isLargeBlobSupported() async throws(CTAP2.SessionError) -> Bool {
         try await CTAP2.Extension.LargeBlobKey.isSupported(by: self)
     }
 
     // previewSign
-    func makePreviewSign() async throws(CTAP2.SessionError) -> CTAP2.Extension.PreviewSign {
+    public func makePreviewSign() async throws(CTAP2.SessionError) -> CTAP2.Extension.PreviewSign {
         try await CTAP2.Extension.PreviewSign(session: self)
     }
 
     // thirdPartyPayment
-    func makeThirdPartyPayment() async throws(CTAP2.SessionError) -> CTAP2.Extension.ThirdPartyPayment {
+    public func makeThirdPartyPayment() async throws(CTAP2.SessionError) -> CTAP2.Extension.ThirdPartyPayment {
         try await CTAP2.Extension.ThirdPartyPayment(session: self)
     }
 }

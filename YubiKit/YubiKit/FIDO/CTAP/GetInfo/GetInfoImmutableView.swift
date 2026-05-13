@@ -20,35 +20,35 @@ extension CTAP2.GetInfo {
     ///
     /// Mutable fields (forcePinChange, remainingDiscoverableCredentials, etc.) are excluded.
     /// Use ``CTAP2/Session/getInfo()`` to read current mutable state.
-    internal struct ImmutableView: Sendable {
+    public struct ImmutableView: Sendable {
 
-        let versions: [AuthenticatorVersion]
-        let aaguid: AAGUID
-        let extensions: [CTAP2.Extension.Identifier]
-        let options: Options.ImmutableView
-        let maxMsgSize: UInt
-        let pinUVAuthProtocols: [CTAP2.ClientPin.ProtocolVersion]
+        public let versions: [AuthenticatorVersion]
+        public let aaguid: AAGUID
+        public let extensions: [CTAP2.Extension.Identifier]
+        public let options: Options.ImmutableView
+        public let maxMsgSize: UInt
+        public let pinUVAuthProtocols: [CTAP2.ClientPin.ProtocolVersion]
 
-        let maxCredentialCountInList: UInt?
-        let maxCredentialIdLength: UInt?
-        let transports: [WebAuthn.Transport]
-        let algorithms: [COSE.Algorithm]
-        let maxSerializedLargeBlobArray: UInt?
-        let firmwareVersion: UInt?
-        let maxCredBlobLength: UInt?
-        let maxRPIDsForSetMinPinLength: UInt?
-        let preferredPlatformUVAttempts: UInt?
-        let uvModality: UVModality?
-        let certifications: [String: UInt]
-        let vendorPrototypeConfigCommands: [UInt]?
-        let attestationFormats: [WebAuthn.AttestationFormat]
-        let longTouchForReset: Bool?
-        let transportsForReset: [WebAuthn.Transport]
-        let pinComplexityPolicyURL: URL?
-        let maxPINLength: UInt?
-        let authenticatorConfigCommands: [CTAP2.Config.Subcommand]?
+        public let maxCredentialCountInList: UInt?
+        public let maxCredentialIdLength: UInt?
+        public let transports: [WebAuthn.Transport]
+        public let algorithms: [COSE.Algorithm]
+        public let maxSerializedLargeBlobArray: UInt?
+        public let firmwareVersion: UInt?
+        public let maxCredBlobLength: UInt?
+        public let maxRPIDsForSetMinPinLength: UInt?
+        public let preferredPlatformUVAttempts: UInt?
+        public let uvModality: UVModality?
+        public let certifications: [String: UInt]
+        public let vendorPrototypeConfigCommands: [UInt]?
+        public let attestationFormats: [WebAuthn.AttestationFormat]
+        public let longTouchForReset: Bool?
+        public let transportsForReset: [WebAuthn.Transport]
+        public let pinComplexityPolicyURL: URL?
+        public let maxPINLength: UInt?
+        public let authenticatorConfigCommands: [CTAP2.Config.Subcommand]?
 
-        init(_ response: Response) {
+        public init(_ response: Response) {
             self.versions = response.versions
             self.aaguid = response.aaguid
             self.extensions = response.extensions
@@ -83,34 +83,34 @@ extension CTAP2.GetInfo.Options {
     /// Cached view of immutable options (always-constant values + feature support flags).
     ///
     /// For current mutable option state, use ``CTAP2/Session/getInfo()``.
-    internal struct ImmutableView: Sendable, CTAP2.GetInfo.Options.SupportChecking {
+    public struct ImmutableView: Sendable, CTAP2.GetInfo.Options.SupportChecking {
 
         // Immutable options
-        let platformDevice: Bool
-        let residentKey: Bool
-        let userPresence: Bool
+        public let platformDevice: Bool
+        public let residentKey: Bool
+        public let userPresence: Bool
 
         // Tri-state support flags
-        let supportsClientPin: Bool
-        let supportsUserVerification: Bool
-        let supportsEnterpriseAttestation: Bool
-        let supportsBioEnroll: Bool
-        let supportsAlwaysUV: Bool
-        let supportsUserVerificationMgmtPreview: Bool
+        public let supportsClientPin: Bool
+        public let supportsUserVerification: Bool
+        public let supportsEnterpriseAttestation: Bool
+        public let supportsBioEnroll: Bool
+        public let supportsAlwaysUV: Bool
+        public let supportsUserVerificationMgmtPreview: Bool
 
         // Binary options
-        let pinUVAuthToken: Bool
-        let noMcGaPermissionsWithClientPin: Bool
-        let largeBlobs: Bool
-        let uvBioEnroll: Bool
-        let authenticatorConfig: Bool
-        let uvAuthenticatorConfig: Bool
-        let credentialManagement: Bool
-        let setMinPINLength: Bool
-        let perCredMgmtRO: Bool
-        let credentialMgmtPreview: Bool
+        public let pinUVAuthToken: Bool
+        public let noMcGaPermissionsWithClientPin: Bool
+        public let largeBlobs: Bool
+        public let uvBioEnroll: Bool
+        public let authenticatorConfig: Bool
+        public let uvAuthenticatorConfig: Bool
+        public let credentialManagement: Bool
+        public let setMinPINLength: Bool
+        public let perCredMgmtRO: Bool
+        public let credentialMgmtPreview: Bool
 
-        init(_ options: CTAP2.GetInfo.Options) {
+        public init(_ options: CTAP2.GetInfo.Options) {
             self.platformDevice = options.platformDevice
             self.residentKey = options.residentKey
             self.userPresence = options.userPresence

@@ -108,11 +108,12 @@ extension WebAuthn {
             )
         }
 
-        /// Internal initializer for testing with a mock backend.
+        /// Create a WebAuthn client backed by a custom ``Backend``.
         ///
-        /// `allowedExtensions` has no default here on purpose: tests must opt in
-        /// explicitly so the suite never silently drifts from the public `.standard`.
-        init(
+        /// `allowedExtensions` has no default here on purpose: callers (including
+        /// tests) must opt in explicitly so behavior never silently drifts from
+        /// the convenience init's `.standard` default.
+        public init(
             backend: any Backend,
             origin: Origin,
             enterpriseRpIds: Set<String> = [],
