@@ -46,7 +46,7 @@ extension CTAP2.GetAssertion {
         /// Large blob key associated with this credential (CTAP 2.1+).
         public let largeBlobKey: Data?
 
-        init(
+        public init(
             credential: WebAuthn.CredentialDescriptor? = nil,
             authenticatorData: WebAuthn.AuthenticatorData,
             signature: Data,

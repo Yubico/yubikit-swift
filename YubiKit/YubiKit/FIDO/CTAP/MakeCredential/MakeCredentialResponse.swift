@@ -47,5 +47,28 @@ extension CTAP2.MakeCredential {
         ///
         /// Use extension-specific `result(from:)` methods for typed access to extension outputs.
         internal let unsignedExtensionOutputs: [String: CBOR.Value]?
+
+        public init(
+            attestationObject: WebAuthn.AttestationObject,
+            enterpriseAttestation: Bool? = nil,
+            largeBlobKey: Data? = nil
+        ) {
+            self.attestationObject = attestationObject
+            self.enterpriseAttestation = enterpriseAttestation
+            self.largeBlobKey = largeBlobKey
+            self.unsignedExtensionOutputs = nil
+        }
+
+        internal init(
+            attestationObject: WebAuthn.AttestationObject,
+            enterpriseAttestation: Bool?,
+            largeBlobKey: Data?,
+            unsignedExtensionOutputs: [String: CBOR.Value]?
+        ) {
+            self.attestationObject = attestationObject
+            self.enterpriseAttestation = enterpriseAttestation
+            self.largeBlobKey = largeBlobKey
+            self.unsignedExtensionOutputs = unsignedExtensionOutputs
+        }
     }
 }

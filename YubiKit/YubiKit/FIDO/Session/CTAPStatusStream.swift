@@ -58,8 +58,15 @@ extension CTAP2 {
             self.base = base
         }
 
-        static func error(_ error: SessionError) -> Self {
+        public static func error(_ error: SessionError) -> Self {
             Self(Base.error(error))
+        }
+
+        /// Stream that immediately yields a single `.finished(response)` and closes.
+        public static func finished(_ response: R) -> Self {
+            Self { continuation in
+                continuation.yield(.finished(response))
+            }
         }
 
         /// Consumes the stream and returns the final response value.

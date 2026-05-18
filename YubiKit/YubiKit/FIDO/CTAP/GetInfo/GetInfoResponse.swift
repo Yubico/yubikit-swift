@@ -215,6 +215,71 @@ extension CTAP2.GetInfo {
         /// List of supported authenticatorConfig subcommands.
         public let authenticatorConfigCommands: [CTAP2.Config.Subcommand]?
 
+        public init(
+            versions: [AuthenticatorVersion],
+            aaguid: AAGUID,
+            extensions: [CTAP2.Extension.Identifier],
+            options: Options,
+            maxMsgSize: UInt,
+            pinUVAuthProtocols: [CTAP2.ClientPin.ProtocolVersion],
+            maxCredentialCountInList: UInt? = nil,
+            maxCredentialIdLength: UInt? = nil,
+            transports: [WebAuthn.Transport] = [],
+            algorithms: [COSE.Algorithm] = [],
+            maxSerializedLargeBlobArray: UInt? = nil,
+            forcePinChange: Bool? = nil,
+            minPinLength: UInt? = nil,
+            firmwareVersion: UInt? = nil,
+            maxCredBlobLength: UInt? = nil,
+            maxRPIDsForSetMinPinLength: UInt? = nil,
+            preferredPlatformUVAttempts: UInt? = nil,
+            uvModality: UVModality? = nil,
+            certifications: [String: UInt] = [:],
+            remainingDiscoverableCredentials: UInt? = nil,
+            vendorPrototypeConfigCommands: [UInt]? = nil,
+            attestationFormats: [WebAuthn.AttestationFormat] = [],
+            uvCountSinceLastPinEntry: UInt? = nil,
+            longTouchForReset: Bool? = nil,
+            encIdentifier: Encrypted<Opaque128>? = nil,
+            transportsForReset: [WebAuthn.Transport] = [],
+            pinComplexityPolicy: Bool? = nil,
+            pinComplexityPolicyURL: URL? = nil,
+            maxPINLength: UInt? = nil,
+            encCredStoreState: Encrypted<Opaque128>? = nil,
+            authenticatorConfigCommands: [CTAP2.Config.Subcommand]? = nil
+        ) {
+            self.versions = versions
+            self.aaguid = aaguid
+            self.extensions = extensions
+            self.options = options
+            self.maxMsgSize = maxMsgSize
+            self.pinUVAuthProtocols = pinUVAuthProtocols
+            self.maxCredentialCountInList = maxCredentialCountInList
+            self.maxCredentialIdLength = maxCredentialIdLength
+            self.transports = transports
+            self.algorithms = algorithms
+            self.maxSerializedLargeBlobArray = maxSerializedLargeBlobArray
+            self.forcePinChange = forcePinChange
+            self.minPinLength = minPinLength
+            self.firmwareVersion = firmwareVersion
+            self.maxCredBlobLength = maxCredBlobLength
+            self.maxRPIDsForSetMinPinLength = maxRPIDsForSetMinPinLength
+            self.preferredPlatformUVAttempts = preferredPlatformUVAttempts
+            self.uvModality = uvModality
+            self.certifications = certifications
+            self.remainingDiscoverableCredentials = remainingDiscoverableCredentials
+            self.vendorPrototypeConfigCommands = vendorPrototypeConfigCommands
+            self.attestationFormats = attestationFormats
+            self.uvCountSinceLastPinEntry = uvCountSinceLastPinEntry
+            self.longTouchForReset = longTouchForReset
+            self.encIdentifier = encIdentifier
+            self.transportsForReset = transportsForReset
+            self.pinComplexityPolicy = pinComplexityPolicy
+            self.pinComplexityPolicyURL = pinComplexityPolicyURL
+            self.maxPINLength = maxPINLength
+            self.encCredStoreState = encCredStoreState
+            self.authenticatorConfigCommands = authenticatorConfigCommands
+        }
     }
 
     // MARK: - Encrypted Fields

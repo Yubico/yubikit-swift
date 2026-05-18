@@ -53,6 +53,12 @@ extension WebAuthn {
 
             self.rawData = map.cbor().encode()
         }
+
+        /// Convenience constructor for the `"none"` attestation format
+        /// (empty attestation statement).
+        public static func none(authenticatorData: AuthenticatorData) -> Self {
+            Self(format: "none", statementCBOR: .map([:]), authenticatorData: authenticatorData)
+        }
     }
 }
 
