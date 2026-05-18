@@ -125,9 +125,14 @@ extension CTAP2.GetInfo.Options: CTAP2.GetInfo.Options.SupportChecking {
 
 // MARK: - CBOR Decoding
 
-extension CTAP2.GetInfo.Options: CBOR.Decodable {
-    init?(cbor: CBOR.Value) {
-        guard let values: [String: Bool] = cbor.cborDecoded() else { return nil }
+extension CTAP2.GetInfo.Options {
+    /// Build options from a CTAP-style string-keyed map.
+    ///
+    /// Keys mirror the CTAP `authenticatorGetInfo` `options` field (e.g.
+    /// `"plat"`, `"rk"`, `"up"`, `"clientPin"`, `"uv"`, `"credMgmt"`, …).
+    /// Use this from custom ``WebAuthn/Backend`` implementations that
+    /// synthesise GetInfo responses.
+    public init(_ values: [String: Bool]) {
         self.values = values
 
         // Immutable
@@ -142,5 +147,12 @@ extension CTAP2.GetInfo.Options: CBOR.Decodable {
         self.bioEnroll = values["bioEnroll"]
         self.alwaysUV = values["alwaysUv"]
         self.userVerificationMgmtPreview = values["userVerificationMgmtPreview"]
+    }
+}
+
+extension CTAP2.GetInfo.Options: CBOR.Decodable {
+    init?(cbor: CBOR.Value) {
+        guard let values: [String: Bool] = cbor.cborDecoded() else { return nil }
+        self.init(values)
     }
 }
