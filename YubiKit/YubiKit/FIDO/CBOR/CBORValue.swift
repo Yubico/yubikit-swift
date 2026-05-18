@@ -15,8 +15,8 @@
 import Foundation
 
 extension CBOR {
-    // CBOR value representation for CTAP2/FIDO2
-    indirect enum Value: Sendable {
+    /// CBOR value representation for CTAP2/FIDO2.
+    public indirect enum Value: Sendable {
         case unsignedInt(UInt64)  // CBOR major type 0
         case negativeInt(UInt64)  // CBOR major type 1, one's complement
         case byteString(Data)  // CBOR major type 2
@@ -31,8 +31,8 @@ extension CBOR {
 // MARK: - Convenience Initializers
 
 extension CBOR.Value {
-    // Creates a CBOR value from an Int64
-    init(_ value: Int64) {
+    /// Creates a CBOR value from an Int64.
+    public init(_ value: Int64) {
         if value >= 0 {
             self = .unsignedInt(UInt64(value))
         } else {
@@ -40,8 +40,8 @@ extension CBOR.Value {
         }
     }
 
-    // Creates a CBOR integer from its actual value
-    static func int(_ value: Int) -> CBOR.Value {
+    /// Creates a CBOR integer from its actual value.
+    public static func int(_ value: Int) -> CBOR.Value {
         if value >= 0 {
             return .unsignedInt(UInt64(value))
         } else {
@@ -54,33 +54,33 @@ extension CBOR.Value {
         .unsignedInt(UInt64(value))
     }
 
-    // Creates a CBOR value from a UInt64
-    init(_ value: UInt64) {
+    /// Creates a CBOR value from a UInt64.
+    public init(_ value: UInt64) {
         self = .unsignedInt(value)
     }
 
-    // Creates a CBOR value from a String
-    init(_ value: String) {
+    /// Creates a CBOR value from a String.
+    public init(_ value: String) {
         self = .textString(value)
     }
 
-    // Creates a CBOR value from Data
-    init(_ value: Data) {
+    /// Creates a CBOR value from Data.
+    public init(_ value: Data) {
         self = .byteString(value)
     }
 
-    // Creates a CBOR value from a Bool
-    init(_ value: Bool) {
+    /// Creates a CBOR value from a Bool.
+    public init(_ value: Bool) {
         self = .boolean(value)
     }
 
-    // Creates a CBOR array from an array of values
-    init(_ array: [CBOR.Value]) {
+    /// Creates a CBOR array from an array of values.
+    public init(_ array: [CBOR.Value]) {
         self = .array(array)
     }
 
-    // Creates a CBOR map from a dictionary with CBOR.Value keys
-    init(_ dict: [CBOR.Value: CBOR.Value]) {
+    /// Creates a CBOR map from a dictionary with CBOR.Value keys.
+    public init(_ dict: [CBOR.Value: CBOR.Value]) {
         self = .map(dict)
     }
 }
@@ -88,8 +88,8 @@ extension CBOR.Value {
 // MARK: - Type-Safe Accessors
 
 extension CBOR.Value {
-    // Returns the value as an Int if it represents an integer that fits in Int range
-    var intValue: Int? {
+    /// Returns the value as an Int if it represents an integer that fits in Int range.
+    public var intValue: Int? {
         switch self {
         case .unsignedInt(let n) where n <= UInt64(Int.max):
             return Int(n)
@@ -100,64 +100,64 @@ extension CBOR.Value {
         }
     }
 
-    // Returns the value as a UInt64 if it represents an unsigned integer
-    var uint64Value: UInt64? {
+    /// Returns the value as a UInt64 if it represents an unsigned integer.
+    public var uint64Value: UInt64? {
         if case .unsignedInt(let n) = self {
             return n
         }
         return nil
     }
 
-    // Returns the value as a String if it represents a text string
-    var stringValue: String? {
+    /// Returns the value as a String if it represents a text string.
+    public var stringValue: String? {
         if case .textString(let s) = self {
             return s
         }
         return nil
     }
 
-    // Returns the value as Data if it represents a byte string
-    var dataValue: Data? {
+    /// Returns the value as Data if it represents a byte string.
+    public var dataValue: Data? {
         if case .byteString(let d) = self {
             return d
         }
         return nil
     }
 
-    // Returns the value as an array if it represents a CBOR array
-    var arrayValue: [CBOR.Value]? {
+    /// Returns the value as an array if it represents a CBOR array.
+    public var arrayValue: [CBOR.Value]? {
         if case .array(let a) = self {
             return a
         }
         return nil
     }
 
-    // Returns the value as a map if it represents a CBOR map
-    var mapValue: [CBOR.Value: CBOR.Value]? {
+    /// Returns the value as a map if it represents a CBOR map.
+    public var mapValue: [CBOR.Value: CBOR.Value]? {
         if case .map(let m) = self {
             return m
         }
         return nil
     }
 
-    // Returns the value as a Bool if it represents a boolean
-    var boolValue: Bool? {
+    /// Returns the value as a Bool if it represents a boolean.
+    public var boolValue: Bool? {
         if case .boolean(let b) = self {
             return b
         }
         return nil
     }
 
-    // Returns true if the value is null
-    var isNull: Bool {
+    /// Returns true if the value is null.
+    public var isNull: Bool {
         if case .null = self {
             return true
         }
         return false
     }
 
-    // Subscript for accessing array elements by index or map values with integer keys
-    subscript(index: Int) -> CBOR.Value? {
+    /// Subscript for accessing array elements by index or map values with integer keys.
+    public subscript(index: Int) -> CBOR.Value? {
         switch self {
         case .array(let items):
             guard index >= 0, index < items.count else {
@@ -180,14 +180,14 @@ extension CBOR.Value {
 // MARK: - Hashable & Equatable
 
 extension CBOR.Value: Hashable {
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         // Use the canonical CBOR encoding for hashing
         hasher.combine(self.encode())
     }
 }
 
 extension CBOR.Value: Equatable {
-    static func == (lhs: CBOR.Value, rhs: CBOR.Value) -> Bool {
+    public static func == (lhs: CBOR.Value, rhs: CBOR.Value) -> Bool {
         // Two CBOR values are equal if their canonical encodings are equal
         lhs.encode() == rhs.encode()
     }
@@ -196,31 +196,31 @@ extension CBOR.Value: Equatable {
 // MARK: - ExpressibleBy Literal Conformances
 
 extension CBOR.Value: ExpressibleByIntegerLiteral {
-    init(integerLiteral value: Int) {
+    public init(integerLiteral value: Int) {
         self.init(Int64(value))
     }
 }
 
 extension CBOR.Value: ExpressibleByStringLiteral {
-    init(stringLiteral value: String) {
+    public init(stringLiteral value: String) {
         self.init(value)
     }
 }
 
 extension CBOR.Value: ExpressibleByBooleanLiteral {
-    init(booleanLiteral value: Bool) {
+    public init(booleanLiteral value: Bool) {
         self.init(value)
     }
 }
 
 extension CBOR.Value: ExpressibleByArrayLiteral {
-    init(arrayLiteral elements: CBOR.Value...) {
+    public init(arrayLiteral elements: CBOR.Value...) {
         self = .array(elements)
     }
 }
 
 extension CBOR.Value: ExpressibleByDictionaryLiteral {
-    init(dictionaryLiteral elements: (CBOR.Value, CBOR.Value)...) {
+    public init(dictionaryLiteral elements: (CBOR.Value, CBOR.Value)...) {
         var dict: [CBOR.Value: CBOR.Value] = [:]
         for (key, value) in elements {
             dict[key] = value
@@ -230,7 +230,7 @@ extension CBOR.Value: ExpressibleByDictionaryLiteral {
 }
 
 extension CBOR.Value: ExpressibleByNilLiteral {
-    init(nilLiteral: ()) {
+    public init(nilLiteral: ()) {
         self = .null
     }
 }
@@ -238,7 +238,7 @@ extension CBOR.Value: ExpressibleByNilLiteral {
 // MARK: - CustomStringConvertible
 
 extension CBOR.Value: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         switch self {
         case .unsignedInt(let n):
             return "\(n)"

@@ -163,7 +163,7 @@ public enum COSE {
 // MARK: - COSE.Algorithm + CBOR
 
 extension COSE.Algorithm: CBOR.Decodable {
-    init?(cbor: CBOR.Value) {
+    public init?(cbor: CBOR.Value) {
         // Handle direct integer (e.g., from credential public key)
         if let value = cbor.intValue {
             self.init(rawValue: value)
@@ -192,7 +192,7 @@ extension COSE.Key: CBOR.Decodable {
     ///
     /// - Parameter cbor: CBOR map containing COSE key parameters
     /// - Returns: Parsed COSE.Key, or nil if parsing fails
-    init?(cbor: CBOR.Value) {
+    public init?(cbor: CBOR.Value) {
         guard let map = cbor.mapValue else {
             return nil
         }
@@ -253,7 +253,7 @@ extension COSE.Key: CBOR.Encodable {
     /// Produces a COSE_Key structure as defined in RFC 8152 Section 7.
     ///
     /// - Returns: CBOR map value containing all COSE key parameters
-    func cbor() -> CBOR.Value {
+    public func cbor() -> CBOR.Value {
         switch self {
         case .ec2(let alg, let kid, let crv, let x, let y):
             var map: [CBOR.Value: CBOR.Value] = [

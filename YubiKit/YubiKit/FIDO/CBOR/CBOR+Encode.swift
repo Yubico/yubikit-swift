@@ -16,8 +16,8 @@ import Foundation
 
 extension CBOR.Value {
 
-    // Encodes a CBOR value into its canonical byte representation
-    func encode() -> Data {
+    /// Encodes a CBOR value into its canonical byte representation per RFC 8949 §4.2.
+    public func encode() -> Data {
         var output = Data()
         encodeValue(self, to: &output)
         return output
