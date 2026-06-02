@@ -394,7 +394,9 @@ public final actor OATHSession: SmartCardSessionInternal {
                     let code = try await self.calculateCredentialCode(for: credential, timestamp: timestamp)
                     credentialCodePairs.append((credential, code))
                 } else {
-                    let digits = response.value.first!
+                    guard let digits = response.value.first else {
+                        throw .responseParseError("Missing digits value in code response", source: .here())
+                    }
                     let code = UInt32(bigEndian: response.value.subdata(in: 1..<response.value.count).uint32)
                     let stringCode = String(format: "%0\(digits)d", UInt(code))
                     credentialCodePairs.append(
