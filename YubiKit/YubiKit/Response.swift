@@ -17,12 +17,13 @@ import Foundation
 public struct Response: Sendable {
 
     init(rawData: Data) {
-        if rawData.count > 2 {
+        if rawData.count >= 2 {
             data = rawData.subdata(in: 0..<rawData.count - 2)
+            responseStatus = Response.Status(data: rawData.subdata(in: rawData.count - 2..<rawData.count))
         } else {
             data = Data()
+            responseStatus = Response.Status(sw1: 0x00, sw2: 0x00)
         }
-        responseStatus = Response.Status(data: rawData.subdata(in: rawData.count - 2..<rawData.count))
     }
 
     init(data: Data, sw1: UInt8, sw2: UInt8) {
@@ -90,7 +91,8 @@ extension Response {
         }
 
         internal init(data: Data) {
-            let value = data.uint16.bigEndian
+            // Fall back to 0x0000 (.unknown) when fewer than 2 bytes are available.
+            let value = (data.uint16 ?? 0).bigEndian
             self.init(sw1: UInt8((value & 0xff00) >> 8), sw2: UInt8(value & 0x00ff))
         }
     }
