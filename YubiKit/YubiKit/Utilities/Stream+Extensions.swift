@@ -57,8 +57,10 @@ extension InputStream {
         var data = Data()
         let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: YubiKeyConstants.bufferSize)
         defer {
-            // Zero buffer before deallocation to avoid leaving sensitive data in memory
-            memset(buffer, 0, YubiKeyConstants.bufferSize)
+            // Zero buffer before deallocation to avoid leaving sensitive data in memory.
+            // memset_s is guaranteed not to be optimized away, unlike a plain memset
+            // before a deallocation the compiler can prove is never read again.
+            memset_s(buffer, YubiKeyConstants.bufferSize, 0, YubiKeyConstants.bufferSize)
             buffer.deallocate()
         }
 
