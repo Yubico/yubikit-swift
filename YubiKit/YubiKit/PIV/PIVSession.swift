@@ -712,7 +712,10 @@ public final actor PIVSession: SmartCardSessionInternal {
         guard await self.supports(PIVSessionFeature.serialNumber) else { throw .featureNotSupported(source: .here()) }
         let apdu = APDU(cla: 0, ins: insGetSerial, p1: 0, p2: 0)
         let result = try await process(apdu: apdu)
-        let serial = CFSwapInt32BigToHost(result.uint32)
+        guard let rawSerial = result.uint32 else {
+            throw .responseParseError("Serial number response too short", source: .here())
+        }
+        let serial = CFSwapInt32BigToHost(rawSerial)
         return UInt(serial)
     }
 

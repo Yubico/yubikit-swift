@@ -95,7 +95,8 @@ extension Response {
         }
 
         internal init(data: Data) {
-            let value = data.uint16.bigEndian
+            // Fall back to 0x0000 (.unknown) when fewer than 2 bytes are available.
+            let value = (data.uint16 ?? 0).bigEndian
             self.init(sw1: UInt8((value & 0xff00) >> 8), sw2: UInt8(value & 0x00ff))
         }
     }

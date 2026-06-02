@@ -303,10 +303,12 @@ public final actor OATHSession: SmartCardSessionInternal {
             throw .responseParseError("Failed to parse TLV response for code calculation", source: .here())
         }
 
-        guard let digits = result.value.first else {
-            throw .responseParseError("Missing digits value in code response", source: .here())
+        guard let digits = result.value.first,
+            let rawCode = result.value.subdata(in: 1..<result.value.count).uint32
+        else {
+            throw .responseParseError("Malformed truncated code in calculate response", source: .here())
         }
-        let code = UInt32(bigEndian: result.value.subdata(in: 1..<result.value.count).uint32)
+        let code = UInt32(bigEndian: rawCode)
         let stringCode = String(format: "%0\(digits)d", UInt(code))
         return Code(code: stringCode, timestamp: timestamp, credentialType: credential.type)
     }
@@ -394,10 +396,12 @@ public final actor OATHSession: SmartCardSessionInternal {
                     let code = try await self.calculateCredentialCode(for: credential, timestamp: timestamp)
                     credentialCodePairs.append((credential, code))
                 } else {
-                    guard let digits = response.value.first else {
+                    guard let digits = response.value.first,
+                        let rawCode = response.value.subdata(in: 1..<response.value.count).uint32
+                    else {
                         throw .responseParseError("Missing digits value in code response", source: .here())
                     }
-                    let code = UInt32(bigEndian: response.value.subdata(in: 1..<response.value.count).uint32)
+                    let code = UInt32(bigEndian: rawCode)
                     let stringCode = String(format: "%0\(digits)d", UInt(code))
                     credentialCodePairs.append(
                         (credential, Code(code: stringCode, timestamp: timestamp, credentialType: credentialType))

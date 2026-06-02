@@ -28,18 +28,18 @@ extension Data {
         }
     }
 
-    internal var uint16: UInt16 {
-        get {
-            let i16array = self.withUnsafeBytes { $0.load(as: UInt16.self) }
-            return i16array
-        }
+    /// The leading 2 bytes interpreted as a `UInt16` in host byte order, or `nil`
+    /// if the data has fewer than 2 bytes. Callers handle any endianness conversion.
+    internal var uint16: UInt16? {
+        guard count >= MemoryLayout<UInt16>.size else { return nil }
+        return withUnsafeBytes { $0.load(as: UInt16.self) }
     }
 
-    internal var uint32: UInt32 {
-        get {
-            let i32array = self.withUnsafeBytes { $0.load(as: UInt32.self) }
-            return i32array
-        }
+    /// The leading 4 bytes interpreted as a `UInt32` in host byte order, or `nil`
+    /// if the data has fewer than 4 bytes. Callers handle any endianness conversion.
+    internal var uint32: UInt32? {
+        guard count >= MemoryLayout<UInt32>.size else { return nil }
+        return withUnsafeBytes { $0.load(as: UInt32.self) }
     }
 
     internal var uuid: NSUUID? {
