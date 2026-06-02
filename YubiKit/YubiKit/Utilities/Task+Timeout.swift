@@ -41,9 +41,13 @@ func withTimeout<T: Sendable, E: Error>(
             return first
         }
     } catch {
-        // Safe cast: operation is throws(E), timer uses try? (never throws).
-        // Only E can be thrown. withThrowingTaskGroup uses untyped throws
-        // so compiler can't verify this, but typed throws guarantees it.
-        throw error as! E
+        throw taskGroupError(error, as: E.self)
     }
+}
+
+/// Re-casts an error caught from an untyped throwing task group back to its known typed
+/// error `E`. Safe because every child task is `throws(E)`, which the task-group API erases.
+@usableFromInline
+func taskGroupError<E: Error>(_ error: any Error, as _: E.Type) -> E {
+    error as! E
 }

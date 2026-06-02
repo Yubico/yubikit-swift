@@ -95,9 +95,7 @@ private enum SmartCardConnections {
                 return result
             }
         } catch {
-            // Safe cast: all child tasks use throws(SmartCardConnectionError).
-            // withThrowingTaskGroup uses untyped throws so compiler can't verify.
-            throw error as! SmartCardConnectionError
+            throw taskGroupError(error, as: SmartCardConnectionError.self)
         }
     }
 
@@ -125,9 +123,7 @@ private enum SmartCardConnections {
                 return result!
             }
         } catch {
-            // Safe cast: all child tasks use throws(SmartCardConnectionError).
-            // withThrowingTaskGroup uses untyped throws so compiler can't verify.
-            throw error as! SmartCardConnectionError
+            throw taskGroupError(error, as: SmartCardConnectionError.self)
         }
     }
 }
