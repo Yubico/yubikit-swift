@@ -16,7 +16,9 @@ import Foundation
 
 struct SCPSessionKeys: CustomDebugStringConvertible {
     var debugDescription: String {
-        "SCPSessionKeys(senc: \(senc.hexEncodedString), smac: \(smac.hexEncodedString), srmac: \(srmac.hexEncodedString), dek: \(String(describing: dek?.hexEncodedString)))"
+        // Session keys are secret material; never render their bytes. Report only
+        // presence/length so the value stays useful for debugging without leaking keys.
+        "SCPSessionKeys(senc: <redacted \(senc.count)B>, smac: <redacted \(smac.count)B>, srmac: <redacted \(srmac.count)B>, dek: \(dek.map { "<redacted \($0.count)B>" } ?? "nil"))"
     }
 
     let senc: Data
