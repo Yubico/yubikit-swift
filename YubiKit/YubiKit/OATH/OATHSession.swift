@@ -391,25 +391,24 @@ public final actor OATHSession: SmartCardSessionInternal {
                 requiresTouch: requiresTouch
             )
 
+            // A code is present only when the value is exactly 5 bytes (1 digit byte +
+            // 4-byte truncated code); any other length means "no code for this credential".
+            let code: Code?
             if response.value.count == 5 {
                 if credentialId.period != oathDefaultPeriod {
-                    let code = try await self.calculateCredentialCode(for: credential, timestamp: timestamp)
-                    credentialCodePairs.append((credential, code))
+                    code = try await self.calculateCredentialCode(for: credential, timestamp: timestamp)
+                } else if let digits = response.value.first,
+                    let rawCode = response.value.subdata(in: 1..<response.value.count).uint32
+                {
+                    let stringCode = String(format: "%0\(digits)d", UInt(UInt32(bigEndian: rawCode)))
+                    code = Code(code: stringCode, timestamp: timestamp, credentialType: credentialType)
                 } else {
-                    guard let digits = response.value.first,
-                        let rawCode = response.value.subdata(in: 1..<response.value.count).uint32
-                    else {
-                        throw .responseParseError("Missing digits value in code response", source: .here())
-                    }
-                    let code = UInt32(bigEndian: rawCode)
-                    let stringCode = String(format: "%0\(digits)d", UInt(code))
-                    credentialCodePairs.append(
-                        (credential, Code(code: stringCode, timestamp: timestamp, credentialType: credentialType))
-                    )
+                    code = nil
                 }
             } else {
-                credentialCodePairs.append((credential, nil))
+                code = nil
             }
+            credentialCodePairs.append((credential, code))
         }
         return credentialCodePairs
     }
