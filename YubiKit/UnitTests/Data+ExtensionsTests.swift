@@ -55,4 +55,31 @@ struct DataExtensionsTests {
         //print(result.hexEncodedString)
         #expect(result == Data([0xb5, 0x90]))
     }
+
+    // MARK: - Bounds-safe integer accessors
+
+    @Test func uint16IsNilWhenFewerThanTwoBytes() throws {
+        #expect(Data().uint16 == nil)
+        #expect(Data([0x01]).uint16 == nil)
+    }
+
+    @Test func uint16ReadsLeadingTwoBytes() throws {
+        // Host order is little-endian on all Apple platforms; callers apply .bigEndian.
+        #expect(Data([0x34, 0x12]).uint16 == 0x1234)
+        // Trailing bytes beyond the first two are ignored, not rejected.
+        #expect(Data([0x34, 0x12, 0xff, 0xff]).uint16 == 0x1234)
+    }
+
+    @Test func uint32IsNilWhenFewerThanFourBytes() throws {
+        #expect(Data().uint32 == nil)
+        #expect(Data([0x01]).uint32 == nil)
+        #expect(Data([0x01, 0x02]).uint32 == nil)
+        #expect(Data([0x01, 0x02, 0x03]).uint32 == nil)
+    }
+
+    @Test func uint32ReadsLeadingFourBytes() throws {
+        #expect(Data([0x78, 0x56, 0x34, 0x12]).uint32 == 0x1234_5678)
+        // Trailing bytes beyond the first four are ignored, not rejected.
+        #expect(Data([0x78, 0x56, 0x34, 0x12, 0xff]).uint32 == 0x1234_5678)
+    }
 }
