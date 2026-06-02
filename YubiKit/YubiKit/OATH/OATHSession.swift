@@ -303,14 +303,10 @@ public final actor OATHSession: SmartCardSessionInternal {
             throw .responseParseError("Failed to parse TLV response for code calculation", source: .here())
         }
 
-        guard let digits = result.value.first,
-            let rawCode = result.value.subdata(in: 1..<result.value.count).uint32
-        else {
+        guard let code = Code(parsing: result.value, timestamp: timestamp, credentialType: credential.type) else {
             throw .responseParseError("Malformed truncated code in calculate response", source: .here())
         }
-        let code = UInt32(bigEndian: rawCode)
-        let stringCode = String(format: "%0\(digits)d", UInt(code))
-        return Code(code: stringCode, timestamp: timestamp, credentialType: credential.type)
+        return code
     }
 
     /// Calculate a full (non-truncated) HMAC signature using a credential id.
@@ -397,13 +393,8 @@ public final actor OATHSession: SmartCardSessionInternal {
             if response.value.count == 5 {
                 if credentialId.period != oathDefaultPeriod {
                     code = try await self.calculateCredentialCode(for: credential, timestamp: timestamp)
-                } else if let digits = response.value.first,
-                    let rawCode = response.value.subdata(in: 1..<response.value.count).uint32
-                {
-                    let stringCode = String(format: "%0\(digits)d", UInt(UInt32(bigEndian: rawCode)))
-                    code = Code(code: stringCode, timestamp: timestamp, credentialType: credentialType)
                 } else {
-                    code = nil
+                    code = Code(parsing: response.value, timestamp: timestamp, credentialType: credentialType)
                 }
             } else {
                 code = nil
