@@ -16,7 +16,8 @@ import Foundation
 
 struct SCPSessionKeys: CustomDebugStringConvertible {
     var debugDescription: String {
-        "SCPSessionKeys(senc: \(senc.hexEncodedString), smac: \(smac.hexEncodedString), srmac: \(srmac.hexEncodedString), dek: \(String(describing: dek?.hexEncodedString)))"
+        // Never render key bytes; show only lengths so debugging stays useful.
+        "SCPSessionKeys(senc: <redacted \(senc.count)B>, smac: <redacted \(smac.count)B>, srmac: <redacted \(srmac.count)B>, dek: \(dek.map { "<redacted \($0.count)B>" } ?? "nil"))"
     }
 
     let senc: Data
