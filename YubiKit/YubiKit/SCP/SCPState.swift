@@ -64,7 +64,9 @@ public actor SCPState: HasSCPLogger {
 
         // Check if the last non-zero byte is 0x80
         if data[lastNonZeroIndex] == 0x80 {
-            return data.prefix(upTo: lastNonZeroIndex)  // Return data before padding
+            // Return a standalone copy, not a slice: decrypt()'s `defer` secureClear()s the
+            // source buffer, and an aliasing slice would defeat that wipe via copy-on-write.
+            return Data(data.prefix(upTo: lastNonZeroIndex))  // Data before padding
         }
 
         return nil  // Invalid padding scheme
