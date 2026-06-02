@@ -27,12 +27,18 @@ jobs:
       uses: ./.github/actions/setup-env
     
     - name: Define Diff Versions
+      env:
+        HEAD_REF: ${{ github.head_ref }}
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+        HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        SERVER_URL: ${{ github.server_url }}
+        REPO: ${{ github.repository }}
       run: |
-        NEW="${{ github.head_ref }}~${{github.server_url}}/${{ github.event.pull_request.head.repo.full_name || github.repository}}.git"
-        OLD="${{ github.event.pull_request.base.ref }}~${{ github.server_url }}/${{ github.repository }}.git"
-        
-        echo "OLD_VERSION=$OLD" >> $GITHUB_ENV
-        echo "NEW_VERSION=$NEW" >> $GITHUB_ENV
+        NEW="${HEAD_REF}~${SERVER_URL}/${HEAD_REPO}.git"
+        OLD="${BASE_REF}~${SERVER_URL}/${REPO}.git"
+
+        echo "OLD_VERSION=$OLD" >> "$GITHUB_ENV"
+        echo "NEW_VERSION=$NEW" >> "$GITHUB_ENV"
     
     - name: Detect YubiKit Public API Changes (macOS)
       uses: Adyen/adyen-swift-public-api-diff@9ed54d9884b1a8f0e2c1ecde353793ea8ce7132b # 0.11.2
