@@ -28,18 +28,16 @@ extension Data {
         }
     }
 
-    /// The leading 2 bytes interpreted as a `UInt16` in host byte order, or `nil`
-    /// if the data has fewer than 2 bytes. Callers handle any endianness conversion.
+    /// Leading 2 bytes as a host-order `UInt16`, or `nil` if shorter than 2 bytes.
     internal var uint16: UInt16? {
         guard count >= MemoryLayout<UInt16>.size else { return nil }
-        return withUnsafeBytes { $0.load(as: UInt16.self) }
+        return withUnsafeBytes { $0.loadUnaligned(as: UInt16.self) }
     }
 
-    /// The leading 4 bytes interpreted as a `UInt32` in host byte order, or `nil`
-    /// if the data has fewer than 4 bytes. Callers handle any endianness conversion.
+    /// Leading 4 bytes as a host-order `UInt32`, or `nil` if shorter than 4 bytes.
     internal var uint32: UInt32? {
         guard count >= MemoryLayout<UInt32>.size else { return nil }
-        return withUnsafeBytes { $0.load(as: UInt32.self) }
+        return withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
     }
 
     internal var uuid: NSUUID? {
