@@ -349,6 +349,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
                 if result.bytes[0] == 0x00 {  // Remove the YLP key protocol header
                     return result.subdata(in: 1..<result.count)
                 } else if result.bytes[0] == 0x01 {  // Remove the YLP key protocol header and the WTX
+                    guard result.count >= 4 else { throw SmartCardConnectionError.connectionLost }
                     return result.subdata(in: 4..<result.count)
                 }
                 throw SmartCardConnectionError.connectionLost
