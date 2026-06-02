@@ -362,6 +362,17 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
         return key
     }
 
+    /// The DEK from the current SCP03 session keys, or throws if no SCP03 secure channel is set up.
+    private func sessionDek() throws(SCPError) -> Data {
+        guard let scpState = interface.scpState else {
+            throw .secureChannelRequired(source: .here())
+        }
+        guard let dek = scpState.sessionKeys.dek else {
+            throw .illegalArgument("This operation requires an SCP03 session", source: .here())
+        }
+        return dek
+    }
+
     /// Imports an SCP03 key set.
     /// Requires off-card entity verification.
     /// - Parameter keyRef: the KID-KVN pair to assign the new key set, KID must be 1
@@ -377,12 +388,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
         guard let dek = keys.dek else {
             throw .illegalArgument("New DEK must be set in static keys", source: .here())
         }
-        guard let scpState = interface.scpState else {
-            throw SCPError.secureChannelRequired(source: .here())
-        }
-        guard let currentDek = scpState.sessionKeys.dek else {
-            throw SCPError.illegalArgument("This operation requires an SCP03 session", source: .here())
-        }
+        let currentDek = try sessionDek()
 
         var data = Data([keyRef.kvn])
         var expected = Data([keyRef.kvn])
@@ -472,12 +478,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw .illegalArgument("Expected SECP256R1 private key", source: .here())
         }
 
-        guard let scpState = interface.scpState else {
-            throw .secureChannelRequired(source: .here())
-        }
-        guard let currentDek = scpState.sessionKeys.dek else {
-            throw .illegalArgument("This operation requires an SCP03 session", source: .here())
-        }
+        let currentDek = try sessionDek()
 
         // Extract the raw 32-byte secret scalar from the EC private key
         let rawSecret = privateKey.k
