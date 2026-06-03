@@ -28,12 +28,6 @@ extension Data {
         }
     }
 
-    /// Leading 2 bytes as a host-order `UInt16`, or `nil` if shorter than 2 bytes.
-    internal var uint16: UInt16? {
-        guard count >= MemoryLayout<UInt16>.size else { return nil }
-        return withUnsafeBytes { $0.loadUnaligned(as: UInt16.self) }
-    }
-
     /// Leading 4 bytes as a host-order `UInt32`, or `nil` if shorter than 4 bytes.
     internal var uint32: UInt32? {
         guard count >= MemoryLayout<UInt32>.size else { return nil }
