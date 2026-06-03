@@ -341,17 +341,25 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
                 message:
                     "got \(result.count) bytes, SW: \(String(format:"%02X%02X", result.bytes[result.count-2], result.bytes[result.count-1]))"
             ) */
-            guard result.count >= 2 else { throw SmartCardConnectionError.connectionLost }
-            let status = Response.Status(data: result.subdata(in: result.count - 2..<result.count))
+            guard result.count >= 2 else {
+                throw SmartCardConnectionError.malformedData("Response too short for status word")
+            }
+            let statusBytes = result.suffix(2)
+            let status = Response.Status(sw1: statusBytes.first!, sw2: statusBytes.last!)
 
             // BUG #62 - Workaround for WTX == 0x01 while status is 0x9000 (success).
             if (status.status == Response.Status.Code.ok) || result.bytes[0] != 0x01 {
                 if result.bytes[0] == 0x00 {  // Remove the YLP key protocol header
                     return result.subdata(in: 1..<result.count)
                 } else if result.bytes[0] == 0x01 {  // Remove the YLP key protocol header and the WTX
+                    guard result.count >= 4 else {
+                        throw SmartCardConnectionError.malformedData("Response too short to strip WTX header")
+                    }
                     return result.subdata(in: 4..<result.count)
                 }
-                throw SmartCardConnectionError.connectionLost
+                throw SmartCardConnectionError.malformedData(
+                    String(format: "Unexpected YLP header byte 0x%02X", result.bytes[0])
+                )
             }
         }
     }

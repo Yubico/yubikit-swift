@@ -228,7 +228,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
             throw .connectionError(error, source: .here())
         }
 
-        // Parse response status
+        guard responseData.count >= 2 else {
+            throw .responseParseError(
+                "Response too short: expected at least 2 bytes, got \(responseData.count)",
+                source: .here()
+            )
+        }
         let response = Response(rawData: responseData)
 
         // Only continue accumulation for 0x61 (more data) or 0x9000 (success)
@@ -322,7 +327,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         }
 
         let context = hostChallenge + cardChallenge
-        let sessionKeys = staticKeys.derive(context: context)
+        let sessionKeys: SCPSessionKeys
+        do {
+            sessionKeys = try staticKeys.derive(context: context)
+        } catch {
+            throw .cryptoError("Failed to derive SCP03 session keys", error: error, source: .here())
+        }
 
         let genCardCryptogram: Data
         do {

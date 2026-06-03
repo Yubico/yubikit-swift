@@ -234,11 +234,14 @@ public final actor OATHSession: SmartCardSessionInternal {
             guard record.tag == 0x72 else {
                 throw .responseParseError("Unexpected TLV tag in credential list", source: .here())
             }
+            guard record.value.count >= 1 else {
+                throw .responseParseError("Empty credential record", source: .here())
+            }
+            let firstByte = record.value[record.value.startIndex]
             guard let credentialId = CredentialIdParser(data: record.value.dropFirst()) else {
                 throw .responseParseError("Failed to parse credential data from TLV", source: .here())
             }
-            let bytes = record.value.bytes
-            let typeCode = bytes[0] & 0xf0
+            let typeCode = firstByte & 0xf0
             let credentialType: CredentialType
             if CredentialType.isTOTP(typeCode) {
                 credentialType = .totp(period: credentialId.period ?? oathDefaultPeriod)
@@ -248,7 +251,7 @@ public final actor OATHSession: SmartCardSessionInternal {
                 throw .responseParseError("Unexpected credential type value", source: .here())
             }
 
-            guard let hashAlgorithm = HashAlgorithm(rawValue: bytes[0] & 0x0f) else {
+            guard let hashAlgorithm = HashAlgorithm(rawValue: firstByte & 0x0f) else {
                 throw .responseParseError("Invalid hash algorithm value", source: .here())
             }
 
@@ -300,12 +303,10 @@ public final actor OATHSession: SmartCardSessionInternal {
             throw .responseParseError("Failed to parse TLV response for code calculation", source: .here())
         }
 
-        guard let digits = result.value.first else {
-            throw .responseParseError("Missing digits value in code response", source: .here())
+        guard let code = Code(parsing: result.value, timestamp: timestamp, credentialType: credential.type) else {
+            throw .responseParseError("Malformed truncated code in calculate response", source: .here())
         }
-        let code = UInt32(bigEndian: result.value.subdata(in: 1..<result.value.count).uint32)
-        let stringCode = String(format: "%0\(digits)d", UInt(code))
-        return Code(code: stringCode, timestamp: timestamp, credentialType: credential.type)
+        return code
     }
 
     /// Calculate a full (non-truncated) HMAC signature using a credential id.
@@ -386,21 +387,18 @@ public final actor OATHSession: SmartCardSessionInternal {
                 requiresTouch: requiresTouch
             )
 
+            // A full code is exactly 5 bytes: a digit-count byte plus a 4-byte truncated code.
+            let code: Code?
             if response.value.count == 5 {
                 if credentialId.period != oathDefaultPeriod {
-                    let code = try await self.calculateCredentialCode(for: credential, timestamp: timestamp)
-                    credentialCodePairs.append((credential, code))
+                    code = try await self.calculateCredentialCode(for: credential, timestamp: timestamp)
                 } else {
-                    let digits = response.value.first!
-                    let code = UInt32(bigEndian: response.value.subdata(in: 1..<response.value.count).uint32)
-                    let stringCode = String(format: "%0\(digits)d", UInt(code))
-                    credentialCodePairs.append(
-                        (credential, Code(code: stringCode, timestamp: timestamp, credentialType: credentialType))
-                    )
+                    code = Code(parsing: response.value, timestamp: timestamp, credentialType: credentialType)
                 }
             } else {
-                credentialCodePairs.append((credential, nil))
+                code = nil
             }
+            credentialCodePairs.append((credential, code))
         }
         return credentialCodePairs
     }

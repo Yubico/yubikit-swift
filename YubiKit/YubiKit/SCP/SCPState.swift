@@ -51,7 +51,10 @@ public actor SCPState: HasSCPLogger {
 
         /* Fix trace: trace(message: "\(decrypted.hexEncodedString)") */
 
-        return unpadData(decrypted)!
+        guard let unpadded = unpadData(decrypted) else {
+            throw .decryptionFailed(nil)  // Invalid padding in decrypted data
+        }
+        return unpadded
     }
 
     func unpadData(_ data: Data) -> Data? {
@@ -61,7 +64,9 @@ public actor SCPState: HasSCPLogger {
 
         // Check if the last non-zero byte is 0x80
         if data[lastNonZeroIndex] == 0x80 {
-            return data.prefix(upTo: lastNonZeroIndex)  // Return data before padding
+            // Return a standalone copy, not a slice: decrypt()'s `defer` secureClear()s the
+            // source buffer, and an aliasing slice would defeat that wipe via copy-on-write.
+            return Data(data.prefix(upTo: lastNonZeroIndex))  // Data before padding
         }
 
         return nil  // Invalid padding scheme
@@ -74,6 +79,9 @@ public actor SCPState: HasSCPLogger {
     }
 
     func unmac(data: Data, sw: UInt16) throws(SCPError) -> Data {
+        guard data.count >= 8 else {
+            throw SCPError.responseParseError("Response too short for MAC verification", source: .here())
+        }
         let message = data.prefix(data.count - 8) + sw.bigEndian.data
 
         let rmac: Data
