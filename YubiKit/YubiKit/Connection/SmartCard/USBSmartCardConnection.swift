@@ -23,10 +23,11 @@ public struct USBSmartCardConnection: Sendable {
     /// The smart card slot this connection is associated with.
     public let slot: USBSmartCard.YubiKeyDevice
 
+    @usableFromInline static let defaultNameFilter = "YubiKey"
+
     /// Creates a new USB connection to the first available YubiKey.
     ///
-    /// Waits for a YubiKey to be connected via USB and establishes a connection to it.
-    /// This method waits until a YubiKey becomes available.
+    /// Waits until a YubiKey becomes available, then establishes a connection to it.
     ///
     /// - Throws: ``SmartCardConnectionError/busy`` if there is already an active connection.
     public init() async throws(SmartCardConnectionError) {
@@ -51,9 +52,13 @@ public struct USBSmartCardConnection: Sendable {
         self.slot = slot
     }
 
-    /// Returns all available smart card slots that contain YubiKeys.
-    public static func availableDevices() async throws(SmartCardConnectionError) -> [USBSmartCard.YubiKeyDevice] {
-        try await SmartCardConnectionsManager.shared.availableDevices()
+    /// Returns the available smart card slots.
+    ///
+    /// - Parameter matching: A case-insensitive substring a slot's name must contain, or `nil` for every slot.
+    public static func availableDevices(
+        matching: String? = Self.defaultNameFilter
+    ) async throws(SmartCardConnectionError) -> [USBSmartCard.YubiKeyDevice] {
+        try await SmartCardConnectionsManager.shared.availableDevices(matching: matching)
     }
 
     private var isConnected: Bool {
@@ -135,8 +140,7 @@ public enum USBSmartCard {
         /// String representation of the device, same as name.
         public var description: String { name }
 
-        fileprivate init?(name: String) {
-            guard name.lowercased().contains("yubikey") else { return nil }
+        fileprivate init(name: String) {
             self.name = name
         }
     }
@@ -263,8 +267,14 @@ private final actor SmartCardConnectionsManager {
         return
     }
 
-    func availableDevices() async throws(SmartCardConnectionError) -> [USBSmartCard.YubiKeyDevice] {
-        try slotManager.slotNames.compactMap(USBSmartCard.YubiKeyDevice.init)
+    func availableDevices(matching: String?) async throws(SmartCardConnectionError) -> [USBSmartCard.YubiKeyDevice] {
+        let loweredFilter = matching?.lowercased()
+        return try slotManager.slotNames
+            .filter { name in
+                guard let loweredFilter else { return true }
+                return name.lowercased().contains(loweredFilter)
+            }
+            .map(USBSmartCard.YubiKeyDevice.init)
     }
 }
 
