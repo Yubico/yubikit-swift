@@ -28,6 +28,7 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
     case withDeviceFIDOHID
     case alertMessage
     case closingErrorMessage
+    case cancelPendingConnection
 
     var scenario: Scenario {
         switch self {
@@ -180,6 +181,37 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
                 try? await Task.sleep(for: .seconds(1))
                 await nfc.close(message: "Closing Alert Message")
                 context.log("NFC alert message updated and session closed with a message")
+                #else
+                try context.skip("NFC scenarios are iOS-only")
+                #endif
+            }
+        case .cancelPendingConnection:
+            return Scenario(
+                "Connection.NFC.cancelPendingConnection",
+                "cancelling a pending NFC connection dismisses the reader sheet",
+                requirements: Requirements(transports: [.nfc], requiresRealHardware: true),
+                platform: .iOS
+            ) { context in
+                #if os(iOS)
+                let task = Task {
+                    try await NFCSmartCardConnection.makeConnection(alertMessage: "Do NOT tap — cancelling shortly")
+                }
+                defer { task.cancel() }
+
+                // Let the reader sheet appear before cancelling, without tapping a key.
+                try await Task.sleep(for: .seconds(3))
+                task.cancel()
+
+                do {
+                    let connection = try await task.value
+                    context.expect(false, "expected the pending NFC connection to be cancelled")
+                    await connection.close(error: nil)
+                } catch let error as SmartCardConnectionError {
+                    guard case .cancelled = error else {
+                        context.expect(false, "expected SmartCardConnectionError.cancelled, got \(error)")
+                        return
+                    }
+                }
                 #else
                 try context.skip("NFC scenarios are iOS-only")
                 #endif

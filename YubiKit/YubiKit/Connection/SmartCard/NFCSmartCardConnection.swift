@@ -245,13 +245,21 @@ private actor NFCConnectionManagerWrapper {
     }
 
     func connect(message alertMessage: String?) async throws(SmartCardConnectionError) -> ISO7816Identifier {
+        let queue = self.queue
+        let manager = self.nfcStateManager
         do {
-            return try await withCheckedThrowingContinuation { continuation in
-                queue.async {
-                    self.nfcStateManager.connect(message: alertMessage) { result in
-                        continuation.resume(with: result)
+            try Task.checkCancellation()
+            return try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { continuation in
+                    queue.async {
+                        manager.connect(message: alertMessage) { result in
+                            continuation.resume(with: result)
+                        }
                     }
                 }
+            } onCancel: {
+                // Cancelled while the NFC sheet is up: invalidate the session so it dismisses.
+                queue.async { manager.cancelPendingConnection() }
             }
         } catch {
             NFCConnectionManager.logger.debug(
@@ -262,6 +270,7 @@ private actor NFCConnectionManagerWrapper {
                     "errorCode": .stringConvertible((error as NSError).code),
                 ]
             )
+            if Task.isCancelled { throw .cancelled }
             throw .setupFailed("Failed to begin SmartCard session", flatten: error)
         }
     }
@@ -386,6 +395,13 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             }
             currentState.session?.invalidate()
         }
+    }
+
+    // Dismisses the reader sheet of a connection still waiting for a tap. A connection that
+    // was established before the cancellation arrived belongs to the caller and is kept.
+    func cancelPendingConnection() {
+        guard currentState.phase == .scanning else { return }
+        stop(with: .success(nil)) {}
     }
 
     func connect(
