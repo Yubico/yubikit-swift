@@ -240,15 +240,24 @@ private actor NFCConnectionManagerWrapper {
     }
 
     func connect(message alertMessage: String?) async throws(SmartCardConnectionError) -> ISO7816Identifier {
+        let queue = self.queue
+        let manager = self.nfcStateManager
         do {
-            return try await withCheckedThrowingContinuation { continuation in
-                queue.async {
-                    self.nfcStateManager.connect(message: alertMessage) { result in
-                        continuation.resume(with: result)
+            try Task.checkCancellation()
+            return try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { continuation in
+                    queue.async {
+                        manager.connect(message: alertMessage) { result in
+                            continuation.resume(with: result)
+                        }
                     }
                 }
+            } onCancel: {
+                // Cancelled while the NFC sheet is up: invalidate the session so it dismisses.
+                queue.async { manager.stop(with: .success(nil)) {} }
             }
         } catch {
+            if Task.isCancelled { throw .cancelled }
             throw .setupFailed("Failed to begin SmartCard session", flatten: error)
         }
     }

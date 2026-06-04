@@ -212,6 +212,31 @@ struct NFCFullStackTests {
         await connection.close(error: nil)
     }
 
+    // Cancelling the task that awaits a pending NFC connection should dismiss the
+    // sheet and throw .cancelled — no YubiKey tap required.
+    @Test("NFC Cancel Pending Connection", .timeLimit(.minutes(1)))
+    func nfcCancelPendingConnection() async throws {
+        let task = Task {
+            try await NFCSmartCardConnection.makeConnection(alertMessage: "Do NOT tap — cancelling shortly")
+        }
+
+        // Delay so the NFC sheet is visible before we cancel it.
+        try? await Task.sleep(for: .seconds(3))
+        task.cancel()
+
+        do {
+            let connection = try await task.value
+            Issue.record("Expected the pending connection to be cancelled, but got \(connection)")
+            await connection.close(error: nil)
+        } catch let error as SmartCardConnectionError {
+            guard case .cancelled = error else {
+                Issue.record("Expected SmartCardConnectionError.cancelled, got \(error)")
+                return
+            }
+            // ✅ cancelled as expected; the sheet should now be dismissed
+        }
+    }
+
 }
 #endif
 
