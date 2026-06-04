@@ -444,14 +444,30 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
     func connected(session: NFCTagReaderSession, tag: NFCISO7816Tag) {
         /* Fix trace: trace(message: "Manager.connected(session:tag:) - tag: \(String(describing: tag.identifier))") */
 
-        guard let connectionCompletion = currentState.connectionCompletion else {
+        guard currentState.connectionCompletion != nil else {
             cleanup(session: session)
             return
         }
 
-        currentState.setConnected(tag: tag)
-
-        connectionCompletion(Result.success(.init(tag.identifier)))
+        // Bring the tag into ISO-DEP/APDU-ready state before reporting the
+        // connection as established. Generic ISO7816 tags require this, else the
+        // first sendCommand fails with NFCReaderError 104 (tag not connected);
+        // YubiKeys happen to work without it on iOS via an undocumented path.
+        session.connect(to: .iso7816(tag)) { [weak self] error in
+            guard let self else { return }
+            if let error {
+                // Couldn't bring the tag up: invalidate so the existing cleanup()
+                // path reports the failure and resets state.
+                session.invalidate(errorMessage: error.localizedDescription)
+                return
+            }
+            guard let connectionCompletion = self.currentState.connectionCompletion else {
+                self.cleanup(session: session)
+                return
+            }
+            self.currentState.setConnected(tag: tag)
+            connectionCompletion(Result.success(.init(tag.identifier)))
+        }
     }
 
     private func cleanup(session: NFCTagReaderSession, error: Error? = nil) {
