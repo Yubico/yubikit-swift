@@ -1102,7 +1102,9 @@ extension PIVSession {
 
 extension String {
     fileprivate func paddedPinData() -> Data? {
-        guard var data = self.data(using: .utf8) else { return nil }
+        // PIV PINs are at most 8 bytes; a longer value would make the padding
+        // range below negative and trap.
+        guard var data = self.data(using: .utf8), data.count <= 8 else { return nil }
         let paddingSize = 8 - data.count
         for _ in 0..<paddingSize {
             data.append(0xff)
