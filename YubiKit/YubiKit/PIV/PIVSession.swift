@@ -724,7 +724,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     @discardableResult
     public func verifyPin(_ pin: String) async throws(PIVSessionError) -> PIV.VerifyPinResult {
         /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
-        guard let pinData = pin.paddedPinData() else { throw .illegalArgument("Invalid PIN format", source: .here()) }
+        let pinData = try PIV.padPin(pin)
         let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: 0x80, command: pinData)
         do {
             try await process(apdu: apdu)
@@ -914,7 +914,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     public func verify(temporaryPin pin: Data) async throws(PIVSessionError) {
         /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
         guard pin.count == temporaryPinLength else {
-            throw .illegalArgument("PIN must be \(temporaryPinLength) characters", source: .here())
+            throw .illegalArgument("Temporary PIN must be exactly \(temporaryPinLength) bytes", source: .here())
         }
         do {
             let data = TKBERTLVRecord(tag: 0x01, value: pin).data
@@ -1007,10 +1007,7 @@ extension PIVSession {
         valueOne: String,
         valueTwo: String
     ) async throws(PIVSessionError) {
-        guard let paddedValueOne = valueOne.paddedPinData(), let paddedValueTwo = valueTwo.paddedPinData() else {
-            throw .illegalArgument("Invalid PIN/PUK format", source: .here())
-        }
-        let data = paddedValueOne + paddedValueTwo
+        let data = try PIV.padPin(valueOne) + PIV.padPin(valueTwo)
         let apdu = APDU(cla: 0, ins: ins, p1: 0, p2: p2, command: data)
         do {
             try await process(apdu: apdu)
@@ -1100,15 +1097,22 @@ extension PIVSession {
 
 }
 
-extension String {
-    fileprivate func paddedPinData() -> Data? {
-        // PIV PINs are at most 8 bytes; a longer value would make the padding
-        // range below negative and trap.
-        guard var data = self.data(using: .utf8), data.count <= 8 else { return nil }
-        let paddingSize = 8 - data.count
-        for _ in 0..<paddingSize {
-            data.append(0xff)
+extension PIV {
+    /// Validate and pad a PIN or PUK to 8 bytes as required by PIV.
+    ///
+    /// Only the upper bound is enforced; the minimum is device policy enforced by the YubiKey.
+    /// Empty values are intentional: ``PIVSession/blockPin()`` and ``PIVSession/blockPuk()``
+    /// use them to exhaust the retry counters.
+    ///
+    /// - Parameter pin: The PIN or PUK to validate and pad.
+    /// - Returns: The value padded to 8 bytes with 0xff.
+    /// - Throws: `PIVSessionError.illegalArgument` if the value exceeds 8 UTF-8 bytes.
+    static func padPin(_ pin: String) throws(PIVSessionError) -> Data {
+        var data = Data(pin.utf8)
+        guard data.count <= 8 else {  // max 8 UTF-8 bytes
+            throw .illegalArgument("PIN/PUK must be at most 8 UTF-8 bytes", source: .here())
         }
+        data.append(Data(repeating: 0xff, count: 8 - data.count))
         return data
     }
 }
