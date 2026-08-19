@@ -23,7 +23,7 @@ public struct NFCConnectionProvider: ConnectionProvider {
     public let capabilities = ProviderCapabilities(
         hasFIDO: false,
         supportsSecureChannel: true,
-        isVirtual: false
+        isVirtual: nfcIsVirtual
     )
     public let deviceTransport: DeviceTransport = .nfc
     public let ctap2Transport: CTAP2Transport = .ccid
@@ -70,6 +70,12 @@ public struct NFCConnectionProvider: ConnectionProvider {
         }
         return info
     }
+
+    #if DEBUG && targetEnvironment(simulator)
+    private static let nfcIsVirtual = true
+    #else
+    private static let nfcIsVirtual = false
+    #endif
 }
 
 #endif

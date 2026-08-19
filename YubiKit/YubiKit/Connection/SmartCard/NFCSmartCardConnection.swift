@@ -13,8 +13,19 @@
 // limitations under the License.
 
 #if os(iOS)
-@preconcurrency import CoreNFC
+
 import Foundation
+
+extension SmartCardConnection {
+    /// Returns this connection as an NFCSmartCardConnection if it is one.
+    public var nfcConnection: NFCSmartCardConnection? {
+        self as? NFCSmartCardConnection
+    }
+}
+
+#if !(YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator))
+
+@preconcurrency import CoreNFC
 import OSLog
 
 // MARK: - Public API
@@ -162,13 +173,6 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
 }
 
 // MARK: - Extensions
-
-extension SmartCardConnection {
-    /// Returns this connection as an NFCSmartCardConnection if it is one.
-    public var nfcConnection: NFCSmartCardConnection? {
-        self as? NFCSmartCardConnection
-    }
-}
 
 extension NFCSmartCardConnection: HasNFCLogger {}
 
@@ -580,4 +584,6 @@ private class NFCState: @unchecked Sendable {
     }
 }
 
-#endif
+#endif  // !(YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator))
+
+#endif  // os(iOS)
