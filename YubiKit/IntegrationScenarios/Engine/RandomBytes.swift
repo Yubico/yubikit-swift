@@ -1,0 +1,26 @@
+// Copyright Yubico AB
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import Foundation
+import Security
+
+/// Cryptographically random bytes for scenario inputs — challenges, user handles, credential ids.
+/// Traps if the system RNG fails (`SecRandomCopyBytes` does not fail in practice), giving every
+/// scenario call site the same non-optional contract.
+func randomBytes(count: Int) -> Data {
+    var bytes = [UInt8](repeating: 0, count: count)
+    let status = SecRandomCopyBytes(kSecRandomDefault, count, &bytes)
+    precondition(status == errSecSuccess, "SecRandomCopyBytes failed: \(status)")
+    return Data(bytes)
+}

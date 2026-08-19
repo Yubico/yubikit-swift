@@ -147,6 +147,29 @@ extension Scenario {
             fail(message, file: file, line: line)
         }
 
+        /// Runs `body`, expecting it to throw. Records a failure — without aborting the rest of the
+        /// scenario — if the body returns instead, or if the thrown error does not satisfy
+        /// `isExpected`. Replaces the hand-rolled `do { …; record("should have thrown") } catch { … }`
+        /// idiom (and its `return`-in-`catch` footgun).
+        nonisolated func expectThrows(
+            _ action: String,
+            matching isExpected: (any Error) -> Bool = { _ in true },
+            file: String = #fileID,
+            line: Int = #line,
+            _ body: () async throws -> Void
+        ) async {
+            do {
+                try await body()
+                record("\(action) should have thrown but returned", file: file, line: line)
+            } catch {
+                if isExpected(error) {
+                    log("\(action) correctly rejected with \(error)")
+                } else {
+                    record("\(action): unexpected error \(error)", file: file, line: line)
+                }
+            }
+        }
+
         /// Abort the body and report the scenario as skipped.
         nonisolated func skip(_ reason: String) throws -> Never {
             log("⏭ \(reason) — skipping")

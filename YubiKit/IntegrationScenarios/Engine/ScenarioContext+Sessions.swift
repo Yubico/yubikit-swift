@@ -39,10 +39,8 @@ extension Scenario.Context {
         if reset {
             try await session.reset()
             addTeardown {
-                guard let cleanup = try? await PIVSession.makeSession(connection: connection, scpKeyParams: scp) else {
-                    return
-                }
-                try? await cleanup.reset()
+                let cleanup = try await PIVSession.makeSession(connection: connection, scpKeyParams: scp)
+                try await cleanup.reset()
             }
         }
         if authenticated { try await session.authenticate(with: Self.defaultManagementKey) }
@@ -56,10 +54,8 @@ extension Scenario.Context {
         if reset {
             try await session.reset()
             addTeardown {
-                guard let cleanup = try? await OATHSession.makeSession(connection: connection, scpKeyParams: scp) else {
-                    return
-                }
-                try? await cleanup.reset()
+                let cleanup = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
+                try await cleanup.reset()
             }
         }
         return session
@@ -80,6 +76,23 @@ extension Scenario.Context {
     func ctap2SessionAfterNFCReconnect() async throws -> CTAP2.Session {
         await reconnectWhenOverNFC()
         return try await ctap2Session()
+    }
+
+    /// Deletes resident credentials; a no-op when no PIN is set or credential management is unsupported.
+    func deleteResidentCredentials() async throws {
+        let session = try await ctap2Session()
+        guard try await session.getInfo().options.clientPin == true else { return }
+        guard try await CTAP2.CredentialManagement.isSupported(by: session) else { return }
+        let token = try await session.getPinUVToken(
+            using: .pin(Self.defaultTestPin),
+            permissions: [.credentialManagement]
+        )
+        let credentialManagement = try await session.credentialManagement(token: token)
+        for try await rp in credentialManagement.rps {
+            for try await credential in credentialManagement.credentials(for: rp.rpIdHash) {
+                try await credentialManagement.deleteCredential(credential.credentialId)
+            }
+        }
     }
 
     func webAuthnClient(

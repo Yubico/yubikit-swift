@@ -161,5 +161,67 @@ extension ScenarioSuites {
 
         @Test("factory reset clears credentials and the PIN")
         func factory() async throws { try await ScenarioTests.run(CTAP2Scenario.factory.scenario) }
+
+        @Test("largeBlob array round-trips two blobs and rejects writes without largeBlobWrite")
+        func largeBlobsArray() async throws { try await ScenarioTests.run(CTAP2Scenario.largeBlobsArray.scenario) }
+
+        @Test("hmac-secret round-trips deterministic secrets with one and two salts")
+        func hmacSecret() async throws { try await ScenarioTests.run(CTAP2Scenario.hmacSecret.scenario) }
+
+        @Test("credential management with a wrong-permission token is rejected")
+        func credManMissingPermissions() async throws {
+            try await ScenarioTests.run(CTAP2Scenario.credManMissingPermissions.scenario)
+        }
+
+        @Test("the raw encIdentifier re-randomizes between consecutive getInfo calls")
+        func encIdentifierChanges() async throws {
+            try await ScenarioTests.run(CTAP2Scenario.encIdentifierChanges.scenario)
+        }
+
+        @Test("platform-facilitated enterprise attestation yields a distinct certificate")
+        func enterpriseAttestationPlatform() async throws {
+            try await ScenarioTests.run(CTAP2Scenario.enterpriseAttestationPlatform.scenario)
+        }
+
+        @Test("previewSign rejects an unsupported algorithm")
+        func previewSignUnsupportedAlgorithm() async throws {
+            try await ScenarioTests.run(CTAP2Scenario.previewSignUnsupportedAlgorithm.scenario)
+        }
+
+        @Test("previewSign rejects invalid flag combinations")
+        func previewSignInvalidFlags() async throws {
+            try await ScenarioTests.run(CTAP2Scenario.previewSignInvalidFlags.scenario)
+        }
+
+        @Test("previewSign rejects a missing keyHandle or TBS")
+        func previewSignMissingParameter() async throws {
+            try await ScenarioTests.run(CTAP2Scenario.previewSignMissingParameter.scenario)
+        }
+
+        @Test("a UP-required previewSign key rejects assertion without user presence")
+        func previewSignUpRequired() async throws {
+            try await ScenarioTests.run(CTAP2Scenario.previewSignUpRequired.scenario)
+        }
+
+        @Test("a UV-required previewSign key rejects assertion without a UV token")
+        func previewSignUvRequired() async throws {
+            try await ScenarioTests.run(CTAP2Scenario.previewSignUvRequired.scenario)
+        }
+
+        @Test("previewSign generates a key and produces a non-empty signature")
+        func previewSignGenerateAndSign() async throws {
+            try await ScenarioTests.run(CTAP2Scenario.previewSignGenerateAndSign.scenario)
+        }
+
+        @Test("credProtect L1/L2/L3 govern discovery and usability with and without UV")
+        func credProtectEnforcement() async throws {
+            try await ScenarioTests.run(CTAP2Scenario.credProtectEnforcement.scenario)
+        }
+
+        @Test(
+            "per-algorithm make+assert, credential-management lifecycle, and largeBlob PIN/UV-protocol families",
+            arguments: ScenarioTests.parameterizedFamilies(in: .ctap2, besides: CTAP2Scenario.allCases.map(\.scenario))
+        )
+        func parameterizedFamilies(_ scenario: Scenario) async throws { try await ScenarioTests.run(scenario) }
     }
 }

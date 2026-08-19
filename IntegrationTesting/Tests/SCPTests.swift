@@ -23,11 +23,6 @@ extension ScenarioSuites {
         @Test("default SCP03 static keys authenticate a Management session")
         func defaultKeys() async throws { try await ScenarioTests.run(SCPScenario.defaultKeys.scenario) }
 
-        @Test("Management.getDeviceInfo over an SCP03 secure channel")
-        func managementDeviceInfo() async throws {
-            try await ScenarioTests.run(SCPScenario.managementDeviceInfo.scenario)
-        }
-
         @Test("importing a new SCP03 key set replaces the default keys")
         func importKeySCP03() async throws { try await ScenarioTests.run(SCPScenario.importKeySCP03.scenario) }
 

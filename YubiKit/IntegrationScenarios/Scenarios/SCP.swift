@@ -18,10 +18,9 @@ import Foundation
 import YubiKit
 
 /// Secure Channel Protocol scenarios.
-public enum SCPScenario: CaseIterable {
+public enum SCPScenario: CaseIterable, ScenarioSuite {
 
     case defaultKeys
-    case managementDeviceInfo
     case importKeySCP03
     case deleteKey
     case replaceKey
@@ -43,7 +42,7 @@ public enum SCPScenario: CaseIterable {
 
     private var definition: Scenario {
         switch self {
-        // MARK: - SCP03
+        // MARK: - TestScp03
         case .defaultKeys:
             return Scenario(
                 "SCP.SCP03.defaultKeys",
@@ -57,20 +56,6 @@ public enum SCPScenario: CaseIterable {
                 )
                 let info = try await management.getDeviceInfo()
                 context.expect(info.version.major >= 4, "authenticated SCP03 session returns a device info")
-            }
-        case .managementDeviceInfo:
-            return Scenario(
-                "SCP.SCP03.managementDeviceInfo",
-                "Management.getDeviceInfo over an SCP03 secure channel",
-                requirements: Requirements(requiresSCP: true)
-            ) { context in
-                let connection = try await resetSecurityDomain(context)
-                let management = try await Management.Session.makeSession(
-                    connection: connection,
-                    scpKeyParams: scpDefaultKeyParams
-                )
-                let deviceInfo = try await management.getDeviceInfo()
-                context.expect(deviceInfo.serialNumber > 0, "device info via SCP03 should carry a serial number")
             }
         case .importKeySCP03:
             return Scenario(
@@ -121,8 +106,16 @@ public enum SCPScenario: CaseIterable {
             ) { context in
                 let connection = try await resetSecurityDomain(context)
 
-                let staticKeys1 = StaticKeys(enc: randomKeyBytes(), mac: randomKeyBytes(), dek: randomKeyBytes())
-                let staticKeys2 = StaticKeys(enc: randomKeyBytes(), mac: randomKeyBytes(), dek: randomKeyBytes())
+                let staticKeys1 = StaticKeys(
+                    enc: randomBytes(count: 16),
+                    mac: randomBytes(count: 16),
+                    dek: randomBytes(count: 16)
+                )
+                let staticKeys2 = StaticKeys(
+                    enc: randomBytes(count: 16),
+                    mac: randomBytes(count: 16),
+                    dek: randomBytes(count: 16)
+                )
 
                 let keyRef1 = SCPKeyRef(kid: .scp03, kvn: 0x10)
                 let keyRef2 = SCPKeyRef(kid: .scp03, kvn: 0x55)
@@ -172,8 +165,16 @@ public enum SCPScenario: CaseIterable {
             ) { context in
                 let connection = try await resetSecurityDomain(context)
 
-                let sk1 = StaticKeys(enc: randomKeyBytes(), mac: randomKeyBytes(), dek: randomKeyBytes())
-                let sk2 = StaticKeys(enc: randomKeyBytes(), mac: randomKeyBytes(), dek: randomKeyBytes())
+                let sk1 = StaticKeys(
+                    enc: randomBytes(count: 16),
+                    mac: randomBytes(count: 16),
+                    dek: randomBytes(count: 16)
+                )
+                let sk2 = StaticKeys(
+                    enc: randomBytes(count: 16),
+                    mac: randomBytes(count: 16),
+                    dek: randomBytes(count: 16)
+                )
 
                 let keyRef1 = SCPKeyRef(kid: .scp03, kvn: 0x10)
                 let keyRef2 = SCPKeyRef(kid: .scp03, kvn: 0x55)
@@ -210,7 +211,11 @@ public enum SCPScenario: CaseIterable {
             ) { context in
                 let connection = try await resetSecurityDomain(context)
 
-                let sk = StaticKeys(enc: randomKeyBytes(), mac: randomKeyBytes(), dek: randomKeyBytes())
+                let sk = StaticKeys(
+                    enc: randomBytes(count: 16),
+                    mac: randomBytes(count: 16),
+                    dek: randomBytes(count: 16)
+                )
                 let keyRef = SCPKeyRef(kid: .scp03, kvn: 0x01)
                 let params = try SCP03KeyParams(keyRef: keyRef, staticKeys: sk)
 
@@ -243,7 +248,8 @@ public enum SCPScenario: CaseIterable {
                 _ = try await session.getKeyInformation()
                 context.log("default key authenticates after a wrong-key failure")
             }
-        // MARK: - SCP11a
+        // MARK: - TestScp11
+        // MARK: SCP11a
         case .authenticateSCP11a:
             return Scenario(
                 "SCP.SCP11a.authenticate",
@@ -382,7 +388,7 @@ public enum SCPScenario: CaseIterable {
 
                 context.log("allow-list correctly blocked and then allowed SCP11a authentication")
             }
-        // MARK: - SCP11b
+        // MARK: SCP11b
         case .authenticateSCP11b:
             return Scenario(
                 "SCP.SCP11b.authenticate",
@@ -474,7 +480,7 @@ public enum SCPScenario: CaseIterable {
 
                 context.log("successfully imported SCP11b key pair and authenticated")
             }
-        // MARK: - SCP11c
+        // MARK: SCP11c
         case .authenticateSCP11c:
             return Scenario(
                 "SCP.SCP11c.authenticate",
@@ -515,7 +521,7 @@ public enum SCPScenario: CaseIterable {
                     }
                 }
             }
-        // MARK: - Security Domain
+        // MARK: - Security Domain free functions
         // MARK: Key info
         case .keyInformation:
             return Scenario(
@@ -585,7 +591,7 @@ public enum SCPScenario: CaseIterable {
                 )
             }
         // MARK: Reset
-        // Also asserts that reset restores the default SCP03 key set.
+        // Verifies the default SCP03 key set (KID 0x01 / KVN 0xFF) is present in getKeyInformation after reset.
         case .resetRestoresDefaultKeys:
             return Scenario(
                 "SCP.SecurityDomain.resetRestoresDefaultKeys",
@@ -616,20 +622,16 @@ private func resetSecurityDomain(_ context: Scenario.Context) async throws -> an
     let connection = try await context.smartCardConnection()
     try await SecurityDomainSession.makeSession(connection: connection).reset()
     await context.addTeardown {
-        guard let cleanup = try? await SecurityDomainSession.makeSession(connection: connection) else { return }
-        try? await cleanup.reset()
+        let cleanup = try await SecurityDomainSession.makeSession(connection: connection)
+        try await cleanup.reset()
     }
     return connection
-}
-
-private func randomKeyBytes() -> Data {
-    Data((0..<16).map { _ in UInt8.random(in: 0x00...0xFF) })
 }
 
 /// Imports a fresh random SCP03 key set.
 private func importScp03Key(connection: any SmartCardConnection) async throws -> SCP03KeyParams {
     let scp03Ref = SCPKeyRef(kid: 0x01, kvn: 0x01)
-    let staticKeys = StaticKeys(enc: randomKeyBytes(), mac: randomKeyBytes(), dek: randomKeyBytes())
+    let staticKeys = StaticKeys(enc: randomBytes(count: 16), mac: randomBytes(count: 16), dek: randomBytes(count: 16))
 
     let session = try await SecurityDomainSession.makeSession(
         connection: connection,

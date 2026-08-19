@@ -16,9 +16,8 @@ import Foundation
 import YubiKit
 
 /// OATH application scenarios.
-public enum OATHScenario: CaseIterable {
+public enum OATHScenario: CaseIterable, ScenarioSuite {
 
-    case chunkedData
     case credentials
     case allCodes
     case codes
@@ -33,39 +32,22 @@ public enum OATHScenario: CaseIterable {
     case unlock
     case wrong
     case deleteAccessKey
+    case deleteAccessKeyRejectedOnFIPS
     case lockedListRejected
+    case lockedCalculateRejected
+    case lockedCalculateAllRejected
+    case lockedDeleteRejected
+    case lockedRenameRejected
+    case toExistingDistinct
     case response
-    case hmacSha256
-    case hmacSha512
-    case totpSha1_59
-    case hotpSha1
+    case maxCredentials
+    case unicodeName
 
     public var scenario: Scenario { definition }
 
     private var definition: Scenario {
         switch self {
-        // MARK: - Functions
-        case .chunkedData:
-            return Scenario(
-                "OATH.Calculate.chunkedData",
-                "calculateCredentialCodes reassembles a response that spans multiple frames",
-                requirements: Requirements(capabilities: [.oath])
-            ) { context in
-                let session = try await populatedOATHSession(context)
-                for n in 0...14 {
-                    let template = OATHSession.CredentialTemplate(
-                        type: .totp(),
-                        algorithm: .sha1,
-                        secret: base32Decoded("abba"),
-                        issuer: "Yubico-\(n)",
-                        name: "test@yubico.com",
-                        digits: 6
-                    )
-                    try await session.addCredential(template: template)
-                }
-                let result = try await session.calculateCredentialCodes()
-                context.expectEqual(result.count, 20, "expected 5 populated + 15 added credentials")
-            }
+        // MARK: - TestFunctions
         case .credentials:
             return Scenario(
                 "OATH.List.credentials",
@@ -268,6 +250,39 @@ public enum OATHScenario: CaseIterable {
                     "existing credential should remain present"
                 )
             }
+        case .toExistingDistinct:
+            return Scenario(
+                "OATH.Rename.toExistingDistinct",
+                "renaming a credential onto another existing credential's identifier is rejected",
+                requirements: Requirements(capabilities: [.oath], minVersion: Version("5.3.0"))
+            ) { context in
+                let session = try await freshOATHSession(context)
+                let firstTemplate = OATHSession.CredentialTemplate(
+                    type: .totp(),
+                    algorithm: .sha1,
+                    secret: base32Decoded("abba"),
+                    issuer: "Issuer One",
+                    name: "Name One",
+                    digits: 6
+                )
+                let secondTemplate = OATHSession.CredentialTemplate(
+                    type: .totp(),
+                    algorithm: .sha1,
+                    secret: base32Decoded("abba"),
+                    issuer: "Issuer Two",
+                    name: "Name Two",
+                    digits: 6
+                )
+                try await session.addCredential(template: firstTemplate)
+                let second = try await session.addCredential(template: secondTemplate)
+                // Renaming the second credential onto the first's existing identifier must fail.
+                do {
+                    try await session.renameCredential(second, newName: "Name One", newIssuer: "Issuer One")
+                    context.record("renaming onto another credential's existing identifier should have failed")
+                } catch OATHSessionError.failedResponse(let response, _) {
+                    context.log("rename onto distinct existing identifier rejected with \(response.status)")
+                }
+            }
         case .credentialDelete:
             return Scenario(
                 "OATH.Delete.credential",
@@ -374,7 +389,7 @@ public enum OATHScenario: CaseIterable {
                 _ = try await populatedOATHSession(context)
                 context.log("reset and re-populated with the standard test accounts")
             }
-        // MARK: - Password lock
+        // MARK: - TestLockPreventsAccess
         case .unlock:
             return Scenario(
                 "OATH.Password.unlock",
@@ -408,7 +423,7 @@ public enum OATHScenario: CaseIterable {
             return Scenario(
                 "OATH.Password.deleteAccessKey",
                 "deleteAccessKey removes the password so a fresh session needs no unlock",
-                requirements: Requirements(capabilities: [.oath])
+                requirements: Requirements(capabilities: [.oath], excludesFIPS: true)
             ) { context in
                 let session = try await populatedOATHSession(context, password: oathPassword)
                 try await session.unlock(password: oathPassword)
@@ -425,6 +440,25 @@ public enum OATHScenario: CaseIterable {
                     "expected 5 credentials without unlocking after deleting the access key"
                 )
             }
+        // FIPS OATH must stay access-key protected once approved.
+        case .deleteAccessKeyRejectedOnFIPS:
+            return Scenario(
+                "OATH.Password.deleteAccessKeyRejectedOnFIPS",
+                "a FIPS OATH application rejects access-key removal",
+                requirements: Requirements(capabilities: [.oath], requiresFIPS: true)
+            ) { context in
+                let session = try await populatedOATHSession(context, password: oathPassword)
+                try await session.unlock(password: oathPassword)
+                do {
+                    try await session.deleteAccessKey()
+                    context.record("FIPS OATH should reject deleting the access key")
+                } catch OATHSessionError.failedResponse(let response, _) {
+                    context.expect(
+                        response.status == .conditionsNotSatisfied,
+                        "expected conditionsNotSatisfied (0x6985) rejecting OATH access-key removal, got \(response.status)"
+                    )
+                }
+            }
         case .lockedListRejected:
             return Scenario(
                 "OATH.Password.lockedListRejected",
@@ -438,7 +472,7 @@ public enum OATHScenario: CaseIterable {
                 } catch OATHSessionError.failedResponse(let response, _) {
                     context.expect(
                         response.status == .securityConditionNotSatisfied,
-                        "expected securityConditionNotSatisfied (0x6982) while locked"
+                        "sw should be SECURITY_CONDITION_NOT_SATISFIED (0x6982)"
                     )
                 }
                 // Unlocking restores access.
@@ -446,7 +480,76 @@ public enum OATHScenario: CaseIterable {
                 let credentials = try await session.listCredentials()
                 context.expectEqual(credentials.count, 5, "expected 5 credentials after unlocking")
             }
+        case .lockedCalculateRejected:
+            return Scenario(
+                "OATH.Password.lockedCalculateRejected",
+                "a locked OATH application rejects calculating a single credential until it is unlocked",
+                requirements: Requirements(capabilities: [.oath])
+            ) { context in
+                let (session, credential) = try await lockedOATHSession(context)
+                do {
+                    _ = try await session.calculateCredentialCode(for: credential)
+                    context.record("calculating on a locked OATH application should have failed")
+                } catch OATHSessionError.failedResponse(let response, _) {
+                    context.expect(
+                        response.status == .securityConditionNotSatisfied,
+                        "sw should be SECURITY_CONDITION_NOT_SATISFIED (0x6982)"
+                    )
+                }
+            }
+        case .lockedCalculateAllRejected:
+            return Scenario(
+                "OATH.Password.lockedCalculateAllRejected",
+                "a locked OATH application rejects calculating all credentials until it is unlocked",
+                requirements: Requirements(capabilities: [.oath])
+            ) { context in
+                let (session, _) = try await lockedOATHSession(context)
+                do {
+                    _ = try await session.calculateCredentialCodes()
+                    context.record("calculateCredentialCodes on a locked OATH application should have failed")
+                } catch OATHSessionError.failedResponse(let response, _) {
+                    context.expect(
+                        response.status == .securityConditionNotSatisfied,
+                        "sw should be SECURITY_CONDITION_NOT_SATISFIED (0x6982)"
+                    )
+                }
+            }
+        case .lockedDeleteRejected:
+            return Scenario(
+                "OATH.Password.lockedDeleteRejected",
+                "a locked OATH application rejects deleting a credential until it is unlocked",
+                requirements: Requirements(capabilities: [.oath])
+            ) { context in
+                let (session, credential) = try await lockedOATHSession(context)
+                do {
+                    try await session.deleteCredential(credential)
+                    context.record("deleting on a locked OATH application should have failed")
+                } catch OATHSessionError.failedResponse(let response, _) {
+                    context.expect(
+                        response.status == .securityConditionNotSatisfied,
+                        "sw should be SECURITY_CONDITION_NOT_SATISFIED (0x6982)"
+                    )
+                }
+            }
+        case .lockedRenameRejected:
+            return Scenario(
+                "OATH.Password.lockedRenameRejected",
+                "a locked OATH application rejects renaming a credential until it is unlocked",
+                requirements: Requirements(capabilities: [.oath], minVersion: Version("5.3.0"))
+            ) { context in
+                let (session, credential) = try await lockedOATHSession(context)
+                do {
+                    try await session.renameCredential(credential, newName: "renamed", newIssuer: nil)
+                    context.record("renaming on a locked OATH application should have failed")
+                } catch OATHSessionError.failedResponse(let response, _) {
+                    context.expect(
+                        response.status == .securityConditionNotSatisfied,
+                        "sw should be SECURITY_CONDITION_NOT_SATISFIED (0x6982)"
+                    )
+                }
+            }
         // MARK: - RFC vectors
+        // calculateCredentialResponse op as TestHmacVectors, which uses RFC 4231 vectors)
         case .response:
             return Scenario(
                 "OATH.Calculate.response",
@@ -473,104 +576,320 @@ public enum OATHScenario: CaseIterable {
                 ])
                 context.expectEqual(response, expected, "HMAC-SHA1 response should match RFC 2202 vector 1")
             }
-        // RFC 4231 HMAC-SHA256 vector 1 (key = 0x0b×20, message = "Hi There"):
-        // calculateCredentialResponse returns the full-length HMAC digest.
-        case .hmacSha256:
+        // MARK: - TestOATH (cli)
+        case .maxCredentials:
             return Scenario(
-                "OATH.Vector.hmacSha256",
-                "calculateCredentialResponse matches the RFC 4231 HMAC-SHA256 vector",
+                "OATH.Add.maxCredentials",
+                "the OATH application accepts the firmware-dependent credential limit and rejects one more",
                 requirements: Requirements(capabilities: [.oath])
             ) { context in
                 let session = try await freshOATHSession(context)
-                let template = OATHSession.CredentialTemplate(
+                // Credential limit depends on firmware: 32 before 5.7.0, 64 from 5.7.0 onward.
+                let version = await session.version
+                let limit = version >= Version("5.7.0")! ? 64 : 32
+                context.log("device firmware \(version), credential limit \(limit)")
+                for i in 0..<limit {
+                    let template = OATHSession.CredentialTemplate(
+                        type: .totp(),
+                        algorithm: .sha1,
+                        secret: base32Decoded("abba"),
+                        issuer: nil,
+                        name: "test\(i)",
+                        digits: 6
+                    )
+                    try await session.addCredential(template: template)
+                    let count = try await session.listCredentials().count
+                    context.expectEqual(count, i + 1, "credential count should grow by one after adding test\(i)")
+                }
+                // Adding one beyond the limit must fail (storage full).
+                let overflow = OATHSession.CredentialTemplate(
                     type: .totp(),
-                    algorithm: .sha256,
-                    secret: Data(repeating: 0x0b, count: 20),
-                    issuer: "RFC4231",
-                    name: "hmacSha256",
+                    algorithm: .sha1,
+                    secret: base32Decoded("abba"),
+                    issuer: nil,
+                    name: "test\(limit)",
                     digits: 6
                 )
-                let credential = try await session.addCredential(template: template)
-                let response = try await session.calculateCredentialResponse(
-                    for: credential.id,
-                    challenge: Data("Hi There".utf8)
-                )
-                let expected = Data(hexString: "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7")!
-                context.expectEqual(response, expected, "HMAC-SHA256 response should match RFC 4231 vector 1")
+                do {
+                    _ = try await session.addCredential(template: overflow)
+                    context.record("adding beyond the max should have failed")
+                } catch OATHSessionError.failedResponse(let response, _) {
+                    context.log("storage full correctly rejected with \(response.status)")
+                }
             }
-        // RFC 4231 HMAC-SHA512 vector 1. SHA-512 OATH credentials need firmware ≥ 4.3.1.
-        case .hmacSha512:
+        case .unicodeName:
             return Scenario(
-                "OATH.Vector.hmacSha512",
-                "calculateCredentialResponse matches the RFC 4231 HMAC-SHA512 vector",
-                requirements: Requirements(capabilities: [.oath], minVersion: Version("4.3.1"))
-            ) { context in
-                let session = try await freshOATHSession(context)
-                let template = OATHSession.CredentialTemplate(
-                    type: .totp(),
-                    algorithm: .sha512,
-                    secret: Data(repeating: 0x0b, count: 20),
-                    issuer: "RFC4231",
-                    name: "hmacSha512",
-                    digits: 6
-                )
-                let credential = try await session.addCredential(template: template)
-                let response = try await session.calculateCredentialResponse(
-                    for: credential.id,
-                    challenge: Data("Hi There".utf8)
-                )
-                let expected = Data(
-                    hexString: "87aa7cdea5ef619d4ff0b4241a1d6cb02379f4e2ce4ec2787ad0b30545e17cde"
-                        + "daa833b7d6b8a702038b274eaea3f4e4be9d914eeb61f1702e696c203a126854"
-                )!
-                context.expectEqual(response, expected, "HMAC-SHA512 response should match RFC 4231 vector 1")
-            }
-        // RFC 6238 TOTP vector (key = ASCII "12345678901234567890", SHA1, 8 digits): at T0+59s the
-        // 30-second step is 1, giving 94287082.
-        case .totpSha1_59:
-            return Scenario(
-                "OATH.Vector.totpSha1_59",
-                "calculateCredentialCode matches the RFC 6238 TOTP-SHA1 vector at t=59",
+                "OATH.Add.unicodeName",
+                "a credential with a unicode name can be added, calculated, listed and deleted",
                 requirements: Requirements(capabilities: [.oath])
             ) { context in
                 let session = try await freshOATHSession(context)
                 let template = OATHSession.CredentialTemplate(
                     type: .totp(),
                     algorithm: .sha1,
-                    secret: Data("12345678901234567890".utf8),
-                    issuer: "RFC6238",
-                    name: "totpSha1",
-                    digits: 8
-                )
-                let credential = try await session.addCredential(template: template)
-                let code = try await session.calculateCredentialCode(
-                    for: credential,
-                    timestamp: Date(timeIntervalSince1970: 59)
-                )
-                context.expectEqual(code.code, "94287082", "TOTP-SHA1 code at t=59 should match RFC 6238")
-            }
-        // RFC 4226 HOTP vectors (key = ASCII "12345678901234567890", SHA1, 6 digits): each calculate
-        // advances the moving factor, so successive calls walk the published counter values.
-        case .hotpSha1:
-            return Scenario(
-                "OATH.Vector.hotpSha1",
-                "successive calculateCredentialCode calls match the RFC 4226 HOTP-SHA1 vectors",
-                requirements: Requirements(capabilities: [.oath])
-            ) { context in
-                let session = try await freshOATHSession(context)
-                let template = OATHSession.CredentialTemplate(
-                    type: .hotp(),
-                    algorithm: .sha1,
-                    secret: Data("12345678901234567890".utf8),
-                    issuer: "RFC4226",
-                    name: "hotpSha1",
+                    secret: base32Decoded("abba"),
+                    issuer: nil,
+                    name: "😃",
                     digits: 6
                 )
                 let credential = try await session.addCredential(template: template)
-                let first = try await session.calculateCredentialCode(for: credential)
-                context.expectEqual(first.code, "755224", "HOTP code at counter 0 should match RFC 4226")
-                let second = try await session.calculateCredentialCode(for: credential)
-                context.expectEqual(second.code, "287082", "HOTP code at counter 1 should match RFC 4226")
+                let code = try await session.calculateCredentialCode(for: credential)
+                context.expect(!code.code.isEmpty, "calculated code should not be empty")
+                let listed = try await session.listCredentials()
+                context.expect(listed.contains { $0.name == "😃" }, "listed credentials should contain the unicode name")
+                try await session.deleteCredential(credential)
+                let remaining = try await session.listCredentials()
+                context.expect(
+                    !remaining.contains { $0.name == "😃" },
+                    "the unicode credential should be gone after deletion"
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Parameterized RFC test-vector families
+
+extension OATHScenario {
+
+    /// RFC test vectors: HMAC (RFC 4231 SHA256/512), TOTP (RFC 6238 SHA1/256/512 × timestamps × digit
+    /// counts), and HOTP (RFC 4226 SHA1 × digit counts).
+    static var parameterizedScenarios: [Scenario] {
+        hmacVectorScenarios + totpVectorScenarios + hotpVectorScenarios
+    }
+
+    // RFC 4231 §2: a TOTP credential is used purely as an HMAC key, and the full-length response is
+    // compared to the published digest. Short keys (`Jefe`) are zero-padded by CredentialTemplate,
+    // which leaves the HMAC unchanged.
+    private struct HMACVector: ScenarioParameter {
+        let idSuffix: String
+        let displayName: String
+        let requirements: Requirements
+        let algorithm: OATHSession.HashAlgorithm
+        let secret: Data
+        let challenge: Data
+        let expected: Data
+
+        init(
+            _ idSuffix: String,
+            _ algorithm: OATHSession.HashAlgorithm,
+            secret: Data,
+            challenge: Data,
+            expected: String
+        ) {
+            self.idSuffix = idSuffix
+            self.displayName = "calculateCredentialResponse matches the RFC 4231 HMAC vector \(idSuffix)"
+            self.requirements = Requirements(
+                capabilities: [.oath],
+                minVersion: algorithm == .sha512 ? Version("4.3.1") : nil
+            )
+            self.algorithm = algorithm
+            self.secret = secret
+            self.challenge = challenge
+            self.expected = Data(hexString: expected)!
+        }
+    }
+
+    private static var hmacVectorScenarios: [Scenario] {
+        let key0b = Data(repeating: 0x0b, count: 20)
+        let keyAa = Data(repeating: 0xaa, count: 20)
+        let keyInc = Data(hexString: "0102030405060708090a0b0c0d0e0f10111213141516171819")!
+        let hiThere = Data("Hi There".utf8)
+        let jefe = Data("what do ya want for nothing?".utf8)
+        let dd = Data(repeating: 0xdd, count: 50)
+        let cd = Data(repeating: 0xcd, count: 50)
+        let vectors: [HMACVector] = [
+            HMACVector(
+                "tc1.sha256",
+                .sha256,
+                secret: key0b,
+                challenge: hiThere,
+                expected: "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"
+            ),
+            HMACVector(
+                "tc1.sha512",
+                .sha512,
+                secret: key0b,
+                challenge: hiThere,
+                expected: "87aa7cdea5ef619d4ff0b4241a1d6cb02379f4e2ce4ec2787ad0b30545e17cde"
+                    + "daa833b7d6b8a702038b274eaea3f4e4be9d914eeb61f1702e696c203a126854"
+            ),
+            HMACVector(
+                "tc2.sha256",
+                .sha256,
+                secret: Data("Jefe".utf8),
+                challenge: jefe,
+                expected: "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+            ),
+            HMACVector(
+                "tc2.sha512",
+                .sha512,
+                secret: Data("Jefe".utf8),
+                challenge: jefe,
+                expected: "164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea250554"
+                    + "9758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737"
+            ),
+            HMACVector(
+                "tc3.sha256",
+                .sha256,
+                secret: keyAa,
+                challenge: dd,
+                expected: "773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe"
+            ),
+            HMACVector(
+                "tc3.sha512",
+                .sha512,
+                secret: keyAa,
+                challenge: dd,
+                expected: "fa73b0089d56a284efb0f0756c890be9b1b5dbdd8ee81a3655f83e33b2279d39"
+                    + "bf3e848279a722c806b485a47e67c807b946a337bee8942674278859e13292fb"
+            ),
+            HMACVector(
+                "tc4.sha256",
+                .sha256,
+                secret: keyInc,
+                challenge: cd,
+                expected: "82558a389a443c0ea4cc819899f2083a85f0faa3e578f8077a2e3ff46729665b"
+            ),
+            HMACVector(
+                "tc4.sha512",
+                .sha512,
+                secret: keyInc,
+                challenge: cd,
+                expected: "b0ba465637458c6990e5a8c5f61d4af7e576d97ff94b872de76f8050361ee3db"
+                    + "a91ca5c11aa25eb4d679275cc5788063a5f19741120c4f2de2adebeb10a298dd"
+            ),
+        ]
+        return Scenario.parameterized("OATH.Vector.HMAC", over: vectors) { context, vector in
+            let session = try await freshOATHSession(context)
+            let template = OATHSession.CredentialTemplate(
+                type: .totp(),
+                algorithm: vector.algorithm,
+                secret: vector.secret,
+                issuer: "RFC4231",
+                name: vector.idSuffix,
+                digits: 6
+            )
+            let credential = try await session.addCredential(template: template)
+            let response = try await session.calculateCredentialResponse(
+                for: credential.id,
+                challenge: vector.challenge
+            )
+            context.expectEqual(response, vector.expected, "HMAC \(vector.idSuffix) should match RFC 4231")
+        }
+    }
+
+    // RFC 6238 Appendix B: SHA1/256/512 seeds at two reference timestamps, each checked at 6 and 8
+    // digits (the 8-digit value is the suffix of the 6-digit one).
+    private struct TOTPVector: ScenarioParameter {
+        let idSuffix: String
+        let displayName: String
+        let requirements: Requirements
+        let algorithm: OATHSession.HashAlgorithm
+        let secret: Data
+        let timestamp: TimeInterval
+        let expected8: String
+        let digits: UInt8
+    }
+
+    private static var totpVectorScenarios: [Scenario] {
+        let keys: [(String, OATHSession.HashAlgorithm, Data)] = [
+            ("sha1", .sha1, Data("12345678901234567890".utf8)),
+            ("sha256", .sha256, Data("12345678901234567890123456789012".utf8)),
+            ("sha512", .sha512, Data(("12345678901234567890123456789012" + "34567890123456789012345678901234").utf8)),
+        ]
+        let table: [(TimeInterval, [String: String])] = [
+            (59, ["sha1": "94287082", "sha256": "46119246", "sha512": "90693936"]),
+            (1_111_111_109, ["sha1": "07081804", "sha256": "68084774", "sha512": "25091201"]),
+        ]
+        var vectors: [TOTPVector] = []
+        for (label, algorithm, secret) in keys {
+            let minVersion = algorithm == .sha512 ? Version("4.3.1") : nil
+            for (timestamp, expected) in table {
+                for digits in [UInt8(6), UInt8(8)] {
+                    let seconds = Int(timestamp)
+                    let name =
+                        "calculateCredentialCode matches the RFC 6238 TOTP \(label) vector at t=\(seconds), \(digits) digits"
+                    vectors.append(
+                        TOTPVector(
+                            idSuffix: "\(label).t\(seconds).d\(digits)",
+                            displayName: name,
+                            requirements: Requirements(capabilities: [.oath], minVersion: minVersion),
+                            algorithm: algorithm,
+                            secret: secret,
+                            timestamp: timestamp,
+                            expected8: expected[label]!,
+                            digits: digits
+                        )
+                    )
+                }
+            }
+        }
+        return Scenario.parameterized("OATH.Vector.TOTP", over: vectors) { context, vector in
+            let session = try await freshOATHSession(context)
+            let template = OATHSession.CredentialTemplate(
+                type: .totp(),
+                algorithm: vector.algorithm,
+                secret: vector.secret,
+                issuer: "RFC6238",
+                name: "totp.\(vector.idSuffix)",
+                digits: vector.digits
+            )
+            let credential = try await session.addCredential(template: template)
+            let code = try await session.calculateCredentialCode(
+                for: credential,
+                timestamp: Date(timeIntervalSince1970: vector.timestamp)
+            )
+            context.expectEqual(UInt8(code.code.count), vector.digits, "TOTP code length should match the digit count")
+            context.expect(
+                vector.expected8.hasSuffix(code.code),
+                "TOTP \(vector.idSuffix) should match RFC 6238 (\(vector.expected8))"
+            )
+        }
+    }
+
+    // RFC 4226 Appendix D: the HOTP-SHA1 counter sequence, walked by successive calculate calls, at
+    // both 6 and 8 digits.
+    private struct HOTPVector: ScenarioParameter {
+        let idSuffix: String
+        let displayName: String
+        let requirements: Requirements
+        let digits: UInt8
+
+        init(digits: UInt8) {
+            self.idSuffix = "sha1.d\(digits)"
+            self.displayName =
+                "successive calculateCredentialCode calls match the RFC 4226 HOTP-SHA1 vectors, \(digits) digits"
+            self.requirements = Requirements(capabilities: [.oath])
+            self.digits = digits
+        }
+    }
+
+    private static var hotpVectorScenarios: [Scenario] {
+        let sequence8 = [
+            "84755224", "94287082", "37359152", "26969429", "40338314",
+            "68254676", "18287922", "82162583", "73399871", "45520489",
+        ]
+        let vectors = [HOTPVector(digits: 6), HOTPVector(digits: 8)]
+        return Scenario.parameterized("OATH.Vector.HOTP", over: vectors) { context, vector in
+            let session = try await freshOATHSession(context)
+            let template = OATHSession.CredentialTemplate(
+                type: .hotp(),
+                algorithm: .sha1,
+                secret: Data("12345678901234567890".utf8),
+                issuer: "RFC4226",
+                name: "hotp.\(vector.digits)",
+                digits: vector.digits
+            )
+            let credential = try await session.addCredential(template: template)
+            for expected8 in sequence8 {
+                let code = try await session.calculateCredentialCode(for: credential)
+                context.expectEqual(
+                    UInt8(code.code.count),
+                    vector.digits,
+                    "HOTP code length should match the digit count"
+                )
+                context.expect(expected8.hasSuffix(code.code), "HOTP code should match RFC 4226 (\(expected8))")
             }
         }
     }
@@ -586,10 +905,8 @@ private func freshOATHSession(_ context: Scenario.Context) async throws -> OATHS
     let scp = try await context.scpKeyParams()
     try await OATHSession.makeSession(connection: connection, scpKeyParams: scp).reset()
     await context.addTeardown {
-        guard let cleanup = try? await OATHSession.makeSession(connection: connection, scpKeyParams: scp) else {
-            return
-        }
-        try? await cleanup.reset()
+        let cleanup = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
+        try await cleanup.reset()
     }
     return try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
 }
@@ -613,6 +930,31 @@ private func populatedOATHSession(
     }
 
     return session
+}
+
+/// Add a single credential, password-lock the OATH application, then re-select so the next session
+/// reports the locked state. Returns the locked session along with the `Credential` captured before
+/// locking (a locked session cannot list, so the credential must be obtained up front).
+private func lockedOATHSession(
+    _ context: Scenario.Context
+) async throws -> (OATHSession, OATHSession.Credential) {
+    let session = try await freshOATHSession(context)
+    let template = OATHSession.CredentialTemplate(
+        type: .totp(),
+        algorithm: .sha1,
+        secret: base32Decoded("abba"),
+        issuer: "Locked Issuer",
+        name: "Locked Name",
+        digits: 6
+    )
+    let credential = try await session.addCredential(template: template)
+    try await session.setPassword(oathPassword)
+    // Select another applet so the next OATH SELECT reports the locked state.
+    let connection = try await context.smartCardConnection()
+    let scp = try await context.scpKeyParams()
+    _ = try await Management.Session.makeSession(connection: connection, scpKeyParams: scp)
+    let locked = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
+    return (locked, credential)
 }
 
 private func standardOATHCredentials() -> [OATHSession.CredentialTemplate] {

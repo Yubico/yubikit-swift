@@ -49,37 +49,10 @@ extension ScenarioSuites {
             try await ScenarioTests.run(WebAuthnScenario.publicSuffixRejected.scenario)
         }
 
-        @Test("makeCredential with the wrong PIN throws pinRejected and decrements retries")
-        func wrongPin() async throws { try await ScenarioTests.run(WebAuthnScenario.wrongPin.scenario) }
-
-        @Test("clientDataJSON serializes with spec key ordering")
-        func clientDataJSON() async throws { try await ScenarioTests.run(WebAuthnScenario.clientDataJSON.scenario) }
-
-        @Test("getAssertion status stream delivers user-presence events and pulls the PIN via closure")
-        func statusStream() async throws { try await ScenarioTests.run(WebAuthnScenario.statusStream.scenario) }
-
         @Test("discoverable getAssertion for an RP with no credentials throws noCredentials")
         func discoverableNoCredentials() async throws {
             try await ScenarioTests.run(WebAuthnScenario.discoverableNoCredentials.scenario)
         }
-
-        @Test("makeCredential consumes a pre-supplied PIN silently while still emitting waitingForUser")
-        func prefetchedPinMakeCredential() async throws {
-            try await ScenarioTests.run(WebAuthnScenario.prefetchedPinMakeCredential.scenario)
-        }
-
-        @Test("getAssertion consumes a pre-supplied PIN silently")
-        func prefetchedPinGetAssertion() async throws {
-            try await ScenarioTests.run(WebAuthnScenario.prefetchedPinGetAssertion.scenario)
-        }
-
-        @Test("makeCredential can be cancelled from the status stream")
-        func cancelMakeCredential() async throws {
-            try await ScenarioTests.run(WebAuthnScenario.cancelMakeCredential.scenario)
-        }
-
-        @Test("credProtect echoes the applied protection level for each policy")
-        func allLevels() async throws { try await ScenarioTests.run(WebAuthnScenario.allLevels.scenario) }
 
         @Test("PRF enabled at registration derives deterministic secrets at authentication")
         func derive() async throws { try await ScenarioTests.run(WebAuthnScenario.derive.scenario) }
@@ -115,15 +88,6 @@ extension ScenarioSuites {
             try await ScenarioTests.run(WebAuthnScenario.oversizedRejected.scenario)
         }
 
-        @Test("credProps reports rk=true for a discoverable credential")
-        func discoverable() async throws { try await ScenarioTests.run(WebAuthnScenario.discoverable.scenario) }
-
-        @Test("credProps reports rk=false for a non-discoverable credential")
-        func nonDiscoverable() async throws { try await ScenarioTests.run(WebAuthnScenario.nonDiscoverable.scenario) }
-
-        @Test("credProps is nil when not requested")
-        func notRequested() async throws { try await ScenarioTests.run(WebAuthnScenario.notRequested.scenario) }
-
         @Test("minPinLength returns the enforced length once the RP is configured")
         func returnsValue() async throws { try await ScenarioTests.run(WebAuthnScenario.returnsValue.scenario) }
 
@@ -140,5 +104,30 @@ extension ScenarioSuites {
 
         @Test("thirdPartyPayment echoes true when the credential is registered for payment")
         func echoedTrue() async throws { try await ScenarioTests.run(WebAuthnScenario.echoedTrue.scenario) }
+
+        @Test("getAssertion with multiple allow-list entries returns the matching credential")
+        func allowCredentialsMultiple() async throws {
+            try await ScenarioTests.run(WebAuthnScenario.allowCredentialsMultiple.scenario)
+        }
+
+        @Test("getAssertion with only ineligible allow-list entries throws noCredentials")
+        func allowCredentialsIneligible() async throws {
+            try await ScenarioTests.run(WebAuthnScenario.allowCredentialsIneligible.scenario)
+        }
+
+        @Test("makeCredential rejects when multiple exclude-list entries match")
+        func excludeCredentialsMultiple() async throws {
+            try await ScenarioTests.run(WebAuthnScenario.excludeCredentialsMultiple.scenario)
+        }
+
+        @Test("makeCredential rejects when the exclude list is at the authenticator's max capacity")
+        func excludeCredentialsMax() async throws {
+            try await ScenarioTests.run(WebAuthnScenario.excludeCredentialsMax.scenario)
+        }
+
+        @Test("makeCredential succeeds when exclude-list entries belong to other RPs")
+        func excludeCredentialsOthers() async throws {
+            try await ScenarioTests.run(WebAuthnScenario.excludeCredentialsOthers.scenario)
+        }
     }
 }

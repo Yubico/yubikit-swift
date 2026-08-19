@@ -17,8 +17,9 @@ import Foundation
 import YubiKit
 
 /// CTAP2 application scenarios.
-public enum CTAP2Scenario: CaseIterable {
+public enum CTAP2Scenario: CaseIterable, ScenarioSuite {
 
+    case cleanState
     case getInfo
     case makeGetAllowList
     case makeGetDiscoverable
@@ -61,9 +62,35 @@ public enum CTAP2Scenario: CaseIterable {
     case uvBlocking
     case userPresence
     case factory
+    case largeBlobsArray
+    case credProtectEnforcement
+    case hmacSecret
+    case credManMissingPermissions
+    case encIdentifierChanges
+    case enterpriseAttestationPlatform
+    case previewSignUnsupportedAlgorithm
+    case previewSignInvalidFlags
+    case previewSignMissingParameter
+    case previewSignUpRequired
+    case previewSignUvRequired
+    case previewSignGenerateAndSign
 
     public var scenario: Scenario {
         switch self {
+        // MARK: - Setup
+        case .cleanState:
+            return Scenario(
+                "CTAP2.Setup.cleanState",
+                "reset to a clean, PIN-less state before the suite",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await context.ctap2Session()
+                for try await _ in await session.reset() {}
+                context.expect(
+                    try await session.getInfo().options.clientPin != true,
+                    "PIN should be cleared for a deterministic start"
+                )
+            }
         // MARK: - Info
         case .getInfo:
             return Scenario(
@@ -94,7 +121,7 @@ public enum CTAP2Scenario: CaseIterable {
                 requirements: Requirements(capabilities: [.fido2])
             ) { context in
                 var session = try await context.ctap2Session()
-                let clientDataHash = Data(repeating: 0xCD, count: 32)
+                let clientDataHash = defaultClientDataHash
 
                 context.touch("Touch the key to create a credential")
                 let makeParameters = CTAP2.MakeCredential.Parameters(
@@ -137,7 +164,8 @@ public enum CTAP2Scenario: CaseIterable {
                 requirements: Requirements(capabilities: [.fido2])
             ) { context in
                 var session = try await context.ctap2Session()
-                let clientDataHash = Data(repeating: 0xCD, count: 32)
+                await context.addTeardown { try await context.deleteResidentCredentials() }
+                let clientDataHash = defaultClientDataHash
 
                 context.touch("Touch the key to create a non-resident credential")
                 let nonRkParams = CTAP2.MakeCredential.Parameters(
@@ -151,7 +179,8 @@ public enum CTAP2Scenario: CaseIterable {
                     pubKeyCredParams: [.es256],
                     rk: false
                 )
-                let nonRkCredential = try await session.makeCredential(parameters: nonRkParams).value
+                let nonRkToken = try await makeCredentialToken(session, rpId: "example.com")
+                let nonRkCredential = try await session.makeCredential(parameters: nonRkParams, token: nonRkToken).value
                 context.expect(
                     ["packed", "none"].contains(nonRkCredential.attestationObject.format),
                     "expected packed or none attestation"
@@ -174,7 +203,8 @@ public enum CTAP2Scenario: CaseIterable {
                     pubKeyCredParams: [.es256],
                     rk: true
                 )
-                let rkCredential = try await session.makeCredential(parameters: rkParams).value
+                let rkToken = try await makeCredentialToken(session, rpId: "example.com")
+                let rkCredential = try await session.makeCredential(parameters: rkParams, token: rkToken).value
                 guard rkCredential.authenticatorData.attestedCredentialData != nil else {
                     context.record("Missing attested credential data for RK")
                     return
@@ -226,7 +256,7 @@ public enum CTAP2Scenario: CaseIterable {
             ) { context in
                 let session = try await context.ctap2Session()
                 let params = CTAP2.MakeCredential.Parameters(
-                    clientDataHash: Data(repeating: 0xCD, count: 32),
+                    clientDataHash: defaultClientDataHash,
                     rp: WebAuthn.RelyingParty(id: "example.com", name: "Example Corp"),
                     user: WebAuthn.User(
                         id: Data(repeating: 0x98, count: 32),
@@ -273,6 +303,7 @@ public enum CTAP2Scenario: CaseIterable {
                 requirements: Requirements(capabilities: [.fido2], minVersion: Version("5.6.0"))
             ) { context in
                 var session = try await context.ctap2Session()
+                await context.addTeardown { try await context.deleteResidentCredentials() }
                 let cases: [(label: String, algorithm: COSE.Algorithm, userByte: UInt8)] = [
                     ("EdDSA", .edDSA, 0x41),
                     ("ES384", .es384, 0x42),
@@ -285,7 +316,7 @@ public enum CTAP2Scenario: CaseIterable {
                         session = try await context.ctap2SessionAfterNFCReconnect()
                     }
                     let makeParameters = CTAP2.MakeCredential.Parameters(
-                        clientDataHash: Data(repeating: 0xCD, count: 32),
+                        clientDataHash: defaultClientDataHash,
                         rp: WebAuthn.RelyingParty(id: rpId, name: testCase.label),
                         user: WebAuthn.User(
                             id: Data(repeating: testCase.userByte, count: 32),
@@ -295,7 +326,9 @@ public enum CTAP2Scenario: CaseIterable {
                         pubKeyCredParams: [testCase.algorithm],
                         rk: true
                     )
-                    let credential = try await session.makeCredential(parameters: makeParameters).value
+                    let makeToken = try await makeCredentialToken(session, rpId: rpId)
+                    let credential = try await session.makeCredential(parameters: makeParameters, token: makeToken)
+                        .value
                     let attested = try context.require(
                         credential.authenticatorData.attestedCredentialData,
                         "\(testCase.label): makeCredential must return attested credential data"
@@ -331,9 +364,10 @@ public enum CTAP2Scenario: CaseIterable {
                 requirements: Requirements(capabilities: [.fido2], minVersion: Version("5.0.0"))
             ) { context in
                 var session = try await context.ctap2Session()
+                await context.addTeardown { try await context.deleteResidentCredentials() }
                 let rpId = "getnext.example"
                 let rp = WebAuthn.RelyingParty(id: rpId, name: "Get Next")
-                let clientDataHash = Data(repeating: 0xCD, count: 32)
+                let clientDataHash = defaultClientDataHash
                 for (index, userByte) in [UInt8(0x51), UInt8(0x52)].enumerated() {
                     context.touch("Touch the key to create resident credential \(index + 1)")
                     if index > 0 {
@@ -350,7 +384,8 @@ public enum CTAP2Scenario: CaseIterable {
                         pubKeyCredParams: [.es256],
                         rk: true
                     )
-                    _ = try await session.makeCredential(parameters: params).value
+                    let makeToken = try await makeCredentialToken(session, rpId: rpId)
+                    _ = try await session.makeCredential(parameters: params, token: makeToken).value
                 }
 
                 // No allow-list forces resident-key discovery; the sequence walks getAssertion +
@@ -379,7 +414,7 @@ public enum CTAP2Scenario: CaseIterable {
 
                 context.touch("Touch the key to create a credential")
                 let makeParameters = CTAP2.MakeCredential.Parameters(
-                    clientDataHash: Data(repeating: 0xCD, count: 32),
+                    clientDataHash: defaultClientDataHash,
                     rp: WebAuthn.RelyingParty(id: rpId, name: "UP Test"),
                     user: WebAuthn.User(
                         id: Data(repeating: 0x55, count: 32),
@@ -513,8 +548,10 @@ public enum CTAP2Scenario: CaseIterable {
                 context.expectEqual(metadata.existingCredentialsCount, 1)
 
                 let rps = try await credMgmt.rps.enumerate()
-                let credentials = try await credMgmt.credentials(for: rps[0].rpIdHash).enumerate()
-                try await credMgmt.deleteCredential(credentials[0].credentialId)
+                let rp = try context.require(rps.first, "expected one RP after creating a credential")
+                let credentials = try await credMgmt.credentials(for: rp.rpIdHash).enumerate()
+                let credential = try context.require(credentials.first, "expected one credential for the RP")
+                try await credMgmt.deleteCredential(credential.credentialId)
 
                 metadata = try await credMgmt.getMetadata()
                 context.expectEqual(metadata.existingCredentialsCount, 0)
@@ -539,8 +576,10 @@ public enum CTAP2Scenario: CaseIterable {
 
                 let credMgmt = try await getCredentialManagement(session)
                 let rps = try await credMgmt.rps.enumerate()
-                let credentials = try await credMgmt.credentials(for: rps[0].rpIdHash).enumerate()
-                let credentialId = credentials[0].credentialId
+                let rp = try context.require(rps.first, "expected one RP after creating a credential")
+                let credentials = try await credMgmt.credentials(for: rp.rpIdHash).enumerate()
+                let credential = try context.require(credentials.first, "expected one credential for the RP")
+                let credentialId = credential.credentialId
 
                 let updatedUser = WebAuthn.User(
                     id: cmTestUserId,
@@ -550,13 +589,19 @@ public enum CTAP2Scenario: CaseIterable {
                 try await credMgmt.updateUserInformation(credentialId: credentialId, user: updatedUser)
 
                 let rpsAfter = try await credMgmt.rps.enumerate()
-                let updated = try await credMgmt.credentials(for: rpsAfter[0].rpIdHash).enumerate()
-                context.expect(updated[0].user.id == cmTestUserId, "user id should be unchanged")
-                context.expect(updated[0].user.name == "UPDATED NAME", "user name should be updated")
-                context.expect(updated[0].user.displayName == "UPDATED DISPLAY NAME", "display name should be updated")
+                let rpAfter = try context.require(rpsAfter.first, "expected the RP after updating user information")
+                let updated = try await credMgmt.credentials(for: rpAfter.rpIdHash).enumerate()
+                let updatedCredential = try context.require(updated.first, "expected the updated credential")
+                context.expect(updatedCredential.user.id == cmTestUserId, "user id should be unchanged")
+                context.expect(updatedCredential.user.name == "UPDATED NAME", "user name should be updated")
+                context.expect(
+                    updatedCredential.user.displayName == "UPDATED DISPLAY NAME",
+                    "display name should be updated"
+                )
 
                 try await deleteAllCredentials(session)
             }
+        // PIN_AUTH_INVALID; identifier/credStoreState stable across reconnect, change on delete)
         case .readOnlyPpuat:
             return Scenario(
                 "CTAP2.CredentialManagement.readOnlyPpuat",
@@ -575,9 +620,11 @@ public enum CTAP2Scenario: CaseIterable {
 
                 let setupCredMgmt = try await getCredentialManagement(session)
                 let rps = try await setupCredMgmt.rps.enumerate()
-                let credentials = try await setupCredMgmt.credentials(for: rps[0].rpIdHash).enumerate()
-                let credentialId = credentials[0].credentialId
-                let rpIdHash = rps[0].rpIdHash
+                let rp = try context.require(rps.first, "expected one RP after creating a credential")
+                let credentials = try await setupCredMgmt.credentials(for: rp.rpIdHash).enumerate()
+                let credential = try context.require(credentials.first, "expected one credential for the RP")
+                let credentialId = credential.credentialId
+                let rpIdHash = rp.rpIdHash
 
                 let ppuat = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
@@ -600,11 +647,19 @@ public enum CTAP2Scenario: CaseIterable {
 
                 let info2 = try await session2.getInfo()
                 if let identifier {
-                    let identifier2 = try info2.encIdentifier!.decrypted(using: ppuat)
+                    let encryptedIdentifier = try context.require(
+                        info2.encIdentifier,
+                        "encIdentifier disappeared after re-establishment"
+                    )
+                    let identifier2 = try encryptedIdentifier.decrypted(using: ppuat)
                     context.expectEqual(identifier2, identifier, "encIdentifier consistent across re-establishment")
                 }
                 if let credStoreState {
-                    let credStoreState2 = try info2.encCredStoreState!.decrypted(using: ppuat)
+                    let encryptedState = try context.require(
+                        info2.encCredStoreState,
+                        "encCredStoreState disappeared after re-establishment"
+                    )
+                    let credStoreState2 = try encryptedState.decrypted(using: ppuat)
                     context.expectEqual(
                         credStoreState2,
                         credStoreState,
@@ -617,7 +672,11 @@ public enum CTAP2Scenario: CaseIterable {
                 try await cleanupCredMgmt.deleteCredential(credentialId)
                 if let credStoreState {
                     let info3 = try await session2.getInfo()
-                    let newState = try info3.encCredStoreState!.decrypted(using: ppuat)
+                    let encryptedState = try context.require(
+                        info3.encCredStoreState,
+                        "encCredStoreState disappeared after deleting a credential"
+                    )
+                    let newState = try encryptedState.decrypted(using: ppuat)
                     context.expect(newState != credStoreState, "credStoreState should change after a delete")
                 }
             }
@@ -665,8 +724,8 @@ public enum CTAP2Scenario: CaseIterable {
                 // Restore even if the body aborts below — a stuck alwaysUV forces UV on every later
                 // FIDO scenario. No-op when the body's own restore already ran.
                 await context.addTeardown {
-                    let current = (try? await session.getInfo())?.options.alwaysUV ?? initialAlwaysUV
-                    if current != initialAlwaysUV { try? await config.toggleAlwaysUV() }
+                    let current = try await session.getInfo().options.alwaysUV ?? initialAlwaysUV
+                    if current != initialAlwaysUV { try await config.toggleAlwaysUV() }
                 }
 
                 let newAlwaysUV = (try await session.getInfo()).options.alwaysUV ?? false
@@ -680,7 +739,7 @@ public enum CTAP2Scenario: CaseIterable {
             return Scenario(
                 "CTAP2.Config.enableEnterpriseAttestation",
                 "enable enterprise attestation",
-                requirements: Requirements(capabilities: [.fido2]),
+                requirements: Requirements(capabilities: [.fido2])
             ) { context in
                 let session = try await sessionWithPin(context)
                 let info = try await session.getInfo()
@@ -716,6 +775,13 @@ public enum CTAP2Scenario: CaseIterable {
                 }
                 guard info.forcePinChange != true else {
                     try context.skip("Force PIN change already set")
+                }
+                // The flag set below is sticky; clear it on teardown (only a PIN change does) so it
+                // doesn't block every later token-acquiring scenario.
+                await context.addTeardown {
+                    let cleanup = try await context.ctap2Session()
+                    try await cleanup.changePin(from: defaultTestPin, to: "76543211")
+                    try await cleanup.changePin(from: "76543211", to: defaultTestPin)
                 }
 
                 let token = try await session.getPinUVToken(
@@ -760,13 +826,15 @@ public enum CTAP2Scenario: CaseIterable {
                 context.expect(newInfo.minPinLength == newMinPinLength, "minPinLength should have increased")
 
                 // minPinLength must not be allowed to decrease.
-                do {
+                // python expects PIN_POLICY_VIOLATION; the SDK surfaces it as a CTAP2.SessionError.
+                await context.expectThrows(
+                    "decreasing minPinLength",
+                    matching: { $0 is CTAP2.SessionError }
+                ) {
                     try await config.setMinPINLength(newMinPINLength: currentMinPinLength)
-                    context.record("should not be able to decrease minPinLength")
-                } catch is CTAP2.SessionError {
-                    context.log("decreasing minPinLength correctly rejected")
                 }
             }
+        // python drives a wrong-PIN client and expects PIN_INVALID, here we omit UV and expect PUAT_REQUIRED)
         case .alwaysUvEnforced:
             return Scenario(
                 "CTAP2.Config.alwaysUvEnforced",
@@ -793,21 +861,20 @@ public enum CTAP2Scenario: CaseIterable {
                 try await session.config(token: token).toggleAlwaysUV()
                 // Restore even if the body aborts below — a stuck alwaysUV forces UV on every later FIDO scenario.
                 await context.addTeardown {
-                    let current = (try? await session.getInfo())?.options.alwaysUV ?? initialAlwaysUV
-                    guard current != initialAlwaysUV,
-                        let restoreToken = try? await session.getPinUVToken(
-                            using: .pin(defaultTestPin),
-                            permissions: [.authenticatorConfig]
-                        ),
-                        let restoreConfig = try? await session.config(token: restoreToken)
-                    else { return }
-                    try? await restoreConfig.toggleAlwaysUV()
+                    let current = try await session.getInfo().options.alwaysUV ?? initialAlwaysUV
+                    guard current != initialAlwaysUV else { return }
+                    let restoreToken = try await session.getPinUVToken(
+                        using: .pin(defaultTestPin),
+                        permissions: [.authenticatorConfig]
+                    )
+                    let restoreConfig = try await session.config(token: restoreToken)
+                    try await restoreConfig.toggleAlwaysUV()
                 }
                 context.expect((try await session.getInfo()).options.alwaysUV == true, "alwaysUV should be enabled")
 
                 let rpId = "auv.example"
                 let makeParameters = CTAP2.MakeCredential.Parameters(
-                    clientDataHash: Data(repeating: 0xCD, count: 32),
+                    clientDataHash: defaultClientDataHash,
                     rp: WebAuthn.RelyingParty(id: rpId, name: "Always UV"),
                     user: WebAuthn.User(
                         id: Data(repeating: 0x61, count: 32),
@@ -819,15 +886,8 @@ public enum CTAP2Scenario: CaseIterable {
                 )
 
                 // Without UV, makeCredential must be rejected with PUAT_REQUIRED under alwaysUV.
-                do {
+                await context.expectCTAPError(.puatRequired, during: "makeCredential without UV under alwaysUV") {
                     _ = try await session.makeCredential(parameters: makeParameters).value
-                    context.record("makeCredential without UV should have been rejected under alwaysUV")
-                } catch let error as CTAP2.SessionError {
-                    guard case .ctapError(.puatRequired, _) = error else {
-                        context.record("Expected PUAT_REQUIRED, got: \(error)")
-                        return
-                    }
-                    context.log("makeCredential without UV correctly rejected with PUAT_REQUIRED")
                 }
 
                 // The same makeCredential authorized with a PIN/UV token must still succeed and set the UV flag.
@@ -855,6 +915,7 @@ public enum CTAP2Scenario: CaseIterable {
                 )
             }
         // MARK: - Encrypted GetInfo fields
+        // The encrypted identifier blob re-randomizes on each read; decrypting it should yield a stable value.
         case .decryptIdentifier:
             return Scenario(
                 "CTAP2.EncryptedFields.decryptIdentifier",
@@ -873,7 +934,11 @@ public enum CTAP2Scenario: CaseIterable {
                 )
                 let identifier = try encIdentifier.decrypted(using: ppuat)
 
-                let identifier2 = try (try await session.getInfo()).encIdentifier!.decrypted(using: ppuat)
+                let encIdentifier2 = try context.require(
+                    (try await session.getInfo()).encIdentifier,
+                    "encIdentifier disappeared on the second GetInfo call"
+                )
+                let identifier2 = try encIdentifier2.decrypted(using: ppuat)
                 context.expectEqual(identifier, identifier2, "decrypted identifier consistent across GetInfo calls")
             }
         case .decryptCredStoreState:
@@ -894,9 +959,14 @@ public enum CTAP2Scenario: CaseIterable {
                 )
                 let state = try encCredStoreState.decrypted(using: ppuat)
 
-                let state2 = try (try await session.getInfo()).encCredStoreState!.decrypted(using: ppuat)
+                let encState2 = try context.require(
+                    (try await session.getInfo()).encCredStoreState,
+                    "encCredStoreState disappeared on the second GetInfo call"
+                )
+                let state2 = try encState2.decrypted(using: ppuat)
                 context.expectEqual(state, state2, "decrypted state consistent when no credentials changed")
             }
+        // identifier/credStoreState before and after reconnect)
         case .persistentToken:
             return Scenario(
                 "CTAP2.EncryptedFields.persistentToken",
@@ -918,11 +988,19 @@ public enum CTAP2Scenario: CaseIterable {
 
                 let session2 = try await context.ctap2SessionAfterNFCReconnect()
                 let info2 = try await session2.getInfo()
-                let identifier2 = try info2.encIdentifier!.decrypted(using: ppuat)
+                let encIdentifier2 = try context.require(
+                    info2.encIdentifier,
+                    "encIdentifier disappeared after re-establishment"
+                )
+                let identifier2 = try encIdentifier2.decrypted(using: ppuat)
                 context.expectEqual(identifier1, identifier2, "device identifier consistent across re-establishment")
 
                 if let credStoreState1 {
-                    let credStoreState2 = try info2.encCredStoreState!.decrypted(using: ppuat)
+                    let encCredStoreState2 = try context.require(
+                        info2.encCredStoreState,
+                        "encCredStoreState disappeared after re-establishment"
+                    )
+                    let credStoreState2 = try encCredStoreState2.decrypted(using: ppuat)
                     context.expectEqual(
                         credStoreState1,
                         credStoreState2,
@@ -964,7 +1042,11 @@ public enum CTAP2Scenario: CaseIterable {
                     }
                 }
 
-                let state1 = try (try await session.getInfo()).encCredStoreState!.decrypted(using: ppuat)
+                let encState1 = try context.require(
+                    (try await session.getInfo()).encCredStoreState,
+                    "encCredStoreState not supported"
+                )
+                let state1 = try encState1.decrypted(using: ppuat)
 
                 let makeCredToken = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
@@ -972,7 +1054,7 @@ public enum CTAP2Scenario: CaseIterable {
                     rpId: cmTestRpId
                 )
                 let params = CTAP2.MakeCredential.Parameters(
-                    clientDataHash: cmClientDataHash,
+                    clientDataHash: defaultClientDataHash,
                     rp: cmTestRp,
                     user: WebAuthn.User(id: Data([0x01, 0x02, 0x03]), name: "test", displayName: "Test"),
                     pubKeyCredParams: [.es256],
@@ -981,7 +1063,11 @@ public enum CTAP2Scenario: CaseIterable {
                 context.touch("Touch the key to create a credential")
                 _ = try await session.makeCredential(parameters: params, token: makeCredToken).value
 
-                let state2 = try (try await session.getInfo()).encCredStoreState!.decrypted(using: ppuat)
+                let encState2 = try context.require(
+                    (try await session.getInfo()).encCredStoreState,
+                    "encCredStoreState disappeared after creating a credential"
+                )
+                let state2 = try encState2.decrypted(using: ppuat)
                 context.expect(state2 != state1, "credStoreState should change after credential creation")
 
                 let deleteToken = try await session.getPinUVToken(
@@ -990,10 +1076,16 @@ public enum CTAP2Scenario: CaseIterable {
                 )
                 let credMgmt2 = try await session.credentialManagement(token: deleteToken)
                 let rps = try await credMgmt2.rps.enumerate()
-                let creds = try await credMgmt2.credentials(for: rps[0].rpIdHash).enumerate()
-                try await credMgmt2.deleteCredential(creds[0].credentialId)
+                let rp = try context.require(rps.first, "expected one RP after creating a credential")
+                let creds = try await credMgmt2.credentials(for: rp.rpIdHash).enumerate()
+                let credential = try context.require(creds.first, "expected one credential for the RP")
+                try await credMgmt2.deleteCredential(credential.credentialId)
 
-                let state3 = try (try await session.getInfo()).encCredStoreState!.decrypted(using: ppuat)
+                let encState3 = try context.require(
+                    (try await session.getInfo()).encCredStoreState,
+                    "encCredStoreState disappeared after deleting a credential"
+                )
+                let state3 = try encState3.decrypted(using: ppuat)
                 context.expect(state3 != state2, "credStoreState should change after credential deletion")
             }
         // MARK: - Bio (fingerprint)
@@ -1024,36 +1116,32 @@ public enum CTAP2Scenario: CaseIterable {
                 let templateId = try await enrollOneFingerprint(bio, context)
 
                 var enrollments = try await bio.enrollments.enumerate()
+                var enrollment = try context.require(enrollments.first, "expected one fingerprint enrollment")
                 context.expectEqual(enrollments.count, 1)
-                context.expect(enrollments[0].templateId == templateId, "enrolled template id should match")
+                context.expect(enrollment.templateId == templateId, "enrolled template id should match")
                 context.expect(
-                    enrollments[0].friendlyName == nil || enrollments[0].friendlyName == "",
+                    enrollment.friendlyName == nil || enrollment.friendlyName == "",
                     "a fresh enrollment should have no friendly name"
                 )
 
                 try await bio.setFriendlyName("Test 1", for: templateId)
                 enrollments = try await bio.enrollments.enumerate()
+                enrollment = try context.require(enrollments.first, "expected the renamed fingerprint enrollment")
                 context.expectEqual(enrollments.count, 1)
-                context.expect(enrollments[0].friendlyName == "Test 1", "friendly name should be set")
+                context.expect(enrollment.friendlyName == "Test 1", "friendly name should be set")
 
                 let sensorInfo = try await bio.getFingerprintSensorInfo()
                 if let maxLen = sensorInfo.maxTemplateFriendlyName {
                     let maxName = "Test" + String(repeating: "!", count: Int(maxLen) - 4)
                     try await bio.setFriendlyName(maxName, for: templateId)
                     enrollments = try await bio.enrollments.enumerate()
+                    enrollment = try context.require(enrollments.first, "expected the renamed fingerprint enrollment")
                     context.expectEqual(enrollments.count, 1)
-                    context.expect(enrollments[0].friendlyName == maxName, "max-length friendly name should be set")
+                    context.expect(enrollment.friendlyName == maxName, "max-length friendly name should be set")
 
                     let tooLongName = "Test" + String(repeating: "!", count: Int(maxLen) - 3)
-                    do {
+                    await context.expectCTAPError(.invalidLength, during: "setting an over-length fingerprint name") {
                         try await bio.setFriendlyName(tooLongName, for: templateId)
-                        context.record("a name exceeding the max length should be rejected")
-                    } catch let error as CTAP2.SessionError {
-                        guard case .ctapError(.invalidLength, _) = error else {
-                            context.record("Expected invalidLength, got: \(error)")
-                            return
-                        }
-                        context.log("over-length name correctly rejected with invalidLength")
                     }
                 }
 
@@ -1072,7 +1160,8 @@ public enum CTAP2Scenario: CaseIterable {
                 let (session, bio) = try await bioEnrollmentSession(context)
                 let templateId = try await enrollOneFingerprint(bio, context)
                 // Teardown, not a trailing call: a mid-body failure must not leave the enrollment behind.
-                await context.addTeardown { await cleanupEnrollment(session, templateId) }
+                await context.addTeardown { try await cleanupEnrollment(session, templateId) }
+                await context.addTeardown { try await context.deleteResidentCredentials() }
                 context.touch("Touch the enrolled fingerprint to get a UV token")
                 let uvToken = try await session.getPinUVToken(
                     using: .uv,
@@ -1080,7 +1169,7 @@ public enum CTAP2Scenario: CaseIterable {
                     rpId: "example.com"
                 )
                 let params = CTAP2.MakeCredential.Parameters(
-                    clientDataHash: Data(repeating: 0xCD, count: 32),
+                    clientDataHash: defaultClientDataHash,
                     rp: WebAuthn.RelyingParty(id: "example.com", name: "Example"),
                     user: WebAuthn.User(
                         id: Data(repeating: 0x10, count: 32),
@@ -1094,6 +1183,7 @@ public enum CTAP2Scenario: CaseIterable {
                 context.expect(credential.authenticatorData.flags.contains(.userPresent), "UP flag should be set")
                 context.expect(credential.authenticatorData.flags.contains(.userVerified), "UV flag should be set")
             }
+        // extended here to drive UV to UV_BLOCKED and confirm PIN still works afterward)
         case .uvBlocking:
             return Scenario(
                 "CTAP2.Bio.uvBlocking",
@@ -1104,7 +1194,8 @@ public enum CTAP2Scenario: CaseIterable {
                 let (session, bio) = try await bioEnrollmentSession(context)
                 let templateId = try await enrollOneFingerprint(bio, context)
                 // Teardown, not a trailing call: a mid-body failure must not leave the enrollment behind.
-                await context.addTeardown { await cleanupEnrollment(session, templateId) }
+                await context.addTeardown { try await cleanupEnrollment(session, templateId) }
+                await context.addTeardown { try await context.deleteResidentCredentials() }
 
                 let maxAttempts = 10
                 context.log("Use a DIFFERENT fingerprint (not the enrolled one) until UV is blocked")
@@ -1146,7 +1237,7 @@ public enum CTAP2Scenario: CaseIterable {
                     rpId: "example.com"
                 )
                 let params = CTAP2.MakeCredential.Parameters(
-                    clientDataHash: Data(repeating: 0xCD, count: 32),
+                    clientDataHash: defaultClientDataHash,
                     rp: WebAuthn.RelyingParty(id: "example.com", name: "Example"),
                     user: WebAuthn.User(
                         id: Data(repeating: 0x01, count: 32),
@@ -1194,7 +1285,7 @@ public enum CTAP2Scenario: CaseIterable {
                 "CTAP2.Reset.factory",
                 "factory reset clears credentials and the PIN",
                 // FIDO reset needs a wired link (USB or Lightning — both report `.usb`); NFC rejects it.
-                requirements: Requirements(capabilities: [.fido2], transports: [.usb]),
+                requirements: Requirements(capabilities: [.fido2], transports: [.usb])
             ) { context in
                 let session = try await context.ctap2Session()
                 context.touch("Touch the key to confirm the reset")
@@ -1209,6 +1300,730 @@ public enum CTAP2Scenario: CaseIterable {
 
                 let info = try await session.getInfo()
                 context.expect(info.options.clientPin != true, "PIN should be cleared after a reset")
+            }
+        // MARK: - LargeBlobs (array)
+        // a write with a non-largeBlobWrite token is rejected PIN_AUTH_INVALID)
+        case .largeBlobsArray:
+            return Scenario(
+                "CTAP2.LargeBlobs.readWrite",
+                "largeBlob array round-trips two credential-keyed blobs and rejects writes without largeBlobWrite",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await sessionWithPin(context)
+                guard try await session.supportsLargeBlobs() else {
+                    try context.skip("LargeBlobs not supported by this authenticator")
+                }
+                await context.addTeardown { try await context.deleteResidentCredentials() }
+
+                // Two independent credential keys, obtained via the largeBlobKey extension on two RKs.
+                let key1 = try await makeLargeBlobKeyCredential(session, context, userByte: 0x71, rpId: "lb1.example")
+                let key2 = try await makeLargeBlobKeyCredential(session, context, userByte: 0x72, rpId: "lb2.example")
+                let data1 = Data("test data".utf8)
+                let data2 = Data("some other data".utf8)
+
+                // A largeBlobWrite token is reusable across writes, so mint it once for the round-trip.
+                let writeToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.largeBlobWrite]
+                )
+
+                // Clean slate, then ensure these keys hold nothing yet.
+                try await session.deleteBlob(key: key1, token: writeToken)
+                try await session.deleteBlob(key: key2, token: writeToken)
+                context.expect(try await session.getBlob(key: key1) == nil, "key1 should start empty")
+                context.expect(try await session.getBlob(key: key2) == nil, "key2 should start empty")
+
+                // Put key1/data1, read it back.
+                try await session.putBlob(key: key1, data: data1, token: writeToken)
+                context.expectEqual(try await session.getBlob(key: key1), data1, "key1 should read back data1")
+
+                // Put key2/data2, both blobs coexist.
+                try await session.putBlob(key: key2, data: data2, token: writeToken)
+                context.expectEqual(try await session.getBlob(key: key1), data1, "key1 unchanged after writing key2")
+                context.expectEqual(try await session.getBlob(key: key2), data2, "key2 should read back data2")
+
+                // Delete key1, key2 survives.
+                try await session.deleteBlob(key: key1, token: writeToken)
+                context.expect(try await session.getBlob(key: key1) == nil, "key1 should be gone after delete")
+                context.expectEqual(try await session.getBlob(key: key2), data2, "key2 should survive key1 delete")
+
+                // Delete key2, both gone.
+                try await session.deleteBlob(key: key2, token: writeToken)
+                context.expect(try await session.getBlob(key: key2) == nil, "key2 should be gone after delete")
+
+                // A write authorized with a token lacking largeBlobWrite must be rejected with pinAuthInvalid.
+                let wrongToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.credentialManagement]
+                )
+                await context.expectCTAPError(.pinAuthInvalid, during: "putBlob with a non-largeBlobWrite token") {
+                    try await session.putBlob(key: key1, data: data1, token: wrongToken)
+                }
+            }
+        // MARK: - credProtect (enforcement)
+        case .credProtectEnforcement:
+            return Scenario(
+                "CTAP2.CredProtect.enforcement",
+                "credProtect L1/L2/L3 govern discovery and usability with and without UV",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await sessionWithPin(context)
+                guard try await CTAP2.Extension.CredProtect.isSupported(by: session) else {
+                    try context.skip("credProtect not supported by this authenticator")
+                }
+                await context.addTeardown { try await context.deleteResidentCredentials() }
+                let clientDataHash = defaultClientDataHash
+
+                // --- L1 (userVerificationOptional): discoverable + usable without UV. ---
+                _ = try await makeCredProtectCredential(
+                    session,
+                    context,
+                    level: .userVerificationOptional,
+                    userByte: 0xC1,
+                    rpId: "cp1.example"
+                )
+                context.touch("Touch the key to authenticate the L1 credential")
+                let l1Assertion = try await session.getAssertion(
+                    parameters: CTAP2.GetAssertion.Parameters(rpId: "cp1.example", clientDataHash: clientDataHash)
+                ).value
+                context.expect(
+                    l1Assertion.authenticatorData.flags.contains(.userPresent),
+                    "L1 credential should be discoverable and usable without UV"
+                )
+
+                // --- L2 (userVerificationOptionalWithCredentialIDList): hidden from RK discovery w/o UV,
+                //     usable by id w/o UV. ---
+                let cid2 = try await makeCredProtectCredential(
+                    session,
+                    context,
+                    level: .userVerificationOptionalWithCredentialIDList,
+                    userByte: 0xC2,
+                    rpId: "cp2.example"
+                )
+                await context.expectCTAPError(.noCredentials, during: "L2 RK discovery without UV") {
+                    _ = try await session.getAssertion(
+                        parameters: CTAP2.GetAssertion.Parameters(rpId: "cp2.example", clientDataHash: clientDataHash)
+                    ).value
+                }
+                context.touch("Touch the key to authenticate the L2 credential by id")
+                let l2ById = try await session.getAssertion(
+                    parameters: CTAP2.GetAssertion.Parameters(
+                        rpId: "cp2.example",
+                        clientDataHash: clientDataHash,
+                        allowList: [WebAuthn.CredentialDescriptor(id: cid2)]
+                    )
+                ).value
+                context.expect(
+                    l2ById.authenticatorData.flags.contains(.userPresent),
+                    "L2 credential should be usable by id without UV"
+                )
+
+                // --- L3 (userVerificationRequired): hidden even by id w/o UV, usable only with UV. ---
+                let cid3 = try await makeCredProtectCredential(
+                    session,
+                    context,
+                    level: .userVerificationRequired,
+                    userByte: 0xC3,
+                    rpId: "cp3.example"
+                )
+                await context.expectCTAPError(.noCredentials, during: "L3 use by id without UV") {
+                    _ = try await session.getAssertion(
+                        parameters: CTAP2.GetAssertion.Parameters(
+                            rpId: "cp3.example",
+                            clientDataHash: clientDataHash,
+                            allowList: [WebAuthn.CredentialDescriptor(id: cid3)]
+                        )
+                    ).value
+                }
+                let uvToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.getAssertion],
+                    rpId: "cp3.example"
+                )
+                context.touch("Touch the key to authenticate the L3 credential with UV")
+                let l3WithUv = try await session.getAssertion(
+                    parameters: CTAP2.GetAssertion.Parameters(
+                        rpId: "cp3.example",
+                        clientDataHash: clientDataHash,
+                        allowList: [WebAuthn.CredentialDescriptor(id: cid3)]
+                    ),
+                    token: uvToken
+                ).value
+                context.expect(
+                    l3WithUv.authenticatorData.flags.contains(.userVerified),
+                    "L3 credential should be usable with UV and set the UV flag"
+                )
+            }
+        // MARK: - hmac-secret (raw CTAP2 extension)
+        case .hmacSecret:
+            return Scenario(
+                "CTAP2.Extension.hmacSecret",
+                "hmac-secret round-trips deterministic secrets with one and two salts",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await sessionWithPin(context)
+                guard try await CTAP2.Extension.HmacSecret.isSupported(by: session) else {
+                    try context.skip("hmac-secret not supported")
+                }
+                await context.addTeardown { try await context.deleteResidentCredentials() }
+
+                let hmac = try await CTAP2.Extension.HmacSecret(session: session)
+                let token = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.makeCredential],
+                    rpId: "hmac.example"
+                )
+                let params = CTAP2.MakeCredential.Parameters(
+                    clientDataHash: defaultClientDataHash,
+                    rp: WebAuthn.RelyingParty(id: "hmac.example", name: "HMAC Test"),
+                    user: WebAuthn.User(
+                        id: Data(repeating: 0xA1, count: 32),
+                        name: "hmac@example.com",
+                        displayName: "HMAC User"
+                    ),
+                    pubKeyCredParams: [.es256],
+                    extensions: [hmac.makeCredential.input()],
+                    rk: true
+                )
+                context.touch("Touch the key to create the hmac-secret credential")
+                let mcResponse = try await session.makeCredential(parameters: params, token: token).value
+                let mcResult = try hmac.makeCredential.output(from: mcResponse)
+                context.expect(mcResult == .enabled, "hmac-secret should be enabled on the credential")
+
+                let credentialId = try context.require(
+                    mcResponse.authenticatorData.attestedCredentialData?.credentialId,
+                    "makeCredential must return a credential id"
+                )
+
+                // First assertion: one salt.
+                let salt1 = randomBytes(count: 32)
+                let gaToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.getAssertion],
+                    rpId: "hmac.example"
+                )
+                let gaParams = CTAP2.GetAssertion.Parameters(
+                    rpId: "hmac.example",
+                    clientDataHash: defaultClientDataHash,
+                    allowList: [.init(id: credentialId)],
+                    extensions: [try hmac.getAssertion.input(salt1: salt1)]
+                )
+                context.touch("Touch the key for first assertion")
+                let ga1 = try await session.getAssertion(parameters: gaParams, token: gaToken).value
+                let secrets1 = try context.require(
+                    try hmac.getAssertion.output(from: ga1),
+                    "first assertion should return hmac-secret output"
+                )
+
+                // Second assertion: two salts.
+                let salt2 = randomBytes(count: 32)
+                let gaToken2 = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.getAssertion],
+                    rpId: "hmac.example"
+                )
+                let gaParams2 = CTAP2.GetAssertion.Parameters(
+                    rpId: "hmac.example",
+                    clientDataHash: defaultClientDataHash,
+                    allowList: [.init(id: credentialId)],
+                    extensions: [try hmac.getAssertion.input(salt1: salt1, salt2: salt2)]
+                )
+                context.touch("Touch the key for second assertion")
+                let ga2 = try await session.getAssertion(parameters: gaParams2, token: gaToken2).value
+                let secrets2 = try context.require(
+                    try hmac.getAssertion.output(from: ga2),
+                    "second assertion should return hmac-secret output"
+                )
+
+                context.expectEqual(secrets2.first, secrets1.first, "same salt1 should produce the same first secret")
+                let second = try context.require(secrets2.second, "two-salt assertion should return a second secret")
+                context.expect(second != secrets1.first, "different salt should produce a different secret")
+            }
+        // MARK: - CredentialManagement (missing permissions)
+        case .credManMissingPermissions:
+            return Scenario(
+                "CTAP2.CredentialManagement.missingPermissions",
+                "credential management with a wrong-permission token is rejected with pinAuthInvalid",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await sessionWithPin(context)
+                let info = try await session.getInfo()
+                guard info.options.credentialManagement == true else {
+                    try context.skip("credentialManagement not supported")
+                }
+
+                let wrongToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.largeBlobWrite]
+                )
+                let credMgmt = try await session.credentialManagement(token: wrongToken)
+                await context.expectCTAPError(.pinAuthInvalid, during: "getMetadata with a largeBlobWrite token") {
+                    _ = try await credMgmt.getMetadata()
+                }
+            }
+        // MARK: - EncryptedFields (identifier re-randomizes)
+        case .encIdentifierChanges:
+            return Scenario(
+                "CTAP2.EncryptedFields.encIdentifierChanges",
+                "the raw encIdentifier re-randomizes between consecutive getInfo calls",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await sessionWithPin(context)
+                let info1 = try await session.getInfo()
+                guard let enc1 = info1.encIdentifier else {
+                    try context.skip("encIdentifier not supported")
+                }
+                let enc2 = try context.require(
+                    (try await session.getInfo()).encIdentifier,
+                    "second getInfo should also return encIdentifier"
+                )
+                context.expect(
+                    enc1.encryptedData != enc2.encryptedData,
+                    "raw encIdentifier should differ between two getInfo calls"
+                )
+            }
+        // MARK: - Config (enterprise attestation via WebAuthn client)
+        case .enterpriseAttestationPlatform:
+            return Scenario(
+                "CTAP2.Config.enterpriseAttestationPlatform",
+                "platform-facilitated enterprise attestation yields a distinct attestation certificate",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await sessionWithPin(context)
+                let info = try await session.getInfo()
+                guard info.options.authenticatorConfig == true else {
+                    try context.skip("authenticatorConfig not supported")
+                }
+                guard info.options.supportsEnterpriseAttestation else {
+                    try context.skip("Enterprise attestation not supported")
+                }
+
+                // Baseline: direct attestation certificate before enabling EP.
+                let baselineClient = WebAuthn.Client(
+                    session: session,
+                    origin: try WebAuthn.Origin("https://example.com"),
+                    isPublicSuffix: { _ in false }
+                )
+                let baselineOptions = WebAuthn.Registration.Options(
+                    challenge: randomBytes(count: 32),
+                    rp: .init(id: "example.com", name: "EP Test"),
+                    user: .init(
+                        id: randomBytes(count: 32),
+                        name: "ep-baseline@example.com",
+                        displayName: "EP Baseline"
+                    ),
+                    attestation: .direct
+                )
+                context.touch("Touch the key for baseline credential")
+                let baselineResponse = try await baselineClient.makeCredential(
+                    baselineOptions,
+                    authorization: .pin(defaultTestPin)
+                ).value
+                let baselineCert = baselineResponse.rawAttestationObject
+
+                // Enable enterprise attestation.
+                let configToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.authenticatorConfig]
+                )
+                try await session.config(token: configToken).enableEnterpriseAttestation()
+
+                // Enterprise attestation with the RP in the platform list.
+                let epClient = WebAuthn.Client(
+                    session: session,
+                    origin: try WebAuthn.Origin("https://example.com"),
+                    enterpriseRpIds: ["example.com"],
+                    isPublicSuffix: { _ in false }
+                )
+                let epOptions = WebAuthn.Registration.Options(
+                    challenge: randomBytes(count: 32),
+                    rp: .init(id: "example.com", name: "EP Test"),
+                    user: .init(
+                        id: randomBytes(count: 32),
+                        name: "ep-enterprise@example.com",
+                        displayName: "EP Enterprise"
+                    ),
+                    attestation: .enterprise
+                )
+                context.touch("Touch the key for enterprise credential")
+                let epResponse = try await epClient.makeCredential(
+                    epOptions,
+                    authorization: .pin(defaultTestPin)
+                ).value
+                let epCert = epResponse.rawAttestationObject
+
+                context.expect(
+                    baselineCert != epCert,
+                    "enterprise attestation should produce a different attestation object than direct"
+                )
+            }
+        // MARK: - previewSign (raw CTAP2 extension — error cases)
+        case .previewSignUnsupportedAlgorithm:
+            return Scenario(
+                "CTAP2.PreviewSign.unsupportedAlgorithm",
+                "previewSign rejects an unsupported algorithm with UNSUPPORTED_ALGORITHM",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await sessionWithPin(context)
+                guard try await CTAP2.Extension.PreviewSign.isSupported(by: session) else {
+                    try context.skip("previewSign not supported")
+                }
+                let previewSign = try await CTAP2.Extension.PreviewSign(session: session)
+                let token = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.makeCredential]
+                )
+                let params = CTAP2.MakeCredential.Parameters(
+                    clientDataHash: defaultClientDataHash,
+                    rp: WebAuthn.RelyingParty(id: "example.com", name: "PS Test"),
+                    user: WebAuthn.User(
+                        id: randomBytes(count: 32),
+                        name: "ps@example.com",
+                        displayName: "PS"
+                    ),
+                    pubKeyCredParams: [.es256],
+                    extensions: [previewSign.makeCredential.input(algorithms: [.init(rawValue: -18)], flags: 0)],
+                    rk: false
+                )
+                context.touch("Touch the key")
+                await context.expectCTAPError(
+                    .unsupportedAlgorithm,
+                    during: "makeCredential with unsupported previewSign algorithm"
+                ) {
+                    _ = try await session.makeCredential(parameters: params, token: token).value
+                }
+            }
+        case .previewSignInvalidFlags:
+            return Scenario(
+                "CTAP2.PreviewSign.invalidFlags",
+                "previewSign rejects invalid flag combinations with INVALID_OPTION",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await sessionWithPin(context)
+                guard try await CTAP2.Extension.PreviewSign.isSupported(by: session) else {
+                    try context.skip("previewSign not supported")
+                }
+                let previewSign = try await CTAP2.Extension.PreviewSign(session: session)
+
+                let validFlags: Set<UInt8> = [0b000, 0b001, 0b101]
+                let invalidSamples: [UInt8] = [0b010, 0b011, 0b100, 0b110, 0b111, 0x10, 0x80, 0xFF]
+
+                for flags in invalidSamples {
+                    guard !validFlags.contains(flags) else { continue }
+                    let token = try await session.getPinUVToken(
+                        using: .pin(defaultTestPin),
+                        permissions: [.makeCredential]
+                    )
+                    let params = CTAP2.MakeCredential.Parameters(
+                        clientDataHash: defaultClientDataHash,
+                        rp: WebAuthn.RelyingParty(id: "example.com", name: "PS Flags"),
+                        user: WebAuthn.User(
+                            id: randomBytes(count: 32),
+                            name: "psflags@example.com",
+                            displayName: "PS Flags"
+                        ),
+                        pubKeyCredParams: [.es256],
+                        extensions: [
+                            previewSign.makeCredential.input(
+                                algorithms: [.esp256, .es256],
+                                flags: flags
+                            )
+                        ],
+                        rk: false
+                    )
+                    context.touch("Touch the key (flags=\(flags))")
+                    await context.expectCTAPError(
+                        .invalidOption,
+                        during: "makeCredential with previewSign flags=\(flags)"
+                    ) {
+                        _ = try await session.makeCredential(parameters: params, token: token).value
+                    }
+                }
+            }
+        case .previewSignMissingParameter:
+            return Scenario(
+                "CTAP2.PreviewSign.missingParameter",
+                "previewSign getAssertion rejects a missing keyHandle or TBS with INVALID_OPTION",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await sessionWithPin(context)
+                guard try await CTAP2.Extension.PreviewSign.isSupported(by: session) else {
+                    try context.skip("previewSign not supported")
+                }
+                let previewSign = try await CTAP2.Extension.PreviewSign(session: session)
+
+                let mcToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.makeCredential]
+                )
+                let mcParams = CTAP2.MakeCredential.Parameters(
+                    clientDataHash: defaultClientDataHash,
+                    rp: WebAuthn.RelyingParty(id: "example.com", name: "PS Missing"),
+                    user: WebAuthn.User(
+                        id: randomBytes(count: 32),
+                        name: "psmissing@example.com",
+                        displayName: "PS Missing"
+                    ),
+                    pubKeyCredParams: [.es256],
+                    extensions: [previewSign.makeCredential.input(algorithms: [.esp256, .es256], flags: 0)],
+                    rk: false
+                )
+                context.touch("Touch the key to generate a previewSign key")
+                let mcResponse = try await session.makeCredential(parameters: mcParams, token: mcToken).value
+                let generatedKey = try context.require(
+                    previewSign.makeCredential.output(from: mcResponse),
+                    "previewSign should return a generated key"
+                )
+                let credentialId = try context.require(
+                    mcResponse.authenticatorData.attestedCredentialData?.credentialId,
+                    "makeCredential must return a credential id"
+                )
+
+                let tbs = randomBytes(count: 32)
+
+                // Missing keyHandle: pass empty data as keyHandle.
+                let gaTokenKH = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.getAssertion],
+                    rpId: "example.com"
+                )
+                let missingKH = CTAP2.GetAssertion.Parameters(
+                    rpId: "example.com",
+                    clientDataHash: defaultClientDataHash,
+                    allowList: [.init(id: credentialId)],
+                    extensions: [
+                        previewSign.getAssertion.input(keyHandle: Data(), tbs: tbs)
+                    ],
+                    up: false
+                )
+                await context.expectCTAPError(
+                    .invalidOption,
+                    .invalidCredential,
+                    during: "getAssertion with empty previewSign keyHandle"
+                ) {
+                    _ = try await session.getAssertion(parameters: missingKH, token: gaTokenKH).value
+                }
+
+                // Missing TBS: pass empty data as TBS.
+                let gaTokenTBS = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.getAssertion],
+                    rpId: "example.com"
+                )
+                let missingTBS = CTAP2.GetAssertion.Parameters(
+                    rpId: "example.com",
+                    clientDataHash: defaultClientDataHash,
+                    allowList: [.init(id: credentialId)],
+                    extensions: [
+                        previewSign.getAssertion.input(
+                            keyHandle: generatedKey.keyHandle,
+                            tbs: Data()
+                        )
+                    ],
+                    up: false
+                )
+                await context.expectCTAPError(
+                    .invalidOption,
+                    .invalidCredential,
+                    during: "getAssertion with empty previewSign TBS"
+                ) {
+                    _ = try await session.getAssertion(parameters: missingTBS, token: gaTokenTBS).value
+                }
+            }
+        case .previewSignUpRequired:
+            return Scenario(
+                "CTAP2.PreviewSign.upRequired",
+                "a previewSign key created with the UP flag rejects assertion without user presence",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await sessionWithPin(context)
+                guard try await CTAP2.Extension.PreviewSign.isSupported(by: session) else {
+                    try context.skip("previewSign not supported")
+                }
+                let previewSign = try await CTAP2.Extension.PreviewSign(session: session)
+
+                let mcToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.makeCredential]
+                )
+                let mcParams = CTAP2.MakeCredential.Parameters(
+                    clientDataHash: defaultClientDataHash,
+                    rp: WebAuthn.RelyingParty(id: "example.com", name: "PS UP"),
+                    user: WebAuthn.User(
+                        id: randomBytes(count: 32),
+                        name: "psup@example.com",
+                        displayName: "PS UP"
+                    ),
+                    pubKeyCredParams: [.es256],
+                    extensions: [previewSign.makeCredential.input(algorithms: [.esp256, .es256], flags: 0b001)],
+                    rk: false
+                )
+                context.touch("Touch the key to create a UP-required previewSign key")
+                let mcResponse = try await session.makeCredential(parameters: mcParams, token: mcToken).value
+                let generatedKey = try context.require(
+                    previewSign.makeCredential.output(from: mcResponse),
+                    "previewSign should return a generated key"
+                )
+                let credentialId = try context.require(
+                    mcResponse.authenticatorData.attestedCredentialData?.credentialId,
+                    "makeCredential must return a credential id"
+                )
+
+                let gaToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.getAssertion],
+                    rpId: "example.com"
+                )
+                let gaParams = CTAP2.GetAssertion.Parameters(
+                    rpId: "example.com",
+                    clientDataHash: defaultClientDataHash,
+                    allowList: [.init(id: credentialId)],
+                    extensions: [
+                        previewSign.getAssertion.input(
+                            keyHandle: generatedKey.keyHandle,
+                            tbs: randomBytes(count: 32)
+                        )
+                    ],
+                    up: false
+                )
+                await context.expectCTAPError(
+                    .upRequired,
+                    during: "getAssertion without UP on a UP-required previewSign key"
+                ) {
+                    _ = try await session.getAssertion(parameters: gaParams, token: gaToken).value
+                }
+            }
+        case .previewSignUvRequired:
+            return Scenario(
+                "CTAP2.PreviewSign.uvRequired",
+                "a previewSign key created with UP+UV flags rejects assertion without a UV token",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await sessionWithPin(context)
+                guard try await CTAP2.Extension.PreviewSign.isSupported(by: session) else {
+                    try context.skip("previewSign not supported")
+                }
+                let previewSign = try await CTAP2.Extension.PreviewSign(session: session)
+
+                let mcToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.makeCredential]
+                )
+                let mcParams = CTAP2.MakeCredential.Parameters(
+                    clientDataHash: defaultClientDataHash,
+                    rp: WebAuthn.RelyingParty(id: "example.com", name: "PS UV"),
+                    user: WebAuthn.User(
+                        id: randomBytes(count: 32),
+                        name: "psuv@example.com",
+                        displayName: "PS UV"
+                    ),
+                    pubKeyCredParams: [.es256],
+                    extensions: [previewSign.makeCredential.input(algorithms: [.esp256, .es256], flags: 0b101)],
+                    rk: false
+                )
+                context.touch("Touch the key to create a UV-required previewSign key")
+                let mcResponse = try await session.makeCredential(parameters: mcParams, token: mcToken).value
+                let generatedKey = try context.require(
+                    previewSign.makeCredential.output(from: mcResponse),
+                    "previewSign should return a generated key"
+                )
+                let credentialId = try context.require(
+                    mcResponse.authenticatorData.attestedCredentialData?.credentialId,
+                    "makeCredential must return a credential id"
+                )
+
+                let gaToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.getAssertion],
+                    rpId: "example.com"
+                )
+                let gaParams = CTAP2.GetAssertion.Parameters(
+                    rpId: "example.com",
+                    clientDataHash: defaultClientDataHash,
+                    allowList: [.init(id: credentialId)],
+                    extensions: [
+                        previewSign.getAssertion.input(
+                            keyHandle: generatedKey.keyHandle,
+                            tbs: randomBytes(count: 32)
+                        )
+                    ],
+                    up: true
+                )
+                await context.expectCTAPError(
+                    .puatRequired,
+                    during: "getAssertion without UV on a UV-required previewSign key"
+                ) {
+                    _ = try await session.getAssertion(parameters: gaParams, token: gaToken).value
+                }
+            }
+        // MARK: - previewSign (generate and sign round-trip)
+        case .previewSignGenerateAndSign:
+            return Scenario(
+                "CTAP2.PreviewSign.generateAndSign",
+                "previewSign generates a key and produces a non-empty signature",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                let session = try await sessionWithPin(context)
+                guard try await CTAP2.Extension.PreviewSign.isSupported(by: session) else {
+                    try context.skip("previewSign not supported")
+                }
+                let previewSign = try await CTAP2.Extension.PreviewSign(session: session)
+
+                let mcToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.makeCredential]
+                )
+                let mcParams = CTAP2.MakeCredential.Parameters(
+                    clientDataHash: defaultClientDataHash,
+                    rp: WebAuthn.RelyingParty(id: "example.com", name: "PS Sign"),
+                    user: WebAuthn.User(
+                        id: randomBytes(count: 32),
+                        name: "pssign@example.com",
+                        displayName: "PS Sign"
+                    ),
+                    pubKeyCredParams: [.es256],
+                    extensions: [previewSign.makeCredential.input(algorithms: [.esp256, .es256], flags: 0)],
+                    rk: false
+                )
+                context.touch("Touch the key to generate a previewSign key")
+                let mcResponse = try await session.makeCredential(parameters: mcParams, token: mcToken).value
+                let generatedKey = try context.require(
+                    previewSign.makeCredential.output(from: mcResponse),
+                    "previewSign should return a generated key"
+                )
+                context.expect(!generatedKey.keyHandle.isEmpty, "keyHandle should not be empty")
+                context.expect(!generatedKey.publicKey.isEmpty, "publicKey should not be empty")
+                context.expect(!generatedKey.attestationObject.isEmpty, "attestationObject should not be empty")
+
+                let credentialId = try context.require(
+                    mcResponse.authenticatorData.attestedCredentialData?.credentialId,
+                    "makeCredential must return a credential id"
+                )
+
+                let tbs = randomBytes(count: 32)
+                let gaToken = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.getAssertion],
+                    rpId: "example.com"
+                )
+                let gaParams = CTAP2.GetAssertion.Parameters(
+                    rpId: "example.com",
+                    clientDataHash: defaultClientDataHash,
+                    allowList: [.init(id: credentialId)],
+                    extensions: [
+                        previewSign.getAssertion.input(
+                            keyHandle: generatedKey.keyHandle,
+                            tbs: tbs
+                        )
+                    ],
+                    up: false
+                )
+                let gaResponse = try await session.getAssertion(parameters: gaParams, token: gaToken).value
+                let signature = try context.require(
+                    previewSign.getAssertion.output(from: gaResponse),
+                    "getAssertion should return a previewSign signature"
+                )
+                context.expect(!signature.isEmpty, "signature should not be empty")
             }
         }
     }
@@ -1269,20 +2084,13 @@ public enum CTAP2Scenario: CaseIterable {
             try await session.changePin(from: defaultTestPin, to: otherPin, protocol: pinProtocol)
 
             // The old PIN must now be rejected and decrement the counter.
-            do {
+            await context.expectCTAPError(.pinInvalid, during: "using the old PIN after a change") {
                 _ = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost",
                     protocol: pinProtocol
                 )
-                context.record("old PIN should have been rejected")
-            } catch let error as CTAP2.SessionError {
-                guard case .ctapError(.pinInvalid, _) = error else {
-                    context.record("Expected PIN_INVALID, got: \(error)")
-                    return
-                }
-                context.log("old PIN rejected")
             }
             let afterWrong = try await session.getPinRetries(protocol: pinProtocol)
             context.expectEqual(afterWrong.retries, 7, "retries should decrement after a wrong PIN")
@@ -1314,20 +2122,16 @@ public enum CTAP2Scenario: CaseIterable {
 
             // On a device without pinUvAuthToken, requesting a UV token must throw featureNotSupported.
             guard info.options.pinUVAuthToken == true else {
-                do {
+                await context.expectThrows(
+                    "requesting a UV token on a non-UV device",
+                    matching: { if case CTAP2.SessionError.featureNotSupported = $0 { true } else { false } }
+                ) {
                     _ = try await session.getPinUVToken(
                         using: .uv,
                         permissions: [.makeCredential, .getAssertion],
                         rpId: "example.com",
                         protocol: pinProtocol
                     )
-                    context.record("should have thrown featureNotSupported")
-                } catch let error as CTAP2.SessionError {
-                    guard case .featureNotSupported = error else {
-                        context.record("Expected featureNotSupported, got: \(error)")
-                        return
-                    }
-                    context.log("correctly threw featureNotSupported on a non-UV device")
                 }
                 return
             }
@@ -1361,15 +2165,8 @@ public enum CTAP2Scenario: CaseIterable {
                 try context.skip("Device doesn't enforce PIN complexity")
             }
 
-            do {
+            await context.expectCTAPError(.pinPolicyViolation, during: "changing to a weak PIN") {
                 try await session.changePin(from: defaultTestPin, to: "33333333", protocol: pinProtocol)
-                context.record("weak PIN should have been rejected")
-            } catch let error as CTAP2.SessionError {
-                guard case .ctapError(.pinPolicyViolation, _) = error else {
-                    context.record("Expected PIN_POLICY_VIOLATION, got: \(error)")
-                    return
-                }
-                context.log("weak PIN correctly rejected with PIN_POLICY_VIOLATION")
             }
 
             // A policy violation must not decrement the retry counter.
@@ -1384,7 +2181,7 @@ public enum CTAP2Scenario: CaseIterable {
         return Scenario(
             isV1 ? "CTAP2.ClientPIN.retryExhaustionV1" : "CTAP2.ClientPIN.retryExhaustionV2",
             "clientPIN retry exhaustion soft-locks the authenticator (\(suffix))",
-            requirements: Requirements(capabilities: [.fido2]),
+            requirements: Requirements(capabilities: [.fido2])
         ) { context in
             let session = try await sessionWithPin(context)
             let wrongPin = "99999999"
@@ -1400,22 +2197,13 @@ public enum CTAP2Scenario: CaseIterable {
 
             // 8 -> 7 -> 6 -> 5 (the third wrong attempt may soft-lock).
             for expected in [7, 6, 5] {
-                do {
+                await context.expectCTAPError(.pinInvalid, .pinAuthBlocked, during: "wrong PIN attempt") {
                     _ = try await session.getPinUVToken(
                         using: .pin(wrongPin),
                         permissions: [.makeCredential, .getAssertion],
                         rpId: "localhost",
                         protocol: pinProtocol
                     )
-                    context.record("wrong PIN should have been rejected")
-                } catch let error as CTAP2.SessionError {
-                    if case .ctapError(.pinInvalid, _) = error {
-                        // expected
-                    } else if case .ctapError(.pinAuthBlocked, _) = error {
-                        // expected (soft-lock)
-                    } else {
-                        context.record("Expected PIN_INVALID or PIN_AUTH_BLOCKED, got: \(error)")
-                    }
                 }
                 retries = try await session.getPinRetries(protocol: pinProtocol)
                 context.expectEqual(retries.retries, expected)
@@ -1423,36 +2211,24 @@ public enum CTAP2Scenario: CaseIterable {
 
             // Soft-locked: the counter freezes and even the correct PIN is blocked.
             let frozen = retries.retries
-            do {
+            await context.expectCTAPError(.pinAuthBlocked, during: "wrong PIN while soft-locked") {
                 _ = try await session.getPinUVToken(
                     using: .pin(wrongPin),
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost",
                     protocol: pinProtocol
                 )
-                context.record("wrong PIN should be blocked")
-            } catch let error as CTAP2.SessionError {
-                guard case .ctapError(.pinAuthBlocked, _) = error else {
-                    context.record("Expected PIN_AUTH_BLOCKED, got: \(error)")
-                    return
-                }
             }
             retries = try await session.getPinRetries(protocol: pinProtocol)
             context.expectEqual(retries.retries, frozen)
 
-            do {
+            await context.expectCTAPError(.pinAuthBlocked, during: "correct PIN while soft-locked") {
                 _ = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
                     permissions: [.makeCredential, .getAssertion],
                     rpId: "localhost",
                     protocol: pinProtocol
                 )
-                context.record("correct PIN should be blocked while soft-locked")
-            } catch let error as CTAP2.SessionError {
-                guard case .ctapError(.pinAuthBlocked, _) = error else {
-                    context.record("Expected PIN_AUTH_BLOCKED, got: \(error)")
-                    return
-                }
             }
             retries = try await session.getPinRetries(protocol: pinProtocol)
             context.expectEqual(retries.retries, frozen)
@@ -1461,9 +2237,265 @@ public enum CTAP2Scenario: CaseIterable {
     }
 }
 
+// MARK: - Parameterized per-algorithm make + assert family
+
+extension CTAP2Scenario {
+
+    /// Fans make-then-assert out over each COSE algorithm the WebAuthn client can register. For each
+    /// algorithm: register a single-algorithm credential via the WebAuthn client, assert the credential
+    /// public key reports that algorithm, then get an assertion by allow-list to the created id and
+    /// confirm it round-trips.
+    static var parameterizedScenarios: [Scenario] {
+        makeAssertScenarios + credManagementProtocolScenarios + largeBlobsProtocolScenarios
+    }
+
+    private struct MakeAssertAlgorithm: ScenarioParameter {
+        let idSuffix: String
+        let displayName: String
+        let requirements: Requirements
+        let algorithm: COSE.Algorithm
+
+        init(_ idSuffix: String, _ algorithm: COSE.Algorithm, minVersion: Version? = nil, maxVersion: Version? = nil) {
+            self.idSuffix = idSuffix
+            self.displayName = "make + assert round-trips a \(idSuffix) credential through the WebAuthn client"
+            self.requirements = Requirements(
+                capabilities: [.fido2],
+                minVersion: minVersion,
+                maxVersion: maxVersion
+            )
+            self.algorithm = algorithm
+        }
+    }
+
+    private static var makeAssertScenarios: [Scenario] {
+        let algorithms: [MakeAssertAlgorithm] = [
+            MakeAssertAlgorithm("es256", .es256),
+            // EdDSA (Ed25519) needs YubiKey 5.2+.
+            MakeAssertAlgorithm("edDSA", .edDSA, minVersion: Version("5.2.0")),
+            // ES384 (P-384) needs YubiKey 5.6+.
+            MakeAssertAlgorithm("es384", .es384, minVersion: Version("5.6.0")),
+            // RS256 is only available on YubiKey firmware 5.1.X and below.
+            MakeAssertAlgorithm("rs256", .rs256, maxVersion: Version("5.1.99")),
+        ]
+        return Scenario.parameterized("CTAP2.Credentials.makeAssert", over: algorithms) { context, algorithm in
+            let session = try await sessionWithPin(context)
+
+            // The authenticator may not advertise this algorithm even when firmware gating passes; skip
+            // rather than fail when the device can't honor it.
+            let info = try await session.getInfo()
+            if !info.algorithms.isEmpty, !info.algorithms.contains(algorithm.algorithm) {
+                try context.skip("\(algorithm.idSuffix) not advertised by this authenticator")
+            }
+
+            let client = WebAuthn.Client(
+                session: session,
+                origin: try WebAuthn.Origin("https://example.com"),
+                isPublicSuffix: { _ in false }
+            )
+
+            let createOptions = WebAuthn.Registration.Options(
+                challenge: randomBytes(count: 32),
+                rp: .init(id: "example.com", name: "Example RP"),
+                user: .init(
+                    id: randomBytes(count: 32),
+                    name: "makeassert@example.com",
+                    displayName: "Make Assert User"
+                ),
+                residentKey: .discouraged,
+                pubKeyCredParams: [algorithm.algorithm]
+            )
+
+            context.touch("Touch the key to create the \(algorithm.idSuffix) credential")
+            let createResponse: WebAuthn.Registration.Response
+            do {
+                createResponse = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin))
+                    .value
+            } catch let error as WebAuthn.ClientError {
+                if case .unsupportedAlgorithm = error {
+                    try context.skip("\(algorithm.idSuffix) not supported by this authenticator")
+                }
+                throw error
+            }
+
+            let keyAlgorithm = try context.require(
+                createResponse.publicKey.algorithm,
+                "credential public key should carry an algorithm"
+            )
+            context.expectEqual(
+                keyAlgorithm,
+                algorithm.algorithm,
+                "credential public key should use the requested algorithm"
+            )
+
+            let requestOptions = WebAuthn.Authentication.Options(
+                challenge: randomBytes(count: 32),
+                rpId: "example.com",
+                allowCredentials: [.init(id: createResponse.credentialId)]
+            )
+
+            context.touch("Touch the key to authenticate (\(algorithm.idSuffix))")
+            let matches = try await client.getAssertion(requestOptions, authorization: .pin(defaultTestPin)).value
+            let assertResponse = try context.require(
+                matches.first { $0.credentialId == createResponse.credentialId },
+                "expected an assertion for the created \(algorithm.idSuffix) credential"
+            )
+            context.expect(assertResponse.signature.count > 0, "signature should be present")
+        }
+    }
+
+    // MARK: PIN/UV protocol parametrization
+
+    /// One PIN/UV protocol (`.v1` / `.v2`). CredentialManagement and largeBlob suites run under both;
+    /// the protocol rides on the token (`token.protocolVersion`), so minting the token with an explicit
+    /// `protocol:` forces every operation built from it to use it.
+    private struct PinProtocolCase: ScenarioParameter {
+        let idSuffix: String
+        let displayName: String
+        let requirements: Requirements
+        let pinProtocol: CTAP2.ClientPin.ProtocolVersion
+
+        init(_ pinProtocol: CTAP2.ClientPin.ProtocolVersion, _ describing: String) {
+            let name = pinProtocol == .v1 ? "v1" : "v2"
+            self.idSuffix = name
+            self.displayName = "\(describing) (PIN/UV protocol \(name))"
+            self.requirements = Requirements(capabilities: [.fido2])
+            self.pinProtocol = pinProtocol
+        }
+    }
+
+    private static let pinProtocols = [
+        PinProtocolCase(.v1, "credential-management lifecycle round-trips"),
+        PinProtocolCase(.v2, "credential-management lifecycle round-trips"),
+    ]
+
+    private static var credManagementProtocolScenarios: [Scenario] {
+        Scenario.parameterized("CTAP2.CredentialManagement.lifecycle", over: pinProtocols) { context, proto in
+            let session = try await sessionWithPin(context)
+            guard try await CTAP2.CredentialManagement.isSupported(by: session) else {
+                try context.skip("Credential management not supported")
+            }
+            try await deleteAllCredentials(session)
+
+            // Create one resident credential, authorizing makeCredential with an explicit-protocol token.
+            let makeToken = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.makeCredential],
+                rpId: cmTestRpId,
+                protocol: proto.pinProtocol
+            )
+            let params = CTAP2.MakeCredential.Parameters(
+                clientDataHash: defaultClientDataHash,
+                rp: cmTestRp,
+                user: cmTestUser,
+                pubKeyCredParams: [.es256],
+                rk: true
+            )
+            context.touch("Touch the key to create the test credential (\(proto.idSuffix))")
+            _ = try await session.makeCredential(parameters: params, token: makeToken).value
+
+            // Drive credential management with a token minted under the same protocol.
+            let cmToken = try await session.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.credentialManagement],
+                protocol: proto.pinProtocol
+            )
+            let credMgmt = try await session.credentialManagement(token: cmToken)
+            context.expectEqual(
+                try await credMgmt.getMetadata().existingCredentialsCount,
+                1,
+                "one credential after creation"
+            )
+
+            var credentialIds: [WebAuthn.CredentialDescriptor] = []
+            for try await rp in credMgmt.rps {
+                context.expect(rp.rp.id == cmTestRpId, "RP id should match")
+                for try await credential in credMgmt.credentials(for: rp.rpIdHash) {
+                    context.expect(credential.user.id == cmTestUserId, "user id should match")
+                    credentialIds.append(credential.credentialId)
+                }
+            }
+            context.expectEqual(credentialIds.count, 1, "enumerate should return the one credential")
+
+            for credentialId in credentialIds {
+                try await credMgmt.deleteCredential(credentialId)
+            }
+            context.expectEqual(
+                try await credMgmt.getMetadata().existingCredentialsCount,
+                0,
+                "no credentials after delete"
+            )
+        }
+    }
+
+    private static var largeBlobsProtocolScenarios: [Scenario] {
+        let cases = [
+            PinProtocolCase(.v1, "largeBlob array write/read/delete round-trips"),
+            PinProtocolCase(.v2, "largeBlob array write/read/delete round-trips"),
+        ]
+        return Scenario.parameterized("CTAP2.LargeBlobs.pinProtocol", over: cases) { context, proto in
+            let session = try await sessionWithPin(context)
+            guard try await session.supportsLargeBlobs() else {
+                try context.skip("LargeBlobs not supported by this authenticator")
+            }
+            await context.addTeardown { try await context.deleteResidentCredentials() }
+            let key = try await makeLargeBlobKeyCredential(
+                session,
+                context,
+                userByte: 0x73,
+                rpId: "lbproto.example"
+            )
+            let blob = Data("largeBlob under PIN/UV protocol \(proto.idSuffix)".utf8)
+            func writeToken() async throws -> CTAP2.Token {
+                try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.largeBlobWrite],
+                    protocol: proto.pinProtocol
+                )
+            }
+
+            try await session.deleteBlob(key: key, token: try await writeToken())
+            context.expect(try await session.getBlob(key: key) == nil, "blob should start empty")
+            try await session.putBlob(key: key, data: blob, token: try await writeToken())
+            context.expectEqual(
+                try await session.getBlob(key: key),
+                blob,
+                "blob should round-trip under PIN/UV protocol \(proto.idSuffix)"
+            )
+            try await session.deleteBlob(key: key, token: try await writeToken())
+            context.expect(try await session.getBlob(key: key) == nil, "blob should be gone after delete")
+        }
+    }
+}
+
+// MARK: - CTAP error expectations
+
+extension Scenario.Context {
+    /// Expects `body` to throw a `CTAP2.SessionError.ctapError` carrying one of `codes`. Records a
+    /// failure (without aborting the scenario) if it returns or throws anything else.
+    func expectCTAPError(
+        _ codes: CTAP2.Error...,
+        during action: String,
+        file: String = #fileID,
+        line: Int = #line,
+        _ body: () async throws -> Void
+    ) async {
+        await expectThrows(
+            action,
+            matching: { error in
+                guard case let CTAP2.SessionError.ctapError(code, _) = error else { return false }
+                return codes.contains(code)
+            },
+            file: file,
+            line: line,
+            body
+        )
+    }
+}
+
 // MARK: - Shared constants
 
 private let defaultTestPin = Scenario.Context.defaultTestPin
+private let defaultClientDataHash = Data(repeating: 0xCD, count: 32)
 
 private let cmTestRpId = "test.example.com"
 private let cmTestRp = WebAuthn.RelyingParty(id: cmTestRpId, name: "Test RP")
@@ -1471,7 +2503,6 @@ private let cmTestUserId = Data([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]
 private let cmTestUserName = "testuser@example.com"
 private let cmTestUserDisplayName = "Test User"
 private let cmTestUser = WebAuthn.User(id: cmTestUserId, name: cmTestUserName, displayName: cmTestUserDisplayName)
-private let cmClientDataHash = Data(repeating: 0xCD, count: 32)
 
 // MARK: - Signature verification
 
@@ -1517,7 +2548,7 @@ private func makeCredentialAlgorithmScenario(
         let session = try await context.ctap2Session()
         context.touch("Touch the key to create the credential")
         let params = CTAP2.MakeCredential.Parameters(
-            clientDataHash: Data(repeating: 0xCD, count: 32),
+            clientDataHash: defaultClientDataHash,
             rp: WebAuthn.RelyingParty(id: "example.com", name: "Example Corp"),
             user: WebAuthn.User(
                 id: Data(repeating: userByte, count: 32),
@@ -1549,6 +2580,12 @@ private func sessionWithPin(_ context: Scenario.Context) async throws -> CTAP2.S
     return session
 }
 
+/// A makeCredential token for `rpId`, or nil when the key has no PIN (UP-only resident creation).
+private func makeCredentialToken(_ session: CTAP2.Session, rpId: String) async throws -> CTAP2.Token? {
+    guard try await session.getInfo().options.clientPin == true else { return nil }
+    return try await session.getPinUVToken(using: .pin(defaultTestPin), permissions: [.makeCredential], rpId: rpId)
+}
+
 private func getCredentialManagement(_ session: CTAP2.Session) async throws -> CTAP2.CredentialManagement {
     let token = try await session.getPinUVToken(using: .pin(defaultTestPin), permissions: [.credentialManagement])
     return try await session.credentialManagement(token: token)
@@ -1561,7 +2598,7 @@ private func createTestCredential(_ session: CTAP2.Session, _ context: Scenario.
         rpId: cmTestRpId
     )
     let params = CTAP2.MakeCredential.Parameters(
-        clientDataHash: cmClientDataHash,
+        clientDataHash: defaultClientDataHash,
         rp: cmTestRp,
         user: cmTestUser,
         pubKeyCredParams: [.es256],
@@ -1569,6 +2606,82 @@ private func createTestCredential(_ session: CTAP2.Session, _ context: Scenario.
     )
     context.touch("Touch the key to create the test credential")
     _ = try await session.makeCredential(parameters: params, token: pinToken).value
+}
+
+/// Creates a resident credential requesting the largeBlobKey extension and returns its 32-byte key.
+private func makeLargeBlobKeyCredential(
+    _ session: CTAP2.Session,
+    _ context: Scenario.Context,
+    userByte: UInt8,
+    rpId: String
+) async throws -> Data {
+    let largeBlobKey = try await CTAP2.Extension.LargeBlobKey(session: session)
+    let token = try await session.getPinUVToken(
+        using: .pin(defaultTestPin),
+        permissions: [.makeCredential],
+        rpId: rpId
+    )
+    let params = CTAP2.MakeCredential.Parameters(
+        clientDataHash: defaultClientDataHash,
+        rp: WebAuthn.RelyingParty(id: rpId, name: rpId),
+        user: WebAuthn.User(
+            id: Data(repeating: userByte, count: 32),
+            name: "\(rpId)@example.com",
+            displayName: rpId
+        ),
+        pubKeyCredParams: [.es256],
+        extensions: [largeBlobKey.makeCredential.input()],
+        rk: true
+    )
+    context.touch("Touch the key to create the \(rpId) credential")
+    let response = try await session.makeCredential(parameters: params, token: token).value
+    return try context.require(
+        largeBlobKey.makeCredential.output(from: response),
+        "expected a largeBlobKey from makeCredential for \(rpId)"
+    )
+}
+
+/// Creates a resident credential at the given credProtect level and returns its credential id.
+private func makeCredProtectCredential(
+    _ session: CTAP2.Session,
+    _ context: Scenario.Context,
+    level: CTAP2.Extension.CredProtect.Level,
+    userByte: UInt8,
+    rpId: String
+) async throws -> Data {
+    let credProtect = try await CTAP2.Extension.CredProtect(level: level, session: session, enforce: true)
+    let token = try await session.getPinUVToken(
+        using: .pin(defaultTestPin),
+        permissions: [.makeCredential],
+        rpId: rpId
+    )
+    let params = CTAP2.MakeCredential.Parameters(
+        clientDataHash: defaultClientDataHash,
+        rp: WebAuthn.RelyingParty(id: rpId, name: rpId),
+        user: WebAuthn.User(
+            id: Data(repeating: userByte, count: 32),
+            name: "\(rpId)@example.com",
+            displayName: rpId
+        ),
+        pubKeyCredParams: [.es256],
+        extensions: [credProtect.input()],
+        rk: true
+    )
+    context.touch("Touch the key to create the \(rpId) credential (credProtect \(level.rawValue))")
+    let response = try await session.makeCredential(parameters: params, token: token).value
+    // L2/L3 must echo the applied level back; L1 (default) may legitimately omit it.
+    if level != .userVerificationOptional {
+        context.expectEqual(
+            credProtect.output(from: response),
+            level,
+            "\(rpId): credProtect output should echo the requested level"
+        )
+    }
+    let attested = try context.require(
+        response.authenticatorData.attestedCredentialData,
+        "\(rpId): makeCredential must return attested credential data"
+    )
+    return attested.credentialId
 }
 
 private func deleteAllCredentials(_ session: CTAP2.Session) async throws {
@@ -1595,7 +2708,7 @@ private func verifyReadOnlyOperations(
     context.expectEqual(rps.count, 1)
     let credentials = try await credMgmt.credentials(for: rpIdHash).enumerate()
     context.expectEqual(credentials.count, 1)
-    let credentialId = credentials[0].credentialId
+    let credentialId = try context.require(credentials.first, "expected one credential").credentialId
 
     // Writes must fail with pinAuthInvalid.
     do {
@@ -1649,9 +2762,8 @@ private func enrollOneFingerprint(_ bio: CTAP2.BioEnrollment, _ context: Scenari
     return try context.require(templateId, "failed to enroll fingerprint")
 }
 
-private func cleanupEnrollment(_ session: CTAP2.Session, _ templateId: Data) async {
-    guard let token = try? await session.getPinUVToken(using: .pin(defaultTestPin), permissions: [.bioEnrollment]),
-        let bio = try? await session.bioEnrollment(token: token)
-    else { return }
-    try? await bio.removeEnrollment(templateId)
+private func cleanupEnrollment(_ session: CTAP2.Session, _ templateId: Data) async throws {
+    let token = try await session.getPinUVToken(using: .pin(defaultTestPin), permissions: [.bioEnrollment])
+    let bio = try await session.bioEnrollment(token: token)
+    try await bio.removeEnrollment(templateId)
 }

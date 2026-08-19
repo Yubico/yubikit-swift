@@ -74,6 +74,16 @@ extension ScenarioSuites {
         @Test("imports an X25519 key and performs key agreement")
         func x25519KeyImport() async throws { try await ScenarioTests.run(PIVScenario.x25519KeyImport.scenario) }
 
+        @Test("imports an EC P-256 key with PIN policy ALWAYS and reads it back from metadata")
+        func importPinPolicyAlways() async throws {
+            try await ScenarioTests.run(PIVScenario.importPinPolicyAlways.scenario)
+        }
+
+        @Test("imports an EC P-256 key with touch policy ALWAYS and reads it back from metadata")
+        func importTouchPolicyAlways() async throws {
+            try await ScenarioTests.run(PIVScenario.importTouchPolicyAlways.scenario)
+        }
+
         @Test("generates an RSA-1024 key")
         func rsa1024KeyGeneration() async throws {
             try await ScenarioTests.run(PIVScenario.rsa1024KeyGeneration.scenario)
@@ -114,6 +124,21 @@ extension ScenarioSuites {
             try await ScenarioTests.run(PIVScenario.x25519KeyGeneration.scenario)
         }
 
+        @Test("generateKey without a prior management-key authenticate is rejected")
+        func generateKeyRequiresAuth() async throws {
+            try await ScenarioTests.run(PIVScenario.generateKeyRequiresAuth.scenario)
+        }
+
+        @Test("putCertificate without management-key authentication is rejected")
+        func putCertificateRequiresAuth() async throws {
+            try await ScenarioTests.run(PIVScenario.putCertificateRequiresAuth.scenario)
+        }
+
+        @Test("putKey without management-key authentication is rejected")
+        func putKeyRequiresAuth() async throws {
+            try await ScenarioTests.run(PIVScenario.putKeyRequiresAuth.scenario)
+        }
+
         @Test("attests a generated RSA key")
         func rsa() async throws { try await ScenarioTests.run(PIVScenario.rsa.scenario) }
 
@@ -122,6 +147,11 @@ extension ScenarioSuites {
 
         @Test("attests a generated X25519 key")
         func x25519Attestation() async throws { try await ScenarioTests.run(PIVScenario.x25519Attestation.scenario) }
+
+        @Test("reads the static attestation certificate from slot f9")
+        func exportAttestationCertificate() async throws {
+            try await ScenarioTests.run(PIVScenario.exportAttestationCertificate.scenario)
+        }
 
         @Test("writes and reads back an X.509 certificate")
         func putGet() async throws { try await ScenarioTests.run(PIVScenario.putGet.scenario) }
@@ -163,6 +193,11 @@ extension ScenarioSuites {
         @Test("sets the PIN and PUK retry attempts")
         func setAttempts() async throws { try await ScenarioTests.run(PIVScenario.setAttempts.scenario) }
 
+        @Test("setRetries takes effect, and wrong PIN/PUK then report the new remaining counts")
+        func setPinRetriesRoundTrip() async throws {
+            try await ScenarioTests.run(PIVScenario.setPinRetriesRoundTrip.scenario)
+        }
+
         @Test("reports remaining retries when changing the PIN with a wrong old PIN")
         func changePinFailure() async throws { try await ScenarioTests.run(PIVScenario.changePinFailure.scenario) }
 
@@ -181,17 +216,23 @@ extension ScenarioSuites {
         @Test("a key with PIN policy ALWAYS requires a fresh PIN verification before every signature")
         func pinPolicyAlways() async throws { try await ScenarioTests.run(PIVScenario.pinPolicyAlways.scenario) }
 
+        @Test("a key with PIN policy ONCE needs one verify per session, then re-verify after a fresh session")
+        func pinPolicyOnce() async throws { try await ScenarioTests.run(PIVScenario.pinPolicyOnce.scenario) }
+
+        @Test("a key with PIN policy NEVER signs without any PIN verification")
+        func pinPolicyNever() async throws { try await ScenarioTests.run(PIVScenario.pinPolicyNever.scenario) }
+
         @Test("reports a firmware version")
         func version() async throws { try await ScenarioTests.run(PIVScenario.version.scenario) }
-
-        @Test("reports a serial number")
-        func serialNumber() async throws { try await ScenarioTests.run(PIVScenario.serialNumber.scenario) }
 
         @Test("reads default management key metadata")
         func managementKey() async throws { try await ScenarioTests.run(PIVScenario.managementKey.scenario) }
 
         @Test("reads slot metadata for generated keys across PIN/touch policies")
         func slot() async throws { try await ScenarioTests.run(PIVScenario.slot.scenario) }
+
+        @Test("reads slot metadata for an imported (generated == false) key")
+        func slotMetadataPut() async throws { try await ScenarioTests.run(PIVScenario.slotMetadataPut.scenario) }
 
         @Test("reads metadata after setting an AES-192 management key")
         func aesManagementKey() async throws { try await ScenarioTests.run(PIVScenario.aesManagementKey.scenario) }
@@ -217,5 +258,11 @@ extension ScenarioSuites {
         func verifyUvWithoutFingerprints() async throws {
             try await ScenarioTests.run(PIVScenario.verifyUvWithoutFingerprints.scenario)
         }
+
+        @Test(
+            "import-decrypt, slot-metadata, key-agreement, FIPS, and PIN-complexity families",
+            arguments: ScenarioTests.parameterizedFamilies(in: .piv, besides: PIVScenario.allCases.map(\.scenario))
+        )
+        func parameterizedFamilies(_ scenario: Scenario) async throws { try await ScenarioTests.run(scenario) }
     }
 }

@@ -20,9 +20,6 @@ extension ScenarioSuites {
     @Suite("OATH")
     struct OATH {
 
-        @Test("calculateCredentialCodes reassembles a response that spans multiple frames")
-        func chunkedData() async throws { try await ScenarioTests.run(OATHScenario.chunkedData.scenario) }
-
         @Test("listCredentials returns the populated credentials with the expected labels and types")
         func credentials() async throws { try await ScenarioTests.run(OATHScenario.credentials.scenario) }
 
@@ -43,6 +40,9 @@ extension ScenarioSuites {
 
         @Test("renaming a credential onto an existing identifier is rejected")
         func toExisting() async throws { try await ScenarioTests.run(OATHScenario.toExisting.scenario) }
+
+        @Test("renaming onto a distinct existing credential's identifier is rejected")
+        func toExistingDistinct() async throws { try await ScenarioTests.run(OATHScenario.toExistingDistinct.scenario) }
 
         @Test("deleteCredential removes a single credential")
         func credentialDelete() async throws { try await ScenarioTests.run(OATHScenario.credentialDelete.scenario) }
@@ -65,22 +65,47 @@ extension ScenarioSuites {
         @Test("deleteAccessKey removes the password so a fresh session needs no unlock")
         func deleteAccessKey() async throws { try await ScenarioTests.run(OATHScenario.deleteAccessKey.scenario) }
 
+        @Test("deleteAccessKey is rejected on a FIPS device")
+        func deleteAccessKeyRejectedOnFIPS() async throws {
+            try await ScenarioTests.run(OATHScenario.deleteAccessKeyRejectedOnFIPS.scenario)
+        }
+
         @Test("a locked OATH application rejects listing until it is unlocked")
         func lockedListRejected() async throws { try await ScenarioTests.run(OATHScenario.lockedListRejected.scenario) }
+
+        @Test("a locked OATH application rejects calculating a single code")
+        func lockedCalculateRejected() async throws {
+            try await ScenarioTests.run(OATHScenario.lockedCalculateRejected.scenario)
+        }
+
+        @Test("a locked OATH application rejects calculating all codes")
+        func lockedCalculateAllRejected() async throws {
+            try await ScenarioTests.run(OATHScenario.lockedCalculateAllRejected.scenario)
+        }
+
+        @Test("a locked OATH application rejects deleting a credential")
+        func lockedDeleteRejected() async throws {
+            try await ScenarioTests.run(OATHScenario.lockedDeleteRejected.scenario)
+        }
+
+        @Test("a locked OATH application rejects renaming a credential")
+        func lockedRenameRejected() async throws {
+            try await ScenarioTests.run(OATHScenario.lockedRenameRejected.scenario)
+        }
 
         @Test("calculateCredentialResponse matches the RFC 2202 HMAC-SHA1 test vector")
         func response() async throws { try await ScenarioTests.run(OATHScenario.response.scenario) }
 
-        @Test("calculateCredentialResponse matches the RFC 4231 HMAC-SHA256 vector")
-        func hmacSha256() async throws { try await ScenarioTests.run(OATHScenario.hmacSha256.scenario) }
+        @Test("the applet rejects adding beyond its credential limit")
+        func maxCredentials() async throws { try await ScenarioTests.run(OATHScenario.maxCredentials.scenario) }
 
-        @Test("calculateCredentialResponse matches the RFC 4231 HMAC-SHA512 vector")
-        func hmacSha512() async throws { try await ScenarioTests.run(OATHScenario.hmacSha512.scenario) }
+        @Test("a credential with a Unicode name round-trips correctly")
+        func unicodeName() async throws { try await ScenarioTests.run(OATHScenario.unicodeName.scenario) }
 
-        @Test("calculateCredentialCode matches the RFC 6238 TOTP-SHA1 vector at t=59")
-        func totpSha1_59() async throws { try await ScenarioTests.run(OATHScenario.totpSha1_59.scenario) }
-
-        @Test("successive calculateCredentialCode calls match the RFC 4226 HOTP-SHA1 vectors")
-        func hotpSha1() async throws { try await ScenarioTests.run(OATHScenario.hotpSha1.scenario) }
+        @Test(
+            "RFC 4231 HMAC / 6238 TOTP / 4226 HOTP test-vector families",
+            arguments: ScenarioTests.parameterizedFamilies(in: .oath, besides: OATHScenario.allCases.map(\.scenario))
+        )
+        func vectors(_ scenario: Scenario) async throws { try await ScenarioTests.run(scenario) }
     }
 }

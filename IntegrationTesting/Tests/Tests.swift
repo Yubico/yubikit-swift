@@ -93,6 +93,14 @@ enum ScenarioTests {
         }
     }
 
+    /// The parameterized families declared by a suite: every catalog scenario in `suite` that is not
+    /// one of the suite's enumerated cases. Driving `@Test(arguments:)` off this picks up a newly
+    /// added family automatically — no per-case wrapper to forget and no fragile id matching.
+    static func parameterizedFamilies(in suite: Scenario.Suite, besides enumeratedCases: [Scenario]) -> [Scenario] {
+        let enumeratedIDs = Set(enumeratedCases.map(\.id))
+        return Scenario.Catalog.scenarios(in: suite).filter { !enumeratedIDs.contains($0.id) }
+    }
+
 }
 
 /// Parent suite for per-scenario tests; serialized because they share one attached key.
@@ -134,6 +142,16 @@ enum ScenarioSuites {}
     let ids = Scenario.Catalog.allDeclared.map(\.id)
     let duplicates = Dictionary(grouping: ids, by: { $0 }).filter { $1.count > 1 }.keys.sorted()
     #expect(duplicates.isEmpty, "duplicate scenario ids: \(duplicates.joined(separator: ", "))")
+}
+
+// Each suite that declares parameterized families drives them from `parameterizedFamilies(in:besides:)`
+// in a `@Test(arguments:)`. An empty result there would run zero cases while still reporting green, so
+// guard that the families resolve — this fails loudly if a base id is renamed or a family stops being
+// declared.
+@Test func parameterizedFamiliesAreWired() {
+    #expect(!ScenarioTests.parameterizedFamilies(in: .oath, besides: OATHScenario.allCases.map(\.scenario)).isEmpty)
+    #expect(!ScenarioTests.parameterizedFamilies(in: .ctap2, besides: CTAP2Scenario.allCases.map(\.scenario)).isEmpty)
+    #expect(!ScenarioTests.parameterizedFamilies(in: .piv, besides: PIVScenario.allCases.map(\.scenario)).isEmpty)
 }
 
 @Test(.enabled(if: ScenarioTests.backendConfigured && ScenarioTests.configurationIsValid))
