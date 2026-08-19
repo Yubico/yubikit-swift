@@ -21,17 +21,17 @@ import IOKit.hid
 /// HID device identification namespace.
 ///
 /// Contains types for identifying and working with YubiKey HID devices.
-enum HID {
+package enum HID {
     /// Represents a YubiKey device accessible via USB HID.
     ///
     /// Instances are returned by ``HIDFIDOConnection/availableDevices()`` and used to create
-    /// connections with ``HIDFIDOConnection/init(device:)``.
-    struct YubiKeyDevice: Sendable, Hashable, CustomStringConvertible {
+    /// connections with ``HIDFIDOConnection/makeConnection(device:)``.
+    package struct YubiKeyDevice: Sendable, Hashable, CustomStringConvertible {
         /// The human-readable name of the YubiKey device.
-        let name: String
+        package let name: String
 
         /// A textual representation of the YubiKey device.
-        var description: String { name }
+        package var description: String { name }
 
         // Private / Fileprivate
         fileprivate let locationID: Int
@@ -62,7 +62,7 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
     ///
     /// - Returns: An array of ``HID/YubiKeyDevice`` instances representing connected YubiKeys.
     /// - Throws: ``FIDOConnectionError`` if device enumeration fails.
-    static func availableDevices() async throws(FIDOConnectionError) -> [HID.YubiKeyDevice] {
+    package static func availableDevices() async throws(FIDOConnectionError) -> [HID.YubiKeyDevice] {
         try await HIDConnectionManager.shared.availableDevices()
     }
 
@@ -95,7 +95,7 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
     /// - Parameter device: The ``HID/YubiKeyDevice`` to connect to.
     /// - Returns: A fully-established connection ready for FIDO communication.
     /// - Throws: ``FIDOConnectionError`` if the device cannot be accessed.
-    static func makeConnection(
+    package static func makeConnection(
         device: HID.YubiKeyDevice
     ) async throws(FIDOConnectionError) -> HIDFIDOConnection {
         try await HIDFIDOConnection(device: device)
