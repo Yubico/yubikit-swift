@@ -16,6 +16,15 @@ import Foundation
 import YubiKit
 
 /// Yubico OTP scenarios, migrated from yubikey-manager's `tests/device/test_otp.py`.
+///
+/// The gating mirrors the Python fixtures exactly, including `no_pin_complexity`. That guard has a
+/// consequence worth knowing: every TwinKit profile that has the OTP capability also reports PIN
+/// complexity on firmware 5.7+, so the programming families **skip by default** on the twin. Run
+/// them with `TWIN_PIN_COMPLEXITY=0`:
+///
+/// ```
+/// YUBIKIT_ENABLE_TWINKIT=5-nfc TWIN_PIN_COMPLEXITY=0 swift test --filter ScenarioSuites/OTP
+/// ```
 public enum OTPScenario: CaseIterable, ScenarioSuite {
 
     case statusReport
@@ -62,9 +71,15 @@ public enum OTPScenario: CaseIterable, ScenarioSuite {
         }
     }
 
-    /// `test_status`, fanned out across both transports the way the Python fixture parameterizes
+    /// Every family is fanned out across both transports, the way the Python fixture parameterizes
     /// `[OtpConnection, SmartCardConnection]`.
     public static var parameterizedScenarios: [Scenario] {
+        serialScenarios + programmingStateScenarios + touchTriggeredScenarios + ndefScenarios
+            + challengeResponseScenarios
+    }
+
+    /// `test_status`
+    private static var serialScenarios: [Scenario] {
         Scenario.parameterized("OTP.Status.serial", over: OTPTransport.allCases) { context, transport in
             let info = try await context.provider.deviceInfo()
 
@@ -90,34 +105,191 @@ public enum OTPScenario: CaseIterable, ScenarioSuite {
             context.log("\(transport.idSuffix): serial \(serial), \(state)")
         }
     }
+
+    /// `TestProgrammingState.test_slot_configured`
+    private static var programmingStateScenarios: [Scenario] {
+        Scenario.parameterized(
+            "OTP.ProgrammingState.slotConfigured",
+            // Python gates this class on min_version(2, 1); Java additionally documents swap as a
+            // 2.3 feature, but we match Python's declared requirement.
+            over: OTPTransport.allCases(minVersion: Version("2.1.0")!)
+        ) { context, transport in
+            let session = try await Self.programmableSession(context, transport)
+            let key = Data(repeating: 0x61, count: 16)
+
+            context.expect(!(await session.configState.isConfigured(.one)), "slot 1 should start empty")
+            context.expect(!(await session.configState.isConfigured(.two)), "slot 2 should start empty")
+
+            try await session.putConfiguration(YubiOTP.HMACSHA1SlotConfiguration(key: key), in: .one)
+            context.expect(await session.configState.isConfigured(.one), "slot 1 should be configured")
+            context.expect(!(await session.configState.isConfigured(.two)), "slot 2 should still be empty")
+
+            try await session.putConfiguration(YubiOTP.HMACSHA1SlotConfiguration(key: key), in: .two)
+            context.expect(await session.configState.isConfigured(.one), "slot 1 should stay configured")
+            context.expect(await session.configState.isConfigured(.two), "slot 2 should be configured")
+
+            try await session.deleteConfiguration(in: .one)
+            context.expect(!(await session.configState.isConfigured(.one)), "slot 1 should be cleared")
+            context.expect(await session.configState.isConfigured(.two), "slot 2 should survive")
+
+            try await session.swapConfigurations()
+            context.expect(await session.configState.isConfigured(.one), "swap should move slot 2 into slot 1")
+            context.expect(!(await session.configState.isConfigured(.two)), "slot 2 should now be empty")
+
+            try await session.deleteConfiguration(in: .one)
+            context.expect(!(await session.configState.isConfigured(.one)), "slot 1 should be cleared")
+            context.expect(!(await session.configState.isConfigured(.two)), "slot 2 should be cleared")
+        }
+    }
+
+    /// `test_slot_touch_triggered`, fanned out per slot as well as per transport.
+    private static var touchTriggeredScenarios: [Scenario] {
+        Scenario.parameterized(
+            "OTP.ProgrammingState.touchTriggered",
+            over: OTPTransport.allCases(minVersion: Version("3.0.0")!, perSlot: true)
+        ) { context, transport in
+            let session = try await Self.programmableSession(context, transport)
+            let slot = transport.slot ?? .one
+
+            // A challenge-response slot answers the host, so it is not touch triggered.
+            try await session.putConfiguration(
+                YubiOTP.HMACSHA1SlotConfiguration(key: Data(repeating: 0x61, count: 16)),
+                in: slot
+            )
+            context.expect(await session.configState.isConfigured(slot), "slot should be configured")
+            context.expect(
+                !(await session.configState.isTouchTriggered(slot)),
+                "a challenge-response slot should not be touch triggered"
+            )
+
+            // A static password is typed on touch.
+            try await session.putConfiguration(
+                YubiOTP.StaticPasswordSlotConfiguration(scanCodes: Data([0x04])),
+                in: slot
+            )
+            context.expect(await session.configState.isConfigured(slot), "slot should still be configured")
+            context.expect(
+                await session.configState.isTouchTriggered(slot),
+                "a static password slot should be touch triggered"
+            )
+
+            try await session.deleteConfiguration(in: slot)
+            context.expect(!(await session.configState.isConfigured(slot)), "slot should be cleared")
+            context.expect(
+                !(await session.configState.isTouchTriggered(slot)),
+                "a cleared slot should not be touch triggered"
+            )
+        }
+    }
+
+    /// `test_configure_ndef`
+    private static var ndefScenarios: [Scenario] {
+        Scenario.parameterized(
+            "OTP.ProgrammingState.configureNDEF",
+            over: OTPTransport.allCases()
+        ) { context, transport in
+            let info = try await context.provider.deviceInfo()
+            guard info.supportedCapabilities[.nfc] != nil else {
+                try context.skip("NDEF requires a device with an NFC interface")
+            }
+            let session = try await Self.programmableSession(context, transport)
+
+            try await session.putConfiguration(
+                YubiOTP.StaticPasswordSlotConfiguration(scanCodes: Data([0x04])),
+                in: .one
+            )
+            try await session.setNDEFConfiguration(in: .one)
+            context.log("NDEF configured on slot 1 over \(transport.idSuffix)")
+        }
+    }
+
+    /// `TestChallengeResponse.test_calculate_hmac_sha1`
+    private static var challengeResponseScenarios: [Scenario] {
+        Scenario.parameterized(
+            "OTP.ChallengeResponse.hmacSha1",
+            over: OTPTransport.allCases(minVersion: Version("2.2.0")!)
+        ) { context, transport in
+            // `not_usb_ccid`: challenge-response is not exercised over USB CCID.
+            if transport.kind == .smartCard, context.deviceTransport == .usb {
+                try context.skip("challenge-response is not exercised over USB CCID")
+            }
+            let session = try await Self.programmableSession(context, transport, clearing: [.two])
+
+            // RFC 2202 test case 1.
+            try await session.putConfiguration(
+                YubiOTP.HMACSHA1SlotConfiguration(key: Data(repeating: 0x0B, count: 20)),
+                in: .two
+            )
+            let response = try await session.calculateHMACSHA1(challenge: Data("Hi There".utf8), in: .two)
+            context.expectEqual(
+                response.hexString,
+                "b617318655057264e28bc0b6fb378c8ef146be00",
+                "HMAC-SHA1 should match the RFC 2202 vector"
+            )
+        }
+    }
+
+    /// A session with both slots cleared, plus teardown that clears them again. Mirrors the Python
+    /// `clear_slots` autouse fixture, including its PIN-complexity guard.
+    private static func programmableSession(
+        _ context: Scenario.Context,
+        _ transport: OTPTransport,
+        clearing slots: [YubiOTP.Slot] = YubiOTP.Slot.allCases
+    ) async throws -> YubiOTP.Session {
+        let info = try await context.provider.deviceInfo()
+        if info.pinComplexity {
+            try context.skip("programming OTP slots is blocked while PIN complexity is enforced")
+        }
+        if transport.kind == .smartCard, context.deviceTransport == .usb,
+            info.version >= Version("4.0.0")!, info.version < Version("5.3.0")!
+        {
+            try context.skip("OTP over USB CCID needs firmware < 4.0 or >= 5.3, device is \(info.version)")
+        }
+
+        let session = try await context.otpSession(over: transport.kind)
+        for slot in slots where await session.configState.isConfigured(slot) {
+            try await session.deleteConfiguration(in: slot)
+        }
+        await context.addTeardown {
+            for slot in slots where await session.configState.isConfigured(slot) {
+                try await session.deleteConfiguration(in: slot)
+            }
+        }
+        return session
+    }
 }
 
 /// One transport row of the OTP scenario families.
-private struct OTPTransport: ScenarioParameter, CaseIterable {
+private struct OTPTransport: ScenarioParameter {
 
     let kind: Scenario.Context.OTPTransportKind
+    let slot: YubiOTP.Slot?
+    let minVersion: Version?
 
-    static var allCases: [OTPTransport] {
-        Scenario.Context.OTPTransportKind.allCases.map(OTPTransport.init(kind:))
+    static var allCases: [OTPTransport] { allCases() }
+
+    /// One row per transport, optionally multiplied by slot the way
+    /// `@pytest.mark.parametrize("slot", [SLOT.ONE, SLOT.TWO])` does.
+    static func allCases(minVersion: Version? = nil, perSlot: Bool = false) -> [OTPTransport] {
+        let slots: [YubiOTP.Slot?] = perSlot ? YubiOTP.Slot.allCases : [nil]
+        return Scenario.Context.OTPTransportKind.allCases.flatMap { kind in
+            slots.map { OTPTransport(kind: kind, slot: $0, minVersion: minVersion) }
+        }
     }
 
     var idSuffix: String {
-        switch kind {
-        case .otpHID: return "otpHID"
-        case .smartCard: return "smartCard"
-        }
+        let transport = kind == .otpHID ? "otpHID" : "smartCard"
+        guard let slot else { return transport }
+        return "\(transport).slot\(slot.rawValue)"
     }
 
-    var displayName: String {
-        "serialNumber matches DeviceInfo over \(idSuffix)"
-    }
+    var displayName: String { idSuffix }
 
     var requirements: Requirements {
-        switch kind {
-        case .otpHID:
-            return Requirements(capabilities: [.otp], requiresOTPTransport: true)
-        case .smartCard:
-            return Requirements(capabilities: [.otp])
-        }
+        Requirements(
+            capabilities: [.otp],
+            minVersion: minVersion,
+            requiresOTPTransport: kind == .otpHID
+        )
     }
 }

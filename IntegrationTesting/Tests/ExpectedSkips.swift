@@ -116,6 +116,9 @@ enum ExpectedSkips {
         // Persistent pinUvAuthToken (read-only) not supported
         "CTAP2.CredentialManagement.readOnlyPpuat",
 
+        // challenge-response is not exercised over USB CCID
+        "OTP.ChallengeResponse.hmacSha1.smartCard",
+
         // hmac-secret-mc not supported
         "WebAuthn.PRF.makeCredential",
 

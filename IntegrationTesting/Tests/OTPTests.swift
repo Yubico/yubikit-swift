@@ -24,9 +24,9 @@ extension ScenarioSuites {
         func statusReport() async throws { try await ScenarioTests.run(OTPScenario.statusReport.scenario) }
 
         @Test(
-            "serialNumber matches DeviceInfo over each transport",
+            "test_otp.py families, fanned out across both transports",
             arguments: ScenarioTests.parameterizedFamilies(in: .otp, besides: OTPScenario.allCases.map(\.scenario))
         )
-        func serial(_ scenario: Scenario) async throws { try await ScenarioTests.run(scenario) }
+        func migrated(_ scenario: Scenario) async throws { try await ScenarioTests.run(scenario) }
     }
 }
