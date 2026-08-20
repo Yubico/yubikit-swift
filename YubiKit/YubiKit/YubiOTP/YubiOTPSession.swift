@@ -31,14 +31,14 @@ extension YubiOTP {
 
         public typealias Error = YubiOTPSessionError
 
-        private let interface: Interface
+        let interface: Interface
 
         /// The firmware version of the Yubico OTP application, typically the YubiKey's firmware
         /// version.
         public let version: Version
 
         /// The configuration state of the two OTP slots, as of the last command.
-        public private(set) var configState: ConfigState
+        public internal(set) var configState: ConfigState
 
         private init(interface: Interface) async {
             self.interface = interface
@@ -107,16 +107,21 @@ extension YubiOTP.Session {
 
         private let kind: Kind
         private var status: Data
+        private var programmingSequence: UInt8
 
         init(interface: OTPInterface<YubiOTPSessionError>) async {
             self.kind = .otp(interface)
-            self.status = await interface.status
+            let status = await interface.status
+            self.status = status
+            self.programmingSequence = Array(status).count > 3 ? Array(status)[3] : 0
         }
 
         init(interface: SmartCardInterface<YubiOTPSessionError>) {
             self.kind = .smartCard(interface)
             // Selecting the OTP application returns the status struct.
-            self.status = interface.selectResponse
+            let status = interface.selectResponse
+            self.status = status
+            self.programmingSequence = Array(status).count > 3 ? Array(status)[3] : 0
         }
 
         var version: Version {
@@ -134,6 +139,51 @@ extension YubiOTP.Session {
             guard status.count >= statusConfigStateRange.upperBound else { return 0 }
             let bytes = Array(status[statusConfigStateRange.relative(to: status)])
             return UInt16(bytes[0]) | UInt16(bytes[1]) << 8
+        }
+
+        /// Runs a configuration write, returning the updated status struct.
+        ///
+        /// The two transports detect success differently: the OTP frame protocol watches the
+        /// programming sequence itself, while over CCID the host has to compare it across the
+        /// exchange (`_YubiOtpSmartCardBackend.write_update`).
+        func writeConfig(command: UInt8, data: Data) async throws(YubiOTPSessionError) -> Data {
+            switch kind {
+            case let .otp(interface):
+                let status = try await interface.sendAndReceive(slot: command, data: data)
+                self.status = status
+                programmingSequence = Array(status).count > 3 ? Array(status)[3] : programmingSequence
+                return status
+
+            case let .smartCard(interface):
+                var status: Data = try await interface.send(
+                    apdu: APDU(cla: 0, ins: 0x01, p1: command, p2: 0, command: data)
+                )
+                if status.isEmpty {
+                    // Some YubiKeys answer certain commands with no data; ask for the status.
+                    status = try await interface.send(apdu: APDU(cla: 0, ins: 0x03, p1: 0, p2: 0))
+                }
+                let bytes = Array(status)
+                guard bytes.count >= 5 else {
+                    throw .responseParseError("Truncated OTP status struct", source: .here())
+                }
+
+                let previous = programmingSequence
+                programmingSequence = bytes[3]
+                self.status = status
+
+                if programmingSequence == previous &+ 1 { return status }
+                if programmingSequence == 0, previous > 0 {
+                    // Deleting the last configuration resets the sequence to zero.
+                    if bytes[4] & 0x1F == 0 { return status }
+                    // These firmware revisions simply do not advance the programming state.
+                    if let version = Version(withData: status.prefix(3)),
+                        version >= Version("5.0.0")!, version < Version("5.4.3")!
+                    {
+                        return status
+                    }
+                }
+                throw .commandRejected("The configuration was not updated", source: .here())
+            }
         }
 
         /// Runs a slot command that reads data, validating the transport's integrity check.

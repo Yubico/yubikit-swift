@@ -27,6 +27,15 @@ public enum YubiOTP {
         case one = 1
         /// The long-touch slot.
         case two = 2
+
+        /// Slot command code for writing a configuration.
+        var configCommand: UInt8 { self == .one ? 0x01 : 0x03 }
+        /// Slot command code for updating a configuration.
+        var updateCommand: UInt8 { self == .one ? 0x04 : 0x05 }
+        /// Slot command code for writing an NDEF record.
+        var ndefCommand: UInt8 { self == .one ? 0x08 : 0x09 }
+        /// Slot command code for an HMAC-SHA1 challenge.
+        var challengeHMACCommand: UInt8 { self == .one ? 0x30 : 0x38 }
     }
 
     /// Yubico OTP session features and the firmware versions that introduced them.
@@ -39,11 +48,27 @@ public enum YubiOTP {
         /// ``ConfigState/isTouchTriggered(_:)``.
         case checkTouchTriggered
 
+        /// HMAC-SHA1 challenge-response.
+        case challengeResponse
+
+        /// Swapping the two slot configurations.
+        case swap
+
+        /// Updating an already-programmed slot.
+        case update
+
+        /// Configuring a slot for NDEF output over NFC.
+        case ndef
+
         public func isSupported(by version: Version) -> Bool {
             switch self {
             case .checkConfigured:
                 return version >= Version("2.1.0")!
-            case .checkTouchTriggered:
+            case .challengeResponse:
+                return version >= Version("2.2.0")!
+            case .swap, .update:
+                return version >= Version("2.3.0")!
+            case .checkTouchTriggered, .ndef:
                 return version >= Version("3.0.0")!
             }
         }
