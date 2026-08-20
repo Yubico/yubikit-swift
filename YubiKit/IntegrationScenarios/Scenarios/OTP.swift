@@ -61,4 +61,63 @@ public enum OTPScenario: CaseIterable, ScenarioSuite {
             }
         }
     }
+
+    /// `test_status`, fanned out across both transports the way the Python fixture parameterizes
+    /// `[OtpConnection, SmartCardConnection]`.
+    public static var parameterizedScenarios: [Scenario] {
+        Scenario.parameterized("OTP.Status.serial", over: OTPTransport.allCases) { context, transport in
+            let info = try await context.provider.deviceInfo()
+
+            // Mirrors the Python fixture's skip: 4.x keys do not expose OTP over USB CCID, and
+            // 5.x only gained it in 5.3.
+            if transport.kind == .smartCard, context.deviceTransport == .usb,
+                info.version >= Version("4.0.0")!, info.version < Version("5.3.0")!
+            {
+                try context.skip("OTP over USB CCID needs firmware < 4.0 or >= 5.3, device is \(info.version)")
+            }
+
+            let session = try await context.otpSession(over: transport.kind)
+            let serial = try await session.getSerialNumber()
+            // Guard against a vacuous pass: both sides reading zero would otherwise compare equal.
+            context.expect(serial != 0, "the OTP application should report a non-zero serial")
+            context.expectEqual(
+                serial,
+                info.serialNumber,
+                "serial read over \(transport.idSuffix) should match DeviceInfo"
+            )
+
+            let state = await session.configState
+            context.log("\(transport.idSuffix): serial \(serial), \(state)")
+        }
+    }
+}
+
+/// One transport row of the OTP scenario families.
+private struct OTPTransport: ScenarioParameter, CaseIterable {
+
+    let kind: Scenario.Context.OTPTransportKind
+
+    static var allCases: [OTPTransport] {
+        Scenario.Context.OTPTransportKind.allCases.map(OTPTransport.init(kind:))
+    }
+
+    var idSuffix: String {
+        switch kind {
+        case .otpHID: return "otpHID"
+        case .smartCard: return "smartCard"
+        }
+    }
+
+    var displayName: String {
+        "serialNumber matches DeviceInfo over \(idSuffix)"
+    }
+
+    var requirements: Requirements {
+        switch kind {
+        case .otpHID:
+            return Requirements(capabilities: [.otp], requiresOTPTransport: true)
+        case .smartCard:
+            return Requirements(capabilities: [.otp])
+        }
+    }
 }

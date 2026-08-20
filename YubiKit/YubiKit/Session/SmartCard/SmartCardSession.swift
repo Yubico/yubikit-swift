@@ -21,6 +21,7 @@ public enum Application: Sendable {
     case piv
     case securityDomain
     case fido2
+    case otp
 }
 
 /// A protocol for sessions that communicate with YubiKey applications using SmartCard connections.

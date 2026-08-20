@@ -22,5 +22,11 @@ extension ScenarioSuites {
 
         @Test("an OTP connection reads a status feature report with a plausible firmware version")
         func statusReport() async throws { try await ScenarioTests.run(OTPScenario.statusReport.scenario) }
+
+        @Test(
+            "serialNumber matches DeviceInfo over each transport",
+            arguments: ScenarioTests.parameterizedFamilies(in: .otp, besides: OTPScenario.allCases.map(\.scenario))
+        )
+        func serial(_ scenario: Scenario) async throws { try await ScenarioTests.run(scenario) }
     }
 }
