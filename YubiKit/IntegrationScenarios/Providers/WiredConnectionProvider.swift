@@ -53,8 +53,7 @@ public struct WiredConnectionProvider: ConnectionProvider {
 
     public let capabilities = ProviderCapabilities(
         hasFIDO: wiredHasFIDO,
-        // NEXTPR: flip to wiredHasFIDO's platform gating once HIDOTPConnection lands.
-        hasOTP: false,
+        hasOTP: wiredHasOTP,
         supportsSecureChannel: true,
         isVirtual: wiredIsVirtual
     )
@@ -144,6 +143,39 @@ public struct WiredConnectionProvider: ConnectionProvider {
         #endif
     }
 
+    public func makeOTPConnection() async throws -> any OTPConnection {
+        #if os(macOS)
+        guard let devices = try? await HIDOTPConnection.availableDevices(), !devices.isEmpty else {
+            throw ProviderError.unavailable(
+                "No YubiKey exposes an OTP keyboard interface. Enable it with `ykman config usb --enable OTP`."
+            )
+        }
+        for device in devices {
+            guard let connection = try? await HIDOTPConnection.makeConnection(device: device) else { continue }
+            if await vet(connection) { return connection }
+            await connection.close(error: nil)
+        }
+        throw ProviderError.unavailable(
+            "No allowed YubiKey found over the OTP interface. Add its serial to YUBIKEY_TEST_SERIALS."
+        )
+        #else
+        throw ProviderError.unsupported("The OTP keyboard interface is only available on macOS")
+        #endif
+    }
+
+    /// The OTP application exposes only a serial number, not a full DeviceInfo, so vetting compares
+    /// that against the allow-list (and against any device already pinned by another transport).
+    private func vet(_ connection: any OTPConnection) async -> Bool {
+        do {
+            let session = try await YubiOTP.Session.makeSession(connection: connection)
+            let serial = try await session.getSerialNumber()
+            if let pinned = await infoCache.value { return pinned.serialNumber == serial }
+            return allowed.contains(serial)
+        } catch {
+            return false
+        }
+    }
+
     public func deviceInfo() async throws -> DeviceInfo {
         if let cached = await infoCache.value { return cached }
         let connection = try await makeSmartCardConnection()
@@ -164,9 +196,12 @@ public struct WiredConnectionProvider: ConnectionProvider {
 
     #if os(macOS)
     private static let wiredHasFIDO = true
+    private static let wiredHasOTP = true
     private static let wiredCTAP2Transport: CTAP2Transport = .fido
     #else
     private static let wiredHasFIDO = false
+    // iOS has no HID access at all, so the OTP keyboard interface is unreachable there.
+    private static let wiredHasOTP = false
     private static let wiredCTAP2Transport: CTAP2Transport = .ccid
     #endif
 
