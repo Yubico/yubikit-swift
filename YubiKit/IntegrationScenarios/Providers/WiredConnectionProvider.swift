@@ -53,6 +53,8 @@ public struct WiredConnectionProvider: ConnectionProvider {
 
     public let capabilities = ProviderCapabilities(
         hasFIDO: wiredHasFIDO,
+        // NEXTPR: flip to wiredHasFIDO's platform gating once HIDOTPConnection lands.
+        hasOTP: false,
         supportsSecureChannel: true,
         isVirtual: wiredIsVirtual
     )

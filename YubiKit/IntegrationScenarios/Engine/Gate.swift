@@ -60,6 +60,9 @@ enum Gate {
         if requirements.requiresFIDOTransport, !provider.hasFIDO {
             return .skip(reason: "requires a FIDO (HID) transport, unavailable on this backend")
         }
+        if requirements.requiresOTPTransport, !provider.hasOTP {
+            return .skip(reason: "requires an OTP (keyboard HID) transport, unavailable on this backend")
+        }
         if requirements.requiresLightning, !provider.hasLightning {
             return .skip(reason: "requires a connected Lightning (5Ci) YubiKey")
         }

@@ -30,6 +30,8 @@ public struct Requirements: Sendable {
     /// Forbid a FIPS-certified device (behavior that FIPS firmware blocks, e.g. PIN policy NEVER).
     public var excludesFIPS: Bool
     public var requiresFIDOTransport: Bool
+    /// Require the Yubico OTP keyboard HID transport.
+    public var requiresOTPTransport: Bool
     public var requiresLightning: Bool
     public var requiresSCP: Bool
     /// Require real silicon.
@@ -45,6 +47,7 @@ public struct Requirements: Sendable {
         requiresFIPS: Bool = false,
         excludesFIPS: Bool = false,
         requiresFIDOTransport: Bool = false,
+        requiresOTPTransport: Bool = false,
         requiresLightning: Bool = false,
         requiresSCP: Bool = false,
         requiresRealHardware: Bool = false
@@ -58,6 +61,7 @@ public struct Requirements: Sendable {
         self.requiresFIPS = requiresFIPS
         self.excludesFIPS = excludesFIPS
         self.requiresFIDOTransport = requiresFIDOTransport
+        self.requiresOTPTransport = requiresOTPTransport
         self.requiresLightning = requiresLightning
         self.requiresSCP = requiresSCP
         self.requiresRealHardware = requiresRealHardware
