@@ -49,6 +49,11 @@ extension HasSCPLogger {
     static var logger: Logger { .scp }
 }
 
+protocol HasOTPLogger: HasLogger {}
+extension HasOTPLogger {
+    static var logger: Logger { .otp }
+}
+
 protocol HasFIDOLogger: HasLogger {}
 extension HasFIDOLogger {
     static var logger: Logger { .fido }
@@ -71,6 +76,7 @@ extension Logger {
     fileprivate static let securityDomain = Logger(subsystem: subsystem, category: "SecurityDomain")
 
     fileprivate static let scp = Logger(subsystem: subsystem, category: "SCP")
+    fileprivate static let otp = Logger(subsystem: subsystem, category: "YubiOTP")
 
     static func export() async throws -> String {
         /* Fix trace: Logger.system.info("Logger, export(): compiling logs.") */
