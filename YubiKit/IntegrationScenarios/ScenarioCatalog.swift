@@ -37,6 +37,7 @@ extension Scenario {
             scenarios += ManagementScenario.allScenarios
             scenarios += PIVScenario.allScenarios
             scenarios += OATHScenario.allScenarios
+            scenarios += OTPScenario.allScenarios
             scenarios += ConnectionScenario.allScenarios
             scenarios += CTAP2Scenario.allScenarios
             scenarios += CTAPHIDScenario.allScenarios
