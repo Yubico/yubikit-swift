@@ -10,6 +10,11 @@ Usage: $(basename "$0") <hardware|twinkit[=PROFILE]> [swift-test-options]
 
   hardware           Run macOS scenarios against an allow-listed YubiKey.
   twinkit[=PROFILE]  Run scenarios using a Yubico-internal test tool.
+
+Environment knobs (passed through):
+  YUBIKIT_TWINKIT_TRANSPORT=nfc   Drive the run contactless. CCID becomes the only
+                                  path: the FIDO HID interface is USB-only, so
+                                  those scenarios skip.
 EOF
 }
 
