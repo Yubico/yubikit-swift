@@ -39,6 +39,11 @@ private let readyPollInterval = Duration.milliseconds(50)
 private let processingPollInterval = Duration.milliseconds(20)
 private let touchPollInterval = Duration.milliseconds(100)
 
+/// Keep-alive codes reported while a command is in flight. The OTP protocol reuses the CTAP values,
+/// so these map straight onto ``YubiOTP/Status``.
+let keepaliveProcessing: UInt8 = 0x01
+let keepaliveUserPresenceNeeded: UInt8 = 0x02
+
 /// The Yubico OTP frame protocol over an ``OTPConnection``.
 ///
 /// Slot commands travel as a 70-byte frame split into ten 7-byte HID feature reports. The key
@@ -58,6 +63,9 @@ public final actor OTPInterface<Error: OTPSessionError>: HasOTPLogger {
 
     /// The most recent 6-byte status struct: `version[3] ‖ pgmSeq[1] ‖ configState[2, LE]`.
     public private(set) var status: Data = Data(count: 6)
+
+    /// Set by ``cancel()`` and observed by the polling loop between reports.
+    private var isCancelled = false
 
     // MARK: - Initialization
 
@@ -92,15 +100,33 @@ public final actor OTPInterface<Error: OTPSessionError>: HasOTPLogger {
         return status
     }
 
+    /// Abandons an in-flight touch-triggered command.
+    ///
+    /// The polling loop in `readFrame` observes this at its next suspension point, tells the key to
+    /// drop its pending response, and throws ``OTPSessionError/cancelled(source:)``. Calling this
+    /// while no command is running has no effect beyond arming the next one, so it is only ever
+    /// handed out alongside a ``YubiOTP/Status/waitingForUser(cancel:)``.
+    public func cancel() {
+        isCancelled = true
+    }
+
     /// Send a slot command and read the reply.
     ///
     /// - Parameters:
     ///   - slot: The slot/command code.
     ///   - data: The command payload, padded to 64 bytes. Must not exceed 64 bytes.
+    ///   - onKeepalive: Called with each keep-alive code the key reports while it is busy —
+    ///     ``keepaliveProcessing`` or ``keepaliveUserPresenceNeeded``, matching `on_keepalive` in
+    ///     `yubikit.core.otp`.
     /// - Returns: For a read, the raw data response including its CRC trailer. For a configuration
     ///   write, the updated 6-byte status struct.
     @discardableResult
-    public func sendAndReceive(slot: UInt8, data: Data? = nil) async throws(Error) -> Data {
+    public func sendAndReceive(
+        slot: UInt8,
+        data: Data? = nil,
+        onKeepalive: (@Sendable (UInt8) -> Void)? = nil
+    ) async throws(Error) -> Data {
+        isCancelled = false
         let payload = data ?? Data()
         guard payload.count <= slotDataSize else {
             throw .illegalArgument("Payload of \(payload.count) bytes is too large for an OTP frame", source: .here())
@@ -116,7 +142,7 @@ public final actor OTPInterface<Error: OTPSessionError>: HasOTPLogger {
         frame.append(Data(count: 3))
 
         let progSeq = try await sendFrame(Array(frame))
-        return try await readFrame(previousProgrammingSequence: progSeq)
+        return try await readFrame(previousProgrammingSequence: progSeq, onKeepalive: onKeepalive)
     }
 
     // MARK: - Framing
@@ -143,7 +169,10 @@ public final actor OTPInterface<Error: OTPSessionError>: HasOTPLogger {
 
     /// Reads one reply: either chunked data terminated by a sequence-zero report, or a status
     /// struct whose programming sequence has advanced.
-    private func readFrame(previousProgrammingSequence progSeq: UInt8) async throws(Error) -> Data {
+    private func readFrame(
+        previousProgrammingSequence progSeq: UInt8,
+        onKeepalive: (@Sendable (UInt8) -> Void)?
+    ) async throws(Error) -> Data {
         var response = Data()
         var expectedSequence: UInt8 = 0
         var needsTouch = false
@@ -179,9 +208,17 @@ public final actor OTPInterface<Error: OTPSessionError>: HasOTPLogger {
                 // Busy. A pending touch is reported with RESP_TIMEOUT_WAIT_FLAG.
                 if statusByte & respTimeoutWaitFlag != 0 {
                     needsTouch = true
+                    onKeepalive?(keepaliveUserPresenceNeeded)
                     try await sleep(touchPollInterval)
                 } else {
+                    onKeepalive?(keepaliveProcessing)
                     try await sleep(processingPollInterval)
+                }
+                // Checked after the sleep, which is where `cancel()` gets a chance to run.
+                if isCancelled {
+                    isCancelled = false
+                    try await resetState()
+                    throw .cancelled(source: .here())
                 }
             }
         }

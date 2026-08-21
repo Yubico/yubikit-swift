@@ -130,33 +130,68 @@ extension YubiOTP.Session {
     /// Performs an HMAC-SHA1 challenge-response against a slot.
     ///
     /// If the slot was programmed with `requireTouch`, the YubiKey waits for a button press before
-    /// answering.
+    /// answering. The returned stream reports that wait as
+    /// ``YubiOTP/Status/waitingForUser(cancel:)`` so a caller can prompt and offer to give up; when
+    /// no such feedback is needed, read ``YubiOTP/StatusStream/value``.
+    ///
+    /// > Important: A touch-triggered slot only works over the OTP keyboard transport, which polls
+    /// the key — the pending touch shows up on every report, and the host can abort between polls.
+    /// Over SmartCard the YubiOTP application refuses the command outright with `0x6985` rather than
+    /// waiting, so the stream yields ``YubiOTP/Status/finished(_:)`` alone and cancellation does
+    /// nothing. Python and Java accept the same parameters on their SmartCard backends and likewise
+    /// ignore them.
+    /// >
+    /// > This is a limitation of the application, not of SmartCard: an application that defines a
+    /// continuation on top of APDUs can report progress and be cancelled over the same transport.
+    /// CTAP2 does exactly that — it answers `0x9100` and the host polls with `NFCCTAP_GETRESPONSE`,
+    /// which is how ``CTAP2/Status/waitingForUser(cancel:)`` works over NFC. YubiOTP defines no such
+    /// exchange.
     ///
     /// > Note: Requires ``YubiOTP/Feature/challengeResponse``, available on YubiKey 2.2 or later.
     ///
     /// - Parameters:
     ///   - challenge: The challenge. Padded to 64 bytes before transmission.
     ///   - slot: The slot to challenge.
-    /// - Returns: The 20-byte HMAC-SHA1 response.
+    /// - Returns: A stream yielding progress and finally the 20-byte HMAC-SHA1 response.
     public func calculateHMACSHA1(
         challenge: Data,
         in slot: YubiOTP.Slot
-    ) async throws(YubiOTPSessionError) -> Data {
-        guard await supports(.challengeResponse) else { throw .featureNotSupported(source: .here()) }
+    ) async -> YubiOTP.StatusStream<Data> {
+        guard await supports(.challengeResponse) else {
+            return .error(.featureNotSupported(source: .here()))
+        }
         guard challenge.count <= hmacChallengeSize else {
-            throw .illegalArgument("Challenge must be at most \(hmacChallengeSize) bytes", source: .here())
+            return .error(
+                .illegalArgument("Challenge must be at most \(hmacChallengeSize) bytes", source: .here())
+            )
         }
 
         // Pad with a byte that differs from the last one, so the key can strip the padding again.
-        var padded = challenge
         let padByte: UInt8 = challenge.last == 0 ? 1 : 0
-        padded.append(Data(repeating: padByte, count: hmacChallengeSize - challenge.count))
+        let padded = challenge + Data(repeating: padByte, count: hmacChallengeSize - challenge.count)
 
-        return try await interface.readData(
-            slot: slot.challengeHMACCommand,
-            data: padded,
-            expectedLength: hmacResponseSize
-        )
+        let interface = self.interface
+        return YubiOTP.StatusStream { continuation in
+            Task {
+                let cancel: @Sendable () async -> Void = { await interface.cancel() }
+                do throws(YubiOTPSessionError) {
+                    let response = try await interface.readData(
+                        slot: slot.challengeHMACCommand,
+                        data: padded,
+                        expectedLength: hmacResponseSize,
+                        onKeepalive: { code in
+                            continuation.yield(
+                                code == keepaliveUserPresenceNeeded
+                                    ? .waitingForUser(cancel: cancel) : .processing
+                            )
+                        }
+                    )
+                    continuation.yield(.finished(response))
+                } catch {
+                    continuation.yield(error: error)
+                }
+            }
+        }
     }
 
     // MARK: - Private

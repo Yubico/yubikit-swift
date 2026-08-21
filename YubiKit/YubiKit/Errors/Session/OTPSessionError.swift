@@ -27,6 +27,9 @@ public protocol OTPSessionError: SessionError {
     /// implement).
     static func commandRejected(_ message: String, source: SourceLocation) -> Self
 
+    /// A touch-triggered command was cancelled before the user pressed the button.
+    static func cancelled(source: SourceLocation) -> Self
+
     /// Connection-level error from the underlying transport.
     static func otpConnectionError(_ error: OTPConnectionError, source: SourceLocation) -> Self
 }

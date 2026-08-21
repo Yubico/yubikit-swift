@@ -25,6 +25,8 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
     static let slotConfig1: UInt8 = 0x01
     static let slotConfig2: UInt8 = 0x03
     static let slotDeviceSerial: UInt8 = 0x10
+    static let slotChallengeHMAC1: UInt8 = 0x30
+    static let slotChallengeHMAC2: UInt8 = 0x38
     static let slotUnknown: UInt8 = 0x7F
 
     /// Every report the host wrote, in order — lets tests assert the chunking rules directly.
@@ -43,6 +45,13 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
 
     var serial: UInt32 = 12_345_678
     var firmware: [UInt8] = [5, 7, 4]
+
+    /// Reports of "waiting for touch" to emit before answering a challenge, the way a slot
+    /// programmed with `requireTouch` stalls until the button is pressed.
+    var touchReportsBeforeResponse = 0
+
+    /// The canned challenge-response answer.
+    var hmacResponse = Data(repeating: 0xAB, count: 20)
 
     private var frame = [UInt8](repeating: 0, count: 70)
     private var outbox: [[UInt8]] = []
@@ -132,6 +141,12 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
                     UInt8(serial >> 8 & 0xFF), UInt8(serial & 0xFF),
                 ])
             )
+        case Self.slotChallengeHMAC1, Self.slotChallengeHMAC2:
+            // RESP_TIMEOUT_WAIT_FLAG with no RESP_PENDING: busy, waiting for the button.
+            for _ in 0..<touchReportsBeforeResponse {
+                outbox.append([UInt8](repeating: 0, count: 7) + [0x20])
+            }
+            queue(hmacResponse)
         case Self.slotConfig1, Self.slotConfig2:
             let index = slot == Self.slotConfig2 ? 1 : 0
             slots[index] = payload.contains(where: { $0 != 0 }) ? payload : nil

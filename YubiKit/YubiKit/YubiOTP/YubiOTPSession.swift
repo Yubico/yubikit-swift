@@ -186,16 +186,31 @@ extension YubiOTP.Session {
             }
         }
 
+        /// Cancels an in-flight touch-triggered read.
+        ///
+        /// Only the OTP transport can be interrupted; over SmartCard the exchange is a single
+        /// blocking APDU, exactly as in `_YubiOtpSmartCardBackend.send_and_receive`.
+        func cancel() async {
+            if case let .otp(interface) = kind {
+                await interface.cancel()
+            }
+        }
+
         /// Runs a slot command that reads data, validating the transport's integrity check.
         func readData(
             slot: UInt8,
             data: Data = Data(),
-            expectedLength: Int
+            expectedLength: Int,
+            onKeepalive: (@Sendable (UInt8) -> Void)? = nil
         ) async throws(YubiOTPSessionError) -> Data {
             switch kind {
             case let .otp(interface):
                 // The OTP transport returns the payload followed by its CRC trailer.
-                let response = try await interface.sendAndReceive(slot: slot, data: data)
+                let response = try await interface.sendAndReceive(
+                    slot: slot,
+                    data: data,
+                    onKeepalive: onKeepalive
+                )
                 guard response.count >= expectedLength + 2,
                     response.prefix(expectedLength + 2).hasValidCRC16
                 else {

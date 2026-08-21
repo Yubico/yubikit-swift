@@ -35,6 +35,9 @@ public enum YubiOTPSessionError: OTPSessionError, SmartCardSessionError, Sendabl
     /// The YubiKey rejected the slot command.
     case commandRejected(String, source: SourceLocation)
 
+    /// A touch-triggered command was cancelled before the user pressed the button.
+    case cancelled(source: SourceLocation)
+
     public var responseStatus: Response.Status? {
         guard case let .failedResponse(response, _) = self else { return nil }
         return response.responseStatus

@@ -221,6 +221,7 @@ public enum OTPScenario: CaseIterable, ScenarioSuite {
                 in: .two
             )
             let response = try await session.calculateHMACSHA1(challenge: Data("Hi There".utf8), in: .two)
+                .value
             context.expectEqual(
                 response.hexString,
                 "b617318655057264e28bc0b6fb378c8ef146be00",
