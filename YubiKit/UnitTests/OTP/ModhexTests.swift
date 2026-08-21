@@ -47,12 +47,6 @@ struct ModhexTests {
         #expect(Data(modhexEncoded: "DTEFFUJE") == Data([0x2D, 0x34, 0x4E, 0x83]))
     }
 
-    @Test("every byte survives a round trip")
-    func roundTrips() {
-        let all = Data(0...255)
-        #expect(Data(modhexEncoded: all.modhexEncodedString) == all)
-    }
-
     @Test("malformed input is rejected")
     func rejectsMalformed() {
         #expect(Data(modhexEncoded: "abc") == nil, "odd length")

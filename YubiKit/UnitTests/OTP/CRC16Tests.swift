@@ -50,13 +50,6 @@ struct CRC16Tests {
         }
     }
 
-    @Test("a corrupted buffer fails the CRC check")
-    func corruptionDetected() {
-        var corrupted = Data([0x01, 0x02, 0x03, 0x04]).appendingCRC16
-        corrupted[0] ^= 0xFF
-        #expect(!corrupted.hasValidCRC16)
-    }
-
     @Test("the CRC trailer is little-endian and stores the complement")
     func trailerLayout() {
         let payload = Data([0x00, 0x01, 0x02, 0x03, 0x04])

@@ -218,9 +218,13 @@ struct SlotConfigurationTests {
 
     @Test("an HMAC key longer than the SHA-1 block is hashed down")
     func longKeyIsHashed() throws {
-        let long = try YubiOTP.HMACSHA1SlotConfiguration(key: Data(repeating: 0x0B, count: 65))
-        // 20 bytes of digest split across key(16) and uid(4), so the config is still well-formed.
-        #expect(long.configData(accessCode: nil).count == otpConfigSize)
+        // SHA1(0x0b * 65) = 8d9e41b6caf5a7ef181870316228160f156c50fd, split across key(16) and
+        // uid(4), so the packing — not just the length — is pinned.
+        let configuration = try YubiOTP.HMACSHA1SlotConfiguration(key: Data(repeating: 0x0B, count: 65))
+        #expect(
+            config(configuration)
+                == "00000000000000000000000000000000156c50fd00008d9e41b6caf5a7ef181870316228160f0000000000000024402600000ed6"
+        )
     }
 
     @Test("malformed Yubico OTP identities are rejected")

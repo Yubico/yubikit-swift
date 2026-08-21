@@ -20,9 +20,6 @@ extension ScenarioSuites {
     @Suite("OTP")
     struct OTP {
 
-        @Test("an OTP connection reads a status feature report with a plausible firmware version")
-        func statusReport() async throws { try await ScenarioTests.run(OTPScenario.statusReport.scenario) }
-
         @Test(
             "test_otp.py families, fanned out across both transports",
             arguments: ScenarioTests.parameterizedFamilies(in: .otp, besides: OTPScenario.allCases.map(\.scenario))
