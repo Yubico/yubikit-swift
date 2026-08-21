@@ -63,6 +63,17 @@ The implementations of the ``FIDOConnection`` protocol handle FIDO2/CTAP2 commun
 - ``FIDOConnection``
 - ``HIDFIDOConnection``
 
+### Creating an OTP connection to a YubiKey
+
+The implementations of the ``OTPConnection`` protocol handle Yubico OTP communication with the YubiKey over
+the keyboard HID interface. ``YubiOTP/Session`` also works over a ``SmartCardConnection``, which is the only
+option on iOS and over NFC.
+
+- ``OTPConnection``
+- ``HIDOTPConnection``
+
+> Note: `HIDOTPConnection` is available on macOS only.
+
 ### Sending and receiving data
 
 Use ``SmartCardConnection/send(data:)`` to send raw data to the YubiKey using the SmartCardConnection.
@@ -79,6 +90,14 @@ A Session is created by calling the `makeSession(connection:)` method on the ses
 - ``Management/Session``
 - ``PIVSession``
 - ``SecurityDomainSession``
+
+### Yubico OTP Session
+
+The ``YubiOTP/Session`` programs and challenges the YubiKey's two OTP slots. It can be created using either
+an ``OTPConnection`` (``HIDOTPConnection`` on macOS) or a ``SmartCardConnection``.
+
+- ``YubiOTP``
+- ``YubiOTP/Session``
 
 ### FIDO2 / CTAP2 Session
 

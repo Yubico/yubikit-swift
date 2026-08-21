@@ -17,12 +17,15 @@ import Foundation
 
 // MARK: - Field sizes
 
-let otpFixedSize = 16
-let otpUIDSize = 6
-let otpKeySize = 16
+private let otpFixedSize = 16
+private let otpUIDSize = 6
+private let otpKeySize = 16
+private let otpScanCodesSize = otpFixedSize + otpUIDSize + otpKeySize  // 38
+
+// Shared with the session, which appends the access code to every configuration write.
 let otpAccessCodeSize = 6
 let otpConfigSize = 52
-let otpScanCodesSize = otpFixedSize + otpUIDSize + otpKeySize  // 38
+
 private let hmacKeySize = 20
 private let sha1BlockSize = 64
 
@@ -31,7 +34,7 @@ private let sha1BlockSize = 64
 extension YubiOTP {
 
     /// Extended flags (`EXTFLAG`).
-    struct ExtendedFlags: OptionSet, Sendable {
+    fileprivate struct ExtendedFlags: OptionSet, Sendable {
         let rawValue: UInt8
         static let serialButtonVisible = ExtendedFlags(rawValue: 0x01)
         static let serialUSBVisible = ExtendedFlags(rawValue: 0x02)
@@ -44,7 +47,7 @@ extension YubiOTP {
     }
 
     /// Ticket flags (`TKTFLAG`).
-    struct TicketFlags: OptionSet, Sendable {
+    fileprivate struct TicketFlags: OptionSet, Sendable {
         let rawValue: UInt8
         static let tabFirst = TicketFlags(rawValue: 0x01)
         static let appendTab1 = TicketFlags(rawValue: 0x02)
@@ -60,7 +63,7 @@ extension YubiOTP {
     }
 
     /// Configuration flags (`CFGFLAG`).
-    struct ConfigFlags: OptionSet, Sendable {
+    fileprivate struct ConfigFlags: OptionSet, Sendable {
         let rawValue: UInt8
         static let sendReference = ConfigFlags(rawValue: 0x01)
         static let pacing10ms = ConfigFlags(rawValue: 0x04)
@@ -119,7 +122,7 @@ extension YubiOTP {
             self.protectSlot2 = protectSlot2
         }
 
-        var extendedFlags: ExtendedFlags {
+        fileprivate var extendedFlags: ExtendedFlags {
             var flags: ExtendedFlags = []
             if serialAPIVisible { flags.insert(.serialAPIVisible) }
             if serialButtonVisible { flags.insert(.serialButtonVisible) }
@@ -130,7 +133,7 @@ extension YubiOTP {
             return flags
         }
 
-        var ticketFlags: TicketFlags { protectSlot2 ? [.protectSlot2] : [] }
+        fileprivate var ticketFlags: TicketFlags { protectSlot2 ? [.protectSlot2] : [] }
     }
 
     /// Options for the slot configurations that type their output on the keyboard.
@@ -160,16 +163,16 @@ extension YubiOTP {
             self.useNumericKeypad = useNumericKeypad
         }
 
-        var extendedFlags: ExtendedFlags {
+        fileprivate var extendedFlags: ExtendedFlags {
             var flags: ExtendedFlags = []
             if fastTrigger { flags.insert(.fastTrigger) }
             if useNumericKeypad { flags.insert(.useNumericKeypad) }
             return flags
         }
 
-        var ticketFlags: TicketFlags { appendCarriageReturn ? [.appendCarriageReturn] : [] }
+        fileprivate var ticketFlags: TicketFlags { appendCarriageReturn ? [.appendCarriageReturn] : [] }
 
-        var configFlags: ConfigFlags {
+        fileprivate var configFlags: ConfigFlags {
             var flags: ConfigFlags = []
             if pacing10ms { flags.insert(.pacing10ms) }
             if pacing20ms { flags.insert(.pacing20ms) }
@@ -189,7 +192,7 @@ extension YubiOTP {
             self.afterSecond = afterSecond
         }
 
-        var ticketFlags: TicketFlags {
+        fileprivate var ticketFlags: TicketFlags {
             var flags: TicketFlags = []
             if beforeFirst { flags.insert(.tabFirst) }
             if afterFirst { flags.insert(.appendTab1) }
@@ -208,7 +211,7 @@ extension YubiOTP {
             self.afterSecond = afterSecond
         }
 
-        var ticketFlags: TicketFlags {
+        fileprivate var ticketFlags: TicketFlags {
             var flags: TicketFlags = []
             if afterFirst { flags.insert(.appendDelay1) }
             if afterSecond { flags.insert(.appendDelay2) }
@@ -241,7 +244,7 @@ extension YubiOTP.SlotConfiguration {
 
 /// Assembles the 52-byte config block: `fixed[16] ‖ uid[6] ‖ key[16] ‖ accessCode[6] ‖
 /// fixedLength ‖ ext ‖ tkt ‖ cfg ‖ rfu[2] ‖ crc[2]`, matching `yubikit.yubiotp._build_config`.
-func buildOTPConfig(
+private func buildOTPConfig(
     fixed: Data,
     uid: Data,
     key: Data,
@@ -265,7 +268,7 @@ func buildOTPConfig(
 
 /// `_shorten_hmac_key`: keys longer than the SHA-1 block are hashed down; anything between the
 /// HMAC key size and the block size cannot be represented in a slot.
-func shortenHMACKey(_ key: Data) throws(YubiOTPSessionError) -> Data {
+private func shortenHMACKey(_ key: Data) throws(YubiOTPSessionError) -> Data {
     if key.count > sha1BlockSize {
         return Data(Insecure.SHA1.hash(data: key))
     }
@@ -303,6 +306,7 @@ extension YubiOTP {
         ///   - requireTouch: Require a button press before answering a challenge.
         ///   - messageUnder64Bytes: Strip the trailing padding byte from challenges shorter than
         ///     64 bytes. Defaults to `true`.
+        ///   - options: Options every slot configuration accepts.
         public init(
             key: Data,
             requireTouch: Bool = false,
@@ -350,7 +354,11 @@ extension YubiOTP {
         ///   - publicId: The public identity, up to 16 bytes.
         ///   - privateId: The private identity, exactly 6 bytes.
         ///   - key: The AES key, exactly 16 bytes.
+        ///   - tabs: Where tabs are inserted in the typed output.
+        ///   - delays: Where half-second delays are inserted in the typed output.
         ///   - sendReference: Send the reference string `0..F` before the OTP.
+        ///   - keyboard: Options for how the output is typed.
+        ///   - options: Options every slot configuration accepts.
         public init(
             publicId: Data,
             privateId: Data,
@@ -402,7 +410,10 @@ extension YubiOTP {
         private let keyboard: KeyboardOptions
         private let options: SlotOptions
 
-        /// - Parameter scanCodes: The password as HID scan codes, at most 38 bytes.
+        /// - Parameters:
+        ///   - scanCodes: The password as HID scan codes, at most 38 bytes.
+        ///   - keyboard: Options for how the password is typed.
+        ///   - options: Options every slot configuration accepts.
         public init(
             scanCodes: Data,
             keyboard: KeyboardOptions = .init(),
@@ -516,7 +527,12 @@ extension YubiOTP {
         ///   - key: The HOTP secret. Up to 20 bytes; longer than 64 bytes is hashed down.
         ///   - digits8: Generate 8-digit codes instead of 6.
         ///   - tokenId: Optional token identifier, at most 16 bytes.
+        ///   - fixedModhex1: Send the first byte of the token identifier as modhex.
+        ///   - fixedModhex2: Send the first two bytes of the token identifier as modhex. Combined
+        ///     with `fixedModhex1`, the whole token identifier is sent as modhex.
         ///   - initialMovingFactor: Starting counter. Must be 0...1048560 and a multiple of 16.
+        ///   - keyboard: Options for how the code is typed.
+        ///   - options: Options every slot configuration accepts.
         public init(
             key: Data,
             digits8: Bool = false,

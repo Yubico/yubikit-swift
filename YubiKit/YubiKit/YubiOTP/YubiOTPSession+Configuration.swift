@@ -54,22 +54,19 @@ extension YubiOTP.Session {
     ///
     /// > Note: Requires ``YubiOTP/Feature/update``, available on YubiKey 2.3 or later.
     public func updateConfiguration(
-        _ configuration: YubiOTP.SlotConfiguration,
+        _ configuration: YubiOTP.UpdateConfiguration,
         in slot: YubiOTP.Slot,
         accessCode: Data? = nil,
         currentAccessCode: Data? = nil
     ) async throws(YubiOTPSessionError) {
-        guard configuration.isSupported(by: version) else {
-            throw .featureNotSupported(source: .here())
-        }
+        // `UpdateConfiguration` declares a 2.2 floor, as Python does, but the UPDATE commands only
+        // arrived in 2.3 — the feature gate is the binding one.
+        guard await supports(.update) else { throw .featureNotSupported(source: .here()) }
         // These firmware revisions silently fail to change the access code during an update.
         if accessCode != currentAccessCode,
             version >= Version("4.3.2")!, version < Version("4.3.6")!
         {
             throw .featureNotSupported(source: .here())
-        }
-        guard let configuration = configuration as? SlotConfigurationInternal else {
-            throw .illegalArgument("Unsupported slot configuration type", source: .here())
         }
         try await write(
             command: slot.updateCommand,
@@ -115,12 +112,14 @@ extension YubiOTP.Session {
     ///   - slot: The slot to configure.
     ///   - uri: The URI or text to emit. Defaults to ``YubiOTP/defaultNDEFURI`` for a URI record.
     ///   - type: Whether to emit a URI or a text record.
+    ///   - currentAccessCode: The slot's existing access code, if it is protected.
     public func setNDEFConfiguration(
         in slot: YubiOTP.Slot,
         uri: String? = nil,
         type: YubiOTP.NDEFType = .uri,
         currentAccessCode: Data? = nil
     ) async throws(YubiOTPSessionError) {
+        guard await supports(.ndef) else { throw .featureNotSupported(source: .here()) }
         let config = try YubiOTP.buildNDEFConfig(value: uri, type: type)
         try await write(command: slot.ndefCommand, config: config, currentAccessCode: currentAccessCode)
     }
@@ -207,13 +206,7 @@ extension YubiOTP.Session {
         }
         var payload = config
         payload.append(currentAccessCode ?? Data(count: otpAccessCodeSize))
-        let status = try await interface.writeConfig(command: command, data: payload)
-        configState = YubiOTP.ConfigState(flags: Self.configStateFlags(in: status))
-    }
-
-    static func configStateFlags(in status: Data) -> UInt16 {
-        let bytes = Array(status)
-        guard bytes.count >= 6 else { return 0 }
-        return UInt16(bytes[4]) | UInt16(bytes[5]) << 8
+        try await interface.writeConfig(command: command, data: payload)
+        configState = YubiOTP.ConfigState(flags: await interface.configStateFlags)
     }
 }

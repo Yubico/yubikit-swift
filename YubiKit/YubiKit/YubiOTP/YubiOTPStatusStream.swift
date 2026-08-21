@@ -84,7 +84,7 @@ extension YubiOTP {
             self.base = Base(build)
         }
 
-        init(_ base: Base) {
+        private init(_ base: Base) {
             self.base = base
         }
 

@@ -141,18 +141,17 @@ extension YubiOTP.Session {
             return UInt16(bytes[0]) | UInt16(bytes[1]) << 8
         }
 
-        /// Runs a configuration write, returning the updated status struct.
+        /// Runs a configuration write, updating the cached status struct.
         ///
         /// The two transports detect success differently: the OTP frame protocol watches the
         /// programming sequence itself, while over CCID the host has to compare it across the
         /// exchange (`_YubiOtpSmartCardBackend.write_update`).
-        func writeConfig(command: UInt8, data: Data) async throws(YubiOTPSessionError) -> Data {
+        func writeConfig(command: UInt8, data: Data) async throws(YubiOTPSessionError) {
             switch kind {
             case let .otp(interface):
                 let status = try await interface.sendAndReceive(slot: command, data: data)
                 self.status = status
                 programmingSequence = Array(status).count > 3 ? Array(status)[3] : programmingSequence
-                return status
 
             case let .smartCard(interface):
                 var status: Data = try await interface.send(
@@ -171,15 +170,15 @@ extension YubiOTP.Session {
                 programmingSequence = bytes[3]
                 self.status = status
 
-                if programmingSequence == previous &+ 1 { return status }
+                if programmingSequence == previous &+ 1 { return }
                 if programmingSequence == 0, previous > 0 {
                     // Deleting the last configuration resets the sequence to zero.
-                    if bytes[4] & 0x1F == 0 { return status }
+                    if bytes[4] & 0x1F == 0 { return }
                     // These firmware revisions simply do not advance the programming state.
                     if let version = Version(withData: status.prefix(3)),
                         version >= Version("5.0.0")!, version < Version("5.4.3")!
                     {
-                        return status
+                        return
                     }
                 }
                 throw .commandRejected("The configuration was not updated", source: .here())

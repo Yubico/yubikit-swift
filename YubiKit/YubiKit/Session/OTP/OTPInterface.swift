@@ -41,7 +41,7 @@ private let touchPollInterval = Duration.milliseconds(100)
 
 /// Keep-alive codes reported while a command is in flight. The OTP protocol reuses the CTAP values,
 /// so these map straight onto ``YubiOTP/Status``.
-let keepaliveProcessing: UInt8 = 0x01
+private let keepaliveProcessing: UInt8 = 0x01
 let keepaliveUserPresenceNeeded: UInt8 = 0x02
 
 /// The Yubico OTP frame protocol over an ``OTPConnection``.
@@ -50,19 +50,19 @@ let keepaliveUserPresenceNeeded: UInt8 = 0x02
 /// answers either with chunked data (reads such as the serial number or an HMAC response) or with
 /// an updated status struct (configuration writes, detected by the programming sequence advancing).
 ///
-/// This is the OTP analogue of ``FIDOInterface``: it owns framing and nothing else, so the session
+/// This is the OTP analogue of `FIDOInterface`: it owns framing and nothing else, so the session
 /// above it can be transport-agnostic.
-public final actor OTPInterface<Error: OTPSessionError>: HasOTPLogger {
+final actor OTPInterface<Error: OTPSessionError>: HasOTPLogger {
 
     // MARK: - Properties
 
-    public let connection: OTPConnection
+    private let connection: OTPConnection
 
     /// The firmware version reported in the key's status struct.
-    public private(set) var version: Version = Version(withData: Data([0, 0, 0]))!
+    private(set) var version: Version = Version(withData: Data([0, 0, 0]))!
 
     /// The most recent 6-byte status struct: `version[3] ‖ pgmSeq[1] ‖ configState[2, LE]`.
-    public private(set) var status: Data = Data(count: 6)
+    private(set) var status: Data = Data(count: 6)
 
     /// Set by ``cancel()`` and observed by the polling loop between reports.
     private var isCancelled = false
@@ -93,7 +93,7 @@ public final actor OTPInterface<Error: OTPSessionError>: HasOTPLogger {
     // MARK: - Exposed Operations
 
     /// Re-read the key's 6-byte status struct.
-    public func readStatus() async throws(Error) -> Data {
+    func readStatus() async throws(Error) -> Data {
         let report = try await receiveReport()
         let status = Data(report[1..<(otpFeatureReportSize - 1)])
         self.status = status
@@ -106,7 +106,7 @@ public final actor OTPInterface<Error: OTPSessionError>: HasOTPLogger {
     /// drop its pending response, and throws ``OTPSessionError/cancelled(source:)``. Calling this
     /// while no command is running has no effect beyond arming the next one, so it is only ever
     /// handed out alongside a ``YubiOTP/Status/waitingForUser(cancel:)``.
-    public func cancel() {
+    func cancel() {
         isCancelled = true
     }
 
@@ -116,12 +116,12 @@ public final actor OTPInterface<Error: OTPSessionError>: HasOTPLogger {
     ///   - slot: The slot/command code.
     ///   - data: The command payload, padded to 64 bytes. Must not exceed 64 bytes.
     ///   - onKeepalive: Called with each keep-alive code the key reports while it is busy —
-    ///     ``keepaliveProcessing`` or ``keepaliveUserPresenceNeeded``, matching `on_keepalive` in
+    ///     `keepaliveProcessing` or `keepaliveUserPresenceNeeded`, matching `on_keepalive` in
     ///     `yubikit.core.otp`.
     /// - Returns: For a read, the raw data response including its CRC trailer. For a configuration
     ///   write, the updated 6-byte status struct.
     @discardableResult
-    public func sendAndReceive(
+    func sendAndReceive(
         slot: UInt8,
         data: Data? = nil,
         onKeepalive: (@Sendable (UInt8) -> Void)? = nil

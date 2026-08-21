@@ -30,9 +30,6 @@ let otpFeatureReportSize = 8
 /// is enabled over USB.
 public protocol OTPConnection: Connection {
 
-    /// The size of a feature report, in bytes. Always 8 for the Yubico OTP protocol.
-    var reportSize: Int { get }
-
     /// Create a new OTPConnection to the YubiKey.
     ///
     /// The init method will wait until a connection to a YubiKey has been established.
@@ -78,5 +75,11 @@ public protocol OTPConnection: Connection {
 }
 
 extension OTPConnection {
+
+    /// The size of a feature report, in bytes. Always 8 for the Yubico OTP protocol.
+    ///
+    /// Deliberately not a protocol requirement: unlike ``FIDOConnection/mtu`` this does not vary by
+    /// device, and the framing layer relies on it being 8, so a conformance must not be able to
+    /// claim otherwise.
     public var reportSize: Int { otpFeatureReportSize }
 }
