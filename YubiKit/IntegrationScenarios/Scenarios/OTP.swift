@@ -17,14 +17,12 @@ import YubiKit
 
 /// Yubico OTP scenarios, migrated from yubikey-manager's `tests/device/test_otp.py`.
 ///
-/// The gating mirrors the Python fixtures exactly, including `no_pin_complexity`. That guard has a
-/// consequence worth knowing: every TwinKit profile that has the OTP capability also reports PIN
-/// complexity on firmware 5.7+, so the programming families **skip by default** on the twin. Run
-/// them with `TWIN_PIN_COMPLEXITY=0`:
-///
-/// ```
-/// YUBIKIT_ENABLE_TWINKIT=5-nfc TWIN_PIN_COMPLEXITY=0 swift test --filter ScenarioSuites/OTP
-/// ```
+/// The gating mirrors the Python fixtures, with one deliberate exception: `no_pin_complexity`.
+/// PIN complexity constrains exactly one thing in the OTP application — a slot access code must
+/// contain at least two distinct bytes (`ykman/_cli/otp.py:928`, a CLI check rather than a library
+/// one). Programming a slot without an access code is unaffected, and none of these scenarios sets
+/// one. Python applies the guard to whole classes anyway; reproducing that here would skip every
+/// programming family on every OTP-capable device, since PIN complexity is standard on 5.7+.
 public enum OTPScenario: CaseIterable, ScenarioSuite {
 
     /// Unreachable: every OTP scenario is a parameterized family, so this enum is caseless and
@@ -200,9 +198,6 @@ public enum OTPScenario: CaseIterable, ScenarioSuite {
         clearing slots: [YubiOTP.Slot] = YubiOTP.Slot.allCases
     ) async throws -> YubiOTP.Session {
         let info = try await context.provider.deviceInfo()
-        if info.pinComplexity {
-            try context.skip("programming OTP slots is blocked while PIN complexity is enforced")
-        }
         if transport.kind == .smartCard, context.deviceTransport == .usb,
             info.version >= Version("4.0.0")!, info.version < Version("5.3.0")!
         {
