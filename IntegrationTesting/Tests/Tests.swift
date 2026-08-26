@@ -102,6 +102,19 @@ enum ScenarioTests {
             // `Test.cancel` alone is invisible in the console, so a skip is indistinguishable from
             // a pass. Log it before cancelling.
             ScenarioOutcomeLog.recordSkip(id: scenario.id, reason: reason)
+            guard !ExpectedSkips.isEnforced || ExpectedSkips.allows(scenario.id) else {
+                Issue.record(
+                    Comment(
+                        rawValue: """
+                            scenario \(scenario.id) skipped unexpectedly: \(reason)
+                              • it ran the last time the baseline was captured, so either something \
+                            regressed or the gate changed
+                              • if the skip is intended, add the id to ExpectedSkips.defaultProfile
+                            """
+                    )
+                )
+                return
+            }
             try Test.cancel(Comment(rawValue: "scenario \(scenario.id) skipped: \(reason)"))
         case .backendUnavailable(let reason):
             Issue.record(Comment(rawValue: "scenario \(scenario.id) backend unavailable: \(reason)"))
