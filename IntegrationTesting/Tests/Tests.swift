@@ -18,17 +18,29 @@ import YubiKit
 
 @testable import YubiKitIntegrationScenarios
 
-// CLI knobs: YUBIKEY_TEST_SERIALS, FORCE_SCP=automatic|scp11b|scp03,
-// SCENARIO=<id-substring>.
+#if canImport(YubiKitTwinTesting)
+import YubiKitTwinTesting
+#endif
+
+// CLI knobs: YUBIKIT_ENABLE_TWINKIT=1, YUBIKEY_TEST_SERIALS,
+// FORCE_SCP=automatic|scp11b|scp03, SCENARIO=<id-substring>.
 enum ScenarioTests {
 
+    static var usesTwinKit: Bool {
+        #if canImport(YubiKitTwinTesting)
+        true
+        #else
+        false
+        #endif
+    }
+
     static var backendConfigured: Bool {
-        ProcessInfo.processInfo.environment["YUBIKEY_TEST_SERIALS"] != nil
+        usesTwinKit || ProcessInfo.processInfo.environment["YUBIKEY_TEST_SERIALS"] != nil
     }
 
     static var configurationErrors: [String] {
         var errors: [String] = []
-        if case .failure(let error) = WiredConnectionProvider.serialConfiguration {
+        if !usesTwinKit, case .failure(let error) = WiredConnectionProvider.serialConfiguration {
             errors.append(error.description)
         }
         if let filter = ProcessInfo.processInfo.environment["SCENARIO"] {
@@ -45,13 +57,22 @@ enum ScenarioTests {
         {
             errors.append("invalid FORCE_SCP value '\(value)' (expected automatic, scp11b, scp03, or none)")
         }
+        #if canImport(YubiKitTwinTesting)
+        if let error = TwinKitConnectionProvider.environmentConfigurationError {
+            errors.append(error)
+        }
+        #endif
         return errors
     }
 
     static var configurationIsValid: Bool { configurationErrors.isEmpty }
 
     static func makeProvider() -> any ConnectionProvider {
+        #if canImport(YubiKitTwinTesting)
+        TwinKitConnectionProvider()
+        #else
         WiredConnectionProvider()
+        #endif
     }
 
     static var only: String? {

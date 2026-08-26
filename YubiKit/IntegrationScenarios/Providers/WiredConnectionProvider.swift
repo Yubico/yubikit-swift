@@ -22,8 +22,10 @@ import ExternalAccessory
 /// Real YubiKey provider over USB SmartCard, Lightning SmartCard, and macOS FIDO HID.
 public struct WiredConnectionProvider: ConnectionProvider {
 
-    /// Decimal serials from `YUBIKEY_TEST_SERIALS` (comma- or space-separated).
-    public static let allowedSerialNumbers: [UInt] = (try? serialConfiguration.get()) ?? []
+    /// Decimal serials from `YUBIKEY_TEST_SERIALS` (comma- or space-separated),
+    /// plus the simulator backend's fixed serial on simulator builds.
+    public static let allowedSerialNumbers: [UInt] =
+        ((try? serialConfiguration.get()) ?? []) + simulatorSerialNumbers
 
     static let serialConfiguration = parseSerials(
         ProcessInfo.processInfo.environment["YUBIKEY_TEST_SERIALS"]
@@ -52,7 +54,7 @@ public struct WiredConnectionProvider: ConnectionProvider {
     public let capabilities = ProviderCapabilities(
         hasFIDO: wiredHasFIDO,
         supportsSecureChannel: true,
-        isVirtual: false
+        isVirtual: wiredIsVirtual
     )
     public let deviceTransport: DeviceTransport = .usb
     public let ctap2Transport: CTAP2Transport = wiredCTAP2Transport
@@ -166,6 +168,15 @@ public struct WiredConnectionProvider: ConnectionProvider {
     private static let wiredCTAP2Transport: CTAP2Transport = .ccid
     #endif
 
+    #if DEBUG && targetEnvironment(simulator)
+    private static let wiredIsVirtual = true
+    // The simulator backend reports this fixed serial, so simulator runs do not
+    // require YUBIKEY_TEST_SERIALS.
+    private static let simulatorSerialNumbers: [UInt] = [12_345_678]
+    #else
+    private static let wiredIsVirtual = false
+    private static let simulatorSerialNumbers: [UInt] = []
+    #endif
 }
 
 actor DeviceInfoCache {

@@ -250,9 +250,12 @@ public enum CTAP2Scenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "CTAP2.Credentials.cancelMakeCredential",
                 "makeCredential can be cancelled while waiting for user presence",
-                // Cancelling while waiting for user presence needs the CTAPHID keep-alive window, so this
-                // runs only on the FIDO HID transport.
-                requirements: Requirements(capabilities: [.fido2], requiresFIDOTransport: true)
+                // The test needs a real touch window; virtual backends grant user presence immediately.
+                requirements: Requirements(
+                    capabilities: [.fido2],
+                    requiresFIDOTransport: true,
+                    requiresRealHardware: true
+                )
             ) { context in
                 let session = try await context.ctap2Session()
                 let params = CTAP2.MakeCredential.Parameters(

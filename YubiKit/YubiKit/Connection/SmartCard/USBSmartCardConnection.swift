@@ -12,8 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-@preconcurrency import CryptoTokenKit.TKSmartCard
 import Foundation
+
+/// Namespace for USB SmartCard related types.
+public enum USBSmartCard {
+    /// Represents a YubiKey device available as a smart card slot.
+    public struct YubiKeyDevice: Sendable, Hashable, CustomStringConvertible {
+        /// The name of the smart card slot.
+        public let name: String
+
+        /// String representation of the device, same as name.
+        public var description: String { name }
+
+        init?(name: String) {
+            guard name.lowercased().contains("yubikey") else { return nil }
+            self.name = name
+        }
+    }
+}
+
+#if !(YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator))
+
+@preconcurrency import CryptoTokenKit.TKSmartCard
 import OSLog
 
 /// A connection to the YubiKey utilizing the USB port and the TKSmartCard implementation from
@@ -122,23 +142,6 @@ extension USBSmartCardConnection: SmartCardConnection {
         let response = try await SmartCardConnectionsManager.shared.transmit(request: data, for: slot)
         /* Fix trace: trace(message: "transmit returned \(response.count) bytes") */
         return response
-    }
-}
-
-/// Namespace for USB SmartCard related types.
-public enum USBSmartCard {
-    /// Represents a YubiKey device available as a smart card slot.
-    public struct YubiKeyDevice: Sendable, Hashable, CustomStringConvertible {
-        /// The name of the smart card slot.
-        public let name: String
-
-        /// String representation of the device, same as name.
-        public var description: String { name }
-
-        fileprivate init?(name: String) {
-            guard name.lowercased().contains("yubikey") else { return nil }
-            self.name = name
-        }
     }
 }
 
@@ -293,3 +296,5 @@ private class ConnectionState {
         }
     }
 }
+
+#endif
