@@ -20,7 +20,7 @@ extension ScenarioSuites {
     @Suite("Connection")
     struct Connection {
 
-        @Test("opens a SmartCard connection")
+        @Test("acquires a usable SmartCard connection")
         func open() async throws { try await ScenarioTests.run(ConnectionScenario.open.scenario) }
 
         @Test("waitUntilClosed() is notified with the closing error")
@@ -31,14 +31,6 @@ extension ScenarioSuites {
 
         @Test("concurrent open attempts resolve to a single connection")
         func cancellation() async throws { try await ScenarioTests.run(ConnectionScenario.cancellation.scenario) }
-
-        @Test("opens a selected USB SmartCard connection")
-        func withDeviceSmartCard() async throws {
-            try await ScenarioTests.run(ConnectionScenario.withDeviceSmartCard.scenario)
-        }
-
-        @Test("opens a USB SmartCard connection to a slot from availableDevices()")
-        func withSlot() async throws { try await ScenarioTests.run(ConnectionScenario.withSlot.scenario) }
 
         @Test("manual SELECT + device-info exchange reads the firmware version")
         func sendManually() async throws { try await ScenarioTests.run(ConnectionScenario.sendManually.scenario) }

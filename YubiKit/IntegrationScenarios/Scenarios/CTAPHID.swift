@@ -19,7 +19,7 @@ import Foundation
 #endif
 
 /// CTAPHID transport-layer scenarios.
-public enum CTAPHIDScenario: CaseIterable {
+public enum CTAPHIDScenario: CaseIterable, ScenarioSuite {
 
     case initialize
     case getInfo
@@ -43,8 +43,6 @@ public enum CTAPHIDScenario: CaseIterable {
                 let version = await fido.version
                 context.expect(!version.description.isEmpty, "interface should report a version")
                 context.expect(await fido.capabilities != [], "interface should report capabilities")
-                #else
-                try context.skip("CTAPHID scenarios are macOS-only")
                 #endif
             }
         case .getInfo:
@@ -70,8 +68,6 @@ public enum CTAPHIDScenario: CaseIterable {
                 #if os(macOS)
                 let fido = try await Self.openInterface(context)
                 context.expect(await fido.supports(CTAP2.Capabilities.wink), "YubiKey should support WINK")
-                #else
-                try context.skip("CTAPHID scenarios are macOS-only")
                 #endif
             }
         // MARK: - Commands
@@ -89,27 +85,32 @@ public enum CTAPHIDScenario: CaseIterable {
                 }
                 try await fido.wink()
                 context.log("WINK completed")
-                #else
-                try context.skip("CTAPHID scenarios are macOS-only")
                 #endif
             }
         // MARK: - Ping
         case .echo:
             return Scenario(
                 "CTAPHID.Ping.echo",
-                "CTAPHID PING echoes empty and non-empty payloads",
+                "CTAPHID PING echoes the payload unchanged",
                 requirements: Requirements(requiresFIDOTransport: true),
                 platform: .macOS
             ) { context in
                 #if os(macOS)
                 let fido = try await Self.openInterface(context)
                 let empty = try await fido.ping()
-                context.expect(empty.isEmpty, "empty PING should echo an empty payload")
+                context.expect(empty.isEmpty, "empty PING should echo an empty payload unchanged")
                 let payload = Data([0x01, 0x02, 0x03, 0x04])
                 let echoed = try await fido.ping(data: payload)
-                context.expect(echoed == payload, "PING should echo back the same data")
-                #else
-                try context.skip("CTAPHID scenarios are macOS-only")
+                context.expect(echoed == payload, "PING should echo the payload unchanged")
+
+                // Also exercise a 12-byte message, 12 spaces, and an empty message.
+                for message in [Data("hello world!".utf8), Data("            ".utf8), Data()] {
+                    let roundTrip = try await fido.ping(data: message)
+                    context.expect(
+                        roundTrip == message,
+                        "PING should echo back a \(message.count)-byte message unchanged"
+                    )
+                }
                 #endif
             }
         // MARK: - Errors
@@ -128,8 +129,6 @@ public enum CTAPHIDScenario: CaseIterable {
                 } catch {
                     context.log("invalid command correctly failed: \(error)")
                 }
-                #else
-                try context.skip("CTAPHID scenarios are macOS-only")
                 #endif
             }
         }

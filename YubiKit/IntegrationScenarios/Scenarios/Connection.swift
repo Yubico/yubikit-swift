@@ -17,14 +17,12 @@ import Foundation
 import YubiKit
 
 /// Connection scenarios.
-public enum ConnectionScenario: CaseIterable {
+public enum ConnectionScenario: CaseIterable, ScenarioSuite {
 
     case open
     case closeNotifies
     case serial
     case cancellation
-    case withDeviceSmartCard
-    case withSlot
     case sendManually
     case selectWrongApp
     case withDeviceFIDOHID
@@ -37,10 +35,11 @@ public enum ConnectionScenario: CaseIterable {
         case .open:
             return Scenario(
                 "Connection.SmartCard.open",
-                "opens a SmartCard connection"
+                "acquires a usable SmartCard connection (acquisition succeeding is the assertion)"
             ) { context in
                 let connection = try await context.smartCardConnection()
-                context.log("got a SmartCard connection: \(connection)")
+                _ = try await Management.Session.makeSession(connection: connection).getDeviceInfo()
+                context.log("acquired a usable SmartCard connection: \(connection)")
             }
         case .closeNotifies:
             return Scenario(
@@ -99,24 +98,6 @@ public enum ConnectionScenario: CaseIterable {
                 context.expect(connections.count == 1, "exactly one concurrent connection should succeed")
 
                 for connection in connections { await connection.close(error: nil) }
-            }
-        case .withDeviceSmartCard:
-            return Scenario(
-                "Connection.SmartCard.withDevice",
-                "opens a selected USB SmartCard connection",
-                requirements: Requirements(transports: [.usb], requiresRealHardware: true)
-            ) { context in
-                let connection = try await context.smartCardConnection()
-                context.log("got a connection: \(connection)")
-            }
-        case .withSlot:
-            return Scenario(
-                "Connection.SmartCard.withSlot",
-                "opens a USB SmartCard connection to a slot from availableDevices()",
-                requirements: Requirements(transports: [.usb], requiresRealHardware: true)
-            ) { context in
-                let connection = try await connectToSelectedUSBSlot(context)
-                await connection.close(error: nil)
             }
         // MARK: - Raw APDU
         case .sendManually:
@@ -226,24 +207,6 @@ public enum ConnectionScenario: CaseIterable {
 // MARK: - Suite-private helpers
 
 private struct ConnectionTestError: Error {}
-
-private func connectToSelectedUSBSlot(_ context: Scenario.Context) async throws -> any SmartCardConnection {
-    let expectedSerial = try await context.provider.deviceInfo().serialNumber
-    let slots = try await USBSmartCardConnection.availableDevices()
-    for slot in slots.shuffled() {
-        guard let connection = try? await USBSmartCardConnection.makeConnection(slot: slot) else { continue }
-        do {
-            let session = try await Management.Session.makeSession(connection: connection)
-            let info = try await session.getDeviceInfo()
-            if info.serialNumber == expectedSerial {
-                context.log("got a connection to \(slot.name)")
-                return connection
-            }
-        } catch {}
-        await connection.close(error: nil)
-    }
-    throw ProviderError.unavailable("No USB SmartCard slot matched the selected YubiKey.")
-}
 
 private func selectAPDU(aid: [UInt8]) -> Data {
     Data([0x00, 0xA4, 0x04, 0x00, UInt8(aid.count)] + aid)

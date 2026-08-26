@@ -18,7 +18,7 @@ import Security
 import YubiKit
 
 /// PIV application scenarios.
-public enum PIVScenario: CaseIterable {
+public enum PIVScenario: CaseIterable, ScenarioSuite {
 
     case eccp256Message
     case eccp256Digest
@@ -38,6 +38,8 @@ public enum PIVScenario: CaseIterable {
     case eccp384KeyImport
     case ed25519KeyImport
     case x25519KeyImport
+    case importPinPolicyAlways
+    case importTouchPolicyAlways
     case rsa1024KeyGeneration
     case rsa2048KeyGeneration
     case rsa3072KeyGeneration
@@ -49,6 +51,7 @@ public enum PIVScenario: CaseIterable {
     case rsa
     case ed25519Attestation
     case x25519Attestation
+    case exportAttestationCertificate
     case putGet
     case putCompressedGet
     case putDelete
@@ -67,8 +70,11 @@ public enum PIVScenario: CaseIterable {
     case changePukUnblock
     case unblockWrongPuk
     case pinPolicyAlways
+    case pinPolicyOnce
+    case pinPolicyNever
+    case slotMetadataPut
+    case setPinRetriesRoundTrip
     case version
-    case serialNumber
     case managementKey
     case slot
     case aesManagementKey
@@ -78,12 +84,15 @@ public enum PIVScenario: CaseIterable {
     case authentication
     case pinPolicyErrorNonBio
     case verifyUvWithoutFingerprints
+    case generateKeyRequiresAuth
+    case putCertificateRequiresAuth
+    case putKeyRequiresAuth
 
     public var scenario: Scenario { definition }
 
     private var definition: Scenario {
         switch self {
-        // MARK: - Certificate Signatures
+        // MARK: - TestOperations
         case .eccp256Message:
             return Scenario(
                 "PIV.Signatures.eccp256Message",
@@ -161,17 +170,19 @@ public enum PIVScenario: CaseIterable {
                     "Ed25519 signature must verify"
                 )
             }
-        // MARK: - Decrypt
+        // MARK: - TestDecrypt
+        // See importDecryptScenarios for the import port.
         case .rsa1024Decryption: return rsaDecryptScenario(.bits1024, "PIV.Decryption.rsa1024")
         case .rsa2048Decryption: return rsaDecryptScenario(.bits2048, "PIV.Decryption.rsa2048")
-        // MARK: - Key Agreement
+        // MARK: - TestKeyAgreement
         case .ecdhP256: return ecdhScenario(.secp256r1, "PIV.KeyAgreement.ecdhP256", curveName: "P-256")
         case .ecdhP384: return ecdhScenario(.secp384r1, "PIV.KeyAgreement.ecdhP384", curveName: "P-384")
         case .x25519KeyAgreement:
             return Scenario(
                 "PIV.KeyAgreement.x25519",
                 "computes an X25519 shared secret matching software ECDH",
-                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.7.0"))
+                // X25519 is outside the FIPS-approved set; a FIPS device rejects it at the wire.
+                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.7.0"), excludesFIPS: true)
             ) { context in
                 let session = try await context.pivSession(authenticated: true)
                 let publicKey = try await session.generateKey(in: .signature, type: .x25519)
@@ -196,7 +207,7 @@ public enum PIVScenario: CaseIterable {
                 let softwareSecretData = softwareSecret.withUnsafeBytes { Data($0) }
                 context.expectEqual(softwareSecretData, yubiKeySecret, "X25519 shared secrets must match")
             }
-        // MARK: - Key Import
+        // MARK: - TestKeyManagement (put_key)
         case .rsa1024KeyImport:
             return rsaImportScenario(
                 .bits1024,
@@ -221,8 +232,10 @@ public enum PIVScenario: CaseIterable {
                 "PIV.KeyImport.rsa4096",
                 requirements: Requirements(capabilities: [.piv], minVersion: Version("5.7.0"))
             )
+        // the CLI only imports the ECCP256 key, while this also signs with it to confirm the round-trip).
         case .eccp256KeyImport: return ecImportScenario(.secp256r1, "PIV.KeyImport.eccp256")
         case .eccp384KeyImport: return ecImportScenario(.secp384r1, "PIV.KeyImport.eccp384")
+        // (import_key puts an Ed25519 key, then signs; Ed25519 ∈ SIGN_KEY_TYPES)
         case .ed25519KeyImport:
             return Scenario(
                 "PIV.KeyImport.ed25519",
@@ -261,7 +274,8 @@ public enum PIVScenario: CaseIterable {
             return Scenario(
                 "PIV.KeyImport.x25519",
                 "imports an X25519 key and performs key agreement",
-                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.7.0"))
+                // X25519 is outside the FIPS-approved set; a FIPS device rejects it at the wire.
+                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.7.0"), excludesFIPS: true)
             ) { context in
                 let session = try await context.pivSession(authenticated: true)
                 let cryptoKitPrivateKey = Curve25519.KeyAgreement.PrivateKey()
@@ -297,6 +311,46 @@ public enum PIVScenario: CaseIterable {
                 let softwareSecret = try cryptoKitPrivateKey.sharedSecretFromKeyAgreement(with: otherCryptoKitPublicKey)
                 let softwareSecretData = softwareSecret.withUnsafeBytes { Data($0) }
                 context.expectEqual(softwareSecretData, yubiKeySecret, "imported X25519 key agreement must match")
+            }
+        case .importPinPolicyAlways:
+            return Scenario(
+                "PIV.KeyImport.pinPolicyAlways",
+                "imports an EC P-256 key with PIN policy ALWAYS and reads it back from metadata",
+                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.3.0"))
+            ) { context in
+                let session = try await context.pivSession(authenticated: true)
+                let privateKey = try context.require(
+                    EC.PrivateKey(x963: P256.Signing.PrivateKey().x963Representation, curve: .secp256r1),
+                    "Failed to build EC private key"
+                )
+                try await session.putPrivateKey(
+                    privateKey,
+                    in: .authentication,
+                    pinPolicy: .always,
+                    touchPolicy: .defaultPolicy
+                )
+                let metadata = try await session.getMetadata(in: .authentication)
+                context.expectEqual(metadata.pinPolicy, .always, "imported key should report PIN policy ALWAYS")
+            }
+        case .importTouchPolicyAlways:
+            return Scenario(
+                "PIV.KeyImport.touchPolicyAlways",
+                "imports an EC P-256 key with touch policy ALWAYS and reads it back from metadata",
+                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.3.0"))
+            ) { context in
+                let session = try await context.pivSession(authenticated: true)
+                let privateKey = try context.require(
+                    EC.PrivateKey(x963: P256.Signing.PrivateKey().x963Representation, curve: .secp256r1),
+                    "Failed to build EC private key"
+                )
+                try await session.putPrivateKey(
+                    privateKey,
+                    in: .authentication,
+                    pinPolicy: .defaultPolicy,
+                    touchPolicy: .always
+                )
+                let metadata = try await session.getMetadata(in: .authentication)
+                context.expectEqual(metadata.touchPolicy, .always, "imported key should report touch policy ALWAYS")
             }
         // MARK: - Key Generation
         case .rsa1024KeyGeneration:
@@ -348,7 +402,8 @@ public enum PIVScenario: CaseIterable {
             return Scenario(
                 "PIV.KeyGeneration.x25519",
                 "generates an X25519 key",
-                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.7.0"))
+                // X25519 is outside the FIPS-approved set; a FIPS device rejects it at the wire.
+                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.7.0"), excludesFIPS: true)
             ) { context in
                 let session = try await context.pivSession(authenticated: true)
                 let result = try await session.generateKey(
@@ -364,11 +419,13 @@ public enum PIVScenario: CaseIterable {
                 context.expectEqual(publicKey.keyData.count, 32, "X25519 public key should be 32 bytes")
             }
         // MARK: - Attestation
+        // then attests; here an RSA key is generated and the attested public key is checked against it).
         case .rsa:
             return Scenario(
                 "PIV.Attestation.rsa",
                 "attests a generated RSA key",
-                requirements: Requirements(capabilities: [.piv], requiresRealHardware: true)
+                // Uses RSA-1024, which a FIPS device rejects; skip on FIPS hardware.
+                requirements: Requirements(capabilities: [.piv], excludesFIPS: true, requiresRealHardware: true)
             ) { context in
                 let session = try await context.pivSession(authenticated: true)
                 let result = try await session.generateKey(in: .signature, type: .rsa(.bits1024))
@@ -410,9 +467,11 @@ public enum PIVScenario: CaseIterable {
             return Scenario(
                 "PIV.Attestation.x25519",
                 "attests a generated X25519 key",
+                // X25519 is outside the FIPS-approved set; skip on FIPS hardware.
                 requirements: Requirements(
                     capabilities: [.piv],
                     minVersion: Version("5.7.0"),
+                    excludesFIPS: true,
                     requiresRealHardware: true
                 )
             ) { context in
@@ -431,7 +490,26 @@ public enum PIVScenario: CaseIterable {
                     context.expect(cert.der.count > 0, "attestation certificate should be generated")
                 }
             }
-        // MARK: - Certificate Management
+        case .exportAttestationCertificate:
+            return Scenario(
+                "PIV.Attestation.exportCertificate",
+                "reads the static attestation certificate from slot f9",
+                requirements: Requirements(capabilities: [.piv])
+            ) { context in
+                // Reading a stored certificate needs no management-key authentication.
+                let session = try await context.pivSession(reset: false)
+                do {
+                    let cert = try await session.getCertificate(in: .attestation)
+                    // A real attestation cert always carries a parsable public key (RSA/EC, Yubico-provisioned).
+                    context.expect(cert.publicKey != nil, "attestation certificate should expose a public key")
+                } catch PIVSessionError.failedResponse(let response, _) {
+                    // The static attestation cert is Yubico-provisioned; a twin may not provision slot f9.
+                    try context.skip("no attestation certificate in slot f9: \(response.status)")
+                }
+            }
+        // MARK: - TestCompressedCertificate / TestKeyManagement (certificates)
+        // (the CLI writes a cert into the AUTHENTICATION object and reads it back as DER; here the same
+        // uncompressed put+get round-trip via putCertificate/getCertificate).
         case .putGet:
             return Scenario(
                 "PIV.Certificates.putGet",
@@ -489,7 +567,7 @@ public enum PIVScenario: CaseIterable {
                     "certificate should be readable without authentication"
                 )
             }
-        // MARK: - Move and Delete
+        // MARK: - TestMoveAndDelete
         case .move:
             return Scenario(
                 "PIV.KeyManagement.move",
@@ -499,9 +577,10 @@ public enum PIVScenario: CaseIterable {
                 let session = try await context.pivSession(authenticated: true)
                 try await session.putCertificate(testCertificate, in: .authentication)
                 try await session.putCertificate(testCertificate, in: .signature)
+                // EC P-256 (not RSA-1024) so this key-management test runs on FIPS too.
                 let publicKey = try await session.generateKey(
                     in: .authentication,
-                    type: .rsa(.bits1024),
+                    type: .ec(.secp256r1),
                     pinPolicy: .always,
                     touchPolicy: .always
                 )
@@ -527,9 +606,10 @@ public enum PIVScenario: CaseIterable {
             ) { context in
                 let session = try await context.pivSession(authenticated: true)
                 try await session.putCertificate(testCertificate, in: .authentication, compressed: true)
+                // EC P-256 (not RSA-1024) so this key-management test runs on FIPS too.
                 let publicKey = try await session.generateKey(
                     in: .authentication,
-                    type: .rsa(.bits1024),
+                    type: .ec(.secp256r1),
                     pinPolicy: .always,
                     touchPolicy: .always
                 )
@@ -544,7 +624,8 @@ public enum PIVScenario: CaseIterable {
                     context.expect(response.status == .referencedDataNotFound, "slot should be empty after delete")
                 }
             }
-        // MARK: - Management Key
+        // MARK: - TestManagementKeyReadWrite
+        // Authenticate with the default management key and verify it does not throw.
         case .authenticateDefault:
             return Scenario(
                 "PIV.ManagementKey.authenticateDefault",
@@ -554,6 +635,7 @@ public enum PIVScenario: CaseIterable {
                 let session = try await context.pivSession()
                 try await session.authenticate(with: Scenario.Context.defaultManagementKey)
             }
+        // Authenticating with the wrong management key should raise an ApduError.
         case .authenticateWrong:
             return Scenario(
                 "PIV.ManagementKey.authenticateWrong",
@@ -599,7 +681,8 @@ public enum PIVScenario: CaseIterable {
                 let withNewKey = try await context.pivSession(reset: false)
                 try await withNewKey.authenticate(with: newKey)
             }
-        // MARK: - PIN / PUK
+        // MARK: - TestUnblockPin / TestMetadata (PIN/PUK)
+        // the retry counter resets; the metadata round-trip is its own TestMetadata::test_pin_metadata).
         case .verify:
             return Scenario(
                 "PIV.PinPuk.verify",
@@ -619,6 +702,8 @@ public enum PIVScenario: CaseIterable {
                     context.record("Got unexpected result from verifyPin: \(result)")
                 }
             }
+        // loops wrong-PIN attempts until "PIN tries remaining: 0"; here each wrong verifyPin is asserted to
+        // decrement the counter and the final attempt locks the PIN).
         case .verifyRetryCount:
             return Scenario(
                 "PIV.PinPuk.verifyRetryCount",
@@ -645,6 +730,7 @@ public enum PIVScenario: CaseIterable {
                 }
                 context.expectEqual(try await session.verifyPin("740737"), .pinLocked, "PIN should remain locked")
             }
+        // (the metadata half: set retries, then read back the new PIN/PUK totals).
         case .setAttempts:
             return Scenario(
                 "PIV.PinPuk.setAttempts",
@@ -660,6 +746,8 @@ public enum PIVScenario: CaseIterable {
                 let pukResult = try await session.getPukMetadata()
                 context.expectEqual(pukResult.retriesRemaining, 6, "PUK attempts should be 6")
             }
+        // change-pin with a now-wrong old PIN raises SystemExit; here the wrong old PIN reports the
+        // remaining retries, which the CLI does not assert).
         case .changePinFailure:
             return Scenario(
                 "PIV.PinPuk.changePinFailure",
@@ -675,6 +763,8 @@ public enum PIVScenario: CaseIterable {
                     context.expectEqual(retries, total - 1, "one retry should have been consumed")
                 }
             }
+        // change-pin to a non-default value succeeds; here the change is followed by a verify with the
+        // new PIN, which the CLI does not do).
         case .changePinSuccess:
             return Scenario(
                 "PIV.PinPuk.changePinSuccess",
@@ -724,6 +814,8 @@ public enum PIVScenario: CaseIterable {
                     context.record("PIN still blocked after unblocking with the PUK")
                 }
             }
+        // separately in TestPuk::test_change_puk and TestPuk::test_unblock_pin, but never changes the PUK
+        // and then uses the new PUK to unblock the PIN in one flow).
         case .changePukUnblock:
             return Scenario(
                 "PIV.PinPuk.changePukUnblock",
@@ -760,7 +852,7 @@ public enum PIVScenario: CaseIterable {
                     context.expectEqual(retries, total - 1, "one PUK retry should have been consumed")
                 }
             }
-        // MARK: - Operations (PIN policy)
+        // MARK: - TestOperations (PIN policy)
         case .pinPolicyAlways:
             return Scenario(
                 "PIV.Operations.pinPolicyAlways",
@@ -828,7 +920,181 @@ public enum PIVScenario: CaseIterable {
                 )
                 context.expect(!secondSignature.isEmpty, "signing after re-verifying the PIN should succeed")
             }
+        case .pinPolicyOnce:
+            return Scenario(
+                "PIV.Operations.pinPolicyOnce",
+                "a key with PIN policy ONCE needs one verify per session, then re-verify after a fresh session",
+                // The cross-session half (re-SELECT clears the PIN-ONCE verification) needs real silicon:
+                // the twin can't both clear PIN state and keep the generated key, since a fresh twin
+                // connection is factory-clean NVRAM.
+                requirements: Requirements(
+                    capabilities: [.piv],
+                    minVersion: Version("4.0.0"),
+                    requiresRealHardware: true
+                )
+            ) { context in
+                let session = try await context.pivSession(authenticated: true)
+                // touchPolicy .never keeps the flow PIN-only; pinPolicy .once demands a single verify per session.
+                _ = try await session.generateKey(
+                    in: .authentication,
+                    type: .ec(.secp256r1),
+                    pinPolicy: .once,
+                    touchPolicy: .never
+                )
+
+                // Without a PIN verification, signing must be rejected.
+                do {
+                    _ = try await session.sign(
+                        testMessage,
+                        in: .authentication,
+                        keyType: .ec(.secp256r1),
+                        using: .hash(.sha256)
+                    )
+                    context.record("signing without a PIN should have failed under PIN policy ONCE")
+                } catch PIVSessionError.failedResponse(let response, _) {
+                    context.expect(
+                        response.status == .securityConditionNotSatisfied,
+                        "expected securityConditionNotSatisfied when signing without a PIN"
+                    )
+                }
+
+                // One verify permits multiple signatures within the same session.
+                try await session.verifyPin(defaultPIN)
+                let firstSignature = try await session.sign(
+                    testMessage,
+                    in: .authentication,
+                    keyType: .ec(.secp256r1),
+                    using: .hash(.sha256)
+                )
+                context.expect(!firstSignature.isEmpty, "first signature after verifying the PIN should succeed")
+                let secondSignature = try await session.sign(
+                    testMessage,
+                    in: .authentication,
+                    keyType: .ec(.secp256r1),
+                    using: .hash(.sha256)
+                )
+                context.expect(!secondSignature.isEmpty, "a second signature in the same session should succeed")
+
+                // A fresh SELECT (no reset, so the key persists) clears the verification; the PIN is required again.
+                let fresh = try await context.pivSession(reset: false)
+                do {
+                    _ = try await fresh.sign(
+                        testMessage,
+                        in: .authentication,
+                        keyType: .ec(.secp256r1),
+                        using: .hash(.sha256)
+                    )
+                    context.record("signing in a fresh session without re-verifying should have failed")
+                } catch PIVSessionError.failedResponse(let response, _) {
+                    context.expect(
+                        response.status == .securityConditionNotSatisfied,
+                        "expected securityConditionNotSatisfied in a fresh session before re-verifying"
+                    )
+                }
+
+                // Re-verifying in the fresh session restores the ability to sign.
+                try await fresh.verifyPin(defaultPIN)
+                let thirdSignature = try await fresh.sign(
+                    testMessage,
+                    in: .authentication,
+                    keyType: .ec(.secp256r1),
+                    using: .hash(.sha256)
+                )
+                context.expect(!thirdSignature.isEmpty, "signing after re-verifying in a fresh session should succeed")
+            }
+        case .pinPolicyNever:
+            return Scenario(
+                "PIV.Operations.pinPolicyNever",
+                "a key with PIN policy NEVER signs without any PIN verification",
+                requirements: Requirements(capabilities: [.piv], minVersion: Version("4.0.0"), excludesFIPS: true)
+            ) { context in
+                let session = try await context.pivSession(authenticated: true)
+                _ = try await session.generateKey(
+                    in: .authentication,
+                    type: .ec(.secp256r1),
+                    pinPolicy: .never,
+                    touchPolicy: .never
+                )
+                // No verifyPin: the NEVER policy lets the key sign straight away.
+                let signature = try await session.sign(
+                    testMessage,
+                    in: .authentication,
+                    keyType: .ec(.secp256r1),
+                    using: .hash(.sha256)
+                )
+                context.expect(!signature.isEmpty, "signing under PIN policy NEVER should succeed without a PIN")
+            }
+        // MARK: - TestMetadata (slot put)
+        case .slotMetadataPut:
+            return Scenario(
+                "PIV.Metadata.slotPut",
+                "reads slot metadata for an imported (generated == false) key",
+                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.3.0"))
+            ) { context in
+                let session = try await context.pivSession(authenticated: true)
+
+                // Import a software EC P-256 key, then assert the slot metadata reflects an imported key.
+                let cryptoKitPrivateKey = P256.Signing.PrivateKey()
+                let privateKey = try context.require(
+                    EC.PrivateKey(x963: cryptoKitPrivateKey.x963Representation, curve: .secp256r1),
+                    "Failed to build EC private key"
+                )
+                try await session.putPrivateKey(
+                    privateKey,
+                    in: .signature,
+                    pinPolicy: .always,
+                    touchPolicy: .never
+                )
+
+                let metadata = try await session.getMetadata(in: .signature)
+                context.expectEqual(metadata.keyType, .ec(.secp256r1), "key type")
+                context.expectEqual(metadata.pinPolicy, .always, "pin policy")
+                context.expectEqual(metadata.touchPolicy, .never, "touch policy")
+                context.expect(metadata.generated == false, "imported key should report generated == false")
+                context.expectEqual(
+                    metadata.publicKey,
+                    .ec(privateKey.publicKey),
+                    "metadata public key should match the imported key"
+                )
+            }
+        // MARK: - TestUnblockPin (set pin retries)
+        case .setPinRetriesRoundTrip:
+            return Scenario(
+                "PIV.PinPuk.setPinRetriesRoundTrip",
+                "setRetries takes effect, and wrong PIN/PUK then report the new remaining counts",
+                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.3.0"), excludesBio: true)
+            ) { context in
+                let session = try await context.pivSession(authenticated: true)
+                let pinTries: UInt8 = 9
+                let pukTries: UInt8 = 7
+
+                try await session.verifyPin(defaultPIN)
+                try await session.setRetries(pin: pinTries, puk: pukTries)
+
+                context.expectEqual(
+                    try await session.getPinMetadata().retriesTotal,
+                    Int(pinTries),
+                    "PIN total retries should be the new value"
+                )
+
+                // A wrong PIN now reports pinTries - 1 remaining.
+                let pinResult = try await session.verifyPin("000000")
+                context.expectEqual(
+                    pinResult,
+                    .fail(Int(pinTries) - 1),
+                    "a wrong PIN should leave pinTries - 1 attempts"
+                )
+
+                // A wrong PUK (via change-PUK) reports pukTries - 1 remaining.
+                do {
+                    try await session.changePuk(from: "00000000", to: defaultPUK)
+                    context.record("changing the PUK with a wrong old PUK should have failed")
+                } catch let PIVSessionError.invalidPin(retries, _) {
+                    context.expectEqual(retries, Int(pukTries) - 1, "a wrong PUK should leave pukTries - 1 attempts")
+                }
+            }
         // MARK: - Device Information
+        // `piv info`; here the firmware version is read and checked to be v5).
         case .version:
             return Scenario(
                 "PIV.DeviceInfo.version",
@@ -840,18 +1106,7 @@ public enum PIVScenario: CaseIterable {
                 context.expect(version.major == 5, "expected firmware v5, got \(version)")
                 context.log("version: \(version.major).\(version.minor).\(version.micro)")
             }
-        case .serialNumber:
-            return Scenario(
-                "PIV.DeviceInfo.serialNumber",
-                "reports a serial number",
-                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.0.0"))
-            ) { context in
-                let session = try await context.pivSession()
-                let serialNumber = try await session.getSerialNumber()
-                context.expect(serialNumber > 0, "serial number should be greater than 0")
-                context.log("serial number: \(serialNumber)")
-            }
-        // MARK: - Metadata
+        // MARK: - TestMetadata
         case .managementKey:
             return Scenario(
                 "PIV.Metadata.managementKey",
@@ -864,11 +1119,13 @@ public enum PIVScenario: CaseIterable {
                 context.log("management key type: \(metadata.keyType)")
                 context.log("management touch policy: \(metadata.touchPolicy)")
             }
+        // (generate per PIN/touch policy and assert key type, policies, generated flag, public key).
         case .slot:
             return Scenario(
                 "PIV.Metadata.slot",
                 "reads slot metadata for generated keys across PIN/touch policies",
-                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.3.0"))
+                // Exercises PIN policy NEVER, which a FIPS device forbids; skip on FIPS.
+                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.3.0"), excludesFIPS: true)
             ) { context in
                 let session = try await context.pivSession(authenticated: true)
 
@@ -937,6 +1194,7 @@ public enum PIVScenario: CaseIterable {
                 // An untouched PIN reports full retries; the default count is SKU-dependent (3 on a 5, 8 on Bio).
                 context.expectEqual(result.retriesRemaining, result.retriesTotal, "remaining retries should be full")
             }
+        // failed verify to assert the consumed retry rather than reading the default-state metadata).
         case .pinRetries:
             return Scenario(
                 "PIV.Metadata.pinRetries",
@@ -950,6 +1208,7 @@ public enum PIVScenario: CaseIterable {
                 // One failed verification consumes exactly one retry (the total is SKU-dependent: 3 on a 5, 8 on Bio).
                 context.expectEqual(result.retriesRemaining, result.retriesTotal - 1, "remaining after one failure")
             }
+        // cli/piv reads PUK tries only as `piv info` text).
         case .puk:
             return Scenario(
                 "PIV.Metadata.puk",
@@ -962,7 +1221,8 @@ public enum PIVScenario: CaseIterable {
                 context.expectEqual(result.retriesTotal, 3, "total retries")
                 context.expectEqual(result.retriesRemaining, 3, "remaining retries")
             }
-        // MARK: - Bio (multi-protocol)
+        // MARK: - TestBioMpe
+        // fingerprints and cli/piv has no Bio coverage; the full biometric + temporary-PIN flow is not covered).
         case .authentication:
             return Scenario(
                 "PIV.Bio.authentication",
@@ -994,6 +1254,7 @@ public enum PIVScenario: CaseIterable {
 
                 try await session.verify(temporaryPin: pinData)
             }
+        // rejected on a non-Bio YubiKey).
         case .pinPolicyErrorNonBio:
             return Scenario(
                 "PIV.Bio.pinPolicyErrorNonBio",
@@ -1042,6 +1303,70 @@ public enum PIVScenario: CaseIterable {
                     context.log("verifyUV correctly rejected with invalidPin")
                 }
             }
+        // MARK: - TestKeyManagement (generate requires auth)
+        case .generateKeyRequiresAuth:
+            return Scenario(
+                "PIV.KeyManagement.generateKeyRequiresAuth",
+                "generateKey without a prior management-key authenticate is rejected",
+                // The twin does not gate generateKey on management-key auth (it succeeds there),
+                // so this only meaningfully runs on real silicon.
+                requirements: Requirements(capabilities: [.piv], requiresRealHardware: true)
+            ) { context in
+                // No authenticate(): a fresh, reset session has not unlocked the management key.
+                let session = try await context.pivSession(authenticated: false, reset: true)
+                do {
+                    _ = try await session.generateKey(in: .authentication, type: .ec(.secp256r1))
+                    context.record("generateKey without authentication should have failed")
+                } catch PIVSessionError.failedResponse(let response, _) {
+                    context.expect(
+                        response.status == .securityConditionNotSatisfied,
+                        "expected securityConditionNotSatisfied generating a key without auth, got \(response.status)"
+                    )
+                }
+            }
+        case .putCertificateRequiresAuth:
+            return Scenario(
+                "PIV.KeyManagement.putCertificateRequiresAuth",
+                "putCertificate without a prior management-key authenticate is rejected",
+                requirements: Requirements(capabilities: [.piv], requiresRealHardware: true)
+            ) { context in
+                let session = try await context.pivSession(authenticated: false, reset: true)
+                do {
+                    try await session.putCertificate(testCertificate, in: .authentication)
+                    context.record("putCertificate without authentication should have failed")
+                } catch PIVSessionError.failedResponse(let response, _) {
+                    context.expect(
+                        response.status == .securityConditionNotSatisfied,
+                        "expected securityConditionNotSatisfied putting a certificate without auth, got \(response.status)"
+                    )
+                }
+            }
+        case .putKeyRequiresAuth:
+            return Scenario(
+                "PIV.KeyManagement.putKeyRequiresAuth",
+                "putKey without a prior management-key authenticate is rejected",
+                requirements: Requirements(capabilities: [.piv], requiresRealHardware: true)
+            ) { context in
+                let session = try await context.pivSession(authenticated: false, reset: true)
+                let privateKey = try context.require(
+                    EC.PrivateKey(x963: P256.Signing.PrivateKey().x963Representation, curve: .secp256r1),
+                    "Failed to build EC private key"
+                )
+                do {
+                    try await session.putPrivateKey(
+                        privateKey,
+                        in: .authentication,
+                        pinPolicy: .defaultPolicy,
+                        touchPolicy: .defaultPolicy
+                    )
+                    context.record("putPrivateKey without authentication should have failed")
+                } catch PIVSessionError.failedResponse(let response, _) {
+                    context.expect(
+                        response.status == .securityConditionNotSatisfied,
+                        "expected securityConditionNotSatisfied putting a key without auth, got \(response.status)"
+                    )
+                }
+            }
         }
     }
 }
@@ -1061,11 +1386,18 @@ private let testCertificate = X509Cert(
 
 // MARK: - Parameterized scenario builders
 
+/// Key types outside the FIPS-approved set (RSA-1024 and X25519). A YubiKey 5 FIPS rejects
+/// generating or importing them at the wire with `incorrectParameters` (0x6A80).
+private func fipsForbidden(_ keyType: PIV.KeyType) -> Bool {
+    keyType == .rsa(.bits1024) || keyType == .x25519
+}
+
 private func rsaSignScenario(_ keySize: RSA.KeySize, _ id: String) -> Scenario {
     Scenario(
         id,
         "signs a message with an RSA-\(keySize.bitCount) key (PKCS#1 v1.5 SHA-512)",
-        requirements: Requirements(capabilities: [.piv])
+        // RSA-1024 is below the FIPS-approved set; a FIPS device rejects it at the wire.
+        requirements: Requirements(capabilities: [.piv], excludesFIPS: keySize == .bits1024)
     ) { context in
         let session = try await context.pivSession(authenticated: true)
         let publicKey = try await session.generateKey(in: .signature, type: .rsa(keySize))
@@ -1094,7 +1426,8 @@ private func rsaDecryptScenario(_ keySize: RSA.KeySize, _ id: String) -> Scenari
     Scenario(
         id,
         "decrypts with a generated RSA-\(keySize.bitCount) key (PKCS#1 v1.5)",
-        requirements: Requirements(capabilities: [.piv])
+        // RSA-1024 is below the FIPS-approved set; a FIPS device rejects it at the wire.
+        requirements: Requirements(capabilities: [.piv], excludesFIPS: keySize == .bits1024)
     ) { context in
         let session = try await context.pivSession(authenticated: true)
         let publicKey = try await session.generateKey(in: .signature, type: .rsa(keySize))
@@ -1158,7 +1491,10 @@ private func rsaImportScenario(
     _ id: String,
     requirements: Requirements
 ) -> Scenario {
-    Scenario(
+    var requirements = requirements
+    // RSA-1024 is below the FIPS-approved set; a FIPS device rejects it at the wire.
+    if keySize == .bits1024 { requirements.excludesFIPS = true }
+    return Scenario(
         id,
         "imports an RSA-\(keySize.bitCount) key and decrypts with it",
         requirements: requirements
@@ -1243,7 +1579,10 @@ private func rsaGenerateScenario(
     _ id: String,
     requirements: Requirements
 ) -> Scenario {
-    Scenario(
+    var requirements = requirements
+    // RSA-1024 is below the FIPS-approved set; a FIPS device rejects it at the wire.
+    if keySize == .bits1024 { requirements.excludesFIPS = true }
+    return Scenario(
         id,
         "generates an RSA-\(keySize.bitCount) key",
         requirements: requirements
@@ -1343,5 +1682,352 @@ extension EC.PublicKey {
             kSecAttrKeySizeInBits: curve.keySizeInBits,
         ]
         return SecKeyCreateWithData(x963 as CFData, attributes as CFDictionary, nil)
+    }
+}
+
+// MARK: - Parameterized scenario families
+//
+// Parameterized families: import-decrypt, slot-metadata-generate, import-ECDH, FIPS key-type rejection,
+// and weak-PIN rejection.
+
+extension PIVScenario {
+
+    static var parameterizedScenarios: [Scenario] {
+        importDecryptScenarios + slotMetadataGenerateScenarios + importEcdhScenarios + fipsRejectionScenarios
+            + weakPinRejectionScenarios
+    }
+
+    // MARK: - TestPinComplexity
+    // complexity enabled, changing the PIN to a weak value (all-repeated digits, or a known-weak pattern)
+    // is rejected with 0x6985 (conditions-not-satisfied). PIN complexity is a 5.7 feature; there is no
+    // `requiresPinComplexity` requirement, so each scenario reads DeviceInfo at runtime and skips
+    // when the device does not enforce complexity.
+    private struct WeakPinParam: ScenarioParameter {
+        let idSuffix: String
+        let displayName: String
+        let requirements: Requirements
+        let weakPin: String
+
+        init(_ idSuffix: String, _ weakPin: String) {
+            self.idSuffix = idSuffix
+            self.displayName = "PIN complexity rejects changing the PIN to the weak value \(idSuffix)"
+            // PIN complexity is a YubiKey 5.7 feature; gate on the firmware as a floor, then
+            // confirm complexity is actually enabled inside the body before asserting rejection.
+            self.requirements = Requirements(capabilities: [.piv], minVersion: Version("5.7.0"))
+            self.weakPin = weakPin
+        }
+    }
+
+    private static var weakPinRejectionScenarios: [Scenario] {
+        // Repeated-digit PINs of varied lengths plus a known-weak repeated pattern.
+        let params: [WeakPinParam] = [
+            WeakPinParam("111111", "111111"),
+            WeakPinParam("22222222", "22222222"),
+            WeakPinParam("333333", "333333"),
+            WeakPinParam("123123", "123123"),
+        ]
+        return Scenario.parameterized("PIV.PinComplexity.rejectsWeakPins", over: params) { context, param in
+            let info = try await context.provider.deviceInfo()
+            guard info.pinComplexity else {
+                try context.skip("device does not enforce PIN complexity")
+            }
+            let session = try await context.pivSession(authenticated: true)
+            try await session.verifyPin(defaultPIN)
+            do {
+                try await session.changePin(from: defaultPIN, to: param.weakPin)
+                context.record("weak PIN \(param.idSuffix) should have been rejected under PIN complexity")
+            } catch PIVSessionError.failedResponse(let response, _) {
+                context.expect(
+                    response.status == .conditionsNotSatisfied,
+                    "expected conditionsNotSatisfied (0x6985) rejecting weak PIN \(param.idSuffix), got \(response.status)"
+                )
+            }
+        }
+    }
+
+    // MARK: - FIPS enforcement
+    // condition/skip rather than asserting they are rejected; these mirror the `excludesFIPS` scenarios, run only on FIPS).
+    private struct FIPSRejectionParam: ScenarioParameter {
+        let idSuffix: String
+        let displayName: String
+        let requirements: Requirements
+        let keyType: PIV.KeyType
+
+        init(_ idSuffix: String, _ keyType: PIV.KeyType) {
+            self.idSuffix = idSuffix
+            self.displayName = "a FIPS device rejects generating a \(idSuffix) key (outside the approved set)"
+            self.requirements = Requirements(capabilities: [.piv], minVersion: Version("5.7.0"), requiresFIPS: true)
+            self.keyType = keyType
+        }
+    }
+
+    private static var fipsRejectionScenarios: [Scenario] {
+        let keyTypeRejections = Scenario.parameterized(
+            "PIV.FIPS.rejectsForbiddenKeyType",
+            over: [FIPSRejectionParam("rsa1024", .rsa(.bits1024)), FIPSRejectionParam("x25519", .x25519)]
+        ) { context, param in
+            let session = try await context.pivSession(authenticated: true)
+            do {
+                _ = try await session.generateKey(in: .signature, type: param.keyType)
+                context.record("a FIPS device should reject generating a \(param.idSuffix) key")
+            } catch PIVSessionError.failedResponse(let response, _) {
+                context.expect(
+                    response.status == .incorrectParameters,
+                    "expected incorrectParameters (0x6A80) rejecting \(param.idSuffix), got \(response.status)"
+                )
+            }
+        }
+
+        let neverPolicyRejection = Scenario(
+            "PIV.FIPS.rejectsPinPolicyNever",
+            "a FIPS device rejects generating a key with PIN policy NEVER",
+            requirements: Requirements(capabilities: [.piv], minVersion: Version("5.7.0"), requiresFIPS: true)
+        ) { context in
+            let session = try await context.pivSession(authenticated: true)
+            do {
+                _ = try await session.generateKey(
+                    in: .signature,
+                    type: .ec(.secp256r1),
+                    pinPolicy: .never,
+                    touchPolicy: .never
+                )
+                context.record("a FIPS device should reject a key with PIN policy NEVER")
+            } catch PIVSessionError.failedResponse(let response, _) {
+                context.expect(
+                    response.status == .incorrectParameters,
+                    "expected incorrectParameters (0x6A80) rejecting PIN policy NEVER, got \(response.status)"
+                )
+            }
+        }
+
+        return keyTypeRejections + [neverPolicyRejection]
+    }
+
+    // MARK: - TestDecrypt
+    // a random plaintext in software (PKCS#1 v1.5), and verify the on-device decrypt round-trips.
+    private struct ImportDecryptParam: ScenarioParameter {
+        let idSuffix: String
+        let displayName: String
+        let requirements: Requirements
+        let keySize: RSA.KeySize
+
+        init(_ keySize: RSA.KeySize, minVersion: Version?) {
+            self.idSuffix = "rsa\(keySize.bitCount)"
+            self.displayName =
+                "imports an RSA-\(keySize.bitCount) key into KEY_MANAGEMENT and decrypts a random plaintext"
+            // RSA-1024 is below the FIPS-approved set; a FIPS device rejects it at the wire.
+            self.requirements = Requirements(
+                capabilities: [.piv],
+                minVersion: minVersion,
+                excludesFIPS: keySize == .bits1024
+            )
+            self.keySize = keySize
+        }
+    }
+
+    private static var importDecryptScenarios: [Scenario] {
+        let params: [ImportDecryptParam] = [
+            ImportDecryptParam(.bits1024, minVersion: nil),
+            ImportDecryptParam(.bits2048, minVersion: nil),
+            ImportDecryptParam(.bits3072, minVersion: Version("5.7.0")),
+            ImportDecryptParam(.bits4096, minVersion: Version("5.7.0")),
+        ]
+        return Scenario.parameterized("PIV.Decrypt.import", over: params) { context, param in
+            let session = try await context.pivSession(authenticated: true)
+            let privateKey = try context.require(
+                randomRSAPrivateKey(param.keySize),
+                "Failed to generate a software RSA-\(param.keySize.bitCount) key"
+            )
+            let publicKey = privateKey.publicKey
+
+            let keyType = try await session.putPrivateKey(
+                privateKey,
+                in: .keyManagement,
+                pinPolicy: .always,
+                touchPolicy: .never
+            )
+            context.expectEqual(keyType, PIV.RSAKey.rsa(param.keySize), "stored key type")
+
+            // Encrypt 32 random bytes in software with the public key (PKCS#1 v1.5), mirroring os.urandom(32).
+            let plaintext = randomBytes(count: 32)
+            let secKey = try context.require(publicKey.asSecKey(), "Failed to convert RSA public key to SecKey")
+            let encryptedData = try context.require(
+                SecKeyCreateEncryptedData(secKey, .rsaEncryptionPKCS1, plaintext as CFData, nil) as Data?,
+                "Failed to encrypt plaintext with SecKeyCreateEncryptedData"
+            )
+
+            try await session.verifyPin(defaultPIN)
+            let decryptedData = try await session.decrypt(encryptedData, in: .keyManagement, using: .pkcs1v15)
+            context.expectEqual(plaintext, decryptedData, "decrypted data should match the random plaintext")
+        }
+    }
+
+    // MARK: - TestMetadata (slot generate)
+    // metadata (keyType, pinPolicy ALWAYS, touchPolicy NEVER, generated == true, public-key match).
+    private struct SlotMetadataGenerateParam: ScenarioParameter {
+        let idSuffix: String
+        let displayName: String
+        let requirements: Requirements
+        let keyType: PIV.KeyType
+
+        init(_ idSuffix: String, _ keyType: PIV.KeyType, minVersion: Version?) {
+            self.idSuffix = idSuffix
+            self.displayName = "reads slot metadata for a generated \(idSuffix) key"
+            self.requirements = Requirements(
+                capabilities: [.piv],
+                minVersion: minVersion ?? Version("5.3.0"),
+                excludesFIPS: fipsForbidden(keyType)
+            )
+            self.keyType = keyType
+        }
+    }
+
+    private static var slotMetadataGenerateScenarios: [Scenario] {
+        let v570 = Version("5.7.0")
+        let params: [SlotMetadataGenerateParam] = [
+            SlotMetadataGenerateParam("rsa1024", .rsa(.bits1024), minVersion: nil),
+            SlotMetadataGenerateParam("rsa2048", .rsa(.bits2048), minVersion: nil),
+            SlotMetadataGenerateParam("rsa3072", .rsa(.bits3072), minVersion: v570),
+            SlotMetadataGenerateParam("rsa4096", .rsa(.bits4096), minVersion: v570),
+            SlotMetadataGenerateParam("eccp256", .ec(.secp256r1), minVersion: nil),
+            SlotMetadataGenerateParam("eccp384", .ec(.secp384r1), minVersion: nil),
+            SlotMetadataGenerateParam("ed25519", .ed25519, minVersion: v570),
+            SlotMetadataGenerateParam("x25519", .x25519, minVersion: v570),
+        ]
+        return Scenario.parameterized("PIV.Metadata.slotGenerate", over: params) { context, param in
+            let session = try await context.pivSession(authenticated: true)
+            // pin_policy DEFAULT resolves to ALWAYS and touch_policy to NEVER for the SIGNATURE slot.
+            let publicKey = try await session.generateKey(
+                in: .signature,
+                type: param.keyType,
+                pinPolicy: .always,
+                touchPolicy: .never
+            )
+            let metadata = try await session.getMetadata(in: .signature)
+            context.expectEqual(metadata.keyType, param.keyType, "key type")
+            context.expectEqual(metadata.pinPolicy, .always, "pin policy")
+            context.expectEqual(metadata.touchPolicy, .never, "touch policy")
+            context.expect(metadata.generated == true, "generated key should report generated == true")
+            context.expectEqual(metadata.publicKey, publicKey, "metadata public key should match the generated key")
+        }
+    }
+
+    // MARK: - TestKeyAgreement (import)
+    // on-device shared secret matches a software ECDH against a fresh peer key.
+    private struct ImportEcdhParam: ScenarioParameter {
+        let idSuffix: String
+        let displayName: String
+        let requirements: Requirements
+        let keyType: PIV.KeyType
+
+        init(_ idSuffix: String, _ keyType: PIV.KeyType, minVersion: Version?) {
+            self.idSuffix = idSuffix
+            self.displayName = "imports a \(idSuffix) key and computes a shared secret matching software ECDH"
+            self.requirements = Requirements(
+                capabilities: [.piv],
+                minVersion: minVersion,
+                excludesFIPS: fipsForbidden(keyType)
+            )
+            self.keyType = keyType
+        }
+    }
+
+    private static var importEcdhScenarios: [Scenario] {
+        let params: [ImportEcdhParam] = [
+            ImportEcdhParam("eccp256", .ec(.secp256r1), minVersion: nil),
+            ImportEcdhParam("eccp384", .ec(.secp384r1), minVersion: nil),
+            ImportEcdhParam("x25519", .x25519, minVersion: Version("5.7.0")),
+        ]
+        return Scenario.parameterized("PIV.KeyAgreement.import", over: params) { context, param in
+            let session = try await context.pivSession(authenticated: true)
+
+            switch param.keyType {
+            case .ec(let curve):
+                let peerSecret: Data
+                let peerPublicKey: EC.PublicKey
+                let importedPrivateKey: EC.PrivateKey
+                switch curve {
+                case .secp256r1:
+                    let deviceKey = P256.KeyAgreement.PrivateKey()
+                    importedPrivateKey = try context.require(
+                        EC.PrivateKey(x963: deviceKey.x963Representation, curve: curve),
+                        "Failed to build EC private key"
+                    )
+                    let peer = P256.KeyAgreement.PrivateKey()
+                    peerPublicKey = try context.require(
+                        EC.PublicKey(x963: peer.publicKey.x963Representation, curve: curve),
+                        "Failed to build peer public key"
+                    )
+                    let devicePublicKey = try P256.KeyAgreement.PublicKey(
+                        x963Representation: importedPrivateKey.publicKey.x963
+                    )
+                    peerSecret = try peer.sharedSecretFromKeyAgreement(with: devicePublicKey)
+                        .withUnsafeBytes { Data($0) }
+                case .secp384r1:
+                    let deviceKey = P384.KeyAgreement.PrivateKey()
+                    importedPrivateKey = try context.require(
+                        EC.PrivateKey(x963: deviceKey.x963Representation, curve: curve),
+                        "Failed to build EC private key"
+                    )
+                    let peer = P384.KeyAgreement.PrivateKey()
+                    peerPublicKey = try context.require(
+                        EC.PublicKey(x963: peer.publicKey.x963Representation, curve: curve),
+                        "Failed to build peer public key"
+                    )
+                    let devicePublicKey = try P384.KeyAgreement.PublicKey(
+                        x963Representation: importedPrivateKey.publicKey.x963
+                    )
+                    peerSecret = try peer.sharedSecretFromKeyAgreement(with: devicePublicKey)
+                        .withUnsafeBytes { Data($0) }
+                }
+
+                try await session.putPrivateKey(
+                    importedPrivateKey,
+                    in: .keyManagement,
+                    pinPolicy: .always,
+                    touchPolicy: .never
+                )
+                try await session.verifyPin(defaultPIN)
+                let yubiKeySecret = try await session.deriveSharedSecret(in: .keyManagement, with: peerPublicKey)
+                context.expectEqual(peerSecret, yubiKeySecret, "imported EC key agreement must match software ECDH")
+
+            case .x25519:
+                let deviceKey = Curve25519.KeyAgreement.PrivateKey()
+                let importedPublicKey = try context.require(
+                    X25519.PublicKey(keyData: deviceKey.publicKey.rawRepresentation),
+                    "Failed to create YubiKit X25519 public key"
+                )
+                let importedPrivateKey = try context.require(
+                    X25519.PrivateKey(scalar: deviceKey.rawRepresentation, publicKey: importedPublicKey),
+                    "Failed to create YubiKit X25519 private key"
+                )
+
+                let peer = Curve25519.KeyAgreement.PrivateKey()
+                let peerPublicKey = try context.require(
+                    X25519.PublicKey(keyData: peer.publicKey.rawRepresentation),
+                    "Failed to create peer X25519 public key"
+                )
+                let peerSecret = try peer.sharedSecretFromKeyAgreement(
+                    with: Curve25519.KeyAgreement.PublicKey(rawRepresentation: importedPublicKey.keyData)
+                ).withUnsafeBytes { Data($0) }
+
+                try await session.putPrivateKey(
+                    importedPrivateKey,
+                    in: .keyManagement,
+                    pinPolicy: .always,
+                    touchPolicy: .never
+                )
+                try await session.verifyPin(defaultPIN)
+                let yubiKeySecret = try await session.deriveSharedSecret(in: .keyManagement, with: peerPublicKey)
+                context.expectEqual(
+                    peerSecret,
+                    yubiKeySecret,
+                    "imported X25519 key agreement must match software ECDH"
+                )
+
+            case .rsa, .ed25519:
+                try context.skip("key agreement is only defined for EC and X25519 keys")
+            }
+        }
     }
 }

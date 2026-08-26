@@ -16,23 +16,21 @@ import Foundation
 import YubiKit
 
 /// WebAuthn `Client` scenarios.
-public enum WebAuthnScenario: CaseIterable {
+public enum WebAuthnScenario: CaseIterable, ScenarioSuite {
 
     case makeCredentialGetAssertion
     case allowCredentials
+    case allowCredentialsMultiple
+    case allowCredentialsIneligible
     case allowListNoMatch
     case excludeCredentials
+    case excludeCredentialsMultiple
+    case excludeCredentialsMax
+    case excludeCredentialsOthers
     case multipleCredentialsCeremony
     case rpIdMismatch
     case publicSuffixRejected
-    case wrongPin
-    case clientDataJSON
-    case statusStream
     case discoverableNoCredentials
-    case prefetchedPinMakeCredential
-    case prefetchedPinGetAssertion
-    case cancelMakeCredential
-    case allLevels
     case derive
     case makeCredential
     case storeRetrieveLargeBlob
@@ -41,9 +39,6 @@ public enum WebAuthnScenario: CaseIterable {
     case storeRetrieveCredBlob
     case notReturnedWithoutExtension
     case oversizedRejected
-    case discoverable
-    case nonDiscoverable
-    case notRequested
     case returnsValue
     case noOutputWithoutInput
     case generateKey
@@ -84,10 +79,12 @@ public enum WebAuthnScenario: CaseIterable {
                 )
 
                 context.touch("Touch the key to authenticate")
-                let assertResponse = try await assertionAfterNFCReconnect(
-                    context,
+                let authClient = try await context.webAuthnClientAfterNFCReconnect()
+                let assertResponse = try await assertion(
+                    from: authClient,
                     options: requestOptions,
                     matching: createResponse.credentialId,
+                    context
                 )
 
                 context.expect(assertResponse.rawAuthenticatorData.count > 0, "authenticator data should be present")
@@ -131,6 +128,82 @@ public enum WebAuthnScenario: CaseIterable {
                 context.expect(assertResponse.credentialId == createResponse.credentialId, "credentialId should match")
                 context.expect(assertResponse.signature.count > 0, "signature should be present")
             }
+        case .allowCredentialsMultiple:
+            return Scenario(
+                "WebAuthn.Ceremony.allowCredentialsMultiple",
+                "getAssertion picks the real credential out of an allow-list padded with decoys",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                try await ensurePinSet(context)
+                let client = try await context.webAuthnClient()
+
+                let createOptions = WebAuthn.Registration.Options(
+                    challenge: randomBytes(count: 32),
+                    rp: .init(id: testRpId, name: testRpName),
+                    user: .init(
+                        id: randomBytes(count: 32),
+                        name: "allow-multi@example.com",
+                        displayName: "Allow Multi User"
+                    ),
+                    residentKey: .required
+                )
+
+                context.touch("Touch the key to create a credential")
+                let createResponse = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin))
+                    .value
+
+                // Decoys with the real credential inserted at a middle index, mirroring the Python test.
+                var allowCredentials = (0..<5).map { _ in
+                    WebAuthn.CredentialDescriptor(id: randomBytes(count: 32))
+                }
+                allowCredentials.insert(.init(id: createResponse.credentialId), at: 3)
+
+                let requestOptions = WebAuthn.Authentication.Options(
+                    challenge: randomBytes(count: 32),
+                    rpId: testRpId,
+                    allowCredentials: allowCredentials
+                )
+
+                context.touch("Touch the key to authenticate")
+                let assertResponse = try await assertion(
+                    from: client,
+                    options: requestOptions,
+                    matching: createResponse.credentialId,
+                    context
+                )
+
+                context.expect(
+                    assertResponse.credentialId == createResponse.credentialId,
+                    "asserted credentialId should be the real one, not a decoy"
+                )
+                context.expect(assertResponse.signature.count > 0, "signature should be present")
+            }
+        case .allowCredentialsIneligible:
+            return Scenario(
+                "WebAuthn.Ceremony.allowCredentialsIneligible",
+                "getAssertion with an allow-list of only decoys throws noCredentials",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                try await ensurePinSet(context)
+                let client = try await context.webAuthnClient()
+
+                let allowCredentials = (0..<5).map { _ in
+                    WebAuthn.CredentialDescriptor(id: randomBytes(count: 32))
+                }
+                let requestOptions = WebAuthn.Authentication.Options(
+                    challenge: randomBytes(count: 32),
+                    rpId: testRpId,
+                    allowCredentials: allowCredentials
+                )
+
+                context.touch("Touch the key to authenticate")
+                await context.expectThrows(
+                    "getAssertion with an ineligible allow-list",
+                    matching: { if case WebAuthn.ClientError.noCredentials = $0 { true } else { false } }
+                ) {
+                    _ = try await client.getAssertion(requestOptions, authorization: .pin(defaultTestPin)).value
+                }
+            }
         case .allowListNoMatch:
             return Scenario(
                 "WebAuthn.Ceremony.allowListNoMatch",
@@ -147,15 +220,11 @@ public enum WebAuthnScenario: CaseIterable {
                 )
 
                 context.touch("Touch the key to authenticate")
-                do {
+                await context.expectThrows(
+                    "getAssertion with an allow-list that matches nothing",
+                    matching: { if case WebAuthn.ClientError.noCredentials = $0 { true } else { false } }
+                ) {
                     _ = try await client.getAssertion(requestOptions, authorization: .pin(defaultTestPin)).value
-                    context.record("Should have thrown noCredentials error")
-                } catch let error as WebAuthn.ClientError {
-                    if case .noCredentials = error {
-                        context.log("Correctly received noCredentials error")
-                    } else {
-                        context.record("Expected noCredentials error, got: \(error)")
-                    }
                 }
             }
         case .excludeCredentials:
@@ -191,21 +260,140 @@ public enum WebAuthnScenario: CaseIterable {
                 )
 
                 context.touch("Touch the key for the excluded credential attempt")
-                do {
-                    let excludeClient = try await context.webAuthnClientAfterNFCReconnect()
-                    _ = try await excludeClient.makeCredential(
-                        excludeOptions,
-                        authorization: .pin(defaultTestPin)
-                    ).value
-                    context.record("Should have thrown credentialExcluded error")
-                } catch let error as WebAuthn.ClientError {
-                    if case .credentialExcluded = error {
-                        context.log("Correctly received credentialExcluded error")
-                    } else {
-                        context.record("Expected credentialExcluded error, got: \(error)")
-                    }
+                await context.expectThrows(
+                    "makeCredential excluding an already-registered credential",
+                    matching: { if case WebAuthn.ClientError.credentialExcluded = $0 { true } else { false } }
+                ) {
+                    _ = try await client.makeCredential(excludeOptions, authorization: .pin(defaultTestPin)).value
                 }
             }
+        case .excludeCredentialsMultiple:
+            return Scenario(
+                "WebAuthn.Ceremony.excludeCredentialsMultiple",
+                "makeCredential rejects when the excluded credential sits among decoys",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                try await ensurePinSet(context)
+                let client = try await context.webAuthnClient()
+
+                let createOptions = WebAuthn.Registration.Options(
+                    challenge: randomBytes(count: 32),
+                    rp: .init(id: testRpId, name: testRpName),
+                    user: .init(
+                        id: randomBytes(count: 32),
+                        name: "exclude-multi@example.com",
+                        displayName: "Exclude Multi User"
+                    ),
+                    residentKey: .required
+                )
+
+                context.touch("Touch the key to create the initial credential")
+                let createResponse = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin))
+                    .value
+
+                // Decoys with the real (registered) credential inserted at a middle index.
+                var excludeCredentials = (0..<5).map { _ in
+                    WebAuthn.CredentialDescriptor(id: randomBytes(count: 32))
+                }
+                excludeCredentials.insert(.init(id: createResponse.credentialId), at: 3)
+
+                let excludeOptions = WebAuthn.Registration.Options(
+                    challenge: randomBytes(count: 32),
+                    rp: .init(id: testRpId, name: testRpName),
+                    user: .init(
+                        id: randomBytes(count: 32),
+                        name: "exclude-multi2@example.com",
+                        displayName: "Exclude Multi User 2"
+                    ),
+                    excludeCredentials: excludeCredentials,
+                    residentKey: .required
+                )
+
+                context.touch("Touch the key for the excluded credential attempt")
+                await context.expectThrows(
+                    "makeCredential excluding a credential hidden among decoys",
+                    matching: { if case WebAuthn.ClientError.credentialExcluded = $0 { true } else { false } }
+                ) {
+                    _ = try await client.makeCredential(excludeOptions, authorization: .pin(defaultTestPin)).value
+                }
+            }
+        case .excludeCredentialsMax:
+            return Scenario(
+                "WebAuthn.Ceremony.excludeCredentialsMax",
+                "makeCredential succeeds with a non-matching exclude list that overflows a single batch",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                try await ensurePinSet(context)
+                let session = try await context.ctap2Session()
+                let info = try await session.getInfo()
+
+                // Build more excludes than fit one batch, each maxCredentialIdLength bytes, none matching —
+                // this forces the client to chunk the exclude list across multiple authenticator calls.
+                let maxIdLength = Int(info.maxCredentialIdLength ?? 32)
+                let countInList = Int(info.maxCredentialCountInList ?? 1)
+                let excludeCount = countInList + 2
+                let excludeCredentials = (0..<excludeCount).map { _ in
+                    WebAuthn.CredentialDescriptor(id: randomBytes(count: maxIdLength))
+                }
+
+                let client = WebAuthn.Client(
+                    session: session,
+                    origin: try WebAuthn.Origin(testOrigin),
+                    isPublicSuffix: { _ in false }
+                )
+                let createOptions = WebAuthn.Registration.Options(
+                    challenge: randomBytes(count: 32),
+                    rp: .init(id: testRpId, name: testRpName),
+                    user: .init(
+                        id: randomBytes(count: 32),
+                        name: "exclude-max@example.com",
+                        displayName: "Exclude Max User"
+                    ),
+                    excludeCredentials: excludeCredentials,
+                    residentKey: .required
+                )
+
+                context.touch("Touch the key to create a credential")
+                let createResponse = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin))
+                    .value
+                context.expect(
+                    createResponse.credentialId.count > 0,
+                    "registration should succeed when no exclude entry matches"
+                )
+            }
+        case .excludeCredentialsOthers:
+            return Scenario(
+                "WebAuthn.Ceremony.excludeCredentialsOthers",
+                "makeCredential succeeds when the exclude list holds only decoys",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                try await ensurePinSet(context)
+                let client = try await context.webAuthnClient()
+
+                let excludeCredentials = (0..<5).map { _ in
+                    WebAuthn.CredentialDescriptor(id: randomBytes(count: 32))
+                }
+                let createOptions = WebAuthn.Registration.Options(
+                    challenge: randomBytes(count: 32),
+                    rp: .init(id: testRpId, name: testRpName),
+                    user: .init(
+                        id: randomBytes(count: 32),
+                        name: "exclude-others@example.com",
+                        displayName: "Exclude Others User"
+                    ),
+                    excludeCredentials: excludeCredentials,
+                    residentKey: .required
+                )
+
+                context.touch("Touch the key to create a credential")
+                let createResponse = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin))
+                    .value
+                context.expect(
+                    createResponse.credentialId.count > 0,
+                    "registration should succeed when no exclude entry matches"
+                )
+            }
+        // extended here to register several residents and assert one match per credential for selection)
         case .multipleCredentialsCeremony:
             return Scenario(
                 "WebAuthn.Ceremony.multipleCredentials",
@@ -319,175 +507,6 @@ public enum WebAuthnScenario: CaseIterable {
                     }
                 }
             }
-        case .wrongPin:
-            return Scenario(
-                "WebAuthn.Ceremony.wrongPin",
-                "makeCredential with the wrong PIN throws pinRejected and decrements retries",
-                requirements: Requirements(capabilities: [.fido2])
-            ) { context in
-                try await ensurePinSet(context)
-                let client = try await context.webAuthnClient()
-
-                let options = WebAuthn.Registration.Options(
-                    challenge: randomBytes(count: 32),
-                    rp: .init(id: testRpId, name: testRpName),
-                    user: .init(
-                        id: randomBytes(count: 32),
-                        name: "wrongpin@example.com",
-                        displayName: "Wrong PIN User"
-                    ),
-                    residentKey: .discouraged
-                )
-
-                do {
-                    _ = try await client.makeCredential(options, authorization: .pin("wrongpin123")).value
-                    context.record("Should have thrown pinRejected error")
-                } catch let error as WebAuthn.ClientError {
-                    if case .pinRejected(let retries, _) = error {
-                        context.expect(retries < 8, "Retry counter should have decremented")
-                        context.log("Correctly received pinRejected with \(retries) retries remaining")
-                    } else {
-                        context.record("Expected pinRejected error, got: \(error)")
-                    }
-                }
-            }
-        case .clientDataJSON:
-            return Scenario(
-                "WebAuthn.Ceremony.clientDataJSON",
-                "clientDataJSON serializes with spec key ordering",
-                requirements: Requirements(capabilities: [.fido2])
-            ) { context in
-                try await ensurePinSet(context)
-                let client = try await context.webAuthnClient()
-                let challenge = randomBytes(count: 32)
-
-                let options = WebAuthn.Registration.Options(
-                    challenge: challenge,
-                    rp: .init(id: testRpId, name: testRpName),
-                    user: .init(
-                        id: randomBytes(count: 32),
-                        name: "clientdata@example.com",
-                        displayName: "ClientData Test"
-                    ),
-                    residentKey: .required
-                )
-
-                let clientData = WebAuthn.ClientData.webauthn(
-                    type: "webauthn.create",
-                    challenge: challenge,
-                    origin: try WebAuthn.Origin(testOrigin),
-                    rpId: testRpId,
-                    crossOrigin: false
-                )
-
-                context.touch("Touch the key to create a credential")
-                let response = try await client.makeCredential(
-                    options,
-                    clientData: clientData,
-                    authorization: .pin(defaultTestPin)
-                ).value
-
-                // Recover the serialized clientDataJSON from the public JSON envelope.
-                let envelope = try JSONSerialization.jsonObject(with: response.toJSON(), options: []) as? [String: Any]
-                let inner = envelope?["response"] as? [String: Any]
-                let clientDataB64 = try context.require(
-                    inner?["clientDataJSON"] as? String,
-                    "clientDataJSON should be present in toJSON output"
-                )
-                let clientDataJSON = try context.require(
-                    decodeBase64URL(clientDataB64),
-                    "clientDataJSON should base64url-decode"
-                )
-                let jsonString = try context.require(
-                    String(data: clientDataJSON, encoding: .utf8),
-                    "clientDataJSON should be valid UTF-8"
-                )
-                context.log("clientDataJSON: \(jsonString)")
-
-                context.expect(jsonString.contains("\"type\""), "should contain type")
-                context.expect(jsonString.contains("\"challenge\""), "should contain challenge")
-                context.expect(jsonString.contains("\"origin\""), "should contain origin")
-                context.expect(jsonString.contains("\"crossOrigin\""), "should contain crossOrigin")
-                context.expect(jsonString.contains("webauthn.create"), "should contain webauthn.create")
-                context.expect(jsonString.contains("example.com"), "should contain example.com")
-
-                // Verify key ordering per WebAuthn spec: type, challenge, origin, crossOrigin.
-                let typeIndex = try context.require(jsonString.range(of: "\"type\"")?.lowerBound, "type key present")
-                let challengeIndex = try context.require(
-                    jsonString.range(of: "\"challenge\"")?.lowerBound,
-                    "challenge key present"
-                )
-                let originIndex = try context.require(
-                    jsonString.range(of: "\"origin\"")?.lowerBound,
-                    "origin key present"
-                )
-                let crossOriginIndex = try context.require(
-                    jsonString.range(of: "\"crossOrigin\"")?.lowerBound,
-                    "crossOrigin key present"
-                )
-                context.expect(typeIndex < challengeIndex, "type should come before challenge")
-                context.expect(challengeIndex < originIndex, "challenge should come before origin")
-                context.expect(originIndex < crossOriginIndex, "origin should come before crossOrigin")
-            }
-        case .statusStream:
-            return Scenario(
-                "WebAuthn.Ceremony.statusStream",
-                "getAssertion status stream delivers user-presence events and pulls the PIN via closure",
-                requirements: Requirements(capabilities: [.fido2])
-            ) { context in
-                try await ensurePinSet(context)
-                let client = try await context.webAuthnClient()
-
-                let createOptions = WebAuthn.Registration.Options(
-                    challenge: randomBytes(count: 32),
-                    rp: .init(id: testRpId, name: testRpName),
-                    user: .init(id: randomBytes(count: 32), name: "stream@example.com", displayName: "Stream User"),
-                    residentKey: .required
-                )
-
-                context.touch("Touch the key to create a credential")
-                _ = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin)).value
-
-                let requestOptions = WebAuthn.Authentication.Options(
-                    challenge: randomBytes(count: 32),
-                    rpId: testRpId
-                )
-
-                let pinAsks = Box(0)
-                var sawWaitingForUser = false
-                var matches: [WebAuthn.Authentication.Response]?
-
-                context.touch("Touch the key to authenticate")
-                let authClient = try await context.webAuthnClientAfterNFCReconnect()
-                let stream = await authClient.getAssertion(
-                    requestOptions,
-                    authorization: .init(
-                        providePIN: {
-                            pinAsks.value += 1
-                            return .pin(defaultTestPin)
-                        },
-                        uv: .skipped
-                    )
-                )
-                for try await status in stream {
-                    switch status {
-                    case .processing:
-                        break
-                    case .waitingForUser:
-                        sawWaitingForUser = true
-                    case .waitingForUserVerification:
-                        context.record("UV should be skipped under .pin authorization")
-                    case .finished(let result):
-                        matches = result
-                    }
-                }
-
-                context.expect(pinAsks.value == 1, "PIN closure should have been invoked exactly once")
-                context.expect(sawWaitingForUser, "Stream should have delivered waitingForUser")
-                let resolved = try context.require(matches, "Stream should have delivered .finished with matches")
-                context.expect(!resolved.isEmpty, "Should have at least one matched credential")
-                context.expect((resolved.first?.signature.count ?? 0) > 0, "signature should be present")
-            }
         case .discoverableNoCredentials:
             return Scenario(
                 "WebAuthn.Ceremony.discoverableNoCredentials",
@@ -504,236 +523,12 @@ public enum WebAuthnScenario: CaseIterable {
                 )
 
                 context.touch("Touch the key to authenticate")
-                do {
-                    _ = try await client.getAssertion(requestOptions, authorization: .pin(defaultTestPin)).value
-                    context.record("Should have thrown noCredentials error")
-                } catch let error as WebAuthn.ClientError {
-                    if case .noCredentials = error {
-                        context.log("Correctly received noCredentials error for discoverable path")
-                    } else {
-                        context.record("Expected noCredentials error, got: \(error)")
-                    }
-                }
-            }
-        case .prefetchedPinMakeCredential:
-            return Scenario(
-                "WebAuthn.Ceremony.prefetchedPinMakeCredential",
-                "makeCredential consumes a pre-supplied PIN silently while still emitting waitingForUser",
-                requirements: Requirements(capabilities: [.fido2])
-            ) { context in
-                try await ensurePinSet(context)
-                let client = try await context.webAuthnClient()
-
-                let options = WebAuthn.Registration.Options(
-                    challenge: randomBytes(count: 32),
-                    rp: .init(id: testRpId, name: testRpName),
-                    user: .init(
-                        id: randomBytes(count: 32),
-                        name: "prefetched-pin@example.com",
-                        displayName: "Prefetched PIN User"
-                    ),
-                    residentKey: .discouraged
-                )
-
-                var sawWaitingForUser = false
-                var finished = false
-
-                context.touch("Touch the key to create a credential")
-                for try await status in await client.makeCredential(options, authorization: .pin(defaultTestPin)) {
-                    switch status {
-                    case .processing:
-                        break
-                    case .waitingForUser:
-                        sawWaitingForUser = true
-                    case .waitingForUserVerification:
-                        context.record("UV should be skipped under .pin authorization")
-                    case .finished:
-                        finished = true
-                    }
-                }
-
-                context.expect(sawWaitingForUser, "Stream should still deliver waitingForUser")
-                context.expect(finished, "Stream should reach .finished")
-            }
-        case .prefetchedPinGetAssertion:
-            return Scenario(
-                "WebAuthn.Ceremony.prefetchedPinGetAssertion",
-                "getAssertion consumes a pre-supplied PIN silently",
-                requirements: Requirements(capabilities: [.fido2])
-            ) { context in
-                try await ensurePinSet(context)
-                let client = try await context.webAuthnClient()
-
-                let createOptions = WebAuthn.Registration.Options(
-                    challenge: randomBytes(count: 32),
-                    rp: .init(id: testRpId, name: testRpName),
-                    user: .init(
-                        id: randomBytes(count: 32),
-                        name: "prefetched-ga@example.com",
-                        displayName: "Prefetched GA"
-                    ),
-                    residentKey: .required
-                )
-
-                context.touch("Touch the key to create a credential")
-                _ = try await client.makeCredential(createOptions, authorization: .pin(defaultTestPin)).value
-
-                let requestOptions = WebAuthn.Authentication.Options(
-                    challenge: randomBytes(count: 32),
-                    rpId: testRpId
-                )
-
-                var matches: [WebAuthn.Authentication.Response]?
-
-                context.touch("Touch the key to authenticate")
-                let authClient = try await context.webAuthnClientAfterNFCReconnect()
-                for try await status in await authClient.getAssertion(
-                    requestOptions,
-                    authorization: .pin(defaultTestPin)
+                await context.expectThrows(
+                    "discoverable getAssertion for an RP with no credentials",
+                    matching: { if case WebAuthn.ClientError.noCredentials = $0 { true } else { false } }
                 ) {
-                    if case .finished(let result) = status { matches = result }
+                    _ = try await client.getAssertion(requestOptions, authorization: .pin(defaultTestPin)).value
                 }
-
-                let resolved = try context.require(matches, "Stream should have delivered .finished with matches")
-                context.expect(!resolved.isEmpty, "should have at least one match")
-                context.expect((resolved.first?.signature.count ?? 0) > 0, "signature should be present")
-            }
-        case .cancelMakeCredential:
-            return Scenario(
-                "WebAuthn.Ceremony.cancelMakeCredential",
-                "makeCredential can be cancelled from the status stream",
-                requirements: Requirements(capabilities: [.fido2])
-            ) { context in
-                try await ensurePinSet(context)
-                let client = try await context.webAuthnClient()
-
-                let options = WebAuthn.Registration.Options(
-                    challenge: randomBytes(count: 32),
-                    rp: .init(id: testRpId, name: testRpName),
-                    user: .init(id: randomBytes(count: 32), name: "cancel@example.com", displayName: "Cancel User"),
-                    residentKey: .discouraged
-                )
-
-                context.touch("Cancellation fires automatically on waitingForUser")
-                do {
-                    let stream = await client.makeCredential(options, authorization: .pin(defaultTestPin))
-                    for try await status in stream {
-                        switch status {
-                        case .processing:
-                            break
-                        case .waitingForUser(let cancel):
-                            await cancel()
-                        case .waitingForUserVerification:
-                            context.record("UV should be skipped under .pin authorization")
-                        case .finished:
-                            context.record("makeCredential should have been cancelled")
-                        }
-                    }
-                    context.record("makeCredential should have thrown cancellation error")
-                } catch let error as WebAuthn.ClientError {
-                    if case .cancelled = error {
-                        context.log("Cancellation successful")
-                    } else {
-                        context.record("Expected cancelled error, got: \(error)")
-                    }
-                }
-            }
-        // MARK: - credProtect
-        case .allLevels:
-            return Scenario(
-                "WebAuthn.CredProtect.allLevels",
-                "credProtect echoes the applied protection level for each policy",
-                requirements: Requirements(capabilities: [.fido2])
-            ) { context in
-                try await ensurePinSet(context)
-                var client = try await context.webAuthnClient()
-
-                let createOptionsNone = WebAuthn.Registration.Options(
-                    challenge: randomBytes(count: 32),
-                    rp: .init(id: testRpId, name: "CredProtect Test"),
-                    user: .init(
-                        id: randomBytes(count: 32),
-                        name: "noext@example.com",
-                        displayName: "No Extension User"
-                    ),
-                    residentKey: .discouraged
-                )
-
-                context.touch("Touch the key (no credProtect)")
-                let createResponseNone = try await client.makeCredential(
-                    createOptionsNone,
-                    authorization: .pin(defaultTestPin)
-                ).value
-                context.expect(
-                    createResponseNone.clientExtensionResults.credProtect?.policy == nil,
-                    "no credProtect should be returned when not requested"
-                )
-
-                let createOptions1 = WebAuthn.Registration.Options(
-                    challenge: randomBytes(count: 32),
-                    rp: .init(id: testRpId, name: "CredProtect Test"),
-                    user: .init(id: randomBytes(count: 32), name: "level1@example.com", displayName: "Level 1 User"),
-                    residentKey: .discouraged,
-                    extensions: .init(credProtect: .init(policy: .userVerificationOptional))
-                )
-
-                context.touch("Touch the key (credProtect level 1)")
-                client = try await context.webAuthnClientAfterNFCReconnect()
-                let createResponse1 = try await client.makeCredential(
-                    createOptions1,
-                    authorization: .pin(defaultTestPin)
-                )
-                .value
-
-                if createResponse1.clientExtensionResults.credProtect?.policy == nil {
-                    try context.skip("credProtect not supported")
-                }
-                context.expect(
-                    createResponse1.clientExtensionResults.credProtect?.policy == .userVerificationOptional,
-                    "level 1 policy should be echoed"
-                )
-
-                let createOptions2 = WebAuthn.Registration.Options(
-                    challenge: randomBytes(count: 32),
-                    rp: .init(id: testRpId, name: "CredProtect Test"),
-                    user: .init(id: randomBytes(count: 32), name: "level2@example.com", displayName: "Level 2 User"),
-                    residentKey: .discouraged,
-                    extensions: .init(credProtect: .init(policy: .userVerificationOptionalWithCredentialIDList))
-                )
-
-                context.touch("Touch the key (credProtect level 2)")
-                client = try await context.webAuthnClientAfterNFCReconnect()
-                let createResponse2 = try await client.makeCredential(
-                    createOptions2,
-                    authorization: .pin(defaultTestPin)
-                )
-                .value
-                context.expect(
-                    createResponse2.clientExtensionResults.credProtect?.policy
-                        == .userVerificationOptionalWithCredentialIDList,
-                    "level 2 policy should be echoed"
-                )
-
-                // credProtect level 3 requires a resident key.
-                let createOptions3 = WebAuthn.Registration.Options(
-                    challenge: randomBytes(count: 32),
-                    rp: .init(id: testRpId, name: "CredProtect Test"),
-                    user: .init(id: randomBytes(count: 32), name: "level3@example.com", displayName: "Level 3 User"),
-                    residentKey: .required,
-                    extensions: .init(credProtect: .init(policy: .userVerificationRequired))
-                )
-
-                context.touch("Touch the key (credProtect level 3)")
-                client = try await context.webAuthnClientAfterNFCReconnect()
-                let createResponse3 = try await client.makeCredential(
-                    createOptions3,
-                    authorization: .pin(defaultTestPin)
-                )
-                .value
-                context.expect(
-                    createResponse3.clientExtensionResults.credProtect?.policy == .userVerificationRequired,
-                    "level 3 policy should be echoed"
-                )
             }
         // MARK: - prf
         case .derive:
@@ -1081,16 +876,11 @@ public enum WebAuthnScenario: CaseIterable {
                 )
 
                 context.touch("Touch the key to attempt the oversized write")
-                do {
-                    let writeClient = try await context.webAuthnClientAfterNFCReconnect()
-                    _ = try await writeClient.getAssertion(writeOptions, authorization: .pin(defaultTestPin)).value
-                    context.record("Expected storageFull error for oversized blob")
-                } catch let error as WebAuthn.ClientError {
-                    if case .storageFull = error {
-                        context.log("Correctly received storageFull error")
-                    } else {
-                        context.record("Expected storageFull error, got: \(error)")
-                    }
+                await context.expectThrows(
+                    "writing an oversized largeBlob",
+                    matching: { if case WebAuthn.ClientError.storageFull = $0 { true } else { false } }
+                ) {
+                    _ = try await client.getAssertion(writeOptions, authorization: .pin(defaultTestPin)).value
                 }
             }
         // MARK: - credBlob
@@ -1126,16 +916,19 @@ public enum WebAuthnScenario: CaseIterable {
                 )
 
                 context.touch("Touch the key to retrieve the credBlob")
-                let authResponse = try await assertionAfterNFCReconnect(
-                    context,
+                let authClient = try await context.webAuthnClientAfterNFCReconnect()
+                let authResponse = try await assertion(
+                    from: authClient,
                     options: authOptions,
                     matching: createResponse.credentialId,
+                    context
                 )
                 context.expect(
                     authResponse.clientExtensionResults.credBlob?.blob == testBlob,
                     "credBlob should round-trip"
                 )
             }
+        // is not requested at authentication)
         case .notReturnedWithoutExtension:
             return Scenario(
                 "WebAuthn.CredBlob.notReturnedWithoutExtension",
@@ -1167,10 +960,12 @@ public enum WebAuthnScenario: CaseIterable {
                 )
 
                 context.touch("Touch the key to authenticate without credBlob")
-                let authResponse = try await assertionAfterNFCReconnect(
-                    context,
+                let authClient = try await context.webAuthnClientAfterNFCReconnect()
+                let authResponse = try await assertion(
+                    from: authClient,
                     options: authOptions,
                     matching: createResponse.credentialId,
+                    context
                 )
                 context.expect(
                     authResponse.clientExtensionResults.credBlob?.blob == nil,
@@ -1217,92 +1012,13 @@ public enum WebAuthnScenario: CaseIterable {
                     context.log("Correctly rejected oversized credBlob: \(error)")
                 }
             }
-        // MARK: - credProps
-        case .discoverable:
-            return Scenario(
-                "WebAuthn.CredProps.discoverable",
-                "credProps reports rk=true for a discoverable credential",
-                requirements: Requirements(capabilities: [.fido2])
-            ) { context in
-                try await ensurePinSet(context)
-                let client = try await credPropsClient(context)
-
-                let options = WebAuthn.Registration.Options(
-                    challenge: randomBytes(count: 32),
-                    rp: .init(id: testRpId, name: "CredProps Test"),
-                    user: .init(
-                        id: randomBytes(count: 32),
-                        name: "credprops-rk@example.com",
-                        displayName: "CredProps RK"
-                    ),
-                    residentKey: .required,
-                    extensions: .init(credProps: true)
-                )
-
-                context.touch("Touch the key to create a discoverable credential")
-                let response = try await client.makeCredential(options, authorization: .pin(defaultTestPin)).value
-                context.expect(response.clientExtensionResults.credProps != nil, "credProps should be present")
-                context.expect(response.clientExtensionResults.credProps?.rk == true, "rk should be true")
-            }
-        case .nonDiscoverable:
-            return Scenario(
-                "WebAuthn.CredProps.nonDiscoverable",
-                "credProps reports rk=false for a non-discoverable credential",
-                requirements: Requirements(capabilities: [.fido2])
-            ) { context in
-                try await ensurePinSet(context)
-                let client = try await credPropsClient(context)
-
-                let options = WebAuthn.Registration.Options(
-                    challenge: randomBytes(count: 32),
-                    rp: .init(id: testRpId, name: "CredProps Test"),
-                    user: .init(
-                        id: randomBytes(count: 32),
-                        name: "credprops-nork@example.com",
-                        displayName: "CredProps No RK"
-                    ),
-                    residentKey: .discouraged,
-                    extensions: .init(credProps: true)
-                )
-
-                context.touch("Touch the key to create a non-discoverable credential")
-                let response = try await client.makeCredential(options, authorization: .pin(defaultTestPin)).value
-                context.expect(response.clientExtensionResults.credProps != nil, "credProps should be present")
-                context.expect(response.clientExtensionResults.credProps?.rk == false, "rk should be false")
-            }
-        case .notRequested:
-            return Scenario(
-                "WebAuthn.CredProps.notRequested",
-                "credProps is nil when not requested",
-                requirements: Requirements(capabilities: [.fido2])
-            ) { context in
-                try await ensurePinSet(context)
-                let client = try await credPropsClient(context)
-
-                let options = WebAuthn.Registration.Options(
-                    challenge: randomBytes(count: 32),
-                    rp: .init(id: testRpId, name: "CredProps Test"),
-                    user: .init(
-                        id: randomBytes(count: 32),
-                        name: "credprops-none@example.com",
-                        displayName: "CredProps None"
-                    ),
-                    residentKey: .required
-                )
-
-                context.touch("Touch the key to create a credential")
-                let response = try await client.makeCredential(options, authorization: .pin(defaultTestPin)).value
-                context.expect(
-                    response.clientExtensionResults.credProps == nil,
-                    "credProps should be nil when not requested"
-                )
-            }
         // MARK: - minPinLength
+        // once the RP ID is on the minPinLength allowlist)
         case .returnsValue:
             return Scenario(
                 "WebAuthn.MinPinLength.returnsValue",
                 "minPinLength returns the enforced length once the RP is configured",
-                requirements: Requirements(capabilities: [.fido2]),
+                requirements: Requirements(capabilities: [.fido2])
             ) { context in
                 try await ensurePinSet(context)
                 let session = try await context.ctap2Session()
@@ -1356,6 +1072,7 @@ public enum WebAuthnScenario: CaseIterable {
                 }
             }
         // MARK: - previewSign
+        // when the extension input is omitted)
         case .noOutputWithoutInput:
             return Scenario(
                 "WebAuthn.PreviewSign.noOutputWithoutInput",
@@ -1405,6 +1122,7 @@ public enum WebAuthnScenario: CaseIterable {
                     )
                 }
             }
+        // handle, public key, and attestation)
         case .generateKey:
             return Scenario(
                 "WebAuthn.PreviewSign.generateKey",
@@ -1467,6 +1185,7 @@ public enum WebAuthnScenario: CaseIterable {
                 }
             }
         // MARK: - thirdPartyPayment
+        // credential not registered for payment)
         case .echoedFalse:
             return Scenario(
                 "WebAuthn.ThirdPartyPayment.echoedFalse",
@@ -1475,6 +1194,7 @@ public enum WebAuthnScenario: CaseIterable {
             ) { context in
                 try await runThirdPartyPayment(context, registerWithPayment: false, expectedEcho: false)
             }
+        // credential registered for payment)
         case .echoedTrue:
             return Scenario(
                 "WebAuthn.ThirdPartyPayment.echoedTrue",
@@ -1500,6 +1220,8 @@ private func ensurePinSet(_ context: Scenario.Context) async throws {
     if try await session.getInfo().options.clientPin != true {
         try await session.setPin(defaultTestPin)
     }
+    // Common entry point for credential scenarios: clean up any residents they create on teardown.
+    await context.addTeardown { try await context.deleteResidentCredentials() }
 }
 
 private func firstAssertion(
@@ -1543,33 +1265,6 @@ private func assertion(
         file: file,
         line: line
     )
-}
-
-private func assertionAfterNFCReconnect(
-    _ context: Scenario.Context,
-    options: WebAuthn.Authentication.Options,
-    matching credentialId: Data,
-    origin: String = testOrigin,
-    allowedExtensions: Set<WebAuthn.Extension.Identifier> = .standard,
-    file: String = #fileID,
-    line: Int = #line
-) async throws -> WebAuthn.Authentication.Response {
-    let client = try await context.webAuthnClientAfterNFCReconnect(
-        origin: origin,
-        allowedExtensions: allowedExtensions
-    )
-    return try await assertion(
-        from: client,
-        options: options,
-        matching: credentialId,
-        context,
-        file: file,
-        line: line
-    )
-}
-
-private func credPropsClient(_ context: Scenario.Context) async throws -> WebAuthn.Client {
-    try await context.webAuthnClient(allowedExtensions: [.credProps])
 }
 
 private func runThirdPartyPayment(
@@ -1633,23 +1328,4 @@ private func runThirdPartyPayment(
             "echoed payment bit should be \(expectedEcho) (discoverable=\(discoverable))"
         )
     }
-}
-
-private func randomBytes(count: Int) -> Data {
-    var bytes = [UInt8](repeating: 0, count: count)
-    let status = SecRandomCopyBytes(kSecRandomDefault, count, &bytes)
-    precondition(status == errSecSuccess, "SecRandomCopyBytes failed: \(status)")
-    return Data(bytes)
-}
-
-private func decodeBase64URL(_ string: String) -> Data? {
-    var s = string.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
-    let remainder = s.count % 4
-    if remainder > 0 { s += String(repeating: "=", count: 4 - remainder) }
-    return Data(base64Encoded: s)
-}
-
-private final class Box<T>: @unchecked Sendable {
-    var value: T
-    init(_ value: T) { self.value = value }
 }

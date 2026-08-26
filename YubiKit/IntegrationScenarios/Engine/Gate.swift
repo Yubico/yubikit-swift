@@ -37,6 +37,9 @@ enum Gate {
             if let min = requirements.minVersion, deviceInfo.version < min {
                 return .skip(reason: "requires firmware ≥ \(min) (device is \(deviceInfo.version))")
             }
+            if let max = requirements.maxVersion, deviceInfo.version > max {
+                return .skip(reason: "requires firmware ≤ \(max) (device is \(deviceInfo.version))")
+            }
             for capability in requirements.capabilities
             where !deviceInfo.isApplicationSupported(capability, over: transport) {
                 return .skip(reason: "requires \(capability) over \(transport)")
@@ -46,6 +49,12 @@ enum Gate {
             }
             if requirements.excludesBio, isBio(deviceInfo) {
                 return .skip(reason: "requires a non-Bio device")
+            }
+            if requirements.requiresFIPS, !deviceInfo.isFIPS {
+                return .skip(reason: "requires a FIPS-certified device")
+            }
+            if requirements.excludesFIPS, deviceInfo.isFIPS {
+                return .skip(reason: "requires a non-FIPS device")
             }
         }
         if requirements.requiresFIDOTransport, !provider.hasFIDO {

@@ -14,20 +14,34 @@
 
 import Foundation
 
+/// A scenario suite: enumerated cases plus any parameterized families. Every suite enum conforms,
+/// so the catalog collects them uniformly through `allScenarios`.
+protocol ScenarioSuite: CaseIterable {
+    var scenario: Scenario { get }
+    /// Parameterized families fanned out from a base definition (default: none).
+    static var parameterizedScenarios: [Scenario] { get }
+}
+
+extension ScenarioSuite {
+    static var parameterizedScenarios: [Scenario] { [] }
+    /// One scenario per enumerated case, followed by any parameterized families.
+    static var allScenarios: [Scenario] { allCases.map(\.scenario) + parameterizedScenarios }
+}
+
 extension Scenario {
 
     public enum Catalog {
 
         public static let allDeclared: [Scenario] = {
             var scenarios: [Scenario] = []
-            scenarios += ManagementScenario.allCases.map(\.scenario)
-            scenarios += PIVScenario.allCases.map(\.scenario)
-            scenarios += OATHScenario.allCases.map(\.scenario)
-            scenarios += ConnectionScenario.allCases.map(\.scenario)
-            scenarios += CTAP2Scenario.allCases.map(\.scenario)
-            scenarios += CTAPHIDScenario.allCases.map(\.scenario)
-            scenarios += WebAuthnScenario.allCases.map(\.scenario)
-            scenarios += SCPScenario.allCases.map(\.scenario)
+            scenarios += ManagementScenario.allScenarios
+            scenarios += PIVScenario.allScenarios
+            scenarios += OATHScenario.allScenarios
+            scenarios += ConnectionScenario.allScenarios
+            scenarios += CTAP2Scenario.allScenarios
+            scenarios += CTAPHIDScenario.allScenarios
+            scenarios += WebAuthnScenario.allScenarios
+            scenarios += SCPScenario.allScenarios
             return scenarios
         }()
 

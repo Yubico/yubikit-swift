@@ -19,10 +19,16 @@ import YubiKit
 public struct Requirements: Sendable {
     public var capabilities: Set<Capability>
     public var minVersion: Version?
+    /// Inclusive upper firmware bound; with `minVersion` this expresses a version range.
+    public var maxVersion: Version?
     public var transports: Set<DeviceTransport>?
     public var requiresBio: Bool
     /// Forbid a Bio device.
     public var excludesBio: Bool
+    /// Require a FIPS-certified device.
+    public var requiresFIPS: Bool
+    /// Forbid a FIPS-certified device (behavior that FIPS firmware blocks, e.g. PIN policy NEVER).
+    public var excludesFIPS: Bool
     public var requiresFIDOTransport: Bool
     public var requiresLightning: Bool
     public var requiresSCP: Bool
@@ -32,9 +38,12 @@ public struct Requirements: Sendable {
     init(
         capabilities: Set<Capability> = [],
         minVersion: Version? = nil,
+        maxVersion: Version? = nil,
         transports: Set<DeviceTransport>? = nil,
         requiresBio: Bool = false,
         excludesBio: Bool = false,
+        requiresFIPS: Bool = false,
+        excludesFIPS: Bool = false,
         requiresFIDOTransport: Bool = false,
         requiresLightning: Bool = false,
         requiresSCP: Bool = false,
@@ -42,9 +51,12 @@ public struct Requirements: Sendable {
     ) {
         self.capabilities = capabilities
         self.minVersion = minVersion
+        self.maxVersion = maxVersion
         self.transports = transports
         self.requiresBio = requiresBio
         self.excludesBio = excludesBio
+        self.requiresFIPS = requiresFIPS
+        self.excludesFIPS = excludesFIPS
         self.requiresFIDOTransport = requiresFIDOTransport
         self.requiresLightning = requiresLightning
         self.requiresSCP = requiresSCP
@@ -53,6 +65,7 @@ public struct Requirements: Sendable {
 
     /// Whether these requirements need `DeviceInfo`.
     var needsDeviceInfo: Bool {
-        !capabilities.isEmpty || minVersion != nil || requiresBio || excludesBio
+        !capabilities.isEmpty || minVersion != nil || maxVersion != nil
+            || requiresBio || excludesBio || requiresFIPS || excludesFIPS
     }
 }

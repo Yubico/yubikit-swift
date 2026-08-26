@@ -16,7 +16,7 @@ import Foundation
 import YubiKit
 
 /// Management application scenarios.
-public enum ManagementScenario: CaseIterable {
+public enum ManagementScenario: CaseIterable, ScenarioSuite {
 
     case version
     case deviceInfo
@@ -65,6 +65,8 @@ public enum ManagementScenario: CaseIterable {
                 context.expect(info.config.autoEjectTimeout == 320.0, "autoEjectTimeout == 320")
             }
         case .chaining:
+            // (test_disable_oath / test_disable_piv / test_disable_openpgp / test_disable_fido2): each disables
+            // an application then re-reads config to confirm it is gone (here chained in one updateDeviceConfig).
             return Scenario(
                 "Management.Config.chaining",
                 "chained enable/disable across applications round-trips",
@@ -82,7 +84,7 @@ public enum ManagementScenario: CaseIterable {
                     .enable(application: .fido2, over: transport)
                 try await session.updateDeviceConfig(chained, reboot: false)
                 // Restore via teardown so a failure below can't leave applications disabled.
-                await context.addTeardown { try? await session.updateDeviceConfig(initialConfig, reboot: false) }
+                await context.addTeardown { try await session.updateDeviceConfig(initialConfig, reboot: false) }
                 let updated = try await session.getDeviceInfo()
 
                 if info.isApplicationSupported(.oath, over: transport) {
@@ -99,10 +101,12 @@ public enum ManagementScenario: CaseIterable {
                 }
             }
         case .disableEnableApplication:
+            // `config usb --list`); re-enable corresponds to that suite's enable_all fixture (`config usb --enable-all`).
+            // Goes further than the CLI test by also asserting the applet can no longer be selected while disabled.
             return Scenario(
                 "Management.Config.disableEnableApplication",
                 "a disabled application can no longer be selected (then re-enabled)",
-                requirements: Requirements(minVersion: Version("5.0.0"))
+                requirements: Requirements(capabilities: [.oath], minVersion: Version("5.0.0"))
             ) { context in
                 let connection = try await context.smartCardConnection()
                 // Build sessions directly (multiple selects on one connection), so thread the run's
@@ -119,10 +123,8 @@ public enum ManagementScenario: CaseIterable {
                 // Restore via teardown (on a fresh session — the body selects other applets meanwhile)
                 // so a mid-body failure can't leave OATH disabled for the rest of the run.
                 await context.addTeardown {
-                    guard
-                        let mgmt = try? await Management.Session.makeSession(connection: connection, scpKeyParams: scp)
-                    else { return }
-                    try? await mgmt.updateDeviceConfig(initialConfig, reboot: false)
+                    let mgmt = try await Management.Session.makeSession(connection: connection, scpKeyParams: scp)
+                    try await mgmt.updateDeviceConfig(initialConfig, reboot: false)
                 }
                 let disabled = try await session.getDeviceInfo()
                 context.expect(!disabled.config.isApplicationEnabled(.oath, over: transport), "OATH reported disabled")
@@ -140,10 +142,12 @@ public enum ManagementScenario: CaseIterable {
                 )
             }
         case .lockCode:
+            // teardown); also exercises test_set_invalid_lock_code's premise that a config change without the correct
+            // lock code is rejected.
             return Scenario(
                 "Management.Config.lockCode",
                 "a set lock code is required to change configuration",
-                requirements: Requirements(minVersion: Version("5.0.0")),
+                requirements: Requirements(minVersion: Version("5.0.0"))
             ) { context in
                 let lockCode = Data(hexString: "01020304050607080102030405060708")!
                 let clearLockCode = Data(hexString: "00000000000000000000000000000000")!
@@ -154,7 +158,7 @@ public enum ManagementScenario: CaseIterable {
                 // From here the device is lock-coded — clear it via teardown so a failure below can't
                 // leave the key permanently locked.
                 await context.addTeardown {
-                    try? await session.updateDeviceConfig(
+                    try await session.updateDeviceConfig(
                         config,
                         reboot: false,
                         lockCode: lockCode,
@@ -174,10 +178,11 @@ public enum ManagementScenario: CaseIterable {
                 )
             }
         case .nfcRestricted:
+            // "restrict NFC until next USB insertion" flag (nfcRestricted / isNFCRestricted)
             return Scenario(
                 "Management.Config.nfcRestricted",
                 "NFC can be restricted until next USB insertion",
-                requirements: Requirements(minVersion: Version("5.7.0")),
+                requirements: Requirements(minVersion: Version("5.7.0"))
             ) { context in
                 let session = try await context.managementSession()
                 let config = try await session.getDeviceInfo().config.with(nfcRestricted: true)
@@ -190,7 +195,7 @@ public enum ManagementScenario: CaseIterable {
             return Scenario(
                 "Management.Reset.bioDeviceReset",
                 "device-wide reset restores the default PIV PIN (Bio MPE)",
-                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.6.0"), requiresBio: true),
+                requirements: Requirements(capabilities: [.piv], minVersion: Version("5.6.0"), requiresBio: true)
             ) { context in
                 let connection = try await context.smartCardConnection()
                 // resetDevice wipes the applications but not the Security Domain, so the SCP keys survive;
