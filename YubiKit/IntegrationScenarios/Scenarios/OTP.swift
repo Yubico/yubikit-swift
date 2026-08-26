@@ -35,7 +35,7 @@ public enum OTPScenario: CaseIterable, ScenarioSuite {
     /// `[OtpConnection, SmartCardConnection]`.
     public static var parameterizedScenarios: [Scenario] {
         serialScenarios + programmingStateScenarios + touchTriggeredScenarios + ndefScenarios
-            + challengeResponseScenarios
+            + updateScenarios + challengeResponseScenarios
     }
 
     /// `test_status`
@@ -160,6 +160,53 @@ public enum OTPScenario: CaseIterable, ScenarioSuite {
             )
             try await session.setNDEFConfiguration(in: .one)
             context.log("NDEF configured on slot 1 over \(transport.idSuffix)")
+        }
+    }
+
+    /// No Python counterpart — `test_otp.py` never exercises `UPDATE`, so this covers the
+    /// distinction that makes it its own command: it merges flags into an already-programmed slot
+    /// and refuses an empty one, where `CONFIG` would happily write.
+    private static var updateScenarios: [Scenario] {
+        Scenario.parameterized(
+            "OTP.ProgrammingState.updateConfiguration",
+            over: OTPTransport.allCases(minVersion: Version("2.3.0")!)
+        ) { context, transport in
+            let session = try await Self.programmableSession(context, transport)
+            guard await session.supports(.update) else {
+                try context.skip("UPDATE requires firmware 2.3 or later")
+            }
+
+            // An update only touches a configured slot; on an empty one the key leaves the
+            // programming sequence alone, which the session reports as a rejection.
+            await context.expectThrows(
+                "updating an unprogrammed slot",
+                matching: { if case YubiOTPSessionError.commandRejected = $0 { true } else { false } }
+            ) {
+                try await session.updateConfiguration(YubiOTP.UpdateConfiguration(), in: .one)
+            }
+
+            try await session.putConfiguration(
+                YubiOTP.HMACSHA1SlotConfiguration(key: Data(repeating: 0x61, count: 16)),
+                in: .one
+            )
+            context.expect(await session.configState.isConfigured(.one), "slot 1 should be configured")
+
+            // Only the maskable flags may change, so this carries tabs and delays rather than a secret.
+            try await session.updateConfiguration(
+                YubiOTP.UpdateConfiguration(
+                    tabs: .init(beforeFirst: true, afterFirst: true),
+                    delays: .init(afterSecond: true)
+                ),
+                in: .one
+            )
+            context.expect(
+                await session.configState.isConfigured(.one),
+                "slot 1 should survive the update"
+            )
+            context.expect(
+                !(await session.configState.isTouchTriggered(.one)),
+                "an update must not turn a challenge-response slot into a touch-triggered one"
+            )
         }
     }
 
