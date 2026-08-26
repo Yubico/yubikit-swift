@@ -97,8 +97,11 @@ enum ScenarioTests {
         let result = await Scenario.Runner(provider: makeProvider(), secureChannel: forcedSecureChannel).run(scenario)
         switch result.status {
         case .passed:
-            break
+            ScenarioOutcomeLog.recordRan()
         case .skipped(let reason):
+            // `Test.cancel` alone is invisible in the console, so a skip is indistinguishable from
+            // a pass. Log it before cancelling.
+            ScenarioOutcomeLog.recordSkip(id: scenario.id, reason: reason)
             try Test.cancel(Comment(rawValue: "scenario \(scenario.id) skipped: \(reason)"))
         case .backendUnavailable(let reason):
             Issue.record(Comment(rawValue: "scenario \(scenario.id) backend unavailable: \(reason)"))
