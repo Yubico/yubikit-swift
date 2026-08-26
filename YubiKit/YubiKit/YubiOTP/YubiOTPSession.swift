@@ -17,15 +17,7 @@ import Foundation
 // Slot command codes (yubikit.yubiotp CONFIG_SLOT).
 private let slotDeviceSerial: UInt8 = 0x10
 
-// CCID instruction bytes (yubikit.yubiotp INS_CONFIG / INS_YK2_STATUS).
-private let insConfig: UInt8 = 0x01
-private let insStatus: UInt8 = 0x03
-
-// The status struct is version[3] ‖ pgmSeq[1] ‖ configState[2, LE].
-private let statusOffsetProgrammingSequence = 3
-private let statusOffsetConfigState = 4
-// A write acknowledgement is only read as far as the low config-state byte.
-private let statusMinimumLength = 5
+// The status struct layout is shared with the transport conformances in `YubiOTPInterface.swift`.
 
 extension YubiOTP {
 
@@ -120,22 +112,19 @@ extension YubiOTP.Session {
 
         init(interface: OTPInterface<YubiOTPSessionError>) async {
             self.kind = .otp(interface)
-            self.status = Array(await interface.status)
+            self.status = await interface.initialStatus
         }
 
-        init(interface: SmartCardInterface<YubiOTPSessionError>) {
+        init(interface: SmartCardInterface<YubiOTPSessionError>) async {
             self.kind = .smartCard(interface)
-            // Selecting the OTP application returns the status struct.
-            self.status = Array(interface.selectResponse)
+            self.status = await interface.initialStatus
         }
 
         var version: Version {
             get async {
                 switch kind {
-                case let .otp(interface):
-                    return await interface.version
-                case .smartCard:
-                    return Version(withData: Data(status.prefix(3))) ?? Version(withData: Data([0, 0, 0]))!
+                case let .otp(interface): return await interface.version
+                case let .smartCard(interface): return await interface.version
                 }
             }
         }
@@ -145,73 +134,23 @@ extension YubiOTP.Session {
             return UInt16(status[statusOffsetConfigState]) | UInt16(status[statusOffsetConfigState + 1]) << 8
         }
 
-        /// Runs a configuration write, updating the cached status struct.
-        ///
-        /// The two transports detect success differently: the OTP frame protocol watches the
-        /// programming sequence itself, while over CCID the host has to compare it across the
-        /// exchange. Python's `_YubiOtpSmartCardBackend.write_update` carries the previous value
-        /// between calls to save a round trip; reading it back costs one extra APDU per write and
-        /// leaves the transport with no state of its own.
+        /// Runs a configuration write, caching the status struct it returns.
         func writeConfig(command: UInt8, data: Data) async throws(YubiOTPSessionError) {
             switch kind {
             case let .otp(interface):
-                status = Array(try await interface.sendAndReceive(slot: command, data: data))
-
+                status = try await interface.writeConfig(command: command, data: data)
             case let .smartCard(interface):
-                let previous = try await Self.readStatus(over: interface)[statusOffsetProgrammingSequence]
-
-                var response: Data = try await interface.send(
-                    apdu: APDU(cla: 0, ins: insConfig, p1: command, p2: 0, command: data)
-                )
-                if response.isEmpty {
-                    // Some YubiKeys answer certain commands with no data; ask for the status.
-                    response = Data(try await Self.readStatus(over: interface))
-                }
-                let updated = Array(response)
-                guard updated.count >= statusMinimumLength else {
-                    throw .responseParseError("Truncated OTP status struct", source: .here())
-                }
-                status = updated
-
-                let current = updated[statusOffsetProgrammingSequence]
-                if current == previous &+ 1 { return }
-                if current == 0, previous > 0 {
-                    // Deleting the last configuration resets the sequence to zero.
-                    if updated[statusOffsetConfigState] & 0x1F == 0 { return }
-                    // These firmware revisions simply do not advance the programming state.
-                    if let version = Version(withData: Data(updated.prefix(3))),
-                        version >= Version("5.0.0")!, version < Version("5.4.3")!
-                    {
-                        return
-                    }
-                }
-                throw .commandRejected("The configuration was not updated", source: .here())
+                status = try await interface.writeConfig(command: command, data: data)
             }
         }
 
-        /// Reads the status struct over CCID (`INS_YK2_STATUS`).
-        private static func readStatus(
-            over interface: SmartCardInterface<YubiOTPSessionError>
-        ) async throws(YubiOTPSessionError) -> [UInt8] {
-            let response: Data = try await interface.send(apdu: APDU(cla: 0, ins: insStatus, p1: 0, p2: 0))
-            let bytes = Array(response)
-            guard bytes.count >= statusMinimumLength else {
-                throw .responseParseError("Truncated OTP status struct", source: .here())
-            }
-            return bytes
-        }
-
-        /// Cancels an in-flight touch-triggered read.
-        ///
-        /// Only the OTP transport can be interrupted; over SmartCard the exchange is a single
-        /// blocking APDU, exactly as in `_YubiOtpSmartCardBackend.send_and_receive`.
         func cancel() async {
-            if case let .otp(interface) = kind {
-                await interface.cancel()
+            switch kind {
+            case let .otp(interface): await interface.cancel()
+            case let .smartCard(interface): await interface.cancel()
             }
         }
 
-        /// Runs a slot command that reads data, validating the transport's integrity check.
         func readData(
             slot: UInt8,
             data: Data = Data(),
@@ -220,30 +159,19 @@ extension YubiOTP.Session {
         ) async throws(YubiOTPSessionError) -> Data {
             switch kind {
             case let .otp(interface):
-                // The OTP transport returns the payload followed by its CRC trailer.
-                let response = try await interface.sendAndReceive(
+                return try await interface.readData(
                     slot: slot,
                     data: data,
+                    expectedLength: expectedLength,
                     onKeepalive: onKeepalive
                 )
-                guard response.count >= expectedLength + 2,
-                    response.prefix(expectedLength + 2).hasValidCRC16
-                else {
-                    throw .responseParseError("Invalid CRC in OTP data response", source: .here())
-                }
-                return response.prefix(expectedLength)
-
             case let .smartCard(interface):
-                // CCID checks integrity itself, so the applet returns exactly the payload.
-                let apdu = APDU(cla: 0, ins: insConfig, p1: slot, p2: 0, command: data)
-                let response: Data = try await interface.send(apdu: apdu)
-                guard response.count == expectedLength else {
-                    throw .responseParseError(
-                        "Expected \(expectedLength) bytes from the OTP application, got \(response.count)",
-                        source: .here()
-                    )
-                }
-                return response
+                return try await interface.readData(
+                    slot: slot,
+                    data: data,
+                    expectedLength: expectedLength,
+                    onKeepalive: onKeepalive
+                )
             }
         }
     }
