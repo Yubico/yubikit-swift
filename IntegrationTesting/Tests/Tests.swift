@@ -97,12 +97,16 @@ enum ScenarioTests {
         let result = await Scenario.Runner(provider: makeProvider(), secureChannel: forcedSecureChannel).run(scenario)
         switch result.status {
         case .passed:
-            break
+            await ScenarioOutcomeLog.shared.recordPassed()
         case .skipped(let reason):
+            await ScenarioOutcomeLog.shared.recordSkip(id: scenario.id, reason: reason)
             try Test.cancel(Comment(rawValue: "scenario \(scenario.id) skipped: \(reason)"))
         case .backendUnavailable(let reason):
+            await ScenarioOutcomeLog.shared.recordFailed(id: scenario.id, summary: "backend unavailable: \(reason)")
             Issue.record(Comment(rawValue: "scenario \(scenario.id) backend unavailable: \(reason)"))
         case .failed, .errored, .running:
+            let summary = result.failures.first?.message ?? result.thrownError ?? "\(result.status)"
+            await ScenarioOutcomeLog.shared.recordFailed(id: scenario.id, summary: summary)
             var report = "scenario \(scenario.id) \(result.status)"
             for failure in result.failures {
                 report += "\n  • \(failure.message)  (\(failure.location))"
@@ -124,10 +128,11 @@ enum ScenarioTests {
 
 }
 
-/// Parent suite for per-scenario tests; serialized because they share one attached key.
+// Parent suite for per-scenario tests; serialized because they share one attached key.
 @Suite(
     "Scenarios",
     .serialized,
+    .reportsScenarioOutcomes,
     .enabled(if: ScenarioTests.backendConfigured && ScenarioTests.configurationIsValid)
 )
 enum ScenarioSuites {}
