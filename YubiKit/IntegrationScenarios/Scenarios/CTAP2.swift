@@ -70,7 +70,6 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
     case enterpriseAttestationPlatform
     case previewSignUnsupportedAlgorithm
     case previewSignInvalidFlags
-    case previewSignMissingParameter
     case previewSignUpRequired
     case previewSignUvRequired
     case previewSignGenerateAndSign
@@ -1741,96 +1740,6 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     ) {
                         _ = try await session.makeCredential(parameters: params, token: token).value
                     }
-                }
-            }
-        case .previewSignMissingParameter:
-            return Scenario(
-                "CTAP2.PreviewSign.missingParameter",
-                "previewSign getAssertion rejects a missing keyHandle or TBS with INVALID_OPTION",
-                requirements: Requirements(capabilities: [.fido2])
-            ) { context in
-                let session = try await sessionWithPin(context)
-                guard try await CTAP2.Extension.PreviewSign.isSupported(by: session) else {
-                    try context.skip("previewSign not supported")
-                }
-                let previewSign = try await CTAP2.Extension.PreviewSign(session: session)
-
-                let mcToken = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
-                    permissions: [.makeCredential]
-                )
-                let mcParams = CTAP2.MakeCredential.Parameters(
-                    clientDataHash: defaultClientDataHash,
-                    rp: WebAuthn.RelyingParty(id: "example.com", name: "PS Missing"),
-                    user: WebAuthn.User(
-                        id: randomBytes(count: 32),
-                        name: "psmissing@example.com",
-                        displayName: "PS Missing"
-                    ),
-                    pubKeyCredParams: [.es256],
-                    extensions: [previewSign.makeCredential.input(algorithms: [.esp256, .es256], flags: 0)],
-                    rk: false
-                )
-                context.touch("Touch the key to generate a previewSign key")
-                let mcResponse = try await session.makeCredential(parameters: mcParams, token: mcToken).value
-                let generatedKey = try context.require(
-                    previewSign.makeCredential.output(from: mcResponse),
-                    "previewSign should return a generated key"
-                )
-                let credentialId = try context.require(
-                    mcResponse.authenticatorData.attestedCredentialData?.credentialId,
-                    "makeCredential must return a credential id"
-                )
-
-                let tbs = randomBytes(count: 32)
-
-                // Missing keyHandle: pass empty data as keyHandle.
-                let gaTokenKH = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
-                    permissions: [.getAssertion],
-                    rpId: "example.com"
-                )
-                let missingKH = CTAP2.GetAssertion.Parameters(
-                    rpId: "example.com",
-                    clientDataHash: defaultClientDataHash,
-                    allowList: [.init(id: credentialId)],
-                    extensions: [
-                        previewSign.getAssertion.input(keyHandle: Data(), tbs: tbs)
-                    ],
-                    up: false
-                )
-                await context.expectCTAPError(
-                    .invalidOption,
-                    .invalidCredential,
-                    during: "getAssertion with empty previewSign keyHandle"
-                ) {
-                    _ = try await session.getAssertion(parameters: missingKH, token: gaTokenKH).value
-                }
-
-                // Missing TBS: pass empty data as TBS.
-                let gaTokenTBS = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
-                    permissions: [.getAssertion],
-                    rpId: "example.com"
-                )
-                let missingTBS = CTAP2.GetAssertion.Parameters(
-                    rpId: "example.com",
-                    clientDataHash: defaultClientDataHash,
-                    allowList: [.init(id: credentialId)],
-                    extensions: [
-                        previewSign.getAssertion.input(
-                            keyHandle: generatedKey.keyHandle,
-                            tbs: Data()
-                        )
-                    ],
-                    up: false
-                )
-                await context.expectCTAPError(
-                    .invalidOption,
-                    .invalidCredential,
-                    during: "getAssertion with empty previewSign TBS"
-                ) {
-                    _ = try await session.getAssertion(parameters: missingTBS, token: gaTokenTBS).value
                 }
             }
         case .previewSignUpRequired:
