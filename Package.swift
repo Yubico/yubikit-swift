@@ -13,9 +13,14 @@ var yubiKitSwiftSettings: [SwiftSetting] = []
 var integrationTestDependencies: [Target.Dependency] = ["YubiKitIntegrationScenarios"]
 
 if twinKitEnabled {
-    packageDependencies.append(
-        .package(url: "https://github.com/Yubico/hardware-digital-twin", branch: "main")
-    )
+    // YUBIKIT_TWIN_PATH resolves TwinKit from a local checkout, unpushed changes included.
+    if let localTwinPath = Context.environment["YUBIKIT_TWIN_PATH"] {
+        packageDependencies.append(.package(path: localTwinPath))
+    } else {
+        packageDependencies.append(
+            .package(url: "https://github.com/Yubico/hardware-digital-twin", branch: "main")
+        )
+    }
     yubiKitDependencies.append(
         .target(name: "YubiKitTwinSupport", condition: .when(platforms: [.iOS]))
     )
