@@ -15,6 +15,11 @@ Environment knobs (passed through):
   YUBIKIT_TWINKIT_TRANSPORT=nfc   Drive the run contactless. CCID becomes the only
                                   path: the FIDO HID interface is USB-only, so
                                   those scenarios skip.
+  YUBIKIT_TWIN_PATH=<dir>         Resolve TwinKit from a local hardware-digital-twin
+                                  checkout instead of the published package, so twin
+                                  changes are testable before they are pushed. SwiftPM
+                                  takes the package identity from the directory name,
+                                  so <dir> must be named hardware-digital-twin.
 EOF
 }
 
