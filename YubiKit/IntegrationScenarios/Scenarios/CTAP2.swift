@@ -1855,11 +1855,6 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     "makeCredential must return a credential id"
                 )
 
-                let gaToken = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
-                    permissions: [.getAssertion],
-                    rpId: "example.com"
-                )
                 let gaParams = CTAP2.GetAssertion.Parameters(
                     rpId: "example.com",
                     clientDataHash: defaultClientDataHash,
@@ -1873,11 +1868,13 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     ],
                     up: true
                 )
+                // Unauthenticated: a pinUvAuthToken would satisfy UV and the key's UV
+                // requirement would never be exercised.
                 await context.expectCTAPError(
                     .puatRequired,
                     during: "getAssertion without UV on a UV-required previewSign key"
                 ) {
-                    _ = try await session.getAssertion(parameters: gaParams, token: gaToken).value
+                    _ = try await session.getAssertion(parameters: gaParams).value
                 }
             }
         // MARK: - previewSign (generate and sign round-trip)
