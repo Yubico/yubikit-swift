@@ -66,7 +66,7 @@ EOF
 esac
 
 case "$PROFILE" in
-  5-nfc|5c-nfc|5-nano|5c-nano|5-fips|bio-mpe|bio-fido|sky-nfc)
+  5-nfc|5c-nfc|5-nano|5c-nano|5-nfc-ent|5-nfc-58|5-fips|bio-mpe|bio-fido|sky-nfc)
     ;;
   "")
     echo "Internal profile must not be empty." >&2
