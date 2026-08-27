@@ -21,7 +21,7 @@ import YubiKitTwinSupport
 ///
 /// A run targets one transport, the way a real session does — you are either plugged in or tapping
 /// a card. `YUBIKIT_TWINKIT_TRANSPORT=nfc` switches the whole run to contactless, where CCID is the
-/// only path: the FIDO HID interface is USB-only, so CTAP2 falls back to CCID.
+/// only path: the keyboard (OTP) and FIDO HID interfaces are USB-only, so CTAP2 falls back to CCID.
 public struct TwinKitConnectionProvider: ConnectionProvider {
     public static let environmentConfigurationError: String? =
         TwinKitBackend.environmentProfileConfigurationError ?? transportConfigurationError
@@ -50,10 +50,11 @@ public struct TwinKitConnectionProvider: ConnectionProvider {
 
     public init(transport: DeviceTransport = TwinKitConnectionProvider.environmentTransport) {
         self.deviceTransport = transport
-        // Over NFC there is no USB HID at all, so the FIDO interface is absent.
+        // Over NFC there is no USB HID at all, so both the keyboard and FIDO interfaces are absent.
         let isNFC = transport == .nfc
         self.capabilities = ProviderCapabilities(
             hasFIDO: !isNFC,
+            hasOTP: !isNFC,
             supportsSecureChannel: true,
             isVirtual: true
         )
@@ -76,6 +77,17 @@ public struct TwinKitConnectionProvider: ConnectionProvider {
             return try await TwinKitFIDOConnection()
         } catch {
             throw ProviderError.unavailable("TwinKit FIDO connection failed: \(error)")
+        }
+    }
+
+    public func makeOTPConnection() async throws -> any OTPConnection {
+        guard deviceTransport != .nfc else {
+            throw ProviderError.unsupported("The OTP keyboard interface is not reachable over NFC")
+        }
+        do {
+            return try await TwinKitOTPConnection()
+        } catch {
+            throw ProviderError.unavailable("TwinKit OTP connection failed: \(error)")
         }
     }
 
@@ -169,6 +181,50 @@ private final class TwinKitFIDOConnection: FIDOConnection, @unchecked Sendable {
             throw .connectionLost
         } catch {
             throw .receiveFailed("TwinKit CTAPHID read failed", error)
+        }
+    }
+
+    func close(error: Error?) async {
+        channel.close(error: error)
+    }
+
+    func waitUntilClosed() async -> Error? {
+        await channel.waitUntilClosed()
+    }
+}
+
+private final class TwinKitOTPConnection: OTPConnection, @unchecked Sendable {
+    private let channel: TwinKitKeyboardChannel
+
+    required init() async throws(OTPConnectionError) {
+        do {
+            self.channel = try await TwinKitBackend.shared.openKeyboard()
+        } catch {
+            throw .setupFailed("TwinKit is unavailable", error)
+        }
+    }
+
+    static func makeConnection() async throws(OTPConnectionError) -> TwinKitOTPConnection {
+        try await TwinKitOTPConnection()
+    }
+
+    func send(_ report: Data) async throws(OTPConnectionError) {
+        do {
+            try await channel.send(report)
+        } catch TwinKitSupportError.connectionLost {
+            throw .connectionLost
+        } catch {
+            throw .transmitFailed("TwinKit OTP feature report write failed", error)
+        }
+    }
+
+    func receive() async throws(OTPConnectionError) -> Data {
+        do {
+            return try await channel.receive()
+        } catch TwinKitSupportError.connectionLost {
+            throw .connectionLost
+        } catch {
+            throw .receiveFailed("TwinKit OTP feature report read failed", error)
         }
     }
 

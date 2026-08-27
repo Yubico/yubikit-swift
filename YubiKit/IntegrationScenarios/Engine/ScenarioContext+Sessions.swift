@@ -81,6 +81,24 @@ extension Scenario.Context {
         return session
     }
 
+    /// Which transport a Yubico OTP scenario should drive the application over. The application is
+    /// reachable both ways, and `tests/device/test_otp.py` parameterizes every test across both.
+    enum OTPTransportKind: Sendable, CaseIterable {
+        case otpHID
+        case smartCard
+    }
+
+    func otpSession(over transport: OTPTransportKind) async throws -> YubiOTP.Session {
+        switch transport {
+        case .otpHID:
+            return try await YubiOTP.Session.makeSession(connection: try await otpConnection())
+        case .smartCard:
+            let connection = try await smartCardConnection()
+            let scp = try await scpKeyParams()
+            return try await YubiOTP.Session.makeSession(connection: connection, scpKeyParams: scp)
+        }
+    }
+
     func ctap2Session() async throws -> CTAP2.Session {
         switch provider.ctap2Transport {
         case .ccid:

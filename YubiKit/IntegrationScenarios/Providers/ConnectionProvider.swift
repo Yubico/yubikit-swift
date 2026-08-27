@@ -27,6 +27,8 @@ public protocol ConnectionProvider: Sendable {
 
     func makeFIDOConnection() async throws -> any FIDOConnection
 
+    func makeOTPConnection() async throws -> any OTPConnection
+
     func deviceInfo() async throws -> DeviceInfo
 
     func lightningKeyConnected() async -> Bool
@@ -34,21 +36,29 @@ public protocol ConnectionProvider: Sendable {
 
 extension ConnectionProvider {
     public func lightningKeyConnected() async -> Bool { false }
+
+    public func makeOTPConnection() async throws -> any OTPConnection {
+        throw ProviderError.unsupported("OTP (keyboard HID) is not available on this backend")
+    }
 }
 
 public struct ProviderCapabilities: Sendable {
     public var hasFIDO: Bool
+    /// Whether the backend exposes the Yubico OTP keyboard HID interface.
+    public var hasOTP: Bool
     public var hasLightning: Bool
     public var supportsSecureChannel: Bool
     public var isVirtual: Bool
 
     public init(
         hasFIDO: Bool,
+        hasOTP: Bool = false,
         hasLightning: Bool = false,
         supportsSecureChannel: Bool,
         isVirtual: Bool
     ) {
         self.hasFIDO = hasFIDO
+        self.hasOTP = hasOTP
         self.hasLightning = hasLightning
         self.supportsSecureChannel = supportsSecureChannel
         self.isVirtual = isVirtual

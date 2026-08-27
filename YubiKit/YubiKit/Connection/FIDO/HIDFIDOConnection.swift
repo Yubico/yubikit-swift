@@ -33,10 +33,9 @@ package enum HID {
         /// A textual representation of the YubiKey device.
         package var description: String { name }
 
-        // Private / Fileprivate
-        fileprivate let locationID: Int
+        let locationID: Int
 
-        fileprivate init(hidLocationID: Int, name: String) {
+        init(hidLocationID: Int, name: String) {
             self.locationID = hidLocationID
             self.name = name
         }
