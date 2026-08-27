@@ -18,8 +18,6 @@ import YubiKit
 /// Management application scenarios.
 public enum ManagementScenario: CaseIterable, ScenarioSuite {
 
-    case version
-    case deviceInfo
     case timeouts
     case chaining
     case disableEnableApplication
@@ -27,28 +25,31 @@ public enum ManagementScenario: CaseIterable, ScenarioSuite {
     case nfcRestricted
     case bioDeviceReset
 
-    public var scenario: Scenario {
-        switch self {
-        // MARK: - Info
-        case .version:
-            return Scenario(
-                "Management.Info.version",
-                "reports a firmware version"
-            ) { context in
-                let session = try await context.managementSession()
-                let version = await session.version
-                context.expect(version.major >= 4, "expected a real firmware version, got \(version)")
-            }
-        case .deviceInfo:
-            return Scenario(
+    /// The Management application answers over SmartCard and over FIDO HID, and the SDK ships a
+    /// `makeSession` for each. These read-only families run over both, so neither backend can rot
+    /// unnoticed — before this, only SmartCard was ever exercised.
+    public static var parameterizedScenarios: [Scenario] {
+        Scenario.parameterized(
+            "Management.Info.version",
+            over: ManagementTransport.allCases
+        ) { context, transport in
+            let session = try await context.managementSession(over: transport.kind)
+            let version = await session.version
+            context.expect(version.major >= 4, "expected a real firmware version, got \(version)")
+        }
+            + Scenario.parameterized(
                 "Management.Info.deviceInfo",
-                "getDeviceInfo round-trips with a serial number"
-            ) { context in
-                let session = try await context.managementSession()
+                over: ManagementTransport.allCases
+            ) { context, transport in
+                let session = try await context.managementSession(over: transport.kind)
                 let info = try await session.getDeviceInfo()
                 context.expectEqual(info.version, await session.version, "DeviceInfo.version matches session")
                 context.expect(info.serialNumber > 0, "serial number should be greater than 0")
             }
+    }
+
+    public var scenario: Scenario {
+        switch self {
         // MARK: - Configuration
         case .timeouts:
             return Scenario(
@@ -215,5 +216,23 @@ public enum ManagementScenario: CaseIterable, ScenarioSuite {
                 context.expect(try await piv.getPinMetadata().isDefault, "PIN should be default again after reset")
             }
         }
+    }
+}
+
+/// One transport row of the parameterized Management families.
+private struct ManagementTransport: ScenarioParameter {
+
+    let kind: Scenario.Context.ManagementTransportKind
+
+    static var allCases: [ManagementTransport] {
+        Scenario.Context.ManagementTransportKind.allCases.map { ManagementTransport(kind: $0) }
+    }
+
+    var idSuffix: String { kind == .fidoHID ? "fidoHID" : "smartCard" }
+
+    var displayName: String { "over \(idSuffix)" }
+
+    var requirements: Requirements {
+        Requirements(requiresFIDOTransport: kind == .fidoHID)
     }
 }

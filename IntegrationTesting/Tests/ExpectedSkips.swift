@@ -41,8 +41,19 @@ enum ExpectedSkips {
     }
 
     private static let defaultProfile: Set<String> = [
-        // requires real hardware
+        // requires a FIDO (HID) transport, unavailable on this backend
         "CTAP2.Credentials.cancelMakeCredential",
+        "CTAPHID.Capabilities.winkSupported",
+        "CTAPHID.Commands.wink",
+        "CTAPHID.Errors.invalidCommand",
+        "CTAPHID.Interface.getInfo",
+        "CTAPHID.Interface.initialize",
+        "CTAPHID.Ping.echo",
+        "Connection.FIDOHID.withDevice",
+        "Management.Info.deviceInfo.fidoHID",
+        "Management.Info.version.fidoHID",
+
+        // requires real hardware
         "Connection.SmartCard.cancellation",
         "Connection.SmartCard.serial",
         "PIV.Attestation.ed25519",
@@ -62,15 +73,6 @@ enum ExpectedSkips {
         "CTAP2.PreviewSign.uvRequired",
         "WebAuthn.PreviewSign.generateKey",
         "WebAuthn.PreviewSign.noOutputWithoutInput",
-
-        // requires a FIDO (HID) transport, unavailable on this backend
-        "CTAPHID.Capabilities.winkSupported",
-        "CTAPHID.Commands.wink",
-        "CTAPHID.Errors.invalidCommand",
-        "CTAPHID.Interface.getInfo",
-        "CTAPHID.Interface.initialize",
-        "CTAPHID.Ping.echo",
-        "Connection.FIDOHID.withDevice",
 
         // requires a Bio (fingerprint) device
         "CTAP2.Bio.enrollRenameDelete",
