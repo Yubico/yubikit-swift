@@ -20,30 +20,7 @@ extension ScenarioSuites {
     @Suite("Management")
     struct Management {
 
-        @Test("reports a firmware version")
-        func version() async throws { try await ScenarioTests.run(ManagementScenario.version.scenario) }
-
-        @Test("getDeviceInfo round-trips with a serial number")
-        func deviceInfo() async throws { try await ScenarioTests.run(ManagementScenario.deviceInfo.scenario) }
-
-        @Test("updateDeviceConfig round-trips auto-eject / challenge-response timeouts")
-        func timeouts() async throws { try await ScenarioTests.run(ManagementScenario.timeouts.scenario) }
-
-        @Test("chained enable/disable across applications round-trips")
-        func chaining() async throws { try await ScenarioTests.run(ManagementScenario.chaining.scenario) }
-
-        @Test("a disabled application can no longer be selected (then re-enabled)")
-        func disableEnableApplication() async throws {
-            try await ScenarioTests.run(ManagementScenario.disableEnableApplication.scenario)
-        }
-
-        @Test("a set lock code is required to change configuration")
-        func lockCode() async throws { try await ScenarioTests.run(ManagementScenario.lockCode.scenario) }
-
-        @Test("NFC can be restricted until next USB insertion")
-        func nfcRestricted() async throws { try await ScenarioTests.run(ManagementScenario.nfcRestricted.scenario) }
-
-        @Test("device-wide reset restores the default PIV PIN (Bio MPE)")
-        func bioDeviceReset() async throws { try await ScenarioTests.run(ManagementScenario.bioDeviceReset.scenario) }
+        @Test(arguments: ScenarioTests.selected(in: .management))
+        func scenario(_ scenario: Scenario) async throws { try await ScenarioTests.run(scenario) }
     }
 }

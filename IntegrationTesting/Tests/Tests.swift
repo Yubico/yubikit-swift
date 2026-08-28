@@ -90,19 +90,27 @@ enum ScenarioTests {
         }
     }
 
+    /// Catalog entries for `suite`, narrowed by `SCENARIO` to the ids containing that substring.
+    static func selected(in suite: Scenario.Suite) -> [Scenario] {
+        let scenarios = Scenario.Catalog.scenarios(in: suite)
+        guard let only else { return scenarios }
+        return scenarios.filter { $0.id.localizedCaseInsensitiveContains(only) }
+    }
+
     static func run(_ scenario: Scenario) async throws {
-        if let only, !scenario.id.localizedCaseInsensitiveContains(only) {
-            try Test.cancel(Comment(rawValue: "scenario \(scenario.id) filtered out by SCENARIO='\(only)'"))
-        }
         let result = await Scenario.Runner(provider: makeProvider(), secureChannel: forcedSecureChannel).run(scenario)
         switch result.status {
         case .passed:
-            break
+            await ScenarioOutcomeLog.shared.recordPassed()
         case .skipped(let reason):
+            await ScenarioOutcomeLog.shared.recordSkip(id: scenario.id, reason: reason)
             try Test.cancel(Comment(rawValue: "scenario \(scenario.id) skipped: \(reason)"))
         case .backendUnavailable(let reason):
+            await ScenarioOutcomeLog.shared.recordFailed(id: scenario.id, summary: "backend unavailable: \(reason)")
             Issue.record(Comment(rawValue: "scenario \(scenario.id) backend unavailable: \(reason)"))
         case .failed, .errored, .running:
+            let summary = result.failures.first?.message ?? result.thrownError ?? "\(result.status)"
+            await ScenarioOutcomeLog.shared.recordFailed(id: scenario.id, summary: summary)
             var report = "scenario \(scenario.id) \(result.status)"
             for failure in result.failures {
                 report += "\n  • \(failure.message)  (\(failure.location))"
@@ -113,21 +121,18 @@ enum ScenarioTests {
             Issue.record(Comment(rawValue: report))
         }
     }
-
-    /// The parameterized families declared by a suite: every catalog scenario in `suite` that is not
-    /// one of the suite's enumerated cases. Driving `@Test(arguments:)` off this picks up a newly
-    /// added family automatically — no per-case wrapper to forget and no fragile id matching.
-    static func parameterizedFamilies(in suite: Scenario.Suite, besides enumeratedCases: [Scenario]) -> [Scenario] {
-        let enumeratedIDs = Set(enumeratedCases.map(\.id))
-        return Scenario.Catalog.scenarios(in: suite).filter { !enumeratedIDs.contains($0.id) }
-    }
-
 }
 
-/// Parent suite for per-scenario tests; serialized because they share one attached key.
+/// Labels each parameterized case with the scenario it ran rather than an argument index.
+extension Scenario: CustomTestStringConvertible {
+    public var testDescription: String { "\(id) — \(name)" }
+}
+
+// Parent suite for per-scenario tests; serialized because they share one attached key.
 @Suite(
     "Scenarios",
     .serialized,
+    .reportsScenarioOutcomes,
     .enabled(if: ScenarioTests.backendConfigured && ScenarioTests.configurationIsValid)
 )
 enum ScenarioSuites {}
@@ -165,14 +170,11 @@ enum ScenarioSuites {}
     #expect(duplicates.isEmpty, "duplicate scenario ids: \(duplicates.joined(separator: ", "))")
 }
 
-// Each suite that declares parameterized families drives them from `parameterizedFamilies(in:besides:)`
-// in a `@Test(arguments:)`. An empty result there would run zero cases while still reporting green, so
-// guard that the families resolve — this fails loudly if a base id is renamed or a family stops being
-// declared.
-@Test func parameterizedFamiliesAreWired() {
-    #expect(!ScenarioTests.parameterizedFamilies(in: .oath, besides: OATHScenario.allCases.map(\.scenario)).isEmpty)
-    #expect(!ScenarioTests.parameterizedFamilies(in: .ctap2, besides: CTAP2Scenario.allCases.map(\.scenario)).isEmpty)
-    #expect(!ScenarioTests.parameterizedFamilies(in: .piv, besides: PIVScenario.allCases.map(\.scenario)).isEmpty)
+// A suite with no catalog entries runs zero cases and still reports green.
+@Test func everySuiteHasScenarios() {
+    for suite in Scenario.Suite.allCases {
+        #expect(!Scenario.Catalog.scenarios(in: suite).isEmpty, "suite \(suite) declares no scenarios")
+    }
 }
 
 @Test(.enabled(if: ScenarioTests.backendConfigured && ScenarioTests.configurationIsValid))

@@ -21,6 +21,7 @@
 		6BD108D43A13DC3F29E0B5AD /* CTAPHIDTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23B15A5253D1D3FAC49F32D1 /* CTAPHIDTests.swift */; };
 		F44DACF2A256CC313B1E425A /* WebAuthnTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B899A839141C122ECD20DF2 /* WebAuthnTests.swift */; };
 		8A41AA57094150C672571EC2 /* SCPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0CB67259DE893C171798C6F /* SCPTests.swift */; };
+		3C7A1E5B04D2F9186BA3E720 /* ScenarioOutcomeLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D42B60FA1735C8E4F0D2A63 /* ScenarioOutcomeLog.swift */; };
 		6B1B9D3173B1EB286A57C1D9 /* RunnerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F00BA7AA036FED980CDCDB2 /* RunnerViewModel.swift */; };
 		6C2AEE0F2DAD52E600C9683A /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C2AEE0E2DAD52E600C9683A /* YubiKit */; };
 		6C8465362DADB1C600788FB7 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = 6C8465352DADB1C600788FB7 /* YubiKit */; };
@@ -57,6 +58,7 @@
 		23B15A5253D1D3FAC49F32D1 /* CTAPHIDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CTAPHIDTests.swift; sourceTree = "<group>"; };
 		7B899A839141C122ECD20DF2 /* WebAuthnTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAuthnTests.swift; sourceTree = "<group>"; };
 		B0CB67259DE893C171798C6F /* SCPTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SCPTests.swift; sourceTree = "<group>"; };
+		9D42B60FA1735C8E4F0D2A63 /* ScenarioOutcomeLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenarioOutcomeLog.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -141,6 +143,7 @@
 				23B15A5253D1D3FAC49F32D1 /* CTAPHIDTests.swift */,
 				7B899A839141C122ECD20DF2 /* WebAuthnTests.swift */,
 				B0CB67259DE893C171798C6F /* SCPTests.swift */,
+				9D42B60FA1735C8E4F0D2A63 /* ScenarioOutcomeLog.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -268,6 +271,7 @@
 				6BD108D43A13DC3F29E0B5AD /* CTAPHIDTests.swift in Sources */,
 				F44DACF2A256CC313B1E425A /* WebAuthnTests.swift in Sources */,
 				8A41AA57094150C672571EC2 /* SCPTests.swift in Sources */,
+				3C7A1E5B04D2F9186BA3E720 /* ScenarioOutcomeLog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

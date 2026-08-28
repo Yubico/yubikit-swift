@@ -18,30 +18,60 @@ import YubiKitIntegrationScenarios
 import YubiKitTwinSupport
 
 /// Runs integration scenarios against TwinKit's in-process YubiKey.
+///
+/// A run targets one transport, the way a real session does — you are either plugged in or tapping
+/// a card. `YUBIKIT_TWINKIT_TRANSPORT=nfc` switches the whole run to contactless, where CCID is the
+/// only path: the FIDO HID interface is USB-only, so CTAP2 falls back to CCID.
 public struct TwinKitConnectionProvider: ConnectionProvider {
-    public static let environmentConfigurationError = TwinKitBackend.environmentProfileConfigurationError
+    public static let environmentConfigurationError: String? =
+        TwinKitBackend.environmentProfileConfigurationError ?? transportConfigurationError
 
-    public let capabilities = ProviderCapabilities(
-        hasFIDO: true,
-        supportsSecureChannel: true,
-        isVirtual: true
-    )
-    public let deviceTransport: DeviceTransport = .usb
-    public let ctap2Transport: CTAP2Transport = .fido
+    private static let transportEnvironmentKey = "YUBIKIT_TWINKIT_TRANSPORT"
+
+    private static let transportConfigurationError: String? = {
+        guard let value = ProcessInfo.processInfo.environment[transportEnvironmentKey]?.lowercased(),
+            !value.isEmpty
+        else { return nil }
+        guard ["usb", "nfc"].contains(value) else {
+            return "invalid \(transportEnvironmentKey) '\(value)' (expected usb or nfc)"
+        }
+        return nil
+    }()
+
+    public static var environmentTransport: DeviceTransport {
+        ProcessInfo.processInfo.environment[transportEnvironmentKey]?.lowercased() == "nfc" ? .nfc : .usb
+    }
+
+    public let capabilities: ProviderCapabilities
+    public let deviceTransport: DeviceTransport
+    public let ctap2Transport: CTAP2Transport
 
     private let infoCache = TwinKitDeviceInfoCache()
 
-    public init() {}
+    public init(transport: DeviceTransport = TwinKitConnectionProvider.environmentTransport) {
+        self.deviceTransport = transport
+        // Over NFC there is no USB HID at all, so the FIDO interface is absent.
+        let isNFC = transport == .nfc
+        self.capabilities = ProviderCapabilities(
+            hasFIDO: !isNFC,
+            supportsSecureChannel: true,
+            isVirtual: true
+        )
+        self.ctap2Transport = isNFC ? .ccid : .fido
+    }
 
     public func makeSmartCardConnection() async throws -> any SmartCardConnection {
         do {
-            return try await TwinKitSmartCardConnection()
+            return try await TwinKitSmartCardConnection(transport: deviceTransport)
         } catch {
             throw ProviderError.unavailable("TwinKit smart-card connection failed: \(error)")
         }
     }
 
     public func makeFIDOConnection() async throws -> any FIDOConnection {
+        guard deviceTransport != .nfc else {
+            throw ProviderError.unsupported("FIDO HID is not reachable over NFC")
+        }
         do {
             return try await TwinKitFIDOConnection()
         } catch {
@@ -65,12 +95,18 @@ public struct TwinKitConnectionProvider: ConnectionProvider {
     }
 }
 
-private final class TwinKitSmartCardConnection: SmartCardConnection, @unchecked Sendable {
+private final class TwinKitSmartCardConnection: SmartCardConnection {
     private let channel: TwinKitSmartCardChannel
 
-    required init() async throws(SmartCardConnectionError) {
+    required convenience init() async throws(SmartCardConnectionError) {
+        try await self.init(transport: .usb)
+    }
+
+    init(transport: DeviceTransport) async throws(SmartCardConnectionError) {
         do {
-            self.channel = try await TwinKitBackend.shared.openSmartCard(transport: .usb)
+            self.channel = try await TwinKitBackend.shared.openSmartCard(
+                transport: transport == .nfc ? .nfc : .usb
+            )
         } catch {
             throw .setupFailed("TwinKit is unavailable", error)
         }
@@ -99,7 +135,7 @@ private final class TwinKitSmartCardConnection: SmartCardConnection, @unchecked 
     }
 }
 
-private final class TwinKitFIDOConnection: FIDOConnection, @unchecked Sendable {
+private final class TwinKitFIDOConnection: FIDOConnection {
     var mtu: Int { channel.mtu }
 
     private let channel: TwinKitFIDOChannel

@@ -26,10 +26,30 @@ extension Scenario.Context {
 
     nonisolated var deviceTransport: DeviceTransport { provider.deviceTransport }
 
+    /// Which transport a Management scenario should drive the application over.
+    ///
+    /// The SDK deliberately makes the caller pick a connection; a scenario has no such excuse,
+    /// because the point is to cover every transport the device actually offers.
+    enum ManagementTransportKind: Sendable, CaseIterable {
+        case smartCard
+        case fidoHID
+    }
+
+    /// The default transport. SmartCard is the only one that reaches every Management operation —
+    /// `resetDevice` is CCID-only — so unfanned scenarios keep using it.
     func managementSession() async throws -> Management.Session {
-        let connection = try await smartCardConnection()
-        let scp = try await scpKeyParams()
-        return try await Management.Session.makeSession(connection: connection, scpKeyParams: scp)
+        try await managementSession(over: .smartCard)
+    }
+
+    func managementSession(over transport: ManagementTransportKind) async throws -> Management.Session {
+        switch transport {
+        case .smartCard:
+            let connection = try await smartCardConnection()
+            let scp = try await scpKeyParams()
+            return try await Management.Session.makeSession(connection: connection, scpKeyParams: scp)
+        case .fidoHID:
+            return try await Management.Session.makeSession(connection: try await fidoConnection())
+        }
     }
 
     func pivSession(authenticated: Bool = false, reset: Bool = true) async throws -> PIVSession {

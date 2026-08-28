@@ -20,37 +20,7 @@ extension ScenarioSuites {
     @Suite("Connection")
     struct Connection {
 
-        @Test("acquires a usable SmartCard connection")
-        func open() async throws { try await ScenarioTests.run(ConnectionScenario.open.scenario) }
-
-        @Test("waitUntilClosed() is notified with the closing error")
-        func closeNotifies() async throws { try await ScenarioTests.run(ConnectionScenario.closeNotifies.scenario) }
-
-        @Test("a second connection fails until the first is closed")
-        func serial() async throws { try await ScenarioTests.run(ConnectionScenario.serial.scenario) }
-
-        @Test("concurrent open attempts resolve to a single connection")
-        func cancellation() async throws { try await ScenarioTests.run(ConnectionScenario.cancellation.scenario) }
-
-        @Test("manual SELECT + device-info exchange reads the firmware version")
-        func sendManually() async throws { try await ScenarioTests.run(ConnectionScenario.sendManually.scenario) }
-
-        @Test("selecting a non-existent applet reports application-not-available")
-        func selectWrongApp() async throws { try await ScenarioTests.run(ConnectionScenario.selectWrongApp.scenario) }
-
-        @Test("opens a FIDO HID connection to an attached device")
-        func withDeviceFIDOHID() async throws {
-            try await ScenarioTests.run(ConnectionScenario.withDeviceFIDOHID.scenario)
-        }
-
-        #if os(iOS)
-        @Test("the NFC reader alert message can be updated and the session closed with a message")
-        func alertMessage() async throws { try await ScenarioTests.run(ConnectionScenario.alertMessage.scenario) }
-
-        @Test("an NFC connection closes cleanly")
-        func closingErrorMessage() async throws {
-            try await ScenarioTests.run(ConnectionScenario.closingErrorMessage.scenario)
-        }
-        #endif
+        @Test(arguments: ScenarioTests.selected(in: .connection))
+        func scenario(_ scenario: Scenario) async throws { try await ScenarioTests.run(scenario) }
     }
 }
