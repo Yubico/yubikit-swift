@@ -31,8 +31,6 @@ protocol CBORInterface: Actor {
     /// The error type thrown by this interface.
     associatedtype Error: SessionError
 
-    var version: Version { get async }
-
     /// Maximum message size supported by the authenticator.
     /// Defaults to 1024 bytes until getInfo() returns the actual limit.
     var maxMsgSize: Int { get async }

@@ -25,8 +25,15 @@ extension CTAP2 {
     /// Read more about FIDO2/WebAuthn on the
     /// [FIDO Alliance website](https://fidoalliance.org/fido2/).
     public actor Session {
-        /// The firmware version of the YubiKey.
-        public let version: Version
+        // NEXTMAJOR: Remove.
+        /// Unavailable over the FIDO application; always `0.0.0`.
+        @available(
+            *,
+            deprecated,
+            message:
+                "Always 0.0.0. Use Management.Session for the firmware version, or getInfo().versions for the CTAP versions the authenticator supports."
+        )
+        public let version: Version = Version(withData: Data([0, 0, 0]))!
 
         /// Get authenticator information.
         ///
@@ -87,7 +94,6 @@ extension CTAP2 {
 
         internal init(interface: Interface) async {
             self.interface = interface
-            self.version = await interface.version
         }
 
         // MARK: - Private

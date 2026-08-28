@@ -38,21 +38,3 @@ public enum FIDOConnectionError: Error, Sendable {
     /// Failed to receive data.
     case receiveFailed(String?, Error? = nil)
 }
-
-// MARK: - Internal methods to flatten the error
-extension FIDOConnectionError {
-    static func setupFailed(_ message: String? = nil, flatten error: Error?) -> Self {
-        if let connectionError = error as? FIDOConnectionError { return connectionError }
-        return .setupFailed(message, error)
-    }
-
-    static func transmitFailed(_ message: String? = nil, flatten error: Error?) -> Self {
-        if let connectionError = error as? FIDOConnectionError { return connectionError }
-        return .transmitFailed(message, error)
-    }
-
-    static func receiveFailed(_ message: String? = nil, flatten error: Error?) -> Self {
-        if let connectionError = error as? FIDOConnectionError { return connectionError }
-        return .receiveFailed(message, error)
-    }
-}
