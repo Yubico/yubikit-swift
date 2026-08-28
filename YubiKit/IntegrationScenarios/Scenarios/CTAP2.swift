@@ -1727,7 +1727,7 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                         pubKeyCredParams: [.es256],
                         extensions: [
                             previewSign.makeCredential.input(
-                                algorithms: [.esp256, .es256],
+                                algorithms: [.esp256SplitARKGPlaceholder],
                                 flags: flags
                             )
                         ],
@@ -1767,7 +1767,12 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                         displayName: "PS UP"
                     ),
                     pubKeyCredParams: [.es256],
-                    extensions: [previewSign.makeCredential.input(algorithms: [.esp256, .es256], flags: 0b001)],
+                    extensions: [
+                        previewSign.makeCredential.input(
+                            algorithms: [.esp256SplitARKGPlaceholder],
+                            flags: 0b001
+                        )
+                    ],
                     rk: false
                 )
                 context.touch("Touch the key to create a UP-required previewSign key")
@@ -1793,7 +1798,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     extensions: [
                         previewSign.getAssertion.input(
                             keyHandle: generatedKey.keyHandle,
-                            tbs: randomBytes(count: 32)
+                            tbs: randomBytes(count: 32),
+                            additionalArgs: try ifARKG(generatedKey).additionalArgs
                         )
                     ],
                     up: false
@@ -1830,7 +1836,12 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                         displayName: "PS UV"
                     ),
                     pubKeyCredParams: [.es256],
-                    extensions: [previewSign.makeCredential.input(algorithms: [.esp256, .es256], flags: 0b101)],
+                    extensions: [
+                        previewSign.makeCredential.input(
+                            algorithms: [.esp256SplitARKGPlaceholder],
+                            flags: 0b101
+                        )
+                    ],
                     rk: false
                 )
                 context.touch("Touch the key to create a UV-required previewSign key")
@@ -1856,7 +1867,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     extensions: [
                         previewSign.getAssertion.input(
                             keyHandle: generatedKey.keyHandle,
-                            tbs: randomBytes(count: 32)
+                            tbs: randomBytes(count: 32),
+                            additionalArgs: try ifARKG(generatedKey).additionalArgs
                         )
                     ],
                     up: true
@@ -1872,7 +1884,7 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
         case .previewSignGenerateAndSign:
             return Scenario(
                 "CTAP2.PreviewSign.generateAndSign",
-                "previewSign generates a key and produces a non-empty signature",
+                "previewSign generates a key and its signature verifies against the ARKG-derived public key",
                 requirements: Requirements(capabilities: [.fido2])
             ) { context in
                 let session = try await sessionWithPin(context)
@@ -1894,7 +1906,12 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                         displayName: "PS Sign"
                     ),
                     pubKeyCredParams: [.es256],
-                    extensions: [previewSign.makeCredential.input(algorithms: [.esp256, .es256], flags: 0)],
+                    extensions: [
+                        previewSign.makeCredential.input(
+                            algorithms: [.esp256SplitARKGPlaceholder],
+                            flags: 0
+                        )
+                    ],
                     rk: false
                 )
                 context.touch("Touch the key to generate a previewSign key")
@@ -1912,7 +1929,11 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     "makeCredential must return a credential id"
                 )
 
-                let tbs = randomBytes(count: 32)
+                // The authenticator signs tbs as a prehashed SHA-256 digest, so verification
+                // has to run over the message that produced it.
+                let message = randomBytes(count: 64)
+                let tbs = Data(SHA256.hash(data: message))
+                let derived = try ifARKG(generatedKey)
                 let gaToken = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
                     permissions: [.getAssertion],
@@ -1925,7 +1946,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     extensions: [
                         previewSign.getAssertion.input(
                             keyHandle: generatedKey.keyHandle,
-                            tbs: tbs
+                            tbs: tbs,
+                            additionalArgs: derived.additionalArgs
                         )
                     ],
                     up: false
@@ -1936,6 +1958,14 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     "getAssertion should return a previewSign signature"
                 )
                 context.expect(!signature.isEmpty, "signature should not be empty")
+                context.expect(
+                    ARKG.verifySignature(
+                        publicKey: derived.publicKey,
+                        message: message,
+                        derSignature: signature
+                    ),
+                    "signature should verify against the derived public key"
+                )
             }
         }
     }
@@ -2402,6 +2432,28 @@ extension Scenario.Context {
             body
         )
     }
+}
+
+// MARK: - previewSign ARKG
+
+/// The delegated party's half of a split-ARKG sign, mirroring python-fido2's `if_arkg`:
+/// derive a public key from the authenticator's seed, plus the COSE_Sign_Args it needs to
+/// re-derive the matching private key.
+private func ifARKG(
+    _ key: CTAP2.Extension.PreviewSign.GeneratedKey,
+    context: Data = Data("YubiKitIntegrationScenarios".utf8)
+) throws -> (publicKey: Data, additionalArgs: Data) {
+    guard key.algorithm == .esp256SplitARKGPlaceholder else {
+        throw ARKGError.unexpectedAlgorithm(key.algorithm.rawValue)
+    }
+    guard let seed = ARKG.seedPoints(fromCOSE: key.publicKey) else { throw ARKGError.notAnARKGSeed }
+    let derived = try ARKG.derivePublicKey(
+        pkKem: seed.pkKem,
+        pkBl: seed.pkBl,
+        ikm: randomBytes(count: 32),
+        context: context
+    )
+    return (derived.publicKey, ARKG.buildAdditionalArgs(context: context, arkgKeyHandle: derived.arkgKeyHandle))
 }
 
 // MARK: - Shared constants
