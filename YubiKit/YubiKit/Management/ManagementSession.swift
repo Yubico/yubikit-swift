@@ -148,7 +148,7 @@ public enum Management {
                 application: .management,
                 keyParams: scpKeyParams
             )
-            return await .init(interface: Interface(interface: smartCardInterface))
+            return try await .init(interface: Interface(interface: smartCardInterface))
         }
 
         /// Creates a new Management session with the provided FIDO connection.
@@ -160,12 +160,12 @@ public enum Management {
             connection: FIDOConnection
         ) async throws(ManagementSessionError) -> Self {
             let fidoInterface = try await FIDOInterface<Error>(connection: connection)
-            return await .init(interface: Interface(interface: fidoInterface))
+            return try await .init(interface: Interface(interface: fidoInterface))
         }
 
-        private init(interface: Interface) async {
+        private init(interface: Interface) async throws(ManagementSessionError) {
             self.interface = interface
-            self.version = await interface.version
+            self.version = try await interface.version
             self.scpState = await interface.scpState
             self.smartCardConnection = await interface.smartCardConnection
         }
@@ -219,10 +219,16 @@ extension Management.Session {
         /// The firmware version of the YubiKey, parsed from the Management select response over
         /// SmartCard and reported by CTAPHID INIT over FIDO.
         var version: Version {
-            get async {
+            get async throws(ManagementSessionError) {
                 switch kind {
                 case let .smartCard(i):
-                    return Version(withManagementResult: i.selectResponse) ?? Version(withData: Data([0, 0, 0]))!
+                    guard let version = Version(withManagementResult: i.selectResponse) else {
+                        throw .responseParseError(
+                            "Failed to parse the firmware version from the Management select response",
+                            source: .here()
+                        )
+                    }
+                    return version
                 case let .fido(i):
                     return await i.version
                 }
