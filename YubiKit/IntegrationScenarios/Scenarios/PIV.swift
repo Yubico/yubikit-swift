@@ -18,7 +18,7 @@ import Security
 import YubiKit
 
 /// PIV application scenarios.
-public enum PIVScenario: CaseIterable, ScenarioSuite {
+enum PIVScenario: CaseIterable, ScenarioSuite {
 
     case eccp256Message
     case eccp256Digest
@@ -88,7 +88,7 @@ public enum PIVScenario: CaseIterable, ScenarioSuite {
     case putCertificateRequiresAuth
     case putKeyRequiresAuth
 
-    public var scenario: Scenario { definition }
+    var scenario: Scenario { definition }
 
     private var definition: Scenario {
         switch self {

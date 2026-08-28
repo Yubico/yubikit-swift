@@ -17,7 +17,7 @@ import Foundation
 import YubiKit
 
 /// CTAP2 application scenarios.
-public enum CTAP2Scenario: CaseIterable, ScenarioSuite {
+enum CTAP2Scenario: CaseIterable, ScenarioSuite {
 
     case cleanState
     case getInfo
@@ -75,7 +75,7 @@ public enum CTAP2Scenario: CaseIterable, ScenarioSuite {
     case previewSignUvRequired
     case previewSignGenerateAndSign
 
-    public var scenario: Scenario {
+    var scenario: Scenario {
         switch self {
         // MARK: - Setup
         case .cleanState:

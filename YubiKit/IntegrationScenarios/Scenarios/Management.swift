@@ -16,7 +16,7 @@ import Foundation
 import YubiKit
 
 /// Management application scenarios.
-public enum ManagementScenario: CaseIterable, ScenarioSuite {
+enum ManagementScenario: CaseIterable, ScenarioSuite {
 
     case timeouts
     case chaining
@@ -28,7 +28,7 @@ public enum ManagementScenario: CaseIterable, ScenarioSuite {
     /// The Management application answers over SmartCard and over FIDO HID, and the SDK ships a
     /// `makeSession` for each. These read-only families run over both, so neither backend can rot
     /// unnoticed — before this, only SmartCard was ever exercised.
-    public static var parameterizedScenarios: [Scenario] {
+    static var parameterizedScenarios: [Scenario] {
         Scenario.parameterized(
             "Management.Info.version",
             over: ManagementTransport.allCases
@@ -48,7 +48,7 @@ public enum ManagementScenario: CaseIterable, ScenarioSuite {
             }
     }
 
-    public var scenario: Scenario {
+    var scenario: Scenario {
         switch self {
         // MARK: - Configuration
         case .timeouts:

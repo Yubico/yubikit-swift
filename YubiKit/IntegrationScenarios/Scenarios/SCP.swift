@@ -18,7 +18,7 @@ import Foundation
 import YubiKit
 
 /// Secure Channel Protocol scenarios.
-public enum SCPScenario: CaseIterable, ScenarioSuite {
+enum SCPScenario: CaseIterable, ScenarioSuite {
 
     case defaultKeys
     case importKeySCP03
@@ -38,7 +38,7 @@ public enum SCPScenario: CaseIterable, ScenarioSuite {
     case cardRecognitionData
     case resetRestoresDefaultKeys
 
-    public var scenario: Scenario { definition }
+    var scenario: Scenario { definition }
 
     private var definition: Scenario {
         switch self {
