@@ -20,6 +20,8 @@ Environment knobs (passed through):
                                   changes are testable before they are pushed. SwiftPM
                                   takes the package identity from the directory name,
                                   so <dir> must be named hardware-digital-twin.
+  SCENARIO=<id substring>         Run only the scenarios whose id contains the substring,
+                                  e.g. SCENARIO=PIV.Signatures for a whole family.
 EOF
 }
 

@@ -20,24 +20,7 @@ extension ScenarioSuites {
     @Suite("CTAPHID")
     struct CTAPHID {
 
-        #if os(macOS)
-        @Test("CTAPHID interface initializes and reports a version and capabilities")
-        func initialize() async throws { try await ScenarioTests.run(CTAPHIDScenario.initialize.scenario) }
-
-        @Test("CTAPHID channel round-trips a CTAP2 getInfo")
-        func getInfo() async throws { try await ScenarioTests.run(CTAPHIDScenario.getInfo.scenario) }
-
-        @Test("CTAPHID capability flags report WINK support")
-        func winkSupported() async throws { try await ScenarioTests.run(CTAPHIDScenario.winkSupported.scenario) }
-
-        @Test("CTAPHID WINK command completes")
-        func wink() async throws { try await ScenarioTests.run(CTAPHIDScenario.wink.scenario) }
-
-        @Test("CTAPHID PING echoes empty and non-empty payloads")
-        func echo() async throws { try await ScenarioTests.run(CTAPHIDScenario.echo.scenario) }
-
-        @Test("an invalid CTAPHID command is rejected with a transport error")
-        func invalidCommand() async throws { try await ScenarioTests.run(CTAPHIDScenario.invalidCommand.scenario) }
-        #endif
+        @Test(arguments: ScenarioTests.selected(in: .ctaphid))
+        func scenario(_ scenario: Scenario) async throws { try await ScenarioTests.run(scenario) }
     }
 }
