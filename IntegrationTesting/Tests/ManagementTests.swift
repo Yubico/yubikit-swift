@@ -20,11 +20,14 @@ extension ScenarioSuites {
     @Suite("Management")
     struct Management {
 
-        @Test("reports a firmware version")
-        func version() async throws { try await ScenarioTests.run(ManagementScenario.version.scenario) }
-
-        @Test("getDeviceInfo round-trips with a serial number")
-        func deviceInfo() async throws { try await ScenarioTests.run(ManagementScenario.deviceInfo.scenario) }
+        @Test(
+            "read-only families, fanned out across every transport the application answers on",
+            arguments: ScenarioTests.parameterizedFamilies(
+                in: .management,
+                besides: ManagementScenario.allCases.map(\.scenario)
+            )
+        )
+        func fannedAcrossTransports(_ scenario: Scenario) async throws { try await ScenarioTests.run(scenario) }
 
         @Test("updateDeviceConfig round-trips auto-eject / challenge-response timeouts")
         func timeouts() async throws { try await ScenarioTests.run(ManagementScenario.timeouts.scenario) }
