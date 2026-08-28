@@ -16,7 +16,7 @@ import Foundation
 import YubiKit
 
 /// OATH application scenarios.
-public enum OATHScenario: CaseIterable, ScenarioSuite {
+enum OATHScenario: CaseIterable, ScenarioSuite {
 
     case credentials
     case allCodes
@@ -43,7 +43,7 @@ public enum OATHScenario: CaseIterable, ScenarioSuite {
     case maxCredentials
     case unicodeName
 
-    public var scenario: Scenario { definition }
+    var scenario: Scenario { definition }
 
     private var definition: Scenario {
         switch self {

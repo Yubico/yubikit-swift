@@ -16,7 +16,7 @@ import Foundation
 import YubiKit
 
 /// WebAuthn `Client` scenarios.
-public enum WebAuthnScenario: CaseIterable, ScenarioSuite {
+enum WebAuthnScenario: CaseIterable, ScenarioSuite {
 
     case makeCredentialGetAssertion
     case allowCredentials
@@ -45,7 +45,7 @@ public enum WebAuthnScenario: CaseIterable, ScenarioSuite {
     case echoedFalse
     case echoedTrue
 
-    public var scenario: Scenario {
+    var scenario: Scenario {
         switch self {
         // MARK: - Ceremonies (make / get via Client)
         case .makeCredentialGetAssertion:

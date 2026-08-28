@@ -19,7 +19,7 @@ import Foundation
 #endif
 
 /// CTAPHID transport-layer scenarios.
-public enum CTAPHIDScenario: CaseIterable, ScenarioSuite {
+enum CTAPHIDScenario: CaseIterable, ScenarioSuite {
 
     case initialize
     case getInfo
@@ -28,7 +28,7 @@ public enum CTAPHIDScenario: CaseIterable, ScenarioSuite {
     case echo
     case invalidCommand
 
-    public var scenario: Scenario {
+    var scenario: Scenario {
         switch self {
         // MARK: - Interface
         case .initialize:

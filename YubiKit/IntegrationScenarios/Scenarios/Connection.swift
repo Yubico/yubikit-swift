@@ -17,7 +17,7 @@ import Foundation
 import YubiKit
 
 /// Connection scenarios.
-public enum ConnectionScenario: CaseIterable, ScenarioSuite {
+enum ConnectionScenario: CaseIterable, ScenarioSuite {
 
     case open
     case closeNotifies
@@ -29,7 +29,7 @@ public enum ConnectionScenario: CaseIterable, ScenarioSuite {
     case alertMessage
     case closingErrorMessage
 
-    public var scenario: Scenario {
+    var scenario: Scenario {
         switch self {
         // MARK: - SmartCard (connection lifecycle)
         case .open:
