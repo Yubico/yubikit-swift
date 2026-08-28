@@ -216,41 +216,50 @@ extension Management.Session {
             self.kind = .fido(interface)
         }
 
+        /// The firmware version of the YubiKey, parsed from the Management select response over
+        /// SmartCard and reported by CTAPHID INIT over FIDO.
         var version: Version {
             get async {
                 switch kind {
                 case let .smartCard(i):
-                    return await i.version
+                    return Version(withManagementResult: i.selectResponse) ?? Version(withData: Data([0, 0, 0]))!
                 case let .fido(i):
                     return await i.version
                 }
             }
         }
 
-        func readConfig(page: UInt8) async throws -> Data {
+        func readConfig(page: UInt8) async throws(ManagementSessionError) -> Data {
             switch kind {
             case let .smartCard(i):
-                return try await i.readConfig(page: page)
+                return try await i.send(apdu: APDU(cla: 0, ins: 0x1d, p1: page, p2: 0))
             case let .fido(i):
-                return try await i.readConfig(page: page)
+                return try await i.sendAndReceive(
+                    cmd: FIDOInterface<ManagementSessionError>.hidCommand(.readConfig),
+                    payload: Data([page])
+                )
             }
         }
 
-        func writeConfig(data: Data) async throws {
+        func writeConfig(data: Data) async throws(ManagementSessionError) {
             switch kind {
             case let .smartCard(i):
-                try await i.writeConfig(data: data)
+                let _: Data = try await i.send(apdu: APDU(cla: 0, ins: 0x1c, p1: 0, p2: 0, command: data))
             case let .fido(i):
-                try await i.writeConfig(data: data)
+                _ = try await i.sendAndReceive(
+                    cmd: FIDOInterface<ManagementSessionError>.hidCommand(.writeConfig),
+                    payload: data
+                )
             }
         }
 
-        func resetDevice() async throws {
+        /// Device reset is only available over SmartCard (CCID) connections.
+        func resetDevice() async throws(ManagementSessionError) {
             switch kind {
             case let .smartCard(i):
-                try await i.resetDevice()
-            case let .fido(i):
-                try await i.resetDevice()
+                let _: Data = try await i.send(apdu: APDU(cla: 0, ins: 0x1f, p1: 0, p2: 0))
+            case .fido:
+                throw .featureNotSupported(source: .here())
             }
         }
 
@@ -271,5 +280,24 @@ extension Management.Session {
                 return nil
             }
         }
+    }
+}
+
+// MARK: - Private helpers
+
+extension Version {
+    fileprivate init?(withManagementResult data: Data) {
+        guard let resultString = String(bytes: data.bytes, encoding: .ascii) else { return nil }
+        guard let versions = resultString.components(separatedBy: " ").last?.components(separatedBy: "."),
+            versions.count == 3
+        else {
+            return nil
+        }
+        guard let major = UInt8(versions[0]), let minor = UInt8(versions[1]), let micro = UInt8(versions[2]) else {
+            return nil
+        }
+        self.major = major
+        self.minor = minor
+        self.micro = micro
     }
 }
