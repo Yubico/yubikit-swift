@@ -70,7 +70,6 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
     case enterpriseAttestationPlatform
     case previewSignUnsupportedAlgorithm
     case previewSignInvalidFlags
-    case previewSignMissingParameter
     case previewSignUpRequired
     case previewSignUvRequired
     case previewSignGenerateAndSign
@@ -1728,7 +1727,7 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                         pubKeyCredParams: [.es256],
                         extensions: [
                             previewSign.makeCredential.input(
-                                algorithms: [.esp256, .es256],
+                                algorithms: [.esp256SplitARKGPlaceholder],
                                 flags: flags
                             )
                         ],
@@ -1741,96 +1740,6 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     ) {
                         _ = try await session.makeCredential(parameters: params, token: token).value
                     }
-                }
-            }
-        case .previewSignMissingParameter:
-            return Scenario(
-                "CTAP2.PreviewSign.missingParameter",
-                "previewSign getAssertion rejects a missing keyHandle or TBS with INVALID_OPTION",
-                requirements: Requirements(capabilities: [.fido2])
-            ) { context in
-                let session = try await sessionWithPin(context)
-                guard try await CTAP2.Extension.PreviewSign.isSupported(by: session) else {
-                    try context.skip("previewSign not supported")
-                }
-                let previewSign = try await CTAP2.Extension.PreviewSign(session: session)
-
-                let mcToken = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
-                    permissions: [.makeCredential]
-                )
-                let mcParams = CTAP2.MakeCredential.Parameters(
-                    clientDataHash: defaultClientDataHash,
-                    rp: WebAuthn.RelyingParty(id: "example.com", name: "PS Missing"),
-                    user: WebAuthn.User(
-                        id: randomBytes(count: 32),
-                        name: "psmissing@example.com",
-                        displayName: "PS Missing"
-                    ),
-                    pubKeyCredParams: [.es256],
-                    extensions: [previewSign.makeCredential.input(algorithms: [.esp256, .es256], flags: 0)],
-                    rk: false
-                )
-                context.touch("Touch the key to generate a previewSign key")
-                let mcResponse = try await session.makeCredential(parameters: mcParams, token: mcToken).value
-                let generatedKey = try context.require(
-                    previewSign.makeCredential.output(from: mcResponse),
-                    "previewSign should return a generated key"
-                )
-                let credentialId = try context.require(
-                    mcResponse.authenticatorData.attestedCredentialData?.credentialId,
-                    "makeCredential must return a credential id"
-                )
-
-                let tbs = randomBytes(count: 32)
-
-                // Missing keyHandle: pass empty data as keyHandle.
-                let gaTokenKH = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
-                    permissions: [.getAssertion],
-                    rpId: "example.com"
-                )
-                let missingKH = CTAP2.GetAssertion.Parameters(
-                    rpId: "example.com",
-                    clientDataHash: defaultClientDataHash,
-                    allowList: [.init(id: credentialId)],
-                    extensions: [
-                        previewSign.getAssertion.input(keyHandle: Data(), tbs: tbs)
-                    ],
-                    up: false
-                )
-                await context.expectCTAPError(
-                    .invalidOption,
-                    .invalidCredential,
-                    during: "getAssertion with empty previewSign keyHandle"
-                ) {
-                    _ = try await session.getAssertion(parameters: missingKH, token: gaTokenKH).value
-                }
-
-                // Missing TBS: pass empty data as TBS.
-                let gaTokenTBS = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
-                    permissions: [.getAssertion],
-                    rpId: "example.com"
-                )
-                let missingTBS = CTAP2.GetAssertion.Parameters(
-                    rpId: "example.com",
-                    clientDataHash: defaultClientDataHash,
-                    allowList: [.init(id: credentialId)],
-                    extensions: [
-                        previewSign.getAssertion.input(
-                            keyHandle: generatedKey.keyHandle,
-                            tbs: Data()
-                        )
-                    ],
-                    up: false
-                )
-                await context.expectCTAPError(
-                    .invalidOption,
-                    .invalidCredential,
-                    during: "getAssertion with empty previewSign TBS"
-                ) {
-                    _ = try await session.getAssertion(parameters: missingTBS, token: gaTokenTBS).value
                 }
             }
         case .previewSignUpRequired:
@@ -1858,7 +1767,12 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                         displayName: "PS UP"
                     ),
                     pubKeyCredParams: [.es256],
-                    extensions: [previewSign.makeCredential.input(algorithms: [.esp256, .es256], flags: 0b001)],
+                    extensions: [
+                        previewSign.makeCredential.input(
+                            algorithms: [.esp256SplitARKGPlaceholder],
+                            flags: 0b001
+                        )
+                    ],
                     rk: false
                 )
                 context.touch("Touch the key to create a UP-required previewSign key")
@@ -1884,7 +1798,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     extensions: [
                         previewSign.getAssertion.input(
                             keyHandle: generatedKey.keyHandle,
-                            tbs: randomBytes(count: 32)
+                            tbs: randomBytes(count: 32),
+                            additionalArgs: try ifARKG(generatedKey).additionalArgs
                         )
                     ],
                     up: false
@@ -1921,7 +1836,12 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                         displayName: "PS UV"
                     ),
                     pubKeyCredParams: [.es256],
-                    extensions: [previewSign.makeCredential.input(algorithms: [.esp256, .es256], flags: 0b101)],
+                    extensions: [
+                        previewSign.makeCredential.input(
+                            algorithms: [.esp256SplitARKGPlaceholder],
+                            flags: 0b101
+                        )
+                    ],
                     rk: false
                 )
                 context.touch("Touch the key to create a UV-required previewSign key")
@@ -1935,11 +1855,6 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     "makeCredential must return a credential id"
                 )
 
-                let gaToken = try await session.getPinUVToken(
-                    using: .pin(defaultTestPin),
-                    permissions: [.getAssertion],
-                    rpId: "example.com"
-                )
                 let gaParams = CTAP2.GetAssertion.Parameters(
                     rpId: "example.com",
                     clientDataHash: defaultClientDataHash,
@@ -1947,23 +1862,26 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     extensions: [
                         previewSign.getAssertion.input(
                             keyHandle: generatedKey.keyHandle,
-                            tbs: randomBytes(count: 32)
+                            tbs: randomBytes(count: 32),
+                            additionalArgs: try ifARKG(generatedKey).additionalArgs
                         )
                     ],
                     up: true
                 )
+                // Unauthenticated: a pinUvAuthToken would satisfy UV and the key's UV
+                // requirement would never be exercised.
                 await context.expectCTAPError(
                     .puatRequired,
                     during: "getAssertion without UV on a UV-required previewSign key"
                 ) {
-                    _ = try await session.getAssertion(parameters: gaParams, token: gaToken).value
+                    _ = try await session.getAssertion(parameters: gaParams).value
                 }
             }
         // MARK: - previewSign (generate and sign round-trip)
         case .previewSignGenerateAndSign:
             return Scenario(
                 "CTAP2.PreviewSign.generateAndSign",
-                "previewSign generates a key and produces a non-empty signature",
+                "previewSign generates a key and its signature verifies against the ARKG-derived public key",
                 requirements: Requirements(capabilities: [.fido2])
             ) { context in
                 let session = try await sessionWithPin(context)
@@ -1985,7 +1903,12 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                         displayName: "PS Sign"
                     ),
                     pubKeyCredParams: [.es256],
-                    extensions: [previewSign.makeCredential.input(algorithms: [.esp256, .es256], flags: 0)],
+                    extensions: [
+                        previewSign.makeCredential.input(
+                            algorithms: [.esp256SplitARKGPlaceholder],
+                            flags: 0
+                        )
+                    ],
                     rk: false
                 )
                 context.touch("Touch the key to generate a previewSign key")
@@ -2003,7 +1926,11 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     "makeCredential must return a credential id"
                 )
 
-                let tbs = randomBytes(count: 32)
+                // The authenticator signs tbs as a prehashed SHA-256 digest, so verification
+                // has to run over the message that produced it.
+                let message = randomBytes(count: 64)
+                let tbs = Data(SHA256.hash(data: message))
+                let derived = try ifARKG(generatedKey)
                 let gaToken = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
                     permissions: [.getAssertion],
@@ -2016,7 +1943,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     extensions: [
                         previewSign.getAssertion.input(
                             keyHandle: generatedKey.keyHandle,
-                            tbs: tbs
+                            tbs: tbs,
+                            additionalArgs: derived.additionalArgs
                         )
                     ],
                     up: false
@@ -2027,6 +1955,14 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     "getAssertion should return a previewSign signature"
                 )
                 context.expect(!signature.isEmpty, "signature should not be empty")
+                context.expect(
+                    ARKG.verifySignature(
+                        publicKey: derived.publicKey,
+                        message: message,
+                        derSignature: signature
+                    ),
+                    "signature should verify against the derived public key"
+                )
             }
         }
     }
@@ -2493,6 +2429,28 @@ extension Scenario.Context {
             body
         )
     }
+}
+
+// MARK: - previewSign ARKG
+
+/// The delegated party's half of a split-ARKG sign, mirroring python-fido2's `if_arkg`:
+/// derive a public key from the authenticator's seed, plus the COSE_Sign_Args it needs to
+/// re-derive the matching private key.
+private func ifARKG(
+    _ key: CTAP2.Extension.PreviewSign.GeneratedKey,
+    context: Data = Data("YubiKitIntegrationScenarios".utf8)
+) throws -> (publicKey: Data, additionalArgs: Data) {
+    guard key.algorithm == .esp256SplitARKGPlaceholder else {
+        throw ARKGError.unexpectedAlgorithm(key.algorithm.rawValue)
+    }
+    guard let seed = ARKG.seedPoints(fromCOSE: key.publicKey) else { throw ARKGError.notAnARKGSeed }
+    let derived = try ARKG.derivePublicKey(
+        pkKem: seed.pkKem,
+        pkBl: seed.pkBl,
+        ikm: randomBytes(count: 32),
+        context: context
+    )
+    return (derived.publicKey, ARKG.buildAdditionalArgs(context: context, arkgKeyHandle: derived.arkgKeyHandle))
 }
 
 // MARK: - Shared constants
