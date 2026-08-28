@@ -95,7 +95,7 @@ public struct TwinKitConnectionProvider: ConnectionProvider {
     }
 }
 
-private final class TwinKitSmartCardConnection: SmartCardConnection, @unchecked Sendable {
+private final class TwinKitSmartCardConnection: SmartCardConnection {
     private let channel: TwinKitSmartCardChannel
 
     required convenience init() async throws(SmartCardConnectionError) {
@@ -135,7 +135,7 @@ private final class TwinKitSmartCardConnection: SmartCardConnection, @unchecked 
     }
 }
 
-private final class TwinKitFIDOConnection: FIDOConnection, @unchecked Sendable {
+private final class TwinKitFIDOConnection: FIDOConnection {
     var mtu: Int { channel.mtu }
 
     private let channel: TwinKitFIDOChannel
