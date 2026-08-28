@@ -5,6 +5,7 @@ on:
     branches: [ "main", "release/**" ]
     paths:
       - 'YubiKit/**/*.swift'
+      - '!YubiKit/IntegrationScenarios/**'
       - 'Package.swift'
       - '.github/workflows/public-api-diff.yml'
   workflow_dispatch:
