@@ -199,6 +199,16 @@ public enum WebAuthn {
         }
     }
 
+    /// The [authenticator attachment modality](https://www.w3.org/TR/webauthn-3/#enum-attachment)
+    /// a credential reports — whether the authenticator is bound to one device or roams between them.
+    public enum AuthenticatorAttachment: String, Sendable {
+        /// A platform authenticator bound to a single device (for example a Secure Enclave credential).
+        case platform
+
+        /// A roaming authenticator that moves between devices (for example a YubiKey).
+        case crossPlatform = "cross-platform"
+    }
+
     /// Public key credential descriptor identifying a specific credential.
     ///
     /// Used in `allowList` and `excludeList` parameters to identify credentials

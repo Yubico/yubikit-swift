@@ -58,12 +58,13 @@ extension WebAuthn {
 
     static func encodeCredentialEnvelope(
         to container: inout KeyedEncodingContainer<CredentialCodingKeys>,
-        credentialId: Data
+        credentialId: Data,
+        authenticatorAttachment: WebAuthn.AuthenticatorAttachment
     ) throws {
         try container.encodeBase64URL(credentialId, forKey: .id)
         try container.encodeBase64URL(credentialId, forKey: .rawId)
         try container.encode("public-key", forKey: .type)
-        try container.encode("cross-platform", forKey: .authenticatorAttachment)
+        try container.encode(authenticatorAttachment.rawValue, forKey: .authenticatorAttachment)
     }
 }
 
@@ -247,7 +248,11 @@ extension WebAuthn.Registration.Response: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: WebAuthn.CredentialCodingKeys.self)
-        try WebAuthn.encodeCredentialEnvelope(to: &container, credentialId: credentialId)
+        try WebAuthn.encodeCredentialEnvelope(
+            to: &container,
+            credentialId: credentialId,
+            authenticatorAttachment: authenticatorAttachment
+        )
 
         var inner = container.nestedContainer(keyedBy: RegistrationResponseKeys.self, forKey: .response)
         try inner.encodeBase64URL(rawAttestationObject, forKey: .attestationObject)
@@ -310,7 +315,11 @@ extension WebAuthn.Authentication.Response: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: WebAuthn.CredentialCodingKeys.self)
-        try WebAuthn.encodeCredentialEnvelope(to: &container, credentialId: credentialId)
+        try WebAuthn.encodeCredentialEnvelope(
+            to: &container,
+            credentialId: credentialId,
+            authenticatorAttachment: authenticatorAttachment
+        )
 
         var inner = container.nestedContainer(keyedBy: AuthenticationResponseKeys.self, forKey: .response)
         try inner.encodeBase64URL(rawAuthenticatorData, forKey: .authenticatorData)
