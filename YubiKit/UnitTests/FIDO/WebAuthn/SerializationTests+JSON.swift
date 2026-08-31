@@ -15,7 +15,7 @@
 import Foundation
 import Testing
 
-@testable import YubiKit
+@_spi(YubiInternal) @testable import YubiKit
 
 // MARK: - Test Helpers
 

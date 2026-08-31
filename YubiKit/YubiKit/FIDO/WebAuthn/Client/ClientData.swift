@@ -26,16 +26,16 @@ extension WebAuthn {
         // MARK: - Internal Implementation
 
         // This is `nil` for credential provider flows where only the hash is provided.
-        internal let clientDataJSON: Data?
+        @_spi(YubiInternal) public let clientDataJSON: Data?
 
         // SHA-256 hash of the client data.
-        internal let clientDataHash: Data
+        @_spi(YubiInternal) public let clientDataHash: Data
 
         // The origin for this request.
-        internal let origin: Origin
+        @_spi(YubiInternal) public let origin: Origin
 
         // The effective RP ID for this request.
-        internal let rpId: String
+        @_spi(YubiInternal) public let rpId: String
     }
 }
 

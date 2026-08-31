@@ -52,5 +52,26 @@ extension WebAuthn.Authentication {
         ///
         /// This is `nil` for credential provider flows where only the hash was provided.
         internal let clientDataJSON: Data?
+
+        /// Memberwise initializer, written out only to carry the SPI annotation.
+        @_spi(YubiInternal) public init(
+            credentialId: Data,
+            rawAuthenticatorData: Data,
+            signature: Data,
+            user: WebAuthn.User?,
+            clientExtensionResults: WebAuthn.Extension.AuthenticationOutputs,
+            signCount: UInt32,
+            authenticatorData: WebAuthn.AuthenticatorData,
+            clientDataJSON: Data?
+        ) {
+            self.credentialId = credentialId
+            self.rawAuthenticatorData = rawAuthenticatorData
+            self.signature = signature
+            self.user = user
+            self.clientExtensionResults = clientExtensionResults
+            self.signCount = signCount
+            self.authenticatorData = authenticatorData
+            self.clientDataJSON = clientDataJSON
+        }
     }
 }

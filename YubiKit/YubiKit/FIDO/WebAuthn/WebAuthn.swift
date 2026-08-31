@@ -94,12 +94,13 @@ public enum WebAuthn {
     public struct StatusStream<R: Sendable>: AsyncSequence, @unchecked Sendable {
         public typealias Element = Status<R>
 
-        typealias Base = StatusStreamBase<Status<R>, ClientError>
-        typealias Continuation = Base.Continuation
+        @_spi(YubiInternal) public typealias Base = StatusStreamBase<Status<R>, ClientError>
+        @_spi(YubiInternal) public typealias Continuation = Base.Continuation
 
         private let base: Base
 
-        init(_ build: @escaping (Continuation) -> Void) {
+        /// Builds a stream from a closure that drives a ``Continuation``.
+        @_spi(YubiInternal) public init(_ build: @escaping (Continuation) -> Void) {
             self.base = Base(build)
         }
 
@@ -111,7 +112,8 @@ public enum WebAuthn {
             Self(Base.error(error))
         }
 
-        func withTimeout(_ duration: Duration?) -> Self {
+        /// Wraps this stream with the request timeout. A `nil` duration returns the stream unchanged.
+        @_spi(YubiInternal) public func withTimeout(_ duration: Duration?) -> Self {
             guard let duration else { return self }
             return Self(base.timeout(duration, error: .timeout(source: .here())))
         }
@@ -265,8 +267,8 @@ public enum WebAuthn {
 
 // MARK: - StreamStatus Conformance
 
-extension WebAuthn.Status: StreamStatus {
-    var finishedResponse: Response? {
+@_spi(YubiInternal) extension WebAuthn.Status: StreamStatus {
+    @_spi(YubiInternal) public var finishedResponse: Response? {
         if case .finished(let response) = self { return response }
         return nil
     }

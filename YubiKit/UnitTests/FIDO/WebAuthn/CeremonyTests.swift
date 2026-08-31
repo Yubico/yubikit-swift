@@ -15,7 +15,7 @@
 import Foundation
 import Testing
 
-@testable import YubiKit
+@_spi(YubiInternal) @testable import YubiKit
 
 /// SDK-surface ceremony tests for `WebAuthn.Client`, driven through
 /// `MockWebAuthnBackend`. These exercise the Swift client (status stream,

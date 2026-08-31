@@ -15,7 +15,7 @@
 import Foundation
 import Testing
 
-@testable import YubiKit
+@_spi(YubiInternal) @testable import YubiKit
 
 @Suite("Extension Allowlist Tests")
 struct ExtensionAllowlistTests {
