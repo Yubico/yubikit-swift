@@ -39,7 +39,8 @@ extension WebAuthn {
         public let authenticatorData: AuthenticatorData
 
         /// Creates an attestation object from its components.
-        internal init(format: String, statementCBOR: CBOR.Value, authenticatorData: AuthenticatorData) {
+        @_spi(YubiInternal) public init(format: String, statementCBOR: CBOR.Value, authenticatorData: AuthenticatorData)
+        {
             self.format = format
             self.statement = .init(format: format, statementCBOR: statementCBOR)
             self.authenticatorData = authenticatorData

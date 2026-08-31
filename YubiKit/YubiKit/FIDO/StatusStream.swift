@@ -15,38 +15,42 @@
 import Foundation
 
 /// Protocol for status types that can signal completion.
-protocol StreamStatus<Response>: Sendable {
+///
+/// The conformances on `WebAuthn.Status` and `CTAP2.Status` must carry `@_spi(YubiInternal)` too —
+/// an ungated conformance on a public type would force this protocol into the public API.
+@_spi(YubiInternal) public protocol StreamStatus<Response>: Sendable {
     associatedtype Response: Sendable
     /// Returns the response if this is a terminal status, nil otherwise.
     var finishedResponse: Response? { get }
 }
 
 /// Async sequence that yields status updates with typed errors.
-struct StatusStreamBase<Status: StreamStatus, Failure: Error & Sendable>: AsyncSequence,
+@_spi(YubiInternal)
+public struct StatusStreamBase<Status: StreamStatus, Failure: Error & Sendable>: AsyncSequence,
     @unchecked Sendable
 {
-    typealias Element = Status
+    @_spi(YubiInternal) public typealias Element = Status
 
     private let stream: AsyncStream<Result<Status, Failure>>
 
-    init(_ build: @escaping (Continuation) -> Void) {
+    @_spi(YubiInternal) public init(_ build: @escaping (Continuation) -> Void) {
         self.stream = AsyncStream { continuation in
             build(Continuation(continuation))
         }
     }
 
-    func makeAsyncIterator() -> Iterator {
+    @_spi(YubiInternal) public func makeAsyncIterator() -> Iterator {
         Iterator(stream.makeAsyncIterator())
     }
 
-    struct Iterator: AsyncIteratorProtocol {
+    @_spi(YubiInternal) public struct Iterator: AsyncIteratorProtocol {
         private var iterator: AsyncStream<Result<Status, Failure>>.AsyncIterator
 
         fileprivate init(_ iterator: AsyncStream<Result<Status, Failure>>.AsyncIterator) {
             self.iterator = iterator
         }
 
-        mutating func next() async throws(Failure) -> Status? {
+        @_spi(YubiInternal) public mutating func next() async throws(Failure) -> Status? {
             guard let result = await iterator.next() else { return nil }
             return try result.get()
         }
@@ -97,26 +101,26 @@ extension StatusStreamBase {
         }
     }
 
-    struct Continuation: Sendable {
+    @_spi(YubiInternal) public struct Continuation: Sendable {
         private let continuation: AsyncStream<Result<Status, Failure>>.Continuation
 
         fileprivate init(_ continuation: AsyncStream<Result<Status, Failure>>.Continuation) {
             self.continuation = continuation
         }
 
-        func yield(_ status: Status) {
+        @_spi(YubiInternal) public func yield(_ status: Status) {
             continuation.yield(.success(status))
             if status.finishedResponse != nil {
                 continuation.finish()
             }
         }
 
-        func yield(error: Failure) {
+        @_spi(YubiInternal) public func yield(error: Failure) {
             continuation.yield(.failure(error))
             continuation.finish()
         }
 
-        func finish() {
+        @_spi(YubiInternal) public func finish() {
             continuation.finish()
         }
     }

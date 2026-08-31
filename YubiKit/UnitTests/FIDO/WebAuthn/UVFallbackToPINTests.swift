@@ -15,7 +15,7 @@
 import Foundation
 import Testing
 
-@testable import YubiKit
+@_spi(YubiInternal) @testable import YubiKit
 
 @Suite("WebAuthn UV → PIN Mid-Flight Downgrade", .serialized)
 struct UVFallbackToPINTests {

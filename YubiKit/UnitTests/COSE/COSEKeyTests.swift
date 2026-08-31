@@ -15,7 +15,7 @@
 import Foundation
 import Testing
 
-@testable import YubiKit
+@_spi(YubiInternal) @testable import YubiKit
 
 /// COSE key vectors from https://github.com/cose-wg/Examples;
 /// X25519 from RFC 7748 §6.1 (cose-wg has no X25519 example).

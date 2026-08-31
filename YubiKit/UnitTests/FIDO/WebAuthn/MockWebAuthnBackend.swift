@@ -14,7 +14,7 @@
 
 import Foundation
 
-@testable import YubiKit
+@_spi(YubiInternal) @testable import YubiKit
 
 // MARK: - MockWebAuthnBackend
 
