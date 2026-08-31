@@ -5,12 +5,12 @@ import Foundation
 
 @testable import YubiKit
 
-// `WebAuthn.Backend` requires `: Actor` (CTAP2Backend.swift:25), so the type
+// `WebAuthn.CTAP2Backend` requires `: Actor` (CTAP2Backend.swift:25), so the type
 // must be an `actor`. Scenario setup is synchronous and runs from outside the
 // actor, so callbacks are `nonisolated(unsafe) var` — accept the trade-off
 // rather than wrapping every scenario assignment in `await`. Single-threaded
 // scenario execution makes this safe in practice.
-actor MockWebAuthnBackend: WebAuthn.Backend {
+actor MockWebAuthnBackend: WebAuthn.CTAP2Backend {
 
     nonisolated(unsafe) var onGetInfo: (() throws(CTAP2.SessionError) -> CTAP2.GetInfo.Response)!
     nonisolated(unsafe) var onGetUVRetries: (() throws(CTAP2.SessionError) -> Int)!
@@ -40,7 +40,7 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
         return try onGetPinRetries()
     }
 
-    /// `WebAuthn.Backend` requirement: the SDK drives token acquisition
+    /// `WebAuthn.CTAP2Backend` requirement: the SDK drives token acquisition
     /// through a stream so it can surface keep-alives during built-in UV.
     /// Scenarios stub `onGetPinUVToken` (the simpler one-shot shape); we
     /// wrap that in a finished-status stream here.
@@ -267,11 +267,11 @@ extension WebAuthn.User {
 
 extension WebAuthn.Client {
     static func mocked(
-        backend: WebAuthn.Backend,
+        backend: WebAuthn.CTAP2Backend,
         origin: String = "https://example.com"
     ) throws -> WebAuthn.Client {
         WebAuthn.Client(
-            backend: backend,
+            backend: .ctap2(backend),
             origin: try WebAuthn.Origin(origin),
             allowedExtensions: .standard,
             isPublicSuffix: { _ in false }

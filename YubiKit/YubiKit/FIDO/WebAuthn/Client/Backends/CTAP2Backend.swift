@@ -22,7 +22,7 @@ extension WebAuthn {
     ///
     /// This protocol defines the CTAP2 operations required by WebAuthn.Client,
     /// allowing the client logic to be tested with mock implementations.
-    protocol Backend: Actor {
+    protocol CTAP2Backend: Actor {
 
         // MARK: - Authenticator Info
 
@@ -98,7 +98,7 @@ extension WebAuthn {
 
 // MARK: - Default Implementations
 
-extension WebAuthn.Backend {
+extension WebAuthn.CTAP2Backend {
 
     func getPinUVToken(
         using method: CTAP2.ClientPin.Method,
@@ -111,7 +111,7 @@ extension WebAuthn.Backend {
 
 // MARK: - CTAP2.Session Conformance
 
-extension CTAP2.Session: WebAuthn.Backend {
+extension CTAP2.Session: WebAuthn.CTAP2Backend {
 
     func getPinRetries() async throws(CTAP2.SessionError) -> CTAP2.ClientPin.GetRetries.Response {
         try await getPinRetries(protocol: nil)

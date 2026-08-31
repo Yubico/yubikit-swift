@@ -57,6 +57,7 @@ extension WebAuthn.Client {
     //
     // Returns: (nil, nil) = no auth needed, (token, nil) = use token, (nil, true) = internal UV.
     func acquireAuthToken(
+        backend: any WebAuthn.CTAP2Backend,
         info: CTAP2.GetInfo.Response,
         permissions: CTAP2.ClientPin.Permission,
         rpId: String,
@@ -102,6 +103,7 @@ extension WebAuthn.Client {
         if initialUVRetries > 0, info.options.pinUVAuthToken == true {
             let canFallback = authorization.uv != .required && hasPin
             let result = try await runExternalUV(
+                backend: backend,
                 permissions: permissions,
                 rpId: rpId,
                 canFallback: canFallback,
@@ -176,6 +178,7 @@ extension WebAuthn.Client {
     }
 
     fileprivate func runExternalUV(
+        backend: any WebAuthn.CTAP2Backend,
         permissions: CTAP2.ClientPin.Permission,
         rpId: String,
         canFallback: Bool,
@@ -224,7 +227,7 @@ extension WebAuthn.Client {
             case .ctapError(.uvInvalid, _):
                 // Surface retries left rather than silently falling through —
                 // the caller chooses re-prompt vs PIN.
-                throw try await translateUVInvalid()
+                throw try await translateUVInvalid(backend: backend)
             case .ctapError(.uvBlocked, _):
                 if !canFallback {
                     throw .uvBlocked(source: .here())
@@ -255,7 +258,9 @@ extension WebAuthn.Client {
     // when exhausted. A failure to read the retry counter bubbles as the underlying
     // transport error rather than being misreported as UV lockout — mirrors the
     // PIN path's `getPinRetries` failure handling.
-    func translateUVInvalid() async throws(WebAuthn.ClientError) -> WebAuthn.ClientError {
+    func translateUVInvalid(
+        backend: any WebAuthn.CTAP2Backend
+    ) async throws(WebAuthn.ClientError) -> WebAuthn.ClientError {
         let retries: Int
         do {
             retries = try await backend.getUVRetries()

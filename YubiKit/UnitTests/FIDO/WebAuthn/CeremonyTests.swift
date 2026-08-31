@@ -325,7 +325,7 @@ struct CeremonyTests {
 
     private func makeCredPropsClient(_ backend: MockWebAuthnBackend) throws -> WebAuthn.Client {
         WebAuthn.Client(
-            backend: backend,
+            backend: .ctap2(backend),
             origin: try WebAuthn.Origin("https://example.com"),
             allowedExtensions: [.credProps],
             isPublicSuffix: { _ in false }

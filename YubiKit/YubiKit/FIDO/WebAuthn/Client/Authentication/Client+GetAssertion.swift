@@ -72,12 +72,24 @@ extension WebAuthn.Client {
         return WebAuthn.StatusStream { continuation in
             Task { [self] in
                 do throws(WebAuthn.ClientError) {
-                    let matches = try await self.performGetAssertions(
-                        options: options,
-                        clientData: clientData,
-                        authorization: authorization,
-                        continuation: continuation
-                    )
+                    let matches: [WebAuthn.Authentication.Response]
+                    switch backend {
+                    case .ctap2(let ctap2):
+                        matches = try await self.performGetAssertions(
+                            backend: ctap2,
+                            options: options,
+                            clientData: clientData,
+                            authorization: authorization,
+                            continuation: continuation
+                        )
+                    case .delegated(let authenticator):
+                        // `authorization` is not consulted — see makeCredential.
+                        matches = try await self.performDelegatedGetAssertions(
+                            authenticator: authenticator,
+                            options: options,
+                            clientData: clientData
+                        )
+                    }
                     continuation.yield(.finished(matches))
                 } catch {
                     continuation.yield(error: error)
@@ -92,6 +104,7 @@ extension WebAuthn.Client {
 extension WebAuthn.Client {
 
     fileprivate func performGetAssertions(
+        backend: any WebAuthn.CTAP2Backend,
         options: WebAuthn.Authentication.Options,
         clientData: WebAuthn.ClientData,
         authorization: WebAuthn.Authorization,
@@ -129,6 +142,7 @@ extension WebAuthn.Client {
             }
 
             let auth = try await acquireAuthToken(
+                backend: backend,
                 info: info,
                 permissions: permissions,
                 rpId: rpId,
@@ -156,6 +170,7 @@ extension WebAuthn.Client {
                     throw WebAuthn.ClientError(error)
                 }
                 selectedCred = try await findMatchingCredential(
+                    backend: backend,
                     from: options.allowCredentials,
                     rpId: rpId,
                     cachedInfo: cachedInfo,
@@ -188,6 +203,7 @@ extension WebAuthn.Client {
             let collected: [CTAP2.GetAssertion.Response]
             do throws(CTAP2.SessionError) {
                 let firstResponse = try await sendAssertion(
+                    backend: backend,
                     parameters: parameters,
                     token: auth.token,
                     continuation: continuation
@@ -205,7 +221,7 @@ extension WebAuthn.Client {
                 }
                 guard retry.shouldRetry(for: error) else {
                     if case .ctapError(.uvInvalid, _) = error {
-                        throw try await translateUVInvalid()
+                        throw try await translateUVInvalid(backend: backend)
                     }
                     throw WebAuthn.ClientError(error)
                 }
@@ -264,6 +280,7 @@ extension WebAuthn.Client {
 
     // Sends a getAssertion command and forwards status updates to the continuation.
     fileprivate func sendAssertion(
+        backend: any WebAuthn.CTAP2Backend,
         parameters: CTAP2.GetAssertion.Parameters,
         token: CTAP2.Token?,
         continuation: WebAuthn.StatusStream<[WebAuthn.Authentication.Response]>.Continuation

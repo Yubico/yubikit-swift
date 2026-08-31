@@ -67,9 +67,27 @@ extension WebAuthn {
     /// the ceremony with ``ClientError/cancelled(source:)``.
     public actor Client {
 
+        // MARK: - Backend
+
+        /// What this client drives.
+        ///
+        /// Two irreducibly different shapes rather than two conformers to one protocol: a CTAP2
+        /// authenticator negotiates PIN/UV, advertises capabilities and pages assertions, while a
+        /// delegated one does none of that. What the two share is the ceremony above them — RP ID
+        /// validation, client data, credential matching, response assembly — not an interface.
+        enum Backend: Sendable {
+
+            /// A CTAP2 authenticator: a YubiKey over USB, NFC or Lightning.
+            case ctap2(any CTAP2Backend)
+
+            /// An authenticator supplied by the integrator and driven in-process. See
+            /// `WebAuthn.DelegatedAuthenticator`.
+            case delegated(any DelegatedAuthenticator)
+        }
+
         // MARK: - Internal Properties
 
-        let backend: any Backend
+        let backend: Backend
         let origin: Origin
         let enterpriseRpIds: Set<String>
         let allowedExtensions: Set<WebAuthn.Extension.Identifier>
@@ -100,7 +118,7 @@ extension WebAuthn {
             isPublicSuffix: @escaping PublicSuffixChecker
         ) {
             self.init(
-                backend: session,
+                backend: .ctap2(session),
                 origin: origin,
                 enterpriseRpIds: enterpriseRpIds,
                 allowedExtensions: allowedExtensions,
@@ -108,12 +126,33 @@ extension WebAuthn {
             )
         }
 
-        /// Internal initializer for testing with a mock backend.
+        // Create a WebAuthn client backed by an authenticator this SDK does not implement.
+        //
+        // Same ceremony as the CTAP2 path, with the credential operations delegated — see
+        // `WebAuthn.DelegatedAuthenticator`. No `enterpriseRpIds`: enterprise attestation is a
+        // CTAP2 concept and a delegated authenticator attests nothing. Only `credProps` is
+        // processed, whatever `allowedExtensions` lists.
+        @_spi(YubiInternal)
+        public init(
+            authenticator: any DelegatedAuthenticator,
+            origin: Origin,
+            allowedExtensions: Set<WebAuthn.Extension.Identifier> = .standard,
+            isPublicSuffix: @escaping PublicSuffixChecker
+        ) {
+            self.init(
+                backend: .delegated(authenticator),
+                origin: origin,
+                allowedExtensions: allowedExtensions,
+                isPublicSuffix: isPublicSuffix
+            )
+        }
+
+        /// Internal designated initializer, also used by tests with a mock backend.
         ///
         /// `allowedExtensions` has no default here on purpose: tests must opt in
         /// explicitly so the suite never silently drifts from the public `.standard`.
         init(
-            backend: any Backend,
+            backend: Backend,
             origin: Origin,
             enterpriseRpIds: Set<String> = [],
             allowedExtensions: Set<WebAuthn.Extension.Identifier>,

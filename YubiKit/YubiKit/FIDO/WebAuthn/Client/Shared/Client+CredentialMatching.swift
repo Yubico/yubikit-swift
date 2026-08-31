@@ -22,6 +22,7 @@ extension WebAuthn.Client {
     // Used for exclude list (registration) and allow list (authentication) checks.
     // Handles authenticator limits by filtering long IDs and chunking requests.
     func findMatchingCredential(
+        backend: any WebAuthn.CTAP2Backend,
         from credentials: [WebAuthn.CredentialDescriptor],
         rpId: String,
         cachedInfo: CTAP2.GetInfo.ImmutableView,

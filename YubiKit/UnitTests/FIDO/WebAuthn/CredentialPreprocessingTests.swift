@@ -34,6 +34,7 @@ struct CredentialFilteringTests {
         let cachedInfo = try await mock.cachedInfo
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: [],
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -59,6 +60,7 @@ struct CredentialFilteringTests {
         let credentials = [WebAuthn.CredentialDescriptor(id: target)]
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -82,6 +84,7 @@ struct CredentialFilteringTests {
         credentials.insert(WebAuthn.CredentialDescriptor(id: target), at: 3)
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -102,6 +105,7 @@ struct CredentialFilteringTests {
         let credentials = [WebAuthn.CredentialDescriptor(id: randomCredentialId(length: 32))]
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -131,6 +135,7 @@ struct CredentialFilteringTests {
         ]
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -166,6 +171,7 @@ struct CredentialFilteringTests {
         credentials.insert(WebAuthn.CredentialDescriptor(id: target), at: 7)
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -196,6 +202,7 @@ struct CredentialFilteringTests {
         credentials.append(WebAuthn.CredentialDescriptor(id: target))
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -226,6 +233,7 @@ struct CredentialFilteringTests {
         credentials.append(WebAuthn.CredentialDescriptor(id: target))
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -252,6 +260,7 @@ struct CredentialFilteringTests {
 
         do {
             _ = try await client.findMatchingCredential(
+                backend: mock,
                 from: credentials,
                 rpId: Self.rpId,
                 cachedInfo: cachedInfo,
@@ -293,6 +302,7 @@ struct CredentialFilteringTests {
         credentials.append(WebAuthn.CredentialDescriptor(id: randomCredentialId(length: 32)))
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -335,6 +345,7 @@ struct CredentialPreprocessingTests {
         ]
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -361,6 +372,7 @@ struct CredentialPreprocessingTests {
         ]
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -385,6 +397,7 @@ struct CredentialPreprocessingTests {
         ]
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -409,6 +422,7 @@ struct CredentialPreprocessingTests {
         let cachedInfo0 = try await mock0.cachedInfo
 
         let result0 = try await client0.findMatchingCredential(
+            backend: mock0,
             from: [WebAuthn.CredentialDescriptor(id: zero)],
             rpId: Self.rpId,
             cachedInfo: cachedInfo0,
@@ -426,6 +440,7 @@ struct CredentialPreprocessingTests {
         let cachedInfo1 = try await mock1.cachedInfo
 
         let result1 = try await client1.findMatchingCredential(
+            backend: mock1,
             from: [WebAuthn.CredentialDescriptor(id: atMax)],
             rpId: Self.rpId,
             cachedInfo: cachedInfo1,
@@ -442,6 +457,7 @@ struct CredentialPreprocessingTests {
         let cachedInfo2 = try await mock2.cachedInfo
 
         let result2 = try await client2.findMatchingCredential(
+            backend: mock2,
             from: [WebAuthn.CredentialDescriptor(id: overMax)],
             rpId: Self.rpId,
             cachedInfo: cachedInfo2,
@@ -473,6 +489,7 @@ struct CredentialPreprocessingTests {
         ]
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -511,6 +528,7 @@ struct CredentialPreprocessingTests {
         ]
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -544,6 +562,7 @@ struct CredentialPreprocessingTests {
         ]
 
         let result = try await client.findMatchingCredential(
+            backend: mock,
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -581,6 +600,7 @@ struct CredentialPreprocessingTests {
         }
         let client1 = try makeClient(mock: mock1)
         _ = try await client1.findMatchingCredential(
+            backend: mock1,
             from: allCreds,
             rpId: Self.rpId,
             cachedInfo: try await mock1.cachedInfo,
@@ -599,6 +619,7 @@ struct CredentialPreprocessingTests {
         }
         let client2 = try makeClient(mock: mock2)
         _ = try await client2.findMatchingCredential(
+            backend: mock2,
             from: allCreds,
             rpId: Self.rpId,
             cachedInfo: try await mock2.cachedInfo,
@@ -616,6 +637,7 @@ struct CredentialPreprocessingTests {
         }
         let client3 = try makeClient(mock: mock3)
         _ = try await client3.findMatchingCredential(
+            backend: mock3,
             from: allCreds,
             rpId: Self.rpId,
             cachedInfo: try await mock3.cachedInfo,
@@ -633,6 +655,7 @@ struct CredentialPreprocessingTests {
         }
         let client4 = try makeClient(mock: mock4)
         _ = try await client4.findMatchingCredential(
+            backend: mock4,
             from: allCreds,
             rpId: Self.rpId,
             cachedInfo: try await mock4.cachedInfo,
@@ -649,7 +672,7 @@ private func makeClient(
     rpId: String = "example.com"
 ) throws -> WebAuthn.Client {
     WebAuthn.Client(
-        backend: mock,
+        backend: .ctap2(mock),
         origin: try WebAuthn.Origin("https://\(rpId)"),
         allowedExtensions: .all,
         isPublicSuffix: { _ in false }

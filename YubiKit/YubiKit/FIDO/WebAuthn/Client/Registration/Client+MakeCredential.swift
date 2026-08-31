@@ -66,12 +66,25 @@ extension WebAuthn.Client {
         return WebAuthn.StatusStream { continuation in
             Task { [self] in
                 do throws(WebAuthn.ClientError) {
-                    let response = try await performMakeCredential(
-                        options: options,
-                        clientData: clientData,
-                        authorization: authorization,
-                        continuation: continuation
-                    )
+                    let response: WebAuthn.Registration.Response
+                    switch backend {
+                    case .ctap2(let ctap2):
+                        response = try await performMakeCredential(
+                            backend: ctap2,
+                            options: options,
+                            clientData: clientData,
+                            authorization: authorization,
+                            continuation: continuation
+                        )
+                    case .delegated(let authenticator):
+                        // `authorization` is not consulted: a delegated authenticator has no PIN
+                        // and runs its own user verification, so there is no policy to apply.
+                        response = try await performDelegatedMakeCredential(
+                            authenticator: authenticator,
+                            options: options,
+                            clientData: clientData
+                        )
+                    }
                     continuation.yield(.finished(response))
                 } catch {
                     continuation.yield(error: error)
@@ -86,6 +99,7 @@ extension WebAuthn.Client {
 extension WebAuthn.Client {
 
     fileprivate func performMakeCredential(
+        backend: any WebAuthn.CTAP2Backend,
         options: WebAuthn.Registration.Options,
         clientData: WebAuthn.ClientData,
         authorization: WebAuthn.Authorization,
@@ -123,6 +137,7 @@ extension WebAuthn.Client {
             }
 
             let auth = try await acquireAuthToken(
+                backend: backend,
                 info: info,
                 permissions: permissions,
                 rpId: rpId,
@@ -139,6 +154,7 @@ extension WebAuthn.Client {
             )
 
             let excludedCred = try await findMatchingCredential(
+                backend: backend,
                 from: options.excludeCredentials,
                 rpId: rpId,
                 cachedInfo: cachedInfo,
@@ -191,7 +207,7 @@ extension WebAuthn.Client {
             } catch {
                 guard retry.shouldRetry(for: error) else {
                     if case .ctapError(.uvInvalid, _) = error {
-                        throw try await translateUVInvalid()
+                        throw try await translateUVInvalid(backend: backend)
                     }
                     throw WebAuthn.ClientError(error)
                 }

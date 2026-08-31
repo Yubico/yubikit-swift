@@ -19,7 +19,7 @@ import Foundation
 // MARK: - MockWebAuthnBackend
 
 /// Mock backend for WebAuthn tests. Set closures to control behavior.
-actor MockWebAuthnBackend: WebAuthn.Backend {
+actor MockWebAuthnBackend: WebAuthn.CTAP2Backend {
 
     // MARK: Configurable Closures
 
@@ -43,7 +43,7 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
         ((CTAP2.GetAssertion.Parameters) -> CTAP2.StatusStream<CTAP2.GetAssertion.Response>)!
     nonisolated(unsafe) var onGetNextAssertion: (() -> CTAP2.StatusStream<CTAP2.GetAssertion.Response>)!
 
-    // MARK: WebAuthn.Backend Protocol
+    // MARK: WebAuthn.CTAP2Backend Protocol
 
     var cachedInfo: CTAP2.GetInfo.ImmutableView {
         get async throws(CTAP2.SessionError) { try CTAP2.GetInfo.ImmutableView(onGetInfo()) }
@@ -142,11 +142,11 @@ extension CTAP2.StatusStream {
 
 extension WebAuthn.Client {
     static func make(
-        backend: WebAuthn.Backend,
+        backend: WebAuthn.CTAP2Backend,
         origin: String = "https://example.com"
     ) throws -> WebAuthn.Client {
         WebAuthn.Client(
-            backend: backend,
+            backend: .ctap2(backend),
             origin: try WebAuthn.Origin(origin),
             allowedExtensions: .standard,
             isPublicSuffix: { _ in false }
