@@ -51,6 +51,10 @@ extension WebAuthn.Registration {
         /// Signature counter value.
         public let signCount: UInt32
 
+        /// Attachment modality of the authenticator that created this credential:
+        /// `.platform` for a device-bound authenticator, `.crossPlatform` for a roaming key.
+        public let authenticatorAttachment: WebAuthn.AuthenticatorAttachment
+
         /// Parsed authenticator data for internal extension processing.
         internal let authenticatorData: WebAuthn.AuthenticatorData
 
@@ -70,6 +74,7 @@ extension WebAuthn.Registration {
             publicKey: COSE.Key,
             aaguid: WebAuthn.AAGUID,
             signCount: UInt32,
+            authenticatorAttachment: WebAuthn.AuthenticatorAttachment,
             authenticatorData: WebAuthn.AuthenticatorData,
             clientDataJSON: Data?
         ) {
@@ -82,6 +87,7 @@ extension WebAuthn.Registration {
             self.publicKey = publicKey
             self.aaguid = aaguid
             self.signCount = signCount
+            self.authenticatorAttachment = authenticatorAttachment
             self.authenticatorData = authenticatorData
             self.clientDataJSON = clientDataJSON
         }

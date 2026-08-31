@@ -226,6 +226,7 @@ extension WebAuthn.Client {
                 publicKey: attestedCredentialData.credentialPublicKey,
                 aaguid: attestedCredentialData.aaguid,
                 signCount: authenticatorData.signCount,
+                authenticatorAttachment: .crossPlatform,
                 authenticatorData: authenticatorData,
                 clientDataJSON: clientData.clientDataJSON
             )

@@ -247,6 +247,7 @@ extension WebAuthn.Client {
                         user: ctapResponse.user,
                         clientExtensionResults: extensionOutputs,
                         signCount: authData.signCount,
+                        authenticatorAttachment: .crossPlatform,
                         authenticatorData: authData,
                         clientDataJSON: clientData.clientDataJSON
                     )

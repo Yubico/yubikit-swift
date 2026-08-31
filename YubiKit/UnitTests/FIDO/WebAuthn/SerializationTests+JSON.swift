@@ -400,6 +400,7 @@ extension SerializationTests {
                 publicKey: authData.attestedCredentialData!.credentialPublicKey,
                 aaguid: authData.attestedCredentialData!.aaguid,
                 signCount: authData.signCount,
+                authenticatorAttachment: .crossPlatform,
                 authenticatorData: authData,
                 clientDataJSON: Data("clientdata".utf8)
             )
@@ -432,6 +433,7 @@ extension SerializationTests {
                 user: WebAuthn.User(id: Data("user".utf8)),
                 clientExtensionResults: .init(),
                 signCount: authData.signCount,
+                authenticatorAttachment: .crossPlatform,
                 authenticatorData: authData,
                 clientDataJSON: Data("clientdata".utf8)
             )
@@ -463,6 +465,7 @@ extension SerializationTests {
                 user: nil,
                 clientExtensionResults: .init(),
                 signCount: authData.signCount,
+                authenticatorAttachment: .crossPlatform,
                 authenticatorData: authData,
                 clientDataJSON: Data("clientdata".utf8)
             )
@@ -472,6 +475,28 @@ extension SerializationTests {
 
             let inner = try #require(json["response"] as? [String: Any])
             #expect(inner["userHandle"] == nil)
+        }
+
+        @Test("Platform attachment is reported in the credential envelope")
+        func testPlatformAttachmentJSON() throws {
+            let authData = makeMinimalAuthData()
+
+            let response = WebAuthn.Authentication.Response(
+                credentialId: Data("credential_id".utf8),
+                rawAuthenticatorData: authData.rawData,
+                signature: Data("sig".utf8),
+                user: nil,
+                clientExtensionResults: .init(),
+                signCount: authData.signCount,
+                authenticatorAttachment: .platform,
+                authenticatorData: authData,
+                clientDataJSON: Data("clientdata".utf8)
+            )
+
+            let encoded = try response.toJSON()
+            let json = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+
+            #expect(json["authenticatorAttachment"] as? String == "platform")
         }
     }
 

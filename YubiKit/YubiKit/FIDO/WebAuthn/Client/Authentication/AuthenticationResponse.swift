@@ -45,6 +45,10 @@ extension WebAuthn.Authentication {
         /// Signature counter value.
         public let signCount: UInt32
 
+        /// Attachment modality of the authenticator that produced this assertion:
+        /// `.platform` for a device-bound authenticator, `.crossPlatform` for a roaming key.
+        public let authenticatorAttachment: WebAuthn.AuthenticatorAttachment
+
         /// Parsed authenticator data for internal extension processing.
         internal let authenticatorData: WebAuthn.AuthenticatorData
 
@@ -61,6 +65,7 @@ extension WebAuthn.Authentication {
             user: WebAuthn.User?,
             clientExtensionResults: WebAuthn.Extension.AuthenticationOutputs,
             signCount: UInt32,
+            authenticatorAttachment: WebAuthn.AuthenticatorAttachment,
             authenticatorData: WebAuthn.AuthenticatorData,
             clientDataJSON: Data?
         ) {
@@ -70,6 +75,7 @@ extension WebAuthn.Authentication {
             self.user = user
             self.clientExtensionResults = clientExtensionResults
             self.signCount = signCount
+            self.authenticatorAttachment = authenticatorAttachment
             self.authenticatorData = authenticatorData
             self.clientDataJSON = clientDataJSON
         }
