@@ -63,7 +63,7 @@ extension WebAuthn.Client {
         if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
             return .error(error)
         }
-        return WebAuthn.StatusStream { continuation in
+        let stream = WebAuthn.StatusStream { continuation in
             Task { [self] in
                 do throws(WebAuthn.ClientError) {
                     let response: WebAuthn.Registration.Response
@@ -90,7 +90,11 @@ extension WebAuthn.Client {
                     continuation.yield(error: error)
                 }
             }
-        }.withTimeout(options.timeout)
+        }
+        if case .ctap2 = backend {
+            return stream.withTimeout(options.timeout)
+        }
+        return stream
     }
 }
 

@@ -123,6 +123,17 @@ struct DelegatedCeremonyTests {
         #expect(await authenticator.lastMakeCredential?.excludeCredentialIds == [Fixture.otherCredentialId])
     }
 
+    @Test("Registration ignores timeout for delegated authenticators")
+    func registrationIgnoresTimeout() async throws {
+        let authenticator = FakeDelegatedAuthenticator(responseDelay: .milliseconds(30))
+        let response = try await client(authenticator).makeCredential(
+            Fixture.registrationOptions(timeout: .milliseconds(1)),
+            authorization: .uvOnly
+        ).value
+
+        #expect(response.credentialId == Fixture.credentialId)
+    }
+
     @Test("An rp id outside the origin is refused before the authenticator is touched")
     func registrationValidatesRpId() async throws {
         let authenticator = FakeDelegatedAuthenticator()
@@ -244,6 +255,20 @@ struct DelegatedCeremonyTests {
         #expect(responses.first?.authenticatorAttachment == .crossPlatform)
     }
 
+    @Test("Authentication ignores timeout for delegated authenticators")
+    func authenticationIgnoresTimeout() async throws {
+        let authenticator = FakeDelegatedAuthenticator(
+            stored: [Fixture.storedCredential(Fixture.credentialId)],
+            responseDelay: .milliseconds(30)
+        )
+        let responses = try await client(authenticator).getAssertion(
+            Fixture.authenticationOptions(timeout: .milliseconds(1)),
+            authorization: .uvOnly
+        ).value
+
+        #expect(responses.map(\.credentialId) == [Fixture.credentialId])
+    }
+
     // MARK: - Support
 
     private func client(_ authenticator: any WebAuthn.DelegatedAuthenticator) -> WebAuthn.Client {
@@ -280,6 +305,7 @@ private actor FakeDelegatedAuthenticator: WebAuthn.DelegatedAuthenticator {
     private let isDiscoverable: Bool
     private let authenticatorData: Data
     private let userHandle: Data?
+    private let responseDelay: Duration?
 
     private(set) var lastMakeCredential: MakeCredentialCall?
     private(set) var lastGetAssertions: GetAssertionsCall?
@@ -290,13 +316,15 @@ private actor FakeDelegatedAuthenticator: WebAuthn.DelegatedAuthenticator {
         attachment: WebAuthn.AuthenticatorAttachment = .platform,
         isDiscoverable: Bool = true,
         authenticatorData: Data = Fixture.registrationAuthenticatorData,
-        userHandle: Data? = Fixture.userHandle
+        userHandle: Data? = Fixture.userHandle,
+        responseDelay: Duration? = nil
     ) {
         self.stored = stored
         self.attachment = attachment
         self.isDiscoverable = isDiscoverable
         self.authenticatorData = authenticatorData
         self.userHandle = userHandle
+        self.responseDelay = responseDelay
     }
 
     func makeCredential(
@@ -307,6 +335,9 @@ private actor FakeDelegatedAuthenticator: WebAuthn.DelegatedAuthenticator {
         pubKeyCredParams: [COSE.Algorithm],
         excludeCredentialIds: [Data]
     ) async throws(WebAuthn.ClientError) -> WebAuthn.AuthenticatorRegistration {
+        if let responseDelay {
+            try? await Task.sleep(for: responseDelay)
+        }
         lastMakeCredential = MakeCredentialCall(
             rpId: rpId,
             userHandle: userHandle,
@@ -326,6 +357,9 @@ private actor FakeDelegatedAuthenticator: WebAuthn.DelegatedAuthenticator {
         rpId: String,
         clientDataHash: Data
     ) async throws(WebAuthn.ClientError) -> [WebAuthn.AuthenticatorAssertion] {
+        if let responseDelay {
+            try? await Task.sleep(for: responseDelay)
+        }
         lastGetAssertions = GetAssertionsCall(
             credentialIds: credentialIds,
             rpId: rpId,
@@ -370,7 +404,8 @@ private enum Fixture {
     static func registrationOptions(
         credProps: Bool = false,
         residentKey: WebAuthn.ResidentKeyPreference = .preferred,
-        excludeCredentials: [WebAuthn.CredentialDescriptor] = []
+        excludeCredentials: [WebAuthn.CredentialDescriptor] = [],
+        timeout: Duration? = nil
     ) -> WebAuthn.Registration.Options {
         WebAuthn.Registration.Options(
             challenge: challenge,
@@ -379,18 +414,21 @@ private enum Fixture {
             excludeCredentials: excludeCredentials,
             residentKey: residentKey,
             pubKeyCredParams: [.es256],
+            timeout: timeout,
             extensions: credProps ? WebAuthn.Extension.RegistrationInputs(credProps: true) : nil
         )
     }
 
     static func authenticationOptions(
         rpId: String? = Fixture.rpId,
-        allowCredentials: [WebAuthn.CredentialDescriptor] = []
+        allowCredentials: [WebAuthn.CredentialDescriptor] = [],
+        timeout: Duration? = nil
     ) -> WebAuthn.Authentication.Options {
         WebAuthn.Authentication.Options(
             challenge: challenge,
             rpId: rpId,
-            allowCredentials: allowCredentials
+            allowCredentials: allowCredentials,
+            timeout: timeout
         )
     }
 
