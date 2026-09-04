@@ -69,13 +69,34 @@ extension WebAuthn.Client {
         if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
             return .error(error)
         }
-        return WebAuthn.StatusStream { continuation in
+        return await backend.getAssertions(
+            options: options,
+            clientData: clientData,
+            authorization: authorization,
+            allowedExtensions: allowedExtensions
+        )
+    }
+}
+
+// MARK: - Private Implementation
+
+extension WebAuthn.CTAP2Backend {
+
+    @_spi(YubiInternal)
+    public func getAssertions(
+        options: WebAuthn.Authentication.Options,
+        clientData: WebAuthn.ClientData,
+        authorization: WebAuthn.Authorization,
+        allowedExtensions: Set<WebAuthn.Extension.Identifier>
+    ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.Response]> {
+        let stream = WebAuthn.StatusStream { continuation in
             Task { [self] in
                 do throws(WebAuthn.ClientError) {
-                    let matches = try await self.performGetAssertions(
+                    let matches = try await performGetAssertions(
                         options: options,
                         clientData: clientData,
                         authorization: authorization,
+                        allowedExtensions: allowedExtensions,
                         continuation: continuation
                     )
                     continuation.yield(.finished(matches))
@@ -83,18 +104,15 @@ extension WebAuthn.Client {
                     continuation.yield(error: error)
                 }
             }
-        }.withTimeout(options.timeout)
+        }
+        return stream.withTimeout(options.timeout)
     }
-}
 
-// MARK: - Private Implementation
-
-extension WebAuthn.Client {
-
-    fileprivate func performGetAssertions(
+    private func performGetAssertions(
         options: WebAuthn.Authentication.Options,
         clientData: WebAuthn.ClientData,
         authorization: WebAuthn.Authorization,
+        allowedExtensions: Set<WebAuthn.Extension.Identifier>,
         continuation: WebAuthn.StatusStream<[WebAuthn.Authentication.Response]>.Continuation
     ) async throws(WebAuthn.ClientError) -> [WebAuthn.Authentication.Response] {
 
@@ -113,17 +131,17 @@ extension WebAuthn.Client {
 
         var permissions: CTAP2.ClientPin.Permission = .getAssertion
         if case .write = options.extensions?.largeBlob,
-            (try? await backend.isLargeBlobSupported()) == true
+            (try? await isLargeBlobSupported()) == true
         {
             permissions.insert(.largeBlobWrite)
         }
 
-        var retry = RetryContext(userVerification: options.userVerification)
+        var retry = WebAuthn.CTAP2RetryContext(userVerification: options.userVerification)
 
         while true {
             let info: CTAP2.GetInfo.Response
             do throws(CTAP2.SessionError) {
-                info = try await backend.getInfo()
+                info = try await getInfo()
             } catch {
                 throw WebAuthn.ClientError(error)
             }
@@ -151,7 +169,7 @@ extension WebAuthn.Client {
             if !options.allowCredentials.isEmpty {
                 let cachedInfo: CTAP2.GetInfo.ImmutableView
                 do throws(CTAP2.SessionError) {
-                    cachedInfo = try await backend.cachedInfo
+                    cachedInfo = try await self.cachedInfo
                 } catch {
                     throw WebAuthn.ClientError(error)
                 }
@@ -169,7 +187,7 @@ extension WebAuthn.Client {
                 }
             }
 
-            let (ctapExtensions, prf, previewSign, largeBlobAction) = try await backend.buildGetAssertionExtensions(
+            let (ctapExtensions, prf, previewSign, largeBlobAction) = try await buildGetAssertionExtensions(
                 options.extensions,
                 allowCredentials: options.allowCredentials,
                 selectedCredentialId: selectedCred?.id,
@@ -196,7 +214,7 @@ extension WebAuthn.Client {
                 var allResponses = [firstResponse]
                 let total = firstResponse.numberOfCredentials ?? 1
                 for _ in 1..<total {
-                    allResponses.append(try await backend.getNextAssertion().value)
+                    allResponses.append(try await getNextAssertion().value)
                 }
                 collected = allResponses
             } catch {
@@ -226,12 +244,12 @@ extension WebAuthn.Client {
                 // Resolve extension outputs on the live connection so the
                 // returned `Response` is self-contained — selection by the
                 // caller is purely local.
-                let largeBlobOutput = try await backend.processLargeBlob(
+                let largeBlobOutput = try await processLargeBlob(
                     from: ctapResponse,
                     action: largeBlobAction,
                     token: auth.token
                 )
-                let extensionOutputs = try await backend.parseAuthenticationOutputs(
+                let extensionOutputs = try await parseAuthenticationOutputs(
                     from: ctapResponse,
                     prf: prf,
                     previewSign: previewSign,
@@ -260,15 +278,15 @@ extension WebAuthn.Client {
 
 // MARK: - Shared Helpers
 
-extension WebAuthn.Client {
+extension WebAuthn.CTAP2Backend {
 
     // Sends a getAssertion command and forwards status updates to the continuation.
-    fileprivate func sendAssertion(
+    private func sendAssertion(
         parameters: CTAP2.GetAssertion.Parameters,
         token: CTAP2.Token?,
         continuation: WebAuthn.StatusStream<[WebAuthn.Authentication.Response]>.Continuation
     ) async throws(CTAP2.SessionError) -> CTAP2.GetAssertion.Response {
-        let stream = await backend.getAssertion(parameters: parameters, token: token)
+        let stream = await getAssertion(parameters: parameters, token: token)
         var response: CTAP2.GetAssertion.Response?
         for try await ctapStatus in stream {
             switch ctapStatus {

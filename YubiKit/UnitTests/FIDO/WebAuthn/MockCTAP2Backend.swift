@@ -16,10 +16,10 @@ import Foundation
 
 @_spi(YubiInternal) @testable import YubiKit
 
-// MARK: - MockWebAuthnBackend
+// MARK: - MockCTAP2Backend
 
 /// Mock backend for WebAuthn tests. Set closures to control behavior.
-actor MockWebAuthnBackend: WebAuthn.Backend {
+actor MockCTAP2Backend: WebAuthn.CTAP2Backend {
 
     // MARK: Configurable Closures
 
@@ -43,7 +43,7 @@ actor MockWebAuthnBackend: WebAuthn.Backend {
         ((CTAP2.GetAssertion.Parameters) -> CTAP2.StatusStream<CTAP2.GetAssertion.Response>)!
     nonisolated(unsafe) var onGetNextAssertion: (() -> CTAP2.StatusStream<CTAP2.GetAssertion.Response>)!
 
-    // MARK: WebAuthn.Backend Protocol
+    // MARK: WebAuthn.CTAP2Backend Protocol
 
     var cachedInfo: CTAP2.GetInfo.ImmutableView {
         get async throws(CTAP2.SessionError) { try CTAP2.GetInfo.ImmutableView(onGetInfo()) }
@@ -142,7 +142,7 @@ extension CTAP2.StatusStream {
 
 extension WebAuthn.Client {
     static func make(
-        backend: WebAuthn.Backend,
+        backend: WebAuthn.CTAP2Backend,
         origin: String = "https://example.com"
     ) throws -> WebAuthn.Client {
         WebAuthn.Client(

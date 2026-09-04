@@ -30,7 +30,7 @@ struct PINRetryTests {
 
     @Test("pinInvalid throws pinRejected with the remaining retry count")
     func testPinInvalidThrowsRejected() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, pinUvAuthToken: true) }
         mock.onGetPinRetries = { .init(retries: 7, powerCycleState: false) }
         mock.onGetUVRetries = { 0 }
@@ -65,7 +65,7 @@ struct PINRetryTests {
 
     @Test("pinInvalid with retries == 0 throws pinBlocked")
     func testPinExhaustedThrowsBlocked() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, pinUvAuthToken: true) }
         mock.onGetPinRetries = { .init(retries: 0, powerCycleState: false) }
         mock.onGetUVRetries = { 0 }
@@ -97,7 +97,7 @@ struct PINRetryTests {
 
     @Test("pinInvalid followed by a getPinRetries transport failure surfaces the transport error")
     func testPinInvalidGetRetriesFailureBubblesTransport() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, pinUvAuthToken: true) }
         mock.onGetUVRetries = { 0 }
         mock.onGetPinRetries = { () throws(CTAP2.SessionError) -> CTAP2.ClientPin.GetRetries.Response in
@@ -132,7 +132,7 @@ struct PINRetryTests {
 
     @Test("forcePinChange surfaces before the PIN closure is invoked")
     func testForcePinChangeThrowsBeforePrompt() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = {
             .stub(clientPin: true, pinUvAuthToken: true, forcePinChange: true)
         }
@@ -170,7 +170,7 @@ struct PINRetryTests {
 
     @Test("Falling to PIN path without clientPin configured throws pinNotSet")
     func testPinPathWithoutClientPinThrowsPinNotSet() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         // BIO-only authenticator: UV configured but clientPin is not.
         mock.onGetInfo = { .stub(clientPin: false, userVerification: true, pinUvAuthToken: true) }
         // Entering the ceremony with UV already blocked forces PIN fall-through.

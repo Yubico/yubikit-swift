@@ -18,11 +18,8 @@ import Foundation
 
 extension WebAuthn {
 
-    /// Internal protocol abstracting CTAP2.Session for testability.
-    ///
-    /// This protocol defines the CTAP2 operations required by WebAuthn.Client,
-    /// allowing the client logic to be tested with mock implementations.
-    protocol Backend: Actor {
+    // CTAP2 operations used by the shared ceremony implementation, mockable in tests.
+    protocol CTAP2Backend: Actor, AuthenticatorBackend {
 
         // MARK: - Authenticator Info
 
@@ -98,8 +95,7 @@ extension WebAuthn {
 
 // MARK: - Default Implementations
 
-extension WebAuthn.Backend {
-
+extension WebAuthn.CTAP2Backend {
     func getPinUVToken(
         using method: CTAP2.ClientPin.Method,
         permissions: CTAP2.ClientPin.Permission,
@@ -111,7 +107,8 @@ extension WebAuthn.Backend {
 
 // MARK: - CTAP2.Session Conformance
 
-extension CTAP2.Session: WebAuthn.Backend {
+@_spi(YubiInternal)
+extension CTAP2.Session: WebAuthn.CTAP2Backend {
 
     func getPinRetries() async throws(CTAP2.SessionError) -> CTAP2.ClientPin.GetRetries.Response {
         try await getPinRetries(protocol: nil)

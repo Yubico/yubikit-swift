@@ -18,7 +18,7 @@ import Testing
 @_spi(YubiInternal) @testable import YubiKit
 
 /// SDK-surface ceremony tests for `WebAuthn.Client`, driven through
-/// `MockWebAuthnBackend`. These exercise the Swift client (status stream,
+/// `MockCTAP2Backend`. These exercise the Swift client (status stream,
 /// pre-supplied PIN, cancellation, and the credProtect/credProps extension
 /// echoes) without touching a YubiKey — migrated from the integration
 /// `WebAuthn.Ceremony.*` / `WebAuthn.CredProtect.*` / `WebAuthn.CredProps.*`
@@ -40,8 +40,8 @@ struct CeremonyTests {
 
     // A PIN-only authenticator (clientPin set, no built-in UV). `.pin(_)`
     // authorization skips UV and goes straight to the PIN path.
-    private static func pinBackend() -> MockWebAuthnBackend {
-        let mock = MockWebAuthnBackend()
+    private static func pinBackend() -> MockCTAP2Backend {
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, pinUvAuthToken: true) }
         mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
         mock.onGetUVRetries = { 0 }
@@ -49,6 +49,57 @@ struct CeremonyTests {
             CTAP2.Token(token: Data(repeating: 0, count: 32), protocolVersion: .v2)
         }
         return mock
+    }
+
+    @Test("CTAP2 applies the requested timeout to both ceremonies", arguments: [true, false])
+    func appliesTimeout(registration: Bool) async throws {
+        let mock = Self.pinBackend()
+        mock.onMakeCredential = { _ in
+            CTAP2.StatusStream { continuation in
+                Task {
+                    try? await Task.sleep(for: .milliseconds(200))
+                    continuation.finish()
+                }
+            }
+        }
+        mock.onGetAssertion = { _ in
+            CTAP2.StatusStream { continuation in
+                Task {
+                    try? await Task.sleep(for: .milliseconds(200))
+                    continuation.finish()
+                }
+            }
+        }
+        let client = try WebAuthn.Client.make(backend: mock)
+        do {
+            if registration {
+                _ = try await client.makeCredential(
+                    .init(
+                        challenge: Self.registrationOptions.challenge,
+                        rp: Self.registrationOptions.rp,
+                        user: Self.registrationOptions.user,
+                        residentKey: .discouraged,
+                        timeout: .milliseconds(10)
+                    ),
+                    authorization: .pin("1234")
+                ).value
+            } else {
+                _ = try await client.getAssertion(
+                    .init(
+                        challenge: Self.authenticationOptions.challenge,
+                        rpId: Self.authenticationOptions.rpId,
+                        timeout: .milliseconds(10)
+                    ),
+                    authorization: .pin("1234")
+                ).value
+            }
+            Issue.record("Expected timeout")
+        } catch {
+            guard case WebAuthn.ClientError.timeout = error else {
+                Issue.record("Expected timeout, got \(error)")
+                return
+            }
+        }
     }
 
     // MARK: - Status Stream (PIN via closure)
@@ -209,7 +260,7 @@ struct CeremonyTests {
 
     @Test("credProtect echoes the applied protection level for each policy")
     func testCredProtectAllLevels() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
 
         for policy in [
             WebAuthn.Extension.CredProtect.Policy.userVerificationOptional,
@@ -230,7 +281,7 @@ struct CeremonyTests {
 
     @Test("credProtect is not echoed when the authenticator omits it from authenticator data")
     func testCredProtectNotEchoedWhenAbsent() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         let outputs = try await mock.parseRegistrationOutputs(
             from: makeCredentialResponse(credentialId: Data([0xDD]), credProtectLevel: nil),
             prf: nil,
@@ -323,7 +374,7 @@ struct CeremonyTests {
 
     // MARK: - Clients with specific allowed extensions
 
-    private func makeCredPropsClient(_ backend: MockWebAuthnBackend) throws -> WebAuthn.Client {
+    private func makeCredPropsClient(_ backend: MockCTAP2Backend) throws -> WebAuthn.Client {
         WebAuthn.Client(
             backend: backend,
             origin: try WebAuthn.Origin("https://example.com"),

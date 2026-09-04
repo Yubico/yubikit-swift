@@ -30,7 +30,7 @@ struct UVFallbackToPINTests {
 
     @Test("fallbackToPIN closure is non-nil when clientPin set and uv: .preferred")
     func testFallbackExposed() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, userVerification: true, pinUvAuthToken: true) }
         mock.onGetUVRetries = { 3 }
         mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
@@ -80,7 +80,7 @@ struct UVFallbackToPINTests {
 
     @Test("fallbackToPIN is nil under uv: .required")
     func testFallbackSuppressedWhenUVRequired() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, userVerification: true, pinUvAuthToken: true) }
         mock.onGetUVRetries = { 3 }
         mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
@@ -127,7 +127,7 @@ struct UVFallbackToPINTests {
 
     @Test("fallbackToPIN is nil when no clientPin is configured")
     func testFallbackSuppressedWithoutPIN() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: false, userVerification: true, pinUvAuthToken: true) }
         mock.onGetUVRetries = { 3 }
 
@@ -163,7 +163,7 @@ struct UVFallbackToPINTests {
 
     @Test("cancel without fallback aborts ceremony with .cancelled")
     func testCancelAbortsCeremony() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, userVerification: true, pinUvAuthToken: true) }
         mock.onGetUVRetries = { 3 }
         mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
