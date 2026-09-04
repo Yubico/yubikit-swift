@@ -19,12 +19,12 @@ import Foundation
  *
  * The entry points in Client+MakeCredential and Client+GetAssertion route here after they have
  * validated the RP ID and built the client data, so everything above the authenticator is shared
- * with the CTAP2 path. What is left is the part that differs, and it is mostly what is *absent*:
- * no capability discovery, no PIN/UV token, no silent probing, no assertion paging, and no
- * extension processing beyond credProps.
+ * with the CTAP2 path. What differs is the boundary: YubiKit does not drive CTAP2 capability
+ * discovery, PIN/UV tokens, silent probes, or assertion paging here. A delegated authenticator
+ * owns any equivalent checks, UX, and batching behind its own boundary.
  *
- * Both ceremonies yield nothing on the status stream before the result. A delegated authenticator
- * verifies the user inside its own call, so there is no touch or PIN step for the client to report.
+ * Both ceremonies yield nothing on the status stream before the result. Any user-verification UX
+ * is owned by the delegated authenticator, so there is no YubiKit touch or PIN step to report.
  */
 
 // MARK: - Registration

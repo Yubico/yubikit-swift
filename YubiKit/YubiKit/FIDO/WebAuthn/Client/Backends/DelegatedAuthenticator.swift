@@ -32,7 +32,8 @@ extension WebAuthn {
      * Inputs arrive already resolved by the client — `rpId` validated against the origin,
      * `clientDataHash` hashed — and conformers return raw authenticator output for the client to
      * assemble. Failures are `ClientError` directly, so there is no translation table on either
-     * side. Deleting credentials is absent by design: no WebAuthn ceremony removes one.
+     * side. Credential deletion is outside this protocol by design: no WebAuthn ceremony removes
+     * one.
      */
     @_spi(YubiInternal)
     public protocol DelegatedAuthenticator: Sendable {

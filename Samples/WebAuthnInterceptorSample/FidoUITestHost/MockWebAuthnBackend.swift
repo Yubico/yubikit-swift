@@ -40,10 +40,10 @@ actor MockWebAuthnBackend: WebAuthn.CTAP2Backend {
         return try onGetPinRetries()
     }
 
-    /// `WebAuthn.CTAP2Backend` requirement: the SDK drives token acquisition
-    /// through a stream so it can surface keep-alives during built-in UV.
-    /// Scenarios stub `onGetPinUVToken` (the simpler one-shot shape); we
-    /// wrap that in a finished-status stream here.
+    // `WebAuthn.CTAP2Backend` requirement: the SDK drives token acquisition
+    // through a stream so it can surface keep-alives during built-in UV.
+    // Scenarios stub `onGetPinUVToken` (the simpler one-shot shape); we
+    // wrap that in a finished-status stream here.
     func getPinUVTokenUpdates(
         using method: CTAP2.ClientPin.Method,
         permissions: CTAP2.ClientPin.Permission,

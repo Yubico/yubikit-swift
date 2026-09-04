@@ -18,10 +18,10 @@ import Testing
 
 @_spi(YubiInternal) @testable import YubiKit
 
-/// The two ceremonies over a `WebAuthn.DelegatedAuthenticator`, against a fake.
-///
-/// The point of these is the seam, not the crypto: what the client resolves before delegating, and
-/// what it assembles from the raw output afterwards.
+// The two ceremonies over a `WebAuthn.DelegatedAuthenticator`, against a fake.
+//
+// The point of these is the seam, not the crypto: what the client resolves before delegating, and
+// what it assembles from the raw output afterwards.
 @Suite("Delegated ceremonies")
 struct DelegatedCeremonyTests {
 
@@ -432,14 +432,14 @@ private enum Fixture {
         )
     }
 
-    /// `{1: 2, 3: -7, -1: 1, -2: x, -3: y}` — an ES256 COSE key in CTAP2 canonical order.
+    // `{1: 2, 3: -7, -1: 1, -2: x, -3: y}` — an ES256 COSE key in CTAP2 canonical order.
     private static let coseKey =
         Data([0xA5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01, 0x21, 0x58, 0x20])
         + Data(repeating: 0x11, count: 32)
         + Data([0x22, 0x58, 0x20])
         + Data(repeating: 0x33, count: 32)
 
-    /// UP | UV | AT, then `aaguid || credentialIdLength || credentialId || coseKey`.
+    // UP | UV | AT, then `aaguid || credentialIdLength || credentialId || coseKey`.
     static let registrationAuthenticatorData =
         Data(SHA256.hash(data: Data(rpId.utf8)))
         + Data([0x45, 0, 0, 0, 0])
@@ -448,7 +448,7 @@ private enum Fixture {
         + credentialId
         + coseKey
 
-    /// UP | UV, and no attested credential data — an assertion attests no key.
+    // UP | UV, and no attested credential data — an assertion attests no key.
     static let assertionAuthenticatorData =
         Data(SHA256.hash(data: Data(rpId.utf8))) + Data([0x05, 0, 0, 0, 1])
 }

@@ -91,6 +91,8 @@ extension WebAuthn.Client {
                 }
             }
         }
+        // Delegate-owned UX may outlive this call; without a cancellation/cleanup contract, only
+        // YubiKit-owned CTAP2 ceremonies can be timed out safely here.
         if case .ctap2 = backend {
             return stream.withTimeout(options.timeout)
         }

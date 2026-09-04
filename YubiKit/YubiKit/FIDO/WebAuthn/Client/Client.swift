@@ -69,19 +69,19 @@ extension WebAuthn {
 
         // MARK: - Backend
 
-        /// What this client drives.
-        ///
-        /// Two irreducibly different shapes rather than two conformers to one protocol: a CTAP2
-        /// authenticator negotiates PIN/UV, advertises capabilities and pages assertions, while a
-        /// delegated one does none of that. What the two share is the ceremony above them — RP ID
-        /// validation, client data, credential matching, response assembly — not an interface.
+        // What this client drives.
+        //
+        // Two irreducibly different boundaries rather than two conformers to one protocol: CTAP2
+        // exposes transport-level negotiation and paging, while delegation hands YubiKit resolved
+        // credential operations. What the two share is the ceremony above them — RP ID validation,
+        // client data, credential matching, response assembly — not an interface.
         enum Backend: Sendable {
 
-            /// A CTAP2 authenticator: a YubiKey over USB, NFC or Lightning.
+            // A CTAP2 authenticator: a YubiKey over USB, NFC or Lightning.
             case ctap2(any CTAP2Backend)
 
-            /// An authenticator supplied by the integrator and driven in-process. See
-            /// `WebAuthn.DelegatedAuthenticator`.
+            // An authenticator supplied by the integrator and driven in-process. See
+            // `WebAuthn.DelegatedAuthenticator`.
             case delegated(any DelegatedAuthenticator)
         }
 
@@ -147,10 +147,10 @@ extension WebAuthn {
             )
         }
 
-        /// Internal designated initializer, also used by tests with a mock backend.
-        ///
-        /// `allowedExtensions` has no default here on purpose: tests must opt in
-        /// explicitly so the suite never silently drifts from the public `.standard`.
+        // Internal designated initializer, also used by tests with a mock backend.
+        //
+        // `allowedExtensions` has no default here on purpose: tests must opt in
+        // explicitly so the suite never silently drifts from the public `.standard`.
         init(
             backend: Backend,
             origin: Origin,
