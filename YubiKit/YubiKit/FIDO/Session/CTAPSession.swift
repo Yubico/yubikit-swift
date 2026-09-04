@@ -127,8 +127,8 @@ extension CTAP2 {
     }
 }
 
-@_spi(YubiInternal) extension CTAP2.Status: StreamStatus {
-    @_spi(YubiInternal) public var finishedResponse: Response? {
+extension CTAP2.Status: StreamStatus {
+    var finishedResponse: Response? {
         if case .finished(let response) = self { return response }
         return nil
     }
