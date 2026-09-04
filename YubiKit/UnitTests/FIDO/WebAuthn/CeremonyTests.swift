@@ -18,7 +18,7 @@ import Testing
 @_spi(YubiInternal) @testable import YubiKit
 
 /// SDK-surface ceremony tests for `WebAuthn.Client`, driven through
-/// `MockWebAuthnBackend`. These exercise the Swift client (status stream,
+/// `MockCTAP2Backend`. These exercise the Swift client (status stream,
 /// pre-supplied PIN, cancellation, and the credProtect/credProps extension
 /// echoes) without touching a YubiKey — migrated from the integration
 /// `WebAuthn.Ceremony.*` / `WebAuthn.CredProtect.*` / `WebAuthn.CredProps.*`
@@ -40,8 +40,8 @@ struct CeremonyTests {
 
     // A PIN-only authenticator (clientPin set, no built-in UV). `.pin(_)`
     // authorization skips UV and goes straight to the PIN path.
-    private static func pinBackend() -> MockWebAuthnBackend {
-        let mock = MockWebAuthnBackend()
+    private static func pinBackend() -> MockCTAP2Backend {
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, pinUvAuthToken: true) }
         mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
         mock.onGetUVRetries = { 0 }
@@ -260,7 +260,7 @@ struct CeremonyTests {
 
     @Test("credProtect echoes the applied protection level for each policy")
     func testCredProtectAllLevels() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
 
         for policy in [
             WebAuthn.Extension.CredProtect.Policy.userVerificationOptional,
@@ -281,7 +281,7 @@ struct CeremonyTests {
 
     @Test("credProtect is not echoed when the authenticator omits it from authenticator data")
     func testCredProtectNotEchoedWhenAbsent() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         let outputs = try await mock.parseRegistrationOutputs(
             from: makeCredentialResponse(credentialId: Data([0xDD]), credProtectLevel: nil),
             prf: nil,
@@ -374,7 +374,7 @@ struct CeremonyTests {
 
     // MARK: - Clients with specific allowed extensions
 
-    private func makeCredPropsClient(_ backend: MockWebAuthnBackend) throws -> WebAuthn.Client {
+    private func makeCredPropsClient(_ backend: MockCTAP2Backend) throws -> WebAuthn.Client {
         WebAuthn.Client(
             backend: backend,
             origin: try WebAuthn.Origin("https://example.com"),

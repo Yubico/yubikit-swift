@@ -16,10 +16,10 @@ import Foundation
 
 @_spi(YubiInternal) @testable import YubiKit
 
-// MARK: - MockWebAuthnBackend
+// MARK: - MockCTAP2Backend
 
 /// Mock backend for WebAuthn tests. Set closures to control behavior.
-actor MockWebAuthnBackend: WebAuthn.CTAP2Backend {
+actor MockCTAP2Backend: WebAuthn.CTAP2Backend {
 
     // MARK: Configurable Closures
 

@@ -7,7 +7,7 @@ extension Runner {
 
     /// Authenticator has no matching credentials → `.noCredentials` error.
     static func authNoCredentials() async -> ScenarioStatus.Outcome {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: false, pinUvAuthToken: false) }
         mock.onGetAssertion = { _ in
             .mocked(error: .ctapError(.noCredentials, source: .here()))
@@ -18,7 +18,7 @@ extension Runner {
 
     /// Authenticator rejects: a passkey already exists for this user.
     static func regCredentialExcluded() async -> ScenarioStatus.Outcome {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: false, pinUvAuthToken: false) }
         mock.onMakeCredential = { _ in
             .mocked(error: .ctapError(.credentialExcluded, source: .here()))

@@ -11,7 +11,7 @@ extension Runner {
     static func flowUVRetryThenSuccess() async -> ScenarioStatus.Outcome {
         let uvAttempts = Box(0)
 
-        let webauthn = MockWebAuthnBackend()
+        let webauthn = MockCTAP2Backend()
         webauthn.onGetInfo = {
             .stub(clientPin: true, userVerification: true, pinUvAuthToken: true)
         }
@@ -44,7 +44,7 @@ extension Runner {
     static func flowUVExhaustionPINFallback() async -> ScenarioStatus.Outcome {
         let uvAttempts = Box(0)
 
-        let webauthn = MockWebAuthnBackend()
+        let webauthn = MockCTAP2Backend()
         webauthn.onGetInfo = {
             .stub(clientPin: true, userVerification: true, pinUvAuthToken: true)
         }
@@ -73,7 +73,7 @@ extension Runner {
     /// UV retry is consumed by the user's decline. User enters PIN →
     /// success.
     static func flowUVDeclineToPIN() async -> ScenarioStatus.Outcome {
-        let webauthn = MockWebAuthnBackend()
+        let webauthn = MockCTAP2Backend()
         webauthn.onGetInfo = {
             .stub(clientPin: true, userVerification: true, pinUvAuthToken: true)
         }
@@ -100,7 +100,7 @@ extension Runner {
     /// "Fingerprint Sensor Locked" inline fatal panel (non-retryable).
     static func errUVBlocked() async -> ScenarioStatus.Outcome {
         let uvAttempts = Box(0)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = {
             .stub(clientPin: false, userVerification: true, pinUvAuthToken: true)
         }

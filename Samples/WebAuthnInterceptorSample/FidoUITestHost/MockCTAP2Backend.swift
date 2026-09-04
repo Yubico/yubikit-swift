@@ -10,7 +10,7 @@ import Foundation
 // actor, so callbacks are `nonisolated(unsafe) var` — accept the trade-off
 // rather than wrapping every scenario assignment in `await`. Single-threaded
 // scenario execution makes this safe in practice.
-actor MockWebAuthnBackend: WebAuthn.CTAP2Backend {
+actor MockCTAP2Backend: WebAuthn.CTAP2Backend {
 
     nonisolated(unsafe) var onGetInfo: (() throws(CTAP2.SessionError) -> CTAP2.GetInfo.Response)!
     nonisolated(unsafe) var onGetUVRetries: (() throws(CTAP2.SessionError) -> Int)!
@@ -284,7 +284,7 @@ extension WebAuthn.Client {
 /// scenario setup (MainActor); reads happen from the FidoUI session closures
 /// which are also MainActor (Presenter is MainActor-bound). `nonisolated(unsafe)`
 /// avoids `await` ceremony at the setup site — same trade-off as
-/// ``MockWebAuthnBackend``'s actor properties. Defaults are no-ops so a
+/// ``MockCTAP2Backend``'s actor properties. Defaults are no-ops so a
 /// scenario that exercises only one path doesn't have to set the other.
 final class MockPINSetupBackend {
     nonisolated(unsafe) var onSetPIN: (String) async throws -> Void = { _ in }

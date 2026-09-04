@@ -28,7 +28,7 @@ struct CredentialFilteringTests {
 
     @Test("Returns nil on empty list")
     func testEmptyList() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
         let cachedInfo = try await mock.cachedInfo
 
@@ -45,7 +45,7 @@ struct CredentialFilteringTests {
     @Test("Finds credential in single-element list")
     func testSingleCredential() async throws {
         let target = randomCredentialId(length: 32)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
         var callCount = 0
         mock.onGetAssertion = { _ in
@@ -70,7 +70,7 @@ struct CredentialFilteringTests {
     @Test("Finds credential buried in list")
     func testCredentialInMiddle() async throws {
         let target = randomCredentialId(length: 32)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { _ in .mocked(.finished(.stub(credentialId: target))) }
         let cachedInfo = try await mock.cachedInfo
@@ -90,7 +90,7 @@ struct CredentialFilteringTests {
 
     @Test("Returns nil when no credentials match")
     func testNoMatch() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { _ in .mocked(error: .ctapError(.noCredentials, source: .here())) }
         let cachedInfo = try await mock.cachedInfo
@@ -111,7 +111,7 @@ struct CredentialFilteringTests {
     func testLengthFiltering() async throws {
         let shortCred = randomCredentialId(length: 32)
         let longCred = randomCredentialId(length: 129)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
         var sentIds: [Data] = []
         mock.onGetAssertion = { params in
@@ -139,7 +139,7 @@ struct CredentialFilteringTests {
     @Test("Chunks credentials by maxCredentialCountInList")
     func testChunking() async throws {
         let target = randomCredentialId(length: 32)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 3) }
         // 10 credentials, chunk size 3:
         //   Call 1: indices 0-2 → no match
@@ -173,7 +173,7 @@ struct CredentialFilteringTests {
     @Test("Reduces chunk size on ERR_REQUEST_TOO_LARGE")
     func testRequestTooLargeRetry() async throws {
         let target = randomCredentialId(length: 32)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 10) }
         var callCount = 0
         mock.onGetAssertion = { _ in
@@ -202,7 +202,7 @@ struct CredentialFilteringTests {
     @Test("Multiple retries reducing chunk size progressively")
     func testRequestTooLargeMultipleRetries() async throws {
         let target = randomCredentialId(length: 32)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 5) }
         var callCount = 0
         mock.onGetAssertion = { _ in
@@ -230,7 +230,7 @@ struct CredentialFilteringTests {
 
     @Test("Re-throws ERR_REQUEST_TOO_LARGE when chunk size reaches 1")
     func testRequestTooLargeReachesMinimum() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 1) }
         var callCount = 0
         mock.onGetAssertion = { _ in
@@ -264,7 +264,7 @@ struct CredentialFilteringTests {
     @Test("ERR_REQUEST_TOO_LARGE in middle chunk")
     func testRequestTooLargeInMiddleChunk() async throws {
         let target = randomCredentialId(length: 32)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 3) }
         // Chunk 1: no creds, Chunk 2: too large then retry succeeds
         var callCount = 0
@@ -309,7 +309,7 @@ struct CredentialPreprocessingTests {
         let invalidTypeCred = randomCredentialId(length: 32)
 
         var sentIds: [Data] = []
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
@@ -337,7 +337,7 @@ struct CredentialPreprocessingTests {
 
     @Test("Returns nil when all credentials have unsupported types")
     func testAllCredentialsFilteredByType() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
 
         let cachedInfo = try await mock.cachedInfo
@@ -360,7 +360,7 @@ struct CredentialPreprocessingTests {
 
     @Test("Returns nil when all credentials exceed maxCredentialIdLength")
     func testAllCredentialsFilteredByLength() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
 
         let cachedInfo = try await mock.cachedInfo
@@ -388,7 +388,7 @@ struct CredentialPreprocessingTests {
         let overMax = randomCredentialId(length: 129)
 
         // Zero length - should pass through
-        let mock0 = MockWebAuthnBackend()
+        let mock0 = MockCTAP2Backend()
         mock0.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
         mock0.onGetAssertion = { _ in .mocked(.finished(CTAP2.GetAssertion.Response.stub(credentialId: zero))) }
 
@@ -404,7 +404,7 @@ struct CredentialPreprocessingTests {
         #expect(result0?.id == zero)
 
         // Exactly at max length - should pass through
-        let mock1 = MockWebAuthnBackend()
+        let mock1 = MockCTAP2Backend()
         mock1.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
         mock1.onGetAssertion = { _ in .mocked(.finished(CTAP2.GetAssertion.Response.stub(credentialId: atMax))) }
 
@@ -420,7 +420,7 @@ struct CredentialPreprocessingTests {
         #expect(result1?.id == atMax)
 
         // One byte over max - should be filtered out
-        let mock2 = MockWebAuthnBackend()
+        let mock2 = MockCTAP2Backend()
         mock2.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
 
         let cachedInfo2 = try await mock2.cachedInfo
@@ -441,7 +441,7 @@ struct CredentialPreprocessingTests {
         let longCred = randomCredentialId(length: 256)
 
         var sentIds: [Data] = []
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: nil, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
@@ -476,7 +476,7 @@ struct CredentialPreprocessingTests {
         let tooLong = randomCredentialId(length: 256)
 
         var sentIds: [Data] = []
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
@@ -511,7 +511,7 @@ struct CredentialPreprocessingTests {
         let cred = randomCredentialId(length: 32)
 
         var sentDescriptors: [WebAuthn.CredentialDescriptor] = []
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { params in
             sentDescriptors.append(contentsOf: params.allowList ?? [])
@@ -554,7 +554,7 @@ struct CredentialPreprocessingTests {
 
         // Test with maxLength = 16 (only first credential)
         var sentIds: [Data] = []
-        let mock1 = MockWebAuthnBackend()
+        let mock1 = MockCTAP2Backend()
         mock1.onGetInfo = { .stub(maxCredentialIdLength: 16, maxCredentialCountInList: 8) }
         mock1.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
@@ -571,7 +571,7 @@ struct CredentialPreprocessingTests {
 
         // Test with maxLength = 32 (first two credentials)
         sentIds = []
-        let mock2 = MockWebAuthnBackend()
+        let mock2 = MockCTAP2Backend()
         mock2.onGetInfo = { .stub(maxCredentialIdLength: 32, maxCredentialCountInList: 8) }
         mock2.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
@@ -587,7 +587,7 @@ struct CredentialPreprocessingTests {
 
         // Test with maxLength = 64 (first three credentials)
         sentIds = []
-        let mock3 = MockWebAuthnBackend()
+        let mock3 = MockCTAP2Backend()
         mock3.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
         mock3.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
@@ -603,7 +603,7 @@ struct CredentialPreprocessingTests {
 
         // Test with maxLength = 255 (all credentials)
         sentIds = []
-        let mock4 = MockWebAuthnBackend()
+        let mock4 = MockCTAP2Backend()
         mock4.onGetInfo = { .stub(maxCredentialIdLength: 255, maxCredentialCountInList: 8) }
         mock4.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])

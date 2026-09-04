@@ -102,7 +102,8 @@ struct AuthenticatorBackendTests {
         }
         await #expect(throws: WebAuthn.ClientError.self) {
             try await guarded.getAssertion(
-                .init(challenge: Fixture.challenge, rpId: Fixture.rpId), authorization: .uvOnly
+                .init(challenge: Fixture.challenge, rpId: Fixture.rpId),
+                authorization: .uvOnly
             ).value
         }
         #expect(await authenticator.registration == nil)
@@ -113,13 +114,19 @@ struct AuthenticatorBackendTests {
     func customClientData() async throws {
         let authenticator = FakeAuthenticatorBackend()
         let data = WebAuthn.ClientData.hash(
-            Data(repeating: 0x91, count: 32), origin: Fixture.origin, rpId: Fixture.rpId
+            Data(repeating: 0x91, count: 32),
+            origin: Fixture.origin,
+            rpId: Fixture.rpId
         )
         _ = try await client(authenticator).makeCredential(
-            Fixture.registrationOptions(), clientData: data, authorization: .uvOnly
+            Fixture.registrationOptions(),
+            clientData: data,
+            authorization: .uvOnly
         ).value
         _ = try await client(authenticator).getAssertion(
-            Fixture.authenticationOptions(), clientData: data, authorization: .uvOnly
+            Fixture.authenticationOptions(),
+            clientData: data,
+            authorization: .uvOnly
         ).value
         #expect(await authenticator.registration?.clientData.clientDataHash == data.clientDataHash)
         #expect(await authenticator.authentication?.clientData.clientDataHash == data.clientDataHash)
@@ -131,7 +138,8 @@ struct AuthenticatorBackendTests {
         let authenticator = FakeAuthenticatorBackend(error: .cancelled(source: .here()))
         do {
             _ = try await client(authenticator).makeCredential(
-                Fixture.registrationOptions(), authorization: .uvOnly
+                Fixture.registrationOptions(),
+                authorization: .uvOnly
             ).value
             Issue.record("Expected cancellation")
         } catch {
@@ -142,7 +150,8 @@ struct AuthenticatorBackendTests {
         }
         do {
             _ = try await client(authenticator).getAssertion(
-                Fixture.authenticationOptions(), authorization: .uvOnly
+                Fixture.authenticationOptions(),
+                authorization: .uvOnly
             ).value
             Issue.record("Expected cancellation")
         } catch {
@@ -157,10 +166,12 @@ struct AuthenticatorBackendTests {
     func ignoresTimeout() async throws {
         let authenticator = FakeAuthenticatorBackend(responseDelay: .milliseconds(30))
         _ = try await client(authenticator).makeCredential(
-            Fixture.registrationOptions(timeout: .milliseconds(1)), authorization: .uvOnly
+            Fixture.registrationOptions(timeout: .milliseconds(1)),
+            authorization: .uvOnly
         ).value
         _ = try await client(authenticator).getAssertion(
-            Fixture.authenticationOptions(timeout: .milliseconds(1)), authorization: .uvOnly
+            Fixture.authenticationOptions(timeout: .milliseconds(1)),
+            authorization: .uvOnly
         ).value
     }
 
@@ -208,8 +219,11 @@ private actor FakeAuthenticatorBackend: WebAuthn.AuthenticatorBackend {
         allowedExtensions: Set<WebAuthn.Extension.Identifier>
     ) async -> WebAuthn.StatusStream<WebAuthn.Registration.Response> {
         registration = .init(
-            options: options, clientData: clientData, authorization: authorization,
-            enterpriseRpIds: enterpriseRpIds, allowedExtensions: allowedExtensions
+            options: options,
+            clientData: clientData,
+            authorization: authorization,
+            enterpriseRpIds: enterpriseRpIds,
+            allowedExtensions: allowedExtensions
         )
         return WebAuthn.StatusStream { [responseDelay, error] continuation in
             Task {
@@ -231,7 +245,9 @@ private actor FakeAuthenticatorBackend: WebAuthn.AuthenticatorBackend {
         allowedExtensions: Set<WebAuthn.Extension.Identifier>
     ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.Response]> {
         authentication = .init(
-            options: options, clientData: clientData, authorization: authorization,
+            options: options,
+            clientData: clientData,
+            authorization: authorization,
             allowedExtensions: allowedExtensions
         )
         return WebAuthn.StatusStream { [responseDelay, error] continuation in
@@ -288,27 +304,41 @@ private enum Fixture {
         let data = WebAuthn.AuthenticatorData(data: registrationAuthenticatorData)!
         let attested = data.attestedCredentialData!
         let object = WebAuthn.AttestationObject(
-            format: "none", statementCBOR: [CBOR.Value: CBOR.Value]().cbor(), authenticatorData: data
+            format: "none",
+            statementCBOR: [CBOR.Value: CBOR.Value]().cbor(),
+            authenticatorData: data
         )
         return .init(
-            credentialId: credentialId, rawAttestationObject: object.rawData,
-            rawAuthenticatorData: data.rawData, attestationStatement: object.statement,
-            transports: [.usb], clientExtensionResults: .init(credProps: .init(rk: false)),
-            publicKey: attested.credentialPublicKey, aaguid: attested.aaguid, signCount: data.signCount,
-            authenticatorAttachment: .crossPlatform, authenticatorData: data,
+            credentialId: credentialId,
+            rawAttestationObject: object.rawData,
+            rawAuthenticatorData: data.rawData,
+            attestationStatement: object.statement,
+            transports: [.usb],
+            clientExtensionResults: .init(credProps: .init(rk: false)),
+            publicKey: attested.credentialPublicKey,
+            aaguid: attested.aaguid,
+            signCount: data.signCount,
+            authenticatorAttachment: .crossPlatform,
+            authenticatorData: data,
             clientDataJSON: clientData.clientDataJSON
         )
     }
 
     static func assertionResponse(
-        _ id: Data, _ clientData: WebAuthn.ClientData
+        _ id: Data,
+        _ clientData: WebAuthn.ClientData
     ) -> WebAuthn.Authentication.Response {
         let raw = Data(SHA256.hash(data: Data(rpId.utf8))) + Data([0x05, 0, 0, 0, 1])
         let data = WebAuthn.AuthenticatorData(data: raw)!
         return .init(
-            credentialId: id, rawAuthenticatorData: raw, signature: Data(repeating: 0xE5, count: 64),
-            user: .init(id: userHandle), clientExtensionResults: .empty, signCount: data.signCount,
-            authenticatorAttachment: .crossPlatform, authenticatorData: data,
+            credentialId: id,
+            rawAuthenticatorData: raw,
+            signature: Data(repeating: 0xE5, count: 64),
+            user: .init(id: userHandle),
+            clientExtensionResults: .empty,
+            signCount: data.signCount,
+            authenticatorAttachment: .crossPlatform,
+            authenticatorData: data,
             clientDataJSON: clientData.clientDataJSON
         )
     }
