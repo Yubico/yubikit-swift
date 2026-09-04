@@ -16,7 +16,7 @@ import Foundation
 
 extension CBOR {
     // CBOR value representation for CTAP2/FIDO2
-    @_spi(YubiInternal) public indirect enum Value: Sendable {
+    indirect enum Value: Sendable {
         case unsignedInt(UInt64)  // CBOR major type 0
         case negativeInt(UInt64)  // CBOR major type 1, one's complement
         case byteString(Data)  // CBOR major type 2
@@ -180,14 +180,14 @@ extension CBOR.Value {
 // MARK: - Hashable & Equatable
 
 extension CBOR.Value: Hashable {
-    @_spi(YubiInternal) public func hash(into hasher: inout Hasher) {
+    func hash(into hasher: inout Hasher) {
         // Use the canonical CBOR encoding for hashing
         hasher.combine(self.encode())
     }
 }
 
 extension CBOR.Value: Equatable {
-    @_spi(YubiInternal) public static func == (lhs: CBOR.Value, rhs: CBOR.Value) -> Bool {
+    static func == (lhs: CBOR.Value, rhs: CBOR.Value) -> Bool {
         // Two CBOR values are equal if their canonical encodings are equal
         lhs.encode() == rhs.encode()
     }
@@ -196,31 +196,31 @@ extension CBOR.Value: Equatable {
 // MARK: - ExpressibleBy Literal Conformances
 
 extension CBOR.Value: ExpressibleByIntegerLiteral {
-    @_spi(YubiInternal) public init(integerLiteral value: Int) {
+    init(integerLiteral value: Int) {
         self.init(Int64(value))
     }
 }
 
 extension CBOR.Value: ExpressibleByStringLiteral {
-    @_spi(YubiInternal) public init(stringLiteral value: String) {
+    init(stringLiteral value: String) {
         self.init(value)
     }
 }
 
 extension CBOR.Value: ExpressibleByBooleanLiteral {
-    @_spi(YubiInternal) public init(booleanLiteral value: Bool) {
+    init(booleanLiteral value: Bool) {
         self.init(value)
     }
 }
 
 extension CBOR.Value: ExpressibleByArrayLiteral {
-    @_spi(YubiInternal) public init(arrayLiteral elements: CBOR.Value...) {
+    init(arrayLiteral elements: CBOR.Value...) {
         self = .array(elements)
     }
 }
 
 extension CBOR.Value: ExpressibleByDictionaryLiteral {
-    @_spi(YubiInternal) public init(dictionaryLiteral elements: (CBOR.Value, CBOR.Value)...) {
+    init(dictionaryLiteral elements: (CBOR.Value, CBOR.Value)...) {
         var dict: [CBOR.Value: CBOR.Value] = [:]
         for (key, value) in elements {
             dict[key] = value
@@ -230,7 +230,7 @@ extension CBOR.Value: ExpressibleByDictionaryLiteral {
 }
 
 extension CBOR.Value: ExpressibleByNilLiteral {
-    @_spi(YubiInternal) public init(nilLiteral: ()) {
+    init(nilLiteral: ()) {
         self = .null
     }
 }
@@ -238,7 +238,7 @@ extension CBOR.Value: ExpressibleByNilLiteral {
 // MARK: - CustomStringConvertible
 
 extension CBOR.Value: CustomStringConvertible {
-    @_spi(YubiInternal) public var description: String {
+    var description: String {
         switch self {
         case .unsignedInt(let n):
             return "\(n)"
