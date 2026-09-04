@@ -55,7 +55,7 @@ struct ExtensionAllowlistTests {
         )
 
         // Exhaustive: a new Identifier case forces a new arm here, which forces
-        // wiring the allowlist filter in Backend+Extensions.swift before this test passes.
+        // wiring the allowlist filter in CTAP2Backend+Extensions.swift before this test passes.
         for id in WebAuthn.Extension.Identifier.allCases {
             switch id {
             case .prf:
