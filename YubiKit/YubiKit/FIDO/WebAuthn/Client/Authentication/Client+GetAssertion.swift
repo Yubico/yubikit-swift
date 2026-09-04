@@ -69,51 +69,50 @@ extension WebAuthn.Client {
         if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
             return .error(error)
         }
+        return await backend.getAssertions(
+            options: options,
+            clientData: clientData,
+            authorization: authorization,
+            allowedExtensions: allowedExtensions
+        )
+    }
+}
+
+// MARK: - Private Implementation
+
+extension WebAuthn.CTAP2Backend {
+
+    @_spi(YubiInternal)
+    public func getAssertions(
+        options: WebAuthn.Authentication.Options,
+        clientData: WebAuthn.ClientData,
+        authorization: WebAuthn.Authorization,
+        allowedExtensions: Set<WebAuthn.Extension.Identifier>
+    ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.Response]> {
         let stream = WebAuthn.StatusStream { continuation in
             Task { [self] in
                 do throws(WebAuthn.ClientError) {
-                    let matches: [WebAuthn.Authentication.Response]
-                    switch backend {
-                    case .ctap2(let ctap2):
-                        matches = try await self.performGetAssertions(
-                            backend: ctap2,
-                            options: options,
-                            clientData: clientData,
-                            authorization: authorization,
-                            continuation: continuation
-                        )
-                    case .delegated(let authenticator):
-                        // `authorization` is not consulted — see makeCredential.
-                        matches = try await self.performDelegatedGetAssertions(
-                            authenticator: authenticator,
-                            options: options,
-                            clientData: clientData
-                        )
-                    }
+                    let matches = try await performGetAssertions(
+                        options: options,
+                        clientData: clientData,
+                        authorization: authorization,
+                        allowedExtensions: allowedExtensions,
+                        continuation: continuation
+                    )
                     continuation.yield(.finished(matches))
                 } catch {
                     continuation.yield(error: error)
                 }
             }
         }
-        // Delegate-owned UX may outlive this call; without a cancellation/cleanup contract, only
-        // YubiKit-owned CTAP2 ceremonies can be timed out safely here.
-        if case .ctap2 = backend {
-            return stream.withTimeout(options.timeout)
-        }
-        return stream
+        return stream.withTimeout(options.timeout)
     }
-}
 
-// MARK: - Private Implementation
-
-extension WebAuthn.Client {
-
-    fileprivate func performGetAssertions(
-        backend: any WebAuthn.CTAP2Backend,
+    private func performGetAssertions(
         options: WebAuthn.Authentication.Options,
         clientData: WebAuthn.ClientData,
         authorization: WebAuthn.Authorization,
+        allowedExtensions: Set<WebAuthn.Extension.Identifier>,
         continuation: WebAuthn.StatusStream<[WebAuthn.Authentication.Response]>.Continuation
     ) async throws(WebAuthn.ClientError) -> [WebAuthn.Authentication.Response] {
 
@@ -132,23 +131,22 @@ extension WebAuthn.Client {
 
         var permissions: CTAP2.ClientPin.Permission = .getAssertion
         if case .write = options.extensions?.largeBlob,
-            (try? await backend.isLargeBlobSupported()) == true
+            (try? await isLargeBlobSupported()) == true
         {
             permissions.insert(.largeBlobWrite)
         }
 
-        var retry = RetryContext(userVerification: options.userVerification)
+        var retry = WebAuthn.CTAP2RetryContext(userVerification: options.userVerification)
 
         while true {
             let info: CTAP2.GetInfo.Response
             do throws(CTAP2.SessionError) {
-                info = try await backend.getInfo()
+                info = try await getInfo()
             } catch {
                 throw WebAuthn.ClientError(error)
             }
 
             let auth = try await acquireAuthToken(
-                backend: backend,
                 info: info,
                 permissions: permissions,
                 rpId: rpId,
@@ -171,12 +169,11 @@ extension WebAuthn.Client {
             if !options.allowCredentials.isEmpty {
                 let cachedInfo: CTAP2.GetInfo.ImmutableView
                 do throws(CTAP2.SessionError) {
-                    cachedInfo = try await backend.cachedInfo
+                    cachedInfo = try await self.cachedInfo
                 } catch {
                     throw WebAuthn.ClientError(error)
                 }
                 selectedCred = try await findMatchingCredential(
-                    backend: backend,
                     from: options.allowCredentials,
                     rpId: rpId,
                     cachedInfo: cachedInfo,
@@ -190,7 +187,7 @@ extension WebAuthn.Client {
                 }
             }
 
-            let (ctapExtensions, prf, previewSign, largeBlobAction) = try await backend.buildGetAssertionExtensions(
+            let (ctapExtensions, prf, previewSign, largeBlobAction) = try await buildGetAssertionExtensions(
                 options.extensions,
                 allowCredentials: options.allowCredentials,
                 selectedCredentialId: selectedCred?.id,
@@ -209,7 +206,6 @@ extension WebAuthn.Client {
             let collected: [CTAP2.GetAssertion.Response]
             do throws(CTAP2.SessionError) {
                 let firstResponse = try await sendAssertion(
-                    backend: backend,
                     parameters: parameters,
                     token: auth.token,
                     continuation: continuation
@@ -218,7 +214,7 @@ extension WebAuthn.Client {
                 var allResponses = [firstResponse]
                 let total = firstResponse.numberOfCredentials ?? 1
                 for _ in 1..<total {
-                    allResponses.append(try await backend.getNextAssertion().value)
+                    allResponses.append(try await getNextAssertion().value)
                 }
                 collected = allResponses
             } catch {
@@ -227,7 +223,7 @@ extension WebAuthn.Client {
                 }
                 guard retry.shouldRetry(for: error) else {
                     if case .ctapError(.uvInvalid, _) = error {
-                        throw try await translateUVInvalid(backend: backend)
+                        throw try await translateUVInvalid()
                     }
                     throw WebAuthn.ClientError(error)
                 }
@@ -248,12 +244,12 @@ extension WebAuthn.Client {
                 // Resolve extension outputs on the live connection so the
                 // returned `Response` is self-contained — selection by the
                 // caller is purely local.
-                let largeBlobOutput = try await backend.processLargeBlob(
+                let largeBlobOutput = try await processLargeBlob(
                     from: ctapResponse,
                     action: largeBlobAction,
                     token: auth.token
                 )
-                let extensionOutputs = try await backend.parseAuthenticationOutputs(
+                let extensionOutputs = try await parseAuthenticationOutputs(
                     from: ctapResponse,
                     prf: prf,
                     previewSign: previewSign,
@@ -282,16 +278,15 @@ extension WebAuthn.Client {
 
 // MARK: - Shared Helpers
 
-extension WebAuthn.Client {
+extension WebAuthn.CTAP2Backend {
 
     // Sends a getAssertion command and forwards status updates to the continuation.
-    fileprivate func sendAssertion(
-        backend: any WebAuthn.CTAP2Backend,
+    private func sendAssertion(
         parameters: CTAP2.GetAssertion.Parameters,
         token: CTAP2.Token?,
         continuation: WebAuthn.StatusStream<[WebAuthn.Authentication.Response]>.Continuation
     ) async throws(CTAP2.SessionError) -> CTAP2.GetAssertion.Response {
-        let stream = await backend.getAssertion(parameters: parameters, token: token)
+        let stream = await getAssertion(parameters: parameters, token: token)
         var response: CTAP2.GetAssertion.Response?
         for try await ctapStatus in stream {
             switch ctapStatus {

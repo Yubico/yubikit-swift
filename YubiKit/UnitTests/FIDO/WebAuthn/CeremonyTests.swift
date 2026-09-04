@@ -51,6 +51,57 @@ struct CeremonyTests {
         return mock
     }
 
+    @Test("CTAP2 applies the requested timeout to both ceremonies", arguments: [true, false])
+    func appliesTimeout(registration: Bool) async throws {
+        let mock = Self.pinBackend()
+        mock.onMakeCredential = { _ in
+            CTAP2.StatusStream { continuation in
+                Task {
+                    try? await Task.sleep(for: .milliseconds(200))
+                    continuation.finish()
+                }
+            }
+        }
+        mock.onGetAssertion = { _ in
+            CTAP2.StatusStream { continuation in
+                Task {
+                    try? await Task.sleep(for: .milliseconds(200))
+                    continuation.finish()
+                }
+            }
+        }
+        let client = try WebAuthn.Client.make(backend: mock)
+        do {
+            if registration {
+                _ = try await client.makeCredential(
+                    .init(
+                        challenge: Self.registrationOptions.challenge,
+                        rp: Self.registrationOptions.rp,
+                        user: Self.registrationOptions.user,
+                        residentKey: .discouraged,
+                        timeout: .milliseconds(10)
+                    ),
+                    authorization: .pin("1234")
+                ).value
+            } else {
+                _ = try await client.getAssertion(
+                    .init(
+                        challenge: Self.authenticationOptions.challenge,
+                        rpId: Self.authenticationOptions.rpId,
+                        timeout: .milliseconds(10)
+                    ),
+                    authorization: .pin("1234")
+                ).value
+            }
+            Issue.record("Expected timeout")
+        } catch {
+            guard case WebAuthn.ClientError.timeout = error else {
+                Issue.record("Expected timeout, got \(error)")
+                return
+            }
+        }
+    }
+
     // MARK: - Status Stream (PIN via closure)
 
     @Test("getAssertion status stream delivers waitingForUser and pulls the PIN via the closure exactly once")
@@ -325,7 +376,7 @@ struct CeremonyTests {
 
     private func makeCredPropsClient(_ backend: MockWebAuthnBackend) throws -> WebAuthn.Client {
         WebAuthn.Client(
-            backend: .ctap2(backend),
+            backend: backend,
             origin: try WebAuthn.Origin("https://example.com"),
             allowedExtensions: [.credProps],
             isPublicSuffix: { _ in false }

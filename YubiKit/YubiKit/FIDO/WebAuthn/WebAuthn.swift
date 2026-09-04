@@ -95,13 +95,32 @@ public enum WebAuthn {
         public typealias Element = Status<R>
 
         typealias Base = StatusStreamBase<Status<R>, ClientError>
-        typealias Continuation = Base.Continuation
+        @_spi(YubiInternal)
+        public struct Continuation: Sendable {
+            private let base: Base.Continuation
+
+            fileprivate init(_ base: Base.Continuation) {
+                self.base = base
+            }
+
+            public func yield(_ status: Status<R>) {
+                base.yield(status)
+            }
+
+            public func yield(error: ClientError) {
+                base.yield(error: error)
+            }
+
+            func finish() {
+                base.finish()
+            }
+        }
 
         private let base: Base
 
-        /// Builds a stream from a closure that drives a ``Continuation``.
-        init(_ build: @escaping (Continuation) -> Void) {
-            self.base = Base(build)
+        @_spi(YubiInternal)
+        public init(_ build: @escaping (Continuation) -> Void) {
+            self.base = Base { build(Continuation($0)) }
         }
 
         init(_ base: Base) {

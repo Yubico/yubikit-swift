@@ -16,13 +16,12 @@ import Foundation
 
 // MARK: - Credential Matching
 
-extension WebAuthn.Client {
+extension WebAuthn.CTAP2Backend {
 
     // Silently probes authenticator to find a matching credential from the list.
     // Used for exclude list (registration) and allow list (authentication) checks.
     // Handles authenticator limits by filtering long IDs and chunking requests.
     func findMatchingCredential(
-        backend: any WebAuthn.CTAP2Backend,
         from credentials: [WebAuthn.CredentialDescriptor],
         rpId: String,
         cachedInfo: CTAP2.GetInfo.ImmutableView,
@@ -58,7 +57,7 @@ extension WebAuthn.Client {
             )
 
             do throws(CTAP2.SessionError) {
-                let response = try await backend.getAssertion(parameters: parameters, token: token).value
+                let response = try await getAssertion(parameters: parameters, token: token).value
                 if chunk.count == 1 { return chunk[0] }
                 if let credentialId = response.credential?.id {
                     return WebAuthn.CredentialDescriptor(id: credentialId)

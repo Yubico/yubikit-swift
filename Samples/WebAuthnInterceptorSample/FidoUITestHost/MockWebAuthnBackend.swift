@@ -271,7 +271,7 @@ extension WebAuthn.Client {
         origin: String = "https://example.com"
     ) throws -> WebAuthn.Client {
         WebAuthn.Client(
-            backend: .ctap2(backend),
+            backend: backend,
             origin: try WebAuthn.Origin(origin),
             allowedExtensions: .standard,
             isPublicSuffix: { _ in false }

@@ -69,25 +69,7 @@ extension WebAuthn {
 
         // MARK: - Backend
 
-        // What this client drives.
-        //
-        // Two irreducibly different boundaries rather than two conformers to one protocol: CTAP2
-        // exposes transport-level negotiation and paging, while delegation hands YubiKit resolved
-        // credential operations. What the two share is the ceremony above them — RP ID validation,
-        // client data, credential matching, response assembly — not an interface.
-        enum Backend: Sendable {
-
-            // A CTAP2 authenticator: a YubiKey over USB, NFC or Lightning.
-            case ctap2(any CTAP2Backend)
-
-            // An authenticator supplied by the integrator and driven in-process. See
-            // `WebAuthn.DelegatedAuthenticator`.
-            case delegated(any DelegatedAuthenticator)
-        }
-
-        // MARK: - Internal Properties
-
-        let backend: Backend
+        let backend: any AuthenticatorBackend
         let origin: Origin
         let enterpriseRpIds: Set<String>
         let allowedExtensions: Set<WebAuthn.Extension.Identifier>
@@ -118,7 +100,7 @@ extension WebAuthn {
             isPublicSuffix: @escaping PublicSuffixChecker
         ) {
             self.init(
-                backend: .ctap2(session),
+                backend: session,
                 origin: origin,
                 enterpriseRpIds: enterpriseRpIds,
                 allowedExtensions: allowedExtensions,
@@ -126,22 +108,19 @@ extension WebAuthn {
             )
         }
 
-        // Create a WebAuthn client backed by an authenticator this SDK does not implement.
-        //
-        // Same ceremony as the CTAP2 path, with the credential operations delegated — see
-        // `WebAuthn.DelegatedAuthenticator`. No `enterpriseRpIds`: enterprise attestation is a
-        // CTAP2 concept and a delegated authenticator attests nothing. Only `credProps` is
-        // processed, whatever `allowedExtensions` lists.
+        // Backend owns ceremony execution; Client validates RP ID and builds client data.
         @_spi(YubiInternal)
         public init(
-            authenticator: any DelegatedAuthenticator,
+            authenticator: any AuthenticatorBackend,
             origin: Origin,
+            enterpriseRpIds: Set<String> = [],
             allowedExtensions: Set<WebAuthn.Extension.Identifier> = .standard,
             isPublicSuffix: @escaping PublicSuffixChecker
         ) {
             self.init(
-                backend: .delegated(authenticator),
+                backend: authenticator,
                 origin: origin,
+                enterpriseRpIds: enterpriseRpIds,
                 allowedExtensions: allowedExtensions,
                 isPublicSuffix: isPublicSuffix
             )
@@ -152,7 +131,7 @@ extension WebAuthn {
         // `allowedExtensions` has no default here on purpose: tests must opt in
         // explicitly so the suite never silently drifts from the public `.standard`.
         init(
-            backend: Backend,
+            backend: any AuthenticatorBackend,
             origin: Origin,
             enterpriseRpIds: Set<String> = [],
             allowedExtensions: Set<WebAuthn.Extension.Identifier>,

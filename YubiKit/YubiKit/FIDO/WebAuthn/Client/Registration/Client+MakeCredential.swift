@@ -63,58 +63,60 @@ extension WebAuthn.Client {
         if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
             return .error(error)
         }
+        return await backend.makeCredential(
+            options: options,
+            clientData: clientData,
+            authorization: authorization,
+            enterpriseRpIds: enterpriseRpIds,
+            allowedExtensions: allowedExtensions
+        )
+    }
+}
+
+// MARK: - Private Implementation
+
+extension WebAuthn.CTAP2Backend {
+
+    @_spi(YubiInternal)
+    public func makeCredential(
+        options: WebAuthn.Registration.Options,
+        clientData: WebAuthn.ClientData,
+        authorization: WebAuthn.Authorization,
+        enterpriseRpIds: Set<String>,
+        allowedExtensions: Set<WebAuthn.Extension.Identifier>
+    ) async -> WebAuthn.StatusStream<WebAuthn.Registration.Response> {
         let stream = WebAuthn.StatusStream { continuation in
             Task { [self] in
                 do throws(WebAuthn.ClientError) {
-                    let response: WebAuthn.Registration.Response
-                    switch backend {
-                    case .ctap2(let ctap2):
-                        response = try await performMakeCredential(
-                            backend: ctap2,
-                            options: options,
-                            clientData: clientData,
-                            authorization: authorization,
-                            continuation: continuation
-                        )
-                    case .delegated(let authenticator):
-                        // `authorization` is not consulted: a delegated authenticator has no PIN
-                        // and runs its own user verification, so there is no policy to apply.
-                        response = try await performDelegatedMakeCredential(
-                            authenticator: authenticator,
-                            options: options,
-                            clientData: clientData
-                        )
-                    }
+                    let response = try await performMakeCredential(
+                        options: options,
+                        clientData: clientData,
+                        authorization: authorization,
+                        enterpriseRpIds: enterpriseRpIds,
+                        allowedExtensions: allowedExtensions,
+                        continuation: continuation
+                    )
                     continuation.yield(.finished(response))
                 } catch {
                     continuation.yield(error: error)
                 }
             }
         }
-        // Delegate-owned UX may outlive this call; without a cancellation/cleanup contract, only
-        // YubiKit-owned CTAP2 ceremonies can be timed out safely here.
-        if case .ctap2 = backend {
-            return stream.withTimeout(options.timeout)
-        }
-        return stream
+        return stream.withTimeout(options.timeout)
     }
-}
 
-// MARK: - Private Implementation
-
-extension WebAuthn.Client {
-
-    fileprivate func performMakeCredential(
-        backend: any WebAuthn.CTAP2Backend,
+    private func performMakeCredential(
         options: WebAuthn.Registration.Options,
         clientData: WebAuthn.ClientData,
         authorization: WebAuthn.Authorization,
+        enterpriseRpIds: Set<String>,
+        allowedExtensions: Set<WebAuthn.Extension.Identifier>,
         continuation: WebAuthn.StatusStream<WebAuthn.Registration.Response>.Continuation
     ) async throws(WebAuthn.ClientError) -> WebAuthn.Registration.Response {
 
         let cachedInfo: CTAP2.GetInfo.ImmutableView
         do throws(CTAP2.SessionError) {
-            cachedInfo = try await backend.cachedInfo
+            cachedInfo = try await self.cachedInfo
         } catch {
             throw WebAuthn.ClientError(error)
         }
@@ -124,26 +126,26 @@ extension WebAuthn.Client {
         let enterpriseAttestation = resolveEnterpriseAttestation(
             options.attestation,
             rpId: rpId,
-            cachedInfo: cachedInfo
+            cachedInfo: cachedInfo,
+            enterpriseRpIds: enterpriseRpIds
         )
         // Need getAssertion permission to silently probe exclude list.
         let permissions: CTAP2.ClientPin.Permission =
             options.excludeCredentials.isEmpty ? .makeCredential : [.makeCredential, .getAssertion]
         let clientDataHash = clientData.clientDataHash
 
-        var retry = RetryContext(userVerification: options.userVerification)
+        var retry = WebAuthn.CTAP2RetryContext(userVerification: options.userVerification)
 
         while true {
             // Re-fetch mutable state (PIN/UV counters) on each attempt.
             let info: CTAP2.GetInfo.Response
             do throws(CTAP2.SessionError) {
-                info = try await backend.getInfo()
+                info = try await getInfo()
             } catch {
                 throw WebAuthn.ClientError(error)
             }
 
             let auth = try await acquireAuthToken(
-                backend: backend,
                 info: info,
                 permissions: permissions,
                 rpId: rpId,
@@ -160,7 +162,6 @@ extension WebAuthn.Client {
             )
 
             let excludedCred = try await findMatchingCredential(
-                backend: backend,
                 from: options.excludeCredentials,
                 rpId: rpId,
                 cachedInfo: cachedInfo,
@@ -168,7 +169,7 @@ extension WebAuthn.Client {
             )
 
             let (ctapExtensions, prf, previewSign, largeBlobRequested) =
-                try await backend.buildMakeCredentialExtensions(
+                try await buildMakeCredentialExtensions(
                     options.extensions,
                     allowedExtensions: allowedExtensions,
                     userVerification: options.userVerification
@@ -188,7 +189,7 @@ extension WebAuthn.Client {
 
             let ctapResponse: CTAP2.MakeCredential.Response
             do throws(CTAP2.SessionError) {
-                let ctapStream = await backend.makeCredential(
+                let ctapStream = await makeCredential(
                     parameters: parameters,
                     token: auth.token
                 )
@@ -213,7 +214,7 @@ extension WebAuthn.Client {
             } catch {
                 guard retry.shouldRetry(for: error) else {
                     if case .ctapError(.uvInvalid, _) = error {
-                        throw try await translateUVInvalid(backend: backend)
+                        throw try await translateUVInvalid()
                     }
                     throw WebAuthn.ClientError(error)
                 }
@@ -230,7 +231,7 @@ extension WebAuthn.Client {
                 )
             }
             let credPropsRk: Bool? = options.extensions?.credProps == true ? rk : nil
-            let extensionOutputs = try await backend.parseRegistrationOutputs(
+            let extensionOutputs = try await parseRegistrationOutputs(
                 from: ctapResponse,
                 prf: prf,
                 previewSign: previewSign,
@@ -256,7 +257,7 @@ extension WebAuthn.Client {
     }
 
     // Maps WebAuthn resident key preference to CTAP2 `rk` boolean.
-    fileprivate func resolveResidentKey(
+    private func resolveResidentKey(
         _ preference: WebAuthn.ResidentKeyPreference,
         cachedInfo: CTAP2.GetInfo.ImmutableView
     ) throws(WebAuthn.ClientError) -> Bool {
@@ -268,10 +269,11 @@ extension WebAuthn.Client {
     }
 
     // Resolves enterprise attestation level (1=vendor-facilitated, 2=platform-managed).
-    fileprivate func resolveEnterpriseAttestation(
+    private func resolveEnterpriseAttestation(
         _ attestation: WebAuthn.AttestationPreference,
         rpId: String,
-        cachedInfo: CTAP2.GetInfo.ImmutableView
+        cachedInfo: CTAP2.GetInfo.ImmutableView,
+        enterpriseRpIds: Set<String>
     ) -> Int? {
         guard attestation == .enterprise, cachedInfo.options.supportsEnterpriseAttestation else { return nil }
         return enterpriseRpIds.contains(rpId) ? 2 : 1
