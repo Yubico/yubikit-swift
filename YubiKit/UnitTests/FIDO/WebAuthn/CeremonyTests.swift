@@ -51,6 +51,31 @@ struct CeremonyTests {
         return mock
     }
 
+    @Test("Discouraged authentication does not prompt for a configured PIN", arguments: [false, true])
+    func discouragedAuthenticationSkipsPIN(discoverable: Bool) async throws {
+        let mock = Self.pinBackend()
+        mock.onGetAssertion = { parameters in
+            #expect(parameters.uv != true)
+            return .mocked(.finished(.stub(credentialId: Data([0xAA]))))
+        }
+        let pinPromptCalls = Box(0)
+        let client = try WebAuthn.Client.make(backend: mock)
+        _ = try await client.getAssertion(
+            .init(
+                challenge: Self.authenticationOptions.challenge,
+                rpId: Self.authenticationOptions.rpId,
+                allowCredentials: discoverable ? [] : [.init(id: Data([0xAA]))],
+                userVerification: .discouraged
+            ),
+            authorization: .init(providePIN: {
+                pinPromptCalls.value += 1
+                return .pin("1234")
+            })
+        ).value
+
+        #expect(pinPromptCalls.value == 0)
+    }
+
     @Test("CTAP2 applies the requested timeout to both ceremonies", arguments: [true, false])
     func appliesTimeout(registration: Bool) async throws {
         let mock = Self.pinBackend()

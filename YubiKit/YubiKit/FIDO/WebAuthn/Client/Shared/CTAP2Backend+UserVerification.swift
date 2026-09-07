@@ -63,6 +63,7 @@ extension WebAuthn.CTAP2Backend {
         rpId: String,
         userVerification: WebAuthn.UserVerificationPreference,
         isMakeCredential: Bool,
+        discoverable: Bool,
         allowUV: Bool = true,
         authorization: WebAuthn.Authorization,
         yieldProcessing: @Sendable () -> Void = {},
@@ -77,7 +78,8 @@ extension WebAuthn.CTAP2Backend {
             info: info,
             userVerification: userVerification,
             permissions: permissions,
-            isMakeCredential: isMakeCredential
+            isMakeCredential: isMakeCredential,
+            discoverable: discoverable
         )
         guard uvRequired else {
             return (token: nil, uv: nil)
@@ -274,13 +276,12 @@ extension WebAuthn.CTAP2Backend {
 extension WebAuthn.CTAP2Backend {
 
     // Determines if UV is required based on preference, authenticator flags, and operation type.
-    // UV required if: explicit .required, .preferred with support, PIN set (even when discouraged),
-    // alwaysUV enabled, registration without makeCredUVNotRequired, or management permissions.
     private func isUserVerificationRequired(
         info: CTAP2.GetInfo.Response,
         userVerification: WebAuthn.UserVerificationPreference,
         permissions: CTAP2.ClientPin.Permission,
-        isMakeCredential: Bool
+        isMakeCredential: Bool,
+        discoverable: Bool
     ) throws(WebAuthn.ClientError) -> Bool {
         let options = info.options
 
@@ -297,7 +298,6 @@ extension WebAuthn.CTAP2Backend {
 
         if userVerification == .required
             || (userVerification == .preferred && uvSupported)
-            || (userVerification == .discouraged && options.clientPin == true)
             || options.alwaysUV == true
         {
             guard uvConfigured else {
@@ -312,7 +312,9 @@ extension WebAuthn.CTAP2Backend {
             return true
         }
 
-        if isMakeCredential && uvConfigured && options.makeCredUVNotRequired != true {
+        if isMakeCredential && uvConfigured
+            && (discoverable || options.makeCredUVNotRequired != true)
+        {
             return true
         }
 
