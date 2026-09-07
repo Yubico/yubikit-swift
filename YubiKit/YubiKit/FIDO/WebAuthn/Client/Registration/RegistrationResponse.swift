@@ -63,7 +63,7 @@ extension WebAuthn.Registration {
         /// This is `nil` for credential provider flows where only the hash was provided.
         internal let clientDataJSON: Data?
 
-        init(
+        @_spi(YubiInternal) public init(
             credentialId: Data,
             rawAttestationObject: Data,
             rawAuthenticatorData: Data,

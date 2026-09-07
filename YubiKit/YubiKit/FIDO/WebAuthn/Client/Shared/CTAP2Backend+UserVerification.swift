@@ -16,14 +16,12 @@ import Foundation
 
 // MARK: - User Verification
 
-extension WebAuthn.Client {
-
-    // MARK: - Retry Context
+extension WebAuthn {
 
     // Tracks UV/PIN state across retry attempts.
     // Handles: PUAT required (upgrade discouraged→required), UV blocked (fall back to PIN).
-    struct RetryContext {
-        var userVerification: WebAuthn.UserVerificationPreference
+    struct CTAP2RetryContext {
+        var userVerification: UserVerificationPreference
         var allowUV: Bool = true
 
         // Returns true if error is recoverable and state was updated for retry.
@@ -40,6 +38,9 @@ extension WebAuthn.Client {
             }
         }
     }
+}
+
+extension WebAuthn.CTAP2Backend {
 
     // MARK: - Token Acquisition
 
@@ -90,7 +91,7 @@ extension WebAuthn.Client {
         let initialUVRetries: Int
         if canTryUV {
             do throws(CTAP2.SessionError) {
-                initialUVRetries = try await backend.getUVRetries()
+                initialUVRetries = try await getUVRetries()
             } catch {
                 throw WebAuthn.ClientError(error)
             }
@@ -142,7 +143,7 @@ extension WebAuthn.Client {
         }
 
         do throws(CTAP2.SessionError) {
-            let token = try await backend.getPinUVToken(
+            let token = try await getPinUVToken(
                 using: .pin(pin),
                 permissions: permissions,
                 rpId: rpId
@@ -154,7 +155,7 @@ extension WebAuthn.Client {
             }
             let retries: Int
             do {
-                retries = try await backend.getPinRetries().retries
+                retries = try await getPinRetries().retries
             } catch {
                 throw WebAuthn.ClientError(error)
             }
@@ -168,14 +169,14 @@ extension WebAuthn.Client {
 
 // MARK: - External UV Path
 
-extension WebAuthn.Client {
+private enum UVOutcome {
+    case token(CTAP2.Token)
+    case fallbackToPIN
+}
 
-    enum UVOutcome {
-        case token(CTAP2.Token)
-        case fallbackToPIN
-    }
+extension WebAuthn.CTAP2Backend {
 
-    fileprivate func runExternalUV(
+    private func runExternalUV(
         permissions: CTAP2.ClientPin.Permission,
         rpId: String,
         canFallback: Bool,
@@ -189,7 +190,7 @@ extension WebAuthn.Client {
         let signal = FallbackSignal()
 
         do throws(CTAP2.SessionError) {
-            let stream = try await backend.getPinUVTokenUpdates(
+            let stream = try await getPinUVTokenUpdates(
                 using: .uv,
                 permissions: permissions,
                 rpId: rpId
@@ -244,7 +245,7 @@ private actor FallbackSignal {
 
 // MARK: - UV Error Translation
 
-extension WebAuthn.Client {
+extension WebAuthn.CTAP2Backend {
 
     // Translates a `uvInvalid` CTAP error into the public retry-aware contract.
     // Used by both the external pinUVAuthToken path (in `acquireAuthToken`) and
@@ -258,7 +259,7 @@ extension WebAuthn.Client {
     func translateUVInvalid() async throws(WebAuthn.ClientError) -> WebAuthn.ClientError {
         let retries: Int
         do {
-            retries = try await backend.getUVRetries()
+            retries = try await getUVRetries()
         } catch {
             throw WebAuthn.ClientError(error)
         }
@@ -270,7 +271,7 @@ extension WebAuthn.Client {
 
 // MARK: - Private
 
-extension WebAuthn.Client {
+extension WebAuthn.CTAP2Backend {
 
     // Determines if UV is required based on preference, authenticator flags, and operation type.
     // UV required if: explicit .required, .preferred with support, PIN set (even when discouraged),

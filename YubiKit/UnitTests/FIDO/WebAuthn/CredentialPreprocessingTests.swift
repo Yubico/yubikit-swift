@@ -28,12 +28,11 @@ struct CredentialFilteringTests {
 
     @Test("Returns nil on empty list")
     func testEmptyList() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: [],
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -46,19 +45,18 @@ struct CredentialFilteringTests {
     @Test("Finds credential in single-element list")
     func testSingleCredential() async throws {
         let target = randomCredentialId(length: 32)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
         var callCount = 0
         mock.onGetAssertion = { _ in
             callCount += 1
             return .mocked(.finished(.stub(credentialId: target)))
         }
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         let credentials = [WebAuthn.CredentialDescriptor(id: target)]
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -72,16 +70,15 @@ struct CredentialFilteringTests {
     @Test("Finds credential buried in list")
     func testCredentialInMiddle() async throws {
         let target = randomCredentialId(length: 32)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { _ in .mocked(.finished(.stub(credentialId: target))) }
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         var credentials = (0..<5).map { _ in WebAuthn.CredentialDescriptor(id: randomCredentialId(length: 32)) }
         credentials.insert(WebAuthn.CredentialDescriptor(id: target), at: 3)
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -93,15 +90,14 @@ struct CredentialFilteringTests {
 
     @Test("Returns nil when no credentials match")
     func testNoMatch() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { _ in .mocked(error: .ctapError(.noCredentials, source: .here())) }
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         let credentials = [WebAuthn.CredentialDescriptor(id: randomCredentialId(length: 32))]
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -115,14 +111,13 @@ struct CredentialFilteringTests {
     func testLengthFiltering() async throws {
         let shortCred = randomCredentialId(length: 32)
         let longCred = randomCredentialId(length: 129)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
         var sentIds: [Data] = []
         mock.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
             return .mocked(.finished(.stub(credentialId: shortCred)))
         }
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         let credentials = [
@@ -130,7 +125,7 @@ struct CredentialFilteringTests {
             WebAuthn.CredentialDescriptor(id: shortCred),
         ]
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -144,7 +139,7 @@ struct CredentialFilteringTests {
     @Test("Chunks credentials by maxCredentialCountInList")
     func testChunking() async throws {
         let target = randomCredentialId(length: 32)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 3) }
         // 10 credentials, chunk size 3:
         //   Call 1: indices 0-2 → no match
@@ -158,14 +153,13 @@ struct CredentialFilteringTests {
             }
             return .mocked(.finished(.stub(credentialId: target)))
         }
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         // 9 random credentials + target inserted at index 7 = 10 total
         var credentials = (0..<9).map { _ in WebAuthn.CredentialDescriptor(id: randomCredentialId(length: 32)) }
         credentials.insert(WebAuthn.CredentialDescriptor(id: target), at: 7)
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -179,7 +173,7 @@ struct CredentialFilteringTests {
     @Test("Reduces chunk size on ERR_REQUEST_TOO_LARGE")
     func testRequestTooLargeRetry() async throws {
         let target = randomCredentialId(length: 32)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 10) }
         var callCount = 0
         mock.onGetAssertion = { _ in
@@ -189,13 +183,12 @@ struct CredentialFilteringTests {
             }
             return .mocked(.finished(.stub(credentialId: target)))
         }
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         var credentials = (0..<9).map { _ in WebAuthn.CredentialDescriptor(id: randomCredentialId(length: 32)) }
         credentials.append(WebAuthn.CredentialDescriptor(id: target))
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -209,7 +202,7 @@ struct CredentialFilteringTests {
     @Test("Multiple retries reducing chunk size progressively")
     func testRequestTooLargeMultipleRetries() async throws {
         let target = randomCredentialId(length: 32)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 5) }
         var callCount = 0
         mock.onGetAssertion = { _ in
@@ -219,13 +212,12 @@ struct CredentialFilteringTests {
             }
             return .mocked(.finished(.stub(credentialId: target)))
         }
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         var credentials = (0..<4).map { _ in WebAuthn.CredentialDescriptor(id: randomCredentialId(length: 32)) }
         credentials.append(WebAuthn.CredentialDescriptor(id: target))
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -238,20 +230,19 @@ struct CredentialFilteringTests {
 
     @Test("Re-throws ERR_REQUEST_TOO_LARGE when chunk size reaches 1")
     func testRequestTooLargeReachesMinimum() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 1) }
         var callCount = 0
         mock.onGetAssertion = { _ in
             callCount += 1
             return .mocked(error: .ctapError(.requestTooLarge, source: .here()))
         }
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         let credentials = [WebAuthn.CredentialDescriptor(id: randomCredentialId(length: 32))]
 
         do {
-            _ = try await client.findMatchingCredential(
+            _ = try await mock.findMatchingCredential(
                 from: credentials,
                 rpId: Self.rpId,
                 cachedInfo: cachedInfo,
@@ -273,7 +264,7 @@ struct CredentialFilteringTests {
     @Test("ERR_REQUEST_TOO_LARGE in middle chunk")
     func testRequestTooLargeInMiddleChunk() async throws {
         let target = randomCredentialId(length: 32)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 3) }
         // Chunk 1: no creds, Chunk 2: too large then retry succeeds
         var callCount = 0
@@ -285,14 +276,13 @@ struct CredentialFilteringTests {
             default: return .mocked(.finished(.stub(credentialId: target)))
             }
         }
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         var credentials = (0..<6).map { _ in WebAuthn.CredentialDescriptor(id: randomCredentialId(length: 32)) }
         credentials.insert(WebAuthn.CredentialDescriptor(id: target), at: 5)
         credentials.append(WebAuthn.CredentialDescriptor(id: randomCredentialId(length: 32)))
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -319,14 +309,13 @@ struct CredentialPreprocessingTests {
         let invalidTypeCred = randomCredentialId(length: 32)
 
         var sentIds: [Data] = []
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
             return .mocked(.finished(.stub(credentialId: validCred)))
         }
 
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         let credentials = [
@@ -334,7 +323,7 @@ struct CredentialPreprocessingTests {
             WebAuthn.CredentialDescriptor(type: "public-key", id: validCred),
         ]
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -348,10 +337,9 @@ struct CredentialPreprocessingTests {
 
     @Test("Returns nil when all credentials have unsupported types")
     func testAllCredentialsFilteredByType() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
 
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         // All credentials have invalid types
@@ -360,7 +348,7 @@ struct CredentialPreprocessingTests {
             WebAuthn.CredentialDescriptor(type: "webauthn.create", id: randomCredentialId(length: 32)),
         ]
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -372,10 +360,9 @@ struct CredentialPreprocessingTests {
 
     @Test("Returns nil when all credentials exceed maxCredentialIdLength")
     func testAllCredentialsFilteredByLength() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
 
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         // All credentials exceed the 128-byte max
@@ -384,7 +371,7 @@ struct CredentialPreprocessingTests {
             WebAuthn.CredentialDescriptor(id: randomCredentialId(length: 200)),
         ]
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -401,14 +388,13 @@ struct CredentialPreprocessingTests {
         let overMax = randomCredentialId(length: 129)
 
         // Zero length - should pass through
-        let mock0 = MockWebAuthnBackend()
+        let mock0 = MockCTAP2Backend()
         mock0.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
         mock0.onGetAssertion = { _ in .mocked(.finished(CTAP2.GetAssertion.Response.stub(credentialId: zero))) }
 
-        let client0 = try makeClient(mock: mock0)
         let cachedInfo0 = try await mock0.cachedInfo
 
-        let result0 = try await client0.findMatchingCredential(
+        let result0 = try await mock0.findMatchingCredential(
             from: [WebAuthn.CredentialDescriptor(id: zero)],
             rpId: Self.rpId,
             cachedInfo: cachedInfo0,
@@ -418,14 +404,13 @@ struct CredentialPreprocessingTests {
         #expect(result0?.id == zero)
 
         // Exactly at max length - should pass through
-        let mock1 = MockWebAuthnBackend()
+        let mock1 = MockCTAP2Backend()
         mock1.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
         mock1.onGetAssertion = { _ in .mocked(.finished(CTAP2.GetAssertion.Response.stub(credentialId: atMax))) }
 
-        let client1 = try makeClient(mock: mock1)
         let cachedInfo1 = try await mock1.cachedInfo
 
-        let result1 = try await client1.findMatchingCredential(
+        let result1 = try await mock1.findMatchingCredential(
             from: [WebAuthn.CredentialDescriptor(id: atMax)],
             rpId: Self.rpId,
             cachedInfo: cachedInfo1,
@@ -435,13 +420,12 @@ struct CredentialPreprocessingTests {
         #expect(result1?.id == atMax)
 
         // One byte over max - should be filtered out
-        let mock2 = MockWebAuthnBackend()
+        let mock2 = MockCTAP2Backend()
         mock2.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
 
-        let client2 = try makeClient(mock: mock2)
         let cachedInfo2 = try await mock2.cachedInfo
 
-        let result2 = try await client2.findMatchingCredential(
+        let result2 = try await mock2.findMatchingCredential(
             from: [WebAuthn.CredentialDescriptor(id: overMax)],
             rpId: Self.rpId,
             cachedInfo: cachedInfo2,
@@ -457,14 +441,13 @@ struct CredentialPreprocessingTests {
         let longCred = randomCredentialId(length: 256)
 
         var sentIds: [Data] = []
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: nil, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
             return .mocked(.finished(CTAP2.GetAssertion.Response.stub(credentialId: shortCred)))
         }
 
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         let credentials = [
@@ -472,7 +455,7 @@ struct CredentialPreprocessingTests {
             WebAuthn.CredentialDescriptor(id: longCred),
         ]
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -493,14 +476,13 @@ struct CredentialPreprocessingTests {
         let tooLong = randomCredentialId(length: 256)
 
         var sentIds: [Data] = []
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
             return .mocked(.finished(CTAP2.GetAssertion.Response.stub(credentialId: validCred1)))
         }
 
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         let credentials = [
@@ -510,7 +492,7 @@ struct CredentialPreprocessingTests {
             WebAuthn.CredentialDescriptor(id: validCred2),
         ]
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -529,21 +511,20 @@ struct CredentialPreprocessingTests {
         let cred = randomCredentialId(length: 32)
 
         var sentDescriptors: [WebAuthn.CredentialDescriptor] = []
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(maxCredentialIdLength: 128, maxCredentialCountInList: 8) }
         mock.onGetAssertion = { params in
             sentDescriptors.append(contentsOf: params.allowList ?? [])
             return .mocked(.finished(CTAP2.GetAssertion.Response.stub(credentialId: cred)))
         }
 
-        let client = try makeClient(mock: mock)
         let cachedInfo = try await mock.cachedInfo
 
         let credentials = [
             WebAuthn.CredentialDescriptor(id: cred, transports: [.usb, .nfc, .ble])
         ]
 
-        let result = try await client.findMatchingCredential(
+        let result = try await mock.findMatchingCredential(
             from: credentials,
             rpId: Self.rpId,
             cachedInfo: cachedInfo,
@@ -573,14 +554,13 @@ struct CredentialPreprocessingTests {
 
         // Test with maxLength = 16 (only first credential)
         var sentIds: [Data] = []
-        let mock1 = MockWebAuthnBackend()
+        let mock1 = MockCTAP2Backend()
         mock1.onGetInfo = { .stub(maxCredentialIdLength: 16, maxCredentialCountInList: 8) }
         mock1.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
             return .mocked(.finished(CTAP2.GetAssertion.Response.stub(credentialId: cred16)))
         }
-        let client1 = try makeClient(mock: mock1)
-        _ = try await client1.findMatchingCredential(
+        _ = try await mock1.findMatchingCredential(
             from: allCreds,
             rpId: Self.rpId,
             cachedInfo: try await mock1.cachedInfo,
@@ -591,14 +571,13 @@ struct CredentialPreprocessingTests {
 
         // Test with maxLength = 32 (first two credentials)
         sentIds = []
-        let mock2 = MockWebAuthnBackend()
+        let mock2 = MockCTAP2Backend()
         mock2.onGetInfo = { .stub(maxCredentialIdLength: 32, maxCredentialCountInList: 8) }
         mock2.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
             return .mocked(.finished(CTAP2.GetAssertion.Response.stub(credentialId: cred16)))
         }
-        let client2 = try makeClient(mock: mock2)
-        _ = try await client2.findMatchingCredential(
+        _ = try await mock2.findMatchingCredential(
             from: allCreds,
             rpId: Self.rpId,
             cachedInfo: try await mock2.cachedInfo,
@@ -608,14 +587,13 @@ struct CredentialPreprocessingTests {
 
         // Test with maxLength = 64 (first three credentials)
         sentIds = []
-        let mock3 = MockWebAuthnBackend()
+        let mock3 = MockCTAP2Backend()
         mock3.onGetInfo = { .stub(maxCredentialIdLength: 64, maxCredentialCountInList: 8) }
         mock3.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
             return .mocked(.finished(CTAP2.GetAssertion.Response.stub(credentialId: cred16)))
         }
-        let client3 = try makeClient(mock: mock3)
-        _ = try await client3.findMatchingCredential(
+        _ = try await mock3.findMatchingCredential(
             from: allCreds,
             rpId: Self.rpId,
             cachedInfo: try await mock3.cachedInfo,
@@ -625,14 +603,13 @@ struct CredentialPreprocessingTests {
 
         // Test with maxLength = 255 (all credentials)
         sentIds = []
-        let mock4 = MockWebAuthnBackend()
+        let mock4 = MockCTAP2Backend()
         mock4.onGetInfo = { .stub(maxCredentialIdLength: 255, maxCredentialCountInList: 8) }
         mock4.onGetAssertion = { params in
             sentIds.append(contentsOf: params.allowList?.map { $0.id } ?? [])
             return .mocked(.finished(CTAP2.GetAssertion.Response.stub(credentialId: cred16)))
         }
-        let client4 = try makeClient(mock: mock4)
-        _ = try await client4.findMatchingCredential(
+        _ = try await mock4.findMatchingCredential(
             from: allCreds,
             rpId: Self.rpId,
             cachedInfo: try await mock4.cachedInfo,
@@ -643,18 +620,6 @@ struct CredentialPreprocessingTests {
 }
 
 // MARK: - Helpers
-
-private func makeClient(
-    mock: MockWebAuthnBackend,
-    rpId: String = "example.com"
-) throws -> WebAuthn.Client {
-    WebAuthn.Client(
-        backend: mock,
-        origin: try WebAuthn.Origin("https://\(rpId)"),
-        allowedExtensions: .all,
-        isPublicSuffix: { _ in false }
-    )
-}
 
 private func randomCredentialId(length: Int) -> Data {
     var bytes = [UInt8](repeating: 0, count: length)

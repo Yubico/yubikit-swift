@@ -7,7 +7,7 @@ extension Runner {
 
     /// UP-only authenticator (no PIN, no UV). Straight to touch → success.
     static func authNoPIN() async -> ScenarioStatus.Outcome {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: false, pinUvAuthToken: false) }
         mock.onGetAssertion = { _ in
             .mocked(.finished(.stub(credentialId: Data([0xAA]))))
@@ -24,7 +24,7 @@ extension Runner {
     /// touchDelay → terminal — long enough for both panels to install
     /// and be observable.
     static func flowTouchRequired() async -> ScenarioStatus.Outcome {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: false, pinUvAuthToken: false) }
         mock.onMakeCredential = { _ in
             .mocked(.finished(.stub(credentialId: Data([0xAA]))), touchDelay: .milliseconds(600))
@@ -39,7 +39,7 @@ extension Runner {
     /// appears; user picks the first credential (the one they just
     /// registered); success.
     static func flowRegisterThenAuth() async -> ScenarioStatus.Outcome {
-        let webauthn = MockWebAuthnBackend()
+        let webauthn = MockCTAP2Backend()
         webauthn.onGetInfo = { .stub(clientPin: false, pinUvAuthToken: false) }
         webauthn.onMakeCredential = { _ in
             .mocked(.finished(.stub(credentialId: Data([0xAA]))))
@@ -99,7 +99,7 @@ extension Runner {
     /// re-acquires a session, and the second attempt succeeds.
     static func flowConnectionDropMidCeremony() async -> ScenarioStatus.Outcome {
         let attempts = Box(0)
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: false, pinUvAuthToken: false) }
         mock.onMakeCredential = { _ in
             attempts.value += 1

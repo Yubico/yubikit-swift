@@ -22,7 +22,7 @@ struct ExtensionAllowlistTests {
 
     @Test("Empty allowlist drops every extension on build + parse")
     func testEmptyAllowlist() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
 
         let (mcInputs, mcPrf, mcPreviewSign, mcLargeBlob) = try await mock.buildMakeCredentialExtensions(
             .init(
@@ -55,7 +55,7 @@ struct ExtensionAllowlistTests {
         )
 
         // Exhaustive: a new Identifier case forces a new arm here, which forces
-        // wiring the allowlist filter in Backend+Extensions.swift before this test passes.
+        // wiring the allowlist filter in CTAP2Backend+Extensions.swift before this test passes.
         for id in WebAuthn.Extension.Identifier.allCases {
             switch id {
             case .prf:
@@ -85,7 +85,7 @@ struct ExtensionAllowlistTests {
 
     @Test("Specific allowlist surfaces only listed extensions")
     func testSpecificAllowlist() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
 
         let outputs = try await mock.parseRegistrationOutputs(
             from: .stubWithExtensions(),

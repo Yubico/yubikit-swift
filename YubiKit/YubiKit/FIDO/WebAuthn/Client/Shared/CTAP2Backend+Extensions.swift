@@ -16,7 +16,7 @@ import Foundation
 
 // MARK: - Extension Processing
 
-extension WebAuthn.Backend {
+extension WebAuthn.CTAP2Backend {
 
     // MARK: - MakeCredential Extensions
 

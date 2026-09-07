@@ -26,7 +26,7 @@ struct ThirdPartyPaymentBuildingTests {
 
     @Test("makeCredential: isPayment=false produces empty ctapInputs")
     func testMakeCredentialIsPaymentFalse() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         let result = try await mock.buildMakeCredentialExtensions(
             .init(thirdPartyPayment: .init(isPayment: false)),
             allowedExtensions: [.thirdPartyPayment]
@@ -36,7 +36,7 @@ struct ThirdPartyPaymentBuildingTests {
 
     @Test("getAssertion: isPayment=false produces empty ctapInputs")
     func testGetAssertionIsPaymentFalse() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         let result = try await mock.buildGetAssertionExtensions(
             .init(thirdPartyPayment: .init(isPayment: false)),
             allowCredentials: [],

@@ -1,0 +1,221 @@
+// Copyright Yubico AB
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import Foundation
+
+// MARK: - Credential Registration
+
+extension WebAuthn.CTAP2Backend {
+
+    public func makeCredential(
+        options: WebAuthn.Registration.Options,
+        clientData: WebAuthn.ClientData,
+        authorization: WebAuthn.Authorization,
+        enterpriseRpIds: Set<String>,
+        allowedExtensions: Set<WebAuthn.Extension.Identifier>
+    ) async -> WebAuthn.StatusStream<WebAuthn.Registration.Response> {
+        let stream = WebAuthn.StatusStream { continuation in
+            Task { [self] in
+                do throws(WebAuthn.ClientError) {
+                    let response = try await performMakeCredential(
+                        options: options,
+                        clientData: clientData,
+                        authorization: authorization,
+                        enterpriseRpIds: enterpriseRpIds,
+                        allowedExtensions: allowedExtensions,
+                        continuation: continuation
+                    )
+                    continuation.yield(.finished(response))
+                } catch {
+                    continuation.yield(error: error)
+                }
+            }
+        }
+        return stream.withTimeout(options.timeout)
+    }
+
+    private func performMakeCredential(
+        options: WebAuthn.Registration.Options,
+        clientData: WebAuthn.ClientData,
+        authorization: WebAuthn.Authorization,
+        enterpriseRpIds: Set<String>,
+        allowedExtensions: Set<WebAuthn.Extension.Identifier>,
+        continuation: WebAuthn.StatusStream<WebAuthn.Registration.Response>.Continuation
+    ) async throws(WebAuthn.ClientError) -> WebAuthn.Registration.Response {
+
+        let cachedInfo: CTAP2.GetInfo.ImmutableView
+        do throws(CTAP2.SessionError) {
+            cachedInfo = try await self.cachedInfo
+        } catch {
+            throw WebAuthn.ClientError(error)
+        }
+
+        let rpId = clientData.rpId
+        let rk = try resolveResidentKey(options.residentKey, cachedInfo: cachedInfo)
+        let enterpriseAttestation = resolveEnterpriseAttestation(
+            options.attestation,
+            rpId: rpId,
+            cachedInfo: cachedInfo,
+            enterpriseRpIds: enterpriseRpIds
+        )
+        // Need getAssertion permission to silently probe exclude list.
+        let permissions: CTAP2.ClientPin.Permission =
+            options.excludeCredentials.isEmpty ? .makeCredential : [.makeCredential, .getAssertion]
+        let clientDataHash = clientData.clientDataHash
+
+        var retry = WebAuthn.CTAP2RetryContext(userVerification: options.userVerification)
+
+        while true {
+            // Re-fetch mutable state (PIN/UV counters) on each attempt.
+            let info: CTAP2.GetInfo.Response
+            do throws(CTAP2.SessionError) {
+                info = try await getInfo()
+            } catch {
+                throw WebAuthn.ClientError(error)
+            }
+
+            let auth = try await acquireAuthToken(
+                info: info,
+                permissions: permissions,
+                rpId: rpId,
+                userVerification: retry.userVerification,
+                isMakeCredential: true,
+                allowUV: retry.allowUV,
+                authorization: authorization,
+                yieldProcessing: { continuation.yield(.processing) },
+                yieldUVWaiting: { cancel, fallback in
+                    continuation.yield(
+                        .waitingForUserVerification(cancel: cancel, fallbackToPIN: fallback)
+                    )
+                }
+            )
+
+            let excludedCred = try await findMatchingCredential(
+                from: options.excludeCredentials,
+                rpId: rpId,
+                cachedInfo: cachedInfo,
+                token: auth.token
+            )
+
+            let (ctapExtensions, prf, previewSign, largeBlobRequested) =
+                try await buildMakeCredentialExtensions(
+                    options.extensions,
+                    allowedExtensions: allowedExtensions,
+                    userVerification: options.userVerification
+                )
+
+            let parameters = CTAP2.MakeCredential.Parameters(
+                clientDataHash: clientDataHash,
+                rp: .init(id: rpId, name: options.rp.name),
+                user: .init(id: options.user.id, name: options.user.name, displayName: options.user.displayName),
+                pubKeyCredParams: options.pubKeyCredParams,
+                excludeList: excludedCred.map { [.init(id: $0.id)] },
+                extensions: ctapExtensions,
+                rk: rk,
+                uv: auth.uv,
+                enterpriseAttestation: enterpriseAttestation
+            )
+
+            let ctapResponse: CTAP2.MakeCredential.Response
+            do throws(CTAP2.SessionError) {
+                let ctapStream = await makeCredential(
+                    parameters: parameters,
+                    token: auth.token
+                )
+                var receivedResponse: CTAP2.MakeCredential.Response?
+                for try await ctapStatus in ctapStream {
+                    switch ctapStatus {
+                    case .processing:
+                        continuation.yield(.processing)
+                    case .waitingForUser(let cancel):
+                        continuation.yield(.waitingForUser(cancel: cancel))
+                    case .finished(let response):
+                        receivedResponse = response
+                    }
+                }
+                guard let response = receivedResponse else {
+                    throw CTAP2.SessionError.responseParseError(
+                        "No response from makeCredential",
+                        source: .here()
+                    )
+                }
+                ctapResponse = response
+            } catch {
+                guard retry.shouldRetry(for: error) else {
+                    if case .ctapError(.uvInvalid, _) = error {
+                        throw try await translateUVInvalid()
+                    }
+                    throw WebAuthn.ClientError(error)
+                }
+                continue
+            }
+
+            let authenticatorData = ctapResponse.authenticatorData
+            guard let attestedCredentialData = authenticatorData.attestedCredentialData else {
+                throw WebAuthn.ClientError(
+                    CTAP2.SessionError.responseParseError(
+                        "Missing attested credential data in makeCredential response",
+                        source: .here()
+                    )
+                )
+            }
+            let credPropsRk: Bool? = options.extensions?.credProps == true ? rk : nil
+            let extensionOutputs = try parseRegistrationOutputs(
+                from: ctapResponse,
+                prf: prf,
+                previewSign: previewSign,
+                largeBlobRequested: largeBlobRequested,
+                credPropsRk: credPropsRk,
+                allowedExtensions: allowedExtensions
+            )
+            return WebAuthn.Registration.Response(
+                credentialId: attestedCredentialData.credentialId,
+                rawAttestationObject: ctapResponse.attestationObject.rawData,
+                rawAuthenticatorData: authenticatorData.rawData,
+                attestationStatement: ctapResponse.attestationObject.statement,
+                transports: cachedInfo.transports,
+                clientExtensionResults: extensionOutputs,
+                publicKey: attestedCredentialData.credentialPublicKey,
+                aaguid: attestedCredentialData.aaguid,
+                signCount: authenticatorData.signCount,
+                authenticatorAttachment: .crossPlatform,
+                authenticatorData: authenticatorData,
+                clientDataJSON: clientData.clientDataJSON
+            )
+        }
+    }
+
+    // Maps WebAuthn resident key preference to CTAP2 `rk` boolean.
+    private func resolveResidentKey(
+        _ preference: WebAuthn.ResidentKeyPreference,
+        cachedInfo: CTAP2.GetInfo.ImmutableView
+    ) throws(WebAuthn.ClientError) -> Bool {
+        let supported = cachedInfo.options.residentKey
+        if preference == .required && !supported {
+            throw .notSupported("Resident key not supported", source: .here())
+        }
+        return preference == .required || (preference == .preferred && supported)
+    }
+
+    // Resolves enterprise attestation level (1=vendor-facilitated, 2=platform-managed).
+    private func resolveEnterpriseAttestation(
+        _ attestation: WebAuthn.AttestationPreference,
+        rpId: String,
+        cachedInfo: CTAP2.GetInfo.ImmutableView,
+        enterpriseRpIds: Set<String>
+    ) -> Int? {
+        guard attestation == .enterprise, cachedInfo.options.supportsEnterpriseAttestation else { return nil }
+        return enterpriseRpIds.contains(rpId) ? 2 : 1
+    }
+}

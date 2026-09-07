@@ -14,7 +14,7 @@ extension Runner {
     static func flowFirstTimeSetup() async -> ScenarioStatus.Outcome {
         let pinSet = Box(false)
 
-        let webauthn = MockWebAuthnBackend()
+        let webauthn = MockCTAP2Backend()
         webauthn.onGetInfo = {
             .stub(
                 clientPin: pinSet.value,
@@ -53,7 +53,7 @@ extension Runner {
         let pinSet = Box(false)
         let acquireAttempts = Box(0)
 
-        let webauthn = MockWebAuthnBackend()
+        let webauthn = MockCTAP2Backend()
         webauthn.onGetInfo = {
             .stub(clientPin: pinSet.value, userVerification: true, pinUvAuthToken: true)
         }
@@ -98,7 +98,7 @@ extension Runner {
     /// throws a non-CTAP error. Must surface as an inline-fatal error panel
     /// rather than re-arming the createPIN form on a generic "try again."
     static func errSetupPermanentFailure() async -> ScenarioStatus.Outcome {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = {
             .stub(clientPin: false, userVerification: true, pinUvAuthToken: true)
         }

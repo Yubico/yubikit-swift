@@ -17,7 +17,7 @@
 		E99378AE8D66930E05BE0D87 /* FidoUI in Frameworks */ = {isa = PBXBuildFile; productRef = E8FBC664576487DA2F0A74C0 /* FidoUI */; };
 		CE1A6145B37327FC7F5AFD4B /* FidoUITestHostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 731D064324DC7B4EF8B6D85A /* FidoUITestHostApp.swift */; };
 		CC71497A35E54E1754B672DF /* E2EScenariosView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9342B601F90D49C15E0536EC /* E2EScenariosView.swift */; };
-		623220E7211BA6E3DE9562BB /* MockWebAuthnBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45FD93953D99177304B41B3F /* MockWebAuthnBackend.swift */; };
+		623220E7211BA6E3DE9562BB /* MockCTAP2Backend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45FD93953D99177304B41B3F /* MockCTAP2Backend.swift */; };
 		B7BE26B0D6C5CEA6745DD827 /* MockTransportController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7928B6FBDFEA3FFB544BE4BA /* MockTransportController.swift */; };
 		F25033C920826B2CBF61D594 /* Scenarios+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DFA459EC45AB39B59DAEAC2 /* Scenarios+Helpers.swift */; };
 		9DC6B700262FF06BAC9944E6 /* Scenarios+PINSetupRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31064A4D00B0222D01F584F6 /* Scenarios+PINSetupRecovery.swift */; };
@@ -52,7 +52,7 @@
 		AA000019273D537800F999A4 /* WebAuthnInterceptorSample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WebAuthnInterceptorSample.entitlements; sourceTree = "<group>"; };
 		731D064324DC7B4EF8B6D85A /* FidoUITestHostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FidoUITestHostApp.swift; sourceTree = "<group>"; };
 		9342B601F90D49C15E0536EC /* E2EScenariosView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E2EScenariosView.swift; sourceTree = "<group>"; };
-		45FD93953D99177304B41B3F /* MockWebAuthnBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockWebAuthnBackend.swift; sourceTree = "<group>"; };
+		45FD93953D99177304B41B3F /* MockCTAP2Backend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockCTAP2Backend.swift; sourceTree = "<group>"; };
 		7928B6FBDFEA3FFB544BE4BA /* MockTransportController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockTransportController.swift; sourceTree = "<group>"; };
 		8DFA459EC45AB39B59DAEAC2 /* Scenarios+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Scenarios+Helpers.swift"; sourceTree = "<group>"; };
 		31064A4D00B0222D01F584F6 /* Scenarios+PINSetupRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Scenarios+PINSetupRecovery.swift"; sourceTree = "<group>"; };
@@ -133,7 +133,7 @@
 			children = (
 				731D064324DC7B4EF8B6D85A /* FidoUITestHostApp.swift */,
 				9342B601F90D49C15E0536EC /* E2EScenariosView.swift */,
-				45FD93953D99177304B41B3F /* MockWebAuthnBackend.swift */,
+				45FD93953D99177304B41B3F /* MockCTAP2Backend.swift */,
 				7928B6FBDFEA3FFB544BE4BA /* MockTransportController.swift */,
 				8DFA459EC45AB39B59DAEAC2 /* Scenarios+Helpers.swift */,
 				ACBEF5DAEC1C9A788DB8BC3D /* Scenarios+Cancellation.swift */,
@@ -319,7 +319,7 @@
 			files = (
 				CE1A6145B37327FC7F5AFD4B /* FidoUITestHostApp.swift in Sources */,
 				CC71497A35E54E1754B672DF /* E2EScenariosView.swift in Sources */,
-				623220E7211BA6E3DE9562BB /* MockWebAuthnBackend.swift in Sources */,
+				623220E7211BA6E3DE9562BB /* MockCTAP2Backend.swift in Sources */,
 				B7BE26B0D6C5CEA6745DD827 /* MockTransportController.swift in Sources */,
 				F25033C920826B2CBF61D594 /* Scenarios+Helpers.swift in Sources */,
 				CD114A38B54F1C83D2624688 /* Scenarios+Cancellation.swift in Sources */,

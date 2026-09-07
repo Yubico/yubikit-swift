@@ -30,7 +30,7 @@ struct UVRetryTests {
 
     @Test("uvInvalid throws uvRejected with retries remaining; PIN path not touched")
     func testUVInvalidThrowsRejected() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, userVerification: true, pinUvAuthToken: true) }
         mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
         mock.onGetUVRetries = { 5 }
@@ -78,7 +78,7 @@ struct UVRetryTests {
 
     @Test("uvInvalid on internal-UV path also surfaces as uvRejected")
     func testUVInvalidInternalUVPathThrowsRejected() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         // Internal-UV authenticator: UV configured but no pinUvAuthToken.
         // acquireAuthToken returns (token: nil, uv: true); the uvInvalid then
         // comes from the makeCredential/getAssertion command itself, not from
@@ -109,7 +109,7 @@ struct UVRetryTests {
 
     @Test("uvInvalid followed by a getUVRetries transport failure surfaces the transport error")
     func testUVInvalidGetRetriesFailureBubblesTransport() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, userVerification: true, pinUvAuthToken: true) }
         mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
 
@@ -152,7 +152,7 @@ struct UVRetryTests {
 
     @Test("uvInvalid with no UV retries left throws uvBlocked")
     func testUVInvalidExhaustedThrowsBlocked() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, userVerification: true, pinUvAuthToken: true) }
         mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
 
@@ -195,7 +195,7 @@ struct UVRetryTests {
 
     @Test("uvBlocked falls back to PIN in same ceremony when clientPin configured")
     func testUVBlockedFallsBackToPIN() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, userVerification: true, pinUvAuthToken: true) }
         mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
         mock.onGetUVRetries = { 3 }
@@ -234,7 +234,7 @@ struct UVRetryTests {
 
     @Test("uvInvalid on BIO-only (no clientPin) throws uvRejected with retries remaining")
     func testUVInvalidOnBioOnlyThrowsRejected() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: false, userVerification: true, pinUvAuthToken: true) }
         mock.onGetUVRetries = { 1 }
         mock.onGetPinUVToken = {
@@ -265,7 +265,7 @@ struct UVRetryTests {
 
     @Test("uvBlocked on BIO-only (no clientPin) throws uvBlocked")
     func testUVBlockedOnBioOnlyThrows() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: false, userVerification: true, pinUvAuthToken: true) }
         mock.onGetUVRetries = { 3 }
         mock.onGetPinUVToken = {
@@ -297,7 +297,7 @@ struct UVRetryTests {
 
     @Test("uv: .required throws uvRejected on UV failure; PIN never touched")
     func testUVRequiredDoesNotFallBackToPIN() async throws {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         // PIN-and-UV authenticator. With uv: .required we should NOT
         // fall through to PIN even though clientPin is set.
         mock.onGetInfo = { .stub(clientPin: true, userVerification: true, pinUvAuthToken: true) }
