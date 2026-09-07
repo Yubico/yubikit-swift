@@ -16,7 +16,7 @@ import CryptoKit
 import Foundation
 import Testing
 
-@_spi(YubiInternal) @testable import YubiKit
+@_spi(YubiInternal) import YubiKit
 
 @Suite("Authenticator backend")
 struct AuthenticatorBackendTests {
@@ -303,11 +303,7 @@ private enum Fixture {
     static func registrationResponse(_ clientData: WebAuthn.ClientData) -> WebAuthn.Registration.Response {
         let data = WebAuthn.AuthenticatorData(data: registrationAuthenticatorData)!
         let attested = data.attestedCredentialData!
-        let object = WebAuthn.AttestationObject(
-            format: "none",
-            statementCBOR: [CBOR.Value: CBOR.Value]().cbor(),
-            authenticatorData: data
-        )
+        let object = WebAuthn.AttestationObject(authenticatorData: data)
         return .init(
             credentialId: credentialId,
             rawAttestationObject: object.rawData,

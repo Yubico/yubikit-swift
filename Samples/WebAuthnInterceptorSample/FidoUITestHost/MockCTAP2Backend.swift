@@ -5,7 +5,7 @@ import Foundation
 
 @testable import YubiKit
 
-// `WebAuthn.CTAP2Backend` requires `: Actor` (CTAP2Backend.swift:25), so the type
+// `WebAuthn.CTAP2Backend` requires `: Actor`, so the type
 // must be an `actor`. Scenario setup is synchronous and runs from outside the
 // actor, so callbacks are `nonisolated(unsafe) var` — accept the trade-off
 // rather than wrapping every scenario assignment in `await`. Single-threaded

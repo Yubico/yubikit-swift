@@ -249,7 +249,7 @@ extension WebAuthn.CTAP2Backend {
                     action: largeBlobAction,
                     token: auth.token
                 )
-                let extensionOutputs = try await parseAuthenticationOutputs(
+                let extensionOutputs = try parseAuthenticationOutputs(
                     from: ctapResponse,
                     prf: prf,
                     previewSign: previewSign,

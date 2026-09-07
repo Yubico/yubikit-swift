@@ -231,7 +231,7 @@ extension WebAuthn.CTAP2Backend {
                 )
             }
             let credPropsRk: Bool? = options.extensions?.credProps == true ? rk : nil
-            let extensionOutputs = try await parseRegistrationOutputs(
+            let extensionOutputs = try parseRegistrationOutputs(
                 from: ctapResponse,
                 prf: prf,
                 previewSign: previewSign,
