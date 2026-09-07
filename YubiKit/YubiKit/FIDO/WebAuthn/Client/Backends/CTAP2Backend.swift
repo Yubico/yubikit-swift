@@ -107,7 +107,6 @@ extension WebAuthn.CTAP2Backend {
 
 // MARK: - CTAP2.Session Conformance
 
-@_spi(YubiInternal)
 extension CTAP2.Session: WebAuthn.CTAP2Backend {
 
     func getPinRetries() async throws(CTAP2.SessionError) -> CTAP2.ClientPin.GetRetries.Response {
