@@ -128,14 +128,27 @@ extension Scenario: CustomTestStringConvertible {
     public var testDescription: String { "\(id) — \(name)" }
 }
 
-// Parent suite for per-scenario tests; serialized because they share one attached key.
+// Serialize device access because scenarios and probes use the same shared key.
 @Suite(
     "Scenarios",
     .serialized,
     .reportsScenarioOutcomes,
     .enabled(if: ScenarioTests.backendConfigured && ScenarioTests.configurationIsValid)
 )
-enum ScenarioSuites {}
+enum ScenarioSuites {
+    @Test static func backendIsReachable() async throws {
+        do {
+            _ = try await ScenarioTests.makeProvider().deviceInfo()
+        } catch let ProviderError.unavailable(reason) {
+            Issue.record(
+                Comment(
+                    rawValue:
+                        "No YubiKey available for the selected scenario backend: \(reason)"
+                )
+            )
+        }
+    }
+}
 
 @Test func scenarioConfigurationIsValid() {
     for error in ScenarioTests.configurationErrors {
@@ -174,20 +187,6 @@ enum ScenarioSuites {}
 @Test func everySuiteHasScenarios() {
     for suite in Scenario.Suite.allCases {
         #expect(!Scenario.Catalog.scenarios(in: suite).isEmpty, "suite \(suite) declares no scenarios")
-    }
-}
-
-@Test(.enabled(if: ScenarioTests.backendConfigured && ScenarioTests.configurationIsValid))
-func backendIsReachable() async throws {
-    do {
-        _ = try await ScenarioTests.makeProvider().deviceInfo()
-    } catch let ProviderError.unavailable(reason) {
-        Issue.record(
-            Comment(
-                rawValue:
-                    "No YubiKey available for the selected scenario backend: \(reason)"
-            )
-        )
     }
 }
 
