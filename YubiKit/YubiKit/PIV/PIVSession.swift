@@ -14,7 +14,7 @@
 
 import CryptoTokenKit
 import Foundation
-import OSLog
+import Logging
 
 /// An interface to the PIV application on the YubiKey.
 ///
@@ -42,6 +42,7 @@ public final actor PIVSession: SmartCardSessionInternal {
             keyParams: scpKeyParams
         )
 
+        Self.logger.debug("Getting PIV version")
         // Get version
         let versionApdu = APDU(cla: 0, ins: 0xfd, p1: 0, p2: 0)
         let data: Data = try await interface.send(apdu: versionApdu)
@@ -54,7 +55,7 @@ public final actor PIVSession: SmartCardSessionInternal {
         }
         self.version = version
         self.interface = interface
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: version))") */
+        logger.debug("PIV session initialized", metadata: ["version": .string(String(describing: version))])
     }
 
     /// Creates a new PIV session with the provided connection.
@@ -93,7 +94,10 @@ public final actor PIVSession: SmartCardSessionInternal {
         keyType: PIV.RSAKey,
         using algorithm: PIV.RSASignatureAlgorithm
     ) async throws(PIVSessionError) -> Data {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug(
+            "Signing with key",
+            metadata: ["slot": .string(String(describing: slot)), "keyType": .string(String(describing: keyType))]
+        )
 
         let signature = try PIVDataFormatter.prepareDataForRSASigning(
             message,
@@ -122,7 +126,10 @@ public final actor PIVSession: SmartCardSessionInternal {
         keyType: PIV.ECKey,
         using algorithm: PIV.ECDSASignatureAlgorithm
     ) async throws(PIVSessionError) -> Data {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug(
+            "Signing with key",
+            metadata: ["slot": .string(String(describing: slot)), "keyType": .string(String(describing: keyType))]
+        )
 
         let signature = PIVDataFormatter.prepareDataForECDSASigning(
             message,
@@ -149,9 +156,12 @@ public final actor PIVSession: SmartCardSessionInternal {
         in slot: PIV.Slot,
         keyType: PIV.Ed25519Key
     ) async throws(PIVSessionError) -> Data {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug(
+            "Signing with key",
+            metadata: ["slot": .string(String(describing: slot)), "keyType": .string(String(describing: keyType))]
+        )
 
-        try await usePrivateKeyInSlot(slot: slot, keyType: .ed25519, message: message, exponentiation: false)
+        return try await usePrivateKeyInSlot(slot: slot, keyType: .ed25519, message: message, exponentiation: false)
     }
 
     /// Decrypts a RSA-encrypted message.
@@ -165,6 +175,7 @@ public final actor PIVSession: SmartCardSessionInternal {
         in slot: PIV.Slot,
         using algorithm: PIV.RSAEncryptionAlgorithm
     ) async throws(PIVSessionError) -> Data {
+        logger.debug("Decrypting with key", metadata: ["slot": .string(String(describing: slot))])
         let validTypes: [PIV.RSAKey] = RSA.KeySize.allCases.compactMap { .rsa($0) }
         guard let rsaKey = validTypes.first(where: { $0.keysize.byteCount == data.count }) else {
             throw .invalidDataSize(source: .here())
@@ -187,7 +198,8 @@ public final actor PIVSession: SmartCardSessionInternal {
         in slot: PIV.Slot,
         with peerKey: EC.PublicKey
     ) async throws(PIVSessionError) -> Data {
-        try await usePrivateKeyInSlot(
+        logger.debug("Performing key agreement", metadata: ["slot": .string(String(describing: slot))])
+        return try await usePrivateKeyInSlot(
             slot: slot,
             keyType: .ec(peerKey.curve),
             message: peerKey.x963,
@@ -204,8 +216,9 @@ public final actor PIVSession: SmartCardSessionInternal {
         in slot: PIV.Slot,
         with peerKey: X25519.PublicKey
     ) async throws(PIVSessionError) -> Data {
+        logger.debug("Performing key agreement", metadata: ["slot": .string(String(describing: slot))])
 
-        try await usePrivateKeyInSlot(
+        return try await usePrivateKeyInSlot(
             slot: slot,
             keyType: .x25519,
             message: peerKey.keyData,
@@ -228,7 +241,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     /// - Parameter slot: The slot containing the private key to use.
     /// - Returns: The attestation certificate.
     public func attestKey(in slot: PIV.Slot) async throws(PIVSessionError) -> X509Cert {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Attesting key", metadata: ["slot": .string(String(describing: slot))])
         guard await self.supports(PIVSessionFeature.attestation) else { throw .featureNotSupported(source: .here()) }
         let apdu = APDU(cla: 0, ins: insAttest, p1: slot.rawValue, p2: 0)
         let result = try await process(apdu: apdu)
@@ -258,7 +271,14 @@ public final actor PIVSession: SmartCardSessionInternal {
         pinPolicy: PIV.PinPolicy = .defaultPolicy,
         touchPolicy: PIV.TouchPolicy = .`defaultPolicy`
     ) async throws(PIVSessionError) -> PublicKey {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug(
+            "Generating key",
+            metadata: [
+                "slot": .string(String(describing: slot)), "keyType": .string(String(describing: type)),
+                "pinPolicy": .string(String(describing: pinPolicy)),
+                "touchPolicy": .string(String(describing: touchPolicy)),
+            ]
+        )
         try await checkKeyFeatures(keyType: type, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: true)
         let records: [TKBERTLVRecord] = [
             TKBERTLVRecord(tag: tagGenAlgorithm, value: type.rawValue.data),
@@ -272,7 +292,12 @@ public final actor PIVSession: SmartCardSessionInternal {
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
             let record = records.recordWithTag(0x7F49)
         else { throw .responseParseError("Missing required TLV record for attestation", source: .here()) }
-        return try publicKey(from: record.value, type: type)
+        let key = try publicKey(from: record.value, type: type)
+        logger.info(
+            "Private key generated",
+            metadata: ["slot": .string(String(describing: slot)), "keyType": .string(String(describing: type))]
+        )
+        return key
     }
 
     /// Import an RSA private key into a slot.
@@ -296,7 +321,6 @@ public final actor PIVSession: SmartCardSessionInternal {
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
     ) async throws(PIVSessionError) -> PIV.RSAKey {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
         let rsaKeyType = PIV.RSAKey.rsa(key.size)
         let keyType = PIV.KeyType.rsa(key.size)
 
@@ -344,7 +368,6 @@ public final actor PIVSession: SmartCardSessionInternal {
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
     ) async throws(PIVSessionError) -> PIV.ECKey {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
         let ecKeyType = PIV.ECKey.ec(key.curve)
         let keyType = PIV.KeyType.ec(key.curve)
 
@@ -379,7 +402,6 @@ public final actor PIVSession: SmartCardSessionInternal {
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
     ) async throws(PIVSessionError) -> PIV.Ed25519Key {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
         let ed25519KeyType = PIV.Ed25519Key.ed25519
         let keyType = PIV.KeyType.ed25519
 
@@ -414,7 +436,6 @@ public final actor PIVSession: SmartCardSessionInternal {
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
     ) async throws(PIVSessionError) -> PIV.X25519Key {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
         let x25519KeyType = PIV.X25519Key.x25519
         let keyType = PIV.KeyType.x25519
 
@@ -435,25 +456,37 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///   - sourceSlot: Slot to move the key from.
     ///   - destinationSlot: Slot to move the key to.
     public func moveKey(from sourceSlot: PIV.Slot, to destinationSlot: PIV.Slot) async throws(PIVSessionError) {
+        logger.debug(
+            "Moving key",
+            metadata: [
+                "sourceSlot": .string(String(describing: sourceSlot)),
+                "destinationSlot": .string(String(describing: destinationSlot)),
+            ]
+        )
         guard await self.supports(PIVSessionFeature.moveDelete) else { throw .featureNotSupported(source: .here()) }
         guard sourceSlot != PIV.Slot.attestation else {
             throw .illegalArgument("Cannot use attestation slot as source", source: .here())
         }
-        /* Fix trace: Logger.piv.debug(
-            "Move key from \(String(describing: sourceSlot)) to \(String(describing: destinationSlot)), \(#function)"
-        ) */
         let apdu = APDU(cla: 0, ins: insMoveKey, p1: destinationSlot.rawValue, p2: sourceSlot.rawValue)
         try await process(apdu: apdu)
+        logger.info(
+            "Key moved",
+            metadata: [
+                "sourceSlot": .string(String(describing: sourceSlot)),
+                "destinationSlot": .string(String(describing: destinationSlot)),
+            ]
+        )
     }
 
     /// Delete key from slot. This method requires authentication with the management key.
     ///
     /// - Parameter slot: Slot to delete the key from.
     public func deleteKey(in slot: PIV.Slot) async throws(PIVSessionError) {
+        logger.debug("Deleting key", metadata: ["slot": .string(String(describing: slot))])
         guard await self.supports(PIVSessionFeature.moveDelete) else { throw .featureNotSupported(source: .here()) }
-        /* Fix trace: Logger.piv.debug("Delete key in \(String(describing: slot)), \(#function)") */
         let apdu = APDU(cla: 0, ins: insMoveKey, p1: 0xff, p2: slot.rawValue)
         try await process(apdu: apdu)
+        logger.info("Key deleted", metadata: ["slot": .string(String(describing: slot))])
     }
 
     /// Writes an X.509 certificate to a slot on the YubiKey.
@@ -475,7 +508,10 @@ public final actor PIVSession: SmartCardSessionInternal {
         in slot: PIV.Slot,
         compressed: Bool = false
     ) async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug(
+            "Storing certificate",
+            metadata: ["slot": .string(String(describing: slot)), "compressed": .stringConvertible(compressed)]
+        )
         var certData = certificate.der
         if compressed {
             do {
@@ -490,13 +526,17 @@ public final actor PIVSession: SmartCardSessionInternal {
         data.append(TKBERTLVRecord(tag: tagCertificateInfo, value: isCompressed.data).data)
         data.append(TKBERTLVRecord(tag: tagLRC, value: Data()).data)
         try await self.putObject(data, objectId: slot.objectId)
+        logger.info(
+            "Certificate written",
+            metadata: ["slot": .string(String(describing: slot)), "compressed": .stringConvertible(compressed)]
+        )
     }
 
     /// Reads the X.509 certificate stored in the specified slot on the YubiKey.
     /// - Parameter slot: The slot where the certificate is stored.
     /// - Returns: The X.509 certificate.
     public func getCertificate(in slot: PIV.Slot) async throws(PIVSessionError) -> X509Cert {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Reading certificate", metadata: ["slot": .string(String(describing: slot))])
         let command = TKBERTLVRecord(tag: tagObjectId, value: slot.objectId).data
         let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command)
         let result = try await process(apdu: apdu)
@@ -514,6 +554,7 @@ public final actor PIVSession: SmartCardSessionInternal {
             certificateInfo.bytes[0] == 1
         {
             do {
+                logger.debug("Certificate is compressed, decompressing")
                 certificateData = try certificateData.decompressCertificate()
             } catch {
                 throw .compression(error, source: .here())
@@ -530,7 +571,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///
     /// - Parameter slot: The slot where the certificate is stored.
     public func deleteCertificate(in slot: PIV.Slot) async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Deleting certificate", metadata: ["slot": .string(String(describing: slot))])
         try await putObject(Data(), objectId: slot.objectId)
     }
 
@@ -544,7 +585,7 @@ public final actor PIVSession: SmartCardSessionInternal {
         type: PIV.ManagementKeyType,
         requiresTouch: Bool
     ) async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Setting management key", metadata: ["keyType": .string(String(describing: type))])
         if requiresTouch {
             guard await self.supports(PIVSessionFeature.usagePolicy) else {
                 throw .featureNotSupported(source: .here())
@@ -558,14 +599,13 @@ public final actor PIVSession: SmartCardSessionInternal {
         data.append(tlv.data)
         let apdu = APDU(cla: 0, ins: insSetManagementKey, p1: 0xff, p2: requiresTouch ? 0xfe : 0xff, command: data)
         try await process(apdu: apdu)
+        logger.info("Management key set")
     }
 
     /// Authenticate with the Management Key.
     /// - Parameters:
     ///   - managementKey: The management key as Data.
     public func authenticate(with managementKey: Data) async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
-
         let keyType: PIV.ManagementKeyType
         if await supports(PIVSessionFeature.metadata) {
             let metadata = try await getManagementKeyMetadata()
@@ -574,6 +614,7 @@ public final actor PIVSession: SmartCardSessionInternal {
             keyType = .tripleDES
         }
 
+        logger.debug("Authenticating", metadata: ["keyType": .string(String(describing: keyType))])
         guard keyType.keyLength == managementKey.count else { throw .invalidKeyLength(source: .here()) }
 
         let witness = TKBERTLVRecord(tag: tagAuthWitness, value: Data()).data
@@ -631,6 +672,7 @@ public final actor PIVSession: SmartCardSessionInternal {
             throw .cryptoError("Failed to decrypt challenge", error: error, source: .here())
         }
         guard challengeSent == challengeReturned else {
+            logger.debug("Authentication response mismatch")
             throw .authenticationFailed(source: .here())
         }
     }
@@ -639,7 +681,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     /// - Parameter slot: The slot to read metadata about.
     /// - Returns: The metadata for the slot.
     public func getMetadata(in slot: PIV.Slot) async throws(PIVSessionError) -> PIV.SlotMetadata {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Getting slot metadata", metadata: ["slot": .string(String(describing: slot))])
         guard await self.supports(PIVSessionFeature.metadata) else { throw .featureNotSupported(source: .here()) }
         let result = try await process(apdu: APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: slot.rawValue))
         guard let records = TKBERTLVRecord.sequenceOfRecords(from: result) else {
@@ -670,7 +712,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     /// Reads metadata about the card management key.
     /// - Returns: The metadata for the management key.
     public func getManagementKeyMetadata() async throws(PIVSessionError) -> PIV.ManagementKeyMetadata {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Getting management key metadata")
         guard await self.supports(PIVSessionFeature.metadata) else { throw .featureNotSupported(source: .here()) }
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: p2SlotCardmanagement)
         let result = try await process(apdu: apdu)
@@ -694,11 +736,13 @@ public final actor PIVSession: SmartCardSessionInternal {
 
     /// Resets the PIV application to just-installed state.
     public func reset() async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Preparing PIV reset")
         try await blockPin()
         try await blockPuk()
+        logger.debug("Sending reset")
         let apdu = APDU(cla: 0, ins: insReset, p1: 0, p2: 0)
         try await process(apdu: apdu)
+        logger.info("PIV application data reset performed")
     }
 
     /// Get the serial number of the YubiKey.
@@ -708,7 +752,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///
     /// - Returns: The serial number.
     public func getSerialNumber() async throws(PIVSessionError) -> UInt {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Getting serial number")
         guard await self.supports(PIVSessionFeature.serialNumber) else { throw .featureNotSupported(source: .here()) }
         let apdu = APDU(cla: 0, ins: insGetSerial, p1: 0, p2: 0)
         let result = try await process(apdu: apdu)
@@ -726,7 +770,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///            remaining tries is higher.
     @discardableResult
     public func verifyPin(_ pin: String) async throws(PIVSessionError) -> PIV.VerifyPinResult {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Verifying PIN")
         let pinData = try PIV.padPin(pin)
         let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: 0x80, command: pinData)
         do {
@@ -750,8 +794,9 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///   - newPin: The new UTF8 encoded PIN.
     ///   - oldPin: Old PIN code. UTF8 encoded.
     public func changePin(from oldPin: String, to newPin: String) async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Changing PIN")
         try await changeReference(ins: insChangeReference, p2: p2Pin, valueOne: oldPin, valueTwo: newPin)
+        logger.info("New PIN set")
     }
 
     /// Set a new PUK code for the YubiKey.
@@ -759,8 +804,9 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///   - newPuk: The new UTF8 encoded PUK.
     ///   - oldPuk: Old PUK code. UTF8 encoded.
     public func changePuk(from oldPuk: String, to newPuk: String) async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Changing PUK")
         try await changeReference(ins: insChangeReference, p2: p2Puk, valueOne: oldPuk, valueTwo: newPuk)
+        logger.info("New PUK set")
     }
 
     /// Unblock a blocked PIN code with the PUK code.
@@ -768,24 +814,25 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///   - puk: The UTF8 encoded PUK.
     ///   - newPin: The new UTF8 encoded PIN.
     public func unblockPin(with puk: String, newPin: String) async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Using PUK to set new PIN")
         try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
+        logger.info("New PIN set")
     }
 
     /// Reads metadata about the PIN, such as total number of retries, attempts left, and if the PIN has
     /// been changed from the default value.
     /// - Returns: The PIN metadata.
     public func getPinMetadata() async throws(PIVSessionError) -> PIV.PinPukMetadata {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
-        try await getPinPukMetadata(p2: p2Pin)
+        logger.debug("Getting PIN metadata")
+        return try await getPinPukMetadata(p2: p2Pin)
     }
 
     /// Reads metadata about the PUK, such as total number of retries, attempts left, and if the PUK has
     /// been changed from the default value.
     /// - Returns: The PUK metadata.
     public func getPukMetadata() async throws(PIVSessionError) -> PIV.PinPukMetadata {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
-        try await getPinPukMetadata(p2: p2Puk)
+        logger.debug("Getting PUK metadata")
+        return try await getPinPukMetadata(p2: p2Puk)
     }
 
     /// Set the number of retries available for PIN and PUK entry.
@@ -796,9 +843,13 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///   - pinAttempts: The number of attempts to allow for PIN entry before blocking the PIN.
     ///   - pukAttempts: The number of attempts to allow for PUK entry before blocking the PUK.
     public func setRetries(pin pinAttempts: UInt8, puk pukAttempts: UInt8) async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug(
+            "Setting PIN/PUK attempts",
+            metadata: ["pinAttempts": .stringConvertible(pinAttempts), "pukAttempts": .stringConvertible(pukAttempts)]
+        )
         let apdu = APDU(cla: 0, ins: insSetPinPukAttempts, p1: pinAttempts, p2: pukAttempts)
         try await process(apdu: apdu)
+        logger.info("PIN/PUK attempts set")
     }
 
     /// Block the PIN by exhausting all retry attempts.
@@ -806,11 +857,11 @@ public final actor PIVSession: SmartCardSessionInternal {
     /// This method repeatedly attempts PIN verification with invalid values until the PIN becomes locked.
     /// Primarily used for testing and resetting purposes.
     public func blockPin() async throws(PIVSessionError) {
+        logger.debug("Verify PIN with invalid attempts until blocked")
         try await blockPin(counter: 0)
     }
 
     private func blockPin(counter: Int) async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
         let result = try await verifyPin("")
         switch result {
         case .success, .fail(_):
@@ -818,6 +869,7 @@ public final actor PIVSession: SmartCardSessionInternal {
                 try await blockPin(counter: counter + 1)
             }
         case .pinLocked:
+            logger.debug("PIN is blocked")
             return
         }
     }
@@ -827,15 +879,18 @@ public final actor PIVSession: SmartCardSessionInternal {
     /// This method repeatedly attempts PUK verification with invalid values until the PUK becomes locked.
     /// Primarily used for testing and resetting purposes.
     public func blockPuk() async throws(PIVSessionError) {
+        logger.debug("Verify PUK with invalid attempts until blocked")
         try await blockPuk(counter: 0)
     }
 
     private func blockPuk(counter: Int) async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
         do {
             try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: "", valueTwo: "")
         } catch let PIVSessionError.invalidPin(retries, _) {
             if retries <= 0 || counter > 15 {
+                if retries <= 0 {
+                    logger.debug("PUK is blocked")
+                }
                 return
             } else {
                 try await blockPuk(counter: counter + 1)
@@ -849,7 +904,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///
     /// - Returns: Metadata about the key.
     public func getBioMetadata() async throws(PIVSessionError) -> PIV.BioMetadata {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Getting bio metadata")
         let apdu = APDU(cla: 0, ins: insGetMetadata, p1: 0, p2: UInt8(tagSlotOCCAuth))
         let data = try await process(apdu: apdu)
         let records = TKBERTLVRecord.sequenceOfRecords(from: data)
@@ -873,7 +928,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///   - checkOnly: Check verification state of biometrics, don't perform UV.
     /// - Returns: Temporary PIN if requestTemporaryPin is true, otherwise nil.
     public func verifyUV(requestTemporaryPin: Bool, checkOnly: Bool) async throws(PIVSessionError) -> Data? {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Verifying UV")
         if requestTemporaryPin && checkOnly {
             throw .illegalArgument("Cannot request temporary PIN in check-only mode", source: .here())
         }
@@ -915,7 +970,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///
     /// - Parameter pin: Temporary PIN.
     public func verify(temporaryPin pin: Data) async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Verifying temporary PIN")
         guard pin.count == temporaryPinLength else {
             throw .illegalArgument("Temporary PIN must be exactly \(temporaryPinLength) bytes", source: .here())
         }
@@ -943,6 +998,14 @@ extension PIVSession {
         pinPolicy: PIV.PinPolicy,
         touchPolicy: PIV.TouchPolicy
     ) async throws(PIVSessionError) {
+        logger.debug(
+            "Importing private key",
+            metadata: [
+                "slot": .string(String(describing: slot)), "keyType": .string(String(describing: keyType)),
+                "pinPolicy": .string(String(describing: pinPolicy)),
+                "touchPolicy": .string(String(describing: touchPolicy)),
+            ]
+        )
         try await checkKeyFeatures(keyType: keyType, pinPolicy: pinPolicy, touchPolicy: touchPolicy, generateKey: false)
 
         var data = keyData
@@ -961,6 +1024,10 @@ extension PIVSession {
             command: data
         )
         try await process(apdu: apdu)
+        logger.info(
+            "Private key imported",
+            metadata: ["slot": .string(String(describing: slot)), "keyType": .string(String(describing: keyType))]
+        )
     }
 
     private func usePrivateKeyInSlot(
@@ -969,9 +1036,6 @@ extension PIVSession {
         message: Data,
         exponentiation: Bool
     ) async throws(PIVSessionError) -> Data {
-        /* Fix trace: Logger.piv.debug(
-            "\(String(describing: self).lastComponent), \(#function): slot: \(String(describing: slot)), type: \(String(describing: keyType)), message: \(message.hexEncodedString), exponentiation: \(exponentiation)"
-        ) */
         var recordsData = Data()
         recordsData.append(TKBERTLVRecord(tag: tagAuthResponse, value: Data()).data)
         recordsData.append(TKBERTLVRecord(tag: exponentiation ? tagExponentiation : tagChallenge, value: message).data)
@@ -1002,6 +1066,7 @@ extension PIVSession {
         command.append(TKBERTLVRecord(tag: tagObjectData, value: data).data)
         let apdu = APDU(cla: 0, ins: insPutData, p1: 0x3f, p2: 0xff, command: command)
         try await process(apdu: apdu)
+        logger.info("Data written to object slot", metadata: ["objectId": .string(objectId.hexEncodedString)])
     }
 
     private func changeReference(
@@ -1033,7 +1098,6 @@ extension PIVSession {
         touchPolicy: PIV.TouchPolicy,
         generateKey: Bool
     ) async throws(PIVSessionError) {
-        /* Fix trace: Logger.piv.debug("\(String(describing: self).lastComponent), \(#function)") */
         if keyType == .ec(.secp384r1) {
             guard await self.supports(PIVSessionFeature.p384) else { throw .featureNotSupported(source: .here()) }
         }
@@ -1181,3 +1245,5 @@ private let p2Puk: UInt8 = 0x81
 private let p2SlotCardmanagement: UInt8 = 0x9b
 
 private let temporaryPinLength: Int = 16
+
+extension PIVSession: HasPIVLogger {}

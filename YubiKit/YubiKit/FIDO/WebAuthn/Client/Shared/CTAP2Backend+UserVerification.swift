@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - User Verification
 
@@ -101,6 +102,7 @@ extension WebAuthn.CTAP2Backend {
 
         // External UV path: authenticator supports pinUVAuthToken.
         if initialUVRetries > 0, info.options.pinUVAuthToken == true {
+            logger.info("User Verification requested")
             let canFallback = authorization.uv != .required && hasPin
             let result = try await runExternalUV(
                 permissions: permissions,
@@ -116,6 +118,7 @@ extension WebAuthn.CTAP2Backend {
                 break
             }
         } else if initialUVRetries > 0, allowInternalUV {
+            logger.info("User Verification requested")
             // Internal UV (authenticator handles UV during MC/GA itself).
             return (token: nil, uv: true)
         } else if authorization.uv == .required {
@@ -135,6 +138,7 @@ extension WebAuthn.CTAP2Backend {
         }
 
         let pin: String
+        logger.info("PIN requested")
         switch await authorization.providePIN() {
         case .pin(let value):
             pin = value

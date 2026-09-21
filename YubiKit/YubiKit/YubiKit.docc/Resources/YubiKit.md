@@ -32,6 +32,8 @@ let codes = try await session.calculateCredentialCodes()
 ### Preparing your project
 
 - <doc:GettingStarted>
+- <doc:LoggingGuide>
+- ``Logging``
 
 ### Sample code
 

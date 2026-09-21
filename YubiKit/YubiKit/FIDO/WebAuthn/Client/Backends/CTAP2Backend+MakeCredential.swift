@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - Credential Registration
 
@@ -134,11 +135,16 @@ extension WebAuthn.CTAP2Backend {
                     token: auth.token
                 )
                 var receivedResponse: CTAP2.MakeCredential.Response?
+                var requestedPresence = false
                 for try await ctapStatus in ctapStream {
                     switch ctapStatus {
                     case .processing:
                         continuation.yield(.processing)
                     case .waitingForUser(let cancel):
+                        if !requestedPresence {
+                            logger.info("User Presence check required")
+                            requestedPresence = true
+                        }
                         continuation.yield(.waitingForUser(cancel: cancel))
                     case .finished(let response):
                         receivedResponse = response

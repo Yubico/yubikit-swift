@@ -34,7 +34,7 @@ public enum USBSmartCard {
 #if !(YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator))
 
 @preconcurrency import CryptoTokenKit.TKSmartCard
-import OSLog
+import Logging
 
 /// A connection to the YubiKey utilizing the USB port and the TKSmartCard implementation from
 /// the CryptoTokenKit framework.
@@ -91,7 +91,6 @@ extension USBSmartCardConnection: SmartCardConnection {
     ///
     /// - Returns: A fully–established connection ready for APDU exchange.
     /// - Throws: ``SmartCardConnectionError/busy`` if another connection is active, or other SmartCardConnectionError if no YubiKey is found or connection fails.
-    // @TraceScope
     public static func makeConnection() async throws(SmartCardConnectionError) -> USBSmartCardConnection {
         try await USBSmartCardConnection()
     }
@@ -104,7 +103,6 @@ extension USBSmartCardConnection: SmartCardConnection {
     /// - Parameter slot: The smart card slot to connect to.
     /// - Returns: A fully–established connection ready for APDU exchange.
     /// - Throws: ``SmartCardConnectionError/busy`` if another connection is active, or other SmartCardConnectionError if connection fails.
-    // @TraceScope
     public static func makeConnection(
         slot: USBSmartCard.YubiKeyDevice
     ) async throws(SmartCardConnectionError) -> USBSmartCardConnection {
@@ -114,18 +112,41 @@ extension USBSmartCardConnection: SmartCardConnection {
     /// Closes the smart card connection with an optional error.
     ///
     /// - Parameter error: Optional error to indicate why the connection was closed.
-    // @TraceScope
     public func close(error: Error?) async {
         try? await SmartCardConnectionsManager.shared.didClose(for: slot).fulfill(error)
-        /* Fix trace: trace(message: "disconnect called on sessionManager") */
+        if let error {
+            logger.debug(
+                "Closing USB smart card connection with an error",
+                metadata: [
+                    "errorType": .string(String(reflecting: type(of: error))),
+                    "errorDomain": .string((error as NSError).domain),
+                    "errorCode": .stringConvertible((error as NSError).code),
+                ]
+            )
+        } else {
+            logger.debug("Closing USB smart card connection")
+        }
     }
 
     /// Waits for the connection to close and returns any error that caused the closure.
     ///
     /// - Returns: An error if the connection was closed due to an error, nil otherwise.
-    // @TraceScope
     public func waitUntilClosed() async -> Error? {
-        try? await SmartCardConnectionsManager.shared.didClose(for: slot).value()
+        logger.debug("Waiting for USB smart card connection to close")
+        let error = try? await SmartCardConnectionsManager.shared.didClose(for: slot).value()
+        if let error {
+            logger.debug(
+                "USB smart card connection closed with an error",
+                metadata: [
+                    "errorType": .string(String(reflecting: type(of: error))),
+                    "errorDomain": .string((error as NSError).domain),
+                    "errorCode": .stringConvertible((error as NSError).code),
+                ]
+            )
+        } else {
+            logger.debug("USB smart card connection closed")
+        }
+        return error
     }
 
     /// Sends raw data to the smart card and returns the response.
@@ -133,14 +154,14 @@ extension USBSmartCardConnection: SmartCardConnection {
     /// - Parameter data: Raw APDU bytes to send.
     /// - Returns: The response data from the card.
 
-    // @TraceScope
     public func send(data: Data) async throws(SmartCardConnectionError) -> Data {
+        logger.debug("Sending USB smart card request", metadata: ["bytes": .stringConvertible(data.count)])
         guard await isConnected else {
-            /* Fix trace: trace(message: "no connection – throwing .connectionLost") */
+            logger.debug("Cannot send on a closed USB smart card connection")
             throw SmartCardConnectionError.connectionLost
         }
         let response = try await SmartCardConnectionsManager.shared.transmit(request: data, for: slot)
-        /* Fix trace: trace(message: "transmit returned \(response.count) bytes") */
+        logger.debug("Received USB smart card response", metadata: ["bytes": .stringConvertible(response.count)])
         return response
     }
 }
@@ -166,7 +187,7 @@ private final actor SmartCardConnectionsManager {
         get throws(SmartCardConnectionError) {
             guard let manager = TKSmartCardSlotManager.default else {
                 assertionFailure("🪪 No default TKSmartCardSlotManager, check entitlements for com.apple.smartcard.")
-                /* Fix trace: trace(message: "no slotsManager – throwing .unsupported") */
+                logger.debug("USB smart card slot manager is unavailable")
                 throw SmartCardConnectionError.unsupported
             }
 
@@ -176,7 +197,6 @@ private final actor SmartCardConnectionsManager {
 
     private var connections = [USBSmartCard.YubiKeyDevice: ConnectionState]()
 
-    // @TraceScope
     func didClose(for slot: USBSmartCard.YubiKeyDevice) throws(SmartCardConnectionError) -> Promise<Error?> {
         guard let state = connections[slot] else {
             throw SmartCardConnectionError.connectionLost
@@ -184,7 +204,6 @@ private final actor SmartCardConnectionsManager {
         return state.didClose
     }
 
-    // @TraceScope
     func isConnected(for slot: USBSmartCard.YubiKeyDevice) -> Bool {
         guard let card = connections[slot]?.card else {
             return false
@@ -193,14 +212,16 @@ private final actor SmartCardConnectionsManager {
         return card.isValid && card.currentProtocol != []
     }
 
-    // @TraceScope
     func transmit(request: Data, for slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) -> Data {
         guard let card = connections[slot]?.card else {
             throw SmartCardConnectionError.connectionLost
         }
 
         do {
-            return try await card.transmit(request)
+            logger.traceRequest(request)
+            let response = try await card.transmit(request)
+            logger.traceResponse(response)
+            return response
         } catch let error as SmartCardConnectionError {
             throw error
         } catch {
@@ -209,17 +230,20 @@ private final actor SmartCardConnectionsManager {
         }
     }
 
-    // @TraceScope
     func connect(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) {
         // if there is already a connection for this slot we throw `SmartCardConnectionError.busy`.
         // The caller must close the connection first.
         guard connections[slot] == nil else {
+            logger.debug("USB smart card is already connected")
             throw SmartCardConnectionError.busy
         }
 
         // To proceed with a new connection we need to acquire a lock
         // so we can guarantee balanced calls to beginSession()
-        guard !isEstablishing else { throw SmartCardConnectionError.cancelled }
+        guard !isEstablishing else {
+            logger.debug("USB smart card connection setup is already in progress")
+            throw SmartCardConnectionError.cancelled
+        }
         defer { isEstablishing = false }
         isEstablishing = true
 
@@ -228,26 +252,33 @@ private final actor SmartCardConnectionsManager {
         let tkSlot = try? await slotManager.getSlot(withName: slot.name)
 
         guard let tkSlot else {
-            /* Fix trace: trace(message: "failed to connect to slot \(slot.name)") */
+            logger.debug("USB smart card slot is no longer available")
             throw SmartCardConnectionError.setupFailed("Failed to connect to slot \(slot.name)")
         }
 
         guard let card = tkSlot.makeSmartCard() else {
-            /* Fix trace: trace(message: "slot.makeSmartCard() returned nil") */
+            logger.debug("Failed to create USB smart card")
             throw SmartCardConnectionError.setupFailed("Failed to create SmartCard from slot")
         }
 
-        /* Fix trace: trace(message: "will call card.beginSession()") */
+        logger.debug("Opening USB smart card session")
         do {
             guard try await card.beginSession() else {
-                /* Fix trace: trace(message: "card.beginSession() failed: Got nil") */
+                logger.debug("USB smart card session was not opened")
                 throw SmartCardConnectionError.setupFailed("Failed to begin SmartCard session (returned nil)")
             }
         } catch {
-            /* Fix trace: trace(message: "card.beginSession() failed: " + error.localizedDescription) */
+            logger.debug(
+                "USB smart card session setup failed",
+                metadata: [
+                    "errorType": .string(String(reflecting: type(of: error))),
+                    "errorDomain": .string((error as NSError).domain),
+                    "errorCode": .stringConvertible((error as NSError).code),
+                ]
+            )
             throw SmartCardConnectionError.setupFailed("Failed to begin SmartCard session", error)
         }
-        /* Fix trace: trace(message: "card.beginSession() succeded") */
+        logger.debug("USB smart card connection established")
 
         // create and save a new connection state
         let state = ConnectionState(card: card)
@@ -257,6 +288,7 @@ private final actor SmartCardConnectionsManager {
         Task {
             _ = try await state.didClose.value()
             state.card.endSession()
+            logger.debug("USB smart card session closed")
             if connections[slot] === state {
                 connections[slot] = nil
             }
@@ -279,7 +311,6 @@ private class ConnectionState {
     private let isValidObserver: NSKeyValueObservation
     private let stateObserver: NSKeyValueObservation
 
-    // @TraceScope
     init(card: TKSmartCard) {
         self.card = card
 

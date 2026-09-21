@@ -25,8 +25,9 @@ public actor SCPState: HasSCPLogger {
     }
 
     func encrypt(_ data: Data) throws(EncryptionError) -> Data {
-        /* Fix trace: trace(message: "encrypt \(data.hexEncodedString) using \(self)") */
-
+        #if DEBUG
+        logger.trace("Plaintext data: \(data.hexEncodedString)")
+        #endif
         let paddedData = data.bitPadded()
         var ivData = Data(count: 12)
         ivData.append(self.encCounter.bigEndian.data)
@@ -36,8 +37,6 @@ public actor SCPState: HasSCPLogger {
     }
 
     func decrypt(_ data: Data) throws(EncryptionError) -> Data {
-        /* Fix trace: trace(message: "decrypt: \(data.hexEncodedString)") */
-
         var ivData = Data()
         ivData.append(UInt8(0x80))
         ivData.append(Data(count: 11))
@@ -49,11 +48,12 @@ public actor SCPState: HasSCPLogger {
             decrypted.secureClear()
         }
 
-        /* Fix trace: trace(message: "\(decrypted.hexEncodedString)") */
-
         guard let unpadded = unpadData(decrypted) else {
             throw .decryptionFailed(nil)  // Invalid padding in decrypted data
         }
+        #if DEBUG
+        logger.trace("Plaintext resp: \(unpadded.hexEncodedString)")
+        #endif
         return unpadded
     }
 

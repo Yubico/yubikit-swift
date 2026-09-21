@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - MakeCredential
 
@@ -32,6 +33,17 @@ extension CTAP2.Session {
         parameters: CTAP2.MakeCredential.Parameters,
         token: CTAP2.Token? = nil
     ) async -> CTAP2.StatusStream<CTAP2.MakeCredential.Response> {
+        logger.debug(
+            "Calling CTAP2 make_credential",
+            metadata: [
+                "algorithmCount": .stringConvertible(parameters.pubKeyCredParams.count),
+                "excludeCount": .stringConvertible(parameters.excludeList?.count ?? 0),
+                "extensionCount": .stringConvertible(parameters.extensions.count),
+                "rk": .stringConvertible(parameters.rk),
+                "requestedUV": parameters.uv.map { .stringConvertible($0) } ?? .string("unspecified"),
+                "authenticated": .stringConvertible(token != nil || parameters.pinUVAuthParam != nil),
+            ]
+        )
         guard let token else {
             return await interface.send(command: .makeCredential, payload: parameters)
         }

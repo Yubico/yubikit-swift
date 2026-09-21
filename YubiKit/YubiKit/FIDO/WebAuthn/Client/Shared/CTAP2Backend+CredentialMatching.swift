@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - Credential Matching
 
@@ -46,6 +47,7 @@ extension WebAuthn.CTAP2Backend {
         while !filtered.isEmpty && maxChunkSize > 0 {
             let chunkSize = min(maxChunkSize, filtered.count)
             let chunk = Array(filtered.prefix(chunkSize))
+            logger.debug("Probing credential chunk", metadata: ["chunkSize": .stringConvertible(chunkSize)])
 
             // Silent probe (up=false).
             let parameters = CTAP2.GetAssertion.Parameters(
@@ -69,9 +71,14 @@ extension WebAuthn.CTAP2Backend {
             } catch {
                 switch error {
                 case .ctapError(.noCredentials, _):
+                    logger.debug("No credentials found in chunk")
                     filtered.removeFirst(chunkSize)
                 case .ctapError(.requestTooLarge, _) where maxChunkSize > 1:
                     maxChunkSize -= 1
+                    logger.debug(
+                        "Credential request too large; retrying",
+                        metadata: ["chunkSize": .stringConvertible(maxChunkSize)]
+                    )
                 default:
                     throw WebAuthn.ClientError(error)
                 }

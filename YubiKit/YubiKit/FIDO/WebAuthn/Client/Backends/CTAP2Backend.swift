@@ -19,7 +19,7 @@ import Foundation
 extension WebAuthn {
 
     // CTAP2 operations used by the shared ceremony implementation, mockable in tests.
-    protocol CTAP2Backend: Actor, AuthenticatorBackend {
+    protocol CTAP2Backend: Actor, AuthenticatorBackend, HasFIDOLogger {
 
         // MARK: - Authenticator Info
 
