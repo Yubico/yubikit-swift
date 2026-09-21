@@ -40,6 +40,14 @@ jobs:
 
         echo "OLD_VERSION=$OLD" >> "$GITHUB_ENV"
         echo "NEW_VERSION=$NEW" >> "$GITHUB_ENV"
+
+    - name: Configure API interface generation
+      run: |
+        # swift-log does not support library evolution; the diff only needs interfaces.
+        cat > "$RUNNER_TEMP/api-diff.xcconfig" <<'EOF'
+        SWIFT_ENABLE_LIBRARY_EVOLUTION = NO
+        EOF
+        echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/api-diff.xcconfig" >> "$GITHUB_ENV"
     
     - name: Detect YubiKit Public API Changes (macOS)
       uses: Adyen/adyen-swift-public-api-diff@9ed54d9884b1a8f0e2c1ecde353793ea8ce7132b # 0.11.2
@@ -54,4 +62,3 @@ jobs:
         platform: iOS
         new: ${{ env.NEW_VERSION }}
         old: ${{ env.OLD_VERSION }}
- 
