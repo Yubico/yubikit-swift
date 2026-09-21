@@ -87,7 +87,7 @@ extension WebAuthn.CTAP2Backend {
                 permissions: permissions,
                 rpId: rpId,
                 userVerification: retry.userVerification,
-                isMakeCredential: false,
+                operation: .getAssertion(hasAllowList: !options.allowCredentials.isEmpty),
                 allowUV: retry.allowUV,
                 authorization: authorization,
                 yieldProcessing: { continuation.yield(.processing) },

@@ -63,7 +63,7 @@ extension WebAuthn.CTAP2Backend {
         permissions: CTAP2.ClientPin.Permission,
         rpId: String,
         userVerification: WebAuthn.UserVerificationPreference,
-        isMakeCredential: Bool,
+        operation: WebAuthn.Authorization.Operation,
         allowUV: Bool = true,
         authorization: WebAuthn.Authorization,
         yieldProcessing: @Sendable () -> Void = {},
@@ -74,11 +74,10 @@ extension WebAuthn.CTAP2Backend {
             ) -> Void = { _, _ in }
     ) async throws(WebAuthn.ClientError) -> (token: CTAP2.Token?, uv: Bool?) {
 
-        let uvRequired = try isUserVerificationRequired(
+        let uvRequired = try operation.requiresUserVerification(
             info: info,
-            userVerification: userVerification,
-            permissions: permissions,
-            isMakeCredential: isMakeCredential
+            preference: userVerification,
+            permissions: permissions
         )
         guard uvRequired else {
             return (token: nil, uv: nil)
@@ -270,62 +269,5 @@ extension WebAuthn.CTAP2Backend {
         return retries > 0
             ? .uvRejected(retriesRemaining: retries, source: .here())
             : .uvBlocked(source: .here())
-    }
-}
-
-// MARK: - Private
-
-extension WebAuthn.CTAP2Backend {
-
-    // Determines if UV is required based on preference, authenticator flags, and operation type.
-    // UV required if: explicit .required, .preferred with support, PIN set (even when discouraged),
-    // alwaysUV enabled, registration without makeCredUVNotRequired, or management permissions.
-    private func isUserVerificationRequired(
-        info: CTAP2.GetInfo.Response,
-        userVerification: WebAuthn.UserVerificationPreference,
-        permissions: CTAP2.ClientPin.Permission,
-        isMakeCredential: Bool
-    ) throws(WebAuthn.ClientError) -> Bool {
-        let options = info.options
-
-        // Supported = capability exists, Configured = capability is enabled/enrolled.
-        let uvSupported =
-            options.userVerification != nil
-            || options.clientPin != nil
-            || options.bioEnroll != nil
-
-        let uvConfigured =
-            options.userVerification == true
-            || options.clientPin == true
-            || options.bioEnroll == true
-
-        if userVerification == .required
-            || (userVerification == .preferred && uvSupported)
-            || (userVerification == .discouraged && options.clientPin == true)
-            || options.alwaysUV == true
-        {
-            guard uvConfigured else {
-                // PIN capability present but not configured: surface as
-                // `.pinNotSet` so callers can route into a PIN-setup flow
-                // instead of treating it as an unrecoverable failure.
-                if options.clientPin != nil {
-                    throw .pinNotSet(source: .here())
-                }
-                throw .notSupported("User verification not configured/supported", source: .here())
-            }
-            return true
-        }
-
-        if isMakeCredential && uvConfigured && options.makeCredUVNotRequired != true {
-            return true
-        }
-
-        // Management operations always require UV.
-        let additionalPerms = permissions.subtracting([.makeCredential, .getAssertion])
-        if uvConfigured && !additionalPerms.isEmpty {
-            return true
-        }
-
-        return false
     }
 }
