@@ -6,9 +6,12 @@ import PackageDescription
 let twinKitEnabled = !(Context.environment["YUBIKIT_ENABLE_TWINKIT"] ?? "").isEmpty
 
 var packageDependencies: [Package.Dependency] = [
-    .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0")
+    .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
+    .package(url: "https://github.com/apple/swift-log", from: "1.6.0"),
 ]
-var yubiKitDependencies: [Target.Dependency] = []
+var yubiKitDependencies: [Target.Dependency] = [
+    .product(name: "Logging", package: "swift-log")
+]
 var yubiKitSwiftSettings: [SwiftSetting] = []
 var integrationTestDependencies: [Target.Dependency] = ["YubiKitIntegrationScenarios"]
 

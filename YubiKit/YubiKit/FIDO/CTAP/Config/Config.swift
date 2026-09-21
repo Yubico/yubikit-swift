@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - Session Config Accessor
 
@@ -49,7 +50,7 @@ extension CTAP2 {
     /// AuthenticatorConfig operations bound to a PIN/UV auth token.
     ///
     /// - SeeAlso: [CTAP2 authenticatorConfig](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorConfig)
-    public struct Config: Sendable {
+    public struct Config: Sendable, HasFIDOLogger {
         private let session: CTAP2.Session
         private let token: CTAP2.Token
 
@@ -71,7 +72,9 @@ extension CTAP2 {
         ///
         /// - SeeAlso: [Enable Enterprise Attestation](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#enable-enterprise-attestation)
         public func enableEnterpriseAttestation() async throws(CTAP2.SessionError) {
+            logger.debug("Enabling enterprise attestation")
             try await execute(subcommand: .enableEnterpriseAttestation)
+            logger.info("Enterprise attestation enabled")
         }
 
         /// Toggles the alwaysUV setting.
@@ -80,7 +83,9 @@ extension CTAP2 {
         ///
         /// - SeeAlso: [Toggle Always Require User Verification](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#toggle-alwaysUv)
         public func toggleAlwaysUV() async throws(CTAP2.SessionError) {
+            logger.debug("Toggling alwaysUV")
             try await execute(subcommand: .toggleAlwaysUV)
+            logger.info("AlwaysUV toggled")
         }
 
         /// Sets the minimum PIN length and related configuration.
@@ -95,6 +100,14 @@ extension CTAP2 {
             rpIDs: [String]? = nil,
             forceChangePin: Bool = false
         ) async throws(CTAP2.SessionError) {
+            logger.debug(
+                "Setting minimum PIN length",
+                metadata: [
+                    "minimumPINLength": newMinPINLength.map { .stringConvertible($0) } ?? .string("unspecified"),
+                    "rpIdCount": .stringConvertible(rpIDs?.count ?? 0),
+                    "forceChangePin": .stringConvertible(forceChangePin),
+                ]
+            )
             var params: [UInt8: CBOR.Value] = [:]
             if let length = newMinPINLength {
                 params[Parameter.newMinPINLength.rawValue] = length.cbor()
@@ -107,6 +120,7 @@ extension CTAP2 {
             }
 
             try await execute(subcommand: .setMinPINLength, params: params)
+            logger.info("Minimum PIN length configuration applied")
         }
 
         // MARK: - Internal

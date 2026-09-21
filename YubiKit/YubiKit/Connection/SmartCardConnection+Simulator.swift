@@ -15,6 +15,7 @@
 #if YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator)
 
 import Foundation
+import Logging
 import YubiKitTwinSupport
 
 enum SimulatorTwinTransport: Sendable {
@@ -48,7 +49,7 @@ actor SimulatorTwinBackend {
     }
 }
 
-final class SimulatorTwinConnection: @unchecked Sendable {
+final class SimulatorTwinConnection: @unchecked Sendable, HasSmartCardLogger {
     private let channel: TwinKitSmartCardChannel
 
     init(channel: TwinKitSmartCardChannel) {
@@ -57,7 +58,10 @@ final class SimulatorTwinConnection: @unchecked Sendable {
 
     func send(data: Data) async throws(SmartCardConnectionError) -> Data {
         do {
-            return try await channel.send(data)
+            logger.traceRequest(data)
+            let response = try await channel.send(data)
+            logger.traceResponse(response)
+            return response
         } catch TwinKitSupportError.connectionLost {
             throw .connectionLost
         } catch {

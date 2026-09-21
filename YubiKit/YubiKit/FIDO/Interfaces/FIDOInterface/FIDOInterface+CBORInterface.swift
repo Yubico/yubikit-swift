@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - CBORInterface Conformance (HID/USB Transport)
 
@@ -110,6 +111,18 @@ extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
 
                     // Parse CTAP response and yield final result
                     let result: O = try parse(responsePayload)
+                    if data.first == CTAP2.Command.reset.rawValue {
+                        self.logger.info("Reset completed - All data erased")
+                    } else if data.first == CTAP2.Command.makeCredential.rawValue {
+                        self.logger.info("Credential created")
+                    } else if data.first == CTAP2.Command.getAssertion.rawValue,
+                        let assertion = result as? CTAP2.GetAssertion.Response
+                    {
+                        self.logger.info(
+                            "Authenticator reported assertions",
+                            metadata: ["assertionCount": .stringConvertible(assertion.numberOfCredentials ?? 1)]
+                        )
+                    }
                     continuation.yield(.finished(result))
                 } catch {
                     continuation.yield(error: error)

@@ -16,7 +16,7 @@
 
 import Foundation
 @preconcurrency import ExternalAccessory
-import OSLog
+import Logging
 
 /// A connection to the YubiKey utilizing the Lightning port and External Accessory framework.
 @available(iOS 16.0, *)
@@ -39,30 +39,48 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
     /// - Returns: A fully–established connection ready for APDU exchange.
     /// - Throws: ``SmartCardConnectionError.busy`` if there is already an active connection.
     public static func makeConnection() async throws(SmartCardConnectionError) -> LightningSmartCardConnection {
-        /* Fix trace: trace(message: "requesting new connection") */
-        try await LightningSmartCardConnection()
+        logger.debug("Requesting Lightning connection")
+        return try await LightningSmartCardConnection()
     }
 
     public func close(error: Error?) async {
-        /* Fix trace: trace(message: "closing connection") */
+        if let error {
+            logger.debug(
+                "Closing Lightning connection with an error",
+                metadata: [
+                    "errorType": .string(String(reflecting: type(of: error))),
+                    "errorDomain": .string((error as NSError).domain),
+                    "errorCode": .stringConvertible((error as NSError).code),
+                ]
+            )
+        } else {
+            logger.debug("Closing Lightning connection")
+        }
         await LightningConnectionManager.shared.close(for: self, error: error)
     }
 
     public func waitUntilClosed() async -> Error? {
-        /* Fix trace: trace(message: "awaiting dismissal") */
+        logger.debug("Waiting for Lightning connection to close")
         let error = await LightningConnectionManager.shared.didClose(for: self)
         if let error {
-            /* Fix trace: trace(message: "dismissed, error: \(String(describing: error))") */
+            logger.debug(
+                "Lightning connection closed with an error",
+                metadata: [
+                    "errorType": .string(String(reflecting: type(of: error))),
+                    "errorDomain": .string((error as NSError).domain),
+                    "errorCode": .stringConvertible((error as NSError).code),
+                ]
+            )
         } else {
-            /* Fix trace: trace(message: "dismissed") */
+            logger.debug("Lightning connection closed")
         }
         return error
     }
 
     public func send(data: Data) async throws(SmartCardConnectionError) -> Data {
-        /* Fix trace: trace(message: "\(data.count) bytes") */
+        logger.debug("Sending Lightning request", metadata: ["bytes": .stringConvertible(data.count)])
         let response = try await LightningConnectionManager.shared.transmit(request: data, for: self)
-        /* Fix trace: trace(message: "received \(response.count) bytes") */
+        logger.debug("Received Lightning response", metadata: ["bytes": .stringConvertible(response.count)])
         return response
     }
 
@@ -95,12 +113,13 @@ private actor LightningConnectionManager {
     func connect() async throws(SmartCardConnectionError) -> LightningConnectionID {
         // If there is already a connection the caller must close the connection first.
         if connectionState != nil || pendingConnectionPromise != nil {
+            logger.debug("Lightning connection is already active or pending")
             throw SmartCardConnectionError.busy
         }
 
         // Otherwise, create and store a new connection task.
         let task = Task { () -> LightningConnectionID in
-            /* Fix trace: trace(message: "begin new connection task") */
+            logger.debug("Waiting for a Lightning accessory")
 
             do {
                 // Close previous connection if it exists
@@ -121,11 +140,18 @@ private actor LightningConnectionManager {
 
                 // Await the promise which will be fulfilled by accessoryDidConnect()
                 let result = try await connectionPromise.value()
-                /* Fix trace: trace(message: "connection established") */
+                logger.debug("Lightning connection established")
                 self.pendingConnectionPromise = nil
                 return result
             } catch {
-                /* Fix trace: trace(message: "connection failed: \(error.localizedDescription)") */
+                logger.debug(
+                    "Lightning connection setup failed",
+                    metadata: [
+                        "errorType": .string(String(reflecting: type(of: error))),
+                        "errorDomain": .string((error as NSError).domain),
+                        "errorCode": .stringConvertible((error as NSError).code),
+                    ]
+                )
                 // Cleanup on failure
                 self.pendingConnectionPromise = nil
                 self.connectionState = nil
@@ -146,12 +172,11 @@ private actor LightningConnectionManager {
         for connection: LightningSmartCardConnection
     ) async throws(SmartCardConnectionError) -> Data {
         let connectionID = connection.accessoryConnectionID
-        /* Fix trace: trace(message: "\(request.count) bytes to connection \(connectionID)") */
 
         guard let state = connectionState,
             state.connectionID == connectionID
         else {
-            /* Fix trace: trace(message: "noConnection") */
+            logger.debug("Cannot send on a closed Lightning connection")
             throw SmartCardConnectionError.connectionLost
         }
 
@@ -179,7 +204,7 @@ private actor LightningConnectionManager {
 
     // Called by EAAccessoryWrapper when an accessory connects
     func accessoryDidConnect(connectionID: LightningConnectionID) async {
-        /* Fix trace: trace(message: "accessory connected with ID \(connectionID)") */
+        logger.debug("Lightning accessory connected")
         guard let promise = pendingConnectionPromise else { return }
 
         connectionState = (connectionID: connectionID, didCloseConnection: Promise<Error?>())
@@ -188,7 +213,7 @@ private actor LightningConnectionManager {
 
     // Called by EAAccessoryWrapper when an accessory disconnects
     func accessoryDidDisconnect(connectionID: LightningConnectionID) async {
-        /* Fix trace: trace(message: "accessory disconnected with ID \(connectionID)") */
+        logger.debug("Lightning accessory disconnected")
 
         // If a connection attempt is in progress, fail it.
         if let promise = pendingConnectionPromise {
@@ -216,7 +241,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     private var disconnectObserver: NSObjectProtocol?
 
     func setupConnection(id: LightningConnectionID, session: EASession) async {
-        /* Fix trace: trace(message: "opening session for ID \(id)") */
+        logger.debug("Opening Lightning session")
         session.open()
         // Give streams time to stabilize
         try? await Task.sleep(for: .milliseconds(100))
@@ -227,7 +252,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     }
 
     func cleanupConnection(id: LightningConnectionID) {
-        /* Fix trace: trace(message: "closing session for ID \(id)") */
+        logger.debug("Closing Lightning session")
         guard let session = sessions[id] else { return }
 
         session.close()
@@ -261,7 +286,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     }
 
     func startMonitoring() {
-        /* Fix trace: trace(message: "begin monitoring") */
+        logger.debug("Starting Lightning accessory monitoring")
         // Prevent duplicate observers
         guard connectObserver == nil && disconnectObserver == nil else { return }
 
@@ -304,7 +329,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     }
 
     func stopMonitoring() {
-        /* Fix trace: trace(message: "stop monitoring") */
+        logger.debug("Stopping Lightning accessory monitoring")
         if let observer = connectObserver {
             NotificationCenter.default.removeObserver(observer)
             connectObserver = nil
@@ -324,6 +349,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
 
         // Append YLP iAP2 Signal
         do {
+            logger.traceRequest(data)
             try outputStream.writeToYubiKey(data: Data([0x00]) + data)
         } catch {
             throw SmartCardConnectionError.transmitFailed("Lightning write failed", flatten: error)
@@ -337,25 +363,31 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
             } catch {
                 throw SmartCardConnectionError.transmitFailed("Lightning read failed", flatten: error)
             }
-            /* Fix trace: trace(
-                message:
-                    "got \(result.count) bytes, SW: \(String(format:"%02X%02X", result.bytes[result.count-2], result.bytes[result.count-1]))"
-            ) */
             guard result.count >= 2 else {
                 throw SmartCardConnectionError.malformedData("Response too short for status word")
             }
+            logger.debug(
+                "Received Lightning frame",
+                metadata: [
+                    "bytes": .stringConvertible(result.count), "status": .string(result.suffix(2).hexEncodedString),
+                ]
+            )
             let statusBytes = result.suffix(2)
             let status = Response.Status(sw1: statusBytes.first!, sw2: statusBytes.last!)
 
             // BUG #62 - Workaround for WTX == 0x01 while status is 0x9000 (success).
             if (status.status == Response.Status.Code.ok) || result.bytes[0] != 0x01 {
                 if result.bytes[0] == 0x00 {  // Remove the YLP key protocol header
-                    return result.subdata(in: 1..<result.count)
+                    let response = result.subdata(in: 1..<result.count)
+                    logger.traceResponse(response)
+                    return response
                 } else if result.bytes[0] == 0x01 {  // Remove the YLP key protocol header and the WTX
                     guard result.count >= 4 else {
                         throw SmartCardConnectionError.malformedData("Response too short to strip WTX header")
                     }
-                    return result.subdata(in: 4..<result.count)
+                    let response = result.subdata(in: 4..<result.count)
+                    logger.traceResponse(response)
+                    return response
                 }
                 throw SmartCardConnectionError.malformedData(
                     String(format: "Unexpected YLP header byte 0x%02X", result.bytes[0])
@@ -365,7 +397,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     }
 
     nonisolated func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
-        /* Fix trace: trace(message: "stream event: \(String(describing: eventCode))") */
+        logger.debug("Lightning stream event", metadata: ["event": .stringConvertible(eventCode.rawValue)])
     }
 }
 

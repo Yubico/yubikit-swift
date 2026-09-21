@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - Credential Registration
 
@@ -60,6 +61,7 @@ extension WebAuthn.Client {
         clientData: WebAuthn.ClientData,
         authorization: WebAuthn.Authorization
     ) async -> WebAuthn.StatusStream<WebAuthn.Registration.Response> {
+        logger.debug("Register a new credential", metadata: ["rpId": .string(clientData.rpId)])
         if let error = validateRpId(clientData.rpId, origin: clientData.origin) {
             return .error(error)
         }

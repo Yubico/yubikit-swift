@@ -65,7 +65,7 @@ extension WebAuthn {
     /// decides whether to re-prompt and retry with a fresh ``Authorization``.
     /// Returning ``Authorization/PINReply/cancel`` from `providePIN` aborts
     /// the ceremony with ``ClientError/cancelled(source:)``.
-    public actor Client {
+    public actor Client: HasFIDOLogger {
 
         // MARK: - Backend
 

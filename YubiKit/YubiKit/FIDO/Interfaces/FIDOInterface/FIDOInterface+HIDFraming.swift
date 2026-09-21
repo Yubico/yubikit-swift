@@ -27,11 +27,11 @@ extension FIDOInterface {
         // Send init frame with first chunk of data
         let initFrame = buildInitFrame(channelId: channelId, command: cmd, payload: payloadData)
         do {
+            logger.traceRequest(initFrame)
             try await connection.send(initFrame)
         } catch {
             throw .fidoConnectionError(error, source: .here())
         }
-        /* Fix trace: trace(message: "Sent init frame (\(payloadData.count) total bytes)") */
 
         // If payload is larger than init frame can hold, send continuation frames
         var remainingData = payloadData.dropFirst(CTAP2.INIT_DATA_SIZE)
@@ -44,11 +44,11 @@ extension FIDOInterface {
                 payload: Data(remainingData)
             )
             do {
+                logger.traceRequest(contFrame)
                 try await connection.send(contFrame)
             } catch {
                 throw .fidoConnectionError(error, source: .here())
             }
-            /* Fix trace: trace(message: "Sent continuation frame \(sequence)") */
 
             remainingData = remainingData.dropFirst(CTAP2.CONT_DATA_SIZE)
             sequence += 1
@@ -68,6 +68,8 @@ extension FIDOInterface {
         onKeepalive: ((UInt8) -> Void)? = nil
     ) async throws(Error) -> Data {
 
+        var lastKeepalive: UInt8?
+
         // Loop to handle KEEPALIVE messages
         while true {
             // Read init frame with frame timeout
@@ -82,6 +84,8 @@ extension FIDOInterface {
                 throw .timeout(source: .here())
             }
 
+            logger.traceResponse(responseInitFrame)
+
             let (responseChannelId, responseCommand, payloadLength, initFrameData) = try parseInitFrame(
                 responseInitFrame
             )
@@ -95,6 +99,13 @@ extension FIDOInterface {
             if responseCommand == Self.hidCommand(.keepalive) {
                 if let handler = onKeepalive {
                     let statusByte = initFrameData.first ?? 0
+                    if lastKeepalive != statusByte {
+                        logger.debug(
+                            "Got keepalive status",
+                            metadata: ["status": .string(String(format: "%02x", statusByte))]
+                        )
+                        lastKeepalive = statusByte
+                    }
                     handler(statusByte)
                     continue  // Keep waiting for actual response
                 } else {
@@ -120,8 +131,6 @@ extension FIDOInterface {
                 )
             }
 
-            /* Fix trace: trace(message: "Received init frame") */
-
             // Start building response payload with data from init frame
             var responsePayload = Data()
             responsePayload.append(initFrameData)
@@ -139,7 +148,8 @@ extension FIDOInterface {
                 guard let contFrame = contFrame else {
                     throw .timeout(source: .here())
                 }
-                /* Fix trace: trace(message: "Received continuation frame") */
+
+                logger.traceResponse(contFrame)
 
                 let (contChannelId, sequence, contData) = try parseContinuationFrame(contFrame)
 
@@ -164,7 +174,6 @@ extension FIDOInterface {
                 expectedSequence += 1
             }
 
-            /* Fix trace: trace(message: "Received complete response: \(responsePayload.count) bytes") */
             return responsePayload
         }
     }

@@ -24,7 +24,7 @@ extension CTAP2 {
     ///
     /// Read more about FIDO2/WebAuthn on the
     /// [FIDO Alliance website](https://fidoalliance.org/fido2/).
-    public actor Session {
+    public actor Session: HasFIDOLogger {
         // NEXTMAJOR: Remove.
         /// Unavailable over the FIDO application; always `0.0.0`.
         @available(

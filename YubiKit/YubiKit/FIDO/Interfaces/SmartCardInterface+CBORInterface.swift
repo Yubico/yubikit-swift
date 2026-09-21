@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - CBORInterface Conformance (NFC/SmartCard Transport)
 
@@ -102,10 +103,19 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
                     var response: Response
                     response = try await self.sendAllowingKeepalive(apdu: initialApdu)
 
+                    var lastKeepalive: UInt8?
+
                     // Poll with GET_RESPONSE while SW is 0x9100 (operation in progress)
                     while response.responseStatus.rawStatus == SW_KEEPALIVE {
                         // Parse keepalive status byte from response data
                         let statusByte = response.data.first ?? 0x01  // Default to processing
+                        if lastKeepalive != statusByte {
+                            CTAP2.Session.logger.debug(
+                                "Got keepalive status",
+                                metadata: ["status": .string(String(format: "%02x", statusByte))]
+                            )
+                            lastKeepalive = statusByte
+                        }
                         if let currentStatus: CTAP2.Status<O> = CTAP2.Status.fromKeepAlive(
                             statusByte: statusByte,
                             cancel: cancelClosure
@@ -137,6 +147,18 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
 
                     // Parse and yield final response
                     let result: O = try parse(response.data)
+                    if data.first == CTAP2.Command.reset.rawValue {
+                        CTAP2.Session.logger.info("Reset completed - All data erased")
+                    } else if data.first == CTAP2.Command.makeCredential.rawValue {
+                        CTAP2.Session.logger.info("Credential created")
+                    } else if data.first == CTAP2.Command.getAssertion.rawValue,
+                        let assertion = result as? CTAP2.GetAssertion.Response
+                    {
+                        CTAP2.Session.logger.info(
+                            "Authenticator reported assertions",
+                            metadata: ["assertionCount": .stringConvertible(assertion.numberOfCredentials ?? 1)]
+                        )
+                    }
                     continuation.yield(.finished(result))
                 } catch {
                     continuation.yield(error: error)

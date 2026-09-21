@@ -14,7 +14,7 @@
 
 import CryptoTokenKit
 import Foundation
-import OSLog
+import Logging
 
 public enum Management {
 
@@ -79,6 +79,7 @@ public enum Management {
             var result = [TKTLVTag: Data]()
 
             while hasMoreData {
+                logger.debug("Reading device info", metadata: ["page": .stringConvertible(page)])
                 let data = try await interface.readConfig(page: page)
 
                 guard let count = data.bytes.first, count > 0,
@@ -118,7 +119,9 @@ public enum Management {
                 throw Error.illegalArgument("Device configuration is too large (maximum 255 bytes)", source: .here())
             }
 
+            logger.debug("Writing device config", metadata: ["reboot": .stringConvertible(reboot)])
             try await interface.writeConfig(data: data)
+            logger.info("Device config written")
         }
 
         /// Perform a device-wide reset in Bio Multi-protocol Edition devices.
@@ -129,7 +132,9 @@ public enum Management {
             guard await self.supports(.deviceReset) else {
                 throw Error.featureNotSupported(source: .here())
             }
+            logger.debug("Performing device reset")
             try await interface.resetDevice()
+            logger.info("Device reset performed")
         }
 
         /// Creates a new Management session with the provided SmartCard connection.
@@ -168,6 +173,7 @@ public enum Management {
             self.version = try await interface.version
             self.scpState = await interface.scpState
             self.smartCardConnection = await interface.smartCardConnection
+            logger.debug("Management session initialized", metadata: ["version": .string(String(describing: version))])
         }
 
         // MARK: - SmartCardSession conformance (NEXTMAJOR: Remove)
@@ -307,3 +313,5 @@ extension Version {
         self.micro = micro
     }
 }
+
+extension Management.Session: HasManagementLogger {}

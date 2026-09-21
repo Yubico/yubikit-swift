@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - Credential Authentication
 
@@ -223,11 +224,16 @@ extension WebAuthn.CTAP2Backend {
     ) async throws(CTAP2.SessionError) -> CTAP2.GetAssertion.Response {
         let stream = await getAssertion(parameters: parameters, token: token)
         var response: CTAP2.GetAssertion.Response?
+        var requestedPresence = false
         for try await ctapStatus in stream {
             switch ctapStatus {
             case .processing:
                 continuation.yield(.processing)
             case .waitingForUser(let cancel):
+                if !requestedPresence {
+                    logger.info("User Presence check required")
+                    requestedPresence = true
+                }
                 continuation.yield(.waitingForUser(cancel: cancel))
             case .finished(let r):
                 response = r

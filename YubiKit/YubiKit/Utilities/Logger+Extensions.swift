@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import OSLog
+import Foundation
+import Logging
 
 // MARK: - Generic Protocol
 protocol HasLogger {
@@ -24,6 +25,21 @@ extension HasLogger {
 }
 
 // MARK: - Specific Protocols
+protocol HasOATHLogger: HasLogger {}
+extension HasOATHLogger {
+    static var logger: Logger { .oath }
+}
+
+protocol HasPIVLogger: HasLogger {}
+extension HasPIVLogger {
+    static var logger: Logger { .piv }
+}
+
+protocol HasManagementLogger: HasLogger {}
+extension HasManagementLogger {
+    static var logger: Logger { .management }
+}
+
 protocol HasSmartCardLogger: HasLogger {}
 extension HasSmartCardLogger {
     static var logger: Logger { .smartCard }
@@ -55,91 +71,38 @@ extension HasFIDOLogger {
 }
 
 extension Logger {
-    private static let subsystem = "com.yubico.YubiKit"
-
-    static let system = Logger(subsystem: subsystem, category: "System")
-    static let connection = Logger(subsystem: subsystem, category: "SmartCardConnection")
-
-    static let nfc = Logger(subsystem: subsystem, category: "NFC")
-    static let lightning = Logger(subsystem: subsystem, category: "Lightning")
-    static let smartCard = Logger(subsystem: subsystem, category: "SmartCard")
-
-    static let oath = Logger(subsystem: subsystem, category: "OATH")
-    static let management = Logger(subsystem: subsystem, category: "Management")
-    static let piv = Logger(subsystem: subsystem, category: "PIV")
-    static let fido = Logger(subsystem: subsystem, category: "FIDO")
-    fileprivate static let securityDomain = Logger(subsystem: subsystem, category: "SecurityDomain")
-
-    fileprivate static let scp = Logger(subsystem: subsystem, category: "SCP")
-
-    static func export() async throws -> String {
-        /* Fix trace: Logger.system.info("Logger, export(): compiling logs.") */
-        let store = try OSLogStore(scope: .currentProcessIdentifier)
-        let date = Date.now.addingTimeInterval(-48 * 3600)
-        let position = store.position(date: date)
-        let predicate = NSPredicate(format: "subsystem == \"\(subsystem)\"")
-        let entries =
-            try store
-            .getEntries(at: position, matching: predicate)
-            .compactMap { $0 as? OSLogEntryLog }
-            .filter { $0.subsystem == subsystem }
-            .map { "\($0.date.formatted(date: .omitted, time: .standard)) [\($0.category)] \($0.composedMessage)" }
-            .reduce(into: "", { $0 += "\n\($1)" })
-        return entries
+    func traceRequest(
+        _ data: @autoclosure () -> Data,
+        file: String = #fileID,
+        function: String = #function,
+        line: UInt = #line
+    ) {
+        #if DEBUG
+        trace("SEND: \(data().hexEncodedString)", file: file, function: function, line: line)
+        #endif
     }
+
+    func traceResponse(
+        _ data: @autoclosure () -> Data,
+        file: String = #fileID,
+        function: String = #function,
+        line: UInt = #line
+    ) {
+        #if DEBUG
+        trace("RECV: \(data().hexEncodedString)", file: file, function: function, line: line)
+        #endif
+    }
+
 }
 
-// MARK: - RAII style scope tracer
-// Will be wrapped in a '@TraceScope' macro when Swift 6 is available
-//
-// class _Trace {
-//     let name: String
-//     let logger: Logger
-//
-//     init(_ name: String, logger: Logger) {
-//         self.name = name
-//         self.logger = logger
-//         logger.trace(">>> \(name, privacy: .public)")
-//     }
-//
-//     deinit {
-//         logger.trace("<<< \(self.name, privacy: .public)")
-//     }
-// }
-
-// MARK: - These functions trace with a message
-extension HasLogger {
-    // static helper
-    @inline(__always)
-    static func trace(
-        _ function: String = #function,
-        logger: Logger = logger,
-        message: String
-    ) {
-
-        let typeName = String(describing: type(of: self))
-        _ = "\(typeName).\(function)"
-
-        /* Fix trace: logger.trace("\(label): \(message)") */
-    }
-
-    // instance helper
-    @inline(__always)
-    func trace(
-        _ function: String = #function,
-        logger: Logger = logger,
-        message: String
-    ) {
-
-        let typeName = String(describing: type(of: self))
-        _ = "\(typeName).\(function)"
-
-        if let obj = self as AnyObject? {
-            let ptr = Unmanaged.passUnretained(obj).toOpaque()
-            let ptrStr = String(format: "0x%08x", UInt(bitPattern: ptr) & 0xFFFF_FFFF)
-            _ = "\(typeName)[\(ptrStr)].\(function)"
-        }
-
-        /* Fix trace: logger.trace("\(label): \(message)") */
-    }
+extension Logger {
+    fileprivate static var nfc: Logger { Logging.logger(category: "NFC") }
+    fileprivate static var lightning: Logger { Logging.logger(category: "Lightning") }
+    fileprivate static var smartCard: Logger { Logging.logger(category: "SmartCard") }
+    fileprivate static var oath: Logger { Logging.logger(category: "OATH") }
+    fileprivate static var management: Logger { Logging.logger(category: "Management") }
+    fileprivate static var piv: Logger { Logging.logger(category: "PIV") }
+    fileprivate static var fido: Logger { Logging.logger(category: "FIDO") }
+    fileprivate static var securityDomain: Logger { Logging.logger(category: "SecurityDomain") }
+    fileprivate static var scp: Logger { Logging.logger(category: "SCP") }
 }

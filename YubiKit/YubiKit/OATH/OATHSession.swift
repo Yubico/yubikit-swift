@@ -14,7 +14,7 @@
 
 import CryptoTokenKit
 import Foundation
-import OSLog
+import Logging
 
 private let tagVersion: TKTLVTag = 0x79
 private let tagName: TKTLVTag = 0x71
@@ -88,6 +88,10 @@ public final actor OATHSession: SmartCardSessionInternal {
 
         self.selectResponse = SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
         self.interface = interface
+        logger.debug(
+            "OATH session initialized",
+            metadata: ["version": .string(String(describing: version)), "hasKey": .stringConvertible(challenge != nil)]
+        )
     }
 
     /// Creates a new OATH session with the provided connection.
@@ -101,7 +105,6 @@ public final actor OATHSession: SmartCardSessionInternal {
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
     ) async throws(OATHSessionError) -> OATHSession {
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(String(describing: connection))") */
         // Create a new OATHSession
         let session = try await OATHSession(connection: connection, scpKeyParams: scpKeyParams)
         return session
@@ -116,9 +119,10 @@ public final actor OATHSession: SmartCardSessionInternal {
     ///
     /// - Throws: An error if the reset operation fails.
     public func reset() async throws(OATHSessionError) {
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Resetting OATH application data")
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad)
         try await process(apdu: apdu)
+        logger.info("OATH application data reset performed")
     }
 
     /// Checks if the OATH application supports the specified feature.
@@ -140,7 +144,15 @@ public final actor OATHSession: SmartCardSessionInternal {
     /// - Returns: The newly added credential.
     @discardableResult
     public func addCredential(template: CredentialTemplate) async throws(OATHSessionError) -> Credential {
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug(
+            "Importing credential",
+            metadata: [
+                "credentialType": .string(String(describing: template.type)),
+                "algorithm": .string(String(describing: template.algorithm)),
+                "digits": .stringConvertible(template.digits),
+                "touchRequired": .stringConvertible(template.requiresTouch),
+            ]
+        )
         if template.algorithm == .sha512 {
             guard await self.supports(OATHSessionFeature.sha512) else { throw .featureNotSupported(source: .here()) }
         }
@@ -170,6 +182,7 @@ public final actor OATHSession: SmartCardSessionInternal {
 
         let apdu = APDU(cla: 0x00, ins: 0x01, p1: 0x00, p2: 0x00, command: data)
         try await process(apdu: apdu)
+        logger.info("Credential imported")
         return Credential(
             deviceId: selectResponse.deviceId,
             id: nameData,
@@ -193,6 +206,13 @@ public final actor OATHSession: SmartCardSessionInternal {
         newName: String,
         newIssuer: String?
     ) async throws(OATHSessionError) {
+        logger.debug(
+            "Renaming credential",
+            metadata: [
+                "credentialId": .string(credential.id.hexEncodedString), "newIssuer": .string(newIssuer ?? ""),
+                "newName": .string(newName),
+            ]
+        )
         guard await supports(OATHSessionFeature.rename) else { throw .featureNotSupported(source: .here()) }
         guard
             let currentId = CredentialIdentifier.identifier(
@@ -208,15 +228,17 @@ public final actor OATHSession: SmartCardSessionInternal {
         data.append(TKBERTLVRecord(tag: 0x71, value: renamedId).data)
         let apdu = APDU(cla: 0, ins: 0x05, p1: 0, p2: 0, command: data)
         try await process(apdu: apdu)
+        logger.info("Credential renamed")
     }
 
     /// Deletes an existing Credential from the YubiKey.
     /// - Parameter credential: The credential that will be deleted from the YubiKey.
     public func deleteCredential(_ credential: Credential) async throws(OATHSessionError) {
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(credential)") */
+        logger.debug("Deleting credential", metadata: ["credentialId": .string(credential.id.hexEncodedString)])
         let deleteTlv = TKBERTLVRecord(tag: 0x71, value: credential.id)
         let apdu = APDU(cla: 0, ins: 0x02, p1: 0, p2: 0, command: deleteTlv.data)
         try await process(apdu: apdu)
+        logger.info("Credential deleted")
     }
 
     /// List credentials on YubiKey
@@ -224,7 +246,7 @@ public final actor OATHSession: SmartCardSessionInternal {
     /// > Note: The `requiresTouch` property of ``Credential`` will always be set to `false` when using `listCredentials()`. If you need this property use ``calculateCredentialCodes(timestamp:)`` instead.
     /// - Returns: An array of Credentials.
     public func listCredentials() async throws(OATHSessionError) -> [Credential] {
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Listing OATH credentials")
         let apdu = APDU(cla: 0, ins: 0xa1, p1: 0, p2: 0)
         let data = try await process(apdu: apdu)
         guard let result = TKBERTLVRecord.sequenceOfRecords(from: data) else {
@@ -276,9 +298,6 @@ public final actor OATHSession: SmartCardSessionInternal {
         for credential: Credential,
         timestamp: Date = Date()
     ) async throws(OATHSessionError) -> Code {
-        /* Fix trace: Logger.oath.debug(
-            "\(String(describing: self).lastComponent), \(#function): credential: \(credential), timeStamp: \(timestamp)"
-        ) */
 
         guard credential.deviceId == selectResponse.deviceId else {
             throw .credentialNotPresentOnCurrentYubiKey(source: .here())
@@ -287,8 +306,16 @@ public final actor OATHSession: SmartCardSessionInternal {
 
         switch credential.type {
         case .hotp:
+            logger.debug("Calculating HOTP code")
             challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: Data())
         case .totp(let period):
+            logger.debug(
+                "Calculating TOTP code",
+                metadata: [
+                    "timestamp": .stringConvertible(timestamp.timeIntervalSince1970),
+                    "period": .stringConvertible(period),
+                ]
+            )
             let time = timestamp.timeIntervalSince1970
             let challenge = UInt64(time / Double(period))
             let bigChallenge = CFSwapInt64HostToBig(challenge)
@@ -322,9 +349,7 @@ public final actor OATHSession: SmartCardSessionInternal {
         for credentialId: Data,
         challenge: Data
     ) async throws(OATHSessionError) -> Data {
-        /* Fix trace: Logger.oath.debug(
-            "\(String(describing: self).lastComponent), \(#function): credentialId: \(credentialId.hexEncodedString), challenge: \(challenge.hexEncodedString)"
-        ) */
+        logger.debug("Calculating response", metadata: ["credentialId": .string(credentialId.hexEncodedString)])
         var data = Data()
         data.append(TKBERTLVRecord(tag: tagName, value: credentialId).data)
         data.append(TKBERTLVRecord(tag: tagChallenge, value: challenge).data)
@@ -348,7 +373,10 @@ public final actor OATHSession: SmartCardSessionInternal {
     public func calculateCredentialCodes(
         timestamp: Date = Date()
     ) async throws(OATHSessionError) -> [(Credential, Code?)] {
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): timeStamp: \(timestamp)") */
+        logger.debug(
+            "Calculating all codes",
+            metadata: ["timestamp": .stringConvertible(timestamp.timeIntervalSince1970)]
+        )
         let time = timestamp.timeIntervalSince1970
         let challenge = UInt64(time / 30)
         let bigChallenge = CFSwapInt64HostToBig(challenge)
@@ -391,6 +419,10 @@ public final actor OATHSession: SmartCardSessionInternal {
             let code: Code?
             if response.value.count == 5 {
                 if credentialId.period != oathDefaultPeriod {
+                    logger.debug(
+                        "Recalculating code",
+                        metadata: ["period": .stringConvertible(credentialId.period ?? oathDefaultPeriod)]
+                    )
                     code = try await self.calculateCredentialCode(for: credential, timestamp: timestamp)
                 } else {
                     code = Code(parsing: response.value, timestamp: timestamp, credentialType: credentialType)
@@ -407,7 +439,6 @@ public final actor OATHSession: SmartCardSessionInternal {
     /// require the application to be unlocked via one of the unlock functions. Also see ``setAccessKey(_:)``.
     /// - Parameter password: The user-supplied password to set.
     public func setPassword(_ password: String) async throws(OATHSessionError) {
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(password)") */
         let derivedKey = try deriveAccessKey(from: password)
         try await self.setAccessKey(derivedKey)
     }
@@ -415,7 +446,6 @@ public final actor OATHSession: SmartCardSessionInternal {
     /// Unlock with password.
     /// - Parameter password: The user-supplied password used to unlock the application.
     public func unlock(password: String) async throws(OATHSessionError) {
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(password)") */
         let derivedKey = try deriveAccessKey(from: password)
         try await self.unlock(accessKey: derivedKey)
     }
@@ -428,7 +458,7 @@ public final actor OATHSession: SmartCardSessionInternal {
     /// sets the raw 16 byte key.
     /// - Parameter accessKey: The shared secret key used to unlock access to the application.
     public func setAccessKey(_ accessKey: Data) async throws(OATHSessionError) {
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)") */
+        logger.debug("Setting access code")
         let header = CredentialType.totp().code | HashAlgorithm.sha1.rawValue
         var data = Data([header])
         data.append(accessKey)
@@ -448,6 +478,7 @@ public final actor OATHSession: SmartCardSessionInternal {
         let responseTlv = TKBERTLVRecord(tag: tagResponse, value: response)
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: keyTlv.data + challengeTlv.data + responseTlv.data)
         try await process(apdu: apdu)
+        logger.info("New access code set")
     }
 
     /// Unlock OATH application on the YubiKey. Once unlocked other commands may be sent to the key.
@@ -456,7 +487,7 @@ public final actor OATHSession: SmartCardSessionInternal {
     /// See the [YKOATH protocol specification](https://developers.yubico.com/OATH/) for further details.
     /// - Parameter accessKey: The shared access key.
     public func unlock(accessKey: Data) async throws(OATHSessionError) {
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function): \(accessKey.hexEncodedString)") */
+        logger.debug("Unlocking session")
         guard let responseChallenge = self.selectResponse.challenge else {
             throw .responseParseError("Missing challenge in OATH application select response", source: .here())
         }
@@ -498,14 +529,11 @@ public final actor OATHSession: SmartCardSessionInternal {
 
     /// Removes the access key, if one is set.
     public func deleteAccessKey() async throws(OATHSessionError) {
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.debug("Removing access code")
         let tlv = TKBERTLVRecord(tag: tagSetCodeKey, value: Data())
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: tlv.data)
         try await process(apdu: apdu)
-    }
-
-    deinit {
-        /* Fix trace: Logger.oath.debug("\(String(describing: self).lastComponent), \(#function)") */
+        logger.info("Access code removed")
     }
 
 }
@@ -533,3 +561,5 @@ extension OATHSession {
         }
     }
 }
+
+extension OATHSession: HasOATHLogger {}
