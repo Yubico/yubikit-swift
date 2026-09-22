@@ -13,6 +13,7 @@
 		51BBE411273D1AA400DA47CC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51BBE410273D1AA400DA47CC /* Assets.xcassets */; };
 		51BBE414273D1AA400DA47CC /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 51BBE413273D1AA400DA47CC /* Preview Assets.xcassets */; };
 		56234E869152598250424601 /* Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FECBB09EF363E717E21B5182 /* Tests.swift */; };
+		7EC87098556743AD90402DFA /* ExpectedSkips.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEF7B543F576493BB04AD082 /* ExpectedSkips.swift */; };
 		AA6A4F4C6DFEA22DD1CF0345 /* ManagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 251DA07145B01C5A2BA6D86A /* ManagementTests.swift */; };
 		B96624D1156C5E67CE6E8F03 /* PIVTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF390D51DE7FA64D4E8ACBD3 /* PIVTests.swift */; };
 		B77F5F7B9E302C659AAE2340 /* OATHTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCED14730DA6513F3CBF05E4 /* OATHTests.swift */; };
@@ -50,6 +51,7 @@
 		B45C0B6A28FEE4910077EE2A /* IntegrationTesting-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "IntegrationTesting-Info.plist"; sourceTree = "<group>"; };
 		B681DDC7C0543B5ABAE9A2C2 /* RunnerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerView.swift; sourceTree = "<group>"; };
 		FECBB09EF363E717E21B5182 /* Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests.swift; sourceTree = "<group>"; };
+		DEF7B543F576493BB04AD082 /* ExpectedSkips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpectedSkips.swift; sourceTree = "<group>"; };
 		251DA07145B01C5A2BA6D86A /* ManagementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementTests.swift; sourceTree = "<group>"; };
 		EF390D51DE7FA64D4E8ACBD3 /* PIVTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVTests.swift; sourceTree = "<group>"; };
 		DCED14730DA6513F3CBF05E4 /* OATHTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHTests.swift; sourceTree = "<group>"; };
@@ -135,6 +137,7 @@
 			isa = PBXGroup;
 			children = (
 				FECBB09EF363E717E21B5182 /* Tests.swift */,
+				DEF7B543F576493BB04AD082 /* ExpectedSkips.swift */,
 				251DA07145B01C5A2BA6D86A /* ManagementTests.swift */,
 				EF390D51DE7FA64D4E8ACBD3 /* PIVTests.swift */,
 				DCED14730DA6513F3CBF05E4 /* OATHTests.swift */,
@@ -263,6 +266,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				56234E869152598250424601 /* Tests.swift in Sources */,
+				7EC87098556743AD90402DFA /* ExpectedSkips.swift in Sources */,
 				AA6A4F4C6DFEA22DD1CF0345 /* ManagementTests.swift in Sources */,
 				B96624D1156C5E67CE6E8F03 /* PIVTests.swift in Sources */,
 				B77F5F7B9E302C659AAE2340 /* OATHTests.swift in Sources */,

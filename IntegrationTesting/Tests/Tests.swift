@@ -104,6 +104,19 @@ enum ScenarioTests {
             await ScenarioOutcomeLog.shared.recordPassed()
         case .skipped(let reason):
             await ScenarioOutcomeLog.shared.recordSkip(id: scenario.id, reason: reason)
+            guard !ExpectedSkips.isEnforced || ExpectedSkips.allows(scenario.id) else {
+                Issue.record(
+                    Comment(
+                        rawValue: """
+                            scenario \(scenario.id) skipped unexpectedly: \(reason)
+                              • it ran the last time the baseline was captured, so either something \
+                            regressed or the gate changed
+                              • if the skip is intended, add the id to ExpectedSkips.defaultProfile
+                            """
+                    )
+                )
+                return
+            }
             try Test.cancel(Comment(rawValue: "scenario \(scenario.id) skipped: \(reason)"))
         case .backendUnavailable(let reason):
             await ScenarioOutcomeLog.shared.recordFailed(id: scenario.id, summary: "backend unavailable: \(reason)")
