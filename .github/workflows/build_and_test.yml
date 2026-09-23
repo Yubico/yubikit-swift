@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     name: Build and Test (macOS & iOS)
-    runs-on: macos-26-xlarge
+    runs-on: xcode-27-xlarge
     steps:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
