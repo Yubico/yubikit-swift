@@ -48,6 +48,7 @@ jobs:
       - name: Build and run unit tests (iOS Simulator)
         run: |
           xcodebuild test \
+          -parallel-testing-enabled NO \
           -scheme YubiKitTests \
           -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
           CODE_SIGNING_ALLOWED=NO
