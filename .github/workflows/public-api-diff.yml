@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   public-api-diff:
-    runs-on: macos-26-xlarge
+    runs-on: xcode-27-xlarge
     
     steps:
     - name: Checkout
