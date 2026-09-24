@@ -43,6 +43,8 @@ public struct USBSmartCardConnection: Sendable {
     /// The smart card slot this connection is associated with.
     public let slot: USBSmartCard.YubiKeyDevice
 
+    private let didClose: Promise<Error?>
+
     /// Creates a new USB connection to the first available YubiKey.
     ///
     /// Waits for a YubiKey to be connected via USB and establishes a connection to it.
@@ -67,17 +69,15 @@ public struct USBSmartCardConnection: Sendable {
     /// - Parameter slot: The ``USBSmartCard/YubiKeyDevice`` to connect to.
     /// - Throws: ``SmartCardConnectionError/busy`` if there is already an active connection to this slot.
     public init(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) {
-        try await SmartCardConnectionsManager.shared.connect(slot: slot)
+        let didClose = Promise<Error?>()
+        try await SmartCardConnectionsManager.shared.connect(slot: slot, didClose: didClose)
         self.slot = slot
+        self.didClose = didClose
     }
 
     /// Returns all available smart card slots that contain YubiKeys.
     public static func availableDevices() async throws(SmartCardConnectionError) -> [USBSmartCard.YubiKeyDevice] {
         try await SmartCardConnectionsManager.shared.availableDevices()
-    }
-
-    private var isConnected: Bool {
-        get async { await SmartCardConnectionsManager.shared.isConnected(for: slot) }
     }
 
 }
@@ -113,7 +113,7 @@ extension USBSmartCardConnection: SmartCardConnection {
     ///
     /// - Parameter error: Optional error to indicate why the connection was closed.
     public func close(error: Error?) async {
-        try? await SmartCardConnectionsManager.shared.didClose(for: slot).fulfill(error)
+        await didClose.fulfill(error)
         if let error {
             logger.debug(
                 "Closing USB smart card connection with an error",
@@ -133,7 +133,7 @@ extension USBSmartCardConnection: SmartCardConnection {
     /// - Returns: An error if the connection was closed due to an error, nil otherwise.
     public func waitUntilClosed() async -> Error? {
         logger.debug("Waiting for USB smart card connection to close")
-        let error = try? await SmartCardConnectionsManager.shared.didClose(for: slot).value()
+        let error = try? await didClose.value()
         if let error {
             logger.debug(
                 "USB smart card connection closed with an error",
@@ -156,11 +156,11 @@ extension USBSmartCardConnection: SmartCardConnection {
 
     public func send(data: Data) async throws(SmartCardConnectionError) -> Data {
         logger.debug("Sending USB smart card request", metadata: ["bytes": .stringConvertible(data.count)])
-        guard await isConnected else {
-            logger.debug("Cannot send on a closed USB smart card connection")
-            throw SmartCardConnectionError.connectionLost
-        }
-        let response = try await SmartCardConnectionsManager.shared.transmit(request: data, for: slot)
+        let response = try await SmartCardConnectionsManager.shared.transmit(
+            request: data,
+            for: slot,
+            didClose: didClose
+        )
         logger.debug("Received USB smart card response", metadata: ["bytes": .stringConvertible(response.count)])
         return response
     }
@@ -197,29 +197,21 @@ private final actor SmartCardConnectionsManager {
 
     private var connections = [USBSmartCard.YubiKeyDevice: ConnectionState]()
 
-    func didClose(for slot: USBSmartCard.YubiKeyDevice) throws(SmartCardConnectionError) -> Promise<Error?> {
-        guard let state = connections[slot] else {
-            throw SmartCardConnectionError.connectionLost
-        }
-        return state.didClose
-    }
-
-    func isConnected(for slot: USBSmartCard.YubiKeyDevice) -> Bool {
-        guard let card = connections[slot]?.card else {
-            return false
-        }
-
-        return card.isValid && card.currentProtocol != []
-    }
-
-    func transmit(request: Data, for slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) -> Data {
-        guard let card = connections[slot]?.card else {
+    func transmit(
+        request: Data,
+        for slot: USBSmartCard.YubiKeyDevice,
+        didClose: Promise<Error?>
+    ) async throws(SmartCardConnectionError) -> Data {
+        guard let state = connections[slot], state.didClose === didClose,
+            state.card.isValid, state.card.currentProtocol != []
+        else {
+            logger.debug("Cannot send on a closed USB smart card connection")
             throw SmartCardConnectionError.connectionLost
         }
 
         do {
             logger.traceRequest(request)
-            let response = try await card.transmit(request)
+            let response = try await state.card.transmit(request)
             logger.traceResponse(response)
             return response
         } catch let error as SmartCardConnectionError {
@@ -230,7 +222,7 @@ private final actor SmartCardConnectionsManager {
         }
     }
 
-    func connect(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) {
+    func connect(slot: USBSmartCard.YubiKeyDevice, didClose: Promise<Error?>) async throws(SmartCardConnectionError) {
         // if there is already a connection for this slot we throw `SmartCardConnectionError.busy`.
         // The caller must close the connection first.
         guard connections[slot] == nil else {
@@ -281,7 +273,7 @@ private final actor SmartCardConnectionsManager {
         logger.debug("USB smart card connection established")
 
         // create and save a new connection state
-        let state = ConnectionState(card: card)
+        let state = ConnectionState(card: card, didClose: didClose)
         connections[slot] = state
 
         // register for the eventual clean up when the connection is closed
@@ -306,13 +298,14 @@ private final actor SmartCardConnectionsManager {
 private class ConnectionState {
     let card: TKSmartCard
 
-    let didClose = Promise<Error?>()
+    let didClose: Promise<Error?>
 
     private let isValidObserver: NSKeyValueObservation
     private let stateObserver: NSKeyValueObservation
 
-    init(card: TKSmartCard) {
+    init(card: TKSmartCard, didClose: Promise<Error?>) {
         self.card = card
+        self.didClose = didClose
 
         stateObserver = card.observe(\.currentProtocol, options: [.new]) { [didClose] card, _ in
             if card.currentProtocol == [] {
