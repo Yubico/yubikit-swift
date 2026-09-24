@@ -1,6 +1,6 @@
 # Getting Started
 
-Prepare your project to connect to the YubiKey via NFC, SmartCard and Lightning.
+Prepare your project to connect to the YubiKey via NFC, SmartCard, Lightning and USB HID.
 
 ## Overview
 
@@ -80,7 +80,8 @@ To support YubiKeys connected via the USB port on a device running iOS 16 or hig
 
 ![An image showing how to add NFC privacy string to project.](smart-card.png)
 
-> Note: The SmartCard/USB connection only support the CCID based applications on the YubiKey and does not support U2F, FIDO2 or OTP.
+> Note: USB SmartCard supports Yubico OTP slot programming. HMAC-SHA1 challenge-response requires
+> ``HIDOTPConnection`` on macOS or NFC without a touch requirement. See ``YubiOTP/Session``.
 
 ### Lightning/AccessoryConnection i.e 5Ci YubiKey
 
@@ -104,11 +105,12 @@ Now that your project is configured, you can start connecting to YubiKeys. YubiK
 
 ### Understanding Connection Types
 
-YubiKit handles three different connection methods:
+YubiKit provides the following connection methods:
 
 - **NFC**: Short-range wireless communication (iOS only)
 - **USB**: Direct USB connection via SmartCard interface
 - **Lightning**: YubiKey 5Ci connected to Lightning port (iOS only)
+- **USB HID**: Direct access to the FIDO or OTP interface (macOS only)
 
 Each connection type works differently, so let's explore how to use them.
 
@@ -183,6 +185,13 @@ let nfcConnection = try await NFCSmartCardConnection(
 )
 ```
 
+On macOS, use ``HIDOTPConnection`` for the OTP keyboard interface or ``HIDFIDOConnection`` for
+the FIDO interface:
+
+```swift
+let otpConnection = try await HIDOTPConnection()
+```
+
 ## Understanding Connection Lifecycle
 
 **Critical:** Connections must be explicitly closed. You can only have one active connection to a YubiKey at any time.
@@ -209,6 +218,22 @@ for (credential, code) in codes {
     print("\(credential.label): \(code?.code ?? "Touch required")")
 }
 ```
+
+### Yubico OTP Session (OTP slots)
+
+``YubiOTP/Session`` manages the two OTP slots. Create it with a ``SmartCardConnection`` or,
+on macOS, an ``OTPConnection``:
+
+```swift
+let session = try await YubiOTP.Session.makeSession(connection: connection)
+let state = await session.configState
+print("Slot 2 configured: \(try state.isConfigured(.two))")
+
+// Program slot 2 for HOTP, replacing its existing configuration
+try await session.putConfiguration(.hotp(key: secret), in: .two)
+```
+
+See ``YubiOTP/Session`` for HMAC-SHA1 challenge-response, transport support, and NFC output.
 
 ### PIV Session (Certificates and keys)
 
@@ -281,4 +306,5 @@ Now you're ready to build YubiKey applications! Check out the sample projects to
 
 You can also build the complete SDK documentation by selecting "Product" -> "Build Documentation" in Xcode. This gives you access to the full YubiKit API reference.
 
-> Note: Select an iOS target when building documentation to include all connection types.
+> Note: Select an iOS target to include NFC and Lightning connections, or a macOS target to include
+> USB HID connections.
