@@ -98,7 +98,11 @@ enum ScenarioTests {
     }
 
     static func run(_ scenario: Scenario) async throws {
-        let result = await Scenario.Runner(provider: makeProvider(), secureChannel: forcedSecureChannel).run(scenario)
+        let result = await Scenario.Runner(provider: makeProvider(), secureChannel: forcedSecureChannel).run(scenario) {
+            if case .touchPrompt(let scenario, let prompt) = $0 {
+                print("[\(scenario.id)] \(prompt)")
+            }
+        }
         switch result.status {
         case .passed:
             await ScenarioOutcomeLog.shared.recordPassed()

@@ -16,6 +16,7 @@
 		AA6A4F4C6DFEA22DD1CF0345 /* ManagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 251DA07145B01C5A2BA6D86A /* ManagementTests.swift */; };
 		B96624D1156C5E67CE6E8F03 /* PIVTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF390D51DE7FA64D4E8ACBD3 /* PIVTests.swift */; };
 		B77F5F7B9E302C659AAE2340 /* OATHTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCED14730DA6513F3CBF05E4 /* OATHTests.swift */; };
+		8E6388A7D439422BBEC6D78B /* OTPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C645045F574CB3A3C057BD /* OTPTests.swift */; };
 		9F215A710C68E4369ADA13B3 /* ConnectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A96E29B970F59C31F9841B80 /* ConnectionTests.swift */; };
 		2C970F66E227E2865FE9418A /* CTAP2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 567267EA9FDA00765C406462 /* CTAP2Tests.swift */; };
 		6BD108D43A13DC3F29E0B5AD /* CTAPHIDTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23B15A5253D1D3FAC49F32D1 /* CTAPHIDTests.swift */; };
@@ -53,6 +54,7 @@
 		251DA07145B01C5A2BA6D86A /* ManagementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagementTests.swift; sourceTree = "<group>"; };
 		EF390D51DE7FA64D4E8ACBD3 /* PIVTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PIVTests.swift; sourceTree = "<group>"; };
 		DCED14730DA6513F3CBF05E4 /* OATHTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OATHTests.swift; sourceTree = "<group>"; };
+		D1C645045F574CB3A3C057BD /* OTPTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPTests.swift; sourceTree = "<group>"; };
 		A96E29B970F59C31F9841B80 /* ConnectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionTests.swift; sourceTree = "<group>"; };
 		567267EA9FDA00765C406462 /* CTAP2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CTAP2Tests.swift; sourceTree = "<group>"; };
 		23B15A5253D1D3FAC49F32D1 /* CTAPHIDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CTAPHIDTests.swift; sourceTree = "<group>"; };
@@ -138,6 +140,7 @@
 				251DA07145B01C5A2BA6D86A /* ManagementTests.swift */,
 				EF390D51DE7FA64D4E8ACBD3 /* PIVTests.swift */,
 				DCED14730DA6513F3CBF05E4 /* OATHTests.swift */,
+				D1C645045F574CB3A3C057BD /* OTPTests.swift */,
 				A96E29B970F59C31F9841B80 /* ConnectionTests.swift */,
 				567267EA9FDA00765C406462 /* CTAP2Tests.swift */,
 				23B15A5253D1D3FAC49F32D1 /* CTAPHIDTests.swift */,
@@ -266,6 +269,7 @@
 				AA6A4F4C6DFEA22DD1CF0345 /* ManagementTests.swift in Sources */,
 				B96624D1156C5E67CE6E8F03 /* PIVTests.swift in Sources */,
 				B77F5F7B9E302C659AAE2340 /* OATHTests.swift in Sources */,
+				8E6388A7D439422BBEC6D78B /* OTPTests.swift in Sources */,
 				9F215A710C68E4369ADA13B3 /* ConnectionTests.swift in Sources */,
 				2C970F66E227E2865FE9418A /* CTAP2Tests.swift in Sources */,
 				6BD108D43A13DC3F29E0B5AD /* CTAPHIDTests.swift in Sources */,
