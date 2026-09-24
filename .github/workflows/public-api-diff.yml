@@ -14,9 +14,13 @@ permissions:
   contents: read
   pull-requests: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   public-api-diff:
-    runs-on: xcode-27-xlarge
+    runs-on: xcode-27
     
     steps:
     - name: Checkout

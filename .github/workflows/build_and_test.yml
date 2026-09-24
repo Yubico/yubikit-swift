@@ -5,10 +5,15 @@ on:
   pull_request:
     branches: ["main", "release/**"]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     name: Build and Test (macOS & iOS)
-    runs-on: xcode-27-xlarge
+    runs-on: xcode-27
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
