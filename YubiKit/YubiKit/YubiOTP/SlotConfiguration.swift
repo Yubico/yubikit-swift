@@ -29,11 +29,13 @@ extension YubiOTP {
         public var serialUSBVisible: Bool
         /// Allow a later `UPDATE` of this configuration. Defaults to `true`.
         public var allowUpdate: Bool
-        /// Program the slot dormant; it must be woken by an update before use.
+        /// Program the slot dormant; it must be woken by an update before use. Available on YubiKey 2.3
+        /// or later.
         public var dormant: Bool
         /// Invert the LED idle state. Available on YubiKey 2.4 or later, except firmware 3.0.
         public var invertLED: Bool
-        /// Block updates of slot 2 unless slot 2 is configured with this bit set.
+        /// When set for slot 1, block changes to slot 2, even if slot 2 is empty. A slot 2 configuration
+        /// that also sets this option can still be changed. Available on YubiKey 2.0 or later.
         public var protectSlot2: Bool
 
         /// Creates options shared by every slot configuration.
@@ -77,7 +79,7 @@ extension YubiOTP {
         public var appendCarriageReturn: Bool
         /// Use the fast trigger when only slot 1 is configured. Defaults to `true`.
         public var fastTrigger: Bool
-        /// Delay between keystrokes.
+        /// Delay between keystrokes. Defaults to ``Pacing/none``.
         public var pacing: Pacing
         /// Type digits on the numeric keypad. Available on YubiKey 2.3 or later.
         public var useNumericKeypad: Bool
@@ -162,8 +164,13 @@ extension YubiOTP {
         ///
         /// The key may contain up to 20 bytes; keys longer than 64 bytes are hashed down.
         /// Keys of 21 through 64 bytes are rejected.
-        /// `messageUnder64Bytes` strips the trailing padding byte from shorter challenges.
-        /// Disable it only when challenges contain exactly 64 bytes.
+        ///
+        /// - Parameters:
+        ///   - key: The HMAC-SHA1 secret.
+        ///   - requireTouch: Whether the YubiKey requires a touch to calculate each response.
+        ///   - messageUnder64Bytes: Whether challenges can be shorter than 64 bytes. If `false`, all
+        ///     challenges must contain exactly 64 bytes.
+        ///   - options: Options shared by every slot configuration.
         public static func hmacSHA1(
             key: Data,
             requireTouch: Bool = false,
@@ -186,8 +193,17 @@ extension YubiOTP {
 
         /// Creates a Yubico OTP configuration.
         ///
-        /// The public ID may contain up to 16 bytes; the private ID must contain exactly 6 bytes
-        /// and the AES key exactly 16 bytes.
+        /// - Parameters:
+        ///   - publicID: The static part at the start of each OTP, at most 16 bytes. Use
+        ///     `Data(modhexEncoded:)` to create it from its modhex form.
+        ///   - privateID: The private ID inside the encrypted part of each OTP, exactly 6 bytes.
+        ///   - key: The AES key that encrypts each OTP, exactly 16 bytes.
+        ///   - tabs: Where to insert tabs in the output.
+        ///   - delays: Where to insert delays in the output.
+        ///   - sendReference: Whether to send a reference string of all 16 modhex characters before
+        ///     the OTP.
+        ///   - keyboard: Options for the typed output.
+        ///   - options: Options shared by every slot configuration.
         public static func yubicoOTP(
             publicID: Data,
             privateID: Data,
@@ -222,6 +238,11 @@ extension YubiOTP {
         ///
         /// The password must contain at most 38 HID scan codes, not UTF-8 text. Use scan codes
         /// for the keyboard layout on the receiving computer.
+        ///
+        /// - Parameters:
+        ///   - scanCodes: The password as HID keyboard scan codes.
+        ///   - keyboard: Options for the typed output.
+        ///   - options: Options shared by every slot configuration.
         public static func staticPassword(
             scanCodes: Data,
             keyboard: KeyboardOptions = .init(),
@@ -247,8 +268,21 @@ extension YubiOTP {
         /// Creates a static ticket configuration.
         ///
         /// This is a legacy format; prefer ``staticPassword(scanCodes:keyboard:options:)`` for static passwords.
-        /// The fixed part may contain up to 16 bytes; the UID must contain exactly 6 bytes
-        /// and the key exactly 16 bytes.
+        /// A static ticket behaves like a Yubico OTP, but with all changing state removed.
+        ///
+        /// - Parameters:
+        ///   - fixed: The fixed part of the ticket, at most 16 bytes.
+        ///   - uid: The UID, which corresponds to a Yubico OTP private ID, exactly 6 bytes.
+        ///   - key: The AES key that generates the dynamic part of the ticket, exactly 16 bytes.
+        ///   - shortTicket: Whether to truncate the OTP part of the ticket to 16 characters.
+        ///   - upperCase: Whether to upper-case the first two letters of the output.
+        ///   - digit: Whether to replace the first eight characters of the modhex alphabet with the
+        ///     digits 0 to 7.
+        ///   - special: Whether to send `!` as the first character. Implies `digit`.
+        ///   - manualUpdate: Whether the user can generate a new static ticket by holding the touch
+        ///     sensor for 8 to 15 seconds. Supported only on YubiKey 2.x.
+        ///   - keyboard: Options for the typed output.
+        ///   - options: Options shared by every slot configuration.
         public static func staticTicket(
             fixed: Data,
             uid: Data,
@@ -292,8 +326,15 @@ extension YubiOTP {
         ///
         /// The key may contain up to 20 bytes; keys longer than 64 bytes are hashed down.
         /// Keys of 21 through 64 bytes are rejected.
-        /// The token ID may contain up to 16 bytes. The initial counter must be in
-        /// `0...1048560` and evenly divisible by 16.
+        ///
+        /// - Parameters:
+        ///   - key: The OATH-HOTP secret.
+        ///   - digits: The number of digits in each code.
+        ///   - tokenID: The token ID that precedes each code, at most 16 bytes.
+        ///   - tokenIDEncoding: How the token ID is encoded in the output.
+        ///   - initialCounter: The initial counter value, in `0...1048560` and evenly divisible by 16.
+        ///   - keyboard: Options for the typed output.
+        ///   - options: Options shared by every slot configuration.
         public static func hotp(
             key: Data,
             digits: Digits = .six,

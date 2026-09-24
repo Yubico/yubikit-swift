@@ -26,7 +26,7 @@ let response = try await session.calculateHMACSHA1(challenge: challenge, in: .tw
 Create a session with an ``OTPConnection`` on macOS or a ``SmartCardConnection`` on macOS and
 iOS. The available operations depend on the connection:
 
-| Operation | OTP keyboard HID (macOS) | USB SmartCard | NFC |
+| Operation | OTP keyboard HID (macOS) | USB or Lightning SmartCard | NFC |
 | --- | --- | --- | --- |
 | Slot programming | Yes | Yes | Yes |
 | HMAC-SHA1 challenge-response | Yes | No | Only without touch |

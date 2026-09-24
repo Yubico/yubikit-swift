@@ -97,7 +97,7 @@ extension YubiOTP {
         /// when you do not need this feedback.
         ///
         /// > Important: Only the OTP keyboard transport can wait for a touch. Over NFC, the YubiKey
-        /// > rejects a slot that requires touch. USB SmartCard does not support challenge-response.
+        /// > rejects a slot that requires touch. USB and Lightning SmartCard do not support challenge-response.
         ///
         /// > Note: Requires ``YubiOTP/Feature/challengeResponse``, available on YubiKey 2.2 or later.
         ///
