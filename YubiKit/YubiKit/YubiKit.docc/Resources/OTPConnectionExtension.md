@@ -4,11 +4,9 @@ Protocol for connections to the Yubico OTP keyboard interface on a YubiKey.
 
 ## Overview
 
-OTPConnection moves fixed 8-byte HID feature reports. ``YubiOTP/Session`` builds the 70-byte
-command frames above this layer.
-
-This is the keyboard HID interface (usage page `0x01`, usage `0x06`), not the FIDO HID interface
-of ``FIDOConnection``. A YubiKey exposes it only when the Yubico OTP application is enabled over USB.
+OTPConnection defines the interface for low-level communication with the YubiKey's OTP keyboard
+interface. Use ``YubiOTP/Session`` to configure slots and perform HMAC-SHA1 challenge-response.
+The Yubico OTP application must be enabled over USB.
 
 Use ``HIDOTPConnection`` on macOS. On iOS and over NFC, use a ``SmartCardConnection`` to reach the
 same application.
@@ -17,10 +15,12 @@ same application.
 // macOS: the OTP keyboard interface
 let connection = try await HIDOTPConnection()
 let session = try await YubiOTP.Session.makeSession(connection: connection)
+```
 
+```swift
 // iOS: the same application over NFC
-let nfcConnection = try await NFCSmartCardConnection()
-let nfcSession = try await YubiOTP.Session.makeSession(connection: nfcConnection)
+let connection = try await NFCSmartCardConnection()
+let session = try await YubiOTP.Session.makeSession(connection: connection)
 ```
 
 ## Topics
