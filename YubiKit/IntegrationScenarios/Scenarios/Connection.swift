@@ -80,7 +80,23 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
                 try? await Task.sleep(for: .seconds(1))
                 let secondConnection = try await provider.makeSmartCardConnection()
                 context.log("got second connection \(secondConnection)")
-                await secondConnection.close(error: nil)
+                await context.addTeardown { await secondConnection.close(error: nil) }
+
+                await context.expectThrows(
+                    "send on the old connection",
+                    matching: {
+                        if case SmartCardConnectionError.connectionLost = $0 { return true }
+                        return false
+                    }
+                ) {
+                    _ = try await firstConnection.send(data: Data([0x00, 0x1D, 0x00, 0x00]))
+                }
+                await firstConnection.close(error: ConnectionTestError())
+                context.expect(
+                    await firstConnection.waitUntilClosed() == nil,
+                    "the original closing result is preserved"
+                )
+                _ = try await Management.Session.makeSession(connection: secondConnection).getDeviceInfo()
             }
         case .cancellation:
             return Scenario(
