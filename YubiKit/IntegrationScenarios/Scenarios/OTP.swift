@@ -25,7 +25,11 @@ enum OTPScenario {
     // MARK: - Status
 
     private static var serialScenarios: [Scenario] {
-        Scenario.parameterized("OTP.Status.serial", over: OTPTransport.allCases) { context, transport in
+        Scenario.parameterized(
+            "OTP.Status.serial",
+            "getSerialNumber matches the device serial",
+            over: OTPTransport.allCases
+        ) { context, transport in
             try await skipUnsupportedTransport(context, transport, needsSlotState: false)
 
             let session = try await context.otpSession(over: transport.kind)
@@ -45,6 +49,7 @@ enum OTPScenario {
     private static var programmingStateScenarios: [Scenario] {
         Scenario.parameterized(
             "OTP.ProgrammingState.slotConfigured",
+            "slot state tracks programming, deletion, and swapping",
             over: OTPTransport.allCases(minVersion: Version("2.3.0")!)
         ) { context, transport in
             let session = try await programmableSession(context, transport)
@@ -78,6 +83,7 @@ enum OTPScenario {
     private static var touchTriggeredScenarios: [Scenario] {
         Scenario.parameterized(
             "OTP.ProgrammingState.touchTriggered",
+            "touch-triggered state follows the slot configuration",
             over: OTPTransport.allCases(minVersion: Version("3.0.0")!, perSlot: true)
         ) { context, transport in
             let session = try await programmableSession(context, transport)
@@ -109,6 +115,7 @@ enum OTPScenario {
     private static var ndefScenarios: [Scenario] {
         Scenario.parameterized(
             "OTP.ProgrammingState.configureNDEF",
+            "setNDEFConfiguration configures a slot for NFC output",
             over: OTPTransport.allCases(minVersion: Version("3.0.0")!)
         ) { context, transport in
             guard try await context.provider.deviceInfo().supportedCapabilities[.nfc] != nil else {
@@ -124,6 +131,7 @@ enum OTPScenario {
     private static var updateScenarios: [Scenario] {
         Scenario.parameterized(
             "OTP.ProgrammingState.updateConfiguration",
+            "updateConfiguration rejects empty slots and preserves slot state",
             over: OTPTransport.allCases(minVersion: Version("2.3.0")!)
         ) { context, transport in
             let session = try await programmableSession(context, transport)
@@ -156,6 +164,7 @@ enum OTPScenario {
     private static var challengeResponseScenarios: [Scenario] {
         Scenario.parameterized(
             "OTP.ChallengeResponse.hmacSha1",
+            "HMAC-SHA1 matches the RFC 2202 test vector",
             over: OTPTransport.allCases(minVersion: Version("2.2.0")!)
         ) { context, transport in
             if try await usesUSBCCID(context, transport) {
@@ -172,7 +181,11 @@ enum OTPScenario {
     // Only the OTP keyboard transport reports a pending touch and can cancel it.
     private static var touchScenarios: [Scenario] {
         let transports = [OTPTransport(kind: .otpHID, slot: nil, minVersion: Version("2.2.0")!)]
-        let touch = Scenario.parameterized("OTP.ChallengeResponse.touch", over: transports) { context, transport in
+        let touch = Scenario.parameterized(
+            "OTP.ChallengeResponse.touch",
+            "HMAC-SHA1 reports a pending touch and returns the expected response",
+            over: transports
+        ) { context, transport in
             let session = try await programmableSession(context, transport, clearing: [.two])
             try await session.putConfiguration(.hmacSHA1(key: hmacKey, requireTouch: true), in: .two)
 
@@ -190,9 +203,11 @@ enum OTPScenario {
             }
             context.expect(sawTouch, "a touch-triggered slot should report the pending touch")
         }
-        let cancel = Scenario.parameterized("OTP.ChallengeResponse.cancelTouch", over: transports) {
-            context,
-            transport in
+        let cancel = Scenario.parameterized(
+            "OTP.ChallengeResponse.cancelTouch",
+            "cancelling a pending touch keeps the session usable",
+            over: transports
+        ) { context, transport in
             let session = try await programmableSession(context, transport, clearing: [.two])
             try await session.putConfiguration(.hmacSHA1(key: hmacKey, requireTouch: true), in: .two)
 
@@ -219,6 +234,7 @@ enum OTPScenario {
     private static var accessCodeScenarios: [Scenario] {
         Scenario.parameterized(
             "OTP.AccessCode.lifecycle",
+            "access codes protect slot writes and can be changed or removed",
             over: OTPTransport.allCases(minVersion: Version("2.3.0")!)
         ) { context, transport in
             try await skipUnsupportedTransport(context, transport)
@@ -427,7 +443,11 @@ struct OTPTransport: ScenarioParameter {
         return "\(transport).slot\(slot.rawValue)"
     }
 
-    var displayName: String { idSuffix }
+    var displayName: String {
+        let transport = kind == .otpHID ? "keyboard HID" : "smart card"
+        guard let slot else { return transport }
+        return "\(transport), slot \(slot.rawValue)"
+    }
 
     var requirements: Requirements {
         Requirements(

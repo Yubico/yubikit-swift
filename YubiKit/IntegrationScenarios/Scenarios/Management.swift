@@ -31,6 +31,7 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
     static var parameterizedScenarios: [Scenario] {
         Scenario.parameterized(
             "Management.Info.version",
+            "session reports firmware version 4 or later",
             over: ManagementTransport.allCases
         ) { context, transport in
             let session = try await context.managementSession(over: transport.kind)
@@ -39,6 +40,7 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
         }
             + Scenario.parameterized(
                 "Management.Info.deviceInfo",
+                "getDeviceInfo matches the session version and reports a serial number",
                 over: ManagementTransport.allCases
             ) { context, transport in
                 let session = try await context.managementSession(over: transport.kind)
@@ -230,7 +232,7 @@ private struct ManagementTransport: ScenarioParameter {
 
     var idSuffix: String { kind == .fidoHID ? "fidoHID" : "smartCard" }
 
-    var displayName: String { "over \(idSuffix)" }
+    var displayName: String { kind == .fidoHID ? "FIDO HID" : "smart card" }
 
     var requirements: Requirements {
         Requirements(requiresFIDOTransport: kind == .fidoHID)
