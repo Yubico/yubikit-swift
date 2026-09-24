@@ -295,10 +295,10 @@ extension Management.Session {
     }
 }
 
-// MARK: - Private helpers
+// MARK: - Helpers
 
 extension Version {
-    fileprivate init?(withManagementResult data: Data) {
+    internal init?(withManagementResult data: Data) {
         guard let resultString = String(bytes: data.bytes, encoding: .ascii) else { return nil }
         guard let versions = resultString.components(separatedBy: " ").last?.components(separatedBy: "."),
             versions.count == 3
