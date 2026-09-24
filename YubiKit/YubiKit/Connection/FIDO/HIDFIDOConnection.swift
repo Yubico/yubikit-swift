@@ -34,10 +34,10 @@ package enum HID {
         /// A textual representation of the YubiKey device.
         package var description: String { name }
 
-        // Private / Fileprivate
-        fileprivate let locationID: Int
+        // Shared with the OTP HID connection for the same physical device.
+        let locationID: Int
 
-        fileprivate init(hidLocationID: Int, name: String) {
+        init(hidLocationID: Int, name: String) {
             self.locationID = hidLocationID
             self.name = name
         }
