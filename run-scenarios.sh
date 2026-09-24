@@ -13,8 +13,8 @@ Usage: $(basename "$0") <hardware|twinkit[=PROFILE]> [swift-test-options]
 
 Environment knobs (passed through):
   YUBIKIT_TWINKIT_TRANSPORT=nfc   Drive the run contactless. CCID becomes the only
-                                  path: the FIDO HID interface is USB-only, so
-                                  those scenarios skip.
+                                  path: the OTP keyboard and FIDO HID interfaces
+                                  are USB-only, so those scenarios skip.
   YUBIKIT_TWIN_PATH=<dir>         Resolve TwinKit from a local hardware-digital-twin
                                   checkout instead of the published package, so twin
                                   changes are testable before they are pushed. SwiftPM
@@ -83,5 +83,6 @@ case "$PROFILE" in
 esac
 
 cd "$SCRIPT_DIR"
+# SwiftBuild omits YubiKitTwinSupport from the TwinKit test link with current Xcode toolchains.
 exec env YUBIKIT_ENABLE_TWINKIT="$PROFILE" \
-  swift test --scratch-path .build/scenarios-twinkit --filter IntegrationTests "$@"
+  swift test --build-system native --scratch-path .build/scenarios-twinkit --filter IntegrationTests "$@"

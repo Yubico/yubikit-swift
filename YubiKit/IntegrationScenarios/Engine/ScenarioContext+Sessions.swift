@@ -93,6 +93,14 @@ extension Scenario.Context {
         case .smartCard:
             let connection = try await smartCardConnection()
             let scp = try await scpKeyParams()
+            if provider.capabilities.isVirtual {
+                // Headless TwinKit connections cannot be identified by the iOS NFC connection type.
+                return try await YubiOTP.Session.makeSession(
+                    connection: connection,
+                    scpKeyParams: scp,
+                    isNFC: deviceTransport == .nfc
+                )
+            }
             return try await YubiOTP.Session.makeSession(connection: connection, scpKeyParams: scp)
         }
     }

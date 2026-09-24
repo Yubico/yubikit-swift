@@ -83,6 +83,12 @@ public actor TwinKitBackend {
         return TwinKitFIDOChannel(backend: self)
     }
 
+    /// Opens the twin's OTP keyboard HID channel.
+    public func openKeyboard() throws(TwinKitSupportError) -> TwinKitKeyboardChannel {
+        _ = try loadDevice()
+        return TwinKitKeyboardChannel(backend: self)
+    }
+
     fileprivate func dispatch(tag: UInt8, payload: Data = Data()) throws(TwinKitSupportError) -> Data {
         try loadDevice().dispatch(tag: tag, payload: payload)
     }
@@ -150,6 +156,46 @@ public final class TwinKitFIDOChannel: @unchecked Sendable {
         lifecycle.close(error: error)
     }
 
+    public func waitUntilClosed() async -> Error? {
+        await lifecycle.waitUntilClosed()
+    }
+}
+
+/// The twin's keyboard/OTP HID interface: whole 8-byte feature reports over the
+/// `keyboardWrite` / `keyboardRead` tags. A write returns no payload — the host learns the outcome
+/// by polling `receive()`, exactly as on a real key.
+public final class TwinKitKeyboardChannel: @unchecked Sendable {
+    /// The size of one OTP feature report in bytes.
+    public let reportSize = 8
+
+    private let backend: TwinKitBackend
+    private let lifecycle = TwinKitConnectionLifecycle()
+
+    fileprivate init(backend: TwinKitBackend) {
+        self.backend = backend
+    }
+
+    /// Sends one OTP feature report to the twin.
+    public func send(_ report: Data) async throws(TwinKitSupportError) {
+        guard !lifecycle.isClosed else { throw .connectionLost }
+        guard report.count == reportSize else { throw .invalidHIDReportLength(report.count) }
+        _ = try await backend.dispatch(tag: TwinDevice.Tag.keyboardWrite, payload: report)
+    }
+
+    /// Receives one OTP feature report from the twin.
+    public func receive() async throws(TwinKitSupportError) -> Data {
+        guard !lifecycle.isClosed else { throw .connectionLost }
+        let report = try await backend.dispatch(tag: TwinDevice.Tag.keyboardRead)
+        guard report.count == reportSize else { throw .noHIDReport }
+        return report
+    }
+
+    /// Closes the channel, optionally recording an error.
+    public func close(error: Error?) {
+        lifecycle.close(error: error)
+    }
+
+    /// Waits for the channel to close and returns its closing error.
     public func waitUntilClosed() async -> Error? {
         await lifecycle.waitUntilClosed()
     }
