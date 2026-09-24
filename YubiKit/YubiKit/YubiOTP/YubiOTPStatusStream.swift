@@ -65,6 +65,9 @@ extension YubiOTP {
         /// Consumes the stream and returns the final response value.
         ///
         /// Intermediate status updates are ignored.
+        ///
+        /// - Throws: ``SessionError/cancelled(source:)`` if the calling task is cancelled before the
+        ///   response arrives.
         public var value: R {
             get async throws(YubiOTP.SessionError) {
                 for try await status in self {
@@ -72,7 +75,10 @@ extension YubiOTP {
                         return response
                     }
                 }
-                preconditionFailure("StatusStream must yield .finished before ending")
+                if Task.isCancelled {
+                    throw .cancelled(source: .here())
+                }
+                throw .dataProcessingError("StatusStream ended before a response", source: .here())
             }
         }
 

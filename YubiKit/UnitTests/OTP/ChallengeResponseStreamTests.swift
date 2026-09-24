@@ -207,4 +207,55 @@ struct ChallengeResponseStreamTests {
             _ = try await session.calculateHMACSHA1(challenge: Data(repeating: 0, count: 65), in: .two).value
         }
     }
+
+    // MARK: - value
+
+    @Test("value rejects a stream that ends without a response")
+    func valueRejectsMissingResponse() async {
+        let stream = YubiOTP.StatusStream<Data> { continuation in
+            continuation.yield(.processing)
+            continuation.finish()
+        }
+
+        do {
+            _ = try await withDeadline { try await stream.value }
+            Issue.record("Expected an error")
+        } catch YubiOTP.SessionError.dataProcessingError {
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("value reports caller cancellation")
+    func valueReportsCancellation() async {
+        let stream = YubiOTP.StatusStream<Data> { continuation in
+            continuation.yield(.processing)
+        }
+
+        do {
+            _ = try await withDeadline {
+                withUnsafeCurrentTask { $0?.cancel() }
+                return try await stream.value
+            }
+            Issue.record("Expected cancellation")
+        } catch YubiOTP.SessionError.cancelled {
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    // Returns nil if the operation does not finish in time, so a stalled stream fails the test.
+    private func withDeadline<T: Sendable>(
+        _ operation: @escaping @Sendable () async throws -> T
+    ) async throws -> T? {
+        try await withThrowingTaskGroup(of: T?.self) { group in
+            group.addTask { try await operation() }
+            group.addTask {
+                try await Task.sleep(for: .seconds(5))
+                return nil
+            }
+            defer { group.cancelAll() }
+            return try await group.next() ?? nil
+        }
+    }
 }
