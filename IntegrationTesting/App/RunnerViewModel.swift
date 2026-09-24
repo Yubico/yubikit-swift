@@ -38,6 +38,7 @@ final class RunnerViewModel: ObservableObject {
     }
     @Published var failuresOnly = false
     @Published var secureChannel: SecureChannelPolicy = .none
+    @Published private(set) var authorizedSerialNumber: UInt?
 
     @Published private(set) var results: [Scenario: Scenario.Result] = [:]
     @Published private(set) var runningScenario: Scenario?
@@ -74,6 +75,38 @@ final class RunnerViewModel: ObservableObject {
         #else
         return [.wired]
         #endif
+    }
+
+    // MARK: - Test key authorization
+
+    var canChangeAuthorization: Bool { !isRunning && !isProbing }
+
+    static func authorizationSerialNumber(_ text: String, confirmation: String) -> UInt? {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard confirmation == "DANGEROUS", !text.isEmpty,
+            text.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }),
+            let serial = UInt(text), serial > 0
+        else { return nil }
+        return serial
+    }
+
+    func authorizeTestKey(serialNumber: String, confirmation: String) -> Bool {
+        guard canChangeAuthorization,
+            let serial = Self.authorizationSerialNumber(serialNumber, confirmation: confirmation)
+        else { return false }
+        authorizedSerialNumber = serial
+        results.removeAll()
+        backendAlert = nil
+        refreshBackend()
+        return true
+    }
+
+    func revokeTestKeyAuthorization() {
+        guard canChangeAuthorization else { return }
+        authorizedSerialNumber = nil
+        results.removeAll()
+        backendAlert = nil
+        refreshBackend()
     }
 
     // MARK: - Gating
@@ -213,12 +246,13 @@ final class RunnerViewModel: ObservableObject {
     }
 
     private func makeProvider() -> (any ConnectionProvider)? {
+        let allowed = authorizedSerialNumber.map { [$0] } ?? WiredConnectionProvider.allowedSerialNumbers
         switch backend {
         case .wired:
-            return WiredConnectionProvider()
+            return WiredConnectionProvider(allowedSerialNumbers: allowed)
         case .nfc:
             #if os(iOS)
-            return NFCConnectionProvider()
+            return NFCConnectionProvider(allowedSerialNumbers: allowed)
             #else
             return nil
             #endif

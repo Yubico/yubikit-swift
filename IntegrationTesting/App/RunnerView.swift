@@ -19,6 +19,7 @@ import YubiKitIntegrationScenarios
 struct RunnerView: View {
     @StateObject private var model = RunnerViewModel()
     @State private var selection: SidebarItem?
+    @State private var showTestKeyAuthorization = false
 
     #if os(macOS)
     @State private var showInspector = true
@@ -38,7 +39,18 @@ struct RunnerView: View {
             scenarioList
                 .navigationTitle("")
                 .toolbarTitleDisplayMode(.inline)
-                .safeAreaInset(edge: .top) { ControlBar(model: model) }
+                .safeAreaInset(edge: .top) {
+                    VStack(spacing: 0) {
+                        ControlBar(model: model)
+                        if let serial = model.authorizedSerialNumber {
+                            TestKeyAuthorizationBanner(
+                                serialNumber: serial,
+                                canRevoke: model.canChangeAuthorization,
+                                revoke: model.revokeTestKeyAuthorization
+                            )
+                        }
+                    }
+                }
                 .safeAreaInset(edge: .bottom) { CountsBar(model: model) }
                 .toolbar { toolbar }
                 .inspector(isPresented: $showInspector) {
@@ -58,9 +70,14 @@ struct RunnerView: View {
             if new != nil { showInspector = true }
         }
         .alert("No YubiKey available", isPresented: backendAlertBinding, presenting: model.backendAlert) { _ in
+            Button("Authorize test key…") { showTestKeyAuthorization = true }
+                .disabled(!model.canChangeAuthorization)
             Button("OK", role: .cancel) {}
         } message: { alert in
             Text(alert.message)
+        }
+        .sheet(isPresented: $showTestKeyAuthorization) {
+            TestKeyAuthorizationView(model: model)
         }
     }
 
@@ -129,6 +146,14 @@ struct RunnerView: View {
                     }
                 }
                 #endif
+                Section("Test key") {
+                    Button {
+                        showTestKeyAuthorization = true
+                    } label: {
+                        Label("Authorize test key…", systemImage: "exclamationmark.triangle")
+                    }
+                    .disabled(!model.canChangeAuthorization)
+                }
                 Section("Secure channel") {
                     Picker("Secure channel", selection: $model.secureChannel) {
                         Text("None").tag(SecureChannelPolicy.none)
@@ -170,6 +195,93 @@ struct RunnerView: View {
     }
 }
 
+// MARK: - Test key authorization
+
+private struct TestKeyAuthorizationView: View {
+    @ObservedObject var model: RunnerViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var serialNumber = ""
+    @State private var confirmation = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Label("Tests can permanently erase this YubiKey", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text("Scenarios can reset applications and overwrite credentials, PINs, keys, and OTP slots.")
+                    Text(
+                        "Only the serial number entered below will be authorized. Authorization is cleared when the app restarts."
+                    )
+                }
+                Section("YubiKey serial number") {
+                    TextField("Serial number", text: $serialNumber)
+                        .accessibilityIdentifier("testKeySerialNumber")
+                        #if os(iOS)
+                    .keyboardType(.numberPad)
+                        #endif
+                }
+                Section {
+                    TextField("Confirmation", text: $confirmation)
+                        .accessibilityIdentifier("testKeyConfirmation")
+                        .autocorrectionDisabled()
+                        #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                        #endif
+                } header: {
+                    Text(
+                        "Type DANGEROUS to confirm",
+                        comment: "DANGEROUS is a literal confirmation phrase; do not translate it."
+                    )
+                }
+                Section {
+                    Button("Authorize test key", role: .destructive) {
+                        if model.authorizeTestKey(serialNumber: serialNumber, confirmation: confirmation) {
+                            dismiss()
+                        }
+                    }
+                    .accessibilityIdentifier("authorizeTestKey")
+                    .disabled(
+                        !model.canChangeAuthorization
+                            || RunnerViewModel.authorizationSerialNumber(serialNumber, confirmation: confirmation)
+                                == nil
+                    )
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Authorize test key")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", role: .cancel) { dismiss() }
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 440, minHeight: 480)
+        #endif
+    }
+}
+
+private struct TestKeyAuthorizationBanner: View {
+    let serialNumber: UInt
+    let canRevoke: Bool
+    let revoke: () -> Void
+
+    var body: some View {
+        HStack {
+            Label("Test key \(String(serialNumber)) authorized", systemImage: "exclamationmark.triangle.fill")
+                .font(.callout)
+            Spacer(minLength: 8)
+            Button("Revoke", action: revoke)
+                .disabled(!canRevoke)
+        }
+        .foregroundStyle(.red)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.red.opacity(0.08))
+    }
+}
+
 // MARK: - Control bar (shared across platforms)
 
 private struct ControlBar: View {
@@ -186,7 +298,7 @@ private struct ControlBar: View {
                 .pickerStyle(.menu)
                 .fixedSize()
                 .labelsHidden()
-                .disabled(model.isRunning)
+                .disabled(model.isRunning || model.isProbing)
                 .help("Run scenarios over a wired connection or NFC")
             }
 
