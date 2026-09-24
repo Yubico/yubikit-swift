@@ -38,9 +38,19 @@ touch and offer cancellation using the closure supplied by ``YubiOTP/Status/wait
 ### Access Codes
 
 An access code protects the configuration of a slot. It does not protect the output of the slot.
-The YubiKey cannot return the access code, so supply `currentAccessCode` for each change to a
-protected slot. A write keeps the current code by default. Pass `accessCode: .set(newCode)` to
-replace it, or `accessCode: .remove` to remove it.
+Create a six-byte ``YubiOTP/AccessCode``. The YubiKey cannot return the access code, so supply
+`currentAccessCode` for each change to a protected slot. A write keeps the current code by default.
+Pass `accessCode: .set(newCode)` to replace it, or `accessCode: .remove` to remove it.
+
+```swift
+let code = try YubiOTP.AccessCode(Data([1, 2, 3, 4, 5, 6]))
+
+// Protect slot 2
+try await session.putConfiguration(.hmacSHA1(key: secret), in: .two, accessCode: .set(code))
+
+// Change the protected slot, and keep its access code
+try await session.updateConfiguration(update, in: .two, currentAccessCode: code)
+```
 
 ### NFC Output
 
@@ -73,7 +83,6 @@ try await session.setNDEFConfiguration(in: .one, uri: URL(string: "https://examp
 - ``updateConfiguration(_:in:accessCode:currentAccessCode:)``
 - ``deleteConfiguration(in:currentAccessCode:)``
 - ``swapConfigurations()``
-- ``setScanMap(_:currentAccessCode:)``
 - ``setNDEFConfiguration(in:uri:currentAccessCode:)``
 
 ### Challenge-Response
@@ -99,6 +108,7 @@ try await session.setNDEFConfiguration(in: .one, uri: URL(string: "https://examp
 - ``YubiOTP/SlotConfiguration/Digits``
 - ``YubiOTP/SlotConfiguration/TokenIDEncoding``
 - ``YubiOTP/KeyboardOptions/Pacing``
+- ``YubiOTP/AccessCode``
 - ``YubiOTP/AccessCodeChange``
 
 ### Types
@@ -108,6 +118,7 @@ try await session.setNDEFConfiguration(in: .one, uri: URL(string: "https://examp
 - ``YubiOTP/ConfigState``
 - ``YubiOTP/Status``
 - ``YubiOTP/StatusStream``
+- ``YubiOTP/Modhex``
 
 ### Errors
 

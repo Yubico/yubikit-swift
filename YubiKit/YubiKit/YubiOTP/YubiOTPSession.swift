@@ -37,8 +37,12 @@ extension YubiOTP {
         public internal(set) var configState: ConfigState
 
         /// Determines whether the session supports the specified feature.
+        ///
+        /// The result depends on the firmware version and on the transport. A USB or Lightning SmartCard
+        /// session does not support ``YubiOTP/Feature/challengeResponse``.
         public func supports(_ feature: Feature) async -> Bool {
-            feature.isSupported(by: version)
+            guard feature.isSupported(by: version) else { return false }
+            return feature != .challengeResponse || interface.supportsChallengeResponse
         }
 
         /// Creates a new Yubico OTP session over the OTP keyboard HID interface.
@@ -99,7 +103,13 @@ extension YubiOTP {
         /// > Important: Only the OTP keyboard transport can wait for a touch. Over NFC, the YubiKey
         /// > rejects a slot that requires touch. USB and Lightning SmartCard do not support challenge-response.
         ///
-        /// > Note: Requires ``YubiOTP/Feature/challengeResponse``, available on YubiKey 2.2 or later.
+        /// > Note: Requires ``YubiOTP/Feature/challengeResponse``, available on YubiKey 2.2 or later over the
+        /// > OTP keyboard transport or NFC. Otherwise the stream throws
+        /// > ``YubiOTP/SessionError/featureNotSupported(source:)``.
+        ///
+        /// > Warning: The session pads a challenge shorter than 64 bytes. A slot programmed with
+        /// > `messageUnder64Bytes: false` calculates the HMAC over the padded 64 bytes, so its response
+        /// > differs from the HMAC of the challenge. Send exactly 64 bytes to such a slot.
         ///
         /// - Parameters:
         ///   - challenge: The challenge, at most 64 bytes.

@@ -223,9 +223,9 @@ enum OTPScenario {
         ) { context, transport in
             try await skipUnsupportedTransport(context, transport)
 
-            let codeA = Data([1, 2, 3, 4, 5, 6])
-            let codeB = Data([6, 5, 4, 3, 2, 1])
-            let wrongCode = Data([9, 8, 7, 6, 5, 4])
+            let codeA = try YubiOTP.AccessCode(Data([1, 2, 3, 4, 5, 6]))
+            let codeB = try YubiOTP.AccessCode(Data([6, 5, 4, 3, 2, 1]))
+            let wrongCode = try YubiOTP.AccessCode(Data([9, 8, 7, 6, 5, 4]))
             let configuration = try YubiOTP.SlotConfiguration.hmacSHA1(key: hmacKey)
             let update = try YubiOTP.SlotUpdate(tabs: .init(beforeFirst: true))
             let session = try await context.otpSession(over: transport.kind)
@@ -237,7 +237,7 @@ enum OTPScenario {
             // A write can reach the key even when its response fails, so try each code that the
             // scenario sets.
             await context.addTeardown {
-                for code in [nil, codeA, codeB] as [Data?] {
+                for code in [nil, codeA, codeB] as [YubiOTP.AccessCode?] {
                     let cleanup = try await context.otpSession(over: transport.kind)
                     guard try await cleanup.configState.isConfigured(.two) else { return }
                     try? await cleanup.deleteConfiguration(in: .two, currentAccessCode: code)
@@ -249,7 +249,7 @@ enum OTPScenario {
             try await session.putConfiguration(configuration, in: .two, accessCode: .set(codeA))
             try await verifyHMACSecret(context, transport, session: session)
 
-            for code in [nil, wrongCode] as [Data?] {
+            for code in [nil, wrongCode] as [YubiOTP.AccessCode?] {
                 await context.expectThrows("put with a missing or wrong access code", matching: isAccessDenied) {
                     try await session.putConfiguration(configuration, in: .two, currentAccessCode: code)
                 }

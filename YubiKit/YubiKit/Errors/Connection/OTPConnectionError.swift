@@ -17,9 +17,6 @@
 /// These errors represent failures at the transport layer for OTP (keyboard HID) connections.
 /// They cover device discovery, connection establishment, and low-level feature report transfer.
 public enum OTPConnectionError: Error, Sendable {
-    /// Connection type is not supported on this device.
-    case unsupported
-
     /// No YubiKey exposing an OTP interface was found.
     ///
     /// A YubiKey only exposes its OTP (keyboard) HID interface when the Yubico OTP application is

@@ -281,7 +281,6 @@ struct SlotConfigurationTests {
     @Test("enabled shared options raise the firmware requirement in every configuration")
     func sharedOptionFirmwareRequirements() throws {
         let cases: [(YubiOTP.SlotOptions, String, String)] = [
-            (.init(serialButtonVisible: true), "2.1.9", "2.2.0"),
             (.init(serialUSBVisible: true), "2.1.9", "2.2.0"),
             (.init(dormant: true), "2.2.9", "2.3.0"),
             (.init(invertLED: true), "2.3.9", "2.4.0"),

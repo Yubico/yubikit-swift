@@ -30,7 +30,7 @@ struct YubiOTPSessionTests {
         #expect(await session.version == Version("5.7.0")!)
         #expect(try await session.configState.isConfigured(.one))
         #expect(try !(await session.configState).isConfigured(.two))
-        #expect(await connection.sentRequests == [Data([0, 0xA4, 4, 0, 7, 0xA0, 0, 0, 5, 0x27, 0x20, 1])])
+        #expect(await connection.sentRequests == [Data([0, 0xA4, 4, 0, 8, 0xA0, 0, 0, 5, 0x27, 0x20, 1, 1])])
     }
 
     @Test("opening over the OTP transport parses the status struct from the first report")
@@ -66,7 +66,7 @@ struct YubiOTPSessionTests {
         #expect(
             await connection.sentRequests == [
                 Data([0, 0xA4, 4, 0, 8, 0xA0, 0, 0, 5, 0x27, 0x47, 0x11, 0x17]),
-                Data([0, 0xA4, 4, 0, 7, 0xA0, 0, 0, 5, 0x27, 0x20, 1]),
+                Data([0, 0xA4, 4, 0, 8, 0xA0, 0, 0, 5, 0x27, 0x20, 1, 1]),
             ]
         )
     }
@@ -165,6 +165,36 @@ struct YubiOTPSessionTests {
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
+    }
+
+    // MARK: - Challenge-response
+
+    @Test("a wired SmartCard session does not support challenge-response")
+    func wiredSmartCardRejectsChallengeResponse() async throws {
+        let connection = MockSmartCardConnection(responses: [status()])
+        let session = try await YubiOTP.Session.makeSession(connection: connection)
+
+        #expect(await session.supports(.challengeResponse) == false)
+        do {
+            _ = try await session.calculateHMACSHA1(challenge: Data([1]), in: .one).value
+            Issue.record("A wired SmartCard session calculated a response")
+        } catch .featureNotSupported {
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+        #expect(await connection.sendCount == 1)
+    }
+
+    @Test("an NFC session supports challenge-response")
+    func nfcSupportsChallengeResponse() async throws {
+        let response = Data(repeating: 0xAB, count: 20)
+        let connection = MockSmartCardConnection(responses: [
+            managementSelect([5, 7, 4]), status(), response + Data([0x90, 0]),
+        ])
+        let session = try await YubiOTP.Session.makeSession(connection: connection, isNFC: true)
+
+        #expect(await session.supports(.challengeResponse))
+        #expect(try await session.calculateHMACSHA1(challenge: Data([1]), in: .one).value == response)
     }
 
     // MARK: - Data responses
@@ -268,10 +298,10 @@ struct YubiOTPSessionTests {
 
     @Test("each access code change writes the new code and authorizes with the current code", arguments: [false, true])
     func accessCodeChanges(update: Bool) async throws {
-        let current = Data([1, 2, 3, 4, 5, 6])
-        let replacement = Data([6, 5, 4, 3, 2, 1])
+        let current = try YubiOTP.AccessCode(Data([1, 2, 3, 4, 5, 6]))
+        let replacement = try YubiOTP.AccessCode(Data([6, 5, 4, 3, 2, 1]))
         let cases: [(YubiOTP.AccessCodeChange, Data)] = [
-            (.unchanged, current), (.set(replacement), replacement), (.remove, Data(count: 6)),
+            (.unchanged, current.data), (.set(replacement), replacement.data), (.remove, Data(count: 6)),
         ]
         for (change, expected) in cases {
             let connection = MockSmartCardConnection(responses: [status(), status(sequence: 1)])
@@ -283,7 +313,7 @@ struct YubiOTPSessionTests {
             #expect(request[2] == (update ? 0x04 : 0x01))
             #expect(request[4] == 58, "the configuration and the current access code")
             #expect(request.subdata(in: 43..<49) == expected)
-            #expect(request.suffix(6) == current)
+            #expect(request.suffix(6) == current.data)
         }
     }
 
@@ -299,41 +329,24 @@ struct YubiOTPSessionTests {
         #expect(request.suffix(6) == Data(count: 6))
     }
 
-    @Test(
-        "an access code that is not six bytes is rejected before any command",
-        arguments: [5, 7]
-    )
-    func rejectsInvalidAccessCodeLength(length: Int) async throws {
-        let code = Data(count: length)
-        // A new code in a put, and a current code in an update.
-        for (update, change, current) in [(false, .set(code), nil), (true, .unchanged, code)]
-            as [(Bool, YubiOTP.AccessCodeChange, Data?)]
-        {
-            let connection = MockSmartCardConnection(responses: [status()])
-            let session = try await YubiOTP.Session.makeSession(connection: connection)
-            do {
-                try await write(session, update: update, accessCode: change, currentAccessCode: current)
-                Issue.record("An invalid access code was accepted")
-            } catch .illegalArgument {
-            } catch {
-                Issue.record("Unexpected error: \(error)")
-            }
-            #expect(await connection.sendCount == 1)
+    @Test("an access code that is not six bytes is rejected", arguments: [0, 5, 7])
+    func rejectsInvalidAccessCodeLength(length: Int) {
+        #expect(throws: YubiOTP.SessionError.self) {
+            try YubiOTP.AccessCode(Data(repeating: 1, count: length))
         }
     }
 
-    @Test("an all-zero replacement access code is rejected", arguments: [false, true])
-    func rejectsAllZeroReplacementCode(update: Bool) async throws {
-        let connection = MockSmartCardConnection(responses: [status()])
-        let session = try await YubiOTP.Session.makeSession(connection: connection)
-        do {
-            try await write(session, update: update, accessCode: .set(Data(count: 6)))
-            Issue.record("An all-zero replacement code was accepted")
-        } catch .illegalArgument {
-        } catch {
-            Issue.record("Unexpected error: \(error)")
+    @Test("an all-zero access code is rejected")
+    func rejectsAllZeroAccessCode() {
+        #expect(throws: YubiOTP.SessionError.self) {
+            try YubiOTP.AccessCode(Data(count: 6))
         }
-        #expect(await connection.sendCount == 1)
+    }
+
+    @Test("an access code keeps its bytes, also from a slice")
+    func accessCodeKeepsBytes() throws {
+        let bytes = Data([0, 1, 2, 3, 4, 5, 6])
+        #expect(try YubiOTP.AccessCode(bytes.dropFirst()).data == Data([1, 2, 3, 4, 5, 6]))
     }
 
     @Test(
@@ -341,9 +354,9 @@ struct YubiOTPSessionTests {
         arguments: [[4, 3, 1], [4, 3, 2], [4, 3, 5], [4, 3, 6]] as [[UInt8]]
     )
     func updateAccessCodeFirmwareRestriction(version: [UInt8]) async throws {
-        let current = Data([1, 2, 3, 4, 5, 6])
+        let current = try YubiOTP.AccessCode(Data([1, 2, 3, 4, 5, 6]))
         let changes: [YubiOTP.AccessCodeChange] = [
-            .unchanged, .set(current), .set(Data(repeating: 7, count: 6)), .remove,
+            .unchanged, .set(current), .set(try YubiOTP.AccessCode(Data(repeating: 7, count: 6))), .remove,
         ]
         for (index, change) in changes.enumerated() {
             let connection = MockSmartCardConnection(responses: [
@@ -362,11 +375,9 @@ struct YubiOTPSessionTests {
         }
     }
 
-    @Test(
-        "firmware 4.3.2 through 4.3.5 treats a missing and an all-zero current access code as equal",
-        arguments: [nil, Data(count: 6)] as [Data?]
-    )
-    func restrictedFirmwareNormalizesUnprotectedCodes(current: Data?) async throws {
+    @Test("firmware 4.3.2 through 4.3.5 accepts an update that keeps an unprotected slot unprotected")
+    func restrictedFirmwareAcceptsUnprotectedUpdate() async throws {
+        let current: YubiOTP.AccessCode? = nil
         for change in [.unchanged, .remove] as [YubiOTP.AccessCodeChange] {
             let connection = MockSmartCardConnection(responses: [
                 status([4, 3, 2]), status([4, 3, 2], sequence: 1),
@@ -387,7 +398,7 @@ struct YubiOTPSessionTests {
         _ session: YubiOTP.Session,
         update: Bool,
         accessCode: YubiOTP.AccessCodeChange = .unchanged,
-        currentAccessCode: Data? = nil
+        currentAccessCode: YubiOTP.AccessCode? = nil
     ) async throws(YubiOTP.SessionError) {
         if update {
             try await session.updateConfiguration(
@@ -423,8 +434,8 @@ private actor NEOConnection: OTPConnection {
     private var refreshed = false
 
     init(failsAfterFirstReport: Bool) { self.failsAfterFirstReport = failsAfterFirstReport }
-    init() async throws(OTPConnectionError) { throw .unsupported }
-    static func makeConnection() async throws(OTPConnectionError) -> NEOConnection { throw .unsupported }
+    init() async throws(OTPConnectionError) { throw .noDevicesFound }
+    static func makeConnection() async throws(OTPConnectionError) -> NEOConnection { throw .noDevicesFound }
 
     func receive() async throws(OTPConnectionError) -> Data {
         reads += 1

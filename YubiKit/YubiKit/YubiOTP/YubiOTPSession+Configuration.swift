@@ -22,22 +22,23 @@ extension YubiOTP.Session {
     /// - Parameters:
     ///   - configuration: The slot configuration to write.
     ///   - slot: The slot to program.
-    ///   - accessCode: Whether to keep, replace, or remove the access code of the slot.
+    ///   - accessCode: Whether to keep, replace, or remove the access code of the slot. Defaults to
+    ///     ``YubiOTP/AccessCodeChange/unchanged``, which keeps the current code.
     ///   - currentAccessCode: The current access code of the slot, if the slot is protected.
     public func putConfiguration(
         _ configuration: YubiOTP.SlotConfiguration,
         in slot: YubiOTP.Slot,
         accessCode: YubiOTP.AccessCodeChange = .unchanged,
-        currentAccessCode: Data? = nil
+        currentAccessCode: YubiOTP.AccessCode? = nil
     ) async throws(YubiOTP.SessionError) {
-        let newAccessCode = try resolveAccessCode(accessCode, currentAccessCode: currentAccessCode)
+        let newAccessCode = resolveAccessCode(accessCode, currentAccessCode: currentAccessCode)
         guard configuration.isSupported(by: version) else {
             throw .featureNotSupported(source: .here())
         }
         logger.debug("Writing slot configuration", metadata: ["slot": .stringConvertible(slot.rawValue)])
         try await write(
             command: slot.configCommand,
-            config: configuration.configData(accessCode: newAccessCode),
+            config: configuration.configData(accessCode: newAccessCode?.data),
             currentAccessCode: currentAccessCode
         )
     }
@@ -52,28 +53,27 @@ extension YubiOTP.Session {
     /// - Parameters:
     ///   - configuration: The flags to write.
     ///   - slot: The slot to update.
-    ///   - accessCode: Whether to keep, replace, or remove the access code of the slot.
+    ///   - accessCode: Whether to keep, replace, or remove the access code of the slot. Defaults to
+    ///     ``YubiOTP/AccessCodeChange/unchanged``, which keeps the current code.
     ///   - currentAccessCode: The current access code of the slot, if the slot is protected.
     public func updateConfiguration(
         _ configuration: YubiOTP.SlotUpdate,
         in slot: YubiOTP.Slot,
         accessCode: YubiOTP.AccessCodeChange = .unchanged,
-        currentAccessCode: Data? = nil
+        currentAccessCode: YubiOTP.AccessCode? = nil
     ) async throws(YubiOTP.SessionError) {
-        let newAccessCode = try resolveAccessCode(accessCode, currentAccessCode: currentAccessCode)
+        let newAccessCode = resolveAccessCode(accessCode, currentAccessCode: currentAccessCode)
         guard configuration.isSupported(by: version) else {
             throw .featureNotSupported(source: .here())
         }
         // These firmware versions cannot change the access code through an update.
-        if (newAccessCode ?? Data(count: otpAccessCodeSize)) != (currentAccessCode ?? Data(count: otpAccessCodeSize)),
-            version >= Version("4.3.2")!, version < Version("4.3.6")!
-        {
+        if newAccessCode != currentAccessCode, version >= Version("4.3.2")!, version < Version("4.3.6")! {
             throw .featureNotSupported(source: .here())
         }
         logger.debug("Updating slot configuration", metadata: ["slot": .stringConvertible(slot.rawValue)])
         try await write(
             command: slot.updateCommand,
-            config: configuration.configData(accessCode: newAccessCode),
+            config: configuration.configData(accessCode: newAccessCode?.data),
             currentAccessCode: currentAccessCode
         )
     }
@@ -87,7 +87,7 @@ extension YubiOTP.Session {
     ///   - currentAccessCode: The current access code of the slot, if the slot is protected.
     public func deleteConfiguration(
         in slot: YubiOTP.Slot,
-        currentAccessCode: Data? = nil
+        currentAccessCode: YubiOTP.AccessCode? = nil
     ) async throws(YubiOTP.SessionError) {
         logger.debug("Deleting slot configuration", metadata: ["slot": .stringConvertible(slot.rawValue)])
         // An all-zero configuration clears the slot.
@@ -107,19 +107,6 @@ extension YubiOTP.Session {
         try await write(command: YubiOTP.swapCommand, config: Data(), currentAccessCode: nil)
     }
 
-    /// Replaces the scan-code map that the YubiKey uses to type its output.
-    ///
-    /// - Parameters:
-    ///   - scanMap: The scan codes.
-    ///   - currentAccessCode: The current access code, if one is set.
-    public func setScanMap(
-        _ scanMap: Data,
-        currentAccessCode: Data? = nil
-    ) async throws(YubiOTP.SessionError) {
-        logger.debug("Writing scan map")
-        try await write(command: YubiOTP.scanMapCommand, config: scanMap, currentAccessCode: currentAccessCode)
-    }
-
     /// Configures a slot to send an NDEF URI record over NFC.
     ///
     /// > Note: Requires ``YubiOTP/Feature/ndef``, available on YubiKey 3.0 or later.
@@ -131,7 +118,7 @@ extension YubiOTP.Session {
     public func setNDEFConfiguration(
         in slot: YubiOTP.Slot,
         uri: URL = YubiOTP.defaultNDEFURI,
-        currentAccessCode: Data? = nil
+        currentAccessCode: YubiOTP.AccessCode? = nil
     ) async throws(YubiOTP.SessionError) {
         guard await supports(.ndef) else { throw .featureNotSupported(source: .here()) }
         logger.debug("Writing NDEF configuration", metadata: ["slot": .stringConvertible(slot.rawValue)])
@@ -145,39 +132,24 @@ extension YubiOTP.Session {
     private func write(
         command: UInt8,
         config: Data,
-        currentAccessCode: Data?
+        currentAccessCode: YubiOTP.AccessCode?
     ) async throws(YubiOTP.SessionError) {
-        try validateAccessCode(currentAccessCode)
         try await interface.writeConfig(
             command: command,
-            data: config + (currentAccessCode ?? Data(count: otpAccessCodeSize))
+            data: config + (currentAccessCode?.data ?? Data(count: otpAccessCodeSize))
         )
         configState = YubiOTP.ConfigState(version: version, flags: await interface.configStateFlags)
         logger.info("Configuration written")
     }
 
-    private func validateAccessCode(_ accessCode: Data?) throws(YubiOTP.SessionError) {
-        if let accessCode, accessCode.count != otpAccessCodeSize {
-            throw .illegalArgument("Access code must be exactly \(otpAccessCodeSize) bytes", source: .here())
-        }
-    }
-
     private func resolveAccessCode(
         _ change: YubiOTP.AccessCodeChange,
-        currentAccessCode: Data?
-    ) throws(YubiOTP.SessionError) -> Data? {
-        try validateAccessCode(currentAccessCode)
+        currentAccessCode: YubiOTP.AccessCode?
+    ) -> YubiOTP.AccessCode? {
         switch change {
-        case .unchanged:
-            return currentAccessCode
-        case .set(let code):
-            try validateAccessCode(code)
-            guard code.contains(where: { $0 != 0 }) else {
-                throw .illegalArgument("Use .remove to clear the access code", source: .here())
-            }
-            return code
-        case .remove:
-            return nil
+        case .unchanged: currentAccessCode
+        case .set(let code): code
+        case .remove: nil
         }
     }
 }

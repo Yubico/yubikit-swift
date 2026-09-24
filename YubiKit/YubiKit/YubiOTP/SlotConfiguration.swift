@@ -20,11 +20,9 @@ import Foundation
 extension YubiOTP {
 
     /// Options every slot configuration accepts.
-    public struct SlotOptions: Sendable {
+    public struct SlotOptions: Sendable, Equatable {
         /// Serial number readable through the API. Defaults to `true`.
         public var serialAPIVisible: Bool
-        /// Serial number shown at startup on button press. Available on YubiKey 2.2 or later.
-        public var serialButtonVisible: Bool
         /// Serial number exposed in the USB iSerial field. Available on YubiKey 2.2 or later.
         public var serialUSBVisible: Bool
         /// Allow a later `UPDATE` of this configuration. Defaults to `true`.
@@ -41,7 +39,6 @@ extension YubiOTP {
         /// Creates options shared by every slot configuration.
         public init(
             serialAPIVisible: Bool = true,
-            serialButtonVisible: Bool = false,
             serialUSBVisible: Bool = false,
             allowUpdate: Bool = true,
             dormant: Bool = false,
@@ -49,7 +46,6 @@ extension YubiOTP {
             protectSlot2: Bool = false
         ) {
             self.serialAPIVisible = serialAPIVisible
-            self.serialButtonVisible = serialButtonVisible
             self.serialUSBVisible = serialUSBVisible
             self.allowUpdate = allowUpdate
             self.dormant = dormant
@@ -59,7 +55,7 @@ extension YubiOTP {
     }
 
     /// Options for the slot configurations that type their output on the keyboard.
-    public struct KeyboardOptions: Sendable {
+    public struct KeyboardOptions: Sendable, Equatable {
         /// The approximate added delay between keystrokes in typed output.
         public enum Pacing: Sendable {
             /// No additional delay.
@@ -99,7 +95,7 @@ extension YubiOTP {
     }
 
     /// Where tabs are inserted in a typed Yubico OTP.
-    public struct TabOptions: Sendable {
+    public struct TabOptions: Sendable, Equatable {
         /// Insert a tab before the first output field.
         public var beforeFirst: Bool
 
@@ -118,7 +114,7 @@ extension YubiOTP {
     }
 
     /// Where half-second delays are inserted in a typed Yubico OTP.
-    public struct DelayOptions: Sendable {
+    public struct DelayOptions: Sendable, Equatable {
         /// Pause after the first output field.
         public var afterFirst: Bool
 
@@ -169,7 +165,8 @@ extension YubiOTP {
         ///   - key: The HMAC-SHA1 secret.
         ///   - requireTouch: Whether the YubiKey requires a touch to calculate each response.
         ///   - messageUnder64Bytes: Whether challenges can be shorter than 64 bytes. If `false`, all
-        ///     challenges must contain exactly 64 bytes.
+        ///     challenges must contain exactly 64 bytes. A shorter challenge then gives a different
+        ///     response and no error; see ``YubiOTP/Session/calculateHMACSHA1(challenge:in:)``.
         ///   - options: Options shared by every slot configuration.
         public static func hmacSHA1(
             key: Data,
@@ -195,7 +192,7 @@ extension YubiOTP {
         ///
         /// - Parameters:
         ///   - publicID: The static part at the start of each OTP, at most 16 bytes. Use
-        ///     `Data(modhexEncoded:)` to create it from its modhex form.
+        ///     ``YubiOTP/Modhex/decode(_:)`` to create it from its modhex form.
         ///   - privateID: The private ID inside the encrypted part of each OTP, exactly 6 bytes.
         ///   - key: The AES key that encrypts each OTP, exactly 16 bytes.
         ///   - tabs: Where to insert tabs in the output.
@@ -373,7 +370,9 @@ extension YubiOTP {
             )
         }
 
-        /// Whether the connected YubiKey's firmware supports this configuration.
+        /// Whether YubiKey firmware of the given version supports this configuration.
+        ///
+        /// - Parameter version: The firmware version to check, for example ``YubiOTP/Session/version``.
         public func isSupported(by version: Version) -> Bool {
             (minimumVersion.map { version >= $0 } ?? true) && options.isSupported(by: version)
                 && (keyboard?.isSupported(by: version) ?? true)
@@ -448,7 +447,9 @@ extension YubiOTP {
             self.options = options
         }
 
-        /// Whether the connected YubiKey's firmware supports this update.
+        /// Whether YubiKey firmware of the given version supports this update.
+        ///
+        /// - Parameter version: The firmware version to check, for example ``YubiOTP/Session/version``.
         public func isSupported(by version: Version) -> Bool {
             YubiOTP.Feature.update.isSupported(by: version) && options.isSupported(by: version)
                 && keyboard.isSupported(by: version)
@@ -482,7 +483,7 @@ extension YubiOTP.SlotOptions {
     // and ALLOW_UPDATE.
     fileprivate func isSupported(by version: Version) -> Bool {
         (!protectSlot2 || version >= Version("2.0.0")!)
-            && (!(serialButtonVisible || serialUSBVisible) || version >= Version("2.2.0")!)
+            && (!serialUSBVisible || version >= Version("2.2.0")!)
             && (!dormant || version >= Version("2.3.0")!)
             && (!invertLED || (version >= Version("2.4.0")! && !(version.major == 3 && version.minor == 0)))
     }
@@ -490,7 +491,6 @@ extension YubiOTP.SlotOptions {
     fileprivate var extendedFlags: YubiOTP.ExtendedFlags {
         var flags: YubiOTP.ExtendedFlags = []
         if serialAPIVisible { flags.insert(.serialAPIVisible) }
-        if serialButtonVisible { flags.insert(.serialButtonVisible) }
         if serialUSBVisible { flags.insert(.serialUSBVisible) }
         if allowUpdate { flags.insert(.allowUpdate) }
         if dormant { flags.insert(.dormant) }
@@ -577,7 +577,6 @@ private let sha1BlockSize = 64
 extension YubiOTP {
     fileprivate struct ExtendedFlags: OptionSet, Sendable {
         let rawValue: UInt8
-        static let serialButtonVisible = ExtendedFlags(rawValue: 0x01)
         static let serialUSBVisible = ExtendedFlags(rawValue: 0x02)
         static let serialAPIVisible = ExtendedFlags(rawValue: 0x04)
         static let useNumericKeypad = ExtendedFlags(rawValue: 0x08)

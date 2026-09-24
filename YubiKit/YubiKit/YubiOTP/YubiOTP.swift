@@ -21,14 +21,38 @@ import Foundation
 /// [Yubico developer website](https://developers.yubico.com/OTP/).
 public enum YubiOTP {
 
+    /// A six-byte code that protects the configuration of a slot.
+    ///
+    /// An all-zero code is the same as no access code. Use `nil` or ``AccessCodeChange/remove`` for an
+    /// unprotected slot.
+    public struct AccessCode: Sendable, Equatable {
+        /// The six bytes of the code.
+        public let data: Data
+
+        /// Creates an access code.
+        ///
+        /// - Parameter data: The code, exactly six bytes and not all zero.
+        /// - Throws: ``SessionError/illegalArgument(_:source:)`` if `data` is not six bytes, or if all its
+        ///   bytes are zero.
+        public init(_ data: Data) throws(YubiOTP.SessionError) {
+            guard data.count == otpAccessCodeSize else {
+                throw .illegalArgument("Access code must be exactly \(otpAccessCodeSize) bytes", source: .here())
+            }
+            guard data.contains(where: { $0 != 0 }) else {
+                throw .illegalArgument("An all-zero access code is no access code; use nil or .remove", source: .here())
+            }
+            self.data = Data(data)
+        }
+    }
+
     /// How a programming operation changes the slot's access code.
     public enum AccessCodeChange: Sendable {
         /// Preserve protection using the supplied `currentAccessCode`.
         /// Omit the current code only when the slot is unprotected; the key cannot read it back.
         case unchanged
 
-        /// Replace protection with a six-byte code. An all-zero code is not permitted.
-        case set(Data)
+        /// Replace protection with a new code.
+        case set(AccessCode)
 
         /// Remove protection. A protected slot still requires its current code to authorize this.
         case remove
@@ -53,6 +77,9 @@ public enum YubiOTP {
         case checkTouchTriggered
 
         /// HMAC-SHA1 challenge-response.
+        ///
+        /// Only the OTP keyboard HID interface and NFC support this feature. ``Session/supports(_:)``
+        /// returns `false` for a USB or Lightning SmartCard session.
         case challengeResponse
 
         /// Swapping the two slot configurations.
@@ -85,6 +112,9 @@ public enum YubiOTP {
     /// reading it sends no command.
     public struct ConfigState: Sendable, Equatable, CustomStringConvertible {
         /// Whether the slot is programmed.
+        ///
+        /// Over NFC on firmware 5.0.0 through 5.2.4, both slots are reported as configured
+        /// because those versions cannot report reliable slot state.
         ///
         /// - Throws: ``SessionError/featureNotSupported(source:)`` on firmware older than
         ///   YubiKey 2.1, which does not report this state.

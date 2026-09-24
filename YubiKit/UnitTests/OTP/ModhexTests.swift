@@ -21,35 +21,35 @@ struct ModhexTests {
 
     @Test("encodes the reference vectors")
     func encodes() {
-        #expect(Data().modhexEncodedString == "")
-        #expect(Data([0x00]).modhexEncodedString == "cc")
-        #expect(Data([0xFF]).modhexEncodedString == "vv")
-        #expect(Data([0x2D, 0x34, 0x4E, 0x83]).modhexEncodedString == "dteffuje")
+        #expect(YubiOTP.Modhex.encode(Data()) == "")
+        #expect(YubiOTP.Modhex.encode(Data([0x00])) == "cc")
+        #expect(YubiOTP.Modhex.encode(Data([0xFF])) == "vv")
+        #expect(YubiOTP.Modhex.encode(Data([0x2D, 0x34, 0x4E, 0x83])) == "dteffuje")
         #expect(
-            Data([0x69, 0xB6, 0x48, 0x1C, 0x8B, 0xAB, 0xA2, 0xB6, 0x0E, 0x8F]).modhexEncodedString
+            YubiOTP.Modhex.encode(Data([0x69, 0xB6, 0x48, 0x1C, 0x8B, 0xAB, 0xA2, 0xB6, 0x0E, 0x8F]))
                 == "hknhfjbrjnlnldnhcujv"
         )
     }
 
     @Test("decodes the reference vectors")
     func decodes() {
-        #expect(Data(modhexEncoded: "") == Data())
-        #expect(Data(modhexEncoded: "dteffuje") == Data([0x2D, 0x34, 0x4E, 0x83]))
+        #expect(YubiOTP.Modhex.decode("") == Data())
+        #expect(YubiOTP.Modhex.decode("dteffuje") == Data([0x2D, 0x34, 0x4E, 0x83]))
         #expect(
-            Data(modhexEncoded: "hknhfjbrjnlnldnhcujv")
+            YubiOTP.Modhex.decode("hknhfjbrjnlnldnhcujv")
                 == Data([0x69, 0xB6, 0x48, 0x1C, 0x8B, 0xAB, 0xA2, 0xB6, 0x0E, 0x8F])
         )
     }
 
     @Test("decoding is case-insensitive")
     func decodesUppercase() {
-        #expect(Data(modhexEncoded: "DTEFFUJE") == Data([0x2D, 0x34, 0x4E, 0x83]))
+        #expect(YubiOTP.Modhex.decode("DTEFFUJE") == Data([0x2D, 0x34, 0x4E, 0x83]))
     }
 
     @Test("malformed input is rejected")
     func rejectsMalformed() {
-        #expect(Data(modhexEncoded: "abc") == nil, "odd length")
-        #expect(Data(modhexEncoded: "ca") == nil, "'a' is not in the modhex alphabet")
-        #expect(Data(modhexEncoded: "c!") == nil, "punctuation is not in the modhex alphabet")
+        #expect(YubiOTP.Modhex.decode("abc") == nil, "odd length")
+        #expect(YubiOTP.Modhex.decode("ca") == nil, "'a' is not in the modhex alphabet")
+        #expect(YubiOTP.Modhex.decode("c!") == nil, "punctuation is not in the modhex alphabet")
     }
 }
