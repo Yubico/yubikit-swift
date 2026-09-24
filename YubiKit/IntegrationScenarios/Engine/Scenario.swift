@@ -41,13 +41,14 @@ public struct SourceLocation: Sendable, CustomStringConvertible {
 public struct Scenario: Sendable, Identifiable, Hashable, CustomStringConvertible {
 
     public enum Suite: String, CaseIterable, Sendable {
-        case management, piv, oath, connection, ctap2, ctaphid, webauthn, scp
+        case management, piv, oath, otp, connection, ctap2, ctaphid, webauthn, scp
 
         public var displayName: String {
             switch self {
             case .management: return "Management"
             case .piv: return "PIV"
             case .oath: return "OATH"
+            case .otp: return "OTP"
             case .connection: return "Connection"
             case .ctap2: return "CTAP2"
             case .ctaphid: return "CTAPHID"

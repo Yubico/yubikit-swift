@@ -36,15 +36,17 @@ extension Scenario {
     /// Fans a single definition out into one scenario per value, mirroring pytest's
     /// `@pytest.mark.parametrize`. Each value supplies its own id suffix, name, and requirements,
     /// and the value is handed to the shared body.
+    /// An optional family name prefixes the per-case display name.
     static func parameterized<Value: ScenarioParameter>(
         _ id: String,
+        _ name: String? = nil,
         over values: [Value],
         run: @escaping @Sendable (Scenario.Context, Value) async throws -> Void
     ) -> [Scenario] {
         values.map { value in
             Scenario(
                 "\(id).\(value.idSuffix)",
-                value.displayName,
+                name.map { "\($0) (\(value.displayName))" } ?? value.displayName,
                 requirements: value.requirements,
                 platform: value.platform
             ) { context in

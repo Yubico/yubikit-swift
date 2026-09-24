@@ -65,6 +65,11 @@ extension HasSCPLogger {
     static var logger: Logger { .scp }
 }
 
+protocol HasOTPLogger: HasLogger {}
+extension HasOTPLogger {
+    static var logger: Logger { .otp }
+}
+
 protocol HasFIDOLogger: HasLogger {}
 extension HasFIDOLogger {
     static var logger: Logger { .fido }
@@ -104,5 +109,6 @@ extension Logger {
     fileprivate static var piv: Logger { Logging.logger(category: "PIV") }
     fileprivate static var fido: Logger { Logging.logger(category: "FIDO") }
     fileprivate static var securityDomain: Logger { Logging.logger(category: "SecurityDomain") }
+    fileprivate static var otp: Logger { Logging.logger(category: "YubiOTP") }
     fileprivate static var scp: Logger { Logging.logger(category: "SCP") }
 }

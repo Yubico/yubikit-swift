@@ -686,7 +686,7 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
         case .support:
             return Scenario(
                 "CTAP2.Config.support",
-                "authenticatorConfig support check",
+                "config reports whether authenticatorConfig is supported",
                 requirements: Requirements(capabilities: [.fido2])
             ) { context in
                 let session = try await sessionWithPin(context)

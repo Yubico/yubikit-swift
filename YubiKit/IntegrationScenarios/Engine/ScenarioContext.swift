@@ -69,6 +69,7 @@ extension Scenario {
         // Memoized as in-flight tasks so concurrent callers share one connection.
         private var smartCardConnectionTask: Task<any SmartCardConnection, Error>?
         private var fidoConnectionTask: Task<any FIDOConnection, Error>?
+        private var otpConnectionTask: Task<any OTPConnection, Error>?
         private var scpKeyParamsTask: Task<SCPKeyParams?, Error>?
 
         init(
@@ -202,6 +203,13 @@ extension Scenario {
             return try await task.value
         }
 
+        func otpConnection() async throws -> any OTPConnection {
+            if let otpConnectionTask { return try await otpConnectionTask.value }
+            let task = Task { try await provider.makeOTPConnection() }
+            otpConnectionTask = task
+            return try await task.value
+        }
+
         func reconnectWhenOverNFC() async {
             guard provider.deviceTransport == .nfc else { return }
 
@@ -244,8 +252,10 @@ extension Scenario {
             teardown.removeAll()
             if let connection = try? await smartCardConnectionTask?.value { await connection.close(error: nil) }
             if let connection = try? await fidoConnectionTask?.value { await connection.close(error: nil) }
+            if let connection = try? await otpConnectionTask?.value { await connection.close(error: nil) }
             smartCardConnectionTask = nil
             fidoConnectionTask = nil
+            otpConnectionTask = nil
             scpKeyParamsTask = nil
         }
     }
