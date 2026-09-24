@@ -17,7 +17,7 @@ env:
 
 jobs:
   deploy-docs:
-    runs-on: xcode-27-xlarge
+    runs-on: xcode-27
 
     steps:
       - name: Checkout

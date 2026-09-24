@@ -147,7 +147,10 @@ public enum WebAuthn {
                 for try await status in self {
                     if case .finished(let response) = status { return response }
                 }
-                preconditionFailure("StatusStream must yield .finished before ending")
+                if Task.isCancelled {
+                    throw .cancelled(source: .here())
+                }
+                throw .internalError("StatusStream ended before a response", source: .here())
             }
         }
 
