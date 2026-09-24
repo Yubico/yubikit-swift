@@ -78,8 +78,8 @@ public enum YubiOTP {
 
         /// HMAC-SHA1 challenge-response.
         ///
-        /// Only the OTP keyboard HID interface and NFC support this feature. ``Session/supports(_:)``
-        /// returns `false` for a USB or Lightning SmartCard session.
+        /// OTP keyboard HID, NFC, and Lightning support this feature. ``Session/supports(_:)``
+        /// returns `false` for a USB SmartCard session.
         case challengeResponse
 
         /// Swapping the two slot configurations.

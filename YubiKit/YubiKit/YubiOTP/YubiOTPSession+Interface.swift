@@ -26,7 +26,7 @@ extension YubiOTP.Session {
 
         let version: Version
 
-        // Only the OTP keyboard transport and NFC can calculate an HMAC-SHA1 response.
+        // OTP keyboard HID, NFC, and Lightning can calculate an HMAC-SHA1 response.
         let supportsChallengeResponse: Bool
 
         // The low byte of the configuration state; the high byte holds only the touch level.
@@ -43,7 +43,8 @@ extension YubiOTP.Session {
         init(
             interface: SmartCardInterface<YubiOTP.SessionError>,
             managementVersion: Version?,
-            isNFC: Bool
+            isNFC: Bool,
+            supportsChallengeResponse: Bool
         ) throws(YubiOTP.SessionError) {
             let status = Array(interface.selectResponse)
             guard status.count >= otpStatusSize else {
@@ -57,7 +58,7 @@ extension YubiOTP.Session {
 
             self.kind = .smartCard(interface)
             self.version = version
-            self.supportsChallengeResponse = isNFC
+            self.supportsChallengeResponse = supportsChallengeResponse
             self.usesDummyStatus = usesDummyStatus
             self.status = usesDummyStatus ? Array(status.prefix(4)) + dummyConfigState : status
         }

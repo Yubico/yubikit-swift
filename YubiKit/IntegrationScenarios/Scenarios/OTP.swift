@@ -158,7 +158,7 @@ enum OTPScenario {
             "OTP.ChallengeResponse.hmacSha1",
             over: OTPTransport.allCases(minVersion: Version("2.2.0")!)
         ) { context, transport in
-            if transport.kind == .smartCard, context.deviceTransport == .usb {
+            if try await usesUSBCCID(context, transport) {
                 try context.skip("HMAC-SHA1 challenge-response is not available over USB CCID")
             }
             let session = try await programmableSession(context, transport, clearing: [.two])
@@ -324,6 +324,15 @@ enum OTPScenario {
 
     // MARK: - Helpers
 
+    private static func usesUSBCCID(_ context: Scenario.Context, _ transport: OTPTransport) async throws -> Bool {
+        guard transport.kind == .smartCard, context.deviceTransport == .usb else { return false }
+        #if os(iOS)
+        return try await context.smartCardConnection().lightningConnection == nil
+        #else
+        return true
+        #endif
+    }
+
     // Skips transports that cannot reach the OTP application, and legacy NFC firmware when the
     // scenario depends on the reported slot state.
     private static func skipUnsupportedTransport(
@@ -332,7 +341,7 @@ enum OTPScenario {
         needsSlotState: Bool = true
     ) async throws {
         let version = try await context.provider.deviceInfo().version
-        if transport.kind == .smartCard, context.deviceTransport == .usb,
+        if try await usesUSBCCID(context, transport),
             version >= Version("4.0.0")!, version < Version("5.3.0")!
         {
             try context.skip("OTP over USB CCID needs firmware < 4.0 or >= 5.3, device is \(version)")
@@ -373,7 +382,7 @@ enum OTPScenario {
         session: YubiOTP.Session
     ) async throws {
         var session = session
-        if transport.kind == .smartCard, context.deviceTransport == .usb {
+        if try await usesUSBCCID(context, transport) {
             guard context.provider.capabilities.hasOTP else {
                 context.log("USB CCID only: the HMAC secret is not verified")
                 return

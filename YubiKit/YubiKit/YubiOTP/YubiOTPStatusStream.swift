@@ -44,7 +44,7 @@ extension YubiOTP {
     /// let response = try await session.calculateHMACSHA1(challenge: challenge, in: .two).value
     /// ```
     ///
-    /// To prompt for touch, or to let the user cancel, iterate the stream:
+    /// Over OTP keyboard HID, iterate the stream to prompt for touch or offer cancellation:
     ///
     /// ```swift
     /// for try await status in await session.calculateHMACSHA1(challenge: challenge, in: .two) {

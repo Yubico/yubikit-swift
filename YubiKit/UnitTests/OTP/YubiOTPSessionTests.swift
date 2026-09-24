@@ -169,7 +169,7 @@ struct YubiOTPSessionTests {
 
     // MARK: - Challenge-response
 
-    @Test("a wired SmartCard session does not support challenge-response")
+    @Test("a USB SmartCard session does not support challenge-response")
     func wiredSmartCardRejectsChallengeResponse() async throws {
         let connection = MockSmartCardConnection(responses: [status()])
         let session = try await YubiOTP.Session.makeSession(connection: connection)
@@ -177,7 +177,7 @@ struct YubiOTPSessionTests {
         #expect(await session.supports(.challengeResponse) == false)
         do {
             _ = try await session.calculateHMACSHA1(challenge: Data([1]), in: .one).value
-            Issue.record("A wired SmartCard session calculated a response")
+            Issue.record("A USB SmartCard session calculated a response")
         } catch .featureNotSupported {
         } catch {
             Issue.record("Unexpected error: \(error)")
@@ -185,16 +185,25 @@ struct YubiOTPSessionTests {
         #expect(await connection.sendCount == 1)
     }
 
-    @Test("an NFC session supports challenge-response")
-    func nfcSupportsChallengeResponse() async throws {
+    @Test("NFC and Lightning sessions support challenge-response", arguments: [false, true])
+    func smartCardSupportsChallengeResponse(isLightning: Bool) async throws {
         let response = Data(repeating: 0xAB, count: 20)
-        let connection = MockSmartCardConnection(responses: [
-            managementSelect([5, 7, 4]), status(), response + Data([0x90, 0]),
-        ])
-        let session = try await YubiOTP.Session.makeSession(connection: connection, isNFC: true)
+        let version: [UInt8] = [5, 2, 4]
+        let responses =
+            (isLightning ? [] : [managementSelect(version)])
+            + [status(version), response + Data([0x90, 0])]
+        let connection = MockSmartCardConnection(responses: responses)
+        let session = try await YubiOTP.Session.makeSession(
+            connection: connection,
+            isNFC: !isLightning,
+            isLightning: isLightning
+        )
 
         #expect(await session.supports(.challengeResponse))
         #expect(try await session.calculateHMACSHA1(challenge: Data([1]), in: .one).value == response)
+        // NFC uses dummy slot state on 5.2.4; Lightning must retain the actual flags.
+        #expect(try await session.configState.isConfigured(.one) == !isLightning)
+        #expect(await connection.sendCount == (isLightning ? 2 : 3))
     }
 
     // MARK: - Data responses

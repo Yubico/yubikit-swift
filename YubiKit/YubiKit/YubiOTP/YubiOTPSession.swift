@@ -38,7 +38,7 @@ extension YubiOTP {
 
         /// Determines whether the session supports the specified feature.
         ///
-        /// The result depends on the firmware version and on the transport. A USB or Lightning SmartCard
+        /// The result depends on the firmware version and on the transport. A USB SmartCard
         /// session does not support ``YubiOTP/Feature/challengeResponse``.
         public func supports(_ feature: Feature) async -> Bool {
             guard feature.isSupported(by: version) else { return false }
@@ -78,10 +78,17 @@ extension YubiOTP {
         ) async throws(YubiOTP.SessionError) -> Session {
             #if os(iOS)
             let isNFC = connection.nfcConnection != nil
+            let isLightning = connection.lightningConnection != nil
             #else
             let isNFC = false
+            let isLightning = false
             #endif
-            return try await makeSession(connection: connection, scpKeyParams: scpKeyParams, isNFC: isNFC)
+            return try await makeSession(
+                connection: connection,
+                scpKeyParams: scpKeyParams,
+                isNFC: isNFC,
+                isLightning: isLightning
+            )
         }
 
         /// Reads the serial number of the YubiKey.
@@ -96,15 +103,15 @@ extension YubiOTP {
 
         /// Calculates the HMAC-SHA1 response to a challenge with the secret of a slot.
         ///
-        /// A slot programmed with `requireTouch` waits for a touch of the YubiKey. The stream reports
-        /// the wait as ``YubiOTP/Status/waitingForUser(cancel:)``. Read ``YubiOTP/StatusStream/value``
+        /// Over OTP keyboard HID, a slot programmed with `requireTouch` waits for a touch of the YubiKey.
+        /// The stream reports the wait as ``YubiOTP/Status/waitingForUser(cancel:)``. Read ``YubiOTP/StatusStream/value``
         /// when you do not need this feedback.
         ///
-        /// > Important: Only the OTP keyboard transport can wait for a touch. Over NFC, the YubiKey
-        /// > rejects a slot that requires touch. USB and Lightning SmartCard do not support challenge-response.
+        /// > Important: Only the OTP keyboard transport reports touch progress and supports cancellation.
+        /// > Over NFC, the YubiKey rejects a slot that requires touch. USB SmartCard does not support challenge-response.
         ///
         /// > Note: Requires ``YubiOTP/Feature/challengeResponse``, available on YubiKey 2.2 or later over the
-        /// > OTP keyboard transport or NFC. Otherwise the stream throws
+        /// > OTP keyboard transport, NFC, or Lightning. Otherwise the stream throws
         /// > ``YubiOTP/SessionError/featureNotSupported(source:)``.
         ///
         /// > Warning: The session pads a challenge shorter than 64 bytes. A slot programmed with
@@ -161,7 +168,8 @@ extension YubiOTP {
         static func makeSession(
             connection: SmartCardConnection,
             scpKeyParams: SCPKeyParams? = nil,
-            isNFC: Bool
+            isNFC: Bool,
+            isLightning: Bool = false
         ) async throws(YubiOTP.SessionError) -> Session {
             // Over NFC, the Management application reports the firmware version more reliably.
             var managementVersion: Version?
@@ -187,7 +195,8 @@ extension YubiOTP {
             let interface = try Interface(
                 interface: smartCardInterface,
                 managementVersion: managementVersion,
-                isNFC: isNFC
+                isNFC: isNFC,
+                supportsChallengeResponse: isNFC || isLightning
             )
             return await Session(interface: interface, transport: "SmartCard")
         }

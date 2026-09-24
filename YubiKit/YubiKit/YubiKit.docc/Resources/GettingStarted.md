@@ -81,7 +81,8 @@ To support YubiKeys connected via the USB port on a device running iOS 16 or hig
 ![An image showing how to add NFC privacy string to project.](smart-card.png)
 
 > Note: USB SmartCard supports Yubico OTP slot programming. HMAC-SHA1 challenge-response requires
-> ``HIDOTPConnection`` on macOS or NFC without a touch requirement. See ``YubiOTP/Session``.
+> ``HIDOTPConnection`` on macOS, ``LightningSmartCardConnection``, or NFC without a touch requirement.
+> See ``YubiOTP/Session``.
 
 ### Lightning/AccessoryConnection i.e 5Ci YubiKey
 

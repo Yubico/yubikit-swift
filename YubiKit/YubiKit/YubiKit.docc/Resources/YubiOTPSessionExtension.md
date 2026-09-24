@@ -26,13 +26,13 @@ let response = try await session.calculateHMACSHA1(challenge: challenge, in: .tw
 Create a session with an ``OTPConnection`` on macOS or a ``SmartCardConnection`` on macOS and
 iOS. The available operations depend on the connection:
 
-| Operation | OTP keyboard HID (macOS) | USB or Lightning SmartCard | NFC |
-| --- | --- | --- | --- |
-| Slot programming | Yes | Yes | Yes |
-| HMAC-SHA1 challenge-response | Yes | No | Only without touch |
-| Touch progress and cancellation | Yes | No | No |
+| Operation | OTP keyboard HID (macOS) | USB SmartCard | Lightning | NFC |
+| --- | --- | --- | --- | --- |
+| Slot programming | Yes | Yes | Yes | Yes |
+| HMAC-SHA1 challenge-response | Yes | No | Yes | Only without touch |
+| Touch progress and cancellation | Yes | No | No | No |
 
-For slots configured with `requireTouch: true`, iterate ``YubiOTP/StatusStream`` to prompt for
+Over OTP keyboard HID, for slots configured with `requireTouch: true`, iterate ``YubiOTP/StatusStream`` to prompt for
 touch and offer cancellation using the closure supplied by ``YubiOTP/Status/waitingForUser(cancel:)``.
 
 ### Access Codes
