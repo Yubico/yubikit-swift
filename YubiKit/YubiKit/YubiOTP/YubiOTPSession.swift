@@ -165,7 +165,7 @@ extension YubiOTP {
 
         let interface: Interface
 
-        static func makeSession(
+        package static func makeSession(
             connection: SmartCardConnection,
             scpKeyParams: SCPKeyParams? = nil,
             isNFC: Bool,
