@@ -90,7 +90,10 @@ extension StatusStreamBase {
                     return first
                 }
 
-                if !completed {
+                // Cancelling the reader also ends its loop; only the winner decides completion.
+                if completed {
+                    continuation.finish()
+                } else {
                     continuation.yield(error: timeoutError)
                 }
             }
