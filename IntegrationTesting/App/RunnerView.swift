@@ -200,8 +200,12 @@ struct RunnerView: View {
 private struct TestKeyAuthorizationView: View {
     @ObservedObject var model: RunnerViewModel
     @Environment(\.dismiss) private var dismiss
-    @State private var serialNumber = ""
+    @State private var device: DeviceInfo?
+    @State private var identifyError: String?
+    @State private var isIdentifying = false
     @State private var confirmation = ""
+
+    private var isNFC: Bool { model.backend == .nfc }
 
     var body: some View {
         NavigationStack {
@@ -211,22 +215,23 @@ private struct TestKeyAuthorizationView: View {
                         .foregroundStyle(.red)
                     Text("Scenarios can reset applications and overwrite credentials, PINs, keys, and OTP slots.")
                     Text(
-                        "Only the serial number entered below will be authorized. Authorization is cleared when the app restarts."
+                        "Only the YubiKey shown below will be authorized. Authorization is cleared when the app restarts."
                     )
                 }
-                Section("YubiKey serial number") {
-                    TextField("Serial number", text: $serialNumber)
-                        .accessibilityIdentifier("testKeySerialNumber")
-                        #if os(iOS)
-                    .keyboardType(.numberPad)
-                        #endif
+                Section("YubiKey") {
+                    identifiedKey
+                    Button(device == nil ? (isNFC ? "Scan YubiKey" : "Detect YubiKey") : "Detect again") {
+                        Task { await identify() }
+                    }
+                    .accessibilityIdentifier("identifyTestKey")
+                    .disabled(isIdentifying)
                 }
                 Section {
                     TextField("Confirmation", text: $confirmation)
                         .accessibilityIdentifier("testKeyConfirmation")
                         .autocorrectionDisabled()
                         #if os(iOS)
-                    .textInputAutocapitalization(.never)
+                    .textInputAutocapitalization(.characters)
                         #endif
                 } header: {
                     Text(
@@ -236,15 +241,14 @@ private struct TestKeyAuthorizationView: View {
                 }
                 Section {
                     Button("Authorize test key", role: .destructive) {
-                        if model.authorizeTestKey(serialNumber: serialNumber, confirmation: confirmation) {
+                        if let device, model.authorizeTestKey(device, confirmation: confirmation) {
                             dismiss()
                         }
                     }
                     .accessibilityIdentifier("authorizeTestKey")
                     .disabled(
-                        !model.canChangeAuthorization
-                            || RunnerViewModel.authorizationSerialNumber(serialNumber, confirmation: confirmation)
-                                == nil
+                        !model.canChangeAuthorization || isIdentifying || device == nil
+                            || !RunnerViewModel.isAuthorizationConfirmed(confirmation)
                     )
                 }
             }
@@ -256,9 +260,50 @@ private struct TestKeyAuthorizationView: View {
                 }
             }
         }
+        .task {
+            // NFC needs the user to start a tap, so only wired keys are read automatically.
+            if !isNFC { await identify() }
+        }
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 480)
         #endif
+    }
+
+    @ViewBuilder private var identifiedKey: some View {
+        if isIdentifying {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(isNFC ? "Tap your YubiKey…" : "Reading the connected YubiKey…")
+                    .foregroundStyle(.secondary)
+            }
+        } else if let device {
+            LabeledContent("Serial number", value: String(device.serialNumber))
+            LabeledContent("Form factor", value: "\(device.formFactor)")
+            LabeledContent("Firmware", value: "\(device.version)")
+        } else if let identifyError {
+            Label(identifyError, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.secondary)
+        } else {
+            Text(isNFC ? "Scan the YubiKey you want to authorize." : "Connect the YubiKey you want to authorize.")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func identify() async {
+        guard !isIdentifying else { return }
+        isIdentifying = true
+        device = nil
+        identifyError = nil
+        // A new key must be confirmed again.
+        confirmation = ""
+        do {
+            device = try await model.identifyTestKey()
+        } catch let ProviderError.unavailable(message), let ProviderError.unsupported(message) {
+            identifyError = message
+        } catch {
+            identifyError = String(describing: error)
+        }
+        isIdentifying = false
     }
 }
 

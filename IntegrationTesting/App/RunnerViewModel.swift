@@ -81,20 +81,31 @@ final class RunnerViewModel: ObservableObject {
 
     var canChangeAuthorization: Bool { !isRunning && !isProbing }
 
-    static func authorizationSerialNumber(_ text: String, confirmation: String) -> UInt? {
-        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard confirmation == "DANGEROUS", !text.isEmpty,
-            text.utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }),
-            let serial = UInt(text), serial > 0
-        else { return nil }
-        return serial
+    static let authorizationPhrase = "DANGEROUS"
+
+    static func isAuthorizationConfirmed(_ confirmation: String) -> Bool {
+        confirmation == authorizationPhrase
     }
 
-    func authorizeTestKey(serialNumber: String, confirmation: String) -> Bool {
-        guard canChangeAuthorization,
-            let serial = Self.authorizationSerialNumber(serialNumber, confirmation: confirmation)
-        else { return false }
-        authorizedSerialNumber = serial
+    /// Reads the YubiKey that would be authorized: the connected key for wired, a tapped key for NFC.
+    func identifyTestKey() async throws -> DeviceInfo {
+        switch backend {
+        case .wired:
+            return try await WiredConnectionProvider.identifyConnectedYubiKey()
+        case .nfc:
+            #if os(iOS)
+            return try await NFCConnectionProvider().identifyTappedYubiKey()
+            #else
+            throw ProviderError.unsupported("NFC is only available on iOS.")
+            #endif
+        }
+    }
+
+    func authorizeTestKey(_ device: DeviceInfo, confirmation: String) -> Bool {
+        guard canChangeAuthorization, device.serialNumber > 0, Self.isAuthorizationConfirmed(confirmation) else {
+            return false
+        }
+        authorizedSerialNumber = device.serialNumber
         results.removeAll()
         backendAlert = nil
         refreshBackend()

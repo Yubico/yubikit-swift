@@ -62,6 +62,23 @@ public struct NFCConnectionProvider: ConnectionProvider {
         throw ProviderError.unsupported("NFC has no FIDO/HID transport")
     }
 
+    /// Reads `DeviceInfo` from a tapped YubiKey, ignoring the allow-list.
+    ///
+    /// This only reads device information, so an app can show which key the user is about to
+    /// authorize for destructive scenarios.
+    public func identifyTappedYubiKey() async throws -> DeviceInfo {
+        let connection = try await NFCSmartCardConnection(alertMessage: alertMessage)
+        let info: DeviceInfo
+        do {
+            info = try await Management.Session.makeSession(connection: connection).getDeviceInfo()
+        } catch {
+            await connection.close(error: error)
+            throw error
+        }
+        await connection.close(error: nil)
+        return try WiredConnectionProvider.authorizable(info)
+    }
+
     public func deviceInfo() async throws -> DeviceInfo {
         if let cached = await infoCache.value { return cached }
         let connection = try await makeSmartCardConnection()
