@@ -38,6 +38,7 @@ final class RunnerViewModel: ObservableObject {
     }
     @Published var failuresOnly = false
     @Published var secureChannel: SecureChannelPolicy = .none
+    @Published private(set) var authorizedSerialNumber: UInt?
 
     @Published private(set) var results: [Scenario: Scenario.Result] = [:]
     @Published private(set) var runningScenario: Scenario?
@@ -74,6 +75,49 @@ final class RunnerViewModel: ObservableObject {
         #else
         return [.wired]
         #endif
+    }
+
+    // MARK: - Test key authorization
+
+    var canChangeAuthorization: Bool { !isRunning && !isProbing }
+
+    static let authorizationPhrase = "DANGEROUS"
+
+    static func isAuthorizationConfirmed(_ confirmation: String) -> Bool {
+        confirmation == authorizationPhrase
+    }
+
+    /// Reads the YubiKey that would be authorized: the connected key for wired, a tapped key for NFC.
+    func identifyTestKey() async throws -> DeviceInfo {
+        switch backend {
+        case .wired:
+            return try await WiredConnectionProvider.identifyConnectedYubiKey()
+        case .nfc:
+            #if os(iOS)
+            return try await NFCConnectionProvider().identifyTappedYubiKey()
+            #else
+            throw ProviderError.unsupported("NFC is only available on iOS.")
+            #endif
+        }
+    }
+
+    func authorizeTestKey(_ device: DeviceInfo, confirmation: String) -> Bool {
+        guard canChangeAuthorization, device.serialNumber > 0, Self.isAuthorizationConfirmed(confirmation) else {
+            return false
+        }
+        authorizedSerialNumber = device.serialNumber
+        results.removeAll()
+        backendAlert = nil
+        refreshBackend()
+        return true
+    }
+
+    func revokeTestKeyAuthorization() {
+        guard canChangeAuthorization else { return }
+        authorizedSerialNumber = nil
+        results.removeAll()
+        backendAlert = nil
+        refreshBackend()
     }
 
     // MARK: - Gating
@@ -213,12 +257,13 @@ final class RunnerViewModel: ObservableObject {
     }
 
     private func makeProvider() -> (any ConnectionProvider)? {
+        let allowed = authorizedSerialNumber.map { [$0] } ?? WiredConnectionProvider.allowedSerialNumbers
         switch backend {
         case .wired:
-            return WiredConnectionProvider()
+            return WiredConnectionProvider(allowedSerialNumbers: allowed)
         case .nfc:
             #if os(iOS)
-            return NFCConnectionProvider()
+            return NFCConnectionProvider(allowedSerialNumbers: allowed)
             #else
             return nil
             #endif

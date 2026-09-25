@@ -19,6 +19,7 @@ import YubiKitIntegrationScenarios
 struct RunnerView: View {
     @StateObject private var model = RunnerViewModel()
     @State private var selection: SidebarItem?
+    @State private var showTestKeyAuthorization = false
 
     #if os(macOS)
     @State private var showInspector = true
@@ -38,7 +39,18 @@ struct RunnerView: View {
             scenarioList
                 .navigationTitle("")
                 .toolbarTitleDisplayMode(.inline)
-                .safeAreaInset(edge: .top) { ControlBar(model: model) }
+                .safeAreaInset(edge: .top) {
+                    VStack(spacing: 0) {
+                        ControlBar(model: model)
+                        if let serial = model.authorizedSerialNumber {
+                            TestKeyAuthorizationBanner(
+                                serialNumber: serial,
+                                canRevoke: model.canChangeAuthorization,
+                                revoke: model.revokeTestKeyAuthorization
+                            )
+                        }
+                    }
+                }
                 .safeAreaInset(edge: .bottom) { CountsBar(model: model) }
                 .toolbar { toolbar }
                 .inspector(isPresented: $showInspector) {
@@ -58,9 +70,14 @@ struct RunnerView: View {
             if new != nil { showInspector = true }
         }
         .alert("No YubiKey available", isPresented: backendAlertBinding, presenting: model.backendAlert) { _ in
+            Button("Authorize test key…") { showTestKeyAuthorization = true }
+                .disabled(!model.canChangeAuthorization)
             Button("OK", role: .cancel) {}
         } message: { alert in
             Text(alert.message)
+        }
+        .sheet(isPresented: $showTestKeyAuthorization) {
+            TestKeyAuthorizationView(model: model)
         }
     }
 
@@ -129,6 +146,14 @@ struct RunnerView: View {
                     }
                 }
                 #endif
+                Section("Test key") {
+                    Button {
+                        showTestKeyAuthorization = true
+                    } label: {
+                        Label("Authorize test key…", systemImage: "exclamationmark.triangle")
+                    }
+                    .disabled(!model.canChangeAuthorization)
+                }
                 Section("Secure channel") {
                     Picker("Secure channel", selection: $model.secureChannel) {
                         Text("None").tag(SecureChannelPolicy.none)
@@ -170,6 +195,138 @@ struct RunnerView: View {
     }
 }
 
+// MARK: - Test key authorization
+
+private struct TestKeyAuthorizationView: View {
+    @ObservedObject var model: RunnerViewModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var device: DeviceInfo?
+    @State private var identifyError: String?
+    @State private var isIdentifying = false
+    @State private var confirmation = ""
+
+    private var isNFC: Bool { model.backend == .nfc }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Label("Tests can permanently erase this YubiKey", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                    Text("Scenarios can reset applications and overwrite credentials, PINs, keys, and OTP slots.")
+                    Text(
+                        "Only the YubiKey shown below will be authorized. Authorization is cleared when the app restarts."
+                    )
+                }
+                Section("YubiKey") {
+                    identifiedKey
+                    Button(device == nil ? (isNFC ? "Scan YubiKey" : "Detect YubiKey") : "Detect again") {
+                        Task { await identify() }
+                    }
+                    .accessibilityIdentifier("identifyTestKey")
+                    .disabled(isIdentifying)
+                }
+                Section {
+                    TextField("Confirmation", text: $confirmation)
+                        .accessibilityIdentifier("testKeyConfirmation")
+                        .autocorrectionDisabled()
+                        #if os(iOS)
+                    .textInputAutocapitalization(.characters)
+                        #endif
+                } header: {
+                    Text(
+                        "Type DANGEROUS to confirm",
+                        comment: "DANGEROUS is a literal confirmation phrase; do not translate it."
+                    )
+                }
+                Section {
+                    Button("Authorize test key", role: .destructive) {
+                        if let device, model.authorizeTestKey(device, confirmation: confirmation) {
+                            dismiss()
+                        }
+                    }
+                    .accessibilityIdentifier("authorizeTestKey")
+                    .disabled(
+                        !model.canChangeAuthorization || isIdentifying || device == nil
+                            || !RunnerViewModel.isAuthorizationConfirmed(confirmation)
+                    )
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Authorize test key")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", role: .cancel) { dismiss() }
+                }
+            }
+        }
+        .task {
+            // NFC needs the user to start a tap, so only wired keys are read automatically.
+            if !isNFC { await identify() }
+        }
+        #if os(macOS)
+        .frame(minWidth: 440, minHeight: 480)
+        #endif
+    }
+
+    @ViewBuilder private var identifiedKey: some View {
+        if isIdentifying {
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text(isNFC ? "Tap your YubiKey…" : "Reading the connected YubiKey…")
+                    .foregroundStyle(.secondary)
+            }
+        } else if let device {
+            LabeledContent("Serial number", value: String(device.serialNumber))
+            LabeledContent("Form factor", value: "\(device.formFactor)")
+            LabeledContent("Firmware", value: "\(device.version)")
+        } else if let identifyError {
+            Label(identifyError, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.secondary)
+        } else {
+            Text(isNFC ? "Scan the YubiKey you want to authorize." : "Connect the YubiKey you want to authorize.")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func identify() async {
+        guard !isIdentifying else { return }
+        isIdentifying = true
+        device = nil
+        identifyError = nil
+        // A new key must be confirmed again.
+        confirmation = ""
+        do {
+            device = try await model.identifyTestKey()
+        } catch let ProviderError.unavailable(message), let ProviderError.unsupported(message) {
+            identifyError = message
+        } catch {
+            identifyError = String(describing: error)
+        }
+        isIdentifying = false
+    }
+}
+
+private struct TestKeyAuthorizationBanner: View {
+    let serialNumber: UInt
+    let canRevoke: Bool
+    let revoke: () -> Void
+
+    var body: some View {
+        HStack {
+            Label("Test key \(String(serialNumber)) authorized", systemImage: "exclamationmark.triangle.fill")
+                .font(.callout)
+            Spacer(minLength: 8)
+            Button("Revoke", action: revoke)
+                .disabled(!canRevoke)
+        }
+        .foregroundStyle(.red)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.red.opacity(0.08))
+    }
+}
+
 // MARK: - Control bar (shared across platforms)
 
 private struct ControlBar: View {
@@ -186,7 +343,7 @@ private struct ControlBar: View {
                 .pickerStyle(.menu)
                 .fixedSize()
                 .labelsHidden()
-                .disabled(model.isRunning)
+                .disabled(model.isRunning || model.isProbing)
                 .help("Run scenarios over a wired connection or NFC")
             }
 

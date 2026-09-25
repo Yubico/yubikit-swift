@@ -47,7 +47,8 @@ public struct NFCConnectionProvider: ConnectionProvider {
             guard await infoCache.acceptsAndCaches(info, allowed: allowed) else {
                 throw ProviderError.unavailable(
                     "The tapped YubiKey (serial \(info.serialNumber)) is not the selected "
-                        + "YubiKey, or is not in YUBIKEY_TEST_SERIALS."
+                        + "YubiKey, or is not allowed. "
+                        + WiredConnectionProvider.allowlistHint
                 )
             }
             return connection
@@ -59,6 +60,23 @@ public struct NFCConnectionProvider: ConnectionProvider {
 
     public func makeFIDOConnection() async throws -> any FIDOConnection {
         throw ProviderError.unsupported("NFC has no FIDO/HID transport")
+    }
+
+    /// Reads `DeviceInfo` from a tapped YubiKey, ignoring the allow-list.
+    ///
+    /// This only reads device information, so an app can show which key the user is about to
+    /// authorize for destructive scenarios.
+    public func identifyTappedYubiKey() async throws -> DeviceInfo {
+        let connection = try await NFCSmartCardConnection(alertMessage: alertMessage)
+        let info: DeviceInfo
+        do {
+            info = try await Management.Session.makeSession(connection: connection).getDeviceInfo()
+        } catch {
+            await connection.close(error: error)
+            throw error
+        }
+        await connection.close(error: nil)
+        return try WiredConnectionProvider.authorizable(info)
     }
 
     public func deviceInfo() async throws -> DeviceInfo {

@@ -27,6 +27,11 @@ public struct WiredConnectionProvider: ConnectionProvider {
     public static let allowedSerialNumbers: [UInt] =
         ((try? serialConfiguration.get()) ?? []) + simulatorSerialNumbers
 
+    /// How to allow a YubiKey that the serial allowlist rejected.
+    static let allowlistHint =
+        "Add its serial to YUBIKEY_TEST_SERIALS, or authorize it in the IntegrationTesting app "
+        + "(More → Authorize test key…)."
+
     static let serialConfiguration = parseSerials(
         ProcessInfo.processInfo.environment["YUBIKEY_TEST_SERIALS"]
     )
@@ -80,7 +85,7 @@ public struct WiredConnectionProvider: ConnectionProvider {
         #endif
 
         throw ProviderError.unavailable(
-            "No allowed YubiKey found over \(transports). Add its serial to YUBIKEY_TEST_SERIALS."
+            "No allowed YubiKey found over \(transports). \(Self.allowlistHint)"
         )
     }
 
@@ -136,7 +141,7 @@ public struct WiredConnectionProvider: ConnectionProvider {
             await connection.close(error: nil)
         }
         throw ProviderError.unavailable(
-            "No allowed YubiKey found over USB HID. Add its serial to YUBIKEY_TEST_SERIALS."
+            "No allowed YubiKey found over USB HID. \(Self.allowlistHint)"
         )
         #else
         throw ProviderError.unsupported("FIDO HID is only available on macOS")
@@ -157,7 +162,7 @@ public struct WiredConnectionProvider: ConnectionProvider {
             await connection.close(error: nil)
         }
         throw ProviderError.unavailable(
-            "No allowed YubiKey found over the OTP interface. Add its serial to YUBIKEY_TEST_SERIALS."
+            "No allowed YubiKey found over the OTP interface. \(Self.allowlistHint)"
         )
         #else
         throw ProviderError.unsupported("The OTP keyboard interface is only available on macOS")
@@ -182,6 +187,69 @@ public struct WiredConnectionProvider: ConnectionProvider {
         await connection.close(error: nil)
         guard let info = await infoCache.value else {
             throw ProviderError.unavailable("Could not read DeviceInfo from the connected YubiKey.")
+        }
+        return info
+    }
+
+    // MARK: - Identification
+
+    /// Reads `DeviceInfo` from the one YubiKey connected over USB or Lightning, ignoring the allow-list.
+    ///
+    /// This only reads device information, so an app can show which key the user is about to
+    /// authorize for destructive scenarios. It fails when no key, or more than one key, is connected.
+    public static func identifyConnectedYubiKey() async throws -> DeviceInfo {
+        var found: [UInt: DeviceInfo] = [:]
+
+        if let slots = try? await USBSmartCardConnection.availableDevices() {
+            for slot in slots {
+                guard let connection = try? await USBSmartCardConnection(slot: slot) else { continue }
+                if let info = try? await Management.Session.makeSession(connection: connection).getDeviceInfo() {
+                    found[info.serialNumber] = info
+                }
+                await connection.close(error: nil)
+            }
+        }
+
+        #if os(iOS)
+        if found.isEmpty, await LightningProbe.hasConnectedYubiKey,
+            let connection = try? await LightningSmartCardConnection()
+        {
+            if let info = try? await Management.Session.makeSession(connection: connection).getDeviceInfo() {
+                found[info.serialNumber] = info
+            }
+            await connection.close(error: nil)
+        }
+        let transports = "USB or Lightning"
+        #else
+        let transports = "USB"
+        #endif
+
+        #if os(macOS)
+        if found.isEmpty, let devices = try? await HIDFIDOConnection.availableDevices() {
+            for device in devices {
+                guard let connection = try? await HIDFIDOConnection.makeConnection(device: device) else { continue }
+                if let info = try? await Management.Session.makeSession(connection: connection).getDeviceInfo() {
+                    found[info.serialNumber] = info
+                }
+                await connection.close(error: nil)
+            }
+        }
+        #endif
+
+        guard !found.isEmpty else {
+            throw ProviderError.unavailable("No YubiKey found over \(transports).")
+        }
+        guard found.count == 1, let info = found.values.first else {
+            throw ProviderError.unavailable(
+                "More than one YubiKey is connected. Connect only the YubiKey you want to authorize."
+            )
+        }
+        return try authorizable(info)
+    }
+
+    static func authorizable(_ info: DeviceInfo) throws -> DeviceInfo {
+        guard info.serialNumber > 0 else {
+            throw ProviderError.unavailable("This YubiKey does not report a serial number, so it cannot be authorized.")
         }
         return info
     }
