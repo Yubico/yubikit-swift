@@ -172,7 +172,7 @@ public final class TwinKitFIDOChannel: @unchecked Sendable {
 /// by polling `receive()`, exactly as on a real key.
 public final class TwinKitKeyboardChannel: @unchecked Sendable {
     /// The size of one OTP feature report in bytes.
-    let reportSize = 8
+    private let reportSize = 8
 
     private let backend: TwinKitBackend
     private let lifecycle = TwinKitConnectionLifecycle()

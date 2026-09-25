@@ -422,7 +422,7 @@ enum OTPScenario {
     }
 }
 
-struct OTPTransport: ScenarioParameter {
+private struct OTPTransport: ScenarioParameter {
 
     let kind: Scenario.Context.OTPTransportKind
     let slot: YubiOTP.Slot?

@@ -67,20 +67,6 @@ extension Scenario.Context {
         return session
     }
 
-    func oathSession(reset: Bool = true) async throws -> OATHSession {
-        let connection = try await smartCardConnection()
-        let scp = try await scpKeyParams()
-        let session = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
-        if reset {
-            try await session.reset()
-            addTeardown {
-                let cleanup = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
-                try await cleanup.reset()
-            }
-        }
-        return session
-    }
-
     enum OTPTransportKind: Sendable, CaseIterable {
         case otpHID
         case smartCard

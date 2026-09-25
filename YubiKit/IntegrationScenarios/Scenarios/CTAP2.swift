@@ -2427,7 +2427,7 @@ extension CTAP2Scenario {
 extension Scenario.Context {
     /// Expects `body` to throw a `CTAP2.SessionError.ctapError` carrying one of `codes`. Records a
     /// failure (without aborting the scenario) if it returns or throws anything else.
-    func expectCTAPError(
+    fileprivate func expectCTAPError(
         _ codes: CTAP2.Error...,
         during action: String,
         file: String = #fileID,

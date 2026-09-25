@@ -70,7 +70,7 @@ final class RunnerViewModel: ObservableObject {
     @Published private(set) var providerTransport: DeviceTransport?
     @Published private(set) var ctap2Transport: CTAP2Transport?
 
-    let suites = Scenario.Catalog.suites
+    private let suites = Scenario.Catalog.suites
     private var task: Task<Void, Never>?
 
     init() {
@@ -90,7 +90,7 @@ final class RunnerViewModel: ObservableObject {
 
     var canChangeAuthorization: Bool { !isRunning && !isProbing }
 
-    static let authorizationPhrase = "DANGEROUS"
+    private static let authorizationPhrase = "DANGEROUS"
 
     static func isAuthorizationConfirmed(_ confirmation: String) -> Bool {
         confirmation == authorizationPhrase

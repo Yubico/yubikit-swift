@@ -26,7 +26,7 @@ import YubiKitTwinTesting
 // FORCE_SCP=automatic|scp11b|scp03, SCENARIO=<id-substring>.
 enum ScenarioTests {
 
-    static var usesTwinKit: Bool {
+    private static var usesTwinKit: Bool {
         #if canImport(YubiKitTwinTesting)
         true
         #else
@@ -34,11 +34,11 @@ enum ScenarioTests {
         #endif
     }
 
-    static var backendConfigured: Bool {
+    fileprivate static var backendConfigured: Bool {
         usesTwinKit || ProcessInfo.processInfo.environment["YUBIKEY_TEST_SERIALS"] != nil
     }
 
-    static var configurationErrors: [String] {
+    fileprivate static var configurationErrors: [String] {
         var errors: [String] = []
         if !usesTwinKit, case .failure(let error) = WiredConnectionProvider.serialConfiguration {
             errors.append(error.description)
@@ -65,9 +65,9 @@ enum ScenarioTests {
         return errors
     }
 
-    static var configurationIsValid: Bool { configurationErrors.isEmpty }
+    fileprivate static var configurationIsValid: Bool { configurationErrors.isEmpty }
 
-    static func makeProvider() -> any ConnectionProvider {
+    fileprivate static func makeProvider() -> any ConnectionProvider {
         #if canImport(YubiKitTwinTesting)
         TwinKitConnectionProvider()
         #else
@@ -75,13 +75,13 @@ enum ScenarioTests {
         #endif
     }
 
-    static var only: String? {
+    private static var only: String? {
         ProcessInfo.processInfo.environment["SCENARIO"]
     }
 
     private static let validSecureChannelValues = ["", "none", "automatic", "auto", "scp11b", "11b", "scp03", "03"]
 
-    static var forcedSecureChannel: SecureChannelPolicy {
+    private static var forcedSecureChannel: SecureChannelPolicy {
         switch ProcessInfo.processInfo.environment["FORCE_SCP"]?.lowercased() {
         case "automatic", "auto": return .automatic
         case "scp11b", "11b": return .scp11b
