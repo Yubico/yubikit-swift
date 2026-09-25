@@ -37,6 +37,9 @@ final class RunnerViewModel: ObservableObject {
         }
     }
     @Published var failuresOnly = false
+    /// A failure is a bug (or a missed touch), so by default a run stops at the first one.
+    @Published var stopOnFirstFailure = true
+    @Published private(set) var stoppedAfterFailure: Scenario?
     @Published var secureChannel: SecureChannelPolicy = .none
     @Published private(set) var authorizedSerialNumber: UInt?
 
@@ -181,6 +184,7 @@ final class RunnerViewModel: ObservableObject {
             return
         }
         isRunning = true
+        stoppedAfterFailure = nil
         ranCount = 0
         runTotal = scenarios.count
         let runner = Scenario.Runner(provider: provider, secureChannel: secureChannel)
@@ -208,6 +212,10 @@ final class RunnerViewModel: ObservableObject {
                 self.ranCount += 1
                 if case .backendUnavailable(let reason) = result.status {
                     self.backendAlert = BackendAlert(message: reason)
+                    break
+                }
+                if self.stopOnFirstFailure, result.status == .failed || result.status == .errored {
+                    self.stoppedAfterFailure = scenario
                     break
                 }
             }

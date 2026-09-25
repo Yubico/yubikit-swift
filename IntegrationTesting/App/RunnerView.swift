@@ -154,6 +154,12 @@ struct RunnerView: View {
                     }
                     .disabled(!model.canChangeAuthorization)
                 }
+                Section("Run") {
+                    Toggle(isOn: $model.stopOnFirstFailure) {
+                        Label("Stop at first failure", systemImage: "stop.circle")
+                    }
+                    .disabled(model.isRunning)
+                }
                 Section("Secure channel") {
                     Picker("Secure channel", selection: $model.secureChannel) {
                         Text("None").tag(SecureChannelPolicy.none)
@@ -508,6 +514,11 @@ private struct CountsBar: View {
                     .font(.callout).monospacedDigit().foregroundStyle(.secondary)
                     .lineLimit(1).fixedSize()
             } else {
+                if let stopped = model.stoppedAfterFailure {
+                    Label("Stopped at \(stopped.name)", systemImage: "stop.circle.fill")
+                        .font(.callout).foregroundStyle(.red).lineLimit(1)
+                        .help("The run stops at the first failure. Turn this off in More → Stop at first failure.")
+                }
                 if model.secureChannel != .none {
                     Label(secureChannelLabel(model.secureChannel), systemImage: "lock.shield")
                         .font(.callout).foregroundStyle(.teal).lineLimit(1)
