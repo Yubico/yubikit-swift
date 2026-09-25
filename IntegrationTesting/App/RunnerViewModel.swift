@@ -90,8 +90,6 @@ final class RunnerViewModel: ObservableObject {
 
     var canChangeAuthorization: Bool { !isRunning && !isProbing }
 
-    private static let authorizationPhrase = "DANGEROUS"
-
     static func isAuthorizationConfirmed(_ confirmation: String) -> Bool {
         confirmation == authorizationPhrase
     }
@@ -128,6 +126,8 @@ final class RunnerViewModel: ObservableObject {
         backendAlert = nil
         refreshBackend()
     }
+
+    private static let authorizationPhrase = "DANGEROUS"
 
     // MARK: - Gating
 

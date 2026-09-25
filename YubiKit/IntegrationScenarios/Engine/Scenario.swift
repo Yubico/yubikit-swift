@@ -14,28 +14,15 @@
 
 import Foundation
 
-enum Platform: Sendable, Equatable {
-    case all
-    case macOS
-    case iOS
-
-    var runsHere: Bool {
-        #if os(macOS)
-        return self == .all || self == .macOS
-        #else
-        return self == .all || self == .iOS
-        #endif
-    }
-}
-
 @_spi(YubiInternal) public struct SourceLocation: Sendable, CustomStringConvertible {
+    public var description: String { "\(fileID):\(line)" }
+
     let fileID: String
     let line: Int
     init(fileID: String = #fileID, line: Int = #line) {
         self.fileID = fileID
         self.line = line
     }
-    public var description: String { "\(fileID):\(line)" }
 }
 
 @_spi(YubiInternal) public struct Scenario: Sendable, Identifiable, Hashable, CustomStringConvertible {
@@ -70,16 +57,17 @@ enum Platform: Sendable, Equatable {
     public let suite: Suite
     public let name: String
     public let requirements: Requirements
-    let platform: Platform
-    /// The interface this variant runs CTAP2 over; `nil` uses the backend's default.
-    let ctap2Transport: CTAP2Transport?
-    let run: @Sendable (Scenario.Context) async throws -> Void
 
     public var description: String { id }
 
     // Identity is the id; the body closure is not Equatable.
     public static func == (lhs: Scenario, rhs: Scenario) -> Bool { lhs.id == rhs.id }
     public func hash(into hasher: inout Hasher) { hasher.combine(id) }
+
+    let platform: Platform
+    /// The interface this variant runs CTAP2 over; `nil` uses the backend's default.
+    let ctap2Transport: CTAP2Transport?
+    let run: @Sendable (Scenario.Context) async throws -> Void
 
     init(
         _ id: String,
@@ -113,6 +101,20 @@ enum Platform: Sendable, Equatable {
             ctap2Transport: transport,
             run: run
         )
+    }
+}
+
+enum Platform: Sendable, Equatable {
+    case all
+    case macOS
+    case iOS
+
+    var runsHere: Bool {
+        #if os(macOS)
+        return self == .all || self == .macOS
+        #else
+        return self == .all || self == .iOS
+        #endif
     }
 }
 

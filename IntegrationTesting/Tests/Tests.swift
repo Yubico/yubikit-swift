@@ -26,12 +26,43 @@ import YubiKit
 // FORCE_SCP=automatic|scp11b|scp03, SCENARIO=<id-substring>.
 enum ScenarioTests {
 
-    private static var usesTwinKit: Bool {
-        #if canImport(YubiKitTwinTesting)
-        true
-        #else
-        false
-        #endif
+    /// Catalog entries for `suite`, narrowed by `SCENARIO` to the ids containing that substring.
+    static func selected(in suite: Scenario.Suite) -> [Scenario] {
+        let scenarios = Scenario.Catalog.scenarios(in: suite)
+        guard let only else { return scenarios }
+        return scenarios.filter { $0.id.localizedCaseInsensitiveContains(only) }
+    }
+
+    static func run(_ scenario: Scenario) async throws {
+        let result = await Scenario.Runner(provider: makeProvider(), secureChannel: forcedSecureChannel).run(scenario) {
+            switch $0 {
+            case .touchPrompt(let scenario, let prompt), .reinsertPrompt(let scenario, let prompt):
+                print("[\(scenario.id)] \(prompt)")
+            default:
+                break
+            }
+        }
+        switch result.status {
+        case .passed:
+            await ScenarioOutcomeLog.shared.recordPassed()
+        case .skipped(let reason):
+            await ScenarioOutcomeLog.shared.recordSkip(id: scenario.id, reason: reason)
+            try Test.cancel(Comment(rawValue: "scenario \(scenario.id) skipped: \(reason)"))
+        case .backendUnavailable(let reason):
+            await ScenarioOutcomeLog.shared.recordFailed(id: scenario.id, summary: "backend unavailable: \(reason)")
+            Issue.record(Comment(rawValue: "scenario \(scenario.id) backend unavailable: \(reason)"))
+        case .failed, .errored, .running:
+            let summary = result.failures.first?.message ?? result.thrownError ?? "\(result.status)"
+            await ScenarioOutcomeLog.shared.recordFailed(id: scenario.id, summary: summary)
+            var report = "scenario \(scenario.id) \(result.status)"
+            for failure in result.failures {
+                report += "\n  • \(failure.message)  (\(failure.location))"
+            }
+            if let thrown = result.thrownError {
+                report += "\n  • threw: \(thrown)"
+            }
+            Issue.record(Comment(rawValue: report))
+        }
     }
 
     fileprivate static var backendConfigured: Bool {
@@ -75,6 +106,14 @@ enum ScenarioTests {
         #endif
     }
 
+    private static var usesTwinKit: Bool {
+        #if canImport(YubiKitTwinTesting)
+        true
+        #else
+        false
+        #endif
+    }
+
     private static var only: String? {
         ProcessInfo.processInfo.environment["SCENARIO"]
     }
@@ -87,45 +126,6 @@ enum ScenarioTests {
         case "scp11b", "11b": return .scp11b
         case "scp03", "03": return .scp03
         default: return .none
-        }
-    }
-
-    /// Catalog entries for `suite`, narrowed by `SCENARIO` to the ids containing that substring.
-    static func selected(in suite: Scenario.Suite) -> [Scenario] {
-        let scenarios = Scenario.Catalog.scenarios(in: suite)
-        guard let only else { return scenarios }
-        return scenarios.filter { $0.id.localizedCaseInsensitiveContains(only) }
-    }
-
-    static func run(_ scenario: Scenario) async throws {
-        let result = await Scenario.Runner(provider: makeProvider(), secureChannel: forcedSecureChannel).run(scenario) {
-            switch $0 {
-            case .touchPrompt(let scenario, let prompt), .reinsertPrompt(let scenario, let prompt):
-                print("[\(scenario.id)] \(prompt)")
-            default:
-                break
-            }
-        }
-        switch result.status {
-        case .passed:
-            await ScenarioOutcomeLog.shared.recordPassed()
-        case .skipped(let reason):
-            await ScenarioOutcomeLog.shared.recordSkip(id: scenario.id, reason: reason)
-            try Test.cancel(Comment(rawValue: "scenario \(scenario.id) skipped: \(reason)"))
-        case .backendUnavailable(let reason):
-            await ScenarioOutcomeLog.shared.recordFailed(id: scenario.id, summary: "backend unavailable: \(reason)")
-            Issue.record(Comment(rawValue: "scenario \(scenario.id) backend unavailable: \(reason)"))
-        case .failed, .errored, .running:
-            let summary = result.failures.first?.message ?? result.thrownError ?? "\(result.status)"
-            await ScenarioOutcomeLog.shared.recordFailed(id: scenario.id, summary: summary)
-            var report = "scenario \(scenario.id) \(result.status)"
-            for failure in result.failures {
-                report += "\n  • \(failure.message)  (\(failure.location))"
-            }
-            if let thrown = result.thrownError {
-                report += "\n  • threw: \(thrown)"
-            }
-            Issue.record(Comment(rawValue: report))
         }
     }
 }
