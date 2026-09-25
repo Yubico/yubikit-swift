@@ -44,6 +44,13 @@ enum Gate {
             where !deviceInfo.isApplicationSupported(capability, over: transport) {
                 return .skip(reason: "requires \(capability) over \(transport)")
             }
+            // Supported is not enough: a disabled application answers SELECT with "file not found".
+            if deviceInfo.config.enabledCapabilities[transport] != nil {
+                for capability in requirements.capabilities
+                where !deviceInfo.config.isApplicationEnabled(capability, over: transport) {
+                    return .skip(reason: "requires \(capability) enabled over \(transport) (disabled on this key)")
+                }
+            }
             if requirements.requiresBio, !isBio(deviceInfo) {
                 return .skip(reason: "requires a Bio (fingerprint) device")
             }

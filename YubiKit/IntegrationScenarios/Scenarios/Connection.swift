@@ -132,7 +132,7 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
                 context.expect(bytes[0] == 5, "expected a YubiKey 5 series device, got major \(bytes[0])")
 
                 // Selecting a non-existent AID must report not-found rather than succeed.
-                let notFoundResponse = try await connection.send(data: selectAPDU(aid: [0x01, 0x02, 0x03]))
+                let notFoundResponse = try await connection.send(data: selectAPDU(aid: nonexistentAID))
                 let notFoundStatus = responseStatus(notFoundResponse)
                 context.expect(
                     notFoundStatus == .fileNotFound
@@ -147,7 +147,7 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
                 "selecting a non-existent applet reports application-not-available"
             ) { context in
                 let connection = try await context.smartCardConnection()
-                let status = responseStatus(try await connection.send(data: selectAPDU(aid: [0x01, 0x02, 0x03])))
+                let status = responseStatus(try await connection.send(data: selectAPDU(aid: nonexistentAID)))
                 context.expect(
                     status == .fileNotFound
                         || status == .incorrectParameters
@@ -239,6 +239,10 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
 // MARK: - Suite-private helpers
 
 private struct ConnectionTestError: Error {}
+
+// A Yubico-prefixed AID that no YubiKey implements. iOS only lets apps SELECT AIDs declared in their
+// Info.plist, so this one is listed in IntegrationTesting-Info.plist to keep the check working over NFC.
+private let nonexistentAID: [UInt8] = [0xA0, 0x00, 0x00, 0x05, 0x27, 0xFF, 0xFF]
 
 private func selectAPDU(aid: [UInt8]) -> Data {
     Data([0x00, 0xA4, 0x04, 0x00, UInt8(aid.count)] + aid)

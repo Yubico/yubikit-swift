@@ -908,7 +908,13 @@ private func freshOATHSession(_ context: Scenario.Context) async throws -> OATHS
         let cleanup = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
         try await cleanup.reset()
     }
-    return try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
+    let session = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
+    // A FIPS-capable OATH application rejects PUT (0x6985) until an access key is set.
+    let fipsCapable = try await context.provider.deviceInfo().fipsCapabilityFlags & Capability.oath.rawValue != 0
+    if fipsCapable {
+        try await session.setPassword(oathPassword)
+    }
+    return session
 }
 
 private func populatedOATHSession(

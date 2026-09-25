@@ -183,7 +183,13 @@ extension Scenario {
             recorder.addLog(message)
         }
 
+        /// Asks the user to touch the key. Over NFC the tap already proves presence, so there is
+        /// nothing to touch and the prompt is only logged.
         nonisolated func touch(_ prompt: String) {
+            guard provider.deviceTransport != .nfc else {
+                log("NFC: user presence is implied by the tap (\(prompt))")
+                return
+            }
             onEvent(.touchPrompt(scenario, prompt))
         }
 

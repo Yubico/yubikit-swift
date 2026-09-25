@@ -84,6 +84,7 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                 requirements: Requirements(capabilities: [.fido2])
             ) { context in
                 let session = try await context.ctap2Session()
+                context.touch("Touch the key to confirm the FIDO reset")
                 for try await _ in await session.reset() {}
                 context.expect(
                     try await session.getInfo().options.clientPin != true,
@@ -1037,12 +1038,7 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     using: .pin(defaultTestPin),
                     permissions: [.credentialManagement]
                 )
-                let credMgmt = try await session.credentialManagement(token: cmToken)
-                for try await rp in credMgmt.rps {
-                    for try await cred in credMgmt.credentials(for: rp.rpIdHash) {
-                        try await credMgmt.deleteCredential(cred.credentialId)
-                    }
-                }
+                try await session.credentialManagement(token: cmToken).deleteAllCredentials()
 
                 let encState1 = try context.require(
                     (try await session.getInfo()).encCredStoreState,
@@ -1673,7 +1669,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                 let previewSign = try await CTAP2.Extension.PreviewSign(session: session)
                 let token = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
-                    permissions: [.makeCredential]
+                    permissions: [.makeCredential],
+                    rpId: "example.com"
                 )
                 let params = CTAP2.MakeCredential.Parameters(
                     clientDataHash: defaultClientDataHash,
@@ -1714,7 +1711,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     guard !validFlags.contains(flags) else { continue }
                     let token = try await session.getPinUVToken(
                         using: .pin(defaultTestPin),
-                        permissions: [.makeCredential]
+                        permissions: [.makeCredential],
+                        rpId: "example.com"
                     )
                     let params = CTAP2.MakeCredential.Parameters(
                         clientDataHash: defaultClientDataHash,
@@ -1756,7 +1754,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
 
                 let mcToken = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
-                    permissions: [.makeCredential]
+                    permissions: [.makeCredential],
+                    rpId: "example.com"
                 )
                 let mcParams = CTAP2.MakeCredential.Parameters(
                     clientDataHash: defaultClientDataHash,
@@ -1825,7 +1824,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
 
                 let mcToken = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
-                    permissions: [.makeCredential]
+                    permissions: [.makeCredential],
+                    rpId: "example.com"
                 )
                 let mcParams = CTAP2.MakeCredential.Parameters(
                     clientDataHash: defaultClientDataHash,
@@ -1892,7 +1892,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
 
                 let mcToken = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
-                    permissions: [.makeCredential]
+                    permissions: [.makeCredential],
+                    rpId: "example.com"
                 )
                 let mcParams = CTAP2.MakeCredential.Parameters(
                     clientDataHash: defaultClientDataHash,
@@ -2646,12 +2647,7 @@ private func makeCredProtectCredential(
 }
 
 private func deleteAllCredentials(_ session: CTAP2.Session) async throws {
-    let credMgmt = try await getCredentialManagement(session)
-    for try await rp in credMgmt.rps {
-        for try await credential in credMgmt.credentials(for: rp.rpIdHash) {
-            try await credMgmt.deleteCredential(credential.credentialId)
-        }
-    }
+    try await getCredentialManagement(session).deleteAllCredentials()
 }
 
 /// Verifies persistent token read/write behavior.
