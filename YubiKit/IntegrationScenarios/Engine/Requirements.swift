@@ -30,6 +30,9 @@ public struct Requirements: Sendable {
     /// Forbid a FIPS-certified device (behavior that FIPS firmware blocks, e.g. PIN policy NEVER).
     public var excludesFIPS: Bool
     public var requiresFIDOTransport: Bool
+    /// Run CTAP2 over the smart-card (CCID) interface. Over USB, YubiKeys offer this from firmware 5.8,
+    /// and only while a CCID application is enabled.
+    var requiresCTAP2OverCCID: Bool
     /// Require the Yubico OTP keyboard HID transport.
     public var requiresOTPTransport: Bool
     public var requiresLightning: Bool
@@ -47,6 +50,7 @@ public struct Requirements: Sendable {
         requiresFIPS: Bool = false,
         excludesFIPS: Bool = false,
         requiresFIDOTransport: Bool = false,
+        requiresCTAP2OverCCID: Bool = false,
         requiresOTPTransport: Bool = false,
         requiresLightning: Bool = false,
         requiresSCP: Bool = false,
@@ -61,6 +65,7 @@ public struct Requirements: Sendable {
         self.requiresFIPS = requiresFIPS
         self.excludesFIPS = excludesFIPS
         self.requiresFIDOTransport = requiresFIDOTransport
+        self.requiresCTAP2OverCCID = requiresCTAP2OverCCID
         self.requiresOTPTransport = requiresOTPTransport
         self.requiresLightning = requiresLightning
         self.requiresSCP = requiresSCP
@@ -70,6 +75,6 @@ public struct Requirements: Sendable {
     /// Whether these requirements need `DeviceInfo`.
     var needsDeviceInfo: Bool {
         !capabilities.isEmpty || minVersion != nil || maxVersion != nil
-            || requiresBio || excludesBio || requiresFIPS || excludesFIPS
+            || requiresBio || excludesBio || requiresFIPS || excludesFIPS || requiresCTAP2OverCCID
     }
 }

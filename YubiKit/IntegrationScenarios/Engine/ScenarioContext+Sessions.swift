@@ -106,7 +106,7 @@ extension Scenario.Context {
     }
 
     func ctap2Session() async throws -> CTAP2.Session {
-        switch provider.ctap2Transport {
+        switch ctap2Transport {
         case .ccid:
             let connection = try await smartCardConnection()
             let scp = try await scpKeyParams()

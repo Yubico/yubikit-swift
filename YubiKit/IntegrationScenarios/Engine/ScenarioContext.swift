@@ -63,6 +63,9 @@ extension Scenario {
         nonisolated private let recorder = Recorder()
 
         nonisolated var recordedFailures: [Scenario.Failure] { recorder.failures }
+
+        /// The CTAP2 interface for this scenario: its variant's, or the backend's default.
+        nonisolated var ctap2Transport: CTAP2Transport { scenario.ctap2Transport ?? provider.ctap2Transport }
         nonisolated var recordedLogs: [String] { recorder.logs }
 
         private var teardown: [Teardown] = []

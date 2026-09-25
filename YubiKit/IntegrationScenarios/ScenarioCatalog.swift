@@ -39,9 +39,9 @@ extension Scenario {
             scenarios += OATHScenario.allScenarios
             scenarios += OTPScenario.allScenarios
             scenarios += ConnectionScenario.allScenarios
-            scenarios += CTAP2Scenario.allScenarios
+            scenarios += CTAP2Scenario.allScenarios.overEveryCTAP2Transport()
             scenarios += CTAPHIDScenario.allScenarios
-            scenarios += WebAuthnScenario.allScenarios
+            scenarios += WebAuthnScenario.allScenarios.overEveryCTAP2Transport()
             scenarios += SCPScenario.allScenarios
             return scenarios
         }()

@@ -71,6 +71,8 @@ public struct Scenario: Sendable, Identifiable, Hashable, CustomStringConvertibl
     public let name: String
     public let requirements: Requirements
     public let platform: Platform
+    /// The interface this variant runs CTAP2 over; `nil` uses the backend's default.
+    let ctap2Transport: CTAP2Transport?
     let run: @Sendable (Scenario.Context) async throws -> Void
 
     public var description: String { id }
@@ -84,6 +86,7 @@ public struct Scenario: Sendable, Identifiable, Hashable, CustomStringConvertibl
         _ name: String,
         requirements: Requirements = .init(),
         platform: Platform = .all,
+        ctap2Transport: CTAP2Transport? = nil,
         run: @escaping @Sendable (Scenario.Context) async throws -> Void
     ) {
         self.id = id
@@ -91,6 +94,32 @@ public struct Scenario: Sendable, Identifiable, Hashable, CustomStringConvertibl
         self.name = name
         self.requirements = requirements
         self.platform = platform
+        self.ctap2Transport = ctap2Transport
         self.run = run
+    }
+
+    /// This scenario pinned to one CTAP2 interface: FIDO HID (unavailable on iOS and NFC) or the
+    /// smart-card (CCID) interface.
+    fileprivate func over(_ transport: CTAP2Transport) -> Scenario {
+        let isHID = transport == .fido
+        var requirements = requirements
+        requirements.requiresFIDOTransport = isHID
+        requirements.requiresCTAP2OverCCID = !isHID
+        return Scenario(
+            "\(id).\(isHID ? "hid" : "ccid")",
+            "\(name) (\(isHID ? "HID" : "CCID"))",
+            requirements: requirements,
+            platform: platform,
+            ctap2Transport: transport,
+            run: run
+        )
+    }
+}
+
+extension [Scenario] {
+    /// Every scenario over FIDO HID, then over CCID, each pass from its own clean state. A scenario
+    /// that needs FIDO HID (such as keepalive cancel) runs only over HID.
+    func overEveryCTAP2Transport() -> [Scenario] {
+        map { $0.over(.fido) } + filter { !$0.requirements.requiresFIDOTransport }.map { $0.over(.ccid) }
     }
 }
