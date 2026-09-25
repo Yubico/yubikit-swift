@@ -16,79 +16,15 @@ import Foundation
 import Testing
 import YubiKit
 
-@testable import YubiKitIntegrationScenarios
+@_spi(YubiInternal) @testable import YubiKitIntegrationScenarios
 
 #if canImport(YubiKitTwinTesting)
-import YubiKitTwinTesting
+@_spi(YubiInternal) import YubiKitTwinTesting
 #endif
 
 // CLI knobs: YUBIKIT_ENABLE_TWINKIT=1, YUBIKEY_TEST_SERIALS,
 // FORCE_SCP=automatic|scp11b|scp03, SCENARIO=<id-substring>.
 enum ScenarioTests {
-
-    static var usesTwinKit: Bool {
-        #if canImport(YubiKitTwinTesting)
-        true
-        #else
-        false
-        #endif
-    }
-
-    static var backendConfigured: Bool {
-        usesTwinKit || ProcessInfo.processInfo.environment["YUBIKEY_TEST_SERIALS"] != nil
-    }
-
-    static var configurationErrors: [String] {
-        var errors: [String] = []
-        if !usesTwinKit, case .failure(let error) = WiredConnectionProvider.serialConfiguration {
-            errors.append(error.description)
-        }
-        if let filter = ProcessInfo.processInfo.environment["SCENARIO"] {
-            if filter.isEmpty {
-                errors.append("SCENARIO must not be empty")
-            } else if !Scenario.Catalog.all.contains(where: {
-                $0.id.localizedCaseInsensitiveContains(filter)
-            }) {
-                errors.append("SCENARIO '\(filter)' does not match any scenario id")
-            }
-        }
-        if let value = ProcessInfo.processInfo.environment["FORCE_SCP"],
-            !validSecureChannelValues.contains(value.lowercased())
-        {
-            errors.append("invalid FORCE_SCP value '\(value)' (expected automatic, scp11b, scp03, or none)")
-        }
-        #if canImport(YubiKitTwinTesting)
-        if let error = TwinKitConnectionProvider.environmentConfigurationError {
-            errors.append(error)
-        }
-        #endif
-        return errors
-    }
-
-    static var configurationIsValid: Bool { configurationErrors.isEmpty }
-
-    static func makeProvider() -> any ConnectionProvider {
-        #if canImport(YubiKitTwinTesting)
-        TwinKitConnectionProvider()
-        #else
-        WiredConnectionProvider()
-        #endif
-    }
-
-    static var only: String? {
-        ProcessInfo.processInfo.environment["SCENARIO"]
-    }
-
-    private static let validSecureChannelValues = ["", "none", "automatic", "auto", "scp11b", "11b", "scp03", "03"]
-
-    static var forcedSecureChannel: SecureChannelPolicy {
-        switch ProcessInfo.processInfo.environment["FORCE_SCP"]?.lowercased() {
-        case "automatic", "auto": return .automatic
-        case "scp11b", "11b": return .scp11b
-        case "scp03", "03": return .scp03
-        default: return .none
-        }
-    }
 
     /// Catalog entries for `suite`, narrowed by `SCENARIO` to the ids containing that substring.
     static func selected(in suite: Scenario.Suite) -> [Scenario] {
@@ -126,6 +62,70 @@ enum ScenarioTests {
                 report += "\n  • threw: \(thrown)"
             }
             Issue.record(Comment(rawValue: report))
+        }
+    }
+
+    fileprivate static var backendConfigured: Bool {
+        usesTwinKit || ProcessInfo.processInfo.environment["YUBIKEY_TEST_SERIALS"] != nil
+    }
+
+    fileprivate static var configurationErrors: [String] {
+        var errors: [String] = []
+        if !usesTwinKit, case .failure(let error) = WiredConnectionProvider.serialConfiguration {
+            errors.append(error.description)
+        }
+        if let filter = ProcessInfo.processInfo.environment["SCENARIO"] {
+            if filter.isEmpty {
+                errors.append("SCENARIO must not be empty")
+            } else if !Scenario.Catalog.all.contains(where: {
+                $0.id.localizedCaseInsensitiveContains(filter)
+            }) {
+                errors.append("SCENARIO '\(filter)' does not match any scenario id")
+            }
+        }
+        if let value = ProcessInfo.processInfo.environment["FORCE_SCP"],
+            !validSecureChannelValues.contains(value.lowercased())
+        {
+            errors.append("invalid FORCE_SCP value '\(value)' (expected automatic, scp11b, scp03, or none)")
+        }
+        #if canImport(YubiKitTwinTesting)
+        if let error = TwinKitConnectionProvider.environmentConfigurationError {
+            errors.append(error)
+        }
+        #endif
+        return errors
+    }
+
+    fileprivate static var configurationIsValid: Bool { configurationErrors.isEmpty }
+
+    fileprivate static func makeProvider() -> any ConnectionProvider {
+        #if canImport(YubiKitTwinTesting)
+        TwinKitConnectionProvider()
+        #else
+        WiredConnectionProvider()
+        #endif
+    }
+
+    private static var usesTwinKit: Bool {
+        #if canImport(YubiKitTwinTesting)
+        true
+        #else
+        false
+        #endif
+    }
+
+    private static var only: String? {
+        ProcessInfo.processInfo.environment["SCENARIO"]
+    }
+
+    private static let validSecureChannelValues = ["", "none", "automatic", "auto", "scp11b", "11b", "scp03", "03"]
+
+    private static var forcedSecureChannel: SecureChannelPolicy {
+        switch ProcessInfo.processInfo.environment["FORCE_SCP"]?.lowercased() {
+        case "automatic", "auto": return .automatic
+        case "scp11b", "11b": return .scp11b
+        case "scp03", "03": return .scp03
+        default: return .none
         }
     }
 }

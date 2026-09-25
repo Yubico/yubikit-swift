@@ -18,7 +18,7 @@ import YubiKit
 #if os(iOS)
 
 /// Real YubiKey provider over NFC.
-public struct NFCConnectionProvider: ConnectionProvider {
+@_spi(YubiInternal) public struct NFCConnectionProvider: ConnectionProvider {
 
     public let capabilities = ProviderCapabilities(
         hasFIDO: false,

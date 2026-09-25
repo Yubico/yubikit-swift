@@ -16,29 +16,30 @@ import Foundation
 import YubiKit
 
 /// Declarative preconditions for a scenario.
-public struct Requirements: Sendable {
+@_spi(YubiInternal) public struct Requirements: Sendable {
     public var capabilities: Set<Capability>
     public var minVersion: Version?
-    /// Inclusive upper firmware bound; with `minVersion` this expresses a version range.
-    public var maxVersion: Version?
     public var transports: Set<DeviceTransport>?
     public var requiresBio: Bool
     /// Forbid a Bio device.
     public var excludesBio: Bool
-    /// Require a FIPS-certified device.
-    public var requiresFIPS: Bool
-    /// Forbid a FIPS-certified device (behavior that FIPS firmware blocks, e.g. PIN policy NEVER).
-    public var excludesFIPS: Bool
     public var requiresFIDOTransport: Bool
-    /// Run CTAP2 over the smart-card (CCID) interface. Over USB, YubiKeys offer this from firmware 5.8,
-    /// and only while a CCID application is enabled.
-    var requiresCTAP2OverCCID: Bool
-    /// Require the Yubico OTP keyboard HID transport.
-    public var requiresOTPTransport: Bool
     public var requiresLightning: Bool
     public var requiresSCP: Bool
     /// Require real silicon.
     public var requiresRealHardware: Bool
+
+    /// Inclusive upper firmware bound; with `minVersion` this expresses a version range.
+    var maxVersion: Version?
+    /// Require a FIPS-certified device.
+    var requiresFIPS: Bool
+    /// Forbid a FIPS-certified device (behavior that FIPS firmware blocks, e.g. PIN policy NEVER).
+    var excludesFIPS: Bool
+    /// Run CTAP2 over the smart-card (CCID) interface. Over USB, YubiKeys offer this from firmware 5.8,
+    /// and only while a CCID application is enabled.
+    var requiresCTAP2OverCCID: Bool
+    /// Require the Yubico OTP keyboard HID transport.
+    var requiresOTPTransport: Bool
 
     init(
         capabilities: Set<Capability> = [],

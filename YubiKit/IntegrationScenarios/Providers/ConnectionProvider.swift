@@ -15,7 +15,7 @@
 import Foundation
 import YubiKit
 
-public protocol ConnectionProvider: Sendable {
+@_spi(YubiInternal) public protocol ConnectionProvider: Sendable {
 
     var capabilities: ProviderCapabilities { get }
 
@@ -56,10 +56,8 @@ extension ConnectionProvider {
     }
 }
 
-public struct ProviderCapabilities: Sendable {
+@_spi(YubiInternal) public struct ProviderCapabilities: Sendable {
     public var hasFIDO: Bool
-    /// Whether the backend exposes the Yubico OTP keyboard HID interface.
-    public var hasOTP: Bool
     public var hasLightning: Bool
     public var supportsSecureChannel: Bool
     public var isVirtual: Bool
@@ -77,14 +75,17 @@ public struct ProviderCapabilities: Sendable {
         self.supportsSecureChannel = supportsSecureChannel
         self.isVirtual = isVirtual
     }
+
+    /// Whether the backend exposes the Yubico OTP keyboard HID interface.
+    var hasOTP: Bool
 }
 
-public enum CTAP2Transport: Sendable, Equatable {
+@_spi(YubiInternal) public enum CTAP2Transport: Sendable, Equatable {
     case ccid
     case fido
 }
 
-public enum ProviderError: Error, Sendable {
+@_spi(YubiInternal) public enum ProviderError: Error, Sendable {
     case unsupported(String)
     case unavailable(String)
 }

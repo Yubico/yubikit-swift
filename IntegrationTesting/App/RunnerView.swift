@@ -14,7 +14,7 @@
 
 import SwiftUI
 import YubiKit
-import YubiKitIntegrationScenarios
+@_spi(YubiInternal) import YubiKitIntegrationScenarios
 
 struct RunnerView: View {
     @StateObject private var model = RunnerViewModel()

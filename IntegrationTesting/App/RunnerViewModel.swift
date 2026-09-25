@@ -15,7 +15,7 @@
 import Foundation
 import SwiftUI
 import YubiKit
-import YubiKitIntegrationScenarios
+@_spi(YubiInternal) import YubiKitIntegrationScenarios
 
 @MainActor
 final class RunnerViewModel: ObservableObject {
@@ -70,7 +70,7 @@ final class RunnerViewModel: ObservableObject {
     @Published private(set) var providerTransport: DeviceTransport?
     @Published private(set) var ctap2Transport: CTAP2Transport?
 
-    let suites = Scenario.Catalog.suites
+    private let suites = Scenario.Catalog.suites
     private var task: Task<Void, Never>?
 
     init() {
@@ -89,8 +89,6 @@ final class RunnerViewModel: ObservableObject {
     // MARK: - Test key authorization
 
     var canChangeAuthorization: Bool { !isRunning && !isProbing }
-
-    static let authorizationPhrase = "DANGEROUS"
 
     static func isAuthorizationConfirmed(_ confirmation: String) -> Bool {
         confirmation == authorizationPhrase
@@ -128,6 +126,8 @@ final class RunnerViewModel: ObservableObject {
         backendAlert = nil
         refreshBackend()
     }
+
+    private static let authorizationPhrase = "DANGEROUS"
 
     // MARK: - Gating
 

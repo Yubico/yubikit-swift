@@ -38,24 +38,11 @@ public enum TwinKitSmartCardTransport: Sendable {
 public actor TwinKitBackend {
     public static let shared = TwinKitBackend()
 
-    private static let environmentProfileConfiguration: (profile: DeviceProfile?, error: String?) = {
-        guard let value = ProcessInfo.processInfo.environment["YUBIKIT_ENABLE_TWINKIT"],
-            !value.isEmpty, value != "1"
-        else { return (nil, nil) }
-        guard let profile = DeviceProfile(rawValue: value) else {
-            return (nil, "invalid YUBIKIT_ENABLE_TWINKIT profile '\(value)'")
-        }
-        return (profile, nil)
-    }()
-
     /// The profile read from `YUBIKIT_ENABLE_TWINKIT`; `"1"` selects the default profile.
     public static let environmentProfile = environmentProfileConfiguration.profile
 
     /// A configuration error when `YUBIKIT_ENABLE_TWINKIT` names an unknown profile.
     public static let environmentProfileConfigurationError = environmentProfileConfiguration.error
-
-    private var device: TwinDevice?
-    private let profile: DeviceProfile?
 
     public init(profile: DeviceProfile? = TwinKitBackend.environmentProfile) {
         self.profile = profile
@@ -99,6 +86,19 @@ public actor TwinKitBackend {
         try loadDevice().dispatch(tag: tag, payload: payload)
     }
 
+    private static let environmentProfileConfiguration: (profile: DeviceProfile?, error: String?) = {
+        guard let value = ProcessInfo.processInfo.environment["YUBIKIT_ENABLE_TWINKIT"],
+            !value.isEmpty, value != "1"
+        else { return (nil, nil) }
+        guard let profile = DeviceProfile(rawValue: value) else {
+            return (nil, "invalid YUBIKIT_ENABLE_TWINKIT profile '\(value)'")
+        }
+        return (profile, nil)
+    }()
+
+    private var device: TwinDevice?
+    private let profile: DeviceProfile?
+
     private func loadDevice() throws(TwinKitSupportError) -> TwinDevice {
         if let device { return device }
         do {
@@ -112,15 +112,6 @@ public actor TwinKitBackend {
 }
 
 public final class TwinKitSmartCardChannel: @unchecked Sendable {
-    private let backend: TwinKitBackend
-    private let transport: TwinKitSmartCardTransport
-    private let lifecycle = TwinKitConnectionLifecycle()
-
-    fileprivate init(backend: TwinKitBackend, transport: TwinKitSmartCardTransport) {
-        self.backend = backend
-        self.transport = transport
-    }
-
     public func send(_ data: Data) async throws(TwinKitSupportError) -> Data {
         guard !lifecycle.isClosed else { throw .connectionLost }
         return try await backend.dispatch(tag: transport.tag, payload: data)
@@ -133,17 +124,19 @@ public final class TwinKitSmartCardChannel: @unchecked Sendable {
     public func waitUntilClosed() async -> Error? {
         await lifecycle.waitUntilClosed()
     }
+
+    fileprivate init(backend: TwinKitBackend, transport: TwinKitSmartCardTransport) {
+        self.backend = backend
+        self.transport = transport
+    }
+
+    private let backend: TwinKitBackend
+    private let transport: TwinKitSmartCardTransport
+    private let lifecycle = TwinKitConnectionLifecycle()
 }
 
 public final class TwinKitFIDOChannel: @unchecked Sendable {
     public let mtu = 64
-
-    private let backend: TwinKitBackend
-    private let lifecycle = TwinKitConnectionLifecycle()
-
-    fileprivate init(backend: TwinKitBackend) {
-        self.backend = backend
-    }
 
     public func send(_ report: Data) async throws(TwinKitSupportError) {
         guard !lifecycle.isClosed else { throw .connectionLost }
@@ -165,22 +158,19 @@ public final class TwinKitFIDOChannel: @unchecked Sendable {
     public func waitUntilClosed() async -> Error? {
         await lifecycle.waitUntilClosed()
     }
+
+    fileprivate init(backend: TwinKitBackend) {
+        self.backend = backend
+    }
+
+    private let backend: TwinKitBackend
+    private let lifecycle = TwinKitConnectionLifecycle()
 }
 
 /// The twin's keyboard/OTP HID interface: whole 8-byte feature reports over the
 /// `keyboardWrite` / `keyboardRead` tags. A write returns no payload — the host learns the outcome
 /// by polling `receive()`, exactly as on a real key.
 public final class TwinKitKeyboardChannel: @unchecked Sendable {
-    /// The size of one OTP feature report in bytes.
-    public let reportSize = 8
-
-    private let backend: TwinKitBackend
-    private let lifecycle = TwinKitConnectionLifecycle()
-
-    fileprivate init(backend: TwinKitBackend) {
-        self.backend = backend
-    }
-
     /// Sends one OTP feature report to the twin.
     public func send(_ report: Data) async throws(TwinKitSupportError) {
         guard !lifecycle.isClosed else { throw .connectionLost }
@@ -205,14 +195,19 @@ public final class TwinKitKeyboardChannel: @unchecked Sendable {
     public func waitUntilClosed() async -> Error? {
         await lifecycle.waitUntilClosed()
     }
+
+    fileprivate init(backend: TwinKitBackend) {
+        self.backend = backend
+    }
+
+    /// The size of one OTP feature report in bytes.
+    private let reportSize = 8
+
+    private let backend: TwinKitBackend
+    private let lifecycle = TwinKitConnectionLifecycle()
 }
 
 private final class TwinKitConnectionLifecycle: @unchecked Sendable {
-    private let lock = NSLock()
-    private var closed = false
-    private var closeError: Error?
-    private var waiters: [CheckedContinuation<Error?, Never>] = []
-
     var isClosed: Bool {
         lock.withLock { closed }
     }
@@ -238,4 +233,9 @@ private final class TwinKitConnectionLifecycle: @unchecked Sendable {
             if let error { continuation.resume(returning: error) }
         }
     }
+
+    private let lock = NSLock()
+    private var closed = false
+    private var closeError: Error?
+    private var waiters: [CheckedContinuation<Error?, Never>] = []
 }
