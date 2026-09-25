@@ -33,7 +33,7 @@ let codes = try await session.calculateCredentialCodes()
 
 - <doc:GettingStarted>
 - <doc:LoggingGuide>
-- ``Logging``
+- ``Logs``
 
 ### Sample code
 

@@ -101,14 +101,14 @@ extension Logger {
 }
 
 extension Logger {
-    fileprivate static var nfc: Logger { Logging.logger(category: "NFC") }
-    fileprivate static var lightning: Logger { Logging.logger(category: "Lightning") }
-    fileprivate static var smartCard: Logger { Logging.logger(category: "SmartCard") }
-    fileprivate static var oath: Logger { Logging.logger(category: "OATH") }
-    fileprivate static var management: Logger { Logging.logger(category: "Management") }
-    fileprivate static var piv: Logger { Logging.logger(category: "PIV") }
-    fileprivate static var fido: Logger { Logging.logger(category: "FIDO") }
-    fileprivate static var securityDomain: Logger { Logging.logger(category: "SecurityDomain") }
-    fileprivate static var otp: Logger { Logging.logger(category: "YubiOTP") }
-    fileprivate static var scp: Logger { Logging.logger(category: "SCP") }
+    fileprivate static var nfc: Logger { Logs.logger(category: "NFC") }
+    fileprivate static var lightning: Logger { Logs.logger(category: "Lightning") }
+    fileprivate static var smartCard: Logger { Logs.logger(category: "SmartCard") }
+    fileprivate static var oath: Logger { Logs.logger(category: "OATH") }
+    fileprivate static var management: Logger { Logs.logger(category: "Management") }
+    fileprivate static var piv: Logger { Logs.logger(category: "PIV") }
+    fileprivate static var fido: Logger { Logs.logger(category: "FIDO") }
+    fileprivate static var securityDomain: Logger { Logs.logger(category: "SecurityDomain") }
+    fileprivate static var otp: Logger { Logs.logger(category: "YubiOTP") }
+    fileprivate static var scp: Logger { Logs.logger(category: "SCP") }
 }

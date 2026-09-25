@@ -1,6 +1,6 @@
 # Logging
 
-Choose YubiKit's log level and backend with ``Logging/configure(logLevel:factory:)``.
+Choose YubiKit's log level and backend with ``Logs/configure(logLevel:factory:)``.
 
 ## Overview
 
@@ -12,18 +12,18 @@ import YubiKit
 import Logging
 
 // Show warnings and errors.
-Logging.configure(logLevel: .warning)
+YubiKit.Logs.configure(logLevel: .warning)
 
 // Use your preferred backend.
-Logging.configure(logLevel: .debug) { label in
+YubiKit.Logs.configure(logLevel: .debug) { label in
     StreamLogHandler.standardOutput(label: label)
 }
 
 // Turn logging off.
-Logging.configure { _ in SwiftLogNoOpLogHandler() }
+YubiKit.Logs.configure { _ in SwiftLogNoOpLogHandler() }
 
 // Restore defaults.
-Logging.configure()
+YubiKit.Logs.configure()
 ```
 
 Add [SwiftLog](https://github.com/apple/swift-log)'s `Logging` product to your app target
@@ -40,7 +40,7 @@ Factories may run concurrently and must not log through YubiKit themselves.
 ### Traffic logging
 
 ```swift
-Logging.configure(logLevel: .trace)
+YubiKit.Logs.configure(logLevel: .trace)
 ```
 
 Raw traffic and SCP plaintext logs require **YubiKit to be compiled with `DEBUG`**.
