@@ -452,12 +452,12 @@ extension Data {
     // not fit is sent as short APDUs linked with the ISO 7816 chaining bit (CLA 0x10).
     fileprivate var lightningCommands: [Data] {
         let bytes = [UInt8](self)
-        guard bytes.count + 1 > 512, bytes.count > 7, bytes[4] == 0x00 else { return [self] }
+        guard bytes.count + 1 > 512, bytes[4] == 0x00 else { return [self] }
         let length = Int(bytes[5]) << 8 | Int(bytes[6])
         guard length > 0, bytes.count >= 7 + length else { return [self] }
         let body = bytes[7..<(7 + length)]
-        // An extended Le of 0x0000 means 65536; the short equivalent 0x00 asks for as much as possible.
-        let le = bytes.count > 7 + length ? [bytes[bytes.count - 1]] : []
+        // A 2-byte extended Le becomes the short Le 0x00 (as much as possible); the rest follows via 61xx.
+        let le: [UInt8] = bytes.count > 7 + length ? [0x00] : []
 
         var commands: [Data] = []
         var offset = body.startIndex
