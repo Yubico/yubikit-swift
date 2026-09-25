@@ -293,6 +293,12 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
     private let currentState = NFCState()
     private let nfcQueue: DispatchQueue
 
+    // iOS fails a reader session begun while the previous session's sheet is still being
+    // dismissed (NFCReaderError 202, "Session invalidated unexpectedly"), so wait this long
+    // after an invalidation before beginning a new session.
+    private static let sessionCooldown: DispatchTimeInterval = .seconds(2)
+    private var lastInvalidation: DispatchTime?
+
     init(nfcQueue: DispatchQueue) {
         self.nfcQueue = nfcQueue
     }
@@ -421,8 +427,13 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         // The caller must close the connection first.
         switch currentState.phase {
         case .inactive:
-            // lets continue
-            break
+            if let lastInvalidation, DispatchTime.now() < lastInvalidation + Self.sessionCooldown {
+                logger.debug("Waiting for the previous NFC session to be dismissed")
+                nfcQueue.asyncAfter(deadline: lastInvalidation + Self.sessionCooldown) { [weak self] in
+                    self?.connect(message: alertMessage, completion: completion)
+                }
+                return
+            }
         case .stopping:
             logger.debug("Waiting for the previous NFC session to stop")
             // Session is being invalidated - wait for it to complete then retry
@@ -521,6 +532,7 @@ extension NFCConnectionManager: NFCTagReaderSessionDelegate, HasNFCLogger {
     }
 
     public func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
+        lastInvalidation = .now()
         logger.debug(
             "NFC reader session invalidated",
             metadata: [
