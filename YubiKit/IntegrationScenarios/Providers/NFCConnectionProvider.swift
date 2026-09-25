@@ -79,6 +79,9 @@ public struct NFCConnectionProvider: ConnectionProvider {
         return try WiredConnectionProvider.authorizable(info)
     }
 
+    /// Over NFC every new session powers the key up from the reader's field, so there is nothing to wait for.
+    public func waitForReinsertion(timeout: Duration) async throws {}
+
     public func deviceInfo() async throws -> DeviceInfo {
         if let cached = await infoCache.value { return cached }
         let connection = try await makeSmartCardConnection()

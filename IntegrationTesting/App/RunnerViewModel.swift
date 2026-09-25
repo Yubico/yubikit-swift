@@ -42,7 +42,13 @@ final class RunnerViewModel: ObservableObject {
 
     @Published private(set) var results: [Scenario: Scenario.Result] = [:]
     @Published private(set) var runningScenario: Scenario?
-    @Published private(set) var touchPrompt: String?
+    @Published private(set) var userPrompt: UserPrompt?
+
+    /// Something the scenario needs the user to do with the key.
+    struct UserPrompt: Equatable {
+        let text: String
+        let systemImage: String
+    }
     @Published private(set) var isRunning = false
     @Published private(set) var ranCount = 0
     @Published private(set) var runTotal = 0
@@ -209,7 +215,7 @@ final class RunnerViewModel: ObservableObject {
             await consumer.value
             self.isRunning = false
             self.runningScenario = nil
-            self.touchPrompt = nil
+            self.userPrompt = nil
         }
     }
 
@@ -274,10 +280,13 @@ final class RunnerViewModel: ObservableObject {
         switch event {
         case .started(let scenario):
             runningScenario = scenario
-        case .touchPrompt(_, let prompt): touchPrompt = prompt
+        case .touchPrompt(_, let prompt):
+            userPrompt = UserPrompt(text: prompt, systemImage: "hand.tap")
+        case .reinsertPrompt(_, let prompt):
+            userPrompt = UserPrompt(text: prompt, systemImage: "cable.connector")
         case .finished:
             runningScenario = nil
-            touchPrompt = nil
+            userPrompt = nil
         }
     }
 }

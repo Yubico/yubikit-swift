@@ -83,6 +83,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                 "reset to a clean, PIN-less state before the suite",
                 requirements: Requirements(capabilities: [.fido2])
             ) { context in
+                // A FIDO reset is only accepted shortly after the key powers up.
+                try await context.reinsertKey("Unplug the YubiKey and plug it back in to reset FIDO")
                 let session = try await context.ctap2Session()
                 context.touch("Touch the key to confirm the FIDO reset")
                 for try await _ in await session.reset() {}
@@ -1285,6 +1287,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                 // FIDO reset needs a wired link (USB or Lightning — both report `.usb`); NFC rejects it.
                 requirements: Requirements(capabilities: [.fido2], transports: [.usb])
             ) { context in
+                // A FIDO reset is only accepted shortly after the key powers up.
+                try await context.reinsertKey("Unplug the YubiKey and plug it back in to reset FIDO")
                 let session = try await context.ctap2Session()
                 context.touch("Touch the key to confirm the reset")
 
@@ -2172,7 +2176,18 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
             }
             retries = try await session.getPinRetries(protocol: pinProtocol)
             context.expectEqual(retries.retries, frozen)
-            context.log("authenticator soft-locked — power-cycle to unlock")
+
+            // Only a power cycle clears the soft-lock; the correct PIN then restores every retry.
+            try await context.reinsertKey("Unplug the YubiKey and plug it back in to clear the PIN lock")
+            let unlocked = try await context.ctap2Session()
+            _ = try await unlocked.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.makeCredential, .getAssertion],
+                rpId: "localhost",
+                protocol: pinProtocol
+            )
+            retries = try await unlocked.getPinRetries(protocol: pinProtocol)
+            context.expectEqual(retries.retries, 8, "the correct PIN should restore every retry after a power cycle")
         }
     }
 }

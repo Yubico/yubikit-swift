@@ -33,10 +33,22 @@ public protocol ConnectionProvider: Sendable {
     func deviceInfo() async throws -> DeviceInfo
 
     func lightningKeyConnected() async -> Bool
+
+    /// Waits until the key has been removed and inserted again, which power-cycles it.
+    ///
+    /// Some YubiKey behavior only resets on power-up: a FIDO reset is only allowed shortly after it,
+    /// and a PIN soft-lock only clears with it. Throws ``ProviderError/unavailable(_:)`` if the key
+    /// does not come back within `timeout`.
+    func waitForReinsertion(timeout: Duration) async throws
 }
 
 extension ConnectionProvider {
     public func lightningKeyConnected() async -> Bool { false }
+
+    /// Reports that this backend cannot power-cycle the key by default.
+    public func waitForReinsertion(timeout: Duration) async throws {
+        throw ProviderError.unsupported("reinserting the key is not supported on this backend")
+    }
 
     /// Reports that this backend has no OTP keyboard HID interface by default.
     public func makeOTPConnection() async throws -> any OTPConnection {

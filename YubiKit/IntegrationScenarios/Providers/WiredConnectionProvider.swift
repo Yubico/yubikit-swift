@@ -181,6 +181,36 @@ public struct WiredConnectionProvider: ConnectionProvider {
         }
     }
 
+    /// Polls until no YubiKey is attached, then until one is attached again.
+    public func waitForReinsertion(timeout: Duration) async throws {
+        try await waitForKey(present: false, timeout: timeout, action: "unplugged")
+        try await waitForKey(present: true, timeout: timeout, action: "plugged back in")
+        // Give the OS a moment to enumerate every interface of the reinserted key.
+        try await Task.sleep(for: .milliseconds(500))
+    }
+
+    private func waitForKey(present: Bool, timeout: Duration, action: String) async throws {
+        let deadline = ContinuousClock.now + timeout
+        while await Self.isKeyAttached() != present {
+            guard ContinuousClock.now < deadline else {
+                throw ProviderError.unavailable("The YubiKey was not \(action) within \(timeout).")
+            }
+            try await Task.sleep(for: .milliseconds(250))
+        }
+    }
+
+    private static func isKeyAttached() async -> Bool {
+        if let slots = try? await USBSmartCardConnection.availableDevices(), !slots.isEmpty { return true }
+        #if os(macOS)
+        if let devices = try? await HIDFIDOConnection.availableDevices(), !devices.isEmpty { return true }
+        if let devices = try? await HIDOTPConnection.availableDevices(), !devices.isEmpty { return true }
+        #endif
+        #if os(iOS)
+        if await LightningProbe.hasConnectedYubiKey { return true }
+        #endif
+        return false
+    }
+
     public func deviceInfo() async throws -> DeviceInfo {
         if let cached = await infoCache.value { return cached }
         let connection = try await makeSmartCardConnection()

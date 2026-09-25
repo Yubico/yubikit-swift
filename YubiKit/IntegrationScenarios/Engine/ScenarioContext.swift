@@ -196,6 +196,17 @@ extension Scenario {
             onEvent(.touchPrompt(scenario, prompt))
         }
 
+        /// Power-cycles the key: closes this scenario's connections, asks the user to unplug and replug
+        /// the key, and waits until it is back. Virtual and NFC backends do this without the user.
+        func reinsertKey(_ prompt: String = "Unplug the YubiKey and plug it back in") async throws {
+            await closeConnections()
+            if !provider.capabilities.isVirtual, provider.deviceTransport != .nfc {
+                onEvent(.reinsertPrompt(scenario, prompt))
+            }
+            try await provider.waitForReinsertion(timeout: .seconds(120))
+            log("key reinserted")
+        }
+
         // MARK: - Connections (internal, memoized per scenario)
 
         func smartCardConnection() async throws -> any SmartCardConnection {
@@ -259,6 +270,10 @@ extension Scenario {
                 }
             }
             teardown.removeAll()
+            await closeConnections()
+        }
+
+        private func closeConnections() async {
             if let connection = try? await smartCardConnectionTask?.value { await connection.close(error: nil) }
             if let connection = try? await fidoConnectionTask?.value { await connection.close(error: nil) }
             if let connection = try? await otpConnectionTask?.value { await connection.close(error: nil) }

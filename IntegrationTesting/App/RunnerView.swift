@@ -60,11 +60,11 @@ struct RunnerView: View {
         }
         .overlay(alignment: .top) {
             ZStack(alignment: .top) {
-                if let prompt = model.touchPrompt {
-                    TouchBanner(prompt: prompt)
+                if let prompt = model.userPrompt {
+                    UserPromptBanner(prompt: prompt)
                 }
             }
-            .animation(.snappy, value: model.touchPrompt)
+            .animation(.snappy, value: model.userPrompt)
         }
         .onChange(of: selection) { _, new in
             if new != nil { showInspector = true }
@@ -784,12 +784,12 @@ private struct Chip: View {
     }
 }
 
-private struct TouchBanner: View {
-    let prompt: String
+private struct UserPromptBanner: View {
+    let prompt: RunnerViewModel.UserPrompt
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "hand.tap")
-            Text(prompt)
+            Image(systemName: prompt.systemImage)
+            Text(prompt.text)
             Spacer(minLength: 0)
         }
         .font(.callout.weight(.semibold))
