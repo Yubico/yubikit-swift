@@ -185,11 +185,16 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "Management.Config.nfcRestricted",
                 "NFC can be restricted until next USB insertion",
-                requirements: Requirements(minVersion: Version("5.7.0"))
+                // Over NFC the restriction would lock out every later NFC scenario.
+                requirements: Requirements(minVersion: Version("5.7.0"), transports: [.usb])
             ) { context in
                 let session = try await context.managementSession()
                 let config = try await session.getDeviceInfo().config.with(nfcRestricted: true)
                 try await session.updateDeviceConfig(config, reboot: false)
+                // Only a USB insertion lifts the restriction; clearing the flag does not.
+                await context.addTeardown {
+                    try await context.reinsertKey("Unplug the YubiKey and plug it back in to lift the NFC restriction")
+                }
                 let updated = try await session.getDeviceInfo()
                 context.expect(updated.config.isNFCRestricted == true, "NFC should report as restricted")
             }
