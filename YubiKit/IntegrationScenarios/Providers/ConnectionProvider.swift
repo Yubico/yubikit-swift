@@ -59,7 +59,7 @@ extension ConnectionProvider {
 public struct ProviderCapabilities: Sendable {
     public var hasFIDO: Bool
     /// Whether the backend exposes the Yubico OTP keyboard HID interface.
-    public var hasOTP: Bool
+    var hasOTP: Bool
     public var hasLightning: Bool
     public var supportsSecureChannel: Bool
     public var isVirtual: Bool

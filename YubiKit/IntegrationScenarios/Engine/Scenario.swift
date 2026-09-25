@@ -14,7 +14,7 @@
 
 import Foundation
 
-public enum Platform: Sendable, Equatable {
+enum Platform: Sendable, Equatable {
     case all
     case macOS
     case iOS
@@ -29,8 +29,8 @@ public enum Platform: Sendable, Equatable {
 }
 
 public struct SourceLocation: Sendable, CustomStringConvertible {
-    public let fileID: String
-    public let line: Int
+    let fileID: String
+    let line: Int
     init(fileID: String = #fileID, line: Int = #line) {
         self.fileID = fileID
         self.line = line
@@ -70,7 +70,7 @@ public struct Scenario: Sendable, Identifiable, Hashable, CustomStringConvertibl
     public let suite: Suite
     public let name: String
     public let requirements: Requirements
-    public let platform: Platform
+    let platform: Platform
     /// The interface this variant runs CTAP2 over; `nil` uses the backend's default.
     let ctap2Transport: CTAP2Transport?
     let run: @Sendable (Scenario.Context) async throws -> Void
