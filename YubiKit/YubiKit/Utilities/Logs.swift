@@ -23,10 +23,10 @@ import Logging
 ///
 /// > Warning: Debug messages can include account names and credential identifiers.
 /// > Trace messages can include PINs and cryptographic keys. Protect captured logs before sharing them.
-public enum Logging {
+public enum Logs {
     /// Sets YubiKit's log level and backend.
     ///
-    /// Each call replaces the previous configuration. Call `Logging.configure()` to restore defaults.
+    /// Each call replaces the previous configuration. Call `Logs.configure()` to restore defaults.
     ///
     /// - Parameters:
     ///   - logLevel: Minimum severity. Defaults to `.debug` when YubiKit is compiled with `DEBUG`,
