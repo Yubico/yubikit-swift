@@ -47,7 +47,8 @@ public struct NFCConnectionProvider: ConnectionProvider {
             guard await infoCache.acceptsAndCaches(info, allowed: allowed) else {
                 throw ProviderError.unavailable(
                     "The tapped YubiKey (serial \(info.serialNumber)) is not the selected "
-                        + "YubiKey, or is not in YUBIKEY_TEST_SERIALS."
+                        + "YubiKey, or is not allowed. "
+                        + WiredConnectionProvider.allowlistHint
                 )
             }
             return connection

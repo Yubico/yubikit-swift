@@ -27,6 +27,11 @@ public struct WiredConnectionProvider: ConnectionProvider {
     public static let allowedSerialNumbers: [UInt] =
         ((try? serialConfiguration.get()) ?? []) + simulatorSerialNumbers
 
+    /// How to allow a YubiKey that the serial allowlist rejected.
+    static let allowlistHint =
+        "Add its serial to YUBIKEY_TEST_SERIALS, or authorize it in the IntegrationTesting app "
+        + "(More → Authorize test key…)."
+
     static let serialConfiguration = parseSerials(
         ProcessInfo.processInfo.environment["YUBIKEY_TEST_SERIALS"]
     )
@@ -80,7 +85,7 @@ public struct WiredConnectionProvider: ConnectionProvider {
         #endif
 
         throw ProviderError.unavailable(
-            "No allowed YubiKey found over \(transports). Add its serial to YUBIKEY_TEST_SERIALS."
+            "No allowed YubiKey found over \(transports). \(Self.allowlistHint)"
         )
     }
 
@@ -136,7 +141,7 @@ public struct WiredConnectionProvider: ConnectionProvider {
             await connection.close(error: nil)
         }
         throw ProviderError.unavailable(
-            "No allowed YubiKey found over USB HID. Add its serial to YUBIKEY_TEST_SERIALS."
+            "No allowed YubiKey found over USB HID. \(Self.allowlistHint)"
         )
         #else
         throw ProviderError.unsupported("FIDO HID is only available on macOS")
@@ -157,7 +162,7 @@ public struct WiredConnectionProvider: ConnectionProvider {
             await connection.close(error: nil)
         }
         throw ProviderError.unavailable(
-            "No allowed YubiKey found over the OTP interface. Add its serial to YUBIKEY_TEST_SERIALS."
+            "No allowed YubiKey found over the OTP interface. \(Self.allowlistHint)"
         )
         #else
         throw ProviderError.unsupported("The OTP keyboard interface is only available on macOS")
