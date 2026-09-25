@@ -15,7 +15,7 @@
 import Foundation
 
 /// Run-level secure-channel policy for CCID sessions.
-public enum SecureChannelPolicy: Sendable, Equatable {
+@_spi(YubiInternal) public enum SecureChannelPolicy: Sendable, Equatable {
     /// Plaintext CCID.
     case none
     /// SCP11b when available, otherwise SCP03.

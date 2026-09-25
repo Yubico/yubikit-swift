@@ -14,7 +14,7 @@
 
 import Foundation
 import YubiKit
-import YubiKitIntegrationScenarios
+@_spi(YubiInternal) import YubiKitIntegrationScenarios
 import YubiKitTwinSupport
 
 /// Runs integration scenarios against TwinKit's in-process YubiKey.
@@ -22,7 +22,7 @@ import YubiKitTwinSupport
 /// A run targets one transport, the way a real session does — you are either plugged in or tapping
 /// a card. `YUBIKIT_TWINKIT_TRANSPORT=nfc` switches the whole run to contactless, where CCID is the
 /// only path: the keyboard (OTP) and FIDO HID interfaces are USB-only, so CTAP2 falls back to CCID.
-public struct TwinKitConnectionProvider: ConnectionProvider {
+@_spi(YubiInternal) public struct TwinKitConnectionProvider: ConnectionProvider {
     public static let environmentConfigurationError: String? =
         TwinKitBackend.environmentProfileConfigurationError ?? transportConfigurationError
 

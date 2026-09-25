@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import Testing
-import YubiKitIntegrationScenarios
+@_spi(YubiInternal) import YubiKitIntegrationScenarios
 
 extension ScenarioSuites {
 

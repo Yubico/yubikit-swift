@@ -15,7 +15,7 @@
 import Foundation
 import SwiftUI
 import YubiKit
-import YubiKitIntegrationScenarios
+@_spi(YubiInternal) import YubiKitIntegrationScenarios
 
 @MainActor
 final class RunnerViewModel: ObservableObject {

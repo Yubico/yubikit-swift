@@ -16,10 +16,10 @@ import Foundation
 import Testing
 import YubiKit
 
-@testable import YubiKitIntegrationScenarios
+@_spi(YubiInternal) @testable import YubiKitIntegrationScenarios
 
 #if canImport(YubiKitTwinTesting)
-import YubiKitTwinTesting
+@_spi(YubiInternal) import YubiKitTwinTesting
 #endif
 
 // CLI knobs: YUBIKIT_ENABLE_TWINKIT=1, YUBIKEY_TEST_SERIALS,

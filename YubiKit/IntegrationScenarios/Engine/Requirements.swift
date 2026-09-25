@@ -16,7 +16,7 @@ import Foundation
 import YubiKit
 
 /// Declarative preconditions for a scenario.
-public struct Requirements: Sendable {
+@_spi(YubiInternal) public struct Requirements: Sendable {
     public var capabilities: Set<Capability>
     public var minVersion: Version?
     /// Inclusive upper firmware bound; with `minVersion` this expresses a version range.

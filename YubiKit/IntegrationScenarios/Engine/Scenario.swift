@@ -28,7 +28,7 @@ enum Platform: Sendable, Equatable {
     }
 }
 
-public struct SourceLocation: Sendable, CustomStringConvertible {
+@_spi(YubiInternal) public struct SourceLocation: Sendable, CustomStringConvertible {
     let fileID: String
     let line: Int
     init(fileID: String = #fileID, line: Int = #line) {
@@ -38,7 +38,7 @@ public struct SourceLocation: Sendable, CustomStringConvertible {
     public var description: String { "\(fileID):\(line)" }
 }
 
-public struct Scenario: Sendable, Identifiable, Hashable, CustomStringConvertible {
+@_spi(YubiInternal) public struct Scenario: Sendable, Identifiable, Hashable, CustomStringConvertible {
 
     public enum Suite: String, CaseIterable, Sendable {
         case management, piv, oath, otp, connection, ctap2, ctaphid, webauthn, scp

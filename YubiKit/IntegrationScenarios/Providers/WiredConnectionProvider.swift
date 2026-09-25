@@ -20,7 +20,7 @@ import ExternalAccessory
 #endif
 
 /// Real YubiKey provider over USB SmartCard, Lightning SmartCard, and macOS FIDO HID.
-public struct WiredConnectionProvider: ConnectionProvider {
+@_spi(YubiInternal) public struct WiredConnectionProvider: ConnectionProvider {
 
     /// Decimal serials from `YUBIKEY_TEST_SERIALS` (comma- or space-separated),
     /// plus the simulator backend's fixed serial on simulator builds.
