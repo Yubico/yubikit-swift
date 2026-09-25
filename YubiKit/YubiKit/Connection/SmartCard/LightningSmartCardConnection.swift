@@ -79,7 +79,13 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
 
     public func send(data: Data) async throws(SmartCardConnectionError) -> Data {
         logger.debug("Sending Lightning request", metadata: ["bytes": .stringConvertible(data.count)])
-        let response = try await LightningConnectionManager.shared.transmit(request: data, for: self)
+        let commands = data.lightningCommands
+        var response = Data()
+        for (index, command) in commands.enumerated() {
+            response = try await LightningConnectionManager.shared.transmit(request: command, for: self)
+            // A chained part is acknowledged with 9000; anything else ends the command early.
+            if index < commands.count - 1, response.suffix(2) != Data([0x90, 0x00]) { break }
+        }
         logger.debug("Received Lightning response", metadata: ["bytes": .stringConvertible(response.count)])
         return response
     }
@@ -436,6 +442,33 @@ extension EASession {
         }
         inputStream?.close()
         outputStream?.close()
+    }
+}
+
+// MARK: - Command chaining
+
+extension Data {
+    // A YLP frame carries at most 512 bytes: the 1-byte header and the APDU. An extended APDU that does
+    // not fit is sent as short APDUs linked with the ISO 7816 chaining bit (CLA 0x10).
+    fileprivate var lightningCommands: [Data] {
+        let bytes = [UInt8](self)
+        guard bytes.count + 1 > 512, bytes[4] == 0x00 else { return [self] }
+        let length = Int(bytes[5]) << 8 | Int(bytes[6])
+        guard length > 0, bytes.count >= 7 + length else { return [self] }
+        let body = bytes[7..<(7 + length)]
+        // A 2-byte extended Le becomes the short Le 0x00 (as much as possible); the rest follows via 61xx.
+        let le: [UInt8] = bytes.count > 7 + length ? [0x00] : []
+
+        var commands: [Data] = []
+        var offset = body.startIndex
+        while offset < body.endIndex {
+            let chunk = body[offset..<Swift.min(offset + 255, body.endIndex)]
+            offset = chunk.endIndex
+            let isLast = offset == body.endIndex
+            let cla = isLast ? bytes[0] : bytes[0] | 0x10
+            commands.append(Data([cla, bytes[1], bytes[2], bytes[3], UInt8(chunk.count)] + chunk + (isLast ? le : [])))
+        }
+        return commands
     }
 }
 
