@@ -48,6 +48,10 @@ https://github.com/Yubico/yubikit-swift
 - [Getting Started Guide](https://yubico.github.io/yubikit-swift/documentation/yubikit/gettingstarted)
 - [API Documentation](https://yubico.github.io/yubikit-swift/documentation/yubikit/)
 - [Configuration Guide](https://yubico.github.io/yubikit-swift/documentation/yubikit/gettingstarted#preparing-your-project)
+- [Logging](YubiKit/YubiKit/YubiKit.docc/Resources/LoggingGuide.md) — configure diagnostics and transport tracing with SwiftLog.
+
+Use `YubiKit.Logs.configure(logLevel:factory:)` to override the default level or backend.
+Raw traffic logging requires YubiKit to be compiled with `DEBUG` and explicit opt-in at `.trace`.
 
 ## Sample Apps
 

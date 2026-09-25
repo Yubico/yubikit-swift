@@ -14,11 +14,11 @@
 
 import CryptoTokenKit
 import Foundation
-import OSLog
+import Logging
 
 // Internal helper for SmartCard APDU communication with optional SCP encryption.
 // Handles application selection, SCP setup, and APDU transmission with automatic continuation.
-public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
+public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, HasSmartCardLogger {
     typealias Connection = SmartCardConnection
 
     let connection: Connection
@@ -45,6 +45,8 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         insSendRemaining: UInt8 = 0xc0
     ) async throws(Error) {
         self.connection = connection
+
+        Self.logger.debug("Selecting application", metadata: ["application": .string(String(describing: application))])
 
         // Select application
         do {
@@ -73,6 +75,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
                 keyParams: keyParams,
                 insSendRemaining: insSendRemaining
             )
+            SCPState.logger.info("SCP initialized")
         } else {
             scpState = nil
         }
@@ -89,6 +92,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
     // Sets a flag that will cause the next GET_RESPONSE poll to send P1_CANCEL_KEEP_ALIVE
     // instead of P1_KEEP_ALIVE, signaling the authenticator to abort the operation.
     func cancel() async throws(Error) where Error == CTAP2.SessionError {
+        CTAP2.Session.logger.debug("Sending cancel...")
         shouldCancelCTAP = true
     }
 
@@ -228,7 +232,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
             throw .connectionError(error, source: .here())
         }
 
-        // Parse response status
+        guard responseData.count >= 2 else {
+            throw .responseParseError(
+                "Response too short: expected at least 2 bytes, got \(responseData.count)",
+                source: .here()
+            )
+        }
         let response = Response(rawData: responseData)
 
         // Only continue accumulation for 0x61 (more data) or 0x9000 (success)
@@ -294,6 +303,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         staticKeys: StaticKeys,
         insSendRemaining: UInt8
     ) async throws(Error) -> SCPState {
+        SCPState.logger.debug(
+            "Initializing SCP03 handshake",
+            metadata: [
+                "kid": .stringConvertible(keyParams.keyRef.kid), "kvn": .stringConvertible(keyParams.keyRef.kvn),
+            ]
+        )
         let hostChallenge: Data
         do {
             hostChallenge = try Data.random(length: 8)
@@ -322,7 +337,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         }
 
         let context = hostChallenge + cardChallenge
-        let sessionKeys = staticKeys.derive(context: context)
+        let sessionKeys: SCPSessionKeys
+        do {
+            sessionKeys = try staticKeys.derive(context: context)
+        } catch {
+            throw .cryptoError("Failed to derive SCP03 session keys", error: error, source: .here())
+        }
 
         let genCardCryptogram: Data
         do {
@@ -363,6 +383,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
         scp11Params: SCP11KeyParams,
         insSendRemaining: UInt8
     ) async throws(Error) -> SCPState {
+        SCPState.logger.debug(
+            "Initializing SCP11 handshake",
+            metadata: [
+                "kid": .stringConvertible(keyParams.keyRef.kid), "kvn": .stringConvertible(keyParams.keyRef.kvn),
+            ]
+        )
         let kid = keyParams.keyRef.kid
 
         let params: UInt8
@@ -386,7 +412,12 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
 
             let oceRef = scp11Params.oceKeyRef ?? SCPKeyRef(kid: 0x00, kvn: 0x00)
 
+            SCPState.logger.debug("Sending certificate chain")
             for (index, cert) in certificates.enumerated() {
+                SCPState.logger.debug(
+                    "Sending certificate",
+                    metadata: ["index": .stringConvertible(index + 1), "count": .stringConvertible(certificates.count)]
+                )
                 let p2: UInt8 = oceRef.kid | (index < certificates.count - 1 ? 0x80 : 0x00)
                 _ = try await sendPlainStatic(
                     connection: connection,
@@ -457,6 +488,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable {
             throw .dataProcessingError("Unable to parse EC public key", source: .here())
         }
 
+        SCPState.logger.debug("Performing key agreement")
         let keyAgreement1: Data
         let keyAgreement2: Data
         do {
@@ -550,6 +582,8 @@ extension Application {
             data = Data([0xA0, 0x00, 0x00, 0x01, 0x51, 0x00, 0x00, 0x00])
         case .fido2:
             data = Data([0xA0, 0x00, 0x00, 0x06, 0x47, 0x2F, 0x00, 0x01])
+        case .otp:
+            data = Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x20, 0x01, 0x01])
         }
 
         return APDU(cla: 0x00, ins: 0xa4, p1: 0x04, p2: 0x00, command: data)

@@ -14,7 +14,7 @@
 
 import CryptoTokenKit
 import Foundation
-import OSLog
+import Logging
 
 /// Session for the YubiKey **Security Domain** application.
 ///
@@ -40,6 +40,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
         )
 
         self.interface = interface
+        logger.debug("SecurityDomain session initialized")
     }
 
     /// Creates a new ``SecurityDomainSession`` by selecting the Security Domain application on the provided
@@ -51,7 +52,6 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     ///
     /// - Throws: ``SCPError`` if the application selection fails or if the SCP11 processor cannot be created.
     /// - Returns: A fully initialised ``SecurityDomainSession`` ready for commands.
-    // @TraceScope
     public static func makeSession(
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
@@ -79,7 +79,6 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
     /// - Returns: The data payload extracted from the successful APDU response.
-    // @TraceScope
     public func getData(tag: UInt16, data: Data?) async throws(SCPError) -> Data {
         try await process(
             apdu: APDU(
@@ -97,7 +96,6 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     /// - Parameter data: The TLV‑encoded bytes to be written to the card.
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
-    // @TraceScope
     public func putData(_ data: Data) async throws(SCPError) {
         try await process(apdu: APDU(cla: 0x00, ins: 0xE2, p1: 0x90, p2: 0x00, command: data))
     }
@@ -106,7 +104,6 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     ///
     /// - Throws: ``SCPError`` if the command fails or the response format is invalid.
     /// - Returns: The raw **Card Recognition Data** object.
-    // @TraceScope
     public func getCardRecognitionData() async throws(SCPError) -> Data {
         let data = try await self.getData(tag: 0x66, data: nil)
         guard let tlv = TKBERTLVRecord(from: data), tlv.tag == 0x73 else {
@@ -120,7 +117,6 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     /// - Throws: ``SCPError`` if transmission fails or the response cannot be parsed.
     /// - Returns: A dictionary that maps each ``SCPKeyRef`` to a dictionary of component‑type bytes
     ///   (key usage) and their version numbers.
-    // @TraceScope
     public func getKeyInformation() async throws(SCPError) -> [SCPKeyRef: [UInt8: UInt8]] {
         let tlvData: Data = try await self.getData(tag: 0xE0, data: nil)
         guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: tlvData) else {
@@ -153,8 +149,11 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     /// - Parameter keyRef: The key reference whose certificate chain is requested.
     /// - Throws: ``SCPError`` if the command fails or the response format is invalid.
     /// - Returns: An array of ``X509Cert`` objects representing the certificate chain.
-    // @TraceScope
     public func getCertificateBundle(for keyRef: SCPKeyRef) async throws(SCPError) -> [X509Cert] {
+        logger.debug(
+            "Getting certificate bundle",
+            metadata: ["kid": .stringConvertible(keyRef.kid), "kvn": .stringConvertible(keyRef.kvn)]
+        )
 
         let data: Data
         do {
@@ -186,8 +185,11 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     /// - Throws: ``SCPError`` if no identifiers are found when requested, command transmission fails,
     ///   or the response is malformed.
     /// - Returns: A dictionary mapping each ``SCPKeyRef`` to its associated identifier bytes.
-    // @TraceScope
     public func getSupportedCAIdentifiers(kloc: Bool, klcc: Bool) async throws(SCPError) -> [SCPKeyRef: Data] {
+        logger.debug(
+            "Getting CA identifiers",
+            metadata: ["kloc": .stringConvertible(kloc), "klcc": .stringConvertible(klcc)]
+        )
 
         if !kloc && !klcc {
             throw .illegalArgument("At least one of kloc or klcc must be true", source: .here())
@@ -239,8 +241,11 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     /// - Parameter certificates: the certificates to store
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
-    // @TraceScope
     public func putCertificateBundle(_ certificates: [X509Cert], for keyRef: SCPKeyRef) async throws(SCPError) {
+        logger.debug(
+            "Storing certificate bundle",
+            metadata: ["kid": .stringConvertible(keyRef.kid), "kvn": .stringConvertible(keyRef.kvn)]
+        )
 
         var certsData = Data()
         certificates.forEach { certificate in
@@ -250,6 +255,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data
             + TKBERTLVRecord(tag: 0xBF21, value: certsData).data
         try await putData(data)
+        logger.info("Certificate bundle stored")
     }
 
     /// Store which certificate serial numbers that can be used for a given key.
@@ -260,8 +266,11 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     /// - Parameter serials: the list of serial numbers to store
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
-    // @TraceScope
     public func putAllowlist(for keyRef: SCPKeyRef, serials: [Data]) async throws(SCPError) {
+        logger.debug(
+            "Storing serial allowlist",
+            metadata: ["kid": .stringConvertible(keyRef.kid), "kvn": .stringConvertible(keyRef.kvn)]
+        )
 
         var serialsData = Data()
         serials.forEach { serial in
@@ -271,6 +280,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             TKBERTLVRecord(tag: 0xA6, value: TKBERTLVRecord(tag: 0x83, value: keyRef.data).data).data
             + TKBERTLVRecord(tag: 0x70, value: serialsData).data
         try await putData(data)
+        logger.info("Serial allowlist stored")
     }
 
     /// Store the SKI (Subject Key Identifier) for the CA of a given key.
@@ -279,8 +289,11 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     /// - Parameter ski: the Subject Key Identifier to store
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
-    // @TraceScope
     public func putCAIssuer(for keyRef: SCPKeyRef, ski: Data) async throws(SCPError) {
+        logger.debug(
+            "Storing CA issuer SKI",
+            metadata: ["kid": .stringConvertible(keyRef.kid), "kvn": .stringConvertible(keyRef.kvn)]
+        )
         let klcc: UInt8
         switch keyRef.kid {
         case SCPKeyRef.Kid.scp11a, SCPKeyRef.Kid.scp11b, SCPKeyRef.Kid.scp11c: klcc = 1
@@ -292,6 +305,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
                 + TKBERTLVRecord(tag: 0x83, value: keyRef.data).data
         ).data
         try await putData(data)
+        logger.info("CA issuer SKI stored")
     }
 
     /// Delete one (or more) keys.
@@ -303,7 +317,6 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     /// - Parameter deleteLast: must be true if deleting the final key, false otherwise
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
-    // @TraceScope
     public func deleteKey(for keyRef: SCPKeyRef, deleteLast: Bool = false) async throws(SCPError) {
         var kid = keyRef.kid
         let kvn = keyRef.kvn
@@ -320,6 +333,14 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             }
         }
 
+        logger.debug(
+            "Deleting SCP keys",
+            metadata: [
+                "kid": .stringConvertible(kid), "kvn": .stringConvertible(kvn),
+                "deleteLast": .stringConvertible(deleteLast),
+            ]
+        )
+
         var data = Data()
         if kid != 0 {
             data.append(TKBERTLVRecord(tag: 0xD0, value: kid.data).data)
@@ -330,6 +351,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
 
         let apdu = APDU(cla: 0x80, ins: 0xE4, p1: 0, p2: deleteLast ? 1 : 0, command: data)
         try await process(apdu: apdu)
+        logger.info("Keys deleted")
     }
 
     /// Generate a new SCP11 key.
@@ -340,8 +362,14 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the response format is invalid.
     /// - Returns: the public key from the generated key pair
-    // @TraceScope
     public func generateECKey(for keyRef: SCPKeyRef, replacing kvn: UInt8) async throws(SCPError) -> EC.PublicKey {
+        logger.debug(
+            "Generating SCP11 key",
+            metadata: [
+                "kid": .stringConvertible(keyRef.kid), "kvn": .stringConvertible(keyRef.kvn),
+                "replacingKvn": .stringConvertible(kvn),
+            ]
+        )
         let params = TKBERTLVRecord(tag: 0xF0, value: Data([0x00])).data
         var data = Data()
         data.append(keyRef.kvn.data)
@@ -359,7 +387,19 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw SCPError.dataProcessingError("Unable to parse EC public key from response", source: .here())
         }
 
+        logger.info("New key generated")
         return key
+    }
+
+    /// The DEK from the current SCP03 session keys, or throws if no SCP03 secure channel is set up.
+    private func sessionDek() throws(SCPError) -> Data {
+        guard let scpState = interface.scpState else {
+            throw .secureChannelRequired(source: .here())
+        }
+        guard let dek = scpState.sessionKeys.dek else {
+            throw .illegalArgument("This operation requires an SCP03 session", source: .here())
+        }
+        return dek
     }
 
     /// Imports an SCP03 key set.
@@ -369,17 +409,21 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     /// - Parameter kvn: 0 to generate a new keypair, non-zero to replace an existing KVN
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
-    // @TraceScope
     public func putStaticKeys(_ keys: StaticKeys, for keyRef: SCPKeyRef, replacing kvn: UInt8) async throws(SCPError) {
+        logger.debug(
+            "Importing SCP03 key set",
+            metadata: [
+                "kid": .stringConvertible(keyRef.kid), "kvn": .stringConvertible(keyRef.kvn),
+                "replacingKvn": .stringConvertible(kvn),
+            ]
+        )
         guard keyRef.kid == .scp03 else {
             throw .illegalArgument("KID must be 0x01 for SCP03 key sets", source: .here())
         }
         guard let dek = keys.dek else {
             throw .illegalArgument("New DEK must be set in static keys", source: .here())
         }
-        guard let scpState = interface.scpState else {
-            throw SCPError.secureChannelRequired(source: .here())
-        }
+        let currentDek = try sessionDek()
 
         var data = Data([keyRef.kvn])
         var expected = Data([keyRef.kvn])
@@ -388,9 +432,6 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
 
         for key in [keys.enc, keys.mac, dek] {
             let kcv = try defaultKcvIv.cbcEncrypt(key: key).prefix(3)
-
-            let currentDek = scpState.sessionKeys.dek!
-
             let encryptedKey = try key.cbcEncrypt(key: currentDek)
             data.append(TKBERTLVRecord(tag: 0x88, value: encryptedKey).data)
             data.append(UInt8(kcv.count))
@@ -398,7 +439,13 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             expected.append(kcv)
         }
 
-        assert(data.bytes.count == 1 + 3 * (18 + 4), "Unexpected command data length")
+        let expectedLength = 1 + 3 * (18 + 4)
+        guard data.count == expectedLength else {
+            throw .dataProcessingError(
+                "Unexpected command data length: expected \(expectedLength), got \(data.count)",
+                source: .here()
+            )
+        }
 
         let apdu = APDU(cla: 0x80, ins: 0xD8, p1: kvn, p2: 0x80 | keyRef.kid, command: data)
         let resp = try await process(apdu: apdu)
@@ -407,7 +454,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw .responseParseError("SCP key verification failed: response mismatch", source: .here())
         }
 
-        /* Fix trace: trace(message: "SCP03 Key set imported") */
+        logger.info("SCP03 Key set imported")
     }
 
     /// Imports a public key for SCP11a/c authentication of the off-card entity.
@@ -417,12 +464,18 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     ///   - publicKey: EC public key (must be prime256v1) used as CA to authenticate the off-card entity.
     ///   - kvn: Set to a non-zero KVN to delete/replace an existing key before import.
     /// - Throws: ``SCPError`` on validation failures or any error from the APDU exchange.
-    // @TraceScope
     public func putPublicKey(
         _ publicKey: EC.PublicKey,
         for keyRef: SCPKeyRef,
         replacing kvn: UInt8
     ) async throws(SCPError) {
+        logger.debug(
+            "Importing SCP11 public key",
+            metadata: [
+                "kid": .stringConvertible(keyRef.kid), "kvn": .stringConvertible(keyRef.kvn),
+                "replacingKvn": .stringConvertible(kvn),
+            ]
+        )
 
         // -- validate curve
         guard publicKey.curve == .secp256r1 else {
@@ -446,7 +499,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw .responseParseError("SCP key store verification failed: KCV mismatch", source: .here())
         }
 
-        /* Fix trace: trace(message: "SCP11 public key imported") */
+        logger.info("SCP11 public key imported")
     }
 
     /// Imports a secret key for SCP11.
@@ -456,19 +509,23 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     /// - Parameter kvn: 0 to generate a new keypair, non-zero to replace an existing KVN
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
-    // @TraceScope
     public func putPrivateKey(
         _ privateKey: EC.PrivateKey,
         for keyRef: SCPKeyRef,
         replacing kvn: UInt8
     ) async throws(SCPError) {
+        logger.debug(
+            "Importing SCP11 private key",
+            metadata: [
+                "kid": .stringConvertible(keyRef.kid), "kvn": .stringConvertible(keyRef.kvn),
+                "replacingKvn": .stringConvertible(kvn),
+            ]
+        )
         guard privateKey.curve == .secp256r1 else {
             throw .illegalArgument("Expected SECP256R1 private key", source: .here())
         }
 
-        guard let scpState = interface.scpState else {
-            throw .secureChannelRequired(source: .here())
-        }
+        let currentDek = try sessionDek()
 
         // Extract the raw 32-byte secret scalar from the EC private key
         let rawSecret = privateKey.k
@@ -476,9 +533,10 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw .cryptoError("Invalid P256 private key scalar size", error: nil, source: .here())
         }
 
-        let currentDek = scpState.sessionKeys.dek!
         let encryptedSecret = try rawSecret.cbcEncrypt(key: currentDek)
-        precondition(encryptedSecret.count == 32)
+        guard encryptedSecret.count == 32 else {
+            throw .cryptoError("Unexpected encrypted secret size", error: nil, source: .here())
+        }
 
         var data = Data()
         data.append(keyRef.kvn)
@@ -492,7 +550,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw .responseParseError("SCP key deletion verification failed: KCV mismatch", source: .here())
         }
 
-        /* Fix trace: trace(message: "SCP11 private key imported") */
+        logger.info("SCP11 private key imported")
     }
 
     /// Perform a factory reset of the Security Domain.
@@ -500,8 +558,8 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     /// and generate a new (attestable) SCP11b key.
     ///
     /// - Throws: ``SCPError`` if command transmission fails or the card returns an error status.
-    // @TraceScope
     public func reset() async throws(SCPError) {
+        logger.debug("Resetting all SCP keys")
         let data = Data(repeating: 0x00, count: 8)
         let keyInfo = try await getKeyInformation()
 
@@ -550,7 +608,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
                 }
             }
         }
-        /* Fix trace: trace(message: "SCP keys reset") */
+        logger.info("SCP keys reset")
     }
 
 }

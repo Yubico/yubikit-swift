@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import Foundation
-import OSLog
+import Logging
 
 /// FIDO interface for CTAP HID communication
 /// Handles authenticator communication over USB HID transport
@@ -42,10 +42,14 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
     /// Initialize FIDO interface with the given connection
     /// Automatically performs CTAP INIT handshake
-    init(connection: FIDOConnection) async throws(Error) {
+    init(connection: FIDOConnection, resolveDevelopmentVersion: Bool = true) async throws(Error) {
         self.connection = connection
+        self.resolveDevelopmentVersion = resolveDevelopmentVersion
         try await initialize()
     }
+
+    // Management must see the raw 0.0.1 to read this key's qualifier, not another key's cached value.
+    private let resolveDevelopmentVersion: Bool
 
     // MARK: - Capabilities
 
@@ -58,7 +62,7 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
     /// Perform CTAP INIT handshake to obtain channel ID and device info
     private func initialize() async throws(Error) {
-        /* Fix trace: trace(message: "Starting FIDO interface initialization...") */
+        logger.debug("Starting FIDO interface initialization...")
 
         // Generate random nonce for INIT
         let nonce: Data
@@ -67,7 +71,6 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
         } catch {
             throw .cryptoError("Failed to generate random bytes for CTAP INIT", error: error, source: .here())
         }
-        /* Fix trace: trace(message: "Generated nonce: \(nonce.hexEncodedString)") */
 
         // Send INIT command and get response
         let response = try await sendAndReceive(cmd: Self.hidCommand(.`init`), payload: nonce)
@@ -93,16 +96,23 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
         // Extract device version info
         let versionBytes = response.subdata(in: 13..<16)
-        self.version = Version(withData: versionBytes)!
+        let reportedVersion = Version(withData: versionBytes)!
+        self.version = resolveDevelopmentVersion ? reportedVersion.resolvingDevelopment : reportedVersion
 
         // Get capability flags
         self.capabilities = CTAP2.Capabilities(rawValue: response[16])
 
-        /* Fix trace: trace(message: "INIT successful") */
-        /* Fix trace: trace(message: "Assigned channel ID: 0x\(String(format: "%08x", self.channelId))") */
-        /* Fix trace: trace(message: "CTAPHID protocol version: \(self.protocolVersion)") */
-        /* Fix trace: trace(message: "Device version: \(self.version)") */
-        /* Fix trace: trace(message: "Capabilities: 0x\(String(format: "%02x", self.capabilities.rawValue))") */
+        logger.debug("INIT successful")
+        logger.debug("Assigned channel ID", metadata: ["channelId": .string(String(format: "0x%08x", self.channelId))])
+        logger.debug(
+            "CTAPHID protocol version",
+            metadata: ["protocolVersion": .stringConvertible(self.protocolVersion)]
+        )
+        logger.debug("Device version", metadata: ["version": .stringConvertible(self.version)])
+        logger.debug(
+            "Device capabilities",
+            metadata: ["capabilities": .string(String(format: "0x%02x", self.capabilities.rawValue))]
+        )
     }
 }
 

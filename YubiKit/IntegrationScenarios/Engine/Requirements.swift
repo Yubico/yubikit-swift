@@ -1,0 +1,81 @@
+// Copyright Yubico AB
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import Foundation
+import YubiKit
+
+/// Declarative preconditions for a scenario.
+@_spi(YubiInternal) public struct Requirements: Sendable {
+    public var capabilities: Set<Capability>
+    public var minVersion: Version?
+    public var transports: Set<DeviceTransport>?
+    public var requiresBio: Bool
+    /// Forbid a Bio device.
+    public var excludesBio: Bool
+    public var requiresFIDOTransport: Bool
+    public var requiresLightning: Bool
+    public var requiresSCP: Bool
+    /// Require real silicon.
+    public var requiresRealHardware: Bool
+
+    /// Inclusive upper firmware bound; with `minVersion` this expresses a version range.
+    var maxVersion: Version?
+    /// Require a FIPS-certified device.
+    var requiresFIPS: Bool
+    /// Forbid a FIPS-certified device (behavior that FIPS firmware blocks, e.g. PIN policy NEVER).
+    var excludesFIPS: Bool
+    /// Run CTAP2 over the smart-card (CCID) interface. Over USB, YubiKeys offer this from firmware 5.8,
+    /// and only while a CCID application is enabled.
+    var requiresCTAP2OverCCID: Bool
+    /// Require the Yubico OTP keyboard HID transport.
+    var requiresOTPTransport: Bool
+
+    init(
+        capabilities: Set<Capability> = [],
+        minVersion: Version? = nil,
+        maxVersion: Version? = nil,
+        transports: Set<DeviceTransport>? = nil,
+        requiresBio: Bool = false,
+        excludesBio: Bool = false,
+        requiresFIPS: Bool = false,
+        excludesFIPS: Bool = false,
+        requiresFIDOTransport: Bool = false,
+        requiresCTAP2OverCCID: Bool = false,
+        requiresOTPTransport: Bool = false,
+        requiresLightning: Bool = false,
+        requiresSCP: Bool = false,
+        requiresRealHardware: Bool = false
+    ) {
+        self.capabilities = capabilities
+        self.minVersion = minVersion
+        self.maxVersion = maxVersion
+        self.transports = transports
+        self.requiresBio = requiresBio
+        self.excludesBio = excludesBio
+        self.requiresFIPS = requiresFIPS
+        self.excludesFIPS = excludesFIPS
+        self.requiresFIDOTransport = requiresFIDOTransport
+        self.requiresCTAP2OverCCID = requiresCTAP2OverCCID
+        self.requiresOTPTransport = requiresOTPTransport
+        self.requiresLightning = requiresLightning
+        self.requiresSCP = requiresSCP
+        self.requiresRealHardware = requiresRealHardware
+    }
+
+    /// Whether these requirements need `DeviceInfo`.
+    var needsDeviceInfo: Bool {
+        !capabilities.isEmpty || minVersion != nil || maxVersion != nil
+            || requiresBio || excludesBio || requiresFIPS || excludesFIPS || requiresCTAP2OverCCID
+    }
+}

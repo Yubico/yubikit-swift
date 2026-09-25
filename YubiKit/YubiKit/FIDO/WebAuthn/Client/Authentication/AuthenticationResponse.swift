@@ -45,6 +45,10 @@ extension WebAuthn.Authentication {
         /// Signature counter value.
         public let signCount: UInt32
 
+        /// Attachment modality of the authenticator that produced this assertion:
+        /// `.platform` for a device-bound authenticator, `.crossPlatform` for a roaming key.
+        public let authenticatorAttachment: WebAuthn.AuthenticatorAttachment
+
         /// Parsed authenticator data for internal extension processing.
         internal let authenticatorData: WebAuthn.AuthenticatorData
 
@@ -52,5 +56,27 @@ extension WebAuthn.Authentication {
         ///
         /// This is `nil` for credential provider flows where only the hash was provided.
         internal let clientDataJSON: Data?
+
+        @_spi(YubiInternal) public init(
+            credentialId: Data,
+            rawAuthenticatorData: Data,
+            signature: Data,
+            user: WebAuthn.User?,
+            clientExtensionResults: WebAuthn.Extension.AuthenticationOutputs,
+            signCount: UInt32,
+            authenticatorAttachment: WebAuthn.AuthenticatorAttachment,
+            authenticatorData: WebAuthn.AuthenticatorData,
+            clientDataJSON: Data?
+        ) {
+            self.credentialId = credentialId
+            self.rawAuthenticatorData = rawAuthenticatorData
+            self.signature = signature
+            self.user = user
+            self.clientExtensionResults = clientExtensionResults
+            self.signCount = signCount
+            self.authenticatorAttachment = authenticatorAttachment
+            self.authenticatorData = authenticatorData
+            self.clientDataJSON = clientDataJSON
+        }
     }
 }

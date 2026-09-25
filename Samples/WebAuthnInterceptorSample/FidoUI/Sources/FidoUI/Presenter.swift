@@ -78,10 +78,10 @@ extension FidoUI {
                     model.panel = build { once($0) }
                     present()
                 }
-            } onCancel: { [weak self] in
+            } onCancel: {
                 // Outer-task cancel doesn't wake withCheckedContinuation on its
                 // own — fire the canceller so the await unwinds.
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
                     self?.awaitingPanelCanceller?()
                 }
             }

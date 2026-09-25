@@ -25,7 +25,7 @@ let error = await connection.waitUntilClosed()
 
 - ``init()``
 - ``init(slot:)``
-- ``availableDevices()``
+- ``availableDevices(matching:)``
 
 ### Connection Lifecycle
 

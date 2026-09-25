@@ -38,8 +38,13 @@ extension WebAuthn {
         /// attested credential data.
         public let authenticatorData: AuthenticatorData
 
+        // No attestation statement is needed when the backend supplies only credential data.
+        @_spi(YubiInternal) public init(authenticatorData: AuthenticatorData) {
+            self.init(format: "none", statementCBOR: .map([:]), authenticatorData: authenticatorData)
+        }
+
         /// Creates an attestation object from its components.
-        internal init(format: String, statementCBOR: CBOR.Value, authenticatorData: AuthenticatorData) {
+        init(format: String, statementCBOR: CBOR.Value, authenticatorData: AuthenticatorData) {
             self.format = format
             self.statement = .init(format: format, statementCBOR: statementCBOR)
             self.authenticatorData = authenticatorData

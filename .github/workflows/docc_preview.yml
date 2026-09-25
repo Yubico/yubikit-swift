@@ -21,7 +21,7 @@ env:
 jobs:
   pr-preview:
     name: PR DocC Preview
-    runs-on: macos-26-xlarge
+    runs-on: xcode-27
 
     steps:
       - name: Checkout

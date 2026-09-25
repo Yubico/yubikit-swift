@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - ClientPin Operations on Session
 
@@ -88,6 +89,7 @@ extension CTAP2.Session {
     ) async throws(CTAP2.SessionError) {
         let handler = try await clientPinHandler(protocol: pinProtocol)
         try await handler.set(pin)
+        logger.info("PIN has been set")
     }
 
     /// Change the existing PIN on the authenticator.
@@ -103,6 +105,7 @@ extension CTAP2.Session {
     ) async throws(CTAP2.SessionError) {
         let handler = try await clientPinHandler(protocol: pinProtocol)
         try await handler.change(from: currentPin, to: newPin)
+        logger.info("PIN has been changed")
     }
 
     // MARK: - Private
@@ -127,7 +130,7 @@ extension CTAP2.Session {
 // MARK: - ClientPinHandler (Internal)
 
 /// Internal handler for ClientPIN operations.
-private struct ClientPinHandler: Sendable {
+private struct ClientPinHandler: Sendable, HasFIDOLogger {
     let interface: CTAP2.Session.Interface
     let pinProtocol: CTAP2.ClientPin.ProtocolVersion
     let supportsTokenPermissions: Bool
@@ -151,6 +154,10 @@ private struct ClientPinHandler: Sendable {
     }
 
     func getKeyAgreement() async throws(CTAP2.SessionError) -> COSE.Key {
+        logger.debug(
+            "Getting ClientPIN key agreement",
+            metadata: ["protocol": .stringConvertible(pinProtocol.rawValue)]
+        )
         let params = CTAP2.ClientPin.GetKeyAgreement.Parameters(pinUVAuthProtocol: pinProtocol)
         let stream: CTAP2.StatusStream<CTAP2.ClientPin.GetKeyAgreement.Response> = await interface.send(
             command: .clientPin,
@@ -172,8 +179,17 @@ private struct ClientPinHandler: Sendable {
         let platformKey = secretResult.platformKey
 
         let inner: CTAP2.StatusStream<CTAP2.ClientPin.GetToken.Response>
+        let usesPIN: Bool
         switch method {
         case .pin(let pin):
+            logger.debug(
+                "Getting PIN token",
+                metadata: [
+                    "supportsTokenPermissions": .stringConvertible(supportsTokenPermissions),
+                    "rpIdProvided": .stringConvertible(rpId != nil),
+                ]
+            )
+            usesPIN = true
             // Hash and encrypt PIN
             let normalizedPin = pin.precomposedStringWithCanonicalMapping
             let pinHash = Data(Data(normalizedPin.utf8).sha256().prefix(16))
@@ -200,6 +216,14 @@ private struct ClientPinHandler: Sendable {
             }
 
         case .uv:
+            logger.debug(
+                "Getting UV token",
+                metadata: [
+                    "permissions": .stringConvertible(permissions.rawValue),
+                    "rpIdProvided": .stringConvertible(rpId != nil),
+                ]
+            )
+            usesPIN = false
             // UV requires pinUvAuthToken support
             guard supportsTokenPermissions else {
                 throw CTAP2.SessionError.featureNotSupported(source: .here())
@@ -243,6 +267,21 @@ private struct ClientPinHandler: Sendable {
                                     source: .here()
                                 )
                             }
+                            if usesPIN {
+                                if supportsTokenPermissions {
+                                    Self.logger.debug(
+                                        "Got PIN token",
+                                        metadata: ["permissions": .stringConvertible(permissions.rawValue)]
+                                    )
+                                } else {
+                                    Self.logger.debug("Got legacy PIN token without scoped permissions")
+                                }
+                            } else {
+                                Self.logger.debug(
+                                    "Got UV token",
+                                    metadata: ["permissions": .stringConvertible(permissions.rawValue)]
+                                )
+                            }
                             continuation.yield(
                                 .finished(CTAP2.Token(token: tokenData, protocolVersion: pinProtocol))
                             )
@@ -256,6 +295,7 @@ private struct ClientPinHandler: Sendable {
     }
 
     func set(_ pin: String) async throws(CTAP2.SessionError) {
+        logger.debug("Setting PIN")
         let authenticatorKey = try await getKeyAgreement()
 
         // Generate ephemeral key pair and derive shared secret
@@ -279,6 +319,7 @@ private struct ClientPinHandler: Sendable {
     }
 
     func change(from currentPin: String, to newPin: String) async throws(CTAP2.SessionError) {
+        logger.debug("Changing PIN")
         let authenticatorKey = try await getKeyAgreement()
 
         // Generate ephemeral key pair and derive shared secret

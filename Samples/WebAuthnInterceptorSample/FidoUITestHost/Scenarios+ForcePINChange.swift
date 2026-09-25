@@ -14,7 +14,7 @@ extension Runner {
     static func flowForcePinChange() async -> ScenarioStatus.Outcome {
         let changed = Box(false)
 
-        let webauthn = MockWebAuthnBackend()
+        let webauthn = MockCTAP2Backend()
         webauthn.onGetInfo = {
             .stub(clientPin: true, pinUvAuthToken: true, forcePinChange: !changed.value)
         }
@@ -52,7 +52,7 @@ extension Runner {
         let changed = Box(false)
         let changePINAttempts = Box(0)
 
-        let webauthn = MockWebAuthnBackend()
+        let webauthn = MockCTAP2Backend()
         webauthn.onGetInfo = {
             .stub(clientPin: true, pinUvAuthToken: true, forcePinChange: !changed.value)
         }
@@ -93,7 +93,7 @@ extension Runner {
         let changed = Box(false)
         let changePINAttempts = Box(0)
 
-        let webauthn = MockWebAuthnBackend()
+        let webauthn = MockCTAP2Backend()
         webauthn.onGetInfo = {
             .stub(clientPin: true, pinUvAuthToken: true, forcePinChange: !changed.value)
         }

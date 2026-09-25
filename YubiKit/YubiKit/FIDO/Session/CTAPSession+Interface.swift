@@ -43,17 +43,6 @@ extension CTAP2.Session {
 extension CTAP2.Session.Interface: CBORInterface {
     typealias Error = CTAP2.SessionError
 
-    var version: Version {
-        get async {
-            switch kind {
-            case let .ccid(i):
-                return await i.version
-            case let .hid(i):
-                return await i.version
-            }
-        }
-    }
-
     var maxMsgSize: Int {
         get async {
             switch kind {

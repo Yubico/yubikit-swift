@@ -95,12 +95,32 @@ public enum WebAuthn {
         public typealias Element = Status<R>
 
         typealias Base = StatusStreamBase<Status<R>, ClientError>
-        typealias Continuation = Base.Continuation
+        @_spi(YubiInternal)
+        public struct Continuation: Sendable {
+            private let base: Base.Continuation
+
+            fileprivate init(_ base: Base.Continuation) {
+                self.base = base
+            }
+
+            public func yield(_ status: Status<R>) {
+                base.yield(status)
+            }
+
+            public func yield(error: ClientError) {
+                base.yield(error: error)
+            }
+
+            func finish() {
+                base.finish()
+            }
+        }
 
         private let base: Base
 
-        init(_ build: @escaping (Continuation) -> Void) {
-            self.base = Base(build)
+        @_spi(YubiInternal)
+        public init(_ build: @escaping (Continuation) -> Void) {
+            self.base = Base { build(Continuation($0)) }
         }
 
         init(_ base: Base) {
@@ -111,6 +131,7 @@ public enum WebAuthn {
             Self(Base.error(error))
         }
 
+        /// Wraps this stream with the request timeout. A `nil` duration returns the stream unchanged.
         func withTimeout(_ duration: Duration?) -> Self {
             guard let duration else { return self }
             return Self(base.timeout(duration, error: .timeout(source: .here())))
@@ -126,7 +147,10 @@ public enum WebAuthn {
                 for try await status in self {
                     if case .finished(let response) = status { return response }
                 }
-                preconditionFailure("StatusStream must yield .finished before ending")
+                if Task.isCancelled {
+                    throw .cancelled(source: .here())
+                }
+                throw .internalError("StatusStream ended before a response", source: .here())
             }
         }
 
@@ -195,6 +219,16 @@ public enum WebAuthn {
             self.name = name
             self.displayName = displayName
         }
+    }
+
+    /// The [authenticator attachment modality](https://www.w3.org/TR/webauthn-3/#enum-attachment)
+    /// a credential reports — whether the authenticator is bound to one device or roams between them.
+    public enum AuthenticatorAttachment: String, Sendable {
+        /// A platform authenticator bound to a single device (for example a Secure Enclave credential).
+        case platform
+
+        /// A roaming authenticator that moves between devices (for example a YubiKey).
+        case crossPlatform = "cross-platform"
     }
 
     /// Public key credential descriptor identifying a specific credential.

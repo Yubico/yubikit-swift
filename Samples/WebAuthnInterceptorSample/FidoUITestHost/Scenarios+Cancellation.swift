@@ -7,7 +7,7 @@ extension Runner {
 
     /// User taps Cancel on the PIN panel during authentication → sheet dismisses.
     static func authCancelAtPIN() async -> ScenarioStatus.Outcome {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, pinUvAuthToken: true) }
         mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
         mock.onGetUVRetries = { 0 }
@@ -23,7 +23,7 @@ extension Runner {
 
     /// User taps Cancel during PIN entry on registration → sheet dismisses.
     static func regCancelAtPIN() async -> ScenarioStatus.Outcome {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: true, pinUvAuthToken: true) }
         mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
         mock.onGetUVRetries = { 0 }
@@ -41,7 +41,7 @@ extension Runner {
     /// scenario returns `.completed` because user-cancel is a valid endpoint
     /// (per `runGetAssertion`'s `.cancelled` handling).
     static func authCancelAtPicker() async -> ScenarioStatus.Outcome {
-        let mock = MockWebAuthnBackend()
+        let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: false, pinUvAuthToken: false) }
         let credA = Data([0xAA])
         let credB = Data([0xBB])

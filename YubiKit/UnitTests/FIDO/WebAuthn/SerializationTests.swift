@@ -15,7 +15,7 @@
 import Foundation
 import Testing
 
-@testable import YubiKit
+@_spi(YubiInternal) @testable import YubiKit
 
 /// Tests for CBOR and JSON serialization of WebAuthn types.
 /// Modeled after yubikit-android's SerializationTest.

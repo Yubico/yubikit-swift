@@ -15,7 +15,7 @@
 import Foundation
 import Testing
 
-@testable import YubiKit
+@_spi(YubiInternal) @testable import YubiKit
 
 /// Test parsing of CTAP2 response structures: AuthenticatorData and AttestationStatement.
 /// Uses test data from yubikit-android's SerializationTest.

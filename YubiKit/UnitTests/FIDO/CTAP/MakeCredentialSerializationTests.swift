@@ -15,7 +15,7 @@
 import Foundation
 import Testing
 
-@testable import YubiKit
+@_spi(YubiInternal) @testable import YubiKit
 
 /// Test CBOR encoding and decoding of CTAP2 MakeCredential request/response types.
 ///

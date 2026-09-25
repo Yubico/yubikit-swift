@@ -39,7 +39,7 @@ extension Runner {
     /// Builds a FidoUI against the standard mock transport and runs a
     /// registration ceremony with `regOptions(uv:)`.
     static func runRegistration(
-        webauthn: MockWebAuthnBackend,
+        webauthn: MockCTAP2Backend,
         pinSetup: MockPINSetupBackend = MockPINSetupBackend(),
         uv: WebAuthn.UserVerificationPreference = .required
     ) async -> ScenarioStatus.Outcome {
@@ -50,7 +50,7 @@ extension Runner {
     /// Builds a FidoUI against the standard mock transport and runs an
     /// authentication ceremony with `authOptions(uv:)`.
     static func runAuthentication(
-        webauthn: MockWebAuthnBackend,
+        webauthn: MockCTAP2Backend,
         pinSetup: MockPINSetupBackend = MockPINSetupBackend(),
         uv: WebAuthn.UserVerificationPreference = .required
     ) async -> ScenarioStatus.Outcome {

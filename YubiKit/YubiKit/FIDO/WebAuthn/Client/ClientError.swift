@@ -89,7 +89,7 @@ extension WebAuthn.ClientError {
             case .unsupportedAlgorithm: self = .unsupportedAlgorithm(source: source)
             case .keyStoreFull, .largeBlobStorageFull: self = .storageFull(source: source)
             case .pinInvalid, .uvInvalid, .puatRequired:
-                preconditionFailure("CTAP \(code) must be resolved by Client+UserVerification, not here")
+                preconditionFailure("CTAP \(code) must be resolved by CTAP2Backend+UserVerification, not here")
             default: self = .ctapError(ctapError, source: source)
             }
         case .connectionError:

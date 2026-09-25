@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - GetAssertion
 
@@ -32,6 +33,16 @@ extension CTAP2.Session {
         parameters: CTAP2.GetAssertion.Parameters,
         token: CTAP2.Token? = nil
     ) async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
+        logger.debug(
+            "Calling CTAP2 get_assertion",
+            metadata: [
+                "allowCount": .stringConvertible(parameters.allowList?.count ?? 0),
+                "extensionCount": .stringConvertible(parameters.extensions.count),
+                "up": parameters.up.map { .stringConvertible($0) } ?? .string("unspecified"),
+                "requestedUV": parameters.uv.map { .stringConvertible($0) } ?? .string("unspecified"),
+                "authenticated": .stringConvertible(token != nil || parameters.pinUVAuthParam != nil),
+            ]
+        )
         guard let token else {
             return await interface.send(command: .getAssertion, payload: parameters)
         }
@@ -55,7 +66,8 @@ extension CTAP2.Session {
     ///
     /// - SeeAlso: [CTAP 2.2 authenticatorGetNextAssertion](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorGetNextAssertion)
     public func getNextAssertion() async -> CTAP2.StatusStream<CTAP2.GetAssertion.Response> {
-        await interface.send(command: .getNextAssertion)
+        logger.debug("Calling CTAP2 get_next_assertion")
+        return await interface.send(command: .getNextAssertion)
     }
 
     // MARK: - Multiple Assertions
@@ -126,7 +138,7 @@ extension CTAP2.GetAssertion {
     /// Iterator that fetches assertions one at a time from the authenticator.
     ///
     /// Created by ``Sequence/makeAsyncIterator()``. Use ``CTAP2/Session/getAssertions(parameters:token:)`` instead of instantiating directly.
-    public actor Iterator: AsyncIteratorProtocol {
+    public actor Iterator: AsyncIteratorProtocol, HasFIDOLogger {
         public typealias Element = CTAP2.GetAssertion.Response
 
         let session: CTAP2.Session
@@ -151,6 +163,16 @@ extension CTAP2.GetAssertion {
                     if case .finished(let response) = status {
                         totalCredentials = response.numberOfCredentials ?? 1
                         currentIndex = 1
+                        logger.debug(
+                            "Authenticator reports assertions",
+                            metadata: ["assertionCount": .stringConvertible(totalCredentials)]
+                        )
+                        if currentIndex == totalCredentials {
+                            logger.info(
+                                "Retrieved all assertions",
+                                metadata: ["assertionCount": .stringConvertible(totalCredentials)]
+                            )
+                        }
                         return response
                     }
                 }
@@ -161,6 +183,19 @@ extension CTAP2.GetAssertion {
                 for try await status in stream {
                     if case .finished(let response) = status {
                         currentIndex += 1
+                        logger.debug(
+                            "Retrieved assertion",
+                            metadata: [
+                                "assertionIndex": .stringConvertible(currentIndex),
+                                "assertionCount": .stringConvertible(totalCredentials),
+                            ]
+                        )
+                        if currentIndex == totalCredentials {
+                            logger.info(
+                                "Retrieved all assertions",
+                                metadata: ["assertionCount": .stringConvertible(totalCredentials)]
+                            )
+                        }
                         return response
                     }
                 }

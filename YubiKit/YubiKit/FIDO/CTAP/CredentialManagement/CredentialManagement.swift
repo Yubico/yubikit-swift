@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - Session CredentialManagement Accessor
 
@@ -51,7 +52,7 @@ extension CTAP2 {
     /// Allows managing discoverable (resident) credentials stored on the authenticator.
     ///
     /// - SeeAlso: [CTAP2 authenticatorCredentialManagement](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorCredentialManagement)
-    public struct CredentialManagement: Sendable {
+    public struct CredentialManagement: Sendable, HasFIDOLogger {
         private let session: CTAP2.Session
         private let token: CTAP2.Token
 
@@ -121,7 +122,18 @@ extension CTAP2 {
                 Parameter.credentialId.rawValue: credentialId.cbor()
             ]
 
+            logger.debug(
+                "Deleting credential",
+                metadata: [
+                    "credentialId": .string(credentialId.id.hexEncodedString),
+                    "credentialType": .string(credentialId.type),
+                    "transports": credentialId.transports.map {
+                        .array($0.map(\.rawValue).sorted().map { .string($0) })
+                    } ?? .string("unspecified"),
+                ]
+            )
             try await execute(subcommand: .deleteCredential, params: params) as Void
+            logger.info("Credential deleted")
         }
 
         /// Updates user information for a credential.
@@ -147,7 +159,20 @@ extension CTAP2 {
                 Parameter.user.rawValue: user.cbor(),
             ]
 
+            logger.debug(
+                "Updating credential",
+                metadata: [
+                    "credentialId": .string(credentialId.id.hexEncodedString),
+                    "credentialType": .string(credentialId.type),
+                    "transports": credentialId.transports.map {
+                        .array($0.map(\.rawValue).sorted().map { .string($0) })
+                    } ?? .string("unspecified"),
+                    "userId": .string(user.id.hexEncodedString), "name": .string(user.name ?? "unspecified"),
+                    "displayName": .string(user.displayName ?? "unspecified"),
+                ]
+            )
             try await execute(subcommand: .updateUserInformation, params: params) as Void
+            logger.info("Credential user info updated")
         }
 
         // MARK: - Internal

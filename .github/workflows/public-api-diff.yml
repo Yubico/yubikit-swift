@@ -2,9 +2,10 @@ name: Detect public API changes
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ "main", "release/**" ]
     paths:
       - 'YubiKit/**/*.swift'
+      - '!YubiKit/IntegrationScenarios/**'
       - 'Package.swift'
       - '.github/workflows/public-api-diff.yml'
   workflow_dispatch:
@@ -13,9 +14,13 @@ permissions:
   contents: read
   pull-requests: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   public-api-diff:
-    runs-on: macos-26-xlarge
+    runs-on: xcode-27
     
     steps:
     - name: Checkout
@@ -27,12 +32,26 @@ jobs:
       uses: ./.github/actions/setup-env
     
     - name: Define Diff Versions
+      env:
+        HEAD_REF: ${{ github.head_ref }}
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+        HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        SERVER_URL: ${{ github.server_url }}
+        REPO: ${{ github.repository }}
       run: |
-        NEW="${{ github.head_ref }}~${{github.server_url}}/${{ github.event.pull_request.head.repo.full_name || github.repository}}.git"
-        OLD="${{ github.event.pull_request.base.ref }}~${{ github.server_url }}/${{ github.repository }}.git"
-        
-        echo "OLD_VERSION=$OLD" >> $GITHUB_ENV
-        echo "NEW_VERSION=$NEW" >> $GITHUB_ENV
+        NEW="${HEAD_REF}~${SERVER_URL}/${HEAD_REPO}.git"
+        OLD="${BASE_REF}~${SERVER_URL}/${REPO}.git"
+
+        echo "OLD_VERSION=$OLD" >> "$GITHUB_ENV"
+        echo "NEW_VERSION=$NEW" >> "$GITHUB_ENV"
+
+    - name: Configure API interface generation
+      run: |
+        # swift-log does not support library evolution; the diff only needs interfaces.
+        cat > "$RUNNER_TEMP/api-diff.xcconfig" <<'EOF'
+        SWIFT_ENABLE_LIBRARY_EVOLUTION = NO
+        EOF
+        echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/api-diff.xcconfig" >> "$GITHUB_ENV"
     
     - name: Detect YubiKit Public API Changes (macOS)
       uses: Adyen/adyen-swift-public-api-diff@9ed54d9884b1a8f0e2c1ecde353793ea8ce7132b # 0.11.2
@@ -47,4 +66,3 @@ jobs:
         platform: iOS
         new: ${{ env.NEW_VERSION }}
         old: ${{ env.OLD_VERSION }}
- 

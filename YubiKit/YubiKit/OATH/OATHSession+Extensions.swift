@@ -235,6 +235,18 @@ extension OATHSession {
             self.credentialType = credentialType
         }
 
+        /// Parses a CALCULATE response value: a digit-count byte followed by a 4-byte
+        /// big-endian truncated code. Returns nil if the value is too short for both.
+        internal init?(parsing value: Data, timestamp: Date, credentialType: CredentialType) {
+            guard let digits = value.first,
+                let rawCode = value.subdata(in: 1..<value.count).uint32
+            else {
+                return nil
+            }
+            let stringCode = String(format: "%0\(digits)d", UInt(UInt32(bigEndian: rawCode)))
+            self.init(code: stringCode, timestamp: timestamp, credentialType: credentialType)
+        }
+
         private let timestamp: Date
         private let credentialType: CredentialType
 

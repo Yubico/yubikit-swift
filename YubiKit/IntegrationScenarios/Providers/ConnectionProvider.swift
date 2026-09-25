@@ -1,0 +1,91 @@
+// Copyright Yubico AB
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import Foundation
+import YubiKit
+
+@_spi(YubiInternal) public protocol ConnectionProvider: Sendable {
+
+    var capabilities: ProviderCapabilities { get }
+
+    var deviceTransport: DeviceTransport { get }
+
+    var ctap2Transport: CTAP2Transport { get }
+
+    func makeSmartCardConnection() async throws -> any SmartCardConnection
+
+    func makeFIDOConnection() async throws -> any FIDOConnection
+
+    /// Opens the Yubico OTP keyboard HID interface, when the backend supports it.
+    func makeOTPConnection() async throws -> any OTPConnection
+
+    func deviceInfo() async throws -> DeviceInfo
+
+    func lightningKeyConnected() async -> Bool
+
+    /// Waits until the key has been removed and inserted again, which power-cycles it.
+    ///
+    /// Some YubiKey behavior only resets on power-up: a FIDO reset is only allowed shortly after it,
+    /// and a PIN soft-lock only clears with it. Throws ``ProviderError/unavailable(_:)`` if the key
+    /// does not come back within `timeout`.
+    func waitForReinsertion(timeout: Duration) async throws
+}
+
+extension ConnectionProvider {
+    public func lightningKeyConnected() async -> Bool { false }
+
+    /// Reports that this backend cannot power-cycle the key by default.
+    public func waitForReinsertion(timeout: Duration) async throws {
+        throw ProviderError.unsupported("reinserting the key is not supported on this backend")
+    }
+
+    /// Reports that this backend has no OTP keyboard HID interface by default.
+    public func makeOTPConnection() async throws -> any OTPConnection {
+        throw ProviderError.unsupported("OTP (keyboard HID) is not available on this backend")
+    }
+}
+
+@_spi(YubiInternal) public struct ProviderCapabilities: Sendable {
+    public var hasFIDO: Bool
+    public var hasLightning: Bool
+    public var supportsSecureChannel: Bool
+    public var isVirtual: Bool
+
+    public init(
+        hasFIDO: Bool,
+        hasOTP: Bool = false,
+        hasLightning: Bool = false,
+        supportsSecureChannel: Bool,
+        isVirtual: Bool
+    ) {
+        self.hasFIDO = hasFIDO
+        self.hasOTP = hasOTP
+        self.hasLightning = hasLightning
+        self.supportsSecureChannel = supportsSecureChannel
+        self.isVirtual = isVirtual
+    }
+
+    /// Whether the backend exposes the Yubico OTP keyboard HID interface.
+    var hasOTP: Bool
+}
+
+@_spi(YubiInternal) public enum CTAP2Transport: Sendable, Equatable {
+    case ccid
+    case fido
+}
+
+@_spi(YubiInternal) public enum ProviderError: Error, Sendable {
+    case unsupported(String)
+    case unavailable(String)
+}

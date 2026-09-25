@@ -16,15 +16,18 @@ import Foundation
 
 public struct Response: Sendable {
 
+    /// Parses a full response buffer: payload plus trailing SW1/SW2 status bytes.
     init(rawData: Data) {
-        if rawData.count > 2 {
-            data = rawData.subdata(in: 0..<rawData.count - 2)
-        } else {
-            data = Data()
-        }
-        responseStatus = Response.Status(data: rawData.subdata(in: rawData.count - 2..<rawData.count))
+        // Callers always include the SW1/SW2 status bytes; a shorter buffer is a programming error.
+        precondition(rawData.count >= 2, "Response requires at least 2 bytes (SW1/SW2), got \(rawData.count)")
+        self.init(
+            data: rawData.subdata(in: 0..<rawData.count - 2),
+            sw1: rawData[rawData.count - 2],
+            sw2: rawData[rawData.count - 1]
+        )
     }
 
+    /// Builds a response from a payload and its SW1/SW2 status bytes.
     init(data: Data, sw1: UInt8, sw2: UInt8) {
         self.data = data
         responseStatus = Response.Status(sw1: sw1, sw2: sw2)
@@ -89,9 +92,5 @@ extension Response {
             status = Code(rawValue: rawValue) ?? .unknown
         }
 
-        internal init(data: Data) {
-            let value = data.uint16.bigEndian
-            self.init(sw1: UInt8((value & 0xff00) >> 8), sw2: UInt8(value & 0x00ff))
-        }
     }
 }

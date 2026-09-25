@@ -116,6 +116,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
     internal let tagPINComplexity: TKTLVTag = 0x16
     internal let tagNFCRestricted: TKTLVTag = 0x17
     internal let tagResetBlocked: TKTLVTag = 0x18
+    internal let tagVersionQualifier: TKTLVTag = 0x19
     internal let tagFPSVersion: TKTLVTag = 0x20
     internal let tagSTMVersion: TKTLVTag = 0x21
 
@@ -145,10 +146,16 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
 
         self.resetBlockedFlags = tlvs[tagResetBlocked]?.integer ?? 0
 
-        if let data = tlvs[tagFirmwareVersion], let version = Version(withData: data) {
-            self.version = version
+        let firmwareVersion = tlvs[tagFirmwareVersion].flatMap { Version(withData: $0) } ?? fallbackVersion
+        // Development firmware reports 0.0.1; the version qualifier carries the version it behaves as.
+        if firmwareVersion == Version.development,
+            let qualifier = tlvs[tagVersionQualifier],
+            let qualifierTLVs = TKBERTLVRecord.dictionaryOfData(from: qualifier),
+            let qualifiedVersion = qualifierTLVs[0x01].flatMap({ Version(withData: $0) })
+        {
+            self.version = qualifiedVersion
         } else {
-            self.version = fallbackVersion
+            self.version = firmwareVersion
         }
         if let data = tlvs[tagFPSVersion], let version = Version(withData: data), version.description != "0.0.0" {
             self.fpsVersion = version

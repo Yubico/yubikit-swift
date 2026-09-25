@@ -43,17 +43,21 @@ public struct StaticKeys: Sendable {
         self.dek = dek
     }
 
-    /// Returns the default static keys used for SCP operations.
-    /// - Returns: A `StaticKeys` instance with default key values.
+    /// Returns the well-known GlobalPlatform default SCP03 static keys (`0x40...0x4f`).
+    ///
+    /// - Warning: These keys are public and identical on every factory device. Use them only to
+    ///   establish the first session against a fresh key set, then rotate immediately. Never ship
+    ///   an integration that relies on them — doing so reduces the secure channel to known material.
+    /// - Returns: A `StaticKeys` instance using the default key for enc, mac, and dek.
     public static func defaultKeys() -> StaticKeys {
         StaticKeys(enc: defaultKey, mac: defaultKey, dek: defaultKey)
     }
 
-    func derive(context: Data) -> SCPSessionKeys {
+    func derive(context: Data) throws(EncryptionError) -> SCPSessionKeys {
         SCPSessionKeys(
-            senc: try! Self.deriveKey(key: enc, t: 0x4, context: context, l: 0x80),
-            smac: try! Self.deriveKey(key: mac, t: 0x6, context: context, l: 0x80),
-            srmac: try! Self.deriveKey(key: mac, t: 0x7, context: context, l: 0x80),
+            senc: try Self.deriveKey(key: enc, t: 0x4, context: context, l: 0x80),
+            smac: try Self.deriveKey(key: mac, t: 0x6, context: context, l: 0x80),
+            srmac: try Self.deriveKey(key: mac, t: 0x7, context: context, l: 0x80),
             dek: dek
         )
     }

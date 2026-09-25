@@ -3,12 +3,17 @@ name: Build and Test
 on:
   workflow_dispatch:
   pull_request:
-    branches: ["main"]
+    branches: ["main", "release/**"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
     name: Build and Test (macOS & iOS)
-    runs-on: macos-26-xlarge
+    runs-on: xcode-27
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
@@ -48,6 +53,7 @@ jobs:
       - name: Build and run unit tests (iOS Simulator)
         run: |
           xcodebuild test \
+          -parallel-testing-enabled NO \
           -scheme YubiKitTests \
           -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
           CODE_SIGNING_ALLOWED=NO

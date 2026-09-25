@@ -14,7 +14,7 @@
 
 import CryptoTokenKit
 import Foundation
-import OSLog
+import Logging
 
 public enum Management {
 
@@ -73,12 +73,19 @@ public enum Management {
             guard await self.supports(.deviceInfo) else {
                 throw Error.featureNotSupported(source: .here())
             }
+            return try await Self.readDeviceInfo(interface: interface, fallbackVersion: version)
+        }
 
+        private static func readDeviceInfo(
+            interface: Interface,
+            fallbackVersion version: Version
+        ) async throws -> DeviceInfo {
             var page: UInt8 = 0
             var hasMoreData = true
             var result = [TKTLVTag: Data]()
 
             while hasMoreData {
+                logger.debug("Reading device info", metadata: ["page": .stringConvertible(page)])
                 let data = try await interface.readConfig(page: page)
 
                 guard let count = data.bytes.first, count > 0,
@@ -91,7 +98,13 @@ public enum Management {
                 page += 1
             }
 
-            return DeviceInfo(withTlvs: result, fallbackVersion: version)
+            let info = DeviceInfo(withTlvs: result, fallbackVersion: version)
+            // Let other sessions on development firmware behave as the qualified version.
+            let firmwareVersion = result[0x05].flatMap { Version(withData: $0) } ?? version
+            if firmwareVersion == .development {
+                Version.developmentOverride = info.version == .development ? nil : info.version
+            }
+            return info
         }
 
         /// Write device config to a YubiKey 5 or later.
@@ -118,7 +131,9 @@ public enum Management {
                 throw Error.illegalArgument("Device configuration is too large (maximum 255 bytes)", source: .here())
             }
 
+            logger.debug("Writing device config", metadata: ["reboot": .stringConvertible(reboot)])
             try await interface.writeConfig(data: data)
+            logger.info("Device config written")
         }
 
         /// Perform a device-wide reset in Bio Multi-protocol Edition devices.
@@ -129,7 +144,9 @@ public enum Management {
             guard await self.supports(.deviceReset) else {
                 throw Error.featureNotSupported(source: .here())
             }
+            logger.debug("Performing device reset")
             try await interface.resetDevice()
+            logger.info("Device reset performed")
         }
 
         /// Creates a new Management session with the provided SmartCard connection.
@@ -148,7 +165,7 @@ public enum Management {
                 application: .management,
                 keyParams: scpKeyParams
             )
-            return await .init(interface: Interface(interface: smartCardInterface))
+            return try await .init(interface: Interface(interface: smartCardInterface))
         }
 
         /// Creates a new Management session with the provided FIDO connection.
@@ -159,15 +176,23 @@ public enum Management {
         public static func makeSession(
             connection: FIDOConnection
         ) async throws(ManagementSessionError) -> Self {
-            let fidoInterface = try await FIDOInterface<Error>(connection: connection)
-            return await .init(interface: Interface(interface: fidoInterface))
+            let fidoInterface = try await FIDOInterface<Error>(connection: connection, resolveDevelopmentVersion: false)
+            return try await .init(interface: Interface(interface: fidoInterface))
         }
 
-        private init(interface: Interface) async {
+        private init(interface: Interface) async throws(ManagementSessionError) {
             self.interface = interface
-            self.version = await interface.version
+            let reportedVersion = try await interface.version
+            if reportedVersion == Version.development {
+                // Development firmware reports 0.0.1; its real version is in the DeviceInfo version qualifier.
+                let info = try? await Self.readDeviceInfo(interface: interface, fallbackVersion: reportedVersion)
+                self.version = info?.version ?? reportedVersion
+            } else {
+                self.version = reportedVersion
+            }
             self.scpState = await interface.scpState
             self.smartCardConnection = await interface.smartCardConnection
+            logger.debug("Management session initialized", metadata: ["version": .string(String(describing: version))])
         }
 
         // MARK: - SmartCardSession conformance (NEXTMAJOR: Remove)
@@ -216,41 +241,56 @@ extension Management.Session {
             self.kind = .fido(interface)
         }
 
+        /// The firmware version of the YubiKey, parsed from the Management select response over
+        /// SmartCard and reported by CTAPHID INIT over FIDO.
         var version: Version {
-            get async {
+            get async throws(ManagementSessionError) {
                 switch kind {
                 case let .smartCard(i):
-                    return await i.version
+                    guard let version = Version(withManagementResult: i.selectResponse) else {
+                        throw .responseParseError(
+                            "Failed to parse the firmware version from the Management select response",
+                            source: .here()
+                        )
+                    }
+                    return version
                 case let .fido(i):
                     return await i.version
                 }
             }
         }
 
-        func readConfig(page: UInt8) async throws -> Data {
+        func readConfig(page: UInt8) async throws(ManagementSessionError) -> Data {
             switch kind {
             case let .smartCard(i):
-                return try await i.readConfig(page: page)
+                return try await i.send(apdu: APDU(cla: 0, ins: 0x1d, p1: page, p2: 0))
             case let .fido(i):
-                return try await i.readConfig(page: page)
+                return try await i.sendAndReceive(
+                    cmd: FIDOInterface<ManagementSessionError>.hidCommand(.readConfig),
+                    payload: Data([page])
+                )
             }
         }
 
-        func writeConfig(data: Data) async throws {
+        func writeConfig(data: Data) async throws(ManagementSessionError) {
             switch kind {
             case let .smartCard(i):
-                try await i.writeConfig(data: data)
+                let _: Data = try await i.send(apdu: APDU(cla: 0, ins: 0x1c, p1: 0, p2: 0, command: data))
             case let .fido(i):
-                try await i.writeConfig(data: data)
+                _ = try await i.sendAndReceive(
+                    cmd: FIDOInterface<ManagementSessionError>.hidCommand(.writeConfig),
+                    payload: data
+                )
             }
         }
 
-        func resetDevice() async throws {
+        /// Device reset is only available over SmartCard (CCID) connections.
+        func resetDevice() async throws(ManagementSessionError) {
             switch kind {
             case let .smartCard(i):
-                try await i.resetDevice()
-            case let .fido(i):
-                try await i.resetDevice()
+                let _: Data = try await i.send(apdu: APDU(cla: 0, ins: 0x1f, p1: 0, p2: 0))
+            case .fido:
+                throw .featureNotSupported(source: .here())
             }
         }
 
@@ -273,3 +313,24 @@ extension Management.Session {
         }
     }
 }
+
+// MARK: - Helpers
+
+extension Version {
+    internal init?(withManagementResult data: Data) {
+        guard let resultString = String(bytes: data.bytes, encoding: .ascii) else { return nil }
+        guard let versions = resultString.components(separatedBy: " ").last?.components(separatedBy: "."),
+            versions.count == 3
+        else {
+            return nil
+        }
+        guard let major = UInt8(versions[0]), let minor = UInt8(versions[1]), let micro = UInt8(versions[2]) else {
+            return nil
+        }
+        self.major = major
+        self.minor = minor
+        self.micro = micro
+    }
+}
+
+extension Management.Session: HasManagementLogger {}

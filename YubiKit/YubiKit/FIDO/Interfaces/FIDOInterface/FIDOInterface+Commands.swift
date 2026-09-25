@@ -34,14 +34,14 @@ extension FIDOInterface {
             throw Error.responseParseError("PING response data mismatch", source: .here())
         }
 
-        /* Fix trace: trace(message: "PING command completed: \(response.count) bytes echoed") */
+        logger.debug("PING command completed", metadata: ["bytes": .stringConvertible(response.count)])
         return response
     }
 
     /// Send wink command to the authenticator
     func wink() async throws(Error) {
         _ = try await sendAndReceive(cmd: Self.hidCommand(.wink), payload: nil)
-        /* Fix trace: trace(message: "WINK command completed successfully") */
+        logger.debug("WINK command completed successfully")
     }
 
     /// Lock the channel for exclusive access
@@ -55,7 +55,7 @@ extension FIDOInterface {
         let cappedSeconds = min(seconds, 10)
         let payload = Data([UInt8(cappedSeconds)])
         _ = try await sendAndReceive(cmd: Self.hidCommand(.lock), payload: payload)
-        /* Fix trace: trace(message: "LOCK command completed: \(cappedSeconds) seconds") */
+        logger.debug("LOCK command completed", metadata: ["seconds": .stringConvertible(cappedSeconds)])
     }
 
     /// Release the channel lock
@@ -73,6 +73,7 @@ extension FIDOInterface {
     ///
     /// - Throws: ``FIDOSessionError`` if sending the cancel command fails
     func cancel() async throws(Error) {
+        logger.debug("Sending cancel...")
         try await sendRequest(cmd: Self.hidCommand(.cancel), payload: nil)
     }
 }

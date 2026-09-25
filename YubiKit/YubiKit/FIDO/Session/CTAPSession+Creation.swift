@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - Session Creation
 
@@ -24,7 +25,9 @@ extension CTAP2.Session {
     /// - Throws: ``CTAP2/SessionError`` if session creation fails.
     public static func makeSession(connection: FIDOConnection) async throws -> CTAP2.Session {
         let fidoInterface = try await FIDOInterface<CTAP2.SessionError>(connection: connection)
-        return await CTAP2.Session(interface: Interface(interface: fidoInterface))
+        let session = await CTAP2.Session(interface: Interface(interface: fidoInterface))
+        Self.logger.debug("FIDO session initialized", metadata: ["transport": .string("HID")])
+        return session
     }
 }
 
@@ -47,6 +50,11 @@ extension CTAP2.Session {
             application: application,
             keyParams: scpKeyParams
         )
-        return await CTAP2.Session(interface: Interface(interface: smartCardInterface))
+        let session = await CTAP2.Session(interface: Interface(interface: smartCardInterface))
+        Self.logger.debug(
+            "FIDO session initialized",
+            metadata: ["transport": .string("SmartCard"), "scp": .stringConvertible(scpKeyParams != nil)]
+        )
+        return session
     }
 }

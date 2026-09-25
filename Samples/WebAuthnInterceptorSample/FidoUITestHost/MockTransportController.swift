@@ -20,7 +20,7 @@ import Foundation
 
 actor MockTransportController: FidoUI.TransportControllerProtocol {
 
-    private let webauthn: MockWebAuthnBackend
+    private let webauthn: MockCTAP2Backend
     private let pinSetup: MockPINSetupBackend
     private let minPINLength: Int
     private let transport: FidoUI.Presenter.CeremonyTransport
@@ -41,7 +41,7 @@ actor MockTransportController: FidoUI.TransportControllerProtocol {
     private var acquireCount = 0
 
     init(
-        webauthn: MockWebAuthnBackend,
+        webauthn: MockCTAP2Backend,
         pinSetup: MockPINSetupBackend = MockPINSetupBackend(),
         minPINLength: Int = 4,
         transport: FidoUI.Presenter.CeremonyTransport = .wired,
@@ -157,7 +157,7 @@ actor MockTransportController: FidoUI.TransportControllerProtocol {
 /// test class commits to one transport mode.
 @MainActor
 func makeMockedFidoUI(
-    webauthn: MockWebAuthnBackend,
+    webauthn: MockCTAP2Backend,
     pinSetup: MockPINSetupBackend = MockPINSetupBackend(),
     minPINLength: Int = 4,
     transport: FidoUI.Presenter.CeremonyTransport = defaultMockTransport,

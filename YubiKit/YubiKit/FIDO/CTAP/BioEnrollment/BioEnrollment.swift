@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import Foundation
+import Logging
 
 // MARK: - Session BioEnrollment Accessor
 
@@ -52,7 +53,7 @@ extension CTAP2 {
     /// Allows managing fingerprint enrollments on biometric authenticators (e.g., YubiKey Bio).
     ///
     /// - SeeAlso: [CTAP2 authenticatorBioEnrollment](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorBioEnrollment)
-    public struct BioEnrollment: Sendable {
+    public struct BioEnrollment: Sendable, HasFIDOLogger {
 
         private let session: CTAP2.Session
         private let token: CTAP2.Token
@@ -116,6 +117,7 @@ extension CTAP2 {
         ///
         /// - SeeAlso: [Cancel Current Enrollment](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#cancelCurrentEnrollment)
         public func cancelEnrollment() async throws(CTAP2.SessionError) {
+            logger.debug("Cancelling fingerprint enrollment")
             try await executeNoAuth(subcommand: .cancelCurrentEnrollment) as Void
         }
 
@@ -142,7 +144,12 @@ extension CTAP2 {
                 SubcommandParam.templateId.rawValue: templateId.cbor(),
                 SubcommandParam.templateFriendlyName.rawValue: name.cbor(),
             ]
+            logger.debug(
+                "Changing template name",
+                metadata: ["templateId": .string(templateId.hexEncodedString), "name": .string(name)]
+            )
             try await execute(subcommand: .setFriendlyName, params: params) as Void
+            logger.info("Fingerprint template renamed")
         }
 
         /// Removes a fingerprint enrollment.
@@ -155,7 +162,9 @@ extension CTAP2 {
             let params: [UInt8: CBOR.Value] = [
                 SubcommandParam.templateId.rawValue: templateId.cbor()
             ]
+            logger.debug("Deleting template", metadata: ["templateId": .string(templateId.hexEncodedString)])
             try await execute(subcommand: .removeEnrollment, params: params) as Void
+            logger.info("Fingerprint template deleted")
         }
 
         // MARK: - Private Helpers
@@ -185,6 +194,10 @@ extension CTAP2 {
         private func enrollBegin(
             timeout: UInt? = nil
         ) async -> CTAP2.StatusStream<EnrollBeginResult> {
+            logger.debug(
+                "Starting fingerprint enrollment",
+                metadata: ["timeout": timeout.map { .stringConvertible($0) } ?? .string("unspecified")]
+            )
             var params: [UInt8: CBOR.Value]?
             if let timeout {
                 params = [SubcommandParam.timeoutMilliseconds.rawValue: timeout.cbor()]
@@ -196,6 +209,10 @@ extension CTAP2 {
             templateId: Data,
             timeout: UInt? = nil
         ) async -> CTAP2.StatusStream<CaptureResult> {
+            logger.debug(
+                "Capturing next sample",
+                metadata: ["timeout": timeout.map { .stringConvertible($0) } ?? .string("unspecified")]
+            )
             var params: [UInt8: CBOR.Value] = [
                 SubcommandParam.templateId.rawValue: templateId.cbor()
             ]
@@ -291,7 +308,7 @@ extension CTAP2.BioEnrollment {
     }
 
     /// An async sequence that yields enrollment samples until complete.
-    public struct EnrollFingerprint: AsyncSequence, Sendable {
+    public struct EnrollFingerprint: AsyncSequence, Sendable, HasFIDOLogger {
         public typealias Element = EnrollmentSample
 
         public func makeAsyncIterator() -> Iterator {
@@ -418,6 +435,13 @@ extension CTAP2.BioEnrollment {
             status: SampleStatus,
             remaining: UInt
         ) -> EnrollmentSample {
+            Self.logger.debug(
+                "Fingerprint sample capture result",
+                metadata: [
+                    "status": .string(String(describing: status)), "remaining": .stringConvertible(remaining),
+                    "templateId": .string(templateId.hexEncodedString),
+                ]
+            )
             if remaining == 0 {
                 return .completed(templateId: templateId, status: status)
             }

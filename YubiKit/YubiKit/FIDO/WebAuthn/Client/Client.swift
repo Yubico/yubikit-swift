@@ -65,11 +65,11 @@ extension WebAuthn {
     /// decides whether to re-prompt and retry with a fresh ``Authorization``.
     /// Returning ``Authorization/PINReply/cancel`` from `providePIN` aborts
     /// the ceremony with ``ClientError/cancelled(source:)``.
-    public actor Client {
+    public actor Client: HasFIDOLogger {
 
-        // MARK: - Internal Properties
+        // MARK: - Backend
 
-        let backend: any Backend
+        let backend: any AuthenticatorBackend
         let origin: Origin
         let enterpriseRpIds: Set<String>
         let allowedExtensions: Set<WebAuthn.Extension.Identifier>
@@ -108,12 +108,30 @@ extension WebAuthn {
             )
         }
 
-        /// Internal initializer for testing with a mock backend.
-        ///
-        /// `allowedExtensions` has no default here on purpose: tests must opt in
-        /// explicitly so the suite never silently drifts from the public `.standard`.
+        // Backend owns ceremony execution; Client validates RP ID and builds client data.
+        @_spi(YubiInternal)
+        public init(
+            authenticator: any AuthenticatorBackend,
+            origin: Origin,
+            enterpriseRpIds: Set<String> = [],
+            allowedExtensions: Set<WebAuthn.Extension.Identifier> = .standard,
+            isPublicSuffix: @escaping PublicSuffixChecker
+        ) {
+            self.init(
+                backend: authenticator,
+                origin: origin,
+                enterpriseRpIds: enterpriseRpIds,
+                allowedExtensions: allowedExtensions,
+                isPublicSuffix: isPublicSuffix
+            )
+        }
+
+        // Internal designated initializer, also used by tests with a mock backend.
+        //
+        // `allowedExtensions` has no default here on purpose: tests must opt in
+        // explicitly so the suite never silently drifts from the public `.standard`.
         init(
-            backend: any Backend,
+            backend: any AuthenticatorBackend,
             origin: Origin,
             enterpriseRpIds: Set<String> = [],
             allowedExtensions: Set<WebAuthn.Extension.Identifier>,

@@ -74,11 +74,7 @@ extension WebAuthn {
 // MARK: - Binary Parsing
 
 extension WebAuthn.AuthenticatorData {
-    /// Parse authenticator data from raw bytes.
-    ///
-    /// - Parameter data: The raw authenticator data bytes.
-    /// - Returns: Parsed authenticator data, or nil if parsing fails.
-    init?(data: Data) {
+    @_spi(YubiInternal) public init?(data: Data) {
         // Minimum size: rpIdHash (32) + flags (1) + signCount (4) = 37 bytes
         guard data.count >= 37 else {
             return nil
