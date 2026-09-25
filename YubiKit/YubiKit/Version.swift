@@ -24,6 +24,9 @@ public struct Version: Sendable, Comparable, CustomStringConvertible {
     /// The micro (patch) version number.
     public let micro: UInt8
 
+    /// The version reported by alpha and beta (development) firmware.
+    internal static let development = Version("0.0.1")!
+
     internal init?(withData data: Data) {
         guard data.count == 3 else { return nil }
         let bytes = data.bytes
@@ -64,5 +67,37 @@ public struct Version: Sendable, Comparable, CustomStringConvertible {
     /// String representation of the firmware version e.g. "5.2.3".
     public var description: String {
         "\(major).\(minor).\(micro)"
+    }
+}
+
+// MARK: - Development firmware
+
+extension Version {
+    /// The version development (alpha and beta) firmware behaves as, once a Management session has
+    /// read it from the DeviceInfo version qualifier. Mirrors yubikit-android's SessionVersionOverride.
+    /// Process-wide: using two development keys with different behavioral versions simultaneously
+    /// is not supported. Final firmware reports its real version and is never overridden.
+    internal static var developmentOverride: Version? {
+        get { developmentOverrideStorage.value }
+        set { developmentOverrideStorage.value = newValue }
+    }
+
+    /// This version, or the recorded ``developmentOverride`` when this is the development version 0.0.1.
+    internal var resolvingDevelopment: Version {
+        guard self == .development, let override = Self.developmentOverride else { return self }
+        return override
+    }
+
+    private static let developmentOverrideStorage = DevelopmentVersionOverride()
+}
+
+private final class DevelopmentVersionOverride: @unchecked Sendable {
+    // The lock serializes all access to `stored`.
+    private let lock = NSLock()
+    private var stored: Version?
+
+    var value: Version? {
+        get { lock.withLock { stored } }
+        set { lock.withLock { stored = newValue } }
     }
 }

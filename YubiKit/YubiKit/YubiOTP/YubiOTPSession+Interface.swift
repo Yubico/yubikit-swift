@@ -50,7 +50,7 @@ extension YubiOTP.Session {
             guard status.count >= otpStatusSize else {
                 throw .responseParseError("Truncated OTP status struct", source: .here())
             }
-            let otpVersion = Version(withData: Data(status.prefix(3)))!
+            let otpVersion = Version(withData: Data(status.prefix(3)))!.resolvingDevelopment
             // The YubiKey NEO reports the higher of the two versions.
             let version = managementVersion.map { $0.major == 3 ? max($0, otpVersion) : $0 } ?? otpVersion
             // These firmware versions cannot report reliable slot state over NFC.
@@ -149,7 +149,7 @@ extension YubiOTP.Session {
             let current = status[statusOffsetProgrammingSequence]
             if current == previous &+ 1 { return true }
             guard current == 0, previous > 0 else { return false }
-            let version = Version(withData: Data(status.prefix(3)))!
+            let version = Version(withData: Data(status.prefix(3)))!.resolvingDevelopment
             return status[statusOffsetConfigState] & configStateMask == 0
                 || (version >= Version("5.0.0")! && version < Version("5.4.3")!)
         }

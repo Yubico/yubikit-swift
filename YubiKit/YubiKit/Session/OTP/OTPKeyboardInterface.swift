@@ -28,7 +28,7 @@ final actor OTPKeyboardInterface: HasOTPLogger {
     init(connection: OTPConnection) async throws(YubiOTP.SessionError) {
         let status = Self.status(in: try await Self.receiveReport(from: connection))
         self.connection = connection
-        self.version = Version(withData: status.prefix(3))!
+        self.version = Version(withData: status.prefix(3))!.resolvingDevelopment
         self.status = status
         logger.debug("OTP interface initialized", metadata: ["version": .stringConvertible(version)])
     }

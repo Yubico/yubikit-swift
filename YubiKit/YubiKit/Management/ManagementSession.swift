@@ -73,7 +73,13 @@ public enum Management {
             guard await self.supports(.deviceInfo) else {
                 throw Error.featureNotSupported(source: .here())
             }
+            return try await Self.readDeviceInfo(interface: interface, fallbackVersion: version)
+        }
 
+        private static func readDeviceInfo(
+            interface: Interface,
+            fallbackVersion version: Version
+        ) async throws -> DeviceInfo {
             var page: UInt8 = 0
             var hasMoreData = true
             var result = [TKTLVTag: Data]()
@@ -92,7 +98,13 @@ public enum Management {
                 page += 1
             }
 
-            return DeviceInfo(withTlvs: result, fallbackVersion: version)
+            let info = DeviceInfo(withTlvs: result, fallbackVersion: version)
+            // Let other sessions on development firmware behave as the qualified version.
+            let firmwareVersion = result[0x05].flatMap { Version(withData: $0) } ?? version
+            if firmwareVersion == .development {
+                Version.developmentOverride = info.version == .development ? nil : info.version
+            }
+            return info
         }
 
         /// Write device config to a YubiKey 5 or later.
@@ -164,13 +176,20 @@ public enum Management {
         public static func makeSession(
             connection: FIDOConnection
         ) async throws(ManagementSessionError) -> Self {
-            let fidoInterface = try await FIDOInterface<Error>(connection: connection)
+            let fidoInterface = try await FIDOInterface<Error>(connection: connection, resolveDevelopmentVersion: false)
             return try await .init(interface: Interface(interface: fidoInterface))
         }
 
         private init(interface: Interface) async throws(ManagementSessionError) {
             self.interface = interface
-            self.version = try await interface.version
+            let reportedVersion = try await interface.version
+            if reportedVersion == Version.development {
+                // Development firmware reports 0.0.1; its real version is in the DeviceInfo version qualifier.
+                let info = try? await Self.readDeviceInfo(interface: interface, fallbackVersion: reportedVersion)
+                self.version = info?.version ?? reportedVersion
+            } else {
+                self.version = reportedVersion
+            }
             self.scpState = await interface.scpState
             self.smartCardConnection = await interface.smartCardConnection
             logger.debug("Management session initialized", metadata: ["version": .string(String(describing: version))])

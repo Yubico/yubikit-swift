@@ -42,10 +42,14 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
     /// Initialize FIDO interface with the given connection
     /// Automatically performs CTAP INIT handshake
-    init(connection: FIDOConnection) async throws(Error) {
+    init(connection: FIDOConnection, resolveDevelopmentVersion: Bool = true) async throws(Error) {
         self.connection = connection
+        self.resolveDevelopmentVersion = resolveDevelopmentVersion
         try await initialize()
     }
+
+    // Management must see the raw 0.0.1 to read this key's qualifier, not another key's cached value.
+    private let resolveDevelopmentVersion: Bool
 
     // MARK: - Capabilities
 
@@ -92,7 +96,8 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
         // Extract device version info
         let versionBytes = response.subdata(in: 13..<16)
-        self.version = Version(withData: versionBytes)!
+        let reportedVersion = Version(withData: versionBytes)!
+        self.version = resolveDevelopmentVersion ? reportedVersion.resolvingDevelopment : reportedVersion
 
         // Get capability flags
         self.capabilities = CTAP2.Capabilities(rawValue: response[16])

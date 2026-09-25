@@ -119,10 +119,24 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
                 // The device-info payload is `<total-length> <BER-TLV records...>`; skip the leading length.
                 let payload = responsePayload(deviceInfoResponse)
                 let records = TKBERTLVRecord.sequenceOfRecords(from: Data(payload.dropFirst()))
-                let versionData = try context.require(
+                var versionData = try context.require(
                     records?.first(where: { $0.tag == 0x05 })?.value,
                     "no YubiKey version record (tag 0x05) in the device-info result"
                 )
+                // Development firmware reports 0.0.1; the version qualifier (tag 0x19, on page 1) holds
+                // the version it behaves as.
+                if versionData == Data([0, 0, 1]) {
+                    let page1 = try await connection.send(data: Data([0x00, 0x1D, 0x01, 0x00]))
+                    let page1Records = TKBERTLVRecord.sequenceOfRecords(from: Data(responsePayload(page1).dropFirst()))
+                    if let qualifier = page1Records?.first(where: { $0.tag == 0x19 })?.value,
+                        let qualified = TKBERTLVRecord.sequenceOfRecords(from: qualifier)?.first(where: {
+                            $0.tag == 0x01
+                        })
+                    {
+                        context.log("development firmware; using the version qualifier")
+                        versionData = qualified.value
+                    }
+                }
                 try context.require(
                     versionData.count == 3,
                     "version record should be 3 bytes, got \(versionData.hexString)"

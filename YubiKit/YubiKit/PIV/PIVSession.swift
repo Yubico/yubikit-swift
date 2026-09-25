@@ -53,9 +53,9 @@ public final actor PIVSession: SmartCardSessionInternal {
                 source: .here()
             )
         }
-        self.version = version
+        self.version = version.resolvingDevelopment
         self.interface = interface
-        logger.debug("PIV session initialized", metadata: ["version": .string(String(describing: version))])
+        logger.debug("PIV session initialized", metadata: ["version": .stringConvertible(self.version)])
     }
 
     /// Creates a new PIV session with the provided connection.
