@@ -245,13 +245,21 @@ private actor NFCConnectionManagerWrapper {
     }
 
     func connect(message alertMessage: String?) async throws(SmartCardConnectionError) -> ISO7816Identifier {
+        let queue = self.queue
+        let manager = self.nfcStateManager
         do {
-            return try await withCheckedThrowingContinuation { continuation in
-                queue.async {
-                    self.nfcStateManager.connect(message: alertMessage) { result in
-                        continuation.resume(with: result)
+            try Task.checkCancellation()
+            return try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { continuation in
+                    queue.async {
+                        manager.connect(message: alertMessage) { result in
+                            continuation.resume(with: result)
+                        }
                     }
                 }
+            } onCancel: {
+                // Cancelled while the NFC sheet is up: invalidate the session so it dismisses.
+                queue.async { manager.cancelPendingConnection() }
             }
         } catch {
             NFCConnectionManager.logger.debug(
@@ -262,6 +270,7 @@ private actor NFCConnectionManagerWrapper {
                     "errorCode": .stringConvertible((error as NSError).code),
                 ]
             )
+            if Task.isCancelled { throw .cancelled }
             throw .setupFailed("Failed to begin SmartCard session", flatten: error)
         }
     }
@@ -283,6 +292,12 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
     private var isEstablishing: Bool = false
     private let currentState = NFCState()
     private let nfcQueue: DispatchQueue
+
+    // iOS fails a reader session begun while the previous session's sheet is still being
+    // dismissed (NFCReaderError 202, "Session invalidated unexpectedly"), so wait this long
+    // after an invalidation before beginning a new session.
+    private static let sessionCooldown: DispatchTimeInterval = .seconds(2)
+    private var lastInvalidation: DispatchTime?
 
     init(nfcQueue: DispatchQueue) {
         self.nfcQueue = nfcQueue
@@ -379,6 +394,8 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
 
         switch result {
         case let .failure(error):
+            // App-initiated invalidation is often reported by iOS as user cancellation.
+            currentState.closingError = error
             currentState.session?.invalidate(errorMessage: error.localizedDescription)
         case let .success(message):
             if let message = message {
@@ -386,6 +403,13 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             }
             currentState.session?.invalidate()
         }
+    }
+
+    // Dismisses the reader sheet of a connection still waiting for a tap. A connection that
+    // was established before the cancellation arrived belongs to the caller and is kept.
+    func cancelPendingConnection() {
+        guard currentState.phase == .scanning else { return }
+        stop(with: .success(nil)) {}
     }
 
     func connect(
@@ -403,8 +427,13 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         // The caller must close the connection first.
         switch currentState.phase {
         case .inactive:
-            // lets continue
-            break
+            if let lastInvalidation, DispatchTime.now() < lastInvalidation + Self.sessionCooldown {
+                logger.debug("Waiting for the previous NFC session to be dismissed")
+                nfcQueue.asyncAfter(deadline: lastInvalidation + Self.sessionCooldown) { [weak self] in
+                    self?.connect(message: alertMessage, completion: completion)
+                }
+                return
+            }
         case .stopping:
             logger.debug("Waiting for the previous NFC session to stop")
             // Session is being invalidated - wait for it to complete then retry
@@ -476,7 +505,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         // Capture stopCompletion before reset clears it
         let stopCompletion = currentState.stopCompletion
 
-        switch error {
+        switch currentState.closingError ?? error {
         case .none:
             currentState.didCloseCallback?(nil as Error?)
             currentState.connectionCompletion?(Result.failure(SmartCardConnectionError.cancelledByUser))
@@ -503,6 +532,7 @@ extension NFCConnectionManager: NFCTagReaderSessionDelegate, HasNFCLogger {
     }
 
     public func tagReaderSession(_ session: NFCTagReaderSession, didInvalidateWithError error: Error) {
+        lastInvalidation = .now()
         logger.debug(
             "NFC reader session invalidated",
             metadata: [
@@ -575,6 +605,9 @@ private class NFCState: @unchecked Sendable {
     // Stop completion - called when session is fully invalidated
     var stopCompletion: (@Sendable () -> Void)?
 
+    // The reason passed to close(error:), if any; Core NFC may report user cancellation instead.
+    var closingError: Error?
+
     func reset() {
         phase = .inactive
         session = nil
@@ -582,6 +615,7 @@ private class NFCState: @unchecked Sendable {
         tag = nil
         didCloseCallback = nil
         stopCompletion = nil
+        closingError = nil
     }
 
     func setScanning(

@@ -22,20 +22,26 @@ import Foundation
 public struct USBSmartCardConnection: SmartCardConnection, Sendable {
     public let slot: USBSmartCard.YubiKeyDevice
 
+    @usableFromInline static let defaultNameFilter = "YubiKey"
+
     private let connection: SimulatorTwinConnection
 
     public init() async throws(SmartCardConnectionError) {
         self.connection = try await SimulatorTwinBackend.shared.openConnection(transport: .usb)
-        self.slot = USBSmartCard.YubiKeyDevice(name: "YubiKey Simulator (USB)")!
+        self.slot = USBSmartCard.YubiKeyDevice(name: "YubiKey Simulator (USB)")
     }
 
     public init(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) {
         try await self.init()
     }
 
-    public static func availableDevices() async throws(SmartCardConnectionError) -> [USBSmartCard.YubiKeyDevice] {
+    public static func availableDevices(
+        matching: String? = Self.defaultNameFilter
+    ) async throws(SmartCardConnectionError) -> [USBSmartCard.YubiKeyDevice] {
         guard await SimulatorTwinBackend.shared.isAvailable() else { return [] }
-        return [USBSmartCard.YubiKeyDevice(name: "YubiKey Simulator (USB)")!]
+        let slot = USBSmartCard.YubiKeyDevice(name: "YubiKey Simulator (USB)")
+        if let matching, !slot.name.lowercased().contains(matching.lowercased()) { return [] }
+        return [slot]
     }
 
     public static func makeConnection() async throws(SmartCardConnectionError) -> USBSmartCardConnection {
