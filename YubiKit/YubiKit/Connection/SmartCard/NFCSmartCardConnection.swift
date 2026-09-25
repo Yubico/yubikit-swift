@@ -388,6 +388,8 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
 
         switch result {
         case let .failure(error):
+            // App-initiated invalidation is often reported by iOS as user cancellation.
+            currentState.closingError = error
             currentState.session?.invalidate(errorMessage: error.localizedDescription)
         case let .success(message):
             if let message = message {
@@ -492,7 +494,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         // Capture stopCompletion before reset clears it
         let stopCompletion = currentState.stopCompletion
 
-        switch error {
+        switch currentState.closingError ?? error {
         case .none:
             currentState.didCloseCallback?(nil as Error?)
             currentState.connectionCompletion?(Result.failure(SmartCardConnectionError.cancelledByUser))
@@ -591,6 +593,9 @@ private class NFCState: @unchecked Sendable {
     // Stop completion - called when session is fully invalidated
     var stopCompletion: (@Sendable () -> Void)?
 
+    // The reason passed to close(error:), if any; Core NFC may report user cancellation instead.
+    var closingError: Error?
+
     func reset() {
         phase = .inactive
         session = nil
@@ -598,6 +603,7 @@ private class NFCState: @unchecked Sendable {
         tag = nil
         didCloseCallback = nil
         stopCompletion = nil
+        closingError = nil
     }
 
     func setScanning(
