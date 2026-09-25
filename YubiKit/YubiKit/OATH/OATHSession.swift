@@ -70,7 +70,7 @@ public final actor OATHSession: SmartCardSessionInternal {
         let challenge = result[tagChallenge]
 
         guard let versionData = result[tagVersion],
-            let version = Version(withData: versionData)
+            let version = Version(withData: versionData)?.resolvingDevelopment
         else {
             throw .responseParseError(
                 "Missing version information in OATH application select response",
