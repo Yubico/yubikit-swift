@@ -83,7 +83,10 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                 "reset to a clean, PIN-less state before the suite",
                 requirements: Requirements(capabilities: [.fido2])
             ) { context in
+                // A FIDO reset is only accepted shortly after the key powers up.
+                try await context.reinsertKey("Unplug the YubiKey and plug it back in to reset FIDO")
                 let session = try await context.ctap2Session()
+                context.touch("Touch the key to confirm the FIDO reset")
                 for try await _ in await session.reset() {}
                 context.expect(
                     try await session.getInfo().options.clientPin != true,
@@ -1037,12 +1040,7 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     using: .pin(defaultTestPin),
                     permissions: [.credentialManagement]
                 )
-                let credMgmt = try await session.credentialManagement(token: cmToken)
-                for try await rp in credMgmt.rps {
-                    for try await cred in credMgmt.credentials(for: rp.rpIdHash) {
-                        try await credMgmt.deleteCredential(cred.credentialId)
-                    }
-                }
+                try await session.credentialManagement(token: cmToken).deleteAllCredentials()
 
                 let encState1 = try context.require(
                     (try await session.getInfo()).encCredStoreState,
@@ -1289,6 +1287,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                 // FIDO reset needs a wired link (USB or Lightning — both report `.usb`); NFC rejects it.
                 requirements: Requirements(capabilities: [.fido2], transports: [.usb])
             ) { context in
+                // A FIDO reset is only accepted shortly after the key powers up.
+                try await context.reinsertKey("Unplug the YubiKey and plug it back in to reset FIDO")
                 let session = try await context.ctap2Session()
                 context.touch("Touch the key to confirm the reset")
 
@@ -1673,7 +1673,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                 let previewSign = try await CTAP2.Extension.PreviewSign(session: session)
                 let token = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
-                    permissions: [.makeCredential]
+                    permissions: [.makeCredential],
+                    rpId: "example.com"
                 )
                 let params = CTAP2.MakeCredential.Parameters(
                     clientDataHash: defaultClientDataHash,
@@ -1714,7 +1715,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     guard !validFlags.contains(flags) else { continue }
                     let token = try await session.getPinUVToken(
                         using: .pin(defaultTestPin),
-                        permissions: [.makeCredential]
+                        permissions: [.makeCredential],
+                        rpId: "example.com"
                     )
                     let params = CTAP2.MakeCredential.Parameters(
                         clientDataHash: defaultClientDataHash,
@@ -1756,7 +1758,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
 
                 let mcToken = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
-                    permissions: [.makeCredential]
+                    permissions: [.makeCredential],
+                    rpId: "example.com"
                 )
                 let mcParams = CTAP2.MakeCredential.Parameters(
                     clientDataHash: defaultClientDataHash,
@@ -1825,7 +1828,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
 
                 let mcToken = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
-                    permissions: [.makeCredential]
+                    permissions: [.makeCredential],
+                    rpId: "example.com"
                 )
                 let mcParams = CTAP2.MakeCredential.Parameters(
                     clientDataHash: defaultClientDataHash,
@@ -1892,7 +1896,8 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
 
                 let mcToken = try await session.getPinUVToken(
                     using: .pin(defaultTestPin),
-                    permissions: [.makeCredential]
+                    permissions: [.makeCredential],
+                    rpId: "example.com"
                 )
                 let mcParams = CTAP2.MakeCredential.Parameters(
                     clientDataHash: defaultClientDataHash,
@@ -2171,7 +2176,18 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
             }
             retries = try await session.getPinRetries(protocol: pinProtocol)
             context.expectEqual(retries.retries, frozen)
-            context.log("authenticator soft-locked — power-cycle to unlock")
+
+            // Only a power cycle clears the soft-lock; the correct PIN then restores every retry.
+            try await context.reinsertKey("Unplug the YubiKey and plug it back in to clear the PIN lock")
+            let unlocked = try await context.ctap2Session()
+            _ = try await unlocked.getPinUVToken(
+                using: .pin(defaultTestPin),
+                permissions: [.makeCredential, .getAssertion],
+                rpId: "localhost",
+                protocol: pinProtocol
+            )
+            retries = try await unlocked.getPinRetries(protocol: pinProtocol)
+            context.expectEqual(retries.retries, 8, "the correct PIN should restore every retry after a power cycle")
         }
     }
 }
@@ -2646,12 +2662,7 @@ private func makeCredProtectCredential(
 }
 
 private func deleteAllCredentials(_ session: CTAP2.Session) async throws {
-    let credMgmt = try await getCredentialManagement(session)
-    for try await rp in credMgmt.rps {
-        for try await credential in credMgmt.credentials(for: rp.rpIdHash) {
-            try await credMgmt.deleteCredential(credential.credentialId)
-        }
-    }
+    try await getCredentialManagement(session).deleteAllCredentials()
 }
 
 /// Verifies persistent token read/write behavior.

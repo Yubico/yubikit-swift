@@ -44,6 +44,24 @@ enum Gate {
             where !deviceInfo.isApplicationSupported(capability, over: transport) {
                 return .skip(reason: "requires \(capability) over \(transport)")
             }
+            // Supported is not enough: a disabled application answers SELECT with "file not found".
+            if deviceInfo.config.enabledCapabilities[transport] != nil {
+                for capability in requirements.capabilities
+                where !deviceInfo.config.isApplicationEnabled(capability, over: transport) {
+                    return .skip(reason: "requires \(capability) enabled over \(transport) (disabled on this key)")
+                }
+            }
+            // Lightning keys also report `.usb` but carry CTAP2 over their smart-card channel.
+            if requirements.requiresCTAP2OverCCID, transport == .usb, !provider.hasLightning {
+                if deviceInfo.version < ctap2OverUSBCCIDVersion {
+                    return .skip(
+                        reason: "CTAP2 over USB CCID requires firmware ≥ 5.8.0 (device is \(deviceInfo.version))"
+                    )
+                }
+                if !hasUSBSmartCard(deviceInfo) {
+                    return .skip(reason: "requires the smart-card (CCID) interface, which this key lacks over USB")
+                }
+            }
             if requirements.requiresBio, !isBio(deviceInfo) {
                 return .skip(reason: "requires a Bio (fingerprint) device")
             }
@@ -77,6 +95,14 @@ enum Gate {
 
     private static func isBio(_ info: DeviceInfo) -> Bool {
         info.formFactor == .usbABio || info.formFactor == .usbCBio || info.fpsVersion != nil
+    }
+
+    private static let ctap2OverUSBCCIDVersion = Version("5.8.0")!
+
+    // Over USB a key exposes its smart-card (CCID) interface only while a CCID application is enabled.
+    private static func hasUSBSmartCard(_ info: DeviceInfo) -> Bool {
+        let mask = info.config.enabledCapabilities[.usb] ?? info.supportedCapabilities[.usb] ?? 0
+        return [Capability.oath, .piv, .openPGP, .hsmAuth].contains { mask & $0.rawValue != 0 }
     }
 }
 

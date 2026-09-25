@@ -92,6 +92,15 @@ public struct TwinKitConnectionProvider: ConnectionProvider {
         }
     }
 
+    /// Power-cycles the twin, as unplugging and replugging a real key would.
+    public func waitForReinsertion(timeout: Duration) async throws {
+        do {
+            try await TwinKitBackend.shared.powerCycle()
+        } catch {
+            throw ProviderError.unavailable("TwinKit power cycle failed: \(error)")
+        }
+    }
+
     public func deviceInfo() async throws -> DeviceInfo {
         if let cached = await infoCache.value { return cached }
         let connection = try await makeSmartCardConnection()

@@ -60,11 +60,11 @@ struct RunnerView: View {
         }
         .overlay(alignment: .top) {
             ZStack(alignment: .top) {
-                if let prompt = model.touchPrompt {
-                    TouchBanner(prompt: prompt)
+                if let prompt = model.userPrompt {
+                    UserPromptBanner(prompt: prompt)
                 }
             }
-            .animation(.snappy, value: model.touchPrompt)
+            .animation(.snappy, value: model.userPrompt)
         }
         .onChange(of: selection) { _, new in
             if new != nil { showInspector = true }
@@ -153,6 +153,12 @@ struct RunnerView: View {
                         Label("Authorize test key…", systemImage: "exclamationmark.triangle")
                     }
                     .disabled(!model.canChangeAuthorization)
+                }
+                Section("Run") {
+                    Toggle(isOn: $model.stopOnFirstFailure) {
+                        Label("Stop at first failure", systemImage: "stop.circle")
+                    }
+                    .disabled(model.isRunning)
                 }
                 Section("Secure channel") {
                     Picker("Secure channel", selection: $model.secureChannel) {
@@ -508,6 +514,11 @@ private struct CountsBar: View {
                     .font(.callout).monospacedDigit().foregroundStyle(.secondary)
                     .lineLimit(1).fixedSize()
             } else {
+                if let stopped = model.stoppedAfterFailure {
+                    Label("Stopped at \(stopped.name)", systemImage: "stop.circle.fill")
+                        .font(.callout).foregroundStyle(.red).lineLimit(1)
+                        .help("The run stops at the first failure. Turn this off in More → Stop at first failure.")
+                }
                 if model.secureChannel != .none {
                     Label(secureChannelLabel(model.secureChannel), systemImage: "lock.shield")
                         .font(.callout).foregroundStyle(.teal).lineLimit(1)
@@ -784,12 +795,12 @@ private struct Chip: View {
     }
 }
 
-private struct TouchBanner: View {
-    let prompt: String
+private struct UserPromptBanner: View {
+    let prompt: RunnerViewModel.UserPrompt
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "hand.tap")
-            Text(prompt)
+            Image(systemName: prompt.systemImage)
+            Text(prompt.text)
             Spacer(minLength: 0)
         }
         .font(.callout.weight(.semibold))

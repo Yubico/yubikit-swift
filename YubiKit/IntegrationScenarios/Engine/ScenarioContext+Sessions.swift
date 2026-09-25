@@ -106,7 +106,7 @@ extension Scenario.Context {
     }
 
     func ctap2Session() async throws -> CTAP2.Session {
-        switch provider.ctap2Transport {
+        switch ctap2Transport {
         case .ccid:
             let connection = try await smartCardConnection()
             let scp = try await scpKeyParams()
@@ -131,12 +131,7 @@ extension Scenario.Context {
             using: .pin(Self.defaultTestPin),
             permissions: [.credentialManagement]
         )
-        let credentialManagement = try await session.credentialManagement(token: token)
-        for try await rp in credentialManagement.rps {
-            for try await credential in credentialManagement.credentials(for: rp.rpIdHash) {
-                try await credentialManagement.deleteCredential(credential.credentialId)
-            }
-        }
+        try await session.credentialManagement(token: token).deleteAllCredentials()
     }
 
     func webAuthnClient(
@@ -158,5 +153,19 @@ extension Scenario.Context {
     ) async throws -> WebAuthn.Client {
         await reconnectWhenOverNFC()
         return try await webAuthnClient(origin: origin, allowedExtensions: allowedExtensions)
+    }
+}
+
+extension CTAP2.CredentialManagement {
+    /// Deletes every discoverable credential. Collects them first: an authenticator may abandon an
+    /// enumeration when another command, such as a delete, arrives before it finishes.
+    func deleteAllCredentials() async throws {
+        var credentialIds: [WebAuthn.CredentialDescriptor] = []
+        for rp in try await rps.enumerate() {
+            credentialIds += try await credentials(for: rp.rpIdHash).enumerate().map(\.credentialId)
+        }
+        for credentialId in credentialIds {
+            try await deleteCredential(credentialId)
+        }
     }
 }

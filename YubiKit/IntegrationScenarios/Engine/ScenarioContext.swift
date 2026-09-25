@@ -63,6 +63,9 @@ extension Scenario {
         nonisolated private let recorder = Recorder()
 
         nonisolated var recordedFailures: [Scenario.Failure] { recorder.failures }
+
+        /// The CTAP2 interface for this scenario: its variant's, or the backend's default.
+        nonisolated var ctap2Transport: CTAP2Transport { scenario.ctap2Transport ?? provider.ctap2Transport }
         nonisolated var recordedLogs: [String] { recorder.logs }
 
         private var teardown: [Teardown] = []
@@ -183,8 +186,25 @@ extension Scenario {
             recorder.addLog(message)
         }
 
+        /// Asks the user to touch the key. Over NFC the tap already proves presence, so there is
+        /// nothing to touch and the prompt is only logged.
         nonisolated func touch(_ prompt: String) {
+            guard provider.deviceTransport != .nfc else {
+                log("NFC: user presence is implied by the tap (\(prompt))")
+                return
+            }
             onEvent(.touchPrompt(scenario, prompt))
+        }
+
+        /// Power-cycles the key: closes this scenario's connections, asks the user to unplug and replug
+        /// the key, and waits until it is back. Virtual and NFC backends do this without the user.
+        func reinsertKey(_ prompt: String = "Unplug the YubiKey and plug it back in") async throws {
+            await closeConnections()
+            if !provider.capabilities.isVirtual, provider.deviceTransport != .nfc {
+                onEvent(.reinsertPrompt(scenario, prompt))
+            }
+            try await provider.waitForReinsertion(timeout: .seconds(120))
+            log("key reinserted")
         }
 
         // MARK: - Connections (internal, memoized per scenario)
@@ -250,6 +270,10 @@ extension Scenario {
                 }
             }
             teardown.removeAll()
+            await closeConnections()
+        }
+
+        private func closeConnections() async {
             if let connection = try? await smartCardConnectionTask?.value { await connection.close(error: nil) }
             if let connection = try? await fidoConnectionTask?.value { await connection.close(error: nil) }
             if let connection = try? await otpConnectionTask?.value { await connection.close(error: nil) }

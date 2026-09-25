@@ -78,6 +78,12 @@ public actor TwinKitBackend {
         return TwinKitSmartCardChannel(backend: self, transport: transport)
     }
 
+    /// Simulates unplugging and replugging the key: clears every applet's volatile state
+    /// (selection, PIN/auth, SCP, and the FIDO PIN soft-lock). Stored data survives.
+    public func powerCycle() throws(TwinKitSupportError) {
+        try loadDevice().deselect()
+    }
+
     public func openFIDO() throws(TwinKitSupportError) -> TwinKitFIDOChannel {
         _ = try loadDevice()
         return TwinKitFIDOChannel(backend: self)

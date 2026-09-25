@@ -37,12 +37,21 @@ final class RunnerViewModel: ObservableObject {
         }
     }
     @Published var failuresOnly = false
+    /// A failure is a bug (or a missed touch), so by default a run stops at the first one.
+    @Published var stopOnFirstFailure = true
+    @Published private(set) var stoppedAfterFailure: Scenario?
     @Published var secureChannel: SecureChannelPolicy = .none
     @Published private(set) var authorizedSerialNumber: UInt?
 
     @Published private(set) var results: [Scenario: Scenario.Result] = [:]
     @Published private(set) var runningScenario: Scenario?
-    @Published private(set) var touchPrompt: String?
+    @Published private(set) var userPrompt: UserPrompt?
+
+    /// Something the scenario needs the user to do with the key.
+    struct UserPrompt: Equatable {
+        let text: String
+        let systemImage: String
+    }
     @Published private(set) var isRunning = false
     @Published private(set) var ranCount = 0
     @Published private(set) var runTotal = 0
@@ -175,6 +184,7 @@ final class RunnerViewModel: ObservableObject {
             return
         }
         isRunning = true
+        stoppedAfterFailure = nil
         ranCount = 0
         runTotal = scenarios.count
         let runner = Scenario.Runner(provider: provider, secureChannel: secureChannel)
@@ -204,12 +214,16 @@ final class RunnerViewModel: ObservableObject {
                     self.backendAlert = BackendAlert(message: reason)
                     break
                 }
+                if self.stopOnFirstFailure, result.status == .failed || result.status == .errored {
+                    self.stoppedAfterFailure = scenario
+                    break
+                }
             }
             sink.finish()
             await consumer.value
             self.isRunning = false
             self.runningScenario = nil
-            self.touchPrompt = nil
+            self.userPrompt = nil
         }
     }
 
@@ -274,10 +288,13 @@ final class RunnerViewModel: ObservableObject {
         switch event {
         case .started(let scenario):
             runningScenario = scenario
-        case .touchPrompt(_, let prompt): touchPrompt = prompt
+        case .touchPrompt(_, let prompt):
+            userPrompt = UserPrompt(text: prompt, systemImage: "hand.tap")
+        case .reinsertPrompt(_, let prompt):
+            userPrompt = UserPrompt(text: prompt, systemImage: "cable.connector")
         case .finished:
             runningScenario = nil
-            touchPrompt = nil
+            userPrompt = nil
         }
     }
 }

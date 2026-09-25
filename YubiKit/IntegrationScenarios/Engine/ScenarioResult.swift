@@ -68,6 +68,8 @@ extension Scenario {
     public enum Event: Sendable {
         case started(Scenario)
         case touchPrompt(Scenario, String)
+        /// The scenario is waiting for the key to be unplugged and plugged back in (a power cycle).
+        case reinsertPrompt(Scenario, String)
         case finished(Result)
     }
 }

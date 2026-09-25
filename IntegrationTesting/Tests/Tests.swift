@@ -99,8 +99,11 @@ enum ScenarioTests {
 
     static func run(_ scenario: Scenario) async throws {
         let result = await Scenario.Runner(provider: makeProvider(), secureChannel: forcedSecureChannel).run(scenario) {
-            if case .touchPrompt(let scenario, let prompt) = $0 {
+            switch $0 {
+            case .touchPrompt(let scenario, let prompt), .reinsertPrompt(let scenario, let prompt):
                 print("[\(scenario.id)] \(prompt)")
+            default:
+                break
             }
         }
         switch result.status {
