@@ -83,6 +83,5 @@ case "$PROFILE" in
 esac
 
 cd "$SCRIPT_DIR"
-# SwiftBuild omits YubiKitTwinSupport from the TwinKit test link with current Xcode toolchains.
 exec env YUBIKIT_ENABLE_TWINKIT="$PROFILE" \
-  swift test --build-system native --scratch-path .build/scenarios-twinkit --filter IntegrationTests "$@"
+  swift test --scratch-path .build/scenarios-twinkit --filter IntegrationTests "$@"

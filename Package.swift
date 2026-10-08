@@ -24,13 +24,11 @@ if twinKitEnabled {
             .package(url: "https://github.com/Yubico/hardware-digital-twin", branch: "main")
         )
     }
-    yubiKitDependencies.append(
-        .target(name: "YubiKitTwinSupport", condition: .when(platforms: [.iOS]))
-    )
+    yubiKitDependencies.append(.target(name: "YubiKitTwinSupport"))
     yubiKitSwiftSettings.append(
         .define("YUBIKIT_TWINKIT", .when(platforms: [.iOS]))
     )
-    integrationTestDependencies.append("YubiKitTwinTesting")
+    integrationTestDependencies.append(contentsOf: ["YubiKitTwinTesting", "YubiKitTwinSupport"])
 }
 
 var packageTargets: [Target] = [
