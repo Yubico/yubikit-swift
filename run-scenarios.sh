@@ -9,7 +9,8 @@ usage() {
 Usage: $(basename "$0") <hardware|twinkit[=PROFILE]> [swift-test-options]
 
   hardware           Run macOS scenarios against an allow-listed YubiKey.
-  twinkit[=PROFILE]  Run scenarios using a Yubico-internal test tool.
+  twinkit[=PROFILE]  Run scenarios using a Yubico-internal test tool. Legacy profiles:
+                     neo-3.4.9, yk4-4.3.7, ykplus-4.0.0.
 
 Environment knobs (passed through):
   YUBIKIT_TWINKIT_TRANSPORT=nfc   Drive the run contactless. CCID becomes the only
@@ -17,9 +18,7 @@ Environment knobs (passed through):
                                   are USB-only, so those scenarios skip.
   YUBIKIT_TWIN_PATH=<dir>         Resolve TwinKit from a local hardware-digital-twin
                                   checkout instead of the published package, so twin
-                                  changes are testable before they are pushed. SwiftPM
-                                  takes the package identity from the directory name,
-                                  so <dir> must be named hardware-digital-twin.
+                                  changes are testable before they are pushed.
   SCENARIO=<id substring>         Run only the scenarios whose id contains the substring,
                                   e.g. SCENARIO=PIV.Signatures for a whole family.
 EOF
@@ -68,7 +67,7 @@ EOF
 esac
 
 case "$PROFILE" in
-  5-nfc|5c-nfc|5-nano|5c-nano|5-nfc-ent|5-nfc-58|5-nfc-58-beta|5-fips|bio-mpe|bio-fido|sky-nfc)
+  neo-3.4.9|yk4-4.3.7|ykplus-4.0.0|5-nfc|5c-nfc|5-nano|5c-nano|5-nfc-ent|5-nfc-58|5-nfc-58-beta|5-fips|bio-mpe|bio-fido|sky-nfc)
     ;;
   "")
     echo "Internal profile must not be empty." >&2

@@ -24,6 +24,7 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
     case lockCode
     case nfcRestricted
     case bioDeviceReset
+    case neoCapabilityState
 
     /// The Management application answers over SmartCard and over FIDO HID, and the SDK ships a
     /// `makeSession` for each. These read-only families run over both, so neither backend can rot
@@ -31,12 +32,12 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
     static var parameterizedScenarios: [Scenario] {
         Scenario.parameterized(
             "Management.Info.version",
-            "session reports firmware version 4 or later",
+            "session reports a supported firmware version",
             over: ManagementTransport.allCases
         ) { context, transport in
             let session = try await context.managementSession(over: transport.kind)
             let version = await session.version
-            context.expect(version.major >= 4, "expected firmware major ≥ 4, got \(version)")
+            context.expect(version.major == 0 || version.major >= 3, "unexpected firmware version \(version)")
         }
             + Scenario.parameterized(
                 "Management.Info.deviceInfo",
@@ -44,6 +45,15 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
                 over: ManagementTransport.allCases
             ) { context, transport in
                 let session = try await context.managementSession(over: transport.kind)
+                if await session.version < Version("4.1.0")! {
+                    do {
+                        _ = try await session.getDeviceInfo()
+                        context.record("firmware before 4.1 must reject device info")
+                    } catch ManagementSessionError.featureNotSupported {
+                        context.log("device info correctly rejected before firmware 4.1")
+                    }
+                    return
+                }
                 let info = try await session.getDeviceInfo()
                 context.expectEqual(info.version, await session.version, "DeviceInfo.version matches session")
                 context.expect(info.serialNumber > 0, "serial number should be greater than 0")
@@ -52,6 +62,50 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
 
     var scenario: Scenario {
         switch self {
+        case .neoCapabilityState:
+            return Scenario(
+                "Management.Mode.neoCapabilityState",
+                "NEO keeps physical app support while USB mode changes enabled apps",
+                requirements: Requirements(
+                    minVersion: Version("3.0.0"),
+                    maxVersion: Version("3.99.99"),
+                    transports: [.usb],
+                    requiresSmartCardTransport: true,
+                    requiresOTPTransport: true
+                )
+            ) { context in
+                guard context.provider.capabilities.isVirtual else { return }
+                let initial = try await context.provider.deviceInfo()
+                let session = try await Management.Session.makeSession(connection: context.otpConnection())
+                await context.addTeardown {
+                    if context.provider.capabilities.hasOTP {
+                        let restore = try await Management.Session.makeSession(connection: context.otpConnection())
+                        try await restore.setMode(interfaces: [.otp, .fido, .ccid])
+                    } else {
+                        let connection = try await context.smartCardConnection()
+                        let restore = try await Management.Session.makeSession(
+                            connection: connection,
+                            scpKeyParams: context.scpKeyParams()
+                        )
+                        try await restore.setMode(interfaces: [.otp, .fido, .ccid])
+                    }
+                    try await context.reinsertKey()
+                }
+                try await session.setMode(interfaces: [.otp])
+                try await context.reinsertKey()
+                let otpInfo = try await context.provider.deviceInfo()
+                context.expectEqual(otpInfo.supportedCapabilities[.usb], 0x003b, "NEO physical USB support")
+                context.expectEqual(otpInfo.config.enabledCapabilities[.usb], 0x0001, "OTP-only USB mode")
+
+                let otpSession = try await Management.Session.makeSession(connection: context.otpConnection())
+                try await otpSession.setMode(interfaces: [.ccid])
+                let reopened = try await context.provider.makeSmartCardConnection()
+                await reopened.close(error: nil)
+                let ccidInfo = try await context.provider.deviceInfo()
+                context.expectEqual(ccidInfo.supportedCapabilities[.usb], 0x003b, "NEO physical USB support")
+                context.expectEqual(ccidInfo.config.enabledCapabilities[.usb], 0x0038, "CCID-only USB mode")
+                context.expectEqual(ccidInfo.serialNumber, initial.serialNumber, "serial survives USB mode changes")
+            }
         // MARK: - Configuration
         case .timeouts:
             return Scenario(
@@ -240,6 +294,9 @@ private struct ManagementTransport: ScenarioParameter {
     var displayName: String { kind == .fidoHID ? "FIDO HID" : "smart card" }
 
     var requirements: Requirements {
-        Requirements(requiresFIDOTransport: kind == .fidoHID)
+        Requirements(
+            requiresFIDOTransport: kind == .fidoHID,
+            requiresSmartCardTransport: kind == .smartCard
+        )
     }
 }

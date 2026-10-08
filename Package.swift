@@ -18,7 +18,7 @@ var integrationTestDependencies: [Target.Dependency] = ["YubiKitIntegrationScena
 if twinKitEnabled {
     // YUBIKIT_TWIN_PATH resolves TwinKit from a local checkout, unpushed changes included.
     if let localTwinPath = Context.environment["YUBIKIT_TWIN_PATH"] {
-        packageDependencies.append(.package(path: localTwinPath))
+        packageDependencies.append(.package(name: "hardware-digital-twin", path: localTwinPath))
     } else {
         packageDependencies.append(
             .package(url: "https://github.com/Yubico/hardware-digital-twin", branch: "main")

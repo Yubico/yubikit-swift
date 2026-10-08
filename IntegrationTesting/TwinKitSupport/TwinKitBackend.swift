@@ -22,6 +22,9 @@ public enum TwinKitSupportError: Error, Sendable {
     case noHIDReport
 }
 
+/// Transport interfaces reported by the live TwinKit device.
+public typealias TwinKitDeviceDescriptor = TwinDevice.DeviceDescriptor
+
 public enum TwinKitSmartCardTransport: Sendable {
     case usb
     case nfc
@@ -45,7 +48,19 @@ public actor TwinKitBackend {
     public static let environmentProfileConfigurationError = environmentProfileConfiguration.error
 
     public init(profile: DeviceProfile? = TwinKitBackend.environmentProfile) {
-        self.profile = profile
+        self.deviceResult = Result {
+            try EmbeddedTwin.shared.makeDevice(profile: profile)
+        }.mapError { .unavailable(String(describing: $0)) }
+    }
+
+    /// Reads the current descriptor, including USB interfaces changed by legacy mode commands.
+    public nonisolated func descriptor() throws(TwinKitSupportError) -> TwinKitDeviceDescriptor {
+        let device = try deviceResult.get()
+        do {
+            return try device.descriptor()
+        } catch {
+            throw .unavailable("TwinKit descriptor failed: \(error)")
+        }
     }
 
     public func isAvailable() -> Bool {
@@ -62,6 +77,12 @@ public actor TwinKitBackend {
     ) throws(TwinKitSupportError) -> TwinKitSmartCardChannel {
         let device = try loadDevice()
         device.deselect()
+        let descriptor = try descriptor()
+        let available = switch transport {
+        case .usb: descriptor.usbInterfaces & 0x04 != 0
+        case .nfc: descriptor.nfcCapabilities != 0
+        }
+        guard available else { throw .unavailable("smart-card transport is unavailable") }
         return TwinKitSmartCardChannel(backend: self, transport: transport)
     }
 
@@ -72,12 +93,18 @@ public actor TwinKitBackend {
     }
 
     public func openFIDO() throws(TwinKitSupportError) -> TwinKitFIDOChannel {
+        guard try descriptor().usbInterfaces & 0x02 != 0 else {
+            throw .unavailable("FIDO HID is unavailable")
+        }
         _ = try loadDevice()
         return TwinKitFIDOChannel(backend: self)
     }
 
     /// Opens the twin's OTP keyboard HID channel.
     public func openKeyboard() throws(TwinKitSupportError) -> TwinKitKeyboardChannel {
+        guard try descriptor().usbInterfaces & 0x01 != 0 else {
+            throw .unavailable("OTP keyboard HID is unavailable")
+        }
         _ = try loadDevice()
         return TwinKitKeyboardChannel(backend: self)
     }
@@ -96,18 +123,10 @@ public actor TwinKitBackend {
         return (profile, nil)
     }()
 
-    private var device: TwinDevice?
-    private let profile: DeviceProfile?
+    private nonisolated let deviceResult: Result<TwinDevice, TwinKitSupportError>
 
     private func loadDevice() throws(TwinKitSupportError) -> TwinDevice {
-        if let device { return device }
-        do {
-            let device = try EmbeddedTwin.shared.makeDevice(profile: profile)
-            self.device = device
-            return device
-        } catch {
-            throw .unavailable(String(describing: error))
-        }
+        try deviceResult.get()
     }
 }
 

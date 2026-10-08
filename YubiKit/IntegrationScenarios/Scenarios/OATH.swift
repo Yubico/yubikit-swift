@@ -105,13 +105,15 @@ enum OATHScenario: CaseIterable, ScenarioSuite {
                 let session = try await populatedOATHSession(context)
                 let result = try await session.calculateCredentialCodes(timestamp: Date(timeIntervalSince1970: 0))
                 let codes = result.compactMap { _, code in code?.code }
+                let supportsTouch = await session.supports(.touch)
                 try context.require(
-                    codes.count == 3,
-                    "expected 3 auto-calculated codes, not touch/HOTP ones"
+                    codes.count == (supportsTouch ? 3 : 4),
+                    "unexpected auto-calculated code count"
                 )
                 context.expect(codes[0] == "659165", "code 0")
                 context.expect(codes[1] == "807284", "code 1")
                 context.expect(codes[2] == "29659165", "code 2")
+                if !supportsTouch { context.expect(codes[3] == "807284", "code 3") }
             }
         case .numericPrefixName:
             return Scenario(
@@ -431,7 +433,7 @@ enum OATHScenario: CaseIterable, ScenarioSuite {
                 // Re-select OATH from scratch (via a Management select in between) to prove the access key is gone.
                 let connection = try await context.smartCardConnection()
                 let scp = try await context.scpKeyParams()
-                _ = try await Management.Session.makeSession(connection: connection, scpKeyParams: scp)
+                try await selectAnotherApplet(connection: connection, scpKeyParams: scp)
                 let reopened = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
                 let credentials = try await reopened.listCredentials()
                 context.expectEqual(
@@ -901,6 +903,8 @@ private let oathPassword = "password"
 
 /// Reset OATH, then re-select so password derivation sees the new salt.
 private func freshOATHSession(_ context: Scenario.Context) async throws -> OATHSession {
+    // A FIPS-capable OATH application rejects PUT (0x6985) until an access key is set.
+    let fipsCapable = try await context.provider.deviceInfo().fipsCapabilityFlags & Capability.oath.rawValue != 0
     let connection = try await context.smartCardConnection()
     let scp = try await context.scpKeyParams()
     try await OATHSession.makeSession(connection: connection, scpKeyParams: scp).reset()
@@ -909,8 +913,6 @@ private func freshOATHSession(_ context: Scenario.Context) async throws -> OATHS
         try await cleanup.reset()
     }
     let session = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
-    // A FIPS-capable OATH application rejects PUT (0x6985) until an access key is set.
-    let fipsCapable = try await context.provider.deviceInfo().fipsCapabilityFlags & Capability.oath.rawValue != 0
     if fipsCapable {
         try await session.setPassword(oathPassword)
     }
@@ -922,7 +924,7 @@ private func populatedOATHSession(
     password: String? = nil
 ) async throws -> OATHSession {
     var session = try await freshOATHSession(context)
-    for template in standardOATHCredentials() {
+    for template in standardOATHCredentials(supportsTouch: await session.supports(.touch)) {
         try await session.addCredential(template: template)
     }
 
@@ -931,7 +933,7 @@ private func populatedOATHSession(
         // Select another applet so the next OATH SELECT reports the locked state.
         let connection = try await context.smartCardConnection()
         let scp = try await context.scpKeyParams()
-        _ = try await Management.Session.makeSession(connection: connection, scpKeyParams: scp)
+        try await selectAnotherApplet(connection: connection, scpKeyParams: scp)
         session = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
     }
 
@@ -958,12 +960,20 @@ private func lockedOATHSession(
     // Select another applet so the next OATH SELECT reports the locked state.
     let connection = try await context.smartCardConnection()
     let scp = try await context.scpKeyParams()
-    _ = try await Management.Session.makeSession(connection: connection, scpKeyParams: scp)
+    try await selectAnotherApplet(connection: connection, scpKeyParams: scp)
     let locked = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
     return (locked, credential)
 }
 
-private func standardOATHCredentials() -> [OATHSession.CredentialTemplate] {
+private func selectAnotherApplet(connection: any SmartCardConnection, scpKeyParams: SCPKeyParams?) async throws {
+    do {
+        _ = try await Management.Session.makeSession(connection: connection, scpKeyParams: scpKeyParams)
+    } catch ManagementSessionError.featureNotSupported {
+        _ = try await PIVSession.makeSession(connection: connection, scpKeyParams: scpKeyParams)
+    }
+}
+
+private func standardOATHCredentials(supportsTouch: Bool) -> [OATHSession.CredentialTemplate] {
     let secret = base32Decoded("abba")
     return [
         OATHSession.CredentialTemplate(
@@ -997,7 +1007,7 @@ private func standardOATHCredentials() -> [OATHSession.CredentialTemplate] {
             issuer: "TOTP SHA256",
             name: "requires touch, 6 digits, 30 sec",
             digits: 6,
-            requiresTouch: true
+            requiresTouch: supportsTouch
         ),
         OATHSession.CredentialTemplate(
             type: .hotp(),

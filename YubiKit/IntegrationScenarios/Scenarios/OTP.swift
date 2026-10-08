@@ -32,12 +32,13 @@ enum OTPScenario {
         ) { context, transport in
             try await skipUnsupportedTransport(context, transport, needsSlotState: false)
 
+            let expectedSerial = try await context.provider.deviceInfo().serialNumber
             let session = try await context.otpSession(over: transport.kind)
             let serial = try await session.getSerialNumber()
             context.expect(serial != 0, "the OTP application should report a non-zero serial")
             context.expectEqual(
                 serial,
-                try await context.provider.deviceInfo().serialNumber,
+                expectedSerial,
                 "serial read over \(transport.idSuffix) should match DeviceInfo"
             )
             context.log("\(transport.idSuffix): serial \(serial), \(await session.configState)")
@@ -453,6 +454,7 @@ private struct OTPTransport: ScenarioParameter {
         Requirements(
             capabilities: [.otp],
             minVersion: minVersion,
+            requiresSmartCardTransport: kind == .smartCard,
             requiresOTPTransport: kind == .otpHID
         )
     }
