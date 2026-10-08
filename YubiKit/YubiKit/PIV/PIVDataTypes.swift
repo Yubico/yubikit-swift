@@ -19,6 +19,23 @@ public enum PIV: Sendable {
 
     public typealias EncryptionError = YubiKit.EncryptionError
 
+    /// Identifiers for common PIV data objects.
+    public enum ObjectId {
+        /// PIV discovery object.
+        public static let discovery = Data([0x7e])
+        /// Cardholder Unique Identifier.
+        public static let chuid = Data([0x5f, 0xc1, 0x02])
+        /// Card Capability Container.
+        public static let ccc = Data([0x5f, 0xc1, 0x07])
+        /// Yubico PIV management data.
+        public static let pivman = Data([0x5f, 0xff, 0x00])
+        /// PIN-protected Yubico PIV management data.
+        public static let pivmanProtected = Data([0x5f, 0xc1, 0x09])
+
+        /// The data object holding a certificate for a PIV slot.
+        public static func certificate(in slot: Slot) -> Data { slot.objectId }
+    }
+
     /// The touch policy of a private key defines whether or not a user presence check (physical touch) is required to use the key.
     public enum TouchPolicy: UInt8, Sendable {
         /// The default behavior for the particular key slot is used, which is always `.never`.

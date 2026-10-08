@@ -56,6 +56,9 @@ enum PIVScenario: CaseIterable, ScenarioSuite {
     case putCompressedGet
     case putDelete
     case getWithoutAuth
+    case objectRoundTrip
+    case protectedObjectRequiresPin
+    case objectWriteRequiresAuth
     case move
     case delete
     case authenticateDefault
@@ -63,6 +66,9 @@ enum PIVScenario: CaseIterable, ScenarioSuite {
     case changeAndReauthenticate
     case verify
     case verifyRetryCount
+    case getPinAttemptsNonConsuming
+    case getPinAttemptsLegacy
+    case changePinLegacyCache
     case setAttempts
     case changePinFailure
     case changePinSuccess
@@ -78,6 +84,8 @@ enum PIVScenario: CaseIterable, ScenarioSuite {
     case managementKey
     case slot
     case aesManagementKey
+    case managementKeyLengths
+    case aesKeyUnsupported
     case pin
     case pinRetries
     case puk
@@ -567,6 +575,92 @@ enum PIVScenario: CaseIterable, ScenarioSuite {
                     "certificate should be readable without authentication"
                 )
             }
+        case .objectRoundTrip:
+            return Scenario(
+                "PIV.Objects.roundTrip",
+                "writes CHUID, CCC, and PIVMAN objects and reads them without authentication",
+                requirements: Requirements(capabilities: [.piv])
+            ) { context in
+                let session = try await context.pivSession(authenticated: true)
+                let objects: [(Data, Data)] = [
+                    (PIV.ObjectId.chuid, Data([0x30, 0x02, 0x01, 0x01])),
+                    (PIV.ObjectId.ccc, Data([0x53, 0x02, 0xca, 0xfe])),
+                    (PIV.ObjectId.pivman, Data([0x80, 0x01, 0x01])),
+                ]
+                for (id, value) in objects {
+                    try await session.putObject(value, objectId: id)
+                }
+
+                let unauthenticated = try await context.pivSession(reset: false)
+                for (id, value) in objects {
+                    context.expectEqual(
+                        try await unauthenticated.getObject(objectId: id),
+                        value,
+                        "object \(id) should round-trip"
+                    )
+                }
+                let discovery = try await unauthenticated.getObject(objectId: PIV.ObjectId.discovery)
+                context.expect(!discovery.isEmpty, "discovery object should be readable without authentication")
+                for invalidId in [Data(), Data([0x5f, 0xc1]), Data([0x5f, 0xc1, 0x02, 0x00])] {
+                    do {
+                        _ = try await unauthenticated.getObject(objectId: invalidId)
+                        context.record("invalid object ID should fail before sending")
+                    } catch PIVSessionError.illegalArgument {
+                        context.log("invalid object ID rejected")
+                    }
+                }
+                do {
+                    _ = try await unauthenticated.getObject(objectId: Data([0x5f, 0xff, 0x7f]))
+                    context.record("missing object should fail")
+                } catch PIVSessionError.failedResponse(let response, _) {
+                    context.expectEqual(response.status, .fileNotFound, "missing object status")
+                }
+            }
+        case .protectedObjectRequiresPin:
+            return Scenario(
+                "PIV.Objects.protectedRequiresPin",
+                "protects the PIVMAN object with PIN verification on reads and writes",
+                requirements: Requirements(capabilities: [.piv])
+            ) { context in
+                let session = try await context.pivSession(authenticated: true)
+                let value = Data([0x88, 0x02, 0xca, 0xfe])
+                do {
+                    try await session.putObject(value, objectId: PIV.ObjectId.pivmanProtected)
+                    context.record("protected write without PIN should fail")
+                } catch PIVSessionError.failedResponse(let response, _) {
+                    context.expectEqual(response.status, .securityConditionNotSatisfied, "protected write status")
+                }
+                context.expectEqual(try await session.verifyPin(defaultPIN), .success, "PIN verification")
+                try await session.putObject(value, objectId: PIV.ObjectId.pivmanProtected)
+
+                let fresh = try await context.pivSession(reset: false)
+                do {
+                    _ = try await fresh.getObject(objectId: PIV.ObjectId.pivmanProtected)
+                    context.record("protected read without PIN should fail")
+                } catch PIVSessionError.failedResponse(let response, _) {
+                    context.expectEqual(response.status, .securityConditionNotSatisfied, "protected read status")
+                }
+                context.expectEqual(try await fresh.verifyPin(defaultPIN), .success, "PIN verification")
+                context.expectEqual(
+                    try await fresh.getObject(objectId: PIV.ObjectId.pivmanProtected),
+                    value,
+                    "protected object should round-trip"
+                )
+            }
+        case .objectWriteRequiresAuth:
+            return Scenario(
+                "PIV.Objects.writeRequiresAuth",
+                "rejects an object write without management-key authentication",
+                requirements: Requirements(capabilities: [.piv])
+            ) { context in
+                let session = try await context.pivSession()
+                do {
+                    try await session.putObject(Data([0x01]), objectId: PIV.ObjectId.chuid)
+                    context.record("unauthenticated object write should fail")
+                } catch PIVSessionError.failedResponse(let response, _) {
+                    context.expectEqual(response.status, .securityConditionNotSatisfied, "unauthenticated write status")
+                }
+            }
         // MARK: - TestMoveAndDelete
         case .move:
             return Scenario(
@@ -713,7 +807,7 @@ enum PIVScenario: CaseIterable, ScenarioSuite {
                 let session = try await context.pivSession(authenticated: true)
                 // Drive the loop off the device's retry count: each wrong PIN decrements it; the
                 // attempt that exhausts it locks the PIN.
-                let total = try await session.getPinMetadata().retriesTotal
+                let total = try await session.getPinAttempts()
                 try context.require(total > 0, "PIN retry count should be positive, got \(total)")
                 for attempt in 1...total {
                     let result = try await session.verifyPin("000000")
@@ -729,6 +823,105 @@ enum PIVScenario: CaseIterable, ScenarioSuite {
                     }
                 }
                 context.expectEqual(try await session.verifyPin("740737"), .pinLocked, "PIN should remain locked")
+            }
+        case .getPinAttemptsNonConsuming:
+            return Scenario(
+                "PIV.PinPuk.getPinAttemptsNonConsuming",
+                "queries remaining PIN attempts without consuming retries or clearing verification",
+                requirements: Requirements(capabilities: [.piv])
+            ) { context in
+                let session = try await context.pivSession(authenticated: true)
+                let initial = try await session.getPinAttempts()
+                context.expect(initial > 1, "default PIN should have multiple attempts")
+                context.expectEqual(try await session.getPinAttempts(), initial, "query must not consume a retry")
+
+                context.expectEqual(
+                    try await session.verifyPin("000000"),
+                    .fail(initial - 1),
+                    "wrong PIN consumes one retry"
+                )
+                context.expectEqual(try await session.getPinAttempts(), initial - 1, "query reports consumed retry")
+                context.expectEqual(
+                    try await session.getPinAttempts(),
+                    initial - 1,
+                    "repeated query does not consume retry"
+                )
+
+                context.expectEqual(try await session.verifyPin(defaultPIN), .success, "correct PIN restores retries")
+                context.expectEqual(
+                    try await session.getPinAttempts(),
+                    initial,
+                    "query after verification uses current retries"
+                )
+                let protectedValue = Data([0x88, 0x01, 0x42])
+                try await session.putObject(protectedValue, objectId: PIV.ObjectId.pivmanProtected)
+                context.expectEqual(
+                    try await session.getObject(objectId: PIV.ObjectId.pivmanProtected),
+                    protectedValue,
+                    "retry query must preserve PIN verification"
+                )
+            }
+        case .getPinAttemptsLegacy:
+            return Scenario(
+                "PIV.PinPuk.getPinAttemptsLegacy",
+                "uses empty VERIFY and cached results on firmware without PIN metadata",
+                requirements: Requirements(capabilities: [.piv], maxVersion: Version("5.2.99"))
+            ) { context in
+                let session = try await context.pivSession(authenticated: true)
+                let initial = try await session.getPinAttempts()
+                context.expect(initial > 1, "default PIN should have multiple attempts")
+                context.expectEqual(
+                    try await session.getPinAttempts(),
+                    initial,
+                    "empty VERIFY must not consume a retry"
+                )
+                context.expectEqual(
+                    try await session.verifyPin("000000"),
+                    .fail(initial - 1),
+                    "wrong PIN consumes one retry"
+                )
+                context.expectEqual(
+                    try await session.getPinAttempts(),
+                    initial - 1,
+                    "empty VERIFY reports remaining retries"
+                )
+                context.expectEqual(try await session.verifyPin(defaultPIN), .success, "correct PIN restores retries")
+                context.expectEqual(
+                    try await session.getPinAttempts(),
+                    initial,
+                    "verified status uses cached retry limit"
+                )
+            }
+        case .changePinLegacyCache:
+            return Scenario(
+                "PIV.PinPuk.changePinLegacyCache",
+                "keeps legacy PIN retry cache aligned after failed PIN and PUK changes",
+                requirements: Requirements(capabilities: [.piv], maxVersion: Version("5.2.99"))
+            ) { context in
+                let session = try await context.pivSession()
+                context.expectEqual(try await session.verifyPin(defaultPIN), .success, "default PIN verifies")
+
+                // Legacy empty VERIFY succeeds while verified, so only failed PIN CHANGE REFERENCE
+                // can refresh the cached count. A failed PUK change must leave that count alone.
+                do {
+                    try await session.changePin(from: "000000", to: "284631")
+                    context.record("wrong old PIN unexpectedly changed the PIN")
+                } catch let PIVSessionError.invalidPin(retries, _) {
+                    context.expectEqual(retries, 2, "wrong PIN change consumes one PIN retry")
+                }
+                context.expectEqual(try await session.getPinAttempts(), 2, "failed PIN change refreshes cache")
+
+                do {
+                    try await session.changePuk(from: "00000000", to: "28463175")
+                    context.record("wrong old PUK unexpectedly changed the PUK")
+                } catch let PIVSessionError.invalidPin(retries, _) {
+                    context.expectEqual(retries, 2, "wrong PUK change consumes one PUK retry")
+                }
+                context.expectEqual(try await session.getPinAttempts(), 2, "failed PUK change keeps PIN cache")
+
+                try await session.changePin(from: defaultPIN, to: "284631")
+                context.expectEqual(try await session.getPinAttempts(), 3, "successful PIN change restores retries")
+                try await session.changePin(from: "284631", to: defaultPIN)
             }
         // (the metadata half: set retries, then read back the new PIN/PUK totals).
         case .setAttempts:
@@ -1181,6 +1374,58 @@ enum PIVScenario: CaseIterable, ScenarioSuite {
                 context.expect(metadata.isDefault == false, "management key should no longer be default")
                 context.expectEqual(metadata.keyType, .aes192, "management key type should be AES-192")
                 context.expectEqual(metadata.touchPolicy, .always, "touch policy should be always")
+            }
+        case .managementKeyLengths:
+            return Scenario(
+                "PIV.ManagementKey.validateLengths",
+                "rejects invalid management-key lengths for TDES and all AES variants",
+                requirements: Requirements(capabilities: [.piv])
+            ) { context in
+                let session = try await context.pivSession(authenticated: true)
+                let types: [(PIV.ManagementKeyType, Int)] = [
+                    (.tripleDES, 24), (.aes128, 16), (.aes192, 24), (.aes256, 32),
+                ]
+                for (type, length) in types {
+                    for invalidLength in [length - 1, length + 1] {
+                        do {
+                            try await session.setManagementKey(
+                                Data(repeating: 0x42, count: invalidLength),
+                                type: type,
+                                requiresTouch: false
+                            )
+                            context.record("\(type) accepted \(invalidLength)-byte key")
+                        } catch PIVSessionError.invalidKeyLength {
+                            context.log("\(type) rejected \(invalidLength)-byte key")
+                        }
+                    }
+                }
+                // A rejected request must leave the old management key usable.
+                let fresh = try await context.pivSession(reset: false)
+                try await fresh.authenticate(with: Scenario.Context.defaultManagementKey)
+            }
+        case .aesKeyUnsupported:
+            return Scenario(
+                "PIV.ManagementKey.aesUnsupported",
+                "rejects AES management keys on firmware without AES support",
+                requirements: Requirements(capabilities: [.piv], maxVersion: Version("5.3.99"))
+            ) { context in
+                let session = try await context.pivSession(authenticated: true)
+                do {
+                    try await session.setManagementKey(
+                        Data(repeating: 0x42, count: 16),
+                        type: .aes128,
+                        requiresTouch: false
+                    )
+                    context.record("AES should be rejected on unsupported firmware")
+                } catch PIVSessionError.featureNotSupported {
+                    context.log("AES correctly rejected")
+                }
+                // TDES remains available on the same firmware.
+                try await session.setManagementKey(
+                    Scenario.Context.defaultManagementKey,
+                    type: .tripleDES,
+                    requiresTouch: false
+                )
             }
         case .pin:
             return Scenario(
