@@ -453,6 +453,7 @@ private struct OTPTransport: ScenarioParameter {
         Requirements(
             capabilities: [.otp],
             minVersion: minVersion,
+            requiresSmartCardTransport: kind == .smartCard,
             requiresOTPTransport: kind == .otpHID
         )
     }
