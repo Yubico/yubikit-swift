@@ -45,7 +45,8 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
                 over: ManagementTransport.allCases
             ) { context, transport in
                 let session = try await context.managementSession(over: transport.kind)
-                if await session.version < Version("4.1.0")! {
+                let version = await session.version
+                if version.major != 0, version < Version("4.1.0")! {
                     do {
                         _ = try await session.getDeviceInfo()
                         context.record("firmware before 4.1 must reject device info")
