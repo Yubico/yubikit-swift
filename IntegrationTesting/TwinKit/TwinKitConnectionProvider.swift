@@ -35,6 +35,11 @@ import YubiKitTwinSupport
         guard ["usb", "nfc"].contains(value) else {
             return "invalid \(transportEnvironmentKey) '\(value)' (expected usb or nfc)"
         }
+        if value == "nfc", let descriptor = try? TwinKitBackend.shared.descriptor(),
+            descriptor.nfcCapabilities == 0
+        {
+            return "NFC is unavailable on the selected TwinKit profile"
+        }
         return nil
     }()
 
@@ -42,23 +47,28 @@ import YubiKitTwinSupport
         ProcessInfo.processInfo.environment[transportEnvironmentKey]?.lowercased() == "nfc" ? .nfc : .usb
     }
 
-    public let capabilities: ProviderCapabilities
+    public var capabilities: ProviderCapabilities {
+        let descriptor = try? TwinKitBackend.shared.descriptor()
+        let isNFC = deviceTransport == .nfc
+        let usb = descriptor?.usbInterfaces ?? 0
+        let hasSmartCard = isNFC ? (descriptor?.nfcCapabilities ?? 0) != 0 : usb & 0x04 != 0
+        return ProviderCapabilities(
+            hasFIDO: !isNFC && usb & 0x02 != 0,
+            hasOTP: !isNFC && usb & 0x01 != 0,
+            hasSmartCard: hasSmartCard,
+            supportsSecureChannel: hasSmartCard && descriptor?.supportsSecureChannel == true,
+            isVirtual: true
+        )
+    }
     public let deviceTransport: DeviceTransport
-    public let ctap2Transport: CTAP2Transport
+    public var ctap2Transport: CTAP2Transport {
+        deviceTransport == .nfc ? .ccid : .fido
+    }
 
     private let infoCache = TwinKitDeviceInfoCache()
 
     public init(transport: DeviceTransport = TwinKitConnectionProvider.environmentTransport) {
         self.deviceTransport = transport
-        // Over NFC there is no USB HID at all, so both the keyboard and FIDO interfaces are absent.
-        let isNFC = transport == .nfc
-        self.capabilities = ProviderCapabilities(
-            hasFIDO: !isNFC,
-            hasOTP: !isNFC,
-            supportsSecureChannel: true,
-            isVirtual: true
-        )
-        self.ctap2Transport = isNFC ? .ccid : .fido
     }
 
     public func makeSmartCardConnection() async throws -> any SmartCardConnection {
@@ -103,9 +113,31 @@ import YubiKitTwinSupport
 
     public func deviceInfo() async throws -> DeviceInfo {
         if let cached = await infoCache.value { return cached }
-        let connection = try await makeSmartCardConnection()
+        let connection: any Connection
+        let session: Management.Session
+        let available = capabilities
+        if available.hasSmartCard {
+            let smartCard = try await makeSmartCardConnection()
+            connection = smartCard
+            do {
+                session = try await Management.Session.makeSession(connection: smartCard)
+            } catch {
+                await connection.close(error: error)
+                throw error
+            }
+        } else if available.hasFIDO {
+            let fido = try await makeFIDOConnection()
+            connection = fido
+            do {
+                session = try await Management.Session.makeSession(connection: fido)
+            } catch {
+                await connection.close(error: error)
+                throw error
+            }
+        } else {
+            throw ProviderError.unavailable("No Management transport is available on the selected TwinKit profile")
+        }
         do {
-            let session = try await Management.Session.makeSession(connection: connection)
             let info = try await session.getDeviceInfo()
             await connection.close(error: nil)
             await infoCache.store(info)

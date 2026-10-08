@@ -57,7 +57,7 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "Management.Config.timeouts",
                 "updateDeviceConfig round-trips auto-eject / challenge-response timeouts",
-                requirements: Requirements(minVersion: Version("5.0.0"))
+                requirements: Requirements(minVersion: Version("5.0.0"), requiresSmartCardTransport: true)
             ) { context in
                 let session = try await context.managementSession()
                 let config = try await session.getDeviceInfo().config
@@ -73,7 +73,7 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "Management.Config.chaining",
                 "chained enable/disable across applications round-trips",
-                requirements: Requirements(minVersion: Version("5.0.0"))
+                requirements: Requirements(minVersion: Version("5.0.0"), requiresSmartCardTransport: true)
             ) { context in
                 let session = try await context.managementSession()
                 let transport = context.deviceTransport
@@ -150,7 +150,7 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "Management.Config.lockCode",
                 "a set lock code is required to change configuration",
-                requirements: Requirements(minVersion: Version("5.0.0"))
+                requirements: Requirements(minVersion: Version("5.0.0"), requiresSmartCardTransport: true)
             ) { context in
                 let lockCode = Data(hexString: "01020304050607080102030405060708")!
                 let clearLockCode = Data(hexString: "00000000000000000000000000000000")!
@@ -186,7 +186,11 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
                 "Management.Config.nfcRestricted",
                 "NFC can be restricted until next USB insertion",
                 // Over NFC the restriction would lock out every later NFC scenario.
-                requirements: Requirements(minVersion: Version("5.7.0"), transports: [.usb])
+                requirements: Requirements(
+                    minVersion: Version("5.7.0"),
+                    transports: [.usb],
+                    requiresSmartCardTransport: true
+                )
             ) { context in
                 let session = try await context.managementSession()
                 let config = try await session.getDeviceInfo().config.with(nfcRestricted: true)
@@ -240,6 +244,9 @@ private struct ManagementTransport: ScenarioParameter {
     var displayName: String { kind == .fidoHID ? "FIDO HID" : "smart card" }
 
     var requirements: Requirements {
-        Requirements(requiresFIDOTransport: kind == .fidoHID)
+        Requirements(
+            requiresFIDOTransport: kind == .fidoHID,
+            requiresSmartCardTransport: kind == .smartCard
+        )
     }
 }

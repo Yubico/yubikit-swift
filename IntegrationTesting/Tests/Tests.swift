@@ -20,6 +20,7 @@ import YubiKit
 
 #if canImport(YubiKitTwinTesting)
 @_spi(YubiInternal) import YubiKitTwinTesting
+import YubiKitTwinSupport
 #endif
 
 // CLI knobs: YUBIKIT_ENABLE_TWINKIT=1, YUBIKEY_TEST_SERIALS,
@@ -218,3 +219,26 @@ private struct UnusedProvider: ConnectionProvider {
         throw ProviderError.unavailable("unused")
     }
 }
+
+#if canImport(YubiKitTwinTesting)
+@Test func unavailableNFCKeepsSmartCardSession() async throws {
+    let backend = TwinKitBackend(profile: .yubiKey5Nano)
+    let connection = try await backend.openSmartCard(transport: .usb)
+    let selected = try await connection.send(
+        Data([
+            0x00, 0xa4, 0x04, 0x00, 0x08, 0xa0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17,
+        ])
+    )
+    #expect(selected.suffix(2) == Data([0x90, 0x00]))
+    let command = Data([0x00, 0x1d, 0x00, 0x00])
+    let before = try await connection.send(command)
+    #expect(before.suffix(2) == Data([0x90, 0x00]))
+    do {
+        _ = try await backend.openSmartCard(transport: .nfc)
+        Issue.record("NFC connection succeeded on a USB-only profile")
+    } catch TwinKitSupportError.unavailable {
+    }
+    #expect(try await connection.send(command) == before)
+    connection.close(error: nil)
+}
+#endif
