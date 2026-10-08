@@ -81,21 +81,33 @@ public enum Management {
             fallbackVersion version: Version
         ) async throws -> DeviceInfo {
             var page: UInt8 = 0
-            var hasMoreData = true
+            var remainingPages = 1
             var result = [TKTLVTag: Data]()
 
-            while hasMoreData {
+            while remainingPages > 0 {
+                remainingPages -= 1
                 logger.debug("Reading device info", metadata: ["page": .stringConvertible(page)])
                 let data = try await interface.readConfig(page: page)
 
-                guard let count = data.bytes.first, count > 0,
+                guard let count = data.bytes.first, Int(count) == data.count - 1,
                     let tlvs = TKBERTLVRecord.dictionaryOfData(from: data.subdata(in: 1..<data.count))
                 else {
                     throw Error.responseParseError("Failed to parse TLV data from device info", source: .here())
                 }
-                result.merge(tlvs) { (_, new) in new }
-                hasMoreData = tlvs[0x10] != nil
-                page += 1
+                result.merge(tlvs.filter { $0.key != 0x10 }) { (_, new) in new }
+                if let continuation = tlvs[0x10] {
+                    guard let extraPages = continuation.integer else {
+                        throw Error.responseParseError("Invalid device info page count", source: .here())
+                    }
+                    guard extraPages <= UInt(UInt8.max - page) else {
+                        throw Error.responseParseError("Invalid device info page count", source: .here())
+                    }
+                    remainingPages = Int(extraPages)
+                }
+                guard remainingPages == 0 || page < UInt8.max else {
+                    throw Error.responseParseError("Too many device info pages", source: .here())
+                }
+                if remainingPages > 0 { page += 1 }
             }
 
             let info = DeviceInfo(withTlvs: result, fallbackVersion: version)
