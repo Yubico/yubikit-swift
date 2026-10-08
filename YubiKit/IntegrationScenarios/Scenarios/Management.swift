@@ -25,9 +25,9 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
     case nfcRestricted
     case bioDeviceReset
 
-    /// The Management application answers over SmartCard and over FIDO HID, and the SDK ships a
-    /// `makeSession` for each. These read-only families run over both, so neither backend can rot
-    /// unnoticed — before this, only SmartCard was ever exercised.
+    /// The Management application answers over SmartCard, FIDO HID, and OTP HID, and the SDK ships a
+    /// `makeSession` for each. These read-only families run over all of them, so no backend can rot
+    /// unnoticed.
     static var parameterizedScenarios: [Scenario] {
         Scenario.parameterized(
             "Management.Info.version",
@@ -48,6 +48,37 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
                 context.expectEqual(info.version, await session.version, "DeviceInfo.version matches session")
                 context.expect(info.serialNumber > 0, "serial number should be greater than 0")
             }
+            + [
+                Scenario(
+                    "Management.Config.otpRoundTrip",
+                    "OTP HID updates and reads device configuration",
+                    requirements: Requirements(minVersion: Version("5.0.0"), requiresOTPTransport: true)
+                ) { context in
+                    let session = try await context.managementSession(over: .otpHID)
+                    let initial = try await session.getDeviceInfo().config
+                    await context.addTeardown { try await session.updateDeviceConfig(initial, reboot: false) }
+                    let updated = initial.with(challengeResponseTimeout: 135)
+                    try await session.updateDeviceConfig(updated, reboot: false)
+                    context.expectEqual(
+                        try await session.getDeviceInfo().config.challengeResponseTimeout,
+                        135,
+                        "OTP configuration write round-trips"
+                    )
+                },
+                Scenario(
+                    "Management.Reset.otpRejected",
+                    "device reset is rejected over OTP HID",
+                    requirements: Requirements(minVersion: Version("5.6.0"), requiresOTPTransport: true)
+                ) { context in
+                    let session = try await context.managementSession(over: .otpHID)
+                    do {
+                        try await session.resetDevice()
+                        context.record("OTP transport must reject device reset")
+                    } catch ManagementSessionError.featureNotSupported {
+                        context.log("OTP transport correctly rejected device reset")
+                    }
+                },
+            ]
     }
 
     var scenario: Scenario {
@@ -235,11 +266,27 @@ private struct ManagementTransport: ScenarioParameter {
         Scenario.Context.ManagementTransportKind.allCases.map { ManagementTransport(kind: $0) }
     }
 
-    var idSuffix: String { kind == .fidoHID ? "fidoHID" : "smartCard" }
+    var idSuffix: String {
+        switch kind {
+        case .smartCard: "smartCard"
+        case .fidoHID: "fidoHID"
+        case .otpHID: "otpHID"
+        }
+    }
 
-    var displayName: String { kind == .fidoHID ? "FIDO HID" : "smart card" }
+    var displayName: String {
+        switch kind {
+        case .smartCard: "smart card"
+        case .fidoHID: "FIDO HID"
+        case .otpHID: "OTP HID"
+        }
+    }
 
     var requirements: Requirements {
-        Requirements(requiresFIDOTransport: kind == .fidoHID)
+        Requirements(
+            minVersion: kind == .otpHID ? Version("4.0.0") : nil,
+            requiresFIDOTransport: kind == .fidoHID,
+            requiresOTPTransport: kind == .otpHID
+        )
     }
 }

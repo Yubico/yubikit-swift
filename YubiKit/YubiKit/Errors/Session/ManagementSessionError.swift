@@ -18,6 +18,7 @@
 public enum ManagementSessionError: FIDOSessionError, SmartCardSessionError, Sendable {
     case connectionError(SmartCardConnectionError, source: SourceLocation)
     case fidoConnectionError(FIDOConnectionError, source: SourceLocation)
+    case otpConnectionError(OTPConnectionError, source: SourceLocation)
 
     case featureNotSupported(source: SourceLocation)
     case failedResponse(Response, source: SourceLocation)
@@ -28,6 +29,8 @@ public enum ManagementSessionError: FIDOSessionError, SmartCardSessionError, Sen
     case illegalArgument(String, source: SourceLocation)
 
     case timeout(source: SourceLocation)
+    case commandRejected(String, source: SourceLocation)
+    case cancelled(source: SourceLocation)
     case initializationFailed(_ message: String, source: SourceLocation)
     case hidError(_ error: CTAP2.HIDError, source: SourceLocation)
 

@@ -43,7 +43,7 @@ public enum Management {
     /// An interface to the Management application on the YubiKey.
     ///
     /// Use the Management application to get information and configure a YubiKey.
-    /// Supports management operations over both SmartCard (APDU) and FIDO (CTAP) transports.
+    /// Supports management operations over SmartCard, FIDO HID, and OTP HID.
     ///
     /// Read more about the Management application on the
     /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
@@ -53,7 +53,7 @@ public enum Management {
 
         public typealias Error = ManagementSessionError
 
-        /// The underlying interface for communication (SmartCard or FIDO).
+        /// The underlying interface for communication.
         private let interface: Interface
 
         /// The firmware version of the YubiKey.
@@ -180,6 +180,40 @@ public enum Management {
             return try await .init(interface: Interface(interface: fidoInterface))
         }
 
+        /// Creates a Management session over the OTP keyboard HID interface.
+        public static func makeSession(
+            connection: OTPConnection
+        ) async throws(ManagementSessionError) -> Self {
+            let otpInterface: OTPKeyboardInterface
+            do {
+                otpInterface = try await OTPKeyboardInterface(connection: connection)
+            } catch {
+                throw Self.managementError(from: error)
+            }
+            let version = otpInterface.version
+            guard version.major >= 3 || version == .development else {
+                throw .featureNotSupported(source: .here())
+            }
+            return try await .init(interface: Interface(interface: otpInterface))
+        }
+
+        private static func managementError(from error: YubiOTP.SessionError) -> ManagementSessionError {
+            switch error {
+            case let .featureNotSupported(source): .featureNotSupported(source: source)
+            case let .responseParseError(message, source): .responseParseError(message, source: source)
+            case let .illegalArgument(message, source): .illegalArgument(message, source: source)
+            case let .dataProcessingError(message, source): .dataProcessingError(message, source: source)
+            case let .cryptoError(message, error, source): .cryptoError(message, error: error, source: source)
+            case let .connectionError(error, source): .connectionError(error, source: source)
+            case let .failedResponse(response, source): .failedResponse(response, source: source)
+            case let .scpError(error, source): .scpError(error, source: source)
+            case let .otpConnectionError(error, source): .otpConnectionError(error, source: source)
+            case let .commandRejected(message, source): .commandRejected(message, source: source)
+            case let .timeout(source): .timeout(source: source)
+            case let .cancelled(source): .cancelled(source: source)
+            }
+        }
+
         private init(interface: Interface) async throws(ManagementSessionError) {
             self.interface = interface
             let reportedVersion = try await interface.version
@@ -198,7 +232,7 @@ public enum Management {
         // MARK: - SmartCardSession conformance (NEXTMAJOR: Remove)
         // These properties exist only for backwards compatibility with the deprecated
         // SmartCardSession protocol. They use `nonisolated` to satisfy the protocol's sync requirements.
-        // The `connection` property will crash if the session was created with a FIDO connection.
+        // The `connection` property will crash without a SmartCard connection.
 
         public static let application: Application = .management
 
@@ -208,11 +242,11 @@ public enum Management {
 
         /// The SmartCard connection used to create this session.
         ///
-        /// - Important: This property will crash if the session was created with a FIDO connection.
+        /// - Important: This property will crash without a SmartCard connection.
         @available(*, deprecated, message: "Avoid accessing the underlying connection directly")
         public nonisolated var connection: SmartCardConnection {
             guard let connection = smartCardConnection else {
-                fatalError("Cannot access SmartCard connection when session was created with FIDO connection.")
+                fatalError("Cannot access SmartCard connection for this session.")
             }
             return connection
         }
@@ -222,13 +256,14 @@ public enum Management {
 // MARK: - Interface (Internal Transport Abstraction)
 
 extension Management.Session {
-    /// Internal actor that abstracts over the underlying transport (SmartCard or FIDO).
+    /// Internal actor that abstracts over the underlying transport.
     ///
     /// This allows `Management.Session` to be a concrete type while supporting multiple transports.
     internal actor Interface {
         private enum Kind {
             case smartCard(SmartCardInterface<ManagementSessionError>)
             case fido(FIDOInterface<ManagementSessionError>)
+            case otp(OTPKeyboardInterface)
         }
 
         private let kind: Kind
@@ -239,6 +274,10 @@ extension Management.Session {
 
         init(interface: FIDOInterface<ManagementSessionError>) {
             self.kind = .fido(interface)
+        }
+
+        init(interface: OTPKeyboardInterface) {
+            self.kind = .otp(interface)
         }
 
         /// The firmware version of the YubiKey, parsed from the Management select response over
@@ -256,6 +295,8 @@ extension Management.Session {
                     return version
                 case let .fido(i):
                     return await i.version
+                case let .otp(i):
+                    return i.version
                 }
             }
         }
@@ -269,6 +310,19 @@ extension Management.Session {
                     cmd: FIDOInterface<ManagementSessionError>.hidCommand(.readConfig),
                     payload: Data([page])
                 )
+            case let .otp(i):
+                let response: Data
+                do {
+                    response = try await i.sendAndReceive(slot: 0x13, data: Data([page]))
+                } catch {
+                    throw Management.Session.managementError(from: error)
+                }
+                guard let count = response.first, Int(count) + 3 <= response.count,
+                    response.prefix(Int(count) + 3).hasValidCRC16
+                else {
+                    throw .responseParseError("Invalid OTP device info length or CRC", source: .here())
+                }
+                return Data(response.prefix(Int(count) + 1))
             }
         }
 
@@ -281,6 +335,12 @@ extension Management.Session {
                     cmd: FIDOInterface<ManagementSessionError>.hidCommand(.writeConfig),
                     payload: data
                 )
+            case let .otp(i):
+                do {
+                    _ = try await i.sendAndReceive(slot: 0x15, data: data)
+                } catch {
+                    throw Management.Session.managementError(from: error)
+                }
             }
         }
 
@@ -289,7 +349,7 @@ extension Management.Session {
             switch kind {
             case let .smartCard(i):
                 let _: Data = try await i.send(apdu: APDU(cla: 0, ins: 0x1f, p1: 0, p2: 0))
-            case .fido:
+            case .fido, .otp:
                 throw .featureNotSupported(source: .here())
             }
         }
@@ -298,7 +358,7 @@ extension Management.Session {
             switch kind {
             case let .smartCard(i):
                 return i.connection
-            case .fido:
+            case .fido, .otp:
                 return nil
             }
         }
@@ -307,7 +367,7 @@ extension Management.Session {
             switch kind {
             case let .smartCard(i):
                 return i.scpState
-            case .fido:
+            case .fido, .otp:
                 return nil
             }
         }
