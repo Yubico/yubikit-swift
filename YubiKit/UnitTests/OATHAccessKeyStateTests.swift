@@ -96,6 +96,37 @@ struct OATHAccessKeyStateTests {
         #expect(await session.isLocked)
         #expect(await card.instructions == [0xa4, 0x03])
     }
+
+    @Test("legacy SETCODE after VALIDATE does not reselect")
+    func legacySetCodeAfterValidate() async throws {
+        let card = ScriptedOATHCard(majorVersion: 2, initialChallenge: true)
+        let session = try await OATHSession.makeSession(connection: card)
+        try await session.unlock(accessKey: key)
+        try await session.setAccessKey(key)
+        #expect(await session.hasAccessKey)
+        #expect(await session.isLocked == false)
+        #expect(try await session.listCredentials().count == 1)
+        #expect(await card.instructions == [0xa4, 0xa3, 0x03, 0xa1])
+    }
+
+    @Test("reset reselects and refreshes salt, device ID, and access key state")
+    func resetRefreshesState() async throws {
+        let card = ScriptedOATHCard(majorVersion: 5, initialChallenge: true)
+        let session = try await OATHSession.makeSession(connection: card)
+        let deviceId = await session.deviceId
+        let derivedKey = try await session.deriveAccessKey(from: "password")
+        #expect(await session.hasAccessKey)
+        #expect(await session.isLocked)
+
+        try await session.reset()
+
+        #expect(await session.hasAccessKey == false)
+        #expect(await session.isLocked == false)
+        #expect(await session.deviceId != deviceId)
+        #expect(try await session.deriveAccessKey(from: "password") != derivedKey)
+        #expect(try await session.listCredentials().count == 1)
+        #expect(await card.instructions == [0xa4, 0x04, 0xa4, 0xa1])
+    }
 }
 
 private actor ScriptedOATHCard: SmartCardConnection {
@@ -107,6 +138,9 @@ private actor ScriptedOATHCard: SmartCardConnection {
     private let key = Data(repeating: 0x11, count: 16)
     private let challenge = Data(repeating: 0x42, count: 8)
     private var selectCount = 0
+    private var hasKey: Bool
+    private var validated = false
+    private var salt = Data(repeating: 0x33, count: 8)
     private var locked: Bool
     private(set) var instructions: [UInt8] = []
     private(set) var validateRequestCorrect = false
@@ -115,6 +149,7 @@ private actor ScriptedOATHCard: SmartCardConnection {
         self.majorVersion = majorVersion
         self.initialChallenge = initialChallenge
         self.failure = failure
+        self.hasKey = initialChallenge
         self.locked = initialChallenge
     }
 
@@ -133,15 +168,24 @@ private actor ScriptedOATHCard: SmartCardConnection {
         case 0xa4:
             selectCount += 1
             if selectCount > 1 && failure == .reselect { return Data([0x6f, 0x00]) }
+            validated = false
             var payload = TKBERTLVRecord(tag: 0x79, value: Data([majorVersion, 0, 0])).data
-            payload.append(TKBERTLVRecord(tag: 0x71, value: Data(repeating: 0x33, count: 8)).data)
-            if initialChallenge || selectCount > 1 {
+            payload.append(TKBERTLVRecord(tag: 0x71, value: salt).data)
+            if hasKey {
                 payload.append(TKBERTLVRecord(tag: 0x74, value: challenge).data)
             }
             return payload + Data([0x90, 0x00])
         case 0x03:
             if failure == .setCode { return Data([0x6f, 0x00]) }
-            locked = majorVersion < 3
+            hasKey = true
+            // Legacy applets lock after SETCODE unless the key was validated in this selection.
+            locked = majorVersion < 3 && !validated
+            return Data([0x90, 0x00])
+        case 0x04:
+            hasKey = false
+            locked = false
+            validated = false
+            salt = Data(repeating: 0x44, count: 8)
             return Data([0x90, 0x00])
         case 0xa3:
             if failure == .validateStatus { return Data([0x6a, 0x80]) }
@@ -156,7 +200,10 @@ private actor ScriptedOATHCard: SmartCardConnection {
             let mac =
                 failure == .invalidValidationHMAC
                 ? Data(repeating: 0, count: 20) : clientChallenge.hmacSha1(key: key)
-            if failure != .invalidValidationHMAC { locked = false }
+            if failure != .invalidValidationHMAC {
+                locked = false
+                validated = true
+            }
             return TKBERTLVRecord(tag: 0x75, value: mac).data + Data([0x90, 0x00])
         case 0xa1:
             if locked { return Data([0x69, 0x82]) }

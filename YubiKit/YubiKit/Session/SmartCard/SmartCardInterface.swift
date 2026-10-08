@@ -81,6 +81,33 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
         }
     }
 
+    // Selects the application again, which ends any secure channel, and re-establishes SCP
+    // in place when this interface uses one. Returns the new select response.
+    func reselect(
+        application: Application,
+        keyParams: SCPKeyParams?,
+        insSendRemaining: UInt8 = 0xc0
+    ) async throws(Error) -> Data {
+        let response = try await Self.sendPlainStatic(
+            connection: connection,
+            apdu: application.selectionCommand,
+            insSendRemaining: insSendRemaining
+        )
+        if let scpState {
+            guard let keyParams else {
+                throw .illegalArgument("SCP key parameters are required to reselect", source: .here())
+            }
+            let newState = try await Self.setupSCP(
+                connection: connection,
+                keyParams: keyParams,
+                insSendRemaining: insSendRemaining
+            )
+            await scpState.replace(with: newState)
+            SCPState.logger.info("SCP re-initialized")
+        }
+        return response
+    }
+
     // Send APDU with optional SCP encryption and automatic continuation handling.
     // Returns response data only (status bytes stripped).
     @discardableResult

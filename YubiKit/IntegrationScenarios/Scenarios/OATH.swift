@@ -445,6 +445,20 @@ enum OATHScenario: CaseIterable, ScenarioSuite {
                 context.expectEqual(await reopened.deviceId, deviceId, "device ID should remain stable")
                 context.expect(!(await reopened.hasAccessKey), "reopened applet should have no access key")
                 context.expect(!(await reopened.isLocked), "reopened applet should be unlocked")
+
+                try await reopened.setPassword(oathPassword)
+                try await reopened.reset()
+                let resetDeviceId = await reopened.deviceId
+                context.expect(resetDeviceId != deviceId, "reset should refresh the device ID")
+                context.expect(!(await reopened.hasAccessKey), "reset should clear access-key status")
+                context.expect(!(await reopened.isLocked), "reset should leave the session unlocked")
+
+                try await reopened.setPassword(oathPassword)
+                _ = try await Management.Session.makeSession(connection: connection, scpKeyParams: scp)
+                let afterReset = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
+                context.expectEqual(await afterReset.deviceId, resetDeviceId, "reset device ID should be current")
+                try await afterReset.unlock(password: oathPassword)
+                context.expect(!(await afterReset.isLocked), "password set after reset should use the new salt")
             }
         case .wrong:
             return Scenario(
