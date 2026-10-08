@@ -46,6 +46,7 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
     case delete
     case updateUserInfo
     case readOnlyPpuat
+    case restoredPersistentToken
     case support
     case toggleAlwaysUv
     case enableEnterpriseAttestation
@@ -684,6 +685,94 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     let newState = try encryptedState.decrypted(using: ppuat)
                     context.expect(newState != credStoreState, "credStoreState should change after a delete")
                 }
+            }
+        case .restoredPersistentToken:
+            return Scenario(
+                "CTAP2.CredentialManagement.restoredPersistentToken",
+                "an exported persistent token restores read-only access and encrypted fields after reconnect",
+                requirements: Requirements(capabilities: [.fido2])
+            ) { context in
+                // Invalid v1 sizes, invalid v2 sizes, and valid boundary sizes are all checked
+                // before using a token obtained from the authenticator.
+                let invalidSizes: [(CTAP2.ClientPin.ProtocolVersion, Int)] = [
+                    (.v1, 0), (.v1, 15), (.v1, 17), (.v1, 31), (.v1, 33),
+                    (.v2, 0), (.v2, 16), (.v2, 31), (.v2, 33),
+                ]
+                for (version, length) in invalidSizes {
+                    do {
+                        _ = try CTAP2.Token(data: Data(repeating: 0xA5, count: length), protocolVersion: version)
+                        context.record("protocol \(version) should reject a \(length)-byte token")
+                    } catch let error as CTAP2.SessionError {
+                        if case .illegalArgument = error {
+                            // Expected malformed token rejection.
+                        } else {
+                            context.record("protocol \(version), length \(length): unexpected error \(error)")
+                        }
+                    }
+                }
+                for (version, length) in [
+                    (CTAP2.ClientPin.ProtocolVersion.v1, 16), (.v1, 32), (.v2, 32),
+                ] {
+                    let token = try CTAP2.Token(data: Data(repeating: 0xA5, count: length), protocolVersion: version)
+                    context.expect(token.data.count == length, "protocol \(version) should accept \(length) bytes")
+                }
+
+                let session = try await sessionWithPin(context)
+                guard try await CTAP2.CredentialManagement.isReadOnlySupported(by: session) else {
+                    try context.skip("Persistent pinUvAuthToken (read-only) not supported")
+                }
+                await context.addTeardown { try await context.deleteResidentCredentials() }
+                try await deleteAllCredentials(session)
+                try await createTestCredential(session, context)
+
+                let initialInfo = try await session.getInfo()
+                guard let initialIdentifier = initialInfo.encIdentifier,
+                    let initialState = initialInfo.encCredStoreState
+                else {
+                    try context.skip("encrypted identifier and credential-store state not supported")
+                }
+
+                let token = try await session.getPinUVToken(
+                    using: .pin(defaultTestPin),
+                    permissions: [.persistentCredentialManagement]
+                )
+                let savedData = token.data
+                let savedVersion = token.protocolVersion
+                let identifier = try initialIdentifier.decrypted(using: token)
+                let state = try initialState.decrypted(using: token)
+
+                let reconnected = try await context.ctap2SessionAfterNFCReconnect()
+                let restored = try CTAP2.Token(data: savedData, protocolVersion: savedVersion)
+                context.expect(restored.data == savedData, "restored token should retain exported data")
+                context.expect(
+                    restored.protocolVersion.rawValue == savedVersion.rawValue,
+                    "restored token should retain its protocol"
+                )
+
+                let info = try await reconnected.getInfo()
+                let encryptedIdentifier = try context.require(
+                    info.encIdentifier,
+                    "identifier disappeared after reconnect"
+                )
+                let encryptedState = try context.require(info.encCredStoreState, "state disappeared after reconnect")
+                context.expect(
+                    try encryptedIdentifier.decrypted(using: restored) == identifier,
+                    "restored token should decrypt the same device identifier"
+                )
+                context.expect(
+                    try encryptedState.decrypted(using: restored) == state,
+                    "restored token should decrypt the same credential-store state"
+                )
+
+                let management = try await reconnected.credentialManagement(token: restored)
+                let rps = try await management.rps.enumerate()
+                let rp = try context.require(rps.first, "expected the test credential RP")
+                try await verifyReadOnlyOperations(
+                    session: reconnected,
+                    ppuat: restored,
+                    rpIdHash: rp.rpIdHash,
+                    context: context
+                )
             }
         // MARK: - Config (authenticatorConfig)
         case .support:
