@@ -21,12 +21,26 @@ public enum USBSmartCard {
         /// The name of the smart card slot.
         public let name: String
 
+        /// The ATR of the inserted card, if one is available.
+        public let atr: Data?
+
+        /// The transport indicated by the inserted card's ATR.
+        public var transport: DeviceTransport {
+            guard let atr, atr.count > 1, atr[1] & 0xf0 == 0xf0 else { return .nfc }
+            return .usb
+        }
+
         /// String representation of the device, same as name.
         public var description: String { name }
 
-        init(name: String) {
+        init(name: String, atr: Data? = nil) {
             self.name = name
+            self.atr = atr
         }
+
+        public static func == (lhs: Self, rhs: Self) -> Bool { lhs.name == rhs.name }
+
+        public func hash(into hasher: inout Hasher) { hasher.combine(name) }
     }
 }
 
@@ -304,12 +318,15 @@ private final actor SmartCardConnectionsManager {
 
     func availableDevices(matching: String?) async throws(SmartCardConnectionError) -> [USBSmartCard.YubiKeyDevice] {
         let loweredFilter = matching?.lowercased()
-        return try slotManager.slotNames
-            .filter { name in
-                guard let loweredFilter else { return true }
-                return name.lowercased().contains(loweredFilter)
-            }
-            .map(USBSmartCard.YubiKeyDevice.init)
+        var devices: [USBSmartCard.YubiKeyDevice] = []
+        for name in try slotManager.slotNames {
+            if let loweredFilter, !name.lowercased().contains(loweredFilter) { continue }
+            guard let slot = try? await slotManager.getSlot(withName: name),
+                let atr = slot.atr?.bytes
+            else { continue }
+            devices.append(.init(name: name, atr: atr))
+        }
+        return devices
     }
 }
 
