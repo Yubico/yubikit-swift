@@ -29,6 +29,34 @@ extension CTAP2 {
         /// The PIN/UV auth protocol version used to obtain this token.
         public let protocolVersion: ClientPin.ProtocolVersion
 
+        /// The decrypted token bytes for secure persistence and later restoration.
+        /// Treat this data as a secret and avoid logging it.
+        public var data: Data {
+            tokenData
+        }
+
+        /// Restores a previously exported PIN/UV auth token.
+        ///
+        /// Protocol v1 permits 16- or 32-byte tokens; protocol v2 requires 32 bytes.
+        /// - Throws: `CTAP2.SessionError.illegalArgument` if the token length is invalid.
+        public init(data: Data, protocolVersion: ClientPin.ProtocolVersion) throws(CTAP2.SessionError) {
+            let validLength: Bool
+            switch protocolVersion {
+            case .v1:
+                validLength = data.count == 16 || data.count == 32
+            case .v2:
+                validLength = data.count == 32
+            }
+            guard validLength else {
+                throw .illegalArgument(
+                    "Invalid PIN/UV auth token length for protocol \(protocolVersion)",
+                    source: .here()
+                )
+            }
+            self.tokenData = data
+            self.protocolVersion = protocolVersion
+        }
+
         internal init(token: Data, protocolVersion: ClientPin.ProtocolVersion) {
             self.tokenData = token
             self.protocolVersion = protocolVersion
