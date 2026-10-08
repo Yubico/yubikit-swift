@@ -65,6 +65,9 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
         """
     }
 
+    /// The full firmware release qualifier, including development releases.
+    public let versionQualifier: VersionQualifier
+
     /// The serial number of the YubiKey, if available.
     ///
     /// The serial number can be read if the YubiKey has a serial number, and one of the YubiOTP slots
@@ -148,15 +151,13 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
 
         let firmwareVersion = tlvs[tagFirmwareVersion].flatMap { Version(withData: $0) } ?? fallbackVersion
         // Development firmware reports 0.0.1; the version qualifier carries the version it behaves as.
-        if firmwareVersion == Version.development,
-            let qualifier = tlvs[tagVersionQualifier],
-            let qualifierTLVs = TKBERTLVRecord.dictionaryOfData(from: qualifier),
-            let qualifiedVersion = qualifierTLVs[0x01].flatMap({ Version(withData: $0) })
-        {
-            self.version = qualifiedVersion
-        } else {
-            self.version = firmwareVersion
-        }
+        let qualifier = tlvs[tagVersionQualifier].flatMap { TKBERTLVRecord.dictionaryOfData(from: $0) }
+        self.versionQualifier = VersionQualifier(
+            version: qualifier?[0x01].flatMap { Version(withData: $0) } ?? firmwareVersion,
+            type: (qualifier?[0x02]?.uint8).flatMap(VersionQualifier.ReleaseType.init(rawValue:)) ?? .final,
+            iteration: qualifier?[0x03]?.integer ?? 0
+        )
+        self.version = firmwareVersion == .development ? versionQualifier.version : firmwareVersion
         if let data = tlvs[tagFPSVersion], let version = Version(withData: data), version.description != "0.0.0" {
             self.fpsVersion = version
         } else {
@@ -186,6 +187,43 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
         self.config = DeviceConfig(withTlvs: tlvs, version: self.version)
     }
 
+    /// Creates device information for firmware that predates the device-info command.
+    public init(
+        serialNumber: UInt = 0,
+        version: Version,
+        formFactor: FormFactor = .unknown,
+        supportedCapabilities: [DeviceTransport: UInt],
+        config: DeviceConfig,
+        isConfigLocked: Bool = false,
+        isFIPS: Bool = false,
+        isSKY: Bool = false,
+        partNumber: String? = nil,
+        fipsCapabilityFlags: UInt = 0,
+        fipsApprovalFlags: UInt = 0,
+        fpsVersion: Version? = nil,
+        stmVersion: Version? = nil,
+        pinComplexity: Bool = false,
+        resetBlockedFlags: UInt = 0,
+        versionQualifier: VersionQualifier? = nil
+    ) {
+        self.serialNumber = serialNumber
+        self.version = version
+        self.formFactor = formFactor
+        self.supportedCapabilities = supportedCapabilities
+        self.config = config
+        self.isConfigLocked = isConfigLocked
+        self.isFIPS = isFIPS
+        self.isSKY = isSKY
+        self.partNumber = partNumber
+        self.fipsCapabilityFlags = fipsCapabilityFlags
+        self.fipsApprovalFlags = fipsApprovalFlags
+        self.fpsVersion = fpsVersion
+        self.stmVersion = stmVersion
+        self.pinComplexity = pinComplexity
+        self.resetBlockedFlags = resetBlockedFlags
+        self.versionQualifier = versionQualifier ?? VersionQualifier(version: version)
+    }
+
     /// Returns whether or not a specific transport is available on this YubiKey.
     public func hasTransport(_ transport: DeviceTransport) -> Bool {
         supportedCapabilities.keys.contains(transport)
@@ -211,4 +249,21 @@ extension Data {
         return value
     }
 
+}
+
+/// The version and release stage reported by a YubiKey.
+public struct VersionQualifier: Sendable {
+    public enum ReleaseType: UInt8, Sendable {
+        case alpha = 0
+        case beta = 1
+        case final = 2
+    }
+    public let version: Version
+    public let type: ReleaseType
+    public let iteration: UInt
+    public init(version: Version, type: ReleaseType = .final, iteration: UInt = 0) {
+        self.version = version
+        self.type = type
+        self.iteration = iteration
+    }
 }
