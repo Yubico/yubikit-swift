@@ -92,6 +92,21 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                     try await session.getInfo().options.clientPin != true,
                     "PIN should be cleared for a deterministic start"
                 )
+                let info = try await session.getInfo()
+                if info.options.authenticatorConfig == true && info.options.supportsAlwaysUV {
+                    let initialAlwaysUV = info.options.alwaysUV ?? false
+                    let config = try await session.config()
+                    await context.addTeardown {
+                        let current = try await session.getInfo().options.alwaysUV ?? initialAlwaysUV
+                        if current != initialAlwaysUV { try await config.toggleAlwaysUV() }
+                    }
+                    try await config.toggleAlwaysUV()
+                    context.expect(
+                        (try await session.getInfo()).options.alwaysUV != initialAlwaysUV,
+                        "unauthenticated config should toggle alwaysUV without a PIN"
+                    )
+                    try await config.toggleAlwaysUV()
+                }
             }
         // MARK: - Info
         case .getInfo:
