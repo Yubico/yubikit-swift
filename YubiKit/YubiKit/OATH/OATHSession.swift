@@ -42,16 +42,27 @@ public final actor OATHSession: SmartCardSessionInternal {
 
     private struct SelectResponse {
         let salt: Data
-        let challenge: Data?
         let version: Version
         let deviceId: String
     }
 
     private let selectResponse: SelectResponse
+    private var validationChallenge: Data?
     /// The firmware version of the connected YubiKey.
     public var version: Version {
         selectResponse.version
     }
+
+    /// A stable identifier derived from this OATH applet's salt.
+    public var deviceId: String {
+        selectResponse.deviceId
+    }
+
+    /// Whether an access key is configured for this OATH applet.
+    public private(set) var hasAccessKey: Bool
+
+    /// Whether this session currently requires access-key validation.
+    public private(set) var isLocked: Bool
 
     private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws(OATHSessionError) {
         // Create interface with application selection and optional SCP (OATH uses 0xa5 for continuation)
@@ -86,7 +97,10 @@ public final actor OATHSession: SmartCardSessionInternal {
         guard digest.count >= 16 else { throw .failedDerivingDeviceId(source: .here()) }
         let deviceId = digest.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
 
-        self.selectResponse = SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
+        self.selectResponse = SelectResponse(salt: salt, version: version, deviceId: deviceId)
+        self.validationChallenge = challenge
+        self.hasAccessKey = challenge != nil
+        self.isLocked = challenge != nil
         self.interface = interface
         logger.debug(
             "OATH session initialized",
@@ -478,6 +492,28 @@ public final actor OATHSession: SmartCardSessionInternal {
         let responseTlv = TKBERTLVRecord(tag: tagResponse, value: response)
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: keyTlv.data + challengeTlv.data + responseTlv.data)
         try await process(apdu: apdu)
+        hasAccessKey = true
+        validationChallenge = nil
+        if version.major < 3 && scpState == nil {
+            isLocked = true
+            let select = APDU(
+                cla: 0,
+                ins: 0xa4,
+                p1: 0x04,
+                p2: 0,
+                command: Data([0xA0, 0x00, 0x00, 0x05, 0x27, 0x21, 0x01])
+            )
+            let selected = try await process(apdu: select)
+            guard let response = TKBERTLVRecord.dictionaryOfData(from: selected),
+                let challenge = response[tagChallenge]
+            else {
+                throw .responseParseError("Missing challenge after setting access code", source: .here())
+            }
+            validationChallenge = challenge
+            try await unlock(accessKey: accessKey)
+        } else {
+            isLocked = false
+        }
         logger.info("New access code set")
     }
 
@@ -488,7 +524,7 @@ public final actor OATHSession: SmartCardSessionInternal {
     /// - Parameter accessKey: The shared access key.
     public func unlock(accessKey: Data) async throws(OATHSessionError) {
         logger.debug("Unlocking session")
-        guard let responseChallenge = self.selectResponse.challenge else {
+        guard let responseChallenge = validationChallenge else {
             throw .responseParseError("Missing challenge in OATH application select response", source: .here())
         }
         let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(key: accessKey))
@@ -525,6 +561,7 @@ public final actor OATHSession: SmartCardSessionInternal {
                 source: .here()
             )
         }
+        isLocked = false
     }
 
     /// Removes the access key, if one is set.
@@ -533,6 +570,8 @@ public final actor OATHSession: SmartCardSessionInternal {
         let tlv = TKBERTLVRecord(tag: tagSetCodeKey, value: Data())
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: tlv.data)
         try await process(apdu: apdu)
+        hasAccessKey = false
+        isLocked = false
         logger.info("Access code removed")
     }
 

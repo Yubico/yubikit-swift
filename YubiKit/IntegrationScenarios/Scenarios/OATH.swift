@@ -30,6 +30,7 @@ enum OATHScenario: CaseIterable, ScenarioSuite {
     case touch
     case populatedReset
     case unlock
+    case accessKeyState
     case wrong
     case deleteAccessKey
     case deleteAccessKeyRejectedOnFIPS
@@ -400,6 +401,50 @@ enum OATHScenario: CaseIterable, ScenarioSuite {
                 try await session.unlock(password: oathPassword)
                 let credentials = try await session.listCredentials()
                 context.expectEqual(credentials.count, 5, "expected 5 credentials after unlocking")
+            }
+        case .accessKeyState:
+            return Scenario(
+                "OATH.Password.accessKeyState",
+                "device identity and access-key state follow set, failed unlock, unlock, and removal",
+                requirements: Requirements(capabilities: [.oath], excludesFIPS: true)
+            ) { context in
+                let session = try await freshOATHSession(context)
+                let deviceId = await session.deviceId
+                context.expect(!deviceId.isEmpty, "empty OATH applet should expose its device ID")
+                context.expect(!(await session.hasAccessKey), "fresh applet should have no access key")
+                context.expect(!(await session.isLocked), "fresh applet should be unlocked")
+
+                try await session.setPassword(oathPassword)
+                context.expect(await session.hasAccessKey, "setting a password should report an access key")
+                context.expect(!(await session.isLocked), "setting a password should leave this session unlocked")
+
+                let connection = try await context.smartCardConnection()
+                let scp = try await context.scpKeyParams()
+                _ = try await Management.Session.makeSession(connection: connection, scpKeyParams: scp)
+                let locked = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
+                context.expectEqual(await locked.deviceId, deviceId, "device ID should survive re-selection")
+                context.expect(await locked.hasAccessKey, "locked applet should report an access key")
+                context.expect(await locked.isLocked, "SELECT challenge should mark the session locked")
+
+                do {
+                    try await locked.unlock(password: "wrong password")
+                    context.record("wrong password should fail")
+                } catch OATHSessionError.invalidPassword {
+                    context.expect(await locked.isLocked, "failed validation should preserve the locked state")
+                }
+
+                try await locked.unlock(password: oathPassword)
+                context.expect(!(await locked.isLocked), "successful validation should unlock the session")
+                context.expect(await locked.hasAccessKey, "unlocking should retain the access key")
+
+                try await locked.deleteAccessKey()
+                context.expect(!(await locked.hasAccessKey), "removal should clear access-key status")
+                context.expect(!(await locked.isLocked), "removal should leave the session unlocked")
+                _ = try await Management.Session.makeSession(connection: connection, scpKeyParams: scp)
+                let reopened = try await OATHSession.makeSession(connection: connection, scpKeyParams: scp)
+                context.expectEqual(await reopened.deviceId, deviceId, "device ID should remain stable")
+                context.expect(!(await reopened.hasAccessKey), "reopened applet should have no access key")
+                context.expect(!(await reopened.isLocked), "reopened applet should be unlocked")
             }
         case .wrong:
             return Scenario(
