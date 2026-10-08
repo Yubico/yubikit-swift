@@ -19,15 +19,16 @@ import YubiKit
 enum ManagementScenario: CaseIterable, ScenarioSuite {
 
     case timeouts
+    case otpTimeouts
     case chaining
     case disableEnableApplication
     case lockCode
     case nfcRestricted
     case bioDeviceReset
 
-    /// The Management application answers over SmartCard and over FIDO HID, and the SDK ships a
-    /// `makeSession` for each. These read-only families run over both, so neither backend can rot
-    /// unnoticed — before this, only SmartCard was ever exercised.
+    /// The Management application answers over SmartCard, FIDO HID, and OTP HID, and the SDK ships a
+    /// `makeSession` for each. These read-only families run over all of them, so no backend can rot
+    /// unnoticed.
     static var parameterizedScenarios: [Scenario] {
         Scenario.parameterized(
             "Management.Info.version",
@@ -53,15 +54,22 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
     var scenario: Scenario {
         switch self {
         // MARK: - Configuration
-        case .timeouts:
+        case .timeouts, .otpTimeouts:
+            let overOTP = self == .otpTimeouts
             return Scenario(
-                "Management.Config.timeouts",
-                "updateDeviceConfig round-trips auto-eject / challenge-response timeouts",
-                requirements: Requirements(minVersion: Version("5.0.0"))
+                overOTP ? "Management.Config.timeouts.otpHID" : "Management.Config.timeouts",
+                "updateDeviceConfig round-trips auto-eject / challenge-response timeouts"
+                    + (overOTP ? " (OTP HID)" : ""),
+                requirements: Requirements(
+                    capabilities: overOTP ? [.otp] : [],
+                    minVersion: Version("5.0.0"),
+                    requiresOTPTransport: overOTP
+                )
             ) { context in
-                let session = try await context.managementSession()
-                let config = try await session.getDeviceInfo().config
-                    .with(autoEjectTimeout: 320.0, challengeResponseTimeout: 135.0)
+                let session = try await context.managementSession(over: overOTP ? .otpHID : .smartCard)
+                let initial = try await session.getDeviceInfo().config
+                await context.addTeardown { try await session.updateDeviceConfig(initial, reboot: false) }
+                let config = initial.with(autoEjectTimeout: 320.0, challengeResponseTimeout: 135.0)
                 try await session.updateDeviceConfig(config, reboot: false)
                 let info = try await session.getDeviceInfo()
                 context.expect(info.config.challengeResponseTimeout == 135.0, "challengeResponseTimeout == 135")
@@ -235,11 +243,28 @@ private struct ManagementTransport: ScenarioParameter {
         Scenario.Context.ManagementTransportKind.allCases.map { ManagementTransport(kind: $0) }
     }
 
-    var idSuffix: String { kind == .fidoHID ? "fidoHID" : "smartCard" }
+    var idSuffix: String {
+        switch kind {
+        case .smartCard: "smartCard"
+        case .fidoHID: "fidoHID"
+        case .otpHID: "otpHID"
+        }
+    }
 
-    var displayName: String { kind == .fidoHID ? "FIDO HID" : "smart card" }
+    var displayName: String {
+        switch kind {
+        case .smartCard: "smart card"
+        case .fidoHID: "FIDO HID"
+        case .otpHID: "OTP HID"
+        }
+    }
 
     var requirements: Requirements {
-        Requirements(requiresFIDOTransport: kind == .fidoHID)
+        Requirements(
+            capabilities: kind == .otpHID ? [.otp] : [],
+            minVersion: kind == .otpHID ? Version("4.1.0") : nil,
+            requiresFIDOTransport: kind == .fidoHID,
+            requiresOTPTransport: kind == .otpHID
+        )
     }
 }

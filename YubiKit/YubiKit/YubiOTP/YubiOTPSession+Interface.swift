@@ -32,7 +32,7 @@ extension YubiOTP.Session {
         // The low byte of the configuration state; the high byte holds only the touch level.
         var configStateFlags: UInt8 { status[statusOffsetConfigState] }
 
-        init(interface: OTPKeyboardInterface) async {
+        init(interface: OTPKeyboardInterface<YubiOTP.SessionError>) async {
             self.kind = .otp(interface)
             self.version = interface.version
             self.supportsChallengeResponse = true
@@ -127,7 +127,7 @@ extension YubiOTP.Session {
         // MARK: - Private
 
         private enum Kind {
-            case otp(OTPKeyboardInterface)
+            case otp(OTPKeyboardInterface<YubiOTP.SessionError>)
             case smartCard(SmartCardInterface<YubiOTP.SessionError>)
         }
 

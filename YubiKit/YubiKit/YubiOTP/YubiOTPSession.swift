@@ -52,7 +52,7 @@ extension YubiOTP {
         public static func makeSession(
             connection: OTPConnection
         ) async throws(YubiOTP.SessionError) -> Session {
-            let otpInterface = try await OTPKeyboardInterface(connection: connection)
+            let otpInterface = try await OTPKeyboardInterface<YubiOTP.SessionError>(connection: connection)
             if otpInterface.version.major == 3 {
                 // The YubiKey NEO can cache a stale programming sequence. An invalid scan map
                 // makes it refresh the cache; the key rejects the scan map itself.

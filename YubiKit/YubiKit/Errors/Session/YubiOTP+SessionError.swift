@@ -16,7 +16,7 @@ extension YubiOTP {
     /// Errors thrown by ``YubiOTP/Session`` operations.
     ///
     /// This type includes failures from both the OTP keyboard HID and SmartCard transports.
-    public enum SessionError: SmartCardSessionError, Sendable {
+    public enum SessionError: SmartCardSessionError, OTPSessionError, Sendable {
 
         // MARK: - Common Session Errors
 
