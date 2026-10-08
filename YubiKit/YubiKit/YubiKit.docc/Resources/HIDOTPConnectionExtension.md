@@ -27,8 +27,12 @@ even when the process has that permission.
 
 ### Creating a Connection
 
+- ``availableDevices(matching:)``
 - ``init()``
+- ``init(device:)``
 - ``makeConnection()``
+- ``makeConnection(device:)``
+- ``device``
 
 ### Connection Lifecycle
 
