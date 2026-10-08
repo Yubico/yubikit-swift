@@ -32,6 +32,8 @@ public final actor PIVSession: SmartCardSessionInternal {
     public let version: Version
 
     let interface: SmartCardInterface<Error>
+    private var currentPinAttempts = 3
+    private var maxPinAttempts = 3
 
     private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws(PIVSessionError) {
 
@@ -489,6 +491,37 @@ public final actor PIVSession: SmartCardSessionInternal {
         logger.info("Key deleted", metadata: ["slot": .string(String(describing: slot))])
     }
 
+    /// Reads a PIV data object. IDs have three bytes, except the one-byte discovery ID.
+    /// PIN verification is required for protected objects. The returned data excludes the
+    /// enclosing 0x53 response tag (0x7e for discovery).
+    public func getObject(objectId: Data) async throws(PIVSessionError) -> Data {
+        guard objectId.count == 3 || objectId == PIV.ObjectId.discovery else {
+            throw .illegalArgument("PIV object ID must be three bytes or the discovery ID", source: .here())
+        }
+        let command = TKBERTLVRecord(tag: tagObjectId, value: objectId).data
+        let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command)
+        let result = try await process(apdu: apdu)
+        let expectedTag: TKTLVTag = objectId == PIV.ObjectId.discovery ? 0x7e : tagObjectData
+        guard let record = TKBERTLVRecord(from: result), record.tag == expectedTag else {
+            throw .responseParseError("Failed to parse PIV object data", source: .here())
+        }
+        return record.value
+    }
+
+    /// Writes or deletes a three-byte PIV data object. An empty value deletes the object.
+    /// Management-key authentication is required; protected objects also require PIN verification.
+    public func putObject(_ data: Data, objectId: Data) async throws(PIVSessionError) {
+        guard objectId.count == 3 else {
+            throw .illegalArgument("PIV object ID must be three bytes", source: .here())
+        }
+        var command = Data()
+        command.append(TKBERTLVRecord(tag: tagObjectId, value: objectId).data)
+        command.append(TKBERTLVRecord(tag: tagObjectData, value: data).data)
+        let apdu = APDU(cla: 0, ins: insPutData, p1: 0x3f, p2: 0xff, command: command)
+        try await process(apdu: apdu)
+        logger.info("Data written to object slot", metadata: ["objectId": .string(objectId.hexEncodedString)])
+    }
+
     /// Writes an X.509 certificate to a slot on the YubiKey.
     ///
     /// This method requires authentication.
@@ -537,13 +570,8 @@ public final actor PIVSession: SmartCardSessionInternal {
     /// - Returns: The X.509 certificate.
     public func getCertificate(in slot: PIV.Slot) async throws(PIVSessionError) -> X509Cert {
         logger.debug("Reading certificate", metadata: ["slot": .string(String(describing: slot))])
-        let command = TKBERTLVRecord(tag: tagObjectId, value: slot.objectId).data
-        let apdu = APDU(cla: 0, ins: insGetData, p1: 0x3f, p2: 0xff, command: command)
-        let result = try await process(apdu: apdu)
-
-        guard let records = TKBERTLVRecord.sequenceOfRecords(from: result),
-            let objectData = records.recordWithTag(tagObjectData)?.value,
-            let subRecords = TKBERTLVRecord.sequenceOfRecords(from: objectData),
+        let objectData = try await getObject(objectId: slot.objectId)
+        guard let subRecords = TKBERTLVRecord.sequenceOfRecords(from: objectData),
             var certificateData = subRecords.recordWithTag(tagCertificate)?.value
         else { throw .responseParseError("Failed to parse certificate data from object", source: .here()) }
 
@@ -586,12 +614,13 @@ public final actor PIVSession: SmartCardSessionInternal {
         requiresTouch: Bool
     ) async throws(PIVSessionError) {
         logger.debug("Setting management key", metadata: ["keyType": .string(String(describing: type))])
+        guard managementKeyData.count == type.keyLength else { throw .invalidKeyLength(source: .here()) }
         if requiresTouch {
             guard await self.supports(PIVSessionFeature.usagePolicy) else {
                 throw .featureNotSupported(source: .here())
             }
         }
-        if type == .tripleDES {
+        if type != .tripleDES {
             guard await self.supports(PIVSessionFeature.aesKey) else { throw .featureNotSupported(source: .here()) }
         }
         let tlv = TKBERTLVRecord(tag: tagSlotCardManagement, value: managementKeyData)
@@ -742,6 +771,8 @@ public final actor PIVSession: SmartCardSessionInternal {
         logger.debug("Sending reset")
         let apdu = APDU(cla: 0, ins: insReset, p1: 0, p2: 0)
         try await process(apdu: apdu)
+        maxPinAttempts = 3
+        currentPinAttempts = 3
         logger.info("PIV application data reset performed")
     }
 
@@ -775,17 +806,40 @@ public final actor PIVSession: SmartCardSessionInternal {
         let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: 0x80, command: pinData)
         do {
             try await process(apdu: apdu)
+            currentPinAttempts = maxPinAttempts
             return .success
         } catch {
             guard case let .failedResponse(response, source: _) = error else { throw error }
             let retriesLeft = retriesFrom(response.responseStatus)
             if retriesLeft > 0 {
+                currentPinAttempts = retriesLeft
                 return .fail(retriesLeft)
             } else if retriesLeft == 0 {
+                currentPinAttempts = 0
                 return .pinLocked
             } else {
                 throw .failedResponse(response, source: .here())
             }
+        }
+    }
+
+    /// Reads the remaining PIN retries without consuming an attempt.
+    /// On firmware without metadata, an already verified PIN yields the cached count, which may
+    /// be inaccurate if another session changed the limit. Use `verifyPin(_:)` to check a PIN.
+    public func getPinAttempts() async throws(PIVSessionError) -> Int {
+        if await supports(.metadata) {
+            return try await getPinMetadata().retriesRemaining
+        }
+        let apdu = APDU(cla: 0, ins: insVerify, p1: 0, p2: p2Pin)
+        do {
+            try await process(apdu: apdu)
+            return currentPinAttempts
+        } catch {
+            guard case let .failedResponse(response, source: _) = error else { throw error }
+            let retries = retriesFrom(response.responseStatus)
+            guard retries >= 0 else { throw .failedResponse(response, source: .here()) }
+            currentPinAttempts = retries
+            return retries
         }
     }
 
@@ -796,6 +850,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     public func changePin(from oldPin: String, to newPin: String) async throws(PIVSessionError) {
         logger.debug("Changing PIN")
         try await changeReference(ins: insChangeReference, p2: p2Pin, valueOne: oldPin, valueTwo: newPin)
+        currentPinAttempts = maxPinAttempts
         logger.info("New PIN set")
     }
 
@@ -816,6 +871,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     public func unblockPin(with puk: String, newPin: String) async throws(PIVSessionError) {
         logger.debug("Using PUK to set new PIN")
         try await changeReference(ins: insResetRetry, p2: p2Pin, valueOne: puk, valueTwo: newPin)
+        currentPinAttempts = maxPinAttempts
         logger.info("New PIN set")
     }
 
@@ -824,7 +880,10 @@ public final actor PIVSession: SmartCardSessionInternal {
     /// - Returns: The PIN metadata.
     public func getPinMetadata() async throws(PIVSessionError) -> PIV.PinPukMetadata {
         logger.debug("Getting PIN metadata")
-        return try await getPinPukMetadata(p2: p2Pin)
+        let metadata = try await getPinPukMetadata(p2: p2Pin)
+        maxPinAttempts = metadata.retriesTotal
+        currentPinAttempts = metadata.retriesRemaining
+        return metadata
     }
 
     /// Reads metadata about the PUK, such as total number of retries, attempts left, and if the PUK has
@@ -849,6 +908,8 @@ public final actor PIVSession: SmartCardSessionInternal {
         )
         let apdu = APDU(cla: 0, ins: insSetPinPukAttempts, p1: pinAttempts, p2: pukAttempts)
         try await process(apdu: apdu)
+        maxPinAttempts = Int(pinAttempts)
+        currentPinAttempts = Int(pinAttempts)
         logger.info("PIN/PUK attempts set")
     }
 
@@ -1060,15 +1121,6 @@ extension PIVSession {
         return data.value
     }
 
-    private func putObject(_ data: Data, objectId: Data) async throws(PIVSessionError) {
-        var command = Data()
-        command.append(TKBERTLVRecord(tag: tagObjectId, value: objectId).data)
-        command.append(TKBERTLVRecord(tag: tagObjectData, value: data).data)
-        let apdu = APDU(cla: 0, ins: insPutData, p1: 0x3f, p2: 0xff, command: command)
-        try await process(apdu: apdu)
-        logger.info("Data written to object slot", metadata: ["objectId": .string(objectId.hexEncodedString)])
-    }
-
     private func changeReference(
         ins: UInt8,
         p2: UInt8,
@@ -1085,6 +1137,7 @@ extension PIVSession {
             }
             let retries = retriesFrom(response.responseStatus)
             if retries >= 0 {
+                if ins == insChangeReference && p2 == p2Pin { currentPinAttempts = retries }
                 throw .invalidPin(retries, source: .here())
             } else {
                 throw .failedResponse(response, source: .here())
