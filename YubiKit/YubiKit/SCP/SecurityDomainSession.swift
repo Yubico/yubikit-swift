@@ -392,11 +392,11 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
     }
 
     /// The DEK from the current SCP03 session keys, or throws if no SCP03 secure channel is set up.
-    private func sessionDek() throws(SCPError) -> Data {
+    private func sessionDek() async throws(SCPError) -> Data {
         guard let scpState = interface.scpState else {
             throw .secureChannelRequired(source: .here())
         }
-        guard let dek = scpState.sessionKeys.dek else {
+        guard let dek = await scpState.sessionKeys.dek else {
             throw .illegalArgument("This operation requires an SCP03 session", source: .here())
         }
         return dek
@@ -423,7 +423,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
         guard let dek = keys.dek else {
             throw .illegalArgument("New DEK must be set in static keys", source: .here())
         }
-        let currentDek = try sessionDek()
+        let currentDek = try await sessionDek()
 
         var data = Data([keyRef.kvn])
         var expected = Data([keyRef.kvn])
@@ -525,7 +525,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             throw .illegalArgument("Expected SECP256R1 private key", source: .here())
         }
 
-        let currentDek = try sessionDek()
+        let currentDek = try await sessionDek()
 
         // Extract the raw 32-byte secret scalar from the EC private key
         let rawSecret = privateKey.k

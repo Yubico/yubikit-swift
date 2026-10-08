@@ -15,13 +15,20 @@
 import Foundation
 
 public actor SCPState: HasSCPLogger {
-    let sessionKeys: SCPSessionKeys
+    private(set) var sessionKeys: SCPSessionKeys
     var macChain: Data
     var encCounter: UInt32 = 1
 
     init(sessionKeys: SCPSessionKeys, macChain: Data) {
         self.sessionKeys = sessionKeys
         self.macChain = macChain
+    }
+
+    // Adopts a newly negotiated secure channel so existing references to this state stay valid.
+    func replace(with other: SCPState) async {
+        sessionKeys = await other.sessionKeys
+        macChain = await other.macChain
+        encCounter = await other.encCounter
     }
 
     func encrypt(_ data: Data) throws(EncryptionError) -> Data {

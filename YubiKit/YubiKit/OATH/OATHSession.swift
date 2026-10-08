@@ -42,16 +42,30 @@ public final actor OATHSession: SmartCardSessionInternal {
 
     private struct SelectResponse {
         let salt: Data
-        let challenge: Data?
         let version: Version
         let deviceId: String
     }
 
-    private let selectResponse: SelectResponse
+    private var selectResponse: SelectResponse
+    private var validationChallenge: Data?
+    private let scpKeyParams: SCPKeyParams?
+    // Legacy applets lock again after SET CODE unless this session has already validated.
+    private var needsLegacyUnlockWorkaround: Bool
     /// The firmware version of the connected YubiKey.
     public var version: Version {
         selectResponse.version
     }
+
+    /// A stable identifier derived from this OATH applet's salt.
+    public var deviceId: String {
+        selectResponse.deviceId
+    }
+
+    /// Whether an access key is configured for this OATH applet.
+    public private(set) var hasAccessKey: Bool
+
+    /// Whether this session currently requires access-key validation.
+    public private(set) var isLocked: Bool
 
     private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws(OATHSessionError) {
         // Create interface with application selection and optional SCP (OATH uses 0xa5 for continuation)
@@ -62,12 +76,28 @@ public final actor OATHSession: SmartCardSessionInternal {
             insSendRemaining: 0xa5
         )
 
-        // Parse select response
-        guard let result = TKBERTLVRecord.dictionaryOfData(from: interface.selectResponse) else {
+        let (selectResponse, challenge) = try Self.parseSelectResponse(interface.selectResponse)
+        let version = selectResponse.version
+
+        self.selectResponse = selectResponse
+        self.validationChallenge = challenge
+        self.scpKeyParams = scpKeyParams
+        self.needsLegacyUnlockWorkaround = scpKeyParams == nil && version.major < 3
+        self.hasAccessKey = challenge != nil
+        self.isLocked = challenge != nil
+        self.interface = interface
+        logger.debug(
+            "OATH session initialized",
+            metadata: ["version": .string(String(describing: version)), "hasKey": .stringConvertible(challenge != nil)]
+        )
+    }
+
+    private static func parseSelectResponse(
+        _ data: Data
+    ) throws(OATHSessionError) -> (response: SelectResponse, challenge: Data?) {
+        guard let result = TKBERTLVRecord.dictionaryOfData(from: data) else {
             throw .responseParseError("Response data not in expected TLV format", source: .here())
         }
-
-        let challenge = result[tagChallenge]
 
         guard let versionData = result[tagVersion],
             let version = Version(withData: versionData)?.resolvingDevelopment
@@ -86,12 +116,17 @@ public final actor OATHSession: SmartCardSessionInternal {
         guard digest.count >= 16 else { throw .failedDerivingDeviceId(source: .here()) }
         let deviceId = digest.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
 
-        self.selectResponse = SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
-        self.interface = interface
-        logger.debug(
-            "OATH session initialized",
-            metadata: ["version": .string(String(describing: version)), "hasKey": .stringConvertible(challenge != nil)]
+        return (SelectResponse(salt: salt, version: version, deviceId: deviceId), result[tagChallenge])
+    }
+
+    // Reselecting ends any secure channel, so SCP is re-established with the session's parameters.
+    private func reselect() async throws(OATHSessionError) -> (response: SelectResponse, challenge: Data?) {
+        let selected = try await interface.reselect(
+            application: .oath,
+            keyParams: scpKeyParams,
+            insSendRemaining: 0xa5
         )
+        return try Self.parseSelectResponse(selected)
     }
 
     /// Creates a new OATH session with the provided connection.
@@ -122,6 +157,12 @@ public final actor OATHSession: SmartCardSessionInternal {
         logger.debug("Resetting OATH application data")
         let apdu = APDU(cla: 0, ins: 0x04, p1: 0xde, p2: 0xad)
         try await process(apdu: apdu)
+        // The reset generates a new salt, which changes the device ID and access-key derivation.
+        let (response, challenge) = try await reselect()
+        selectResponse = SelectResponse(salt: response.salt, version: version, deviceId: response.deviceId)
+        validationChallenge = challenge
+        hasAccessKey = false
+        isLocked = challenge != nil
         logger.info("OATH application data reset performed")
     }
 
@@ -478,6 +519,18 @@ public final actor OATHSession: SmartCardSessionInternal {
         let responseTlv = TKBERTLVRecord(tag: tagResponse, value: response)
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: keyTlv.data + challengeTlv.data + responseTlv.data)
         try await process(apdu: apdu)
+        hasAccessKey = true
+        validationChallenge = nil
+        if needsLegacyUnlockWorkaround {
+            isLocked = true
+            guard let challenge = try await reselect().challenge else {
+                throw .responseParseError("Missing challenge after setting access code", source: .here())
+            }
+            validationChallenge = challenge
+            try await unlock(accessKey: accessKey)
+        } else {
+            isLocked = false
+        }
         logger.info("New access code set")
     }
 
@@ -488,7 +541,7 @@ public final actor OATHSession: SmartCardSessionInternal {
     /// - Parameter accessKey: The shared access key.
     public func unlock(accessKey: Data) async throws(OATHSessionError) {
         logger.debug("Unlocking session")
-        guard let responseChallenge = self.selectResponse.challenge else {
+        guard let responseChallenge = validationChallenge else {
             throw .responseParseError("Missing challenge in OATH application select response", source: .here())
         }
         let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(key: accessKey))
@@ -525,6 +578,8 @@ public final actor OATHSession: SmartCardSessionInternal {
                 source: .here()
             )
         }
+        isLocked = false
+        needsLegacyUnlockWorkaround = false
     }
 
     /// Removes the access key, if one is set.
@@ -533,6 +588,8 @@ public final actor OATHSession: SmartCardSessionInternal {
         let tlv = TKBERTLVRecord(tag: tagSetCodeKey, value: Data())
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: tlv.data)
         try await process(apdu: apdu)
+        hasAccessKey = false
+        isLocked = false
         logger.info("Access code removed")
     }
 
