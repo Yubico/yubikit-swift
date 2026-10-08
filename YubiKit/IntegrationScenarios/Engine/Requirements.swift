@@ -40,6 +40,7 @@ import YubiKit
     var requiresCTAP2OverCCID: Bool
     /// Require the Yubico OTP keyboard HID transport.
     var requiresOTPTransport: Bool
+    var requiresSmartCardTransport: Bool
 
     init(
         capabilities: Set<Capability> = [],
@@ -51,6 +52,7 @@ import YubiKit
         requiresFIPS: Bool = false,
         excludesFIPS: Bool = false,
         requiresFIDOTransport: Bool = false,
+        requiresSmartCardTransport: Bool = false,
         requiresCTAP2OverCCID: Bool = false,
         requiresOTPTransport: Bool = false,
         requiresLightning: Bool = false,
@@ -66,6 +68,7 @@ import YubiKit
         self.requiresFIPS = requiresFIPS
         self.excludesFIPS = excludesFIPS
         self.requiresFIDOTransport = requiresFIDOTransport
+        self.requiresSmartCardTransport = requiresSmartCardTransport
         self.requiresCTAP2OverCCID = requiresCTAP2OverCCID
         self.requiresOTPTransport = requiresOTPTransport
         self.requiresLightning = requiresLightning
