@@ -74,7 +74,9 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
                     requiresOTPTransport: true
                 )
             ) { context in
-                guard context.provider.capabilities.isVirtual else { return }
+                guard context.provider.capabilities.isVirtual else {
+                    try context.skip("requires simulated USB reinsertion")
+                }
                 let initial = try await context.provider.deviceInfo()
                 let session = try await Management.Session.makeSession(connection: context.otpConnection())
                 await context.addTeardown {

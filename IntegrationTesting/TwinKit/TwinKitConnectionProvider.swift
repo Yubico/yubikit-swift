@@ -272,9 +272,9 @@ import YubiKitTwinSupport
             ([0xA0, 0x00, 0x00, 0x06, 0x47, 0x2F, 0x00, 0x01], .u2f),
             ([0xA0, 0x00, 0x00, 0x05, 0x27, 0x10, 0x02], .u2f),
         ]
-        for application in applications {
-            let connection = try await makeSmartCardConnection()
-            do {
+        let connection = try await makeSmartCardConnection()
+        do {
+            for application in applications {
                 let aid = application.aid
                 let response = try await connection.send(data: Data([0x00, 0xA4, 0x04, 0x00, UInt8(aid.count)] + aid))
                 guard response.count >= 2 else {
@@ -293,13 +293,13 @@ import YubiKitTwinSupport
                 } else if !status.elementsEqual([0x6A, 0x82]) && !status.elementsEqual([0x6D, 0x00]) {
                     throw ProviderError.unavailable("TwinKit SELECT returned an unexpected status")
                 }
-                await connection.close(error: nil)
-            } catch {
-                await connection.close(error: error)
-                throw error
             }
+            await connection.close(error: nil)
+            return (capabilities, serialNumber)
+        } catch {
+            await connection.close(error: error)
+            throw error
         }
-        return (capabilities, serialNumber)
     }
 }
 
