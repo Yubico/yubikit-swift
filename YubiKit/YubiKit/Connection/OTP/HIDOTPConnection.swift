@@ -58,23 +58,37 @@ public struct HIDOTPConnection: Sendable, OTPConnection {
         try await HIDOTPConnectionManager.shared.getFeatureReport(from: locationID, id: id)
     }
 
-    package static func availableDevices() async throws(OTPConnectionError) -> [HID.YubiKeyDevice] {
-        await HIDOTPConnectionManager.shared.availableDevices()
+    /// Returns the available YubiKey OTP interfaces.
+    public static func availableDevices() async throws(OTPConnectionError) -> [HID.YubiKeyDevice] {
+        try await availableDevices(matching: nil)
     }
 
-    package static func makeConnection(
+    /// Returns available YubiKey OTP interfaces filtered by device name.
+    /// - Parameter matching: A case-insensitive substring, or `nil` for every YubiKey.
+    public static func availableDevices(
+        matching: String?
+    ) async throws(OTPConnectionError) -> [HID.YubiKeyDevice] {
+        let devices = await HIDOTPConnectionManager.shared.availableDevices()
+        guard let matching else { return devices }
+        return devices.filter { $0.name.localizedCaseInsensitiveContains(matching) }
+    }
+
+    /// Opens the OTP interface of a device returned by ``availableDevices(matching:)``.
+    public static func makeConnection(
         device: HID.YubiKeyDevice
     ) async throws(OTPConnectionError) -> HIDOTPConnection {
         try await HIDOTPConnection(device: device)
     }
 
-    private let device: HID.YubiKeyDevice
+    /// The HID device associated with this connection.
+    public let device: HID.YubiKeyDevice
     private let id: UUID
     private let didClose: Promise<Error?>
 
     private var locationID: Int { device.locationID }
 
-    private init(device: HID.YubiKeyDevice) async throws(OTPConnectionError) {
+    /// Opens the OTP interface of a device returned by ``availableDevices(matching:)``.
+    public init(device: HID.YubiKeyDevice) async throws(OTPConnectionError) {
         let didClose = Promise<Error?>()
         self.id = try await HIDOTPConnectionManager.shared.open(device: device, didClose: didClose)
         self.device = device

@@ -28,8 +28,12 @@ let response = try await session.makeCredential(parameters: params, token: token
 
 ### Creating a Connection
 
+- ``availableDevices(matching:)``
 - ``init()``
+- ``init(device:)``
 - ``makeConnection()``
+- ``makeConnection(device:)``
+- ``device``
 
 ### Connection Lifecycle
 
