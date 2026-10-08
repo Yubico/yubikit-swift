@@ -22,6 +22,9 @@ enum OATHScenario: CaseIterable, ScenarioSuite {
     case allCodes
     case codes
     case numericPrefixName
+    case numericInputs
+    case largePeriod
+    case manualDigits
     case credentialRename
     case noIssuer
     case toExisting
@@ -47,6 +50,131 @@ enum OATHScenario: CaseIterable, ScenarioSuite {
 
     private var definition: Scenario {
         switch self {
+        case .numericInputs:
+            return Scenario(
+                "OATH.Input.numeric",
+                "invalid periods and timestamps fail without breaking the session",
+                requirements: Requirements(capabilities: [.oath])
+            ) { context in
+                let session = try await freshOATHSession(context)
+                for period in [0.0, -1.0, 0.5, .nan, .infinity] {
+                    let template = OATHSession.CredentialTemplate(
+                        type: .totp(period: period),
+                        algorithm: .sha1,
+                        secret: Data(repeating: 0x42, count: 20),
+                        issuer: nil,
+                        name: "invalid"
+                    )
+                    do {
+                        _ = try await session.addCredential(template: template)
+                        context.record("invalid period accepted: \(period)")
+                    } catch OATHSessionError.illegalArgument {}
+                }
+                for query in ["period=0", "period=-1", "period=0.5", "period=NaN", "period=Infinity"] {
+                    let url = try context.require(
+                        URL(string: "otpauth://totp/invalid?secret=HXDM&\(query)"),
+                        "expected a valid URI container"
+                    )
+                    do {
+                        _ = try OATHSession.CredentialTemplate(url: url)
+                        context.record("invalid URI period accepted: \(query)")
+                    } catch OATHSession.CredentialTemplateError.parsePeriod {}
+                }
+                for query in ["digits=5", "digits=9", "digits=invalid"] {
+                    let url = try context.require(
+                        URL(string: "otpauth://totp/invalid?secret=HXDM&\(query)"),
+                        "expected a valid URI container"
+                    )
+                    do {
+                        _ = try OATHSession.CredentialTemplate(url: url)
+                        context.record("invalid URI digit count accepted: \(query)")
+                    } catch OATHSession.CredentialTemplateError.parseDigits {}
+                }
+                let counterURL = try context.require(
+                    URL(string: "otpauth://hotp/invalid?secret=HXDM&counter=-1"),
+                    "expected a valid URI container"
+                )
+                do {
+                    _ = try OATHSession.CredentialTemplate(url: counterURL)
+                    context.record("invalid URI counter accepted")
+                } catch OATHSession.CredentialTemplateError.parseCounter {}
+                let credential = try await session.addCredential(
+                    template: OATHSession.CredentialTemplate(
+                        type: .totp(),
+                        algorithm: .sha1,
+                        secret: Data(repeating: 0x42, count: 20),
+                        issuer: nil,
+                        name: "valid"
+                    )
+                )
+                for seconds in [-1.0, .nan, .infinity, 1e100] {
+                    let timestamp = Date(timeIntervalSince1970: seconds)
+                    do {
+                        _ = try await session.calculateCredentialCode(for: credential, timestamp: timestamp)
+                        context.record("invalid timestamp accepted: \(seconds)")
+                    } catch OATHSessionError.illegalArgument {}
+                    do {
+                        _ = try await session.calculateCredentialCodes(timestamp: timestamp)
+                        context.record("invalid bulk timestamp accepted: \(seconds)")
+                    } catch OATHSessionError.illegalArgument {}
+                }
+                let code = try await session.calculateCredentialCode(
+                    for: credential,
+                    timestamp: Date(timeIntervalSince1970: 1.5)
+                )
+                context.expectEqual(code.code.count, 6, "session remains usable after rejected input")
+            }
+        case .largePeriod:
+            return Scenario(
+                "OATH.Input.largePeriod",
+                "integer periods above UInt32 retain their value across storage and calculation",
+                requirements: Requirements(capabilities: [.oath])
+            ) { context in
+                let session = try await freshOATHSession(context)
+                let period = Double(UInt32.max) + 1
+                let credential = try await session.addCredential(
+                    template: OATHSession.CredentialTemplate(
+                        type: .totp(period: period),
+                        algorithm: .sha1,
+                        secret: Data(repeating: 0x42, count: 20),
+                        issuer: nil,
+                        name: "large period"
+                    )
+                )
+                context.expectEqual(
+                    try await session.listCredentials().first?.type.period,
+                    period,
+                    "period round-trips"
+                )
+                let code = try await session.calculateCredentialCode(
+                    for: credential,
+                    timestamp: Date(timeIntervalSince1970: 1_700_000_000)
+                )
+                context.expectEqual(code.code.count, 6, "large period produces a code")
+            }
+        case .manualDigits:
+            return Scenario(
+                "OATH.Input.manualDigits",
+                "manual templates preserve the device's digit-count behavior",
+                requirements: Requirements(capabilities: [.oath])
+            ) { context in
+                let session = try await freshOATHSession(context)
+                let credential = try await session.addCredential(
+                    template: OATHSession.CredentialTemplate(
+                        type: .totp(),
+                        algorithm: .sha1,
+                        secret: Data(repeating: 0x42, count: 20),
+                        issuer: nil,
+                        name: "manual digits",
+                        digits: 5
+                    )
+                )
+                let code = try await session.calculateCredentialCode(
+                    for: credential,
+                    timestamp: Date(timeIntervalSince1970: 1_700_000_000)
+                )
+                context.expectEqual(code.code.count, 5, "manual digit count reaches the applet")
+            }
         // MARK: - TestFunctions
         case .credentials:
             return Scenario(
