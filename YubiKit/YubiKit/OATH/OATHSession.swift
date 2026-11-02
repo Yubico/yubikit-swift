@@ -26,6 +26,20 @@ private let tagResponse: TKTLVTag = 0x75
 
 let oathDefaultPeriod = 30.0
 
+func oathValidPeriod(_ period: TimeInterval) -> Bool {
+    period.isFinite && period > 0 && period.rounded(.towardZero) == period
+}
+
+private func oathChallenge(timestamp: Date, period: TimeInterval) throws(OATHSessionError) -> UInt64 {
+    let seconds = timestamp.timeIntervalSince1970
+    guard oathValidPeriod(period), seconds.isFinite, seconds >= 0,
+        let challenge = UInt64(exactly: floor(seconds / period))
+    else {
+        throw .illegalArgument("Invalid OATH period or timestamp", source: .here())
+    }
+    return challenge
+}
+
 /// An interface to the OATH application on the YubiKey.
 ///
 /// The OATHSession is an interface to the OATH application on the YubiKey that will
@@ -144,6 +158,9 @@ public final actor OATHSession: SmartCardSessionInternal {
     /// - Returns: The newly added credential.
     @discardableResult
     public func addCredential(template: CredentialTemplate) async throws(OATHSessionError) -> Credential {
+        if case .totp(let period) = template.type, !oathValidPeriod(period) {
+            throw .illegalArgument("Invalid OATH period", source: .here())
+        }
         logger.debug(
             "Importing credential",
             metadata: [
@@ -316,8 +333,7 @@ public final actor OATHSession: SmartCardSessionInternal {
                     "period": .stringConvertible(period),
                 ]
             )
-            let time = timestamp.timeIntervalSince1970
-            let challenge = UInt64(time / Double(period))
+            let challenge = try oathChallenge(timestamp: timestamp, period: period)
             let bigChallenge = CFSwapInt64HostToBig(challenge)
             challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         }
@@ -377,8 +393,7 @@ public final actor OATHSession: SmartCardSessionInternal {
             "Calculating all codes",
             metadata: ["timestamp": .stringConvertible(timestamp.timeIntervalSince1970)]
         )
-        let time = timestamp.timeIntervalSince1970
-        let challenge = UInt64(time / 30)
+        let challenge = try oathChallenge(timestamp: timestamp, period: oathDefaultPeriod)
         let bigChallenge = CFSwapInt64HostToBig(challenge)
         let challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, command: challengeTLV.data)
@@ -418,7 +433,9 @@ public final actor OATHSession: SmartCardSessionInternal {
             // A full code is exactly 5 bytes: a digit-count byte plus a 4-byte truncated code.
             let code: Code?
             if response.value.count == 5 {
-                if credentialId.period != oathDefaultPeriod {
+                if case .totp(let period) = credentialType, !oathValidPeriod(period) {
+                    code = nil
+                } else if credentialId.period != oathDefaultPeriod {
                     logger.debug(
                         "Recalculating code",
                         metadata: ["period": .stringConvertible(credentialId.period ?? oathDefaultPeriod)]
