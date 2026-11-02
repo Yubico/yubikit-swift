@@ -193,7 +193,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
 
     // Send APDU without SCP (static version).
     // Used during actor init before instance methods are available.
-    private static func sendPlainStatic(
+    internal static func sendPlainStatic(
         connection: SmartCardConnection,
         apdu: APDU,
         insSendRemaining: UInt8
