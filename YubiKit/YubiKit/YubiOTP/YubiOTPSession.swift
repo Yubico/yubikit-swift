@@ -83,12 +83,10 @@ extension YubiOTP {
             var isNFC = false
             let isLightning = false
             #endif
-            #if !(YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator))
             // Desktop and USB-C readers can hold a YubiKey presented over NFC.
             if let usbConnection = connection as? USBSmartCardConnection {
                 isNFC = usbConnection.isNFC
             }
-            #endif
             return try await makeSession(
                 connection: connection,
                 scpKeyParams: scpKeyParams,

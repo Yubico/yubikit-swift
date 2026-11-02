@@ -21,6 +21,7 @@ import Foundation
 @available(iOS 16.0, macOS 13.0, *)
 public struct USBSmartCardConnection: SmartCardConnection, Sendable {
     public let slot: USBSmartCard.YubiKeyDevice
+    let isNFC = false
 
     @usableFromInline static let defaultNameFilter = "YubiKey"
 
