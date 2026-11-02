@@ -85,7 +85,7 @@ extension YubiOTP {
             #endif
             // Desktop and USB-C readers can hold a YubiKey presented over NFC.
             if let usbConnection = connection as? USBSmartCardConnection {
-                isNFC = usbConnection.isNFC
+                isNFC = usbConnection.isContactless
             }
             return try await makeSession(
                 connection: connection,

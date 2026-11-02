@@ -49,8 +49,9 @@ public struct USBSmartCardConnection: Sendable {
     /// The smart card slot this connection is associated with.
     public let slot: USBSmartCard.YubiKeyDevice
 
-    /// Whether the card in this slot was reached through an NFC reader.
-    let isNFC: Bool
+    /// Whether the reader communicates with the YubiKey over NFC, inferred from the card's ATR.
+    /// The host-to-reader connection still uses USB.
+    let isContactless: Bool
 
     @usableFromInline static let defaultNameFilter = "YubiKey"
 
@@ -79,7 +80,7 @@ public struct USBSmartCardConnection: Sendable {
     public init(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) {
         let atr = try await SmartCardConnectionsManager.shared.connect(slot: slot)
         self.slot = slot
-        self.isNFC = USBSmartCard.isNFC(atr: atr)
+        self.isContactless = USBSmartCard.isNFC(atr: atr)
     }
 
     /// Returns the available smart card slots.
