@@ -154,8 +154,11 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
         var result = response.data
         let sw = response.responseStatus.rawStatus
 
-        // Verify and remove MAC from response
-        if !result.isEmpty {
+        // SCP03 §6.2.5 requires R-MAC for success and warnings, even without response data.
+        // Bare error statuses remain unauthenticated. SCP03 setup uses a separate handshake path.
+        if !result.isEmpty || response.status == .ok || response.responseStatus.sw1 == 0x62
+            || response.responseStatus.sw1 == 0x63
+        {
             do {
                 result = try await scpState.unmac(data: result, sw: sw)
             } catch {
