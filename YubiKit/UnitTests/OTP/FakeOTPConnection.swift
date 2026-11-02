@@ -47,6 +47,8 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
     var corruptsResponseCRC = false
     var managementResponse = Data()
 
+    var deviceInfoPages: [Data] = []
+
     private var frame = [UInt8](repeating: 0, count: 70)
     private var outbox: [[UInt8]] = []
     private var dispatchedSlots: [UInt8] = []
@@ -127,7 +129,12 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
 
         switch slot {
         case 0x13:
-            queue(managementResponse)
+            if deviceInfoPages.isEmpty {
+                queue(managementResponse)
+            } else {
+                let page = Int(payload.first ?? 0)
+                if deviceInfoPages.indices.contains(page) { queue(deviceInfoPages[page]) }
+            }
         case Self.slotDeviceSerial:
             queue(
                 Data([

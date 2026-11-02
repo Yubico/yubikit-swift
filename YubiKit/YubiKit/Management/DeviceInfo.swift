@@ -76,6 +76,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
     public let formFactor: FormFactor
     /// The part number of the YubiKey.
     public let partNumber: String?
+    internal let reportedName: String?
     /// FIPS capable flags.
     public let fipsCapabilityFlags: UInt
     /// FIPS approved flags.
@@ -117,8 +118,37 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
     internal let tagNFCRestricted: TKTLVTag = 0x17
     internal let tagResetBlocked: TKTLVTag = 0x18
     internal let tagVersionQualifier: TKTLVTag = 0x19
+    internal let tagName: TKTLVTag = 0x1b
     internal let tagFPSVersion: TKTLVTag = 0x20
     internal let tagSTMVersion: TKTLVTag = 0x21
+
+    internal init(
+        version: Version,
+        serialNumber: UInt = 0,
+        formFactor: FormFactor = .unknown,
+        supportedCapabilities: [DeviceTransport: UInt],
+        isFIPS: Bool = false,
+        isSKY: Bool = false,
+        pinComplexity: Bool = false,
+        config: DeviceConfig = DeviceConfig(enabledCapabilities: [:])
+    ) {
+        self.version = version
+        self.serialNumber = serialNumber
+        self.formFactor = formFactor
+        self.supportedCapabilities = supportedCapabilities
+        self.isFIPS = isFIPS
+        self.isSKY = isSKY
+        self.pinComplexity = pinComplexity
+        self.reportedName = nil
+        self.config = config
+        self.isConfigLocked = false
+        self.partNumber = nil
+        self.fipsCapabilityFlags = 0
+        self.fipsApprovalFlags = 0
+        self.resetBlockedFlags = 0
+        self.fpsVersion = nil
+        self.stmVersion = nil
+    }
 
     internal init(withTlvs tlvs: [TKTLVTag: Data], fallbackVersion: Version) {
 
@@ -169,6 +199,9 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
         }
 
         self.partNumber = tlvs[tagPartNumber]?.stringUTF8.flatMap { $0.isEmpty ? nil : $0 }
+        self.reportedName = tlvs[tagName].flatMap { String(data: $0, encoding: .utf8) }.flatMap {
+            $0.isEmpty ? nil : $0
+        }
 
         var supportedCapabilities = [DeviceTransport: UInt]()
         if version.major == 4 && version.minor == 2 && version.micro == 4 {
