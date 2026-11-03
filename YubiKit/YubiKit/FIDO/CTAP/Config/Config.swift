@@ -37,6 +37,14 @@ extension CTAP2.Session {
     public func config(
         token: CTAP2.Token
     ) async throws(CTAP2.SessionError) -> CTAP2.Config {
+        try await config(token: Optional(token))
+    }
+
+    /// Returns authenticatorConfig operations with optional PIN/UV authorization.
+    /// Omit the token only when the authenticator permits unauthenticated configuration.
+    public func config(
+        token: CTAP2.Token? = nil
+    ) async throws(CTAP2.SessionError) -> CTAP2.Config {
         guard try await cachedInfo.options.authenticatorConfig else {
             throw .featureNotSupported(source: .here())
         }
@@ -52,9 +60,9 @@ extension CTAP2 {
     /// - SeeAlso: [CTAP2 authenticatorConfig](https://fidoalliance.org/specs/fido-v2.2-ps-20250714/fido-client-to-authenticator-protocol-v2.2-ps-20250714.html#authenticatorConfig)
     public struct Config: Sendable, HasFIDOLogger {
         private let session: CTAP2.Session
-        private let token: CTAP2.Token
+        private let token: CTAP2.Token?
 
-        fileprivate init(session: CTAP2.Session, token: CTAP2.Token) {
+        fileprivate init(session: CTAP2.Session, token: CTAP2.Token?) {
             self.session = session
             self.token = token
         }
@@ -129,13 +137,14 @@ extension CTAP2 {
             subcommand: Subcommand,
             params: [UInt8: CBOR.Value]? = nil
         ) async throws(CTAP2.SessionError) {
-            let message = authMessage(subcommand: subcommand, params: params)
-            let pinUVAuthParam = token.authenticate(message: message)
+            let pinUVAuthParam = token.map {
+                $0.authenticate(message: authMessage(subcommand: subcommand, params: params))
+            }
 
             let parameters = RequestParameters(
                 subCommand: subcommand,
                 subCommandParams: params,
-                pinUVAuthProtocol: token.protocolVersion,
+                pinUVAuthProtocol: token?.protocolVersion,
                 pinUVAuthParam: pinUVAuthParam
             )
 
@@ -209,8 +218,8 @@ extension CTAP2.Config {
     fileprivate struct RequestParameters: Sendable, CBOR.Encodable {
         let subCommand: Subcommand
         let subCommandParams: [UInt8: CBOR.Value]?
-        let pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion
-        let pinUVAuthParam: Data
+        let pinUVAuthProtocol: CTAP2.ClientPin.ProtocolVersion?
+        let pinUVAuthParam: Data?
 
         func cbor() -> CBOR.Value {
             var map: [CBOR.Value: CBOR.Value] = [:]
@@ -222,8 +231,8 @@ extension CTAP2.Config {
                 }
                 map[.int(0x02)] = .map(paramsMap)
             }
-            map[.int(0x03)] = pinUVAuthProtocol.cbor()
-            map[.int(0x04)] = pinUVAuthParam.cbor()
+            if let pinUVAuthProtocol { map[.int(0x03)] = pinUVAuthProtocol.cbor() }
+            if let pinUVAuthParam { map[.int(0x04)] = pinUVAuthParam.cbor() }
             return .map(map)
         }
     }
