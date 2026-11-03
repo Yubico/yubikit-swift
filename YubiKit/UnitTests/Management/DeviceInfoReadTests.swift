@@ -53,7 +53,7 @@ struct DeviceInfoReadTests {
     @Test("Pre-4.1 Management firmware falls back without issuing READ CONFIG")
     func oldManagement() async throws {
         let connection = MockSmartCardConnection(responses: [
-            Data("3.4.0".utf8) + ok, Data([3, 4, 3, 0, 0, 0]) + ok, missing,
+            Data("3.4.0".utf8) + ok, Data([0x6d, 0]), Data([3, 4, 3, 0, 0, 0]) + ok, missing,
             missing, ok, ok, ok, missing,
         ])
         let info = try await DeviceInfo.read(connection: connection)
@@ -66,9 +66,23 @@ struct DeviceInfoReadTests {
     @Test("Management-identified NEO stays NEO when only the FIDO applet is available")
     func neoWithOnlyFIDO() async throws {
         let connection = MockSmartCardConnection(responses: [
-            Data("3.4.3".utf8) + ok, missing, ok, missing, missing, missing,
+            Data("3.4.3".utf8) + ok, Data([0x6d, 0]), missing, ok, missing, missing, missing,
         ])
         #expect(try await connection.deviceName == "YubiKey NEO")
+    }
+
+    @Test("NEO naming de-selects Management and propagates disconnects", arguments: [false, true])
+    func neoDeselect(disconnect: Bool) async throws {
+        let connection = NamingNEOConnection(disconnect: disconnect)
+        if disconnect {
+            do {
+                _ = try await connection.deviceName
+                Issue.record("The de-selection disconnect was ignored")
+            } catch ManagementSessionError.connectionError(.connectionLost, _) {
+            }
+        } else {
+            #expect(try await connection.deviceName == "YubiKey NEO")
+        }
     }
 
     @Test("Application probing works when OTP is unavailable")
@@ -164,4 +178,37 @@ struct DeviceInfoReadTests {
     }
 
     private func page(_ tlvs: Data) -> Data { Data([UInt8(tlvs.count)]) + tlvs }
+}
+
+// Models the NEO Management selection quirk documented by Android and Rust.
+private actor NamingNEOConnection: SmartCardConnection {
+    private let disconnect: Bool
+    private var managementSelected = false
+    private let ok = Data([0x90, 0])
+
+    init(disconnect: Bool) { self.disconnect = disconnect }
+    init() async throws(SmartCardConnectionError) { fatalError("Use the test initializer") }
+    static func makeConnection() async throws(SmartCardConnectionError) -> NamingNEOConnection {
+        fatalError("Use the test initializer")
+    }
+    func close(error: Error?) async {}
+    func waitUntilClosed() async -> Error? { nil }
+
+    func send(data: Data) async throws(SmartCardConnectionError) -> Data {
+        if data == Data([0xa4, 0x04, 0, 8]) {
+            if disconnect { throw .connectionLost }
+            managementSelected = false
+            return Data([0x6d, 0])
+        }
+        if data == Data([0, 0xa4, 4, 0, 8, 0xa0, 0, 0, 5, 0x27, 0x47, 0x11, 0x17]) {
+            managementSelected = true
+            return Data("3.4.0".utf8) + ok
+        }
+        if managementSelected { return Data([0x6d, 0]) }
+        if data == Data([0, 0xa4, 4, 0, 8, 0xa0, 0, 0, 5, 0x27, 0x20, 1, 1]) {
+            return Data([3, 4, 0, 0, 0, 0]) + ok
+        }
+        if data.count > 1 && data[1] == 1 { return Data([0, 0, 0, 123]) + ok }
+        return Data([0x6a, 0x82])
+    }
 }
