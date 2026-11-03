@@ -28,6 +28,13 @@ public enum USBSmartCard {
             self.name = name
         }
     }
+
+    // A YubiKey's own USB CCID interface reports 0xFx in the second ATR byte; anything else is
+    // a card presented to an external (NFC) reader.
+    static func isNFC(atr: Data?) -> Bool {
+        guard let atr, atr.count > 1 else { return true }
+        return atr[atr.startIndex + 1] & 0xf0 != 0xf0
+    }
 }
 
 #if !(YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator))
@@ -41,6 +48,10 @@ import Logging
 public struct USBSmartCardConnection: Sendable {
     /// The smart card slot this connection is associated with.
     public let slot: USBSmartCard.YubiKeyDevice
+
+    /// Whether the reader communicates with the YubiKey over NFC, inferred from the card's ATR.
+    /// The host-to-reader connection still uses USB.
+    let isContactless: Bool
 
     @usableFromInline static let defaultNameFilter = "YubiKey"
 
@@ -67,8 +78,9 @@ public struct USBSmartCardConnection: Sendable {
     /// - Parameter slot: The ``USBSmartCard/YubiKeyDevice`` to connect to.
     /// - Throws: ``SmartCardConnectionError/busy`` if there is already an active connection to this slot.
     public init(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) {
-        try await SmartCardConnectionsManager.shared.connect(slot: slot)
+        let atr = try await SmartCardConnectionsManager.shared.connect(slot: slot)
         self.slot = slot
+        self.isContactless = USBSmartCard.isNFC(atr: atr)
     }
 
     /// Returns the available smart card slots.
@@ -234,7 +246,8 @@ private final actor SmartCardConnectionsManager {
         }
     }
 
-    func connect(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) {
+    // Returns the ATR of the connected card.
+    func connect(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) -> Data? {
         // if there is already a connection for this slot we throw `SmartCardConnectionError.busy`.
         // The caller must close the connection first.
         guard connections[slot] == nil else {
@@ -298,8 +311,7 @@ private final actor SmartCardConnectionsManager {
             }
         }
 
-        // success; otherwise it would throw
-        return
+        return tkSlot.atr?.bytes
     }
 
     func availableDevices(matching: String?) async throws(SmartCardConnectionError) -> [USBSmartCard.YubiKeyDevice] {
