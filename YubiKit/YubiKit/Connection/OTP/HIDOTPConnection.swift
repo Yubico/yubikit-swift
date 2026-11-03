@@ -59,14 +59,9 @@ public struct HIDOTPConnection: Sendable, OTPConnection {
     }
 
     /// Returns the available YubiKey OTP interfaces.
-    public static func availableDevices() async throws(OTPConnectionError) -> [HID.YubiKeyDevice] {
-        try await availableDevices(matching: nil)
-    }
-
-    /// Returns available YubiKey OTP interfaces filtered by device name.
     /// - Parameter matching: A case-insensitive substring, or `nil` for every YubiKey.
     public static func availableDevices(
-        matching: String?
+        matching: String? = nil
     ) async throws(OTPConnectionError) -> [HID.YubiKeyDevice] {
         let devices = await HIDOTPConnectionManager.shared.availableDevices()
         guard let matching else { return devices }
