@@ -23,7 +23,7 @@ struct OTPKeyboardInterfaceTests {
     func dataResponseRoundTrips() async throws {
         let connection = try await FakeOTPConnection()
         connection.serial = 12_345_678
-        let interface = try await OTPKeyboardInterface(connection: connection)
+        let interface = try await OTPKeyboardInterface<YubiOTP.SessionError>(connection: connection)
 
         let response = try await interface.sendAndReceive(slot: FakeOTPConnection.slotDeviceSerial)
 
@@ -34,7 +34,7 @@ struct OTPKeyboardInterfaceTests {
     @Test("all-zero middle chunks are skipped but the first and last are always sent")
     func skipsAllZeroChunks() async throws {
         let connection = try await FakeOTPConnection()
-        let interface = try await OTPKeyboardInterface(connection: connection)
+        let interface = try await OTPKeyboardInterface<YubiOTP.SessionError>(connection: connection)
 
         _ = try await interface.sendAndReceive(slot: FakeOTPConnection.slotDeviceSerial)
 
@@ -44,7 +44,7 @@ struct OTPKeyboardInterfaceTests {
     @Test("a full 64-byte payload sends every chunk")
     func fullPayloadSendsAllChunks() async throws {
         let connection = try await FakeOTPConnection()
-        let interface = try await OTPKeyboardInterface(connection: connection)
+        let interface = try await OTPKeyboardInterface<YubiOTP.SessionError>(connection: connection)
 
         _ = try await interface.sendAndReceive(
             slot: FakeOTPConnection.slotConfig1,
@@ -57,7 +57,7 @@ struct OTPKeyboardInterfaceTests {
     @Test("deleting the last configured slot resets the programming sequence to zero")
     func programmingSequenceResetIsAccepted() async throws {
         let connection = try await FakeOTPConnection()
-        let interface = try await OTPKeyboardInterface(connection: connection)
+        let interface = try await OTPKeyboardInterface<YubiOTP.SessionError>(connection: connection)
         _ = try await interface.sendAndReceive(
             slot: FakeOTPConnection.slotConfig1,
             data: Data(repeating: 0x11, count: 52)
@@ -71,7 +71,7 @@ struct OTPKeyboardInterfaceTests {
 
     @Test("a command that the key does not acknowledge is rejected")
     func unacknowledgedCommandIsRejected() async throws {
-        let interface = try await OTPKeyboardInterface(connection: try await FakeOTPConnection())
+        let interface = try await OTPKeyboardInterface<YubiOTP.SessionError>(connection: try await FakeOTPConnection())
         do {
             _ = try await interface.sendAndReceive(slot: FakeOTPConnection.slotUnknown)
             Issue.record("An unacknowledged command was accepted")
@@ -84,7 +84,7 @@ struct OTPKeyboardInterfaceTests {
     @Test("an oversized payload is rejected before any report is sent")
     func oversizedPayloadRejected() async throws {
         let connection = try await FakeOTPConnection()
-        let interface = try await OTPKeyboardInterface(connection: connection)
+        let interface = try await OTPKeyboardInterface<YubiOTP.SessionError>(connection: connection)
         do {
             _ = try await interface.sendAndReceive(slot: FakeOTPConnection.slotConfig1, data: Data(count: 65))
             Issue.record("An oversized payload was accepted")

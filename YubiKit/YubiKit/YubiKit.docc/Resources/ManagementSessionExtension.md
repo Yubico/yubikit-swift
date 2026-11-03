@@ -5,7 +5,8 @@ Session for YubiKey device management and configuration.
 ## Overview
 
 Management.Session provides access to device-level operations like reading device information,
-configuring enabled applications, and performing factory reset.
+configuring enabled applications, and performing factory reset. Sessions can use SmartCard,
+FIDO HID, or OTP HID connections; factory reset requires SmartCard.
 
 ```swift
 let connection = try await USBSmartCardConnection()

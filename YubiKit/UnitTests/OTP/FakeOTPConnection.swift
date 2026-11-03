@@ -45,6 +45,7 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
     var hmacResponse = Data(repeating: 0xAB, count: 20)
 
     var corruptsResponseCRC = false
+    var managementResponse = Data()
 
     private var frame = [UInt8](repeating: 0, count: 70)
     private var outbox: [[UInt8]] = []
@@ -125,6 +126,8 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
         guard crc == payload.crc16 else { return }
 
         switch slot {
+        case 0x13:
+            queue(managementResponse)
         case Self.slotDeviceSerial:
             queue(
                 Data([
