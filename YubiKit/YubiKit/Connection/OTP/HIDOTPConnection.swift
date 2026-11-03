@@ -25,15 +25,22 @@ import Logging
 public struct HIDOTPConnection: Sendable, OTPConnection {
     /// Creates a connection to the first YubiKey exposing an OTP keyboard interface.
     ///
-    /// - Throws: ``OTPConnectionError/noDevicesFound`` if no such YubiKey is present.
+    /// Waits until a YubiKey exposing an OTP keyboard interface becomes available.
+    ///
+    /// - Throws: ``OTPConnectionError/cancelled`` if the task is cancelled while waiting,
+    ///   or another ``OTPConnectionError`` if discovery or connection setup fails.
     public init() async throws(OTPConnectionError) {
-        guard let first = try await HIDOTPConnection.availableDevices().first else {
-            throw OTPConnectionError.noDevicesFound
+        let first = try await waitForDevice(cancellationError: OTPConnectionError.cancelled) {
+            () async throws(OTPConnectionError) in
+            try await Self.availableDevices()
         }
         try await self.init(device: first)
     }
 
-    /// Creates a connection to the first YubiKey currently exposing an OTP keyboard interface.
+    /// Waits for a YubiKey exposing an OTP keyboard interface and connects to it.
+    ///
+    /// - Throws: ``OTPConnectionError/cancelled`` if the task is cancelled while waiting,
+    ///   or another ``OTPConnectionError`` if discovery or connection setup fails.
     public static func makeConnection() async throws(OTPConnectionError) -> HIDOTPConnection {
         try await HIDOTPConnection()
     }
@@ -58,23 +65,32 @@ public struct HIDOTPConnection: Sendable, OTPConnection {
         try await HIDOTPConnectionManager.shared.getFeatureReport(from: locationID, id: id)
     }
 
-    package static func availableDevices() async throws(OTPConnectionError) -> [HID.YubiKeyDevice] {
-        await HIDOTPConnectionManager.shared.availableDevices()
+    /// Returns the available YubiKey OTP interfaces.
+    /// - Parameter matching: A case-insensitive substring, or `nil` for every YubiKey.
+    public static func availableDevices(
+        matching: String? = nil
+    ) async throws(OTPConnectionError) -> [HID.YubiKeyDevice] {
+        let devices = await HIDOTPConnectionManager.shared.availableDevices()
+        guard let matching else { return devices }
+        return devices.filter { $0.name.localizedCaseInsensitiveContains(matching) }
     }
 
-    package static func makeConnection(
+    /// Opens the OTP interface of a device returned by ``availableDevices(matching:)``.
+    public static func makeConnection(
         device: HID.YubiKeyDevice
     ) async throws(OTPConnectionError) -> HIDOTPConnection {
         try await HIDOTPConnection(device: device)
     }
 
-    private let device: HID.YubiKeyDevice
+    /// The HID device associated with this connection.
+    public let device: HID.YubiKeyDevice
     private let id: UUID
     private let didClose: Promise<Error?>
 
     private var locationID: Int { device.locationID }
 
-    private init(device: HID.YubiKeyDevice) async throws(OTPConnectionError) {
+    /// Opens the OTP interface of a device returned by ``availableDevices(matching:)``.
+    public init(device: HID.YubiKeyDevice) async throws(OTPConnectionError) {
         let didClose = Promise<Error?>()
         self.id = try await HIDOTPConnectionManager.shared.open(device: device, didClose: didClose)
         self.device = device
