@@ -112,6 +112,24 @@ extension DeviceInfo {
             throw ManagementSessionError.featureNotSupported(source: .here())
         }
         let session = try await Management.Session.makeSession(connection: connection)
+        // Pre-YubiKey-4 CTAPHID versions are not firmware versions; the PID identifies the family.
+        if vid == 0x1050, let pid {
+            switch pid {
+            case 0x0110...0x0116:
+                return legacyInfo(
+                    version: Version("3.0.0")!,
+                    usbProductID: pid,
+                    probedCapabilities: Capability.u2f.rawValue
+                )
+            case 0x0410:
+                return legacyInfo(
+                    version: Version("4.0.0")!,
+                    usbProductID: pid,
+                    probedCapabilities: Capability.u2f.rawValue
+                )
+            default: break
+            }
+        }
         if await session.supports(.deviceInfo) {
             return try await session.getDeviceInfo()
         }
