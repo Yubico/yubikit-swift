@@ -25,15 +25,22 @@ import Logging
 public struct HIDOTPConnection: Sendable, OTPConnection {
     /// Creates a connection to the first YubiKey exposing an OTP keyboard interface.
     ///
-    /// - Throws: ``OTPConnectionError/noDevicesFound`` if no such YubiKey is present.
+    /// Waits until a YubiKey exposing an OTP keyboard interface becomes available.
+    ///
+    /// - Throws: ``OTPConnectionError/cancelled`` if the task is cancelled while waiting,
+    ///   or another ``OTPConnectionError`` if discovery or connection setup fails.
     public init() async throws(OTPConnectionError) {
-        guard let first = try await HIDOTPConnection.availableDevices().first else {
-            throw OTPConnectionError.noDevicesFound
+        let first = try await waitForDevice(cancellationError: OTPConnectionError.cancelled) {
+            () async throws(OTPConnectionError) in
+            try await Self.availableDevices()
         }
         try await self.init(device: first)
     }
 
-    /// Creates a connection to the first YubiKey currently exposing an OTP keyboard interface.
+    /// Waits for a YubiKey exposing an OTP keyboard interface and connects to it.
+    ///
+    /// - Throws: ``OTPConnectionError/cancelled`` if the task is cancelled while waiting,
+    ///   or another ``OTPConnectionError`` if discovery or connection setup fails.
     public static func makeConnection() async throws(OTPConnectionError) -> HIDOTPConnection {
         try await HIDOTPConnection()
     }
