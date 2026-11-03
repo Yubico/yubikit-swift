@@ -23,9 +23,11 @@ extension DeviceInfo {
     ) async throws -> DeviceInfo {
         try Task.checkCancellation()
         var version: Version?
+        var isYubiKey = false
         do {
             let session = try await Management.Session.makeSession(connection: connection)
             version = session.version
+            isYubiKey = true
             if await session.supports(.deviceInfo) {
                 return try await session.getDeviceInfo()
             }
@@ -37,6 +39,7 @@ extension DeviceInfo {
         var capabilities: UInt = 0
         do {
             let otp = try await YubiOTP.Session.makeSession(connection: connection)
+            isYubiKey = true
             if let knownVersion = version {
                 if knownVersion.major == 3 { version = max(knownVersion, otp.version) }
             } else {
@@ -72,6 +75,7 @@ extension DeviceInfo {
                     insSendRemaining: 0xc0
                 )
                 capabilities |= capability.rawValue
+                isYubiKey = isYubiKey || aid.starts(with: [0xa0, 0, 0, 5, 0x27])
             } catch {
                 switch error.responseStatus?.status {
                 case .fileNotFound, .invalidInstruction: break
@@ -79,7 +83,7 @@ extension DeviceInfo {
                 }
             }
         }
-        guard capabilities != 0 else {
+        guard isYubiKey else {
             throw ManagementSessionError.featureNotSupported(source: .here())
         }
         return legacyInfo(
@@ -92,17 +96,28 @@ extension DeviceInfo {
 
     internal static func read(
         connection: FIDOConnection,
-        usbProductID: UInt16? = nil
+        usbProductID: UInt16? = nil,
+        usbVendorID: UInt16? = nil
     ) async throws -> DeviceInfo {
         try Task.checkCancellation()
+        var pid = usbProductID
+        var vid = usbVendorID
+        #if os(macOS)
+        if let hid = connection as? HIDFIDOConnection {
+            pid = pid ?? hid.usbProductID
+            vid = vid ?? hid.device.usbVendorID
+        }
+        #endif
+        guard vid == nil || vid == 0x1050 else {
+            throw ManagementSessionError.featureNotSupported(source: .here())
+        }
         let session = try await Management.Session.makeSession(connection: connection)
         if await session.supports(.deviceInfo) {
             return try await session.getDeviceInfo()
         }
-        var pid = usbProductID
-        #if os(macOS)
-        if pid == nil { pid = (connection as? HIDFIDOConnection)?.usbProductID }
-        #endif
+        guard vid == 0x1050 else {
+            throw ManagementSessionError.featureNotSupported(source: .here())
+        }
         guard let pid else {
             return DeviceInfo(version: session.version, supportedCapabilities: [.usb: Capability.u2f.rawValue])
         }

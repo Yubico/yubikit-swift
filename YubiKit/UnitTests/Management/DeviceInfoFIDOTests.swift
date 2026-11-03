@@ -35,9 +35,18 @@ struct DeviceInfoFIDOTests {
     )
     func legacy(pid: UInt16, expected: String) async throws {
         let connection = NamingFIDOConnection(version: [3, 0, 0])
-        let info = try await DeviceInfo.read(connection: connection, usbProductID: pid)
+        let info = try await DeviceInfo.read(connection: connection, usbProductID: pid, usbVendorID: 0x1050)
         #expect(info.deviceName == expected)
         #expect(await connection.commands == [0x86])
+    }
+
+    @Test("Legacy FIDO naming requires Yubico identity", arguments: [nil, UInt16(0x1234)] as [UInt16?])
+    func unidentifiedVendor(vid: UInt16?) async throws {
+        let connection = NamingFIDOConnection(version: [3, 0, 0])
+        await #expect(throws: ManagementSessionError.self) {
+            try await DeviceInfo.read(connection: connection, usbProductID: 0x0120, usbVendorID: vid)
+        }
+        #expect(await connection.commands == (vid == nil ? [0x86] : []))
     }
 
     @Test("FIDO transport failures are propagated")

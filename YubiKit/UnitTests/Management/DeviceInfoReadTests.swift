@@ -84,6 +84,15 @@ struct DeviceInfoReadTests {
         #expect(await connection.sentRequests.last?.suffix(7) == Data([0xa0, 0, 0, 5, 0x27, 0x10, 2]))
     }
 
+    @Test("Generic PIV and FIDO applets do not establish Yubico identity", arguments: [Capability.piv, .u2f])
+    func genericApplets(capability: Capability) async throws {
+        let connection = MockSmartCardConnection(responses: [
+            missing, missing, capability == .u2f ? ok : missing, capability == .piv ? ok : missing,
+            missing, missing, missing,
+        ])
+        await #expect(throws: ManagementSessionError.self) { try await connection.deviceName }
+    }
+
     @Test(
         "Management errors do not trigger legacy probing",
         arguments: [
