@@ -27,14 +27,16 @@ struct DeviceInfoFIDOTests {
     }
 
     @Test(
-        "FIDO HID uses PID to distinguish legacy families",
+        "FIDO HID identifies legacy families independently of CTAPHID version bytes",
         arguments: [
-            (UInt16(0x0113), "YubiKey NEO"),
-            (UInt16(0x0120), "FIDO U2F Security Key"),
+            (UInt16(0x0120), [UInt8(3), 0, 0], "FIDO U2F Security Key"),
+            (UInt16(0x0113), [UInt8(1), 0, 2], "YubiKey NEO"),
+            (UInt16(0x0116), [UInt8(4), 3, 7], "YubiKey NEO"),
+            (UInt16(0x0410), [UInt8(1), 0, 2], "YubiKey Edge"),
         ]
     )
-    func legacy(pid: UInt16, expected: String) async throws {
-        let connection = NamingFIDOConnection(version: [3, 0, 0])
+    func legacyVersion(pid: UInt16, version: [UInt8], expected: String) async throws {
+        let connection = NamingFIDOConnection(version: version)
         let info = try await DeviceInfo.read(connection: connection, usbProductID: pid, usbVendorID: 0x1050)
         #expect(info.deviceName == expected)
         #expect(await connection.commands == [0x86])
