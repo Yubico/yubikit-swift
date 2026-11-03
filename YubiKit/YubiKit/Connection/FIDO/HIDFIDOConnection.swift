@@ -61,16 +61,11 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
 
     /// Returns all available YubiKey devices connected via USB HID.
     ///
+    /// - Parameter matching: A case-insensitive substring, or `nil` for every YubiKey.
     /// - Returns: An array of ``HID/YubiKeyDevice`` instances representing connected YubiKeys.
     /// - Throws: ``FIDOConnectionError`` if device enumeration fails.
-    public static func availableDevices() async throws(FIDOConnectionError) -> [HID.YubiKeyDevice] {
-        try await availableDevices(matching: nil)
-    }
-
-    /// Returns available YubiKeys filtered by device name.
-    /// - Parameter matching: A case-insensitive substring, or `nil` for every YubiKey.
     public static func availableDevices(
-        matching: String?
+        matching: String? = nil
     ) async throws(FIDOConnectionError) -> [HID.YubiKeyDevice] {
         let devices = try await HIDConnectionManager.shared.availableDevices()
         guard let matching else { return devices }
