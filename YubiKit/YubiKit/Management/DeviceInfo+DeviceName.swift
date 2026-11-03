@@ -24,7 +24,8 @@ extension DeviceInfo {
 
         let usb = supportedCapabilities[.usb] ?? 0
         // Older firmware does not always report the Security Key and FIPS flags.
-        let isSecurityKey = isSKY || (serialNumber == 0 && version < Version("5.2.8")! && Self.isFIDOOnly(usb))
+        let isSecurityKey =
+            isSKY || (version.major != 3 && serialNumber == 0 && version < Version("5.2.8")! && Self.isFIDOOnly(usb))
         let isFIPSDevice = isFIPS || (version >= Version("4.4.0")! && version < Version("4.5.0")!)
 
         if isSecurityKey && version < Version("5.1.0")! {

@@ -63,6 +63,14 @@ struct DeviceInfoReadTests {
         #expect(await connection.sentRequests.allSatisfy { $0[1] != 0x1d })
     }
 
+    @Test("Management-identified NEO stays NEO when only the FIDO applet is available")
+    func neoWithOnlyFIDO() async throws {
+        let connection = MockSmartCardConnection(responses: [
+            Data("3.4.3".utf8) + ok, missing, ok, missing, missing, missing,
+        ])
+        #expect(try await connection.deviceName == "YubiKey NEO")
+    }
+
     @Test("Application probing works when OTP is unavailable")
     func withoutOTP() async throws {
         let connection = MockSmartCardConnection(responses: [missing, missing, missing, missing, missing, ok, missing])
