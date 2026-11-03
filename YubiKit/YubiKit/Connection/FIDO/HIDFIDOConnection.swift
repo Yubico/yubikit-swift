@@ -74,12 +74,14 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
 
     /// Creates a new FIDO connection to the first available YubiKey.
     ///
-    /// Establishes a FIDO connection to the first currently available YubiKey.
+    /// Waits until a YubiKey becomes available, then establishes a FIDO connection to it.
     ///
-    /// - Throws: ``FIDOConnectionError/noDevicesFound`` if no YubiKey is available.
+    /// - Throws: ``FIDOConnectionError/cancelled`` if the task is cancelled while waiting,
+    ///   or another ``FIDOConnectionError`` if discovery or connection setup fails.
     public init() async throws(FIDOConnectionError) {
-        guard let first = try await HIDFIDOConnection.availableDevices().first else {
-            throw FIDOConnectionError.noDevicesFound
+        let first = try await waitForDevice(cancellationError: FIDOConnectionError.cancelled) {
+            () async throws(FIDOConnectionError) in
+            try await Self.availableDevices()
         }
         try await self.init(device: first)
     }
@@ -136,10 +138,11 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
 
     /// Creates a new FIDO connection to the first available YubiKey.
     ///
-    /// Establishes a FIDO connection to the first currently available YubiKey.
+    /// Waits until a YubiKey becomes available, then establishes a FIDO connection to it.
     ///
     /// - Returns: A fully–established connection ready for FIDO communication.
-    /// - Throws: ``FIDOConnectionError/noDevicesFound`` if no YubiKey is available.
+    /// - Throws: ``FIDOConnectionError/cancelled`` if the task is cancelled while waiting,
+    ///   or another ``FIDOConnectionError`` if discovery or connection setup fails.
     public static func makeConnection() async throws(FIDOConnectionError) -> HIDFIDOConnection {
         try await HIDFIDOConnection()
     }
