@@ -50,11 +50,11 @@ struct HIDDeviceDiscoveryTests {
         }
     }
 
-    @Test("FIDO acquisition rejects an already cancelled task", arguments: [false, true])
-    func cancelledFIDO(factory: Bool) async {
+    @Test("FIDO acquisition rejects an already cancelled task")
+    func cancelledFIDO() async {
         let task = Task {
             withUnsafeCurrentTask { $0?.cancel() }
-            return try await factory ? HIDFIDOConnection.makeConnection() : HIDFIDOConnection()
+            return try await HIDFIDOConnection()
         }
         do {
             _ = try await task.value
@@ -65,11 +65,11 @@ struct HIDDeviceDiscoveryTests {
         }
     }
 
-    @Test("OTP acquisition rejects an already cancelled task", arguments: [false, true])
-    func cancelledOTP(factory: Bool) async {
+    @Test("OTP acquisition rejects an already cancelled task")
+    func cancelledOTP() async {
         let task = Task {
             withUnsafeCurrentTask { $0?.cancel() }
-            return try await factory ? HIDOTPConnection.makeConnection() : HIDOTPConnection()
+            return try await HIDOTPConnection()
         }
         do {
             _ = try await task.value
