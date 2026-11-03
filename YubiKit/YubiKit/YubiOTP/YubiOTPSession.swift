@@ -77,12 +77,16 @@ extension YubiOTP {
             scpKeyParams: SCPKeyParams? = nil
         ) async throws(YubiOTP.SessionError) -> Session {
             #if os(iOS)
-            let isNFC = connection.nfcConnection != nil
+            var isNFC = connection.nfcConnection != nil
             let isLightning = connection.lightningConnection != nil
             #else
-            let isNFC = false
+            var isNFC = false
             let isLightning = false
             #endif
+            // Desktop and USB-C readers can hold a YubiKey presented over NFC.
+            if let usbConnection = connection as? USBSmartCardConnection {
+                isNFC = usbConnection.isContactless
+            }
             return try await makeSession(
                 connection: connection,
                 scpKeyParams: scpKeyParams,
