@@ -27,6 +27,7 @@ public struct USBSmartCardConnection: SmartCardConnection, Sendable {
     private let connection: SimulatorTwinConnection
 
     public init() async throws(SmartCardConnectionError) {
+        guard !Task.isCancelled else { throw .cancelled }
         self.connection = try await SimulatorTwinBackend.shared.openConnection(transport: .usb)
         self.slot = USBSmartCard.YubiKeyDevice(name: "YubiKey Simulator (USB)")
     }
