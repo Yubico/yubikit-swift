@@ -22,20 +22,20 @@ import IOKit.hid
 /// HID device identification namespace.
 ///
 /// Contains types for identifying and working with YubiKey HID devices.
-package enum HID {
+public enum HID {
     /// Represents a YubiKey device accessible via USB HID.
     ///
-    /// Instances are returned by ``HIDFIDOConnection/availableDevices()`` and used to create
+    /// Instances are returned by ``HIDFIDOConnection/availableDevices(matching:)`` and used to create
     /// connections with ``HIDFIDOConnection/makeConnection(device:)``.
-    package struct YubiKeyDevice: Sendable, Hashable, CustomStringConvertible {
+    public struct YubiKeyDevice: Sendable, Hashable, CustomStringConvertible {
         /// The human-readable name of the YubiKey device.
-        package let name: String
+        public let name: String
 
         /// A textual representation of the YubiKey device.
-        package var description: String { name }
+        public var description: String { name }
 
-        // Shared with the OTP HID connection for the same physical device.
-        let locationID: Int
+        /// The USB location shared by the FIDO and OTP interfaces of the same device.
+        public let locationID: Int
 
         init(hidLocationID: Int, name: String) {
             self.locationID = hidLocationID
@@ -48,7 +48,7 @@ package enum HID {
 public struct HIDFIDOConnection: Sendable, FIDOConnection {
 
     /// The HID device this connection is associated with.
-    let device: HID.YubiKeyDevice
+    public let device: HID.YubiKeyDevice
 
     /// Maximum packet size for HID reports.
     ///
@@ -61,21 +61,27 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
 
     /// Returns all available YubiKey devices connected via USB HID.
     ///
+    /// - Parameter matching: A case-insensitive substring, or `nil` for every YubiKey.
     /// - Returns: An array of ``HID/YubiKeyDevice`` instances representing connected YubiKeys.
     /// - Throws: ``FIDOConnectionError`` if device enumeration fails.
-    package static func availableDevices() async throws(FIDOConnectionError) -> [HID.YubiKeyDevice] {
-        try await HIDConnectionManager.shared.availableDevices()
+    public static func availableDevices(
+        matching: String? = nil
+    ) async throws(FIDOConnectionError) -> [HID.YubiKeyDevice] {
+        let devices = try await HIDConnectionManager.shared.availableDevices()
+        guard let matching else { return devices }
+        return devices.filter { $0.name.localizedCaseInsensitiveContains(matching) }
     }
 
     /// Creates a new FIDO connection to the first available YubiKey.
     ///
-    /// Waits for a YubiKey to be connected via USB and establishes a FIDO connection to it.
-    /// This method waits until a YubiKey becomes available.
+    /// Waits until a YubiKey becomes available, then establishes a FIDO connection to it.
     ///
-    /// - Throws: ``FIDOConnectionError/noDevicesFound`` if no YubiKey is available.
+    /// - Throws: ``FIDOConnectionError/cancelled`` if the task is cancelled while waiting,
+    ///   or another ``FIDOConnectionError`` if discovery or connection setup fails.
     public init() async throws(FIDOConnectionError) {
-        guard let first = try await HIDFIDOConnection.availableDevices().first else {
-            throw FIDOConnectionError.noDevicesFound
+        let first = try await waitForDevice(cancellationError: FIDOConnectionError.cancelled) {
+            () async throws(FIDOConnectionError) in
+            try await Self.availableDevices()
         }
         try await self.init(device: first)
     }
@@ -84,9 +90,9 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
     ///
     /// Establishes a connection to the specified YubiKey device.
     ///
-    /// - Parameter device: The ``HID.YubiKeyDevice`` to connect to.
+    /// - Parameter device: A device returned by ``availableDevices(matching:)``.
     /// - Throws: ``FIDOConnectionError`` if the device cannot be accessed.
-    init(device: HID.YubiKeyDevice) async throws(FIDOConnectionError) {
+    public init(device: HID.YubiKeyDevice) async throws(FIDOConnectionError) {
         try await HIDConnectionManager.shared.open(device: device)
         self.device = device
     }
@@ -96,7 +102,7 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
     /// - Parameter device: The ``HID/YubiKeyDevice`` to connect to.
     /// - Returns: A fully-established connection ready for FIDO communication.
     /// - Throws: ``FIDOConnectionError`` if the device cannot be accessed.
-    package static func makeConnection(
+    public static func makeConnection(
         device: HID.YubiKeyDevice
     ) async throws(FIDOConnectionError) -> HIDFIDOConnection {
         try await HIDFIDOConnection(device: device)
@@ -132,11 +138,11 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
 
     /// Creates a new FIDO connection to the first available YubiKey.
     ///
-    /// Waits for a YubiKey to be connected via USB and establishes a FIDO connection to it.
-    /// This method waits until a YubiKey becomes available.
+    /// Waits until a YubiKey becomes available, then establishes a FIDO connection to it.
     ///
     /// - Returns: A fully–established connection ready for FIDO communication.
-    /// - Throws: ``FIDOConnectionError/noDevicesFound`` if no YubiKey is available.
+    /// - Throws: ``FIDOConnectionError/cancelled`` if the task is cancelled while waiting,
+    ///   or another ``FIDOConnectionError`` if discovery or connection setup fails.
     public static func makeConnection() async throws(FIDOConnectionError) -> HIDFIDOConnection {
         try await HIDFIDOConnection()
     }
@@ -280,6 +286,7 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
     private let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
 
     private let filter: [String: Any] = [
+        kIOHIDVendorIDKey as String: 0x1050,
         kIOHIDDeviceUsagePageKey as String: 0xF1D0,
         kIOHIDDeviceUsageKey as String: 0x01,
     ]
