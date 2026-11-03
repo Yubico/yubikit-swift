@@ -134,9 +134,22 @@ struct DeviceInfoReadTests {
         #expect(await connection.sendCount == 2)
     }
 
-    @Test("Application probe errors are propagated")
-    func probeErrors() async throws {
-        let connection = MockSmartCardConnection(responses: [missing, missing, Data([0x69, 0x82])])
+    @Test("Unavailable optional applets do not prevent naming", arguments: [UInt16(0x6a81), 0x6b00, 0x6999])
+    func unavailableApplets(status: UInt16) async throws {
+        let connection = MockSmartCardConnection(responses: [
+            Data("3.4.0".utf8) + ok, Data([0x6d, 0]), Data([3, 4, 0, 0, 0, 0]) + ok,
+            Data([0, 0, 0, 123]) + ok, Data([UInt8(status >> 8), UInt8(status & 0xff)]),
+            ok, ok, ok, missing,
+        ])
+        #expect(try await connection.deviceName == "YubiKey NEO")
+    }
+
+    @Test(
+        "Security-condition and malformed probe responses are propagated",
+        arguments: [Data([0x69, 0x82]), Data([0])]
+    )
+    func probeErrors(response: Data) async throws {
+        let connection = MockSmartCardConnection(responses: [missing, missing, response])
         await #expect(throws: ManagementSessionError.self) { try await connection.deviceName }
         #expect(await connection.sendCount == 3)
     }

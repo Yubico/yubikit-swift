@@ -77,8 +77,8 @@ extension DeviceInfo {
                 capabilities |= capability.rawValue
                 isYubiKey = isYubiKey || aid.starts(with: [0xa0, 0, 0, 5, 0x27])
             } catch {
-                switch error.responseStatus?.status {
-                case .fileNotFound, .invalidInstruction: break
+                switch error.responseStatus?.rawStatus {
+                case 0x6a81, 0x6a82, 0x6b00, 0x6999, 0x6d00: break
                 default: throw error
                 }
             }
