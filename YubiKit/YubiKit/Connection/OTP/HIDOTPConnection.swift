@@ -171,7 +171,8 @@ private actor HIDOTPConnectionManager: HasOTPLogger {
             return HID.YubiKeyDevice(
                 hidLocationID: locationID,
                 name: name,
-                usbProductID: pid.flatMap(UInt16.init(exactly:))
+                usbProductID: pid.flatMap(UInt16.init(exactly:)),
+                usbVendorID: UInt16(yubicoVendorID)
             )
         }
         logger.debug("Enumerated OTP HID devices", metadata: ["count": .stringConvertible(devices.count)])
