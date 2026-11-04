@@ -78,6 +78,9 @@ extension DeviceInfo {
             } catch {
                 switch error.responseStatus?.rawStatus {
                 case 0x6a81, 0x6a82, 0x6b00, 0x6999, 0x6d00: break
+                case 0x6285, 0x6985:
+                    // OpenPGP can be inactive after an interrupted reset.
+                    guard capability == .openPGP else { throw error }
                 default: throw error
                 }
             }
