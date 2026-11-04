@@ -144,9 +144,19 @@ struct DeviceInfoReadTests {
         #expect(try await connection.deviceName == "YubiKey NEO")
     }
 
+    @Test("Inactive OpenPGP does not prevent naming", arguments: [UInt16(0x6285), 0x6985])
+    func inactiveOpenPGP(status: UInt16) async throws {
+        let connection = MockSmartCardConnection(responses: [
+            missing, Data([3, 4, 3, 0, 0, 0]) + ok, Data([0, 0, 0, 123]) + ok,
+            ok, ok, Data([UInt8(status >> 8), UInt8(status & 0xff)]), ok,
+        ])
+        #expect(try await connection.deviceName == "YubiKey NEO")
+        #expect(await connection.sendCount == 7)
+    }
+
     @Test(
         "Security-condition and malformed probe responses are propagated",
-        arguments: [Data([0x69, 0x82]), Data([0])]
+        arguments: [Data([0x69, 0x82]), Data([0x62, 0x85]), Data([0x69, 0x85]), Data([0])]
     )
     func probeErrors(response: Data) async throws {
         let connection = MockSmartCardConnection(responses: [missing, missing, response])
