@@ -79,7 +79,7 @@ public enum Management {
         private static func readDeviceInfo(
             interface: Interface,
             fallbackVersion version: Version
-        ) async throws -> DeviceInfo {
+        ) async throws(ManagementSessionError) -> DeviceInfo {
             var page: UInt8 = 0
             var remainingPages = 1
             var result = [TKTLVTag: Data]()
@@ -213,8 +213,8 @@ public enum Management {
             let reportedVersion = try await interface.version
             if reportedVersion == Version.development {
                 // Development firmware reports 0.0.1; its real version is in the DeviceInfo version qualifier.
-                let info = try? await Self.readDeviceInfo(interface: interface, fallbackVersion: reportedVersion)
-                self.version = info?.version ?? reportedVersion
+                let info = try await Self.readDeviceInfo(interface: interface, fallbackVersion: reportedVersion)
+                self.version = info.version
             } else {
                 self.version = reportedVersion
             }

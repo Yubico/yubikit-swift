@@ -43,6 +43,17 @@ struct ManagementSessionTests {
         #expect(connection.dispatchedCommands.isEmpty)
     }
 
+    @Test("Development firmware discovery preserves the device-info failure")
+    func developmentVersionReadFailure() async throws {
+        let connection = MockSmartCardConnection(responses: [
+            Data("0.0.1".utf8) + Data([0x90, 0]), Data([0x69, 0x85]),
+        ])
+        await #expect { try await Management.Session.makeSession(connection: connection) } throws: {
+            guard let error = $0 as? ManagementSessionError else { return false }
+            return error.responseStatus?.status == .conditionsNotSatisfied
+        }
+    }
+
     @Test("OTP Management resolves this development key rather than a cached version")
     func developmentVersion() async throws {
         let previous = Version.developmentOverride
