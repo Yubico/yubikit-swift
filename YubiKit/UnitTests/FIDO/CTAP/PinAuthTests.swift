@@ -23,6 +23,35 @@ import Testing
 @Suite("PinAuth Cryptographic Tests")
 struct PinAuthTests {
 
+    @Test(
+        "restoring a token preserves its bytes and protocol",
+        arguments: [
+            (CTAP2.ClientPin.ProtocolVersion.v1, 16), (.v1, 32), (.v2, 32),
+        ]
+    )
+    func tokenRoundTrip(protocolVersion: CTAP2.ClientPin.ProtocolVersion, length: Int) throws {
+        let data = Data(repeating: 0xa5, count: length)
+        let token = try CTAP2.Token(data: data, protocolVersion: protocolVersion)
+        #expect(token.data == data)
+        #expect(token.protocolVersion == protocolVersion)
+    }
+
+    @Test(
+        "restoring a token rejects invalid lengths",
+        arguments: [
+            (CTAP2.ClientPin.ProtocolVersion.v1, 0), (.v1, 15), (.v1, 17), (.v1, 31), (.v1, 33),
+            (.v2, 0), (.v2, 16), (.v2, 31), (.v2, 33),
+        ]
+    )
+    func invalidTokenLength(protocolVersion: CTAP2.ClientPin.ProtocolVersion, length: Int) {
+        #expect {
+            try CTAP2.Token(data: Data(count: length), protocolVersion: protocolVersion)
+        } throws: {
+            guard case CTAP2.SessionError.illegalArgument = $0 else { return false }
+            return true
+        }
+    }
+
     // MARK: - Protocol V1 Tests
 
     @Test("PinAuth V1: Encrypt - sequential bytes")

@@ -657,10 +657,13 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                 // Read-only ops work, write ops fail with pinAuthInvalid — before and after re-establishing.
                 try await verifyReadOnlyOperations(session: session, ppuat: ppuat, rpIdHash: rpIdHash, context: context)
 
+                let savedData = ppuat.data
+                let savedProtocol = ppuat.protocolVersion
                 let session2 = try await context.ctap2SessionAfterNFCReconnect()
+                let restored = try CTAP2.Token(data: savedData, protocolVersion: savedProtocol)
                 try await verifyReadOnlyOperations(
                     session: session2,
-                    ppuat: ppuat,
+                    ppuat: restored,
                     rpIdHash: rpIdHash,
                     context: context
                 )
@@ -671,7 +674,7 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                         info2.encIdentifier,
                         "encIdentifier disappeared after re-establishment"
                     )
-                    let identifier2 = try encryptedIdentifier.decrypted(using: ppuat)
+                    let identifier2 = try encryptedIdentifier.decrypted(using: restored)
                     context.expectEqual(identifier2, identifier, "encIdentifier consistent across re-establishment")
                 }
                 if let credStoreState {
@@ -679,7 +682,7 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                         info2.encCredStoreState,
                         "encCredStoreState disappeared after re-establishment"
                     )
-                    let credStoreState2 = try encryptedState.decrypted(using: ppuat)
+                    let credStoreState2 = try encryptedState.decrypted(using: restored)
                     context.expectEqual(
                         credStoreState2,
                         credStoreState,
@@ -696,7 +699,7 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                         info3.encCredStoreState,
                         "encCredStoreState disappeared after deleting a credential"
                     )
-                    let newState = try encryptedState.decrypted(using: ppuat)
+                    let newState = try encryptedState.decrypted(using: restored)
                     context.expect(newState != credStoreState, "credStoreState should change after a delete")
                 }
             }
