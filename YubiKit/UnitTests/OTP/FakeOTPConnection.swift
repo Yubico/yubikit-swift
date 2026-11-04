@@ -38,6 +38,7 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
     var dispatchedPayloads: [Data] { lock.with { payloads } }
 
     var serial: UInt32 = 12_345_678
+    var serialAPIVisible = true
     var firmware: [UInt8] = [5, 7, 4]
 
     var touchReportsBeforeResponse = 0
@@ -136,6 +137,7 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
                 if deviceInfoPages.indices.contains(page) { queue(deviceInfoPages[page]) }
             }
         case Self.slotDeviceSerial:
+            guard serialAPIVisible else { return }
             queue(
                 Data([
                     UInt8(serial >> 24 & 0xFF), UInt8(serial >> 16 & 0xFF),
