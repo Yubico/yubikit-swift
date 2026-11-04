@@ -200,6 +200,19 @@ struct DeviceInfoReadTests {
         #expect(!connection.dispatchedCommands.contains(0x13))
     }
 
+    @Test("OTP HID names NEO when serial visibility is disabled")
+    func otpLegacyHiddenSerial() async throws {
+        let connection = try await FakeOTPConnection()
+        connection.firmware = [3, 4, 3]
+        connection.serialAPIVisible = false
+        let info = try await DeviceInfo.read(connection: connection, usbProductID: 0x0114)
+        #expect(info.deviceName == "YubiKey NEO")
+        #expect(info.serialNumber == 0)
+        #expect(info.isApplicationSupported(.openPGP, over: .usb))
+        #expect(!connection.dispatchedCommands.contains(0x13))
+        #expect(connection.dispatchedCommands.contains(FakeOTPConnection.slotDeviceSerial))
+    }
+
     private func page(_ tlvs: Data) -> Data { Data([UInt8(tlvs.count)]) + tlvs }
 }
 
