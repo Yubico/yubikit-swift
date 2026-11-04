@@ -58,6 +58,7 @@ extension ConnectionProvider {
 
 @_spi(YubiInternal) public struct ProviderCapabilities: Sendable {
     public var hasFIDO: Bool
+    public var hasSmartCard: Bool
     public var hasLightning: Bool
     public var supportsSecureChannel: Bool
     public var isVirtual: Bool
@@ -65,12 +66,14 @@ extension ConnectionProvider {
     public init(
         hasFIDO: Bool,
         hasOTP: Bool = false,
+        hasSmartCard: Bool = true,
         hasLightning: Bool = false,
         supportsSecureChannel: Bool,
         isVirtual: Bool
     ) {
         self.hasFIDO = hasFIDO
         self.hasOTP = hasOTP
+        self.hasSmartCard = hasSmartCard
         self.hasLightning = hasLightning
         self.supportsSecureChannel = supportsSecureChannel
         self.isVirtual = isVirtual

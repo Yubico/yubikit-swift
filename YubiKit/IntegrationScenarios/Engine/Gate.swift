@@ -78,6 +78,9 @@ enum Gate {
         if requirements.requiresFIDOTransport, !provider.hasFIDO {
             return .skip(reason: "requires a FIDO (HID) transport, unavailable on this backend")
         }
+        if requirements.requiresSmartCardTransport, !provider.hasSmartCard {
+            return .skip(reason: "requires a smart-card (CCID) transport, unavailable on this backend")
+        }
         if requirements.requiresOTPTransport, !provider.hasOTP {
             return .skip(reason: "requires an OTP (keyboard HID) transport, unavailable on this backend")
         }

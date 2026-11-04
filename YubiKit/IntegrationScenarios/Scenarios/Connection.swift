@@ -36,7 +36,8 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
         case .open:
             return Scenario(
                 "Connection.SmartCard.open",
-                "acquires a usable SmartCard connection (acquisition succeeding is the assertion)"
+                "acquires a usable SmartCard connection (acquisition succeeding is the assertion)",
+                requirements: Requirements(requiresSmartCardTransport: true)
             ) { context in
                 let connection = try await context.smartCardConnection()
                 _ = try await Management.Session.makeSession(connection: connection).getDeviceInfo()
@@ -45,7 +46,8 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
         case .closeNotifies:
             return Scenario(
                 "Connection.SmartCard.closeNotifies",
-                "waitUntilClosed() is notified with the closing error"
+                "waitUntilClosed() is notified with the closing error",
+                requirements: Requirements(requiresSmartCardTransport: true)
             ) { context in
                 let connection = try await context.smartCardConnection()
 
@@ -104,7 +106,8 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
         case .sendManually:
             return Scenario(
                 "Connection.RawAPDU.sendManually",
-                "manual SELECT + device-info exchange reads the firmware version"
+                "manual SELECT + device-info exchange reads the firmware version",
+                requirements: Requirements(requiresSmartCardTransport: true)
             ) { context in
                 let connection = try await context.smartCardConnection()
 
@@ -158,7 +161,8 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
         case .selectWrongApp:
             return Scenario(
                 "Connection.RawAPDU.selectWrongApp",
-                "selecting a non-existent applet reports application-not-available"
+                "selecting a non-existent applet reports application-not-available",
+                requirements: Requirements(requiresSmartCardTransport: true)
             ) { context in
                 let connection = try await context.smartCardConnection()
                 let status = responseStatus(try await connection.send(data: selectAPDU(aid: nonexistentAID)))

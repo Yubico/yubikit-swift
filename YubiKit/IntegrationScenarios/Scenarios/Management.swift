@@ -63,6 +63,7 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
                 requirements: Requirements(
                     capabilities: overOTP ? [.otp] : [],
                     minVersion: Version("5.0.0"),
+                    requiresSmartCardTransport: !overOTP,
                     requiresOTPTransport: overOTP
                 )
             ) { context in
@@ -81,7 +82,7 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "Management.Config.chaining",
                 "chained enable/disable across applications round-trips",
-                requirements: Requirements(minVersion: Version("5.0.0"))
+                requirements: Requirements(minVersion: Version("5.0.0"), requiresSmartCardTransport: true)
             ) { context in
                 let session = try await context.managementSession()
                 let transport = context.deviceTransport
@@ -158,7 +159,7 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "Management.Config.lockCode",
                 "a set lock code is required to change configuration",
-                requirements: Requirements(minVersion: Version("5.0.0"))
+                requirements: Requirements(minVersion: Version("5.0.0"), requiresSmartCardTransport: true)
             ) { context in
                 let lockCode = Data(hexString: "01020304050607080102030405060708")!
                 let clearLockCode = Data(hexString: "00000000000000000000000000000000")!
@@ -194,7 +195,11 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
                 "Management.Config.nfcRestricted",
                 "NFC can be restricted until next USB insertion",
                 // Over NFC the restriction would lock out every later NFC scenario.
-                requirements: Requirements(minVersion: Version("5.7.0"), transports: [.usb])
+                requirements: Requirements(
+                    minVersion: Version("5.7.0"),
+                    transports: [.usb],
+                    requiresSmartCardTransport: true
+                )
             ) { context in
                 let session = try await context.managementSession()
                 let config = try await session.getDeviceInfo().config.with(nfcRestricted: true)
@@ -264,6 +269,7 @@ private struct ManagementTransport: ScenarioParameter {
             capabilities: kind == .otpHID ? [.otp] : [],
             minVersion: kind == .otpHID ? Version("4.1.0") : nil,
             requiresFIDOTransport: kind == .fidoHID,
+            requiresSmartCardTransport: kind == .smartCard,
             requiresOTPTransport: kind == .otpHID
         )
     }
