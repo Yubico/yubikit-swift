@@ -75,4 +75,49 @@ struct DeviceInfoAndroidParityTests {
         let info = DeviceInfo(withTlvs: tlvs, fallbackVersion: Version("5.7.0")!)
         #expect(info.deviceName == expected)
     }
+
+    // DeviceInfoTest.testParseVersionQualifier (Android), plus Rust's alpha-3 fixture.
+    @Test(
+        "Firmware qualifier fixtures",
+        arguments: [
+            (nil, nil, "2.2.2", VersionQualifier.ReleaseType.final, UInt32(0)),
+            ("030403", nil, "3.4.3", .final, 0),
+            ("000001", "0103050403020100030400000000", "5.4.3", .alpha, 0),
+            ("000001", "01030507080201010304000000e9", "5.7.8", .beta, 233),
+            ("050404", "0103050404020102030400000005", "5.4.4", .final, 5),
+            ("050709", "01030507090201020304ffffffff", "5.7.9", .final, UInt32.max),
+            ("050701", "0103050800020100030103", "5.8.0", .alpha, 3),
+        ] as [(String?, String?, String, VersionQualifier.ReleaseType, UInt32)]
+    )
+    func qualifiers(
+        firmware: String?,
+        encoded: String?,
+        expected: String,
+        releaseType: VersionQualifier.ReleaseType,
+        iteration: UInt32
+    ) {
+        var tlvs: [TKTLVTag: Data] = [:]
+        tlvs[0x05] = firmware.flatMap { Data(hexEncodedString: $0) }
+        tlvs[0x19] = encoded.flatMap { Data(hexEncodedString: $0) }
+        let info = DeviceInfo(withTlvs: tlvs, fallbackVersion: Version("2.2.2")!)
+        #expect(info.version == Version(expected)!)
+        #expect(info.versionQualifier.version == Version(expected)!)
+        #expect(info.versionQualifier.releaseType == releaseType)
+        #expect(info.versionQualifier.iteration == iteration)
+    }
+
+    @Test("Unknown release types preserve the reported firmware version")
+    func unknownReleaseType() {
+        let info = DeviceInfo(
+            withTlvs: [
+                0x05: Data([5, 7, 1]),
+                0x19: Data([1, 3, 5, 8, 0, 2, 1, 3, 3, 1, 3]),
+            ],
+            fallbackVersion: Version("0.0.1")!
+        )
+        #expect(info.version == Version("5.7.1")!)
+        #expect(info.versionQualifier.version == Version("5.8.0")!)
+        #expect(info.versionQualifier.releaseType == .final)
+    }
+
 }

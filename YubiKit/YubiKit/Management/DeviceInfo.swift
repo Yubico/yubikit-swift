@@ -70,8 +70,11 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
     /// The serial number can be read if the YubiKey has a serial number, and one of the YubiOTP slots
     /// is configured with the SERIAL_API_VISIBLE flag.
     public let serialNumber: UInt
-    /// The version number of the YubiKey firmware.
+    /// The firmware version, resolved from the qualifier for development and prerelease firmware.
     public let version: Version
+    /// Firmware release metadata, including prerelease type and build iteration.
+    /// Defaults to a final release with iteration zero when unavailable.
+    public let versionQualifier: VersionQualifier
     /// the form factor of the YubiKey.
     public let formFactor: FormFactor
     /// The part number of the YubiKey.
@@ -133,6 +136,7 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
         config: DeviceConfig = DeviceConfig(enabledCapabilities: [:])
     ) {
         self.version = version
+        self.versionQualifier = VersionQualifier(version: version, releaseType: .final, iteration: 0)
         self.serialNumber = serialNumber
         self.formFactor = formFactor
         self.supportedCapabilities = supportedCapabilities
@@ -177,16 +181,17 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
         self.resetBlockedFlags = tlvs[tagResetBlocked]?.integer ?? 0
 
         let firmwareVersion = tlvs[tagFirmwareVersion].flatMap { Version(withData: $0) } ?? fallbackVersion
-        // Development firmware reports 0.0.1; the version qualifier carries the version it behaves as.
-        if firmwareVersion == Version.development,
-            let qualifier = tlvs[tagVersionQualifier],
-            let qualifierTLVs = TKBERTLVRecord.dictionaryOfData(from: qualifier),
-            let qualifiedVersion = qualifierTLVs[0x01].flatMap({ Version(withData: $0) })
-        {
-            self.version = qualifiedVersion
-        } else {
-            self.version = firmwareVersion
-        }
+        let qualifier = tlvs[tagVersionQualifier].flatMap { TKBERTLVRecord.dictionaryOfData(from: $0) }
+        self.versionQualifier = VersionQualifier(
+            version: qualifier?[0x01].flatMap { Version(withData: $0) } ?? firmwareVersion,
+            releaseType: qualifier?[0x02]?.integer.flatMap { UInt8(exactly: $0) }
+                .flatMap { VersionQualifier.ReleaseType(rawValue: $0) } ?? .final,
+            iteration: qualifier?[0x03]?.integer.flatMap { UInt32(exactly: $0) } ?? 0
+        )
+        // Prerelease firmware uses the qualifier's behavioral version.
+        self.version =
+            firmwareVersion == .development || versionQualifier.releaseType != .final
+            ? versionQualifier.version : firmwareVersion
         if let data = tlvs[tagFPSVersion], let version = Version(withData: data), version.description != "0.0.0" {
             self.fpsVersion = version
         } else {
