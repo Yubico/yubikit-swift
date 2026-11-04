@@ -23,23 +23,46 @@ extension CTAP2 {
     /// operations like ``CTAP2/Session/makeCredential(parameters:token:)``
     /// and ``CTAP2/Session/getAssertion(parameters:token:)``.
     public struct Token: Sendable {
-        /// The decrypted token data.
-        private let tokenData: Data
+        /// The PIN/UV authorization token bytes. Treat this data as a secret and avoid logging it.
+        public let data: Data
 
         /// The PIN/UV auth protocol version used to obtain this token.
         public let protocolVersion: ClientPin.ProtocolVersion
 
+        /// Restores a previously exported PIN/UV auth token.
+        ///
+        /// Restoration does not extend the token's lifetime or permissions.
+        /// Protocol v1 permits 16- or 32-byte tokens; protocol v2 requires 32 bytes.
+        /// - Throws: `CTAP2.SessionError.illegalArgument` if the token length is invalid.
+        public init(data: Data, protocolVersion: ClientPin.ProtocolVersion) throws(CTAP2.SessionError) {
+            let validLength: Bool
+            switch protocolVersion {
+            case .v1:
+                validLength = data.count == 16 || data.count == 32
+            case .v2:
+                validLength = data.count == 32
+            }
+            guard validLength else {
+                throw .illegalArgument(
+                    "Invalid PIN/UV auth token length for protocol \(protocolVersion)",
+                    source: .here()
+                )
+            }
+            self.data = data
+            self.protocolVersion = protocolVersion
+        }
+
         internal init(token: Data, protocolVersion: ClientPin.ProtocolVersion) {
-            self.tokenData = token
+            self.data = token
             self.protocolVersion = protocolVersion
         }
 
         func authenticate(message: Data) -> Data {
-            protocolVersion.authenticate(key: tokenData, message: message)
+            protocolVersion.authenticate(key: data, message: message)
         }
 
         internal func deriveKey(info: String) -> Data {
-            Crypto.KDF.hkdf(tokenData, salt: Data(count: 32), info: info, outputLength: 16)
+            Crypto.KDF.hkdf(data, salt: Data(count: 32), info: info, outputLength: 16)
         }
     }
 }
