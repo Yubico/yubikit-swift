@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import CryptoTokenKit
 import Foundation
 
 extension DeviceInfo {
@@ -147,23 +146,14 @@ extension DeviceInfo {
         usbProductID: UInt16? = nil
     ) async throws -> DeviceInfo {
         try Task.checkCancellation()
-        let interface = try await OTPKeyboardInterface(connection: connection)
-        let version = interface.version
-        if version >= Version("4.1.0")! || version == .development {
-            var tlvs = [TKTLVTag: Data]()
-            for page in UInt8.min...UInt8.max {
-                try Task.checkCancellation()
-                let raw = try await interface.sendAndReceive(slot: 0x13, data: Data([page]))
-                guard let length = raw.first.map(Int.init), raw.count >= length + 3,
-                    raw.prefix(length + 3).hasValidCRC16,
-                    let values = TKBERTLVRecord.dictionaryOfData(from: raw.subdata(in: 1..<length + 1))
-                else {
-                    throw YubiOTP.SessionError.responseParseError("Invalid device information", source: .here())
-                }
-                tlvs.merge(values) { _, new in new }
-                if values[0x10] == nil { return DeviceInfo(withTlvs: tlvs, fallbackVersion: version) }
+        var version: Version?
+        do {
+            let session = try await Management.Session.makeSession(connection: connection)
+            version = session.version
+            if await session.supports(.deviceInfo) {
+                return try await session.getDeviceInfo()
             }
-            throw YubiOTP.SessionError.responseParseError("Too many device information pages", source: .here())
+        } catch ManagementSessionError.featureNotSupported {
         }
         let otp = try await YubiOTP.Session.makeSession(connection: connection)
         var serial: UInt = 0
@@ -180,7 +170,7 @@ extension DeviceInfo {
         if pid == nil { pid = (connection as? HIDOTPConnection)?.usbProductID }
         #endif
         return legacyInfo(
-            version: version,
+            version: version ?? otp.version,
             serialNumber: serial,
             usbProductID: pid,
             probedCapabilities: Capability.otp.rawValue

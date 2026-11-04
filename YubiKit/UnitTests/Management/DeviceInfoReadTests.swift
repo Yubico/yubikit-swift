@@ -129,7 +129,7 @@ struct DeviceInfoReadTests {
 
     @Test("Malformed Management data does not trigger legacy probing")
     func malformedDeviceInfo() async throws {
-        let connection = MockSmartCardConnection(responses: [Data("5.8.0".utf8) + ok, Data([0]) + ok])
+        let connection = MockSmartCardConnection(responses: [Data("5.8.0".utf8) + ok, Data([2, 4]) + ok])
         await #expect(throws: ManagementSessionError.self) { try await connection.deviceName }
         #expect(await connection.sendCount == 2)
     }
@@ -176,7 +176,7 @@ struct DeviceInfoReadTests {
         let connection = try await FakeOTPConnection()
         connection.deviceInfoPages = [page(Data([4, 1, 3]))]
         connection.corruptsResponseCRC = true
-        await #expect(throws: YubiOTP.SessionError.self) { try await connection.deviceName }
+        await #expect(throws: ManagementSessionError.self) { try await connection.deviceName }
     }
 
     @Test("OTP HID reconstructs legacy metadata")
