@@ -80,20 +80,20 @@ struct DeviceInfoAndroidParityTests {
     @Test(
         "Firmware qualifier fixtures",
         arguments: [
-            (nil, nil, "2.2.2", VersionQualifier.ReleaseType.final, UInt32(0)),
+            (nil, nil, "2.2.2", DeviceInfo.VersionQualifier.ReleaseType.final, UInt32(0)),
             ("030403", nil, "3.4.3", .final, 0),
             ("000001", "0103050403020100030400000000", "5.4.3", .alpha, 0),
             ("000001", "01030507080201010304000000e9", "5.7.8", .beta, 233),
             ("050404", "0103050404020102030400000005", "5.4.4", .final, 5),
             ("050709", "01030507090201020304ffffffff", "5.7.9", .final, UInt32.max),
             ("050701", "0103050800020100030103", "5.8.0", .alpha, 3),
-        ] as [(String?, String?, String, VersionQualifier.ReleaseType, UInt32)]
+        ] as [(String?, String?, String, DeviceInfo.VersionQualifier.ReleaseType, UInt32)]
     )
     func qualifiers(
         firmware: String?,
         encoded: String?,
         expected: String,
-        releaseType: VersionQualifier.ReleaseType,
+        releaseType: DeviceInfo.VersionQualifier.ReleaseType,
         iteration: UInt32
     ) {
         var tlvs: [TKTLVTag: Data] = [:]
