@@ -73,11 +73,14 @@ struct YubiOTPSessionTests {
 
     @Test("NFC on a YubiKey NEO uses the higher of the Management and OTP versions")
     func nfcNEOUsesHigherVersion() async throws {
-        let connection = MockSmartCardConnection(responses: [managementSelect([3, 4, 0]), status([3, 4, 3])])
+        let connection = MockSmartCardConnection(responses: [
+            managementSelect([3, 4, 0]), Data([0x6d, 0]), status([3, 4, 3]),
+        ])
 
         let session = try await YubiOTP.Session.makeSession(connection: connection, isNFC: true)
 
         #expect(await session.version == Version("3.4.3")!)
+        #expect(await connection.sentRequests[1] == Data([0xa4, 0x04, 0, 8]))
     }
 
     @Test("NFC falls back to the OTP status version when Management is not available")

@@ -70,12 +70,16 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
     /// The serial number can be read if the YubiKey has a serial number, and one of the YubiOTP slots
     /// is configured with the SERIAL_API_VISIBLE flag.
     public let serialNumber: UInt
-    /// The version number of the YubiKey firmware.
+    /// The firmware version, resolved from the qualifier for development and prerelease firmware.
     public let version: Version
+    /// Firmware release metadata, including prerelease type and build iteration.
+    /// Defaults to a final release with iteration zero when unavailable.
+    public let versionQualifier: VersionQualifier
     /// the form factor of the YubiKey.
     public let formFactor: FormFactor
     /// The part number of the YubiKey.
     public let partNumber: String?
+    internal let reportedName: String?
     /// FIPS capable flags.
     public let fipsCapabilityFlags: UInt
     /// FIPS approved flags.
@@ -117,8 +121,38 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
     internal let tagNFCRestricted: TKTLVTag = 0x17
     internal let tagResetBlocked: TKTLVTag = 0x18
     internal let tagVersionQualifier: TKTLVTag = 0x19
+    internal let tagName: TKTLVTag = 0x1b
     internal let tagFPSVersion: TKTLVTag = 0x20
     internal let tagSTMVersion: TKTLVTag = 0x21
+
+    internal init(
+        version: Version,
+        serialNumber: UInt = 0,
+        formFactor: FormFactor = .unknown,
+        supportedCapabilities: [DeviceTransport: UInt],
+        isFIPS: Bool = false,
+        isSKY: Bool = false,
+        pinComplexity: Bool = false,
+        config: DeviceConfig = DeviceConfig(enabledCapabilities: [:])
+    ) {
+        self.version = version
+        self.versionQualifier = VersionQualifier(version: version, releaseType: .final, iteration: 0)
+        self.serialNumber = serialNumber
+        self.formFactor = formFactor
+        self.supportedCapabilities = supportedCapabilities
+        self.isFIPS = isFIPS
+        self.isSKY = isSKY
+        self.pinComplexity = pinComplexity
+        self.reportedName = nil
+        self.config = config
+        self.isConfigLocked = false
+        self.partNumber = nil
+        self.fipsCapabilityFlags = 0
+        self.fipsApprovalFlags = 0
+        self.resetBlockedFlags = 0
+        self.fpsVersion = nil
+        self.stmVersion = nil
+    }
 
     internal init(withTlvs tlvs: [TKTLVTag: Data], fallbackVersion: Version) {
 
@@ -147,16 +181,17 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
         self.resetBlockedFlags = tlvs[tagResetBlocked]?.integer ?? 0
 
         let firmwareVersion = tlvs[tagFirmwareVersion].flatMap { Version(withData: $0) } ?? fallbackVersion
-        // Development firmware reports 0.0.1; the version qualifier carries the version it behaves as.
-        if firmwareVersion == Version.development,
-            let qualifier = tlvs[tagVersionQualifier],
-            let qualifierTLVs = TKBERTLVRecord.dictionaryOfData(from: qualifier),
-            let qualifiedVersion = qualifierTLVs[0x01].flatMap({ Version(withData: $0) })
-        {
-            self.version = qualifiedVersion
-        } else {
-            self.version = firmwareVersion
-        }
+        let qualifier = tlvs[tagVersionQualifier].flatMap { TKBERTLVRecord.dictionaryOfData(from: $0) }
+        self.versionQualifier = VersionQualifier(
+            version: qualifier?[0x01].flatMap { Version(withData: $0) } ?? firmwareVersion,
+            releaseType: qualifier?[0x02]?.integer.flatMap { UInt8(exactly: $0) }
+                .flatMap { VersionQualifier.ReleaseType(rawValue: $0) } ?? .final,
+            iteration: qualifier?[0x03]?.integer.flatMap { UInt32(exactly: $0) } ?? 0
+        )
+        // Prerelease firmware uses the qualifier's behavioral version.
+        self.version =
+            firmwareVersion == .development || versionQualifier.releaseType != .final
+            ? versionQualifier.version : firmwareVersion
         if let data = tlvs[tagFPSVersion], let version = Version(withData: data), version.description != "0.0.0" {
             self.fpsVersion = version
         } else {
@@ -169,6 +204,9 @@ public struct DeviceInfo: Sendable, CustomStringConvertible {
         }
 
         self.partNumber = tlvs[tagPartNumber]?.stringUTF8.flatMap { $0.isEmpty ? nil : $0 }
+        self.reportedName = tlvs[tagName].flatMap { String(data: $0, encoding: .utf8) }.flatMap {
+            $0.isEmpty ? nil : $0
+        }
 
         var supportedCapabilities = [DeviceTransport: UInt]()
         if version.major == 4 && version.minor == 2 && version.micro == 4 {

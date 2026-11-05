@@ -30,6 +30,8 @@ public enum HID {
     public struct YubiKeyDevice: Sendable, Hashable, CustomStringConvertible {
         /// The human-readable name of the YubiKey device.
         public let name: String
+        let usbProductID: UInt16?
+        let usbVendorID: UInt16?
 
         /// A textual representation of the YubiKey device.
         public var description: String { name }
@@ -37,7 +39,9 @@ public enum HID {
         /// The USB location shared by the FIDO and OTP interfaces of the same device.
         public let locationID: Int
 
-        init(hidLocationID: Int, name: String) {
+        init(hidLocationID: Int, name: String, usbProductID: UInt16? = nil, usbVendorID: UInt16? = nil) {
+            self.usbVendorID = usbVendorID
+            self.usbProductID = usbProductID
             self.locationID = hidLocationID
             self.name = name
         }
@@ -49,6 +53,8 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
 
     /// The HID device this connection is associated with.
     public let device: HID.YubiKeyDevice
+
+    var usbProductID: UInt16? { device.usbProductID }
 
     /// Maximum packet size for HID reports.
     ///
@@ -215,7 +221,14 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
                     let locationID = IOHIDDeviceGetProperty(dev, kIOHIDLocationIDKey as CFString) as? Int,
                     let name = IOHIDDeviceGetProperty(dev, kIOHIDProductKey as CFString) as? String
                 else { return nil }
-                return HID.YubiKeyDevice(hidLocationID: locationID, name: name)
+                let pid = IOHIDDeviceGetProperty(dev, kIOHIDProductIDKey as CFString) as? Int
+                let vid = IOHIDDeviceGetProperty(dev, kIOHIDVendorIDKey as CFString) as? Int
+                return HID.YubiKeyDevice(
+                    hidLocationID: locationID,
+                    name: name,
+                    usbProductID: pid.flatMap(UInt16.init(exactly:)),
+                    usbVendorID: vid.flatMap(UInt16.init(exactly:))
+                )
             }
             self.logger.debug("Enumerated FIDO HID devices", metadata: ["count": .stringConvertible(yubikeys.count)])
             return yubikeys

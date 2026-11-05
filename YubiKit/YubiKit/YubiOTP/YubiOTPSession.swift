@@ -187,6 +187,7 @@ extension YubiOTP {
                         throw .responseParseError("Invalid Management firmware version", source: .here())
                     }
                     managementVersion = version
+                    if version.major == 3 { try await management.deselectNEOManagement() }
                 } catch .featureNotSupported {
                     // Older keys may not expose Management over NFC.
                 }
