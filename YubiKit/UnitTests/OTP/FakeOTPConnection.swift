@@ -38,6 +38,7 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
     var dispatchedPayloads: [Data] { lock.with { payloads } }
 
     var serial: UInt32 = 12_345_678
+    var serialAPIVisible = true
     var firmware: [UInt8] = [5, 7, 4]
 
     var touchReportsBeforeResponse = 0
@@ -46,6 +47,8 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
 
     var corruptsResponseCRC = false
     var managementResponse = Data()
+
+    var deviceInfoPages: [Data] = []
 
     private var frame = [UInt8](repeating: 0, count: 70)
     private var outbox: [[UInt8]] = []
@@ -127,8 +130,14 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
 
         switch slot {
         case 0x13:
-            queue(managementResponse)
+            if deviceInfoPages.isEmpty {
+                queue(managementResponse)
+            } else {
+                let page = Int(payload.first ?? 0)
+                if deviceInfoPages.indices.contains(page) { queue(deviceInfoPages[page]) }
+            }
         case Self.slotDeviceSerial:
+            guard serialAPIVisible else { return }
             queue(
                 Data([
                     UInt8(serial >> 24 & 0xFF), UInt8(serial >> 16 & 0xFF),

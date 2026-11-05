@@ -177,6 +177,9 @@ public enum Management {
                 application: .management,
                 keyParams: scpKeyParams
             )
+            if scpKeyParams == nil, Version(withManagementResult: smartCardInterface.selectResponse)?.major == 3 {
+                try await smartCardInterface.deselectNEOManagement()
+            }
             return try await .init(interface: Interface(interface: smartCardInterface))
         }
 

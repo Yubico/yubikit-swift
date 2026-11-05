@@ -191,9 +191,18 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
         )
     }
 
+    // NEO requires this raw command to leave Management before selecting another application.
+    internal func deselectNEOManagement() async throws(Error) {
+        do {
+            _ = try await connection.send(data: Data([0xa4, 0x04, 0x00, 0x08]))
+        } catch {
+            throw .connectionError(error, source: .here())
+        }
+    }
+
     // Send APDU without SCP (static version).
     // Used during actor init before instance methods are available.
-    private static func sendPlainStatic(
+    internal static func sendPlainStatic(
         connection: SmartCardConnection,
         apdu: APDU,
         insSendRemaining: UInt8
