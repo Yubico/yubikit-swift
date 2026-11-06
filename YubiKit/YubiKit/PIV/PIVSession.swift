@@ -620,7 +620,11 @@ public final actor PIVSession: SmartCardSessionInternal {
                 throw .featureNotSupported(source: .here())
             }
         }
-        if type != .tripleDES {
+        if type == .tripleDES {
+            guard await self.supports(PIVSessionFeature.tripleDESManagementKey) else {
+                throw .featureNotSupported(source: .here())
+            }
+        } else {
             guard await self.supports(PIVSessionFeature.aesKey) else { throw .featureNotSupported(source: .here()) }
         }
         let tlv = TKBERTLVRecord(tag: tagSlotCardManagement, value: managementKeyData)
@@ -1152,6 +1156,11 @@ extension PIVSession {
         touchPolicy: PIV.TouchPolicy,
         generateKey: Bool
     ) async throws(PIVSessionError) {
+        if keyType == .rsa(.bits1024) {
+            guard await self.supports(PIVSessionFeature.rsa1024) else {
+                throw .featureNotSupported(source: .here())
+            }
+        }
         if keyType == .ec(.secp384r1) {
             guard await self.supports(PIVSessionFeature.p384) else { throw .featureNotSupported(source: .here()) }
         }
