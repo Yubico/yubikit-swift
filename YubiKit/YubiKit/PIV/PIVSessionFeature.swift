@@ -41,6 +41,10 @@ public enum PIVSessionFeature: SessionFeature, Sendable {
     case ed25519
     /// X25519 key agreement algorithm support.
     case x25519
+    /// RSA 1024 bit key support.
+    case rsa1024
+    /// Triple DES management key support.
+    case tripleDESManagementKey
 
     /// Checks if this feature is supported by the given firmware version.
     /// - Parameter version: The YubiKey firmware version.
@@ -71,6 +75,8 @@ public enum PIVSessionFeature: SessionFeature, Sendable {
             return version >= Version("5.7.0")!
         case .x25519:
             return version >= Version("5.7.0")!
+        case .rsa1024, .tripleDESManagementKey:
+            return version < Version("6.0.0")!
         }
     }
 }
