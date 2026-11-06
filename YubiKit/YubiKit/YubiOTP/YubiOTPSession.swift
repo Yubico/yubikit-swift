@@ -203,6 +203,7 @@ extension YubiOTP {
                 isNFC: isNFC,
                 supportsChallengeResponse: isNFC || isLightning
             )
+            await smartCardInterface.configure(version: interface.version)
             return await Session(interface: interface, transport: "SmartCard")
         }
 
