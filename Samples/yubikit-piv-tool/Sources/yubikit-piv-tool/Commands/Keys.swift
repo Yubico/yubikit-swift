@@ -253,6 +253,10 @@ struct KeyInfo: AsyncParsableCommand {
             return "Ed25519"
         case .x25519:
             return "X25519"
+        case .mlDSA(let parameterSet):
+            return String(describing: parameterSet).uppercased()
+        case .mlKEM(let parameterSet):
+            return String(describing: parameterSet).uppercased()
         }
     }
 

@@ -63,7 +63,7 @@ extension ShieldX509.Certificate.Builder {
             } catch {
                 handlePIVError(error)
             }
-        case .x25519, .ed25519:
+        case .x25519, .ed25519, .mlDSA, .mlKEM:
             return nil
         }
 
