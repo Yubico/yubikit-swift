@@ -1054,7 +1054,7 @@ public final actor PIVSession: SmartCardSessionInternal {
 
 extension PIVSession {
 
-    private func importKey(
+    func importKey(
         keyType: PIV.KeyType,
         keyData: Data,
         slot: PIV.Slot,
@@ -1099,9 +1099,22 @@ extension PIVSession {
         message: Data,
         exponentiation: Bool
     ) async throws(PIVSessionError) -> Data {
-        var recordsData = Data()
-        recordsData.append(TKBERTLVRecord(tag: tagAuthResponse, value: Data()).data)
-        recordsData.append(TKBERTLVRecord(tag: exponentiation ? tagExponentiation : tagChallenge, value: message).data)
+        try await usePrivateKeyInSlot(
+            slot: slot,
+            keyType: keyType,
+            operands: [
+                TKBERTLVRecord(tag: exponentiation ? tagExponentiation : tagChallenge, value: message)
+            ]
+        )
+    }
+
+    func usePrivateKeyInSlot(
+        slot: PIV.Slot,
+        keyType: PIV.KeyType,
+        operands: [TKBERTLVRecord]
+    ) async throws(PIVSessionError) -> Data {
+        var recordsData = TKBERTLVRecord(tag: tagAuthResponse, value: Data()).data
+        for operand in operands { recordsData.append(operand.data) }
         let command = TKBERTLVRecord(tag: tagDynAuth, value: recordsData).data
         let apdu = APDU(
             cla: 0,
@@ -1180,6 +1193,12 @@ extension PIVSession {
         }
         if keyType == .x25519 {
             guard await self.supports(PIVSessionFeature.x25519) else { throw .featureNotSupported(source: .here()) }
+        }
+        if case .mlDSA = keyType {
+            guard await self.supports(.mlDSA) else { throw .featureNotSupported(source: .here()) }
+        }
+        if case .mlKEM = keyType {
+            guard await self.supports(.mlKEM) else { throw .featureNotSupported(source: .here()) }
         }
     }
 

@@ -69,6 +69,20 @@ extension PIVSession {
             }
 
             return .x25519(key)
+        case .mlDSA(let parameterSet):
+            guard let data = records.recordWithTag(0x87)?.value,
+                let key = MLDSA.PublicKey(keyData: data, parameterSet: parameterSet)
+            else {
+                throw .responseParseError("Invalid ML-DSA public key", source: .here())
+            }
+            return .mlDSA(key)
+        case .mlKEM(let parameterSet):
+            guard let data = records.recordWithTag(0x88)?.value,
+                let key = MLKEM.PublicKey(keyData: data, parameterSet: parameterSet)
+            else {
+                throw .responseParseError("Invalid ML-KEM public key", source: .here())
+            }
+            return .mlKEM(key)
         }
     }
 }
