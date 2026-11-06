@@ -24,6 +24,17 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
     let connection: Connection
     let scpState: SCPState?
     let selectResponse: Data
+    private var maxAPDUSize = 261
+
+    // Configure from a reported firmware version or the application's known minimum.
+    func configure(version: Version) {
+        switch version.resolvingDevelopment {
+        case ..<Version("4.0.0")!: maxAPDUSize = 261
+        case ..<Version("4.3.0")!: maxAPDUSize = 2038
+        case ..<Version("6.0.0")!: maxAPDUSize = 3062
+        default: maxAPDUSize = 4918
+        }
+    }
 
     // Flag to signal cancellation for CTAP operations over NFC
     internal var shouldCancelCTAP: Bool = false
@@ -121,6 +132,11 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
         scpState: SCPState,
         insSendRemaining: UInt8
     ) async throws(Error) -> Response {
+        // The virtual APDU used for the MAC still has a 16-bit length field.
+        let count = apdu.command?.count ?? 0
+        guard (count / 16 + 1) * 16 + 8 <= Int(UInt16.max) else {
+            throw .illegalArgument("Command too large for secure messaging", source: .here())
+        }
         // Encrypt command data
         let data: Data
         do {
@@ -182,7 +198,53 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
     // Send APDU without SCP.
     // Returns the response with status code (status check happens in caller).
     private func sendPlain(apdu: APDU, insSendRemaining: UInt8) async throws(Error) -> Response {
-        try await Self.sendWithContinuationStatic(
+        let command = apdu.command ?? Data()
+        guard command.count <= Int(UInt16.max) else {
+            throw .illegalArgument("Command exceeds the APDU length limit", source: .here())
+        }
+        var limit = maxAPDUSize
+        #if os(iOS)
+        if connection is NFCSmartCardConnection { limit = 261 }
+        #endif
+        if command.count > 255 && command.count + 7 > limit {
+            var offset = command.startIndex
+            while command.endIndex - offset > 255 {
+                let end = offset + 255
+                let part = APDU(
+                    cla: apdu.cla | 0x10,
+                    ins: apdu.ins,
+                    p1: apdu.p1,
+                    p2: apdu.p2,
+                    command: command.subdata(in: offset..<end)
+                )
+                let raw: Data
+                do {
+                    raw = try await connection.send(data: part.data)
+                } catch {
+                    throw .connectionError(error, source: .here())
+                }
+                guard raw.count >= 2 else {
+                    throw .responseParseError("Response too short for a status word", source: .here())
+                }
+                let response = Response(rawData: raw)
+                guard response.status == .ok else { return response }
+                offset = end
+            }
+            return try await Self.sendWithContinuationStatic(
+                connection: connection,
+                apdu: APDU(
+                    cla: apdu.cla,
+                    ins: apdu.ins,
+                    p1: apdu.p1,
+                    p2: apdu.p2,
+                    command: command.subdata(in: offset..<command.endIndex)
+                ),
+                accumulated: Data(),
+                readMoreData: false,
+                insSendRemaining: insSendRemaining
+            )
+        }
+        return try await Self.sendWithContinuationStatic(
             connection: connection,
             apdu: apdu,
             accumulated: Data(),
