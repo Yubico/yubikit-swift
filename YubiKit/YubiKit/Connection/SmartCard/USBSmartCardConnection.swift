@@ -59,16 +59,14 @@ public struct USBSmartCardConnection: Sendable {
     ///
     /// Waits until a YubiKey becomes available, then establishes a connection to it.
     ///
-    /// - Throws: ``SmartCardConnectionError/busy`` if there is already an active connection.
+    /// - Throws: ``SmartCardConnectionError/cancelled`` if the task is cancelled while waiting,
+    ///   or ``SmartCardConnectionError/busy`` if there is already an active connection.
     public init() async throws(SmartCardConnectionError) {
-        while true {
-            guard let slot = try await Self.availableDevices().first else {
-                try? await Task.sleep(for: .seconds(1))
-                continue
-            }
-            try await self.init(slot: slot)
-            return
+        let slot = try await waitForDevice(cancellationError: SmartCardConnectionError.cancelled) {
+            () async throws(SmartCardConnectionError) in
+            try await Self.availableDevices()
         }
+        try await self.init(slot: slot)
     }
 
     /// Creates a new USB connection to a specific YubiKey device.
