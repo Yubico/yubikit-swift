@@ -32,6 +32,8 @@ extension PublicKey {
         case .rsa(let key): key.spki
         case .ed25519(let key): key.spki
         case .x25519(let key): key.spki
+        case .mlDSA(let key): key.spki
+        case .mlKEM(let key): key.spki
         }
     }
 }
@@ -128,6 +130,22 @@ extension X25519.PublicKey {
         ).data
 
         return makeSPKI(algorithmIdentifier: algorithmIdentifier, rawKey: keyData)
+    }
+}
+
+extension MLDSA.PublicKey {
+    /// DER-encoded SubjectPublicKeyInfo representation.
+    public var spki: Data {
+        let identifier = TKBERTLVRecord(tag: 0x30, records: [TKBERTLVRecord(tag: 0x06, value: parameterSet.oid)]).data
+        return makeSPKI(algorithmIdentifier: identifier, rawKey: keyData)
+    }
+}
+
+extension MLKEM.PublicKey {
+    /// DER-encoded SubjectPublicKeyInfo representation.
+    public var spki: Data {
+        let identifier = TKBERTLVRecord(tag: 0x30, records: [TKBERTLVRecord(tag: 0x06, value: parameterSet.oid)]).data
+        return makeSPKI(algorithmIdentifier: identifier, rawKey: keyData)
     }
 }
 

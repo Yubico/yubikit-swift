@@ -198,12 +198,36 @@ public enum PIV: Sendable {
         private init() {}
     }
 
+    /// ML-DSA signature key type.
+    public struct MLDSAKey: Equatable, Sendable {
+        public let parameterSet: MLDSA.ParameterSet
+
+        public static func mlDSA(_ parameterSet: MLDSA.ParameterSet) -> Self {
+            Self(parameterSet: parameterSet)
+        }
+
+        private init(parameterSet: MLDSA.ParameterSet) { self.parameterSet = parameterSet }
+    }
+
+    /// ML-KEM key encapsulation key type.
+    public struct MLKEMKey: Equatable, Sendable {
+        public let parameterSet: MLKEM.ParameterSet
+
+        public static func mlKEM(_ parameterSet: MLKEM.ParameterSet) -> Self {
+            Self(parameterSet: parameterSet)
+        }
+
+        private init(parameterSet: MLKEM.ParameterSet) { self.parameterSet = parameterSet }
+    }
+
     /// Supported cryptographic key types for PIV operations.
     public enum KeyType: Equatable, Sendable {
         case rsa(RSA.KeySize)
         case ec(EC.Curve)
         case ed25519
         case x25519
+        case mlDSA(MLDSA.ParameterSet)
+        case mlKEM(MLKEM.ParameterSet)
     }
 
     /// Result of a pin verification.
@@ -384,6 +408,18 @@ extension PIV.KeyType: RawRepresentable {
             return 0xE0
         case .x25519:
             return 0xE1
+        case .mlDSA(let parameterSet):
+            return switch parameterSet {
+            case .mlDSA44: 0xE2
+            case .mlDSA65: 0xE3
+            case .mlDSA87: 0xE4
+            }
+        case .mlKEM(let parameterSet):
+            return switch parameterSet {
+            case .mlKEM512: 0xE5
+            case .mlKEM768: 0xE6
+            case .mlKEM1024: 0xE7
+            }
         }
     }
 
@@ -399,6 +435,12 @@ extension PIV.KeyType: RawRepresentable {
 
         case 0xE0: self = .ed25519
         case 0xE1: self = .x25519
+        case 0xE2: self = .mlDSA(.mlDSA44)
+        case 0xE3: self = .mlDSA(.mlDSA65)
+        case 0xE4: self = .mlDSA(.mlDSA87)
+        case 0xE5: self = .mlKEM(.mlKEM512)
+        case 0xE6: self = .mlKEM(.mlKEM768)
+        case 0xE7: self = .mlKEM(.mlKEM1024)
 
         default: return nil
         }
