@@ -21,8 +21,9 @@ struct DeviceInfoFIDOTests {
     @Test("FIDO HID reads Management information on modern keys")
     func management() async throws {
         let connection = NamingFIDOConnection(version: [5, 8, 0])
-        let name = try await connection.deviceName
-        #expect(name == "YubiKey 5C")
+        let key = try await YubiKey(connection: connection)
+        #expect(key.deviceName == "YubiKey 5C")
+        #expect(key.deviceInfo.version == Version("5.8.0")!)
         #expect(await connection.commands == [0x86, 0xc2])
     }
 
@@ -55,7 +56,7 @@ struct DeviceInfoFIDOTests {
     func connectionFailure() async throws {
         let connection = NamingFIDOConnection(version: [5, 8, 0], fail: true)
         do {
-            _ = try await connection.deviceName
+            _ = try await YubiKey(connection: connection)
             Issue.record("Connection failure was ignored")
         } catch ManagementSessionError.fidoConnectionError(.connectionLost, _) {
         }

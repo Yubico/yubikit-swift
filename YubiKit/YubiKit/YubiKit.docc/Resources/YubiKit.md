@@ -76,6 +76,20 @@ option on iOS and over NFC.
 
 > Note: `HIDOTPConnection` is available on macOS only.
 
+### Reading device information
+
+Create a ``YubiKey`` snapshot before creating application sessions. Discovery reads the connection once;
+accessing the snapshot's name and metadata does not communicate with the device.
+
+```swift
+let key = try await YubiKey(connection: connection)
+let name = key.deviceName
+let info = key.deviceInfo
+```
+
+- ``YubiKey``
+- ``DeviceInfo``
+
 ### Sending and receiving data
 
 Use ``SmartCardConnection/send(data:)`` to send raw data to the YubiKey using the SmartCardConnection.
