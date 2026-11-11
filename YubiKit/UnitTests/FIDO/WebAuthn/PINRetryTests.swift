@@ -95,6 +95,53 @@ struct PINRetryTests {
 
     // MARK: - Error Propagation
 
+    @Test(
+        "Transport cancellation during PIN verification cancels WebAuthn",
+        arguments: [SmartCardConnectionError.cancelled, .cancelledByUser]
+    )
+    func transportCancellation(_ error: SmartCardConnectionError) async throws {
+        let mock = MockCTAP2Backend()
+        mock.onGetInfo = { .stub(clientPin: true, pinUvAuthToken: true) }
+        mock.onGetUVRetries = { 0 }
+        mock.onGetPinUVToken = { _, _, _ throws(CTAP2.SessionError) in
+            throw .connectionError(error, source: .here())
+        }
+        let client = try WebAuthn.Client.make(backend: mock)
+        do {
+            _ = try await client.getAssertion(Self.options, authorization: .pin("123456")).value
+            Issue.record("Expected cancellation")
+        } catch {
+            guard case .cancelled = error else {
+                Issue.record("Expected cancellation, got \(error)")
+                return
+            }
+        }
+    }
+
+    @Test("Transport cancellation during getAssertion cancels WebAuthn")
+    func assertionTransportCancellation() async throws {
+        let mock = MockCTAP2Backend()
+        mock.onGetInfo = { .stub(clientPin: false, pinUvAuthToken: false) }
+        mock.onGetAssertion = { _ in
+            .mocked(error: .connectionError(.cancelledByUser, source: .here()))
+        }
+        let client = try WebAuthn.Client.make(backend: mock)
+        let options = WebAuthn.Authentication.Options(
+            challenge: Data([1]),
+            rpId: "example.com",
+            userVerification: .discouraged
+        )
+        do {
+            _ = try await client.getAssertion(options, authorization: .uvOnly).value
+            Issue.record("Expected cancellation")
+        } catch {
+            guard case .cancelled = error else {
+                Issue.record("Expected cancellation, got \(error)")
+                return
+            }
+        }
+    }
+
     @Test("pinInvalid followed by a getPinRetries transport failure surfaces the transport error")
     func testPinInvalidGetRetriesFailureBubblesTransport() async throws {
         let mock = MockCTAP2Backend()

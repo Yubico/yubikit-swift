@@ -92,6 +92,8 @@ extension WebAuthn.ClientError {
                 preconditionFailure("CTAP \(code) must be resolved by CTAP2Backend+UserVerification, not here")
             default: self = .ctapError(ctapError, source: source)
             }
+        case .connectionError(.cancelled, _), .connectionError(.cancelledByUser, _):
+            self = .cancelled(source: source)
         case .connectionError:
             self = .authenticatorNotAvailable(source: source)
         case .featureNotSupported:
