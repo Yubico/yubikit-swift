@@ -18,16 +18,18 @@ import Testing
 @testable import YubiKit
 
 struct SmartCardCommandChainingTests {
-    // Android 3.3.0 SmartCardProtocolTest: same firmware, lengths, headers and byte pattern.
+    // Byte pattern matches Android's SmartCardProtocolTest.
     private static func pattern(_ count: Int) -> Data {
         Data((0..<count).map { UInt8(truncatingIfNeeded: $0 * 31 + 7) })
     }
 
     @Test(
         arguments: [
-            (nil, 600, true),
+            (nil, 255, false), (nil, 256, true), (nil, 510, true),
+            ("4.0.0", 2031, false), ("4.0.0", 2032, true),
             ("5.7.2", 3055, false), ("5.7.2", 3056, true),
             ("6.0.0", 4911, false), ("6.0.0", 4912, true),
+            ("6.0.0", 65_536, true),
         ] as [(String?, Int, Bool)]
     )
     func limits(firmware: String?, length: Int, chained: Bool) async throws {
@@ -38,7 +40,7 @@ struct SmartCardCommandChainingTests {
                 + [Data([1, 2, 3, 0x61, 2]), Data([4, 5, 0x90, 0x00])]
         )
         let interface = try await SmartCardInterface<PIVSessionError>(connection: mock, application: .piv)
-        if let firmware { await interface.configure(version: Version(firmware)!) }
+        if let firmware { await interface.setAPDUSizeLimit(for: Version(firmware)!) }
         let payload = Self.pattern(length)
         let continuation: UInt8 = firmware == nil ? 0xa5 : 0xc0
         let response: Data = try await interface.send(
@@ -58,6 +60,8 @@ struct SmartCardCommandChainingTests {
                 reconstructed.append(request.dropFirst(5))
             }
             #expect(reconstructed == payload)
+        } else if length <= 255 {
+            #expect(requests[0] == Data([0x80, 1, 2, 3, UInt8(length)]) + payload)
         } else {
             #expect(requests[0] == Data([0x80, 1, 2, 3, 0, UInt8(length >> 8), UInt8(length & 255)]) + payload)
         }
@@ -69,7 +73,7 @@ struct SmartCardCommandChainingTests {
             Data([0x90, 0]), Data([0x90, 0]), Data([0x69, 0x82]),
         ])
         let interface = try await SmartCardInterface<PIVSessionError>(connection: mock, application: .piv)
-        await interface.configure(version: Version("5.7.2")!)
+        await interface.setAPDUSizeLimit(for: Version("5.7.2")!)
         await #expect {
             let _: Data = try await interface.send(
                 apdu: APDU(
@@ -84,8 +88,8 @@ struct SmartCardCommandChainingTests {
         #expect(await mock.sendCount == 3)
     }
 
-    @Test("Secure messaging protects the complete command before splitting it")
-    func secureCommand() async throws {
+    @Test("Secure messaging protects the complete command before splitting it", arguments: [10_000, 65_519])
+    func secureCommand(length: Int) async throws {
         // Android ScpProcessorTest.commandLargerThanASingleApduIsPassedOn uses 10,000 bytes.
         let mock = ChainedSCPConnection()
         let interface = try await SmartCardInterface<PIVSessionError>(
@@ -93,8 +97,15 @@ struct SmartCardCommandChainingTests {
             application: .piv,
             keyParams: SCP03KeyParams(keyRef: SCPKeyRef(kid: .scp03, kvn: 1), staticKeys: .defaultKeys())
         )
-        await interface.configure(version: Version("5.7.2")!)
-        let message = Self.pattern(10_000)
+        await interface.setAPDUSizeLimit(for: Version("5.7.2")!)
+        // Oversized commands must fail before advancing the encryption counter or MAC chain.
+        await #expect {
+            let _: Data = try await interface.send(
+                apdu: APDU(cla: 0, ins: 1, p1: 2, p2: 3, command: Data(count: 65_520))
+            )
+        } throws: { if case PIVSessionError.illegalArgument = $0 { true } else { false } }
+        #expect(await mock.captured().3.isEmpty)
+        let message = Self.pattern(length)
         await #expect {
             let _: Data = try await interface.send(apdu: APDU(cla: 0, ins: 1, p1: 2, p2: 3, command: message))
         } throws: { ($0 as? PIVSessionError)?.responseStatus?.rawStatus == 0x6a88 }
@@ -105,13 +116,111 @@ struct SmartCardCommandChainingTests {
             #expect(request.count == 5 + Int(request[4]))
             protected.append(request.dropFirst(5))
         }
-        #expect(protected.count == 10_024)
+        #expect(protected.count == message.bitPadded().count + 8)
         let header = Data([4, 1, 2, 3, 0, UInt8(protected.count >> 8), UInt8(protected.count & 255)])
         let mac = try (chain + header + protected.dropLast(8)).aescmac(key: smac)
         #expect(protected.suffix(8) == mac.prefix(8))
         let iv = try (Data(count: 15) + Data([1])).encryptAES(key: senc, mode: .ecb)
         #expect(try Data(protected.dropLast(8)).decryptAES(key: senc, mode: .cbc(iv: iv)) == message.bitPadded())
     }
+
+    @Test("SCP11 setup chains each certificate before key agreement", arguments: [SCPKeyRef.Kid.scp11a, .scp11c])
+    func scp11Certificates(kid: SCPKeyRef.Kid) async throws {
+        let certificate = X509Cert(der: CompressionTests.testCertificateDER)
+        #expect(certificate.der.count > 255)
+        let key = try EC.PrivateKey.random(curve: .secp256r1)
+        let params = try SCP11KeyParams(
+            keyRef: SCPKeyRef(kid: kid, kvn: 1),
+            pkSdEcka: key.publicKey,
+            oceKeyRef: SCPKeyRef(kid: 1, kvn: 2),
+            skOceEcka: key,
+            certificates: [certificate, certificate]
+        )
+        let mock = MockSmartCardConnection(responses: [
+            Data([0x90, 0]),
+            Data([0x90, 0]), Data([0x61, 1]), Data([0x90, 0]),
+            Data([0x90, 0]), Data([0x90, 0]),
+            Data([0x6a, 0x88]),
+        ])
+        // Stop at key agreement after both certificates have been sent.
+        await #expect {
+            try await SmartCardInterface<PIVSessionError>(
+                connection: mock,
+                application: .piv,
+                keyParams: params,
+                insSendRemaining: 0xa5
+            )
+        } throws: { ($0 as? PIVSessionError)?.responseStatus?.rawStatus == 0x6a88 }
+        let requests = await mock.sentRequests
+        #expect(requests.count == 7)
+        guard requests.count == 7 else { return }
+        #expect(requests[3] == Data([0, 0xa5, 0, 0, 0]))
+        for (index, p2) in [(1, UInt8(0x81)), (4, UInt8(0x01))] {
+            #expect(requests[index] == Data([0x90, 0x2a, 2, p2, 255]) + certificate.der.prefix(255))
+            #expect(
+                requests[index + 1]
+                    == Data([0x80, 0x2a, 2, p2, UInt8(certificate.der.count - 255)]) + certificate.der.dropFirst(255)
+            )
+        }
+        #expect(requests[6].prefix(4) == Data([0x80, 0x82, 1, kid]))
+    }
+
+    @Test(
+        "SCP11 setup stops on an invalid intermediate response",
+        arguments: [Data([0x61, 1]), Data([0x90])]
+    )
+    func scp11IntermediateError(response: Data) async throws {
+        let key = try EC.PrivateKey.random(curve: .secp256r1)
+        let params = try SCP11KeyParams(
+            keyRef: SCPKeyRef(kid: .scp11a, kvn: 1),
+            pkSdEcka: key.publicKey,
+            oceKeyRef: SCPKeyRef(kid: 1, kvn: 2),
+            skOceEcka: key,
+            certificates: [X509Cert(der: CompressionTests.testCertificateDER)]
+        )
+        let mock = MockSmartCardConnection(responses: [Data([0x90, 0]), response])
+        await #expect {
+            try await SmartCardInterface<PIVSessionError>(connection: mock, application: .piv, keyParams: params)
+        } throws: {
+            guard let error = $0 as? PIVSessionError else { return false }
+            if response.count == 1 {
+                if case .responseParseError = error { return true }
+                return false
+            }
+            return error.responseStatus?.rawStatus == (UInt16(response[0]) << 8 | UInt16(response[1]))
+        }
+        #expect(await mock.sendCount == 2)
+    }
+
+    @Test("Setup stops a command chain when the connection is lost")
+    func setupConnectionLost() async throws {
+        let mock = InterruptedChainConnection()
+        await #expect {
+            try await SmartCardInterface<PIVSessionError>.sendPlainStatic(
+                connection: mock,
+                apdu: APDU(cla: 0x80, ins: 0x2a, p1: 0, p2: 0, command: Self.pattern(600)),
+                insSendRemaining: 0xc0
+            )
+        } throws: {
+            if case PIVSessionError.connectionError(.connectionLost, _) = $0 { true } else { false }
+        }
+        #expect(await mock.sendCount == 2)
+    }
+}
+
+private actor InterruptedChainConnection: SmartCardConnection {
+    private(set) var sendCount = 0
+    init() {}
+    static func makeConnection() async throws(SmartCardConnectionError) -> Self { Self() }
+
+    func send(data: Data) async throws(SmartCardConnectionError) -> Data {
+        sendCount += 1
+        if sendCount == 2 { throw .connectionLost }
+        return Data([0x90, 0])
+    }
+
+    func close(error: Error?) async {}
+    func waitUntilClosed() async -> Error? { nil }
 }
 
 private actor ChainedSCPConnection: SmartCardConnection {
