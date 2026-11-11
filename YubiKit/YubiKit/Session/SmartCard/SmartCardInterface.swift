@@ -26,8 +26,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
     let selectResponse: Data
     private var maxAPDUSize = 261
 
-    // Configure from a reported firmware version or the application's known minimum.
-    func configure(version: Version) {
+    func setAPDUSizeLimit(for version: Version) {
         switch version.resolvingDevelopment {
         case ..<Version("4.0.0")!: maxAPDUSize = 261
         case ..<Version("4.3.0")!: maxAPDUSize = 2038
@@ -198,15 +197,24 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
     // Send APDU without SCP.
     // Returns the response with status code (status check happens in caller).
     private func sendPlain(apdu: APDU, insSendRemaining: UInt8) async throws(Error) -> Response {
+        try await Self.sendCommandStatic(
+            connection: connection,
+            apdu: apdu,
+            maxAPDUSize: maxAPDUSize,
+            insSendRemaining: insSendRemaining
+        )
+    }
+
+    // Split the logical command before encoding any physical APDU.
+    private static func sendCommandStatic(
+        connection: SmartCardConnection,
+        apdu: APDU,
+        maxAPDUSize: Int,
+        insSendRemaining: UInt8
+    ) async throws(Error) -> Response {
         let command = apdu.command ?? Data()
-        guard command.count <= Int(UInt16.max) else {
-            throw .illegalArgument("Command exceeds the APDU length limit", source: .here())
-        }
-        var limit = maxAPDUSize
-        #if os(iOS)
-        if connection is NFCSmartCardConnection { limit = 261 }
-        #endif
-        if command.count > 255 && command.count + 7 > limit {
+        var finalAPDU = apdu
+        if command.count > 255 && command.count > maxAPDUSize - 7 {
             var offset = command.startIndex
             while command.endIndex - offset > 255 {
                 let end = offset + 255
@@ -230,23 +238,17 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
                 guard response.status == .ok else { return response }
                 offset = end
             }
-            return try await Self.sendWithContinuationStatic(
-                connection: connection,
-                apdu: APDU(
-                    cla: apdu.cla,
-                    ins: apdu.ins,
-                    p1: apdu.p1,
-                    p2: apdu.p2,
-                    command: command.subdata(in: offset..<command.endIndex)
-                ),
-                accumulated: Data(),
-                readMoreData: false,
-                insSendRemaining: insSendRemaining
+            finalAPDU = APDU(
+                cla: apdu.cla,
+                ins: apdu.ins,
+                p1: apdu.p1,
+                p2: apdu.p2,
+                command: command.subdata(in: offset..<command.endIndex)
             )
         }
-        return try await Self.sendWithContinuationStatic(
+        return try await sendWithContinuationStatic(
             connection: connection,
-            apdu: apdu,
+            apdu: finalAPDU,
             accumulated: Data(),
             readMoreData: false,
             insSendRemaining: insSendRemaining
@@ -269,11 +271,11 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
         apdu: APDU,
         insSendRemaining: UInt8
     ) async throws(Error) -> Data {
-        let response = try await sendWithContinuationStatic(
+        let response = try await sendCommandStatic(
             connection: connection,
             apdu: apdu,
-            accumulated: Data(),
-            readMoreData: false,
+            // Firmware limits are not known during selection and SCP setup.
+            maxAPDUSize: 261,
             insSendRemaining: insSendRemaining
         )
         guard response.status == .ok else {

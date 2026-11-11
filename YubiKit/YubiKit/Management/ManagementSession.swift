@@ -222,7 +222,7 @@ public enum Management {
                 self.version = reportedVersion
             }
             if let smartCard = await interface.smartCardInterface {
-                await smartCard.configure(version: self.version)
+                await smartCard.setAPDUSizeLimit(for: self.version)
             }
             self.scpState = await interface.scpState
             self.smartCardConnection = await interface.smartCardConnection
