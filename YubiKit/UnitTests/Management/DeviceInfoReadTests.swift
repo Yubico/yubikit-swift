@@ -25,8 +25,9 @@ struct DeviceInfoReadTests {
     func management() async throws {
         let tlvs = Data([4, 1, 3, 0x1b, 3]) + Data("Key".utf8)
         let connection = MockSmartCardConnection(responses: [Data("5.8.0".utf8) + ok, page(tlvs) + ok])
-        let name = try await connection.deviceName
-        #expect(name == "Key")
+        let key = try await YubiKey(connection: connection)
+        #expect(key.deviceName == "Key")
+        #expect(key.deviceInfo.formFactor == .usbCKeychain)
         #expect(await connection.sendCount == 2)
     }
 
@@ -68,7 +69,7 @@ struct DeviceInfoReadTests {
         let connection = MockSmartCardConnection(responses: [
             Data("3.4.3".utf8) + ok, Data([0x6d, 0]), missing, ok, missing, missing, missing,
         ])
-        #expect(try await connection.deviceName == "YubiKey NEO")
+        #expect(try await YubiKey(connection: connection).deviceName == "YubiKey NEO")
     }
 
     @Test("NEO naming de-selects Management and propagates disconnects", arguments: [false, true])
@@ -76,12 +77,12 @@ struct DeviceInfoReadTests {
         let connection = NamingNEOConnection(disconnect: disconnect)
         if disconnect {
             do {
-                _ = try await connection.deviceName
+                _ = try await YubiKey(connection: connection)
                 Issue.record("The de-selection disconnect was ignored")
             } catch ManagementSessionError.connectionError(.connectionLost, _) {
             }
         } else {
-            #expect(try await connection.deviceName == "YubiKey NEO")
+            #expect(try await YubiKey(connection: connection).deviceName == "YubiKey NEO")
         }
     }
 
@@ -112,7 +113,7 @@ struct DeviceInfoReadTests {
             missing, missing, capability == .u2f ? ok : missing, capability == .piv ? ok : missing,
             missing, missing, missing,
         ])
-        await #expect(throws: ManagementSessionError.self) { try await connection.deviceName }
+        await #expect(throws: ManagementSessionError.self) { try await YubiKey(connection: connection) }
     }
 
     @Test(
@@ -123,14 +124,14 @@ struct DeviceInfoReadTests {
     )
     func managementErrors(response: Data) async throws {
         let connection = MockSmartCardConnection(responses: [response])
-        await #expect(throws: ManagementSessionError.self) { try await connection.deviceName }
+        await #expect(throws: ManagementSessionError.self) { try await YubiKey(connection: connection) }
         #expect(await connection.sendCount == 1)
     }
 
     @Test("Malformed Management data does not trigger legacy probing")
     func malformedDeviceInfo() async throws {
         let connection = MockSmartCardConnection(responses: [Data("5.8.0".utf8) + ok, Data([2, 4]) + ok])
-        await #expect(throws: ManagementSessionError.self) { try await connection.deviceName }
+        await #expect(throws: ManagementSessionError.self) { try await YubiKey(connection: connection) }
         #expect(await connection.sendCount == 2)
     }
 
@@ -141,7 +142,7 @@ struct DeviceInfoReadTests {
             Data([0, 0, 0, 123]) + ok, Data([UInt8(status >> 8), UInt8(status & 0xff)]),
             ok, ok, ok, missing,
         ])
-        #expect(try await connection.deviceName == "YubiKey NEO")
+        #expect(try await YubiKey(connection: connection).deviceName == "YubiKey NEO")
     }
 
     @Test("Inactive OpenPGP does not prevent naming", arguments: [UInt16(0x6285), 0x6985])
@@ -150,7 +151,7 @@ struct DeviceInfoReadTests {
             missing, Data([3, 4, 3, 0, 0, 0]) + ok, Data([0, 0, 0, 123]) + ok,
             ok, ok, Data([UInt8(status >> 8), UInt8(status & 0xff)]), ok,
         ])
-        #expect(try await connection.deviceName == "YubiKey NEO")
+        #expect(try await YubiKey(connection: connection).deviceName == "YubiKey NEO")
         #expect(await connection.sendCount == 7)
     }
 
@@ -160,14 +161,14 @@ struct DeviceInfoReadTests {
     )
     func probeErrors(response: Data) async throws {
         let connection = MockSmartCardConnection(responses: [missing, missing, response])
-        await #expect(throws: ManagementSessionError.self) { try await connection.deviceName }
+        await #expect(throws: ManagementSessionError.self) { try await YubiKey(connection: connection) }
         #expect(await connection.sendCount == 3)
     }
 
     @Test("OTP serial parsing errors are propagated")
     func serialErrors() async throws {
         let connection = MockSmartCardConnection(responses: [missing, Data([3, 4, 3, 0, 0, 0]) + ok, ok])
-        await #expect(throws: YubiOTP.SessionError.self) { try await connection.deviceName }
+        await #expect(throws: YubiOTP.SessionError.self) { try await YubiKey(connection: connection) }
         #expect(await connection.sendCount == 3)
     }
 
@@ -175,8 +176,9 @@ struct DeviceInfoReadTests {
     func otpManagement() async throws {
         let connection = try await FakeOTPConnection()
         connection.deviceInfoPages = [page(Data([4, 1, 3, 0x10, 1, 1])), page(Data([0x1b, 3]) + Data("Key".utf8))]
-        let name = try await connection.deviceName
-        #expect(name == "Key")
+        let key = try await YubiKey(connection: connection)
+        #expect(key.deviceName == "Key")
+        #expect(key.deviceInfo.formFactor == .usbCKeychain)
         #expect(connection.dispatchedCommands == [0x13, 0x13])
         #expect(connection.dispatchedPayloads.map { $0.first! } == [0, 1])
     }
@@ -186,7 +188,7 @@ struct DeviceInfoReadTests {
         let connection = try await FakeOTPConnection()
         connection.deviceInfoPages = [page(Data([4, 1, 3]))]
         connection.corruptsResponseCRC = true
-        await #expect(throws: ManagementSessionError.self) { try await connection.deviceName }
+        await #expect(throws: ManagementSessionError.self) { try await YubiKey(connection: connection) }
     }
 
     @Test("OTP HID reconstructs legacy metadata")
