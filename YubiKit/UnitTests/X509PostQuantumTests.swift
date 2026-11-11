@@ -43,9 +43,11 @@ struct X509PostQuantumTests {
         let privateKey = try CryptoKit.MLDSA65.PrivateKey()
         let key = try #require(MLDSA.PublicKey(keyData: privateKey.publicKey.rawRepresentation, parameterSet: .mlDSA65))
         let message = Data("test message".utf8)
-        let signature = try privateKey.signature(for: message)
-        #expect(try key.isValidSignature(signature, for: message))
-        #expect(try !key.isValidSignature(signature, for: Data("other".utf8)))
+        let context = Data("PIV".utf8)
+        let signature = try privateKey.signature(for: message, context: context)
+        #expect(try key.isValidSignature(signature, for: message, context: context))
+        #expect(try !key.isValidSignature(signature, for: message))
+        #expect(try !key.isValidSignature(signature, for: Data("other".utf8), context: context))
     }
 
     @Test func encapsulatesWithCryptoKit() throws {

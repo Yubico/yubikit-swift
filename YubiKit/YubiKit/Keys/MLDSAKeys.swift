@@ -57,9 +57,10 @@ public enum MLDSA: Sendable {
         #if compiler(>=6.2)
         /// Verifies a signature locally using CryptoKit.
         /// ML-DSA-44 is not supported by CryptoKit.
+        /// External-μ signatures require a separate verifier.
         @available(iOS 26, macOS 26, *)
-        public func isValidSignature(_ signature: Data, for message: Data) throws -> Bool {
-            try Crypto.MLDSA.isValidSignature(signature, for: message, key: self)
+        public func isValidSignature(_ signature: Data, for message: Data, context: Data = Data()) throws -> Bool {
+            try Crypto.MLDSA.isValidSignature(signature, for: message, context: context, key: self)
         }
         #endif
     }
