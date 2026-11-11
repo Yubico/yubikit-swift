@@ -43,6 +43,10 @@ internal enum Crypto {
     /// Curve25519 key validation and derivation operations.
     enum Curve25519 {}
 
+    /// Local post-quantum operations supported by CryptoKit.
+    enum MLDSA {}
+    enum MLKEM {}
+
     /// X.509 certificate operations.
     enum X509 {}
 

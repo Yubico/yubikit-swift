@@ -53,6 +53,15 @@ public enum MLDSA: Sendable {
             self.keyData = keyData
             self.parameterSet = parameterSet
         }
+
+        #if compiler(>=6.2)
+        /// Verifies a signature locally using CryptoKit.
+        /// ML-DSA-44 is not supported by CryptoKit.
+        @available(iOS 26, macOS 26, *)
+        public func isValidSignature(_ signature: Data, for message: Data) throws -> Bool {
+            try Crypto.MLDSA.isValidSignature(signature, for: message, key: self)
+        }
+        #endif
     }
 
     /// Private-key seed for importing into a PIV slot.
