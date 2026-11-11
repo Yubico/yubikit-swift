@@ -18,16 +18,21 @@ import Foundation
 #if compiler(>=6.2)
 @available(iOS 26, macOS 26, *)
 extension Crypto.MLDSA {
-    static func isValidSignature(_ signature: Data, for message: Data, key: MLDSA.PublicKey) throws -> Bool {
+    static func isValidSignature(
+        _ signature: Data,
+        for message: Data,
+        context: Data,
+        key: MLDSA.PublicKey
+    ) throws -> Bool {
         switch key.parameterSet {
         case .mlDSA44:
             throw CryptoError.unsupportedAlgorithm
         case .mlDSA65:
             let publicKey = try CryptoKit.MLDSA65.PublicKey(rawRepresentation: key.keyData)
-            return publicKey.isValidSignature(signature, for: message)
+            return publicKey.isValidSignature(signature, for: message, context: context)
         case .mlDSA87:
             let publicKey = try CryptoKit.MLDSA87.PublicKey(rawRepresentation: key.keyData)
-            return publicKey.isValidSignature(signature, for: message)
+            return publicKey.isValidSignature(signature, for: message, context: context)
         }
     }
 }
