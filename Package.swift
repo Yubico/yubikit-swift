@@ -48,7 +48,8 @@ var packageTargets: [Target] = [
     .testTarget(
         name: "YubiKitTests",
         dependencies: ["YubiKit"],
-        path: "YubiKit/UnitTests"
+        path: "YubiKit/UnitTests",
+        resources: [.copy("Fixtures/ml-dsa44.der")]
     ),
 ]
 

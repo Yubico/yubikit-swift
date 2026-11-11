@@ -62,6 +62,21 @@ public enum MLKEM: Sendable {
             self.keyData = keyData
             self.parameterSet = parameterSet
         }
+
+        #if compiler(>=6.2)
+        /// Encapsulates a shared secret locally using CryptoKit.
+        /// ML-KEM-512 is not supported by CryptoKit.
+        @available(iOS 26, macOS 26, *)
+        public func encapsulate() throws -> Encapsulation {
+            try Crypto.MLKEM.encapsulate(key: self)
+        }
+        #endif
+    }
+
+    /// An ML-KEM ciphertext and the corresponding shared secret.
+    public struct Encapsulation: Sendable {
+        public let ciphertext: Data
+        public let sharedSecret: Data
     }
 
     /// Private-key seed for importing into a PIV slot.
