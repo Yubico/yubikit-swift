@@ -56,7 +56,7 @@ private struct DERReader {
     private let bytes: Data
     private var offset = 0
 
-    init(_ bytes: Data) { self.bytes = bytes }
+    init(_ bytes: Data) { self.bytes = Data(Array(bytes)) }
 
     var isAtEnd: Bool { offset == bytes.count }
     var peekTag: UInt8? { offset < bytes.count ? bytes[offset] : nil }
