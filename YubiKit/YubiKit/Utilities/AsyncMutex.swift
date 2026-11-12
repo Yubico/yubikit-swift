@@ -25,6 +25,8 @@ final class AsyncMutex: @unchecked Sendable {
     private var isLocked = false
     private var waiters: [Waiter] = []
 
+    var queuedWaiterCount: Int { lock.withLock { waiters.count } }
+
     /// Returns false if the waiting task was cancelled.
     func acquire() async -> Bool {
         guard !Task.isCancelled else { return false }
