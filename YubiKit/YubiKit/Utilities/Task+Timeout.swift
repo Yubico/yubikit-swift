@@ -15,23 +15,29 @@
 import Foundation
 
 // Execute async operation with timeout. Returns nil if timeout occurs, result otherwise.
+// Cancelling the caller does not end the timer, so the operation decides how to handle it.
 @inlinable
 func withTimeout<T: Sendable, E: Error>(
     _ timeout: Duration,
     clock: ContinuousClock = ContinuousClock(),
     operation: @Sendable @escaping () async throws(E) -> T
 ) async throws(E) -> T? {
+    // Unstructured, so caller cancellation cannot end the sleep early and fake a timeout.
+    let timer = Task { try await clock.sleep(for: timeout) }
     do {
         return try await withThrowingTaskGroup(of: T?.self, returning: T?.self) { group in
+            // Runs before the group awaits its children, so a finished operation does not wait for the deadline.
+            defer { timer.cancel() }
+
             // 1) The real work
             group.addTask {
                 let value = try await operation()
                 return value
             }
 
-            // 2) The timer (returns nil when it fires)
+            // 2) The timer (returns nil at the deadline)
             group.addTask {
-                try? await clock.sleep(for: timeout)
+                try? await timer.value
                 return nil
             }
 
