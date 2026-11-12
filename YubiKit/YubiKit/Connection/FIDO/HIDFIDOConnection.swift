@@ -99,7 +99,12 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
     /// - Parameter device: A device returned by ``availableDevices(matching:)``.
     /// - Throws: ``FIDOConnectionError`` if the device cannot be accessed.
     public init(device: HID.YubiKeyDevice) async throws(FIDOConnectionError) {
+        guard !Task.isCancelled else { throw .cancelled }
         try await HIDConnectionManager.shared.open(device: device)
+        if Task.isCancelled {
+            await HIDConnectionManager.shared.close(locationID: device.locationID, error: FIDOConnectionError.cancelled)
+            throw .cancelled
+        }
         self.device = device
     }
 
