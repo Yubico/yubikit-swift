@@ -17,10 +17,11 @@ import Testing
 @testable import YubiKit
 
 struct AsyncMutexTests {
-    @Test func handsOffToWaitingTask() async {
+    @Test func handsOffToWaitingTask() async throws {
         let mutex = AsyncMutex()
         #expect(await mutex.acquire())
         let waiter = Task { await mutex.acquire() }
+        try await waitForQueuedWaiter(in: mutex)
         mutex.release()
         #expect(await waiter.value)
         mutex.release()
@@ -32,11 +33,19 @@ struct AsyncMutexTests {
         let mutex = AsyncMutex()
         #expect(await mutex.acquire())
         let waiter = Task { await mutex.acquire() }
-        try await Task.sleep(for: .milliseconds(25))
+        try await waitForQueuedWaiter(in: mutex)
         waiter.cancel()
         #expect(await !waiter.value)
         mutex.release()
         #expect(await mutex.acquire())
         mutex.release()
+    }
+
+    private func waitForQueuedWaiter(in mutex: AsyncMutex) async throws {
+        let deadline = ContinuousClock.now + .seconds(2)
+        while mutex.queuedWaiterCount == 0 && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        try #require(mutex.queuedWaiterCount == 1)
     }
 }
