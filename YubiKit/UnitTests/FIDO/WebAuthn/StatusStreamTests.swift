@@ -151,6 +151,27 @@ struct StatusStreamTests {
         }
     }
 
+    @Test("Cancelling the consumer of a timed stream cancels its producer")
+    func testCancellationReachesProducer() async throws {
+        let producerCancelled = Promise<Bool>()
+        let stream = WebAuthn.StatusStream<String> { continuation in
+            let task = Task {
+                continuation.yield(.processing)
+                try? await Task.sleep(for: .seconds(60))
+                await producerCancelled.fulfill(Task.isCancelled)
+            }
+            continuation.cancelOnTermination(task)
+        }.withTimeout(.seconds(60))
+
+        _ = await Task {
+            for try await status in stream {
+                if case .processing = status { withUnsafeCurrentTask { $0?.cancel() } }
+            }
+        }.result
+
+        #expect(try await withDeadline { try await producerCancelled.value() } == true)
+    }
+
     @Test("Timeout preserves the upstream error")
     func testTimeoutPreservesError() async {
         let stream = WebAuthn.StatusStream<String> { continuation in

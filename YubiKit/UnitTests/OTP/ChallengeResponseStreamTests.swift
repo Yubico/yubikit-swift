@@ -105,6 +105,25 @@ struct ChallengeResponseStreamTests {
         )
     }
 
+    @Test("cancelling the consuming task during touch resets the key and frees the session")
+    func cancellingConsumerDuringTouch() async throws {
+        let connection = try await FakeOTPConnection()
+        connection.touchReportsBeforeResponse = 200
+        let session = try await session(connection)
+
+        let consumer = Task {
+            for try await status in await session.calculateHMACSHA1(challenge: Data("Hi There".utf8), in: .two) {
+                if case .waitingForUser = status { withUnsafeCurrentTask { $0?.cancel() } }
+            }
+        }
+        _ = await consumer.result
+
+        // Without cancellation, the abandoned challenge holds the session for 20 seconds.
+        let serial = try await withDeadline { try await session.getSerialNumber() }
+        #expect(serial == UInt(connection.serial))
+        #expect(connection.writtenReports.contains { $0[7] == 0xFF }, "cancelling should send the reset sentinel")
+    }
+
     @Test("another command waits until a touch command is cancelled")
     func serializesCommandsAcrossTouchWaits() async throws {
         let connection = try await FakeOTPConnection()

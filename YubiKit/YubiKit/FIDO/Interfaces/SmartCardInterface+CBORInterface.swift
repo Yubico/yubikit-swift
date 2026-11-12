@@ -69,7 +69,7 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
     ) -> CTAP2.StatusStream<O> {
 
         CTAP2.StatusStream<O> { continuation in
-            Task {
+            let task = Task {
                 do throws(CTAP2.SessionError) {
                     let CLA: UInt8 = 0x80
                     let NFCCTAP_MSG: UInt8 = 0x10
@@ -95,6 +95,11 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
                         } catch {
                             continuation.yield(error: error)
                         }
+                    }
+
+                    // Once sent, a command runs to its response. A cancelled consumer only stops it here.
+                    guard !Task.isCancelled else {
+                        throw Error.ctapError(.keepaliveCancel, source: .here())
                     }
 
                     // Send initial CTAP command
@@ -123,10 +128,15 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
                             continuation.yield(currentStatus)
                         }
 
-                        // Avoid hammering the authenticator
-                        try? await Task.sleep(for: .milliseconds(100))
+                        // Avoid hammering the authenticator, also while cancelled
+                        await sleepIgnoringCancellation(for: .milliseconds(100))
 
-                        // Use P1_CANCEL_KEEP_ALIVE if cancel() was called
+                        // A cancelled caller stops the touch wait. Polling continues to the final response.
+                        if statusByte == keepaliveUpNeeded && Task.isCancelled {
+                            self.shouldCancelCTAP = true
+                        }
+
+                        // Use P1_CANCEL_KEEP_ALIVE once cancelled
                         let p1 = self.shouldCancelCTAP ? P1_CANCEL_KEEP_ALIVE : P1_KEEP_ALIVE
 
                         // Send GET_RESPONSE to poll for completion
@@ -164,6 +174,7 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
                     continuation.yield(error: error)
                 }
             }
+            continuation.cancelOnTermination(task)
         }
     }
 

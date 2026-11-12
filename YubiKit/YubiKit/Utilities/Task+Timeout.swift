@@ -50,3 +50,9 @@ func withTimeout<T: Sendable, E: Error>(
         throw error as! E
     }
 }
+
+// Sleeps for the full duration even if the caller is cancelled, so a poll loop that must finish
+// its exchange does not spin.
+func sleepIgnoringCancellation(for duration: Duration) async {
+    await Task { try? await Task.sleep(for: duration) }.value
+}
