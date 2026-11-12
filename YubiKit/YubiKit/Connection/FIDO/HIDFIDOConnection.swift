@@ -266,7 +266,16 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         }
 
         do {
-            let data = try await promise.value()
+            let data = try await withTaskCancellationHandler {
+                try await promise.value()
+            } onCancel: {
+                Task {
+                    let withdrawn = await self.runloop.perform {
+                        self.withdrawPendingReceive(promise, from: locationID)
+                    }
+                    await withdrawn?.cancel(with: FIDOConnectionError.cancelled)
+                }
+            }
             logger.debug("Received HID packet", metadata: ["bytes": .stringConvertible(data.count)])
             return data
         } catch let error as FIDOConnectionError {
@@ -488,6 +497,12 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         let promise = Promise<Data>()
         connectionState.pendingReceive = promise
         return .success(promise)
+    }
+
+    private func withdrawPendingReceive(_ promise: Promise<Data>, from locationID: Int) -> Promise<Data>? {
+        guard let state = openConnections[locationID], state.pendingReceive === promise else { return nil }
+        state.pendingReceive = nil
+        return promise
     }
 
     // MARK: - Connection State
