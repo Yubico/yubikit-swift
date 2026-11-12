@@ -221,6 +221,9 @@ public enum Management {
             } else {
                 self.version = reportedVersion
             }
+            if let smartCard = await interface.smartCardInterface {
+                await smartCard.setAPDUSizeLimit(for: self.version)
+            }
             self.scpState = await interface.scpState
             self.smartCardConnection = await interface.smartCardConnection
             logger.debug("Management session initialized", metadata: ["version": .string(String(describing: version))])
@@ -264,6 +267,11 @@ extension Management.Session {
         }
 
         private let kind: Kind
+
+        var smartCardInterface: SmartCardInterface<ManagementSessionError>? {
+            if case .smartCard(let interface) = kind { return interface }
+            return nil
+        }
 
         init(interface: SmartCardInterface<ManagementSessionError>) {
             self.kind = .smartCard(interface)

@@ -56,6 +56,7 @@ public final actor PIVSession: SmartCardSessionInternal {
             )
         }
         self.version = version.resolvingDevelopment
+        await interface.setAPDUSizeLimit(for: self.version)
         self.interface = interface
         logger.debug("PIV session initialized", metadata: ["version": .stringConvertible(self.version)])
     }
