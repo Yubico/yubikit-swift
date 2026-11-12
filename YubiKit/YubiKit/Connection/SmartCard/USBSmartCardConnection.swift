@@ -59,16 +59,14 @@ public struct USBSmartCardConnection: Sendable {
     ///
     /// Waits until a YubiKey becomes available, then establishes a connection to it.
     ///
-    /// - Throws: ``SmartCardConnectionError/busy`` if there is already an active connection.
+    /// - Throws: ``SmartCardConnectionError/cancelled`` if the task is cancelled while waiting,
+    ///   or ``SmartCardConnectionError/busy`` if there is already an active connection.
     public init() async throws(SmartCardConnectionError) {
-        while true {
-            guard let slot = try await Self.availableDevices().first else {
-                try? await Task.sleep(for: .seconds(1))
-                continue
-            }
-            try await self.init(slot: slot)
-            return
+        let slot = try await waitForDevice(cancellationError: SmartCardConnectionError.cancelled) {
+            () async throws(SmartCardConnectionError) in
+            try await Self.availableDevices()
         }
+        try await self.init(slot: slot)
     }
 
     /// Creates a new USB connection to a specific YubiKey device.
@@ -78,6 +76,7 @@ public struct USBSmartCardConnection: Sendable {
     /// - Parameter slot: The ``USBSmartCard/YubiKeyDevice`` to connect to.
     /// - Throws: ``SmartCardConnectionError/busy`` if there is already an active connection to this slot.
     public init(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) {
+        guard !Task.isCancelled else { throw .cancelled }
         let atr = try await SmartCardConnectionsManager.shared.connect(slot: slot)
         self.slot = slot
         self.isContactless = USBSmartCard.isNFC(atr: atr)
@@ -248,6 +247,7 @@ private final actor SmartCardConnectionsManager {
 
     // Returns the ATR of the connected card.
     func connect(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) -> Data? {
+        guard !Task.isCancelled else { throw .cancelled }
         // if there is already a connection for this slot we throw `SmartCardConnectionError.busy`.
         // The caller must close the connection first.
         guard connections[slot] == nil else {
@@ -267,6 +267,7 @@ private final actor SmartCardConnectionsManager {
         // get a TKSmartCard from a slot
         // can fail if no cards are connected
         let tkSlot = try? await slotManager.getSlot(withName: slot.name)
+        guard !Task.isCancelled else { throw .cancelled }
 
         guard let tkSlot else {
             logger.debug("USB smart card slot is no longer available")
@@ -293,7 +294,12 @@ private final actor SmartCardConnectionsManager {
                     "errorCode": .stringConvertible((error as NSError).code),
                 ]
             )
+            if Task.isCancelled { throw SmartCardConnectionError.cancelled }
             throw SmartCardConnectionError.setupFailed("Failed to begin SmartCard session", error)
+        }
+        if Task.isCancelled {
+            card.endSession()
+            throw SmartCardConnectionError.cancelled
         }
         logger.debug("USB smart card connection established")
 
