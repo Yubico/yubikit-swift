@@ -136,6 +136,9 @@ extension Crypto.X509 {
         guard let cert = SecCertificateCreateWithData(nil, der as CFData) else {
             return nil
         }
+        if let postQuantumKey = extractPostQuantumPublicKey(fromDER: der) {
+            return postQuantumKey
+        }
 
         var trust: SecTrust?
         let policy = SecPolicyCreateBasicX509()

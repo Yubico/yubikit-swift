@@ -43,6 +43,8 @@ extension AlgorithmIdentifier {
         case .x25519:
             // Invalid key type for signing
             return nil
+        case .mlDSA, .mlKEM:
+            return nil  // Unsupported by Shield
         }
 
         self = signatureAlgorithm

@@ -2144,7 +2144,7 @@ extension PIVScenario {
                     "imported X25519 key agreement must match software ECDH"
                 )
 
-            case .rsa, .ed25519:
+            case .rsa, .ed25519, .mlDSA, .mlKEM:
                 try context.skip("key agreement is only defined for EC and X25519 keys")
             }
         }
