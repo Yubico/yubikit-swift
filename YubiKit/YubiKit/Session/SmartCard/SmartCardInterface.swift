@@ -25,6 +25,7 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
     let scpState: SCPState?
     let selectResponse: Data
     private var maxAPDUSize = 261
+    private let commandMutex = AsyncMutex()
 
     func setAPDUSizeLimit(for version: Version) {
         switch version.resolvingDevelopment {
@@ -111,6 +112,9 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
         apdu: APDU,
         insSendRemaining: UInt8 = 0xc0,
     ) async throws(Error) -> Response {
+        guard await commandMutex.acquire() else { throw .connectionError(.cancelled, source: .here()) }
+        defer { commandMutex.release() }
+
         let response: Response
         if let scpState {
             response = try await sendWithSCP(apdu: apdu, scpState: scpState, insSendRemaining: insSendRemaining)

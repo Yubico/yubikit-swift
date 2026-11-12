@@ -88,6 +88,27 @@ struct SmartCardCommandChainingTests {
         #expect(await mock.sendCount == 3)
     }
 
+    @Test("Concurrent commands cannot enter an unfinished command chain")
+    func concurrentCommands() async throws {
+        let mock = PausedChainConnection()
+        let interface = try await SmartCardInterface<PIVSessionError>(connection: mock, application: .piv)
+        let first = Task {
+            let _: Data = try await interface.send(
+                apdu: APDU(cla: 0, ins: 1, p1: 0, p2: 0, command: Self.pattern(600))
+            )
+        }
+        await mock.waitForFirstFragment()
+        let second = Task {
+            let _: Data = try await interface.send(apdu: APDU(cla: 0, ins: 2, p1: 0, p2: 0))
+        }
+        try await Task.sleep(for: .milliseconds(25))
+        #expect(await mock.instructions == [1])
+        await mock.releaseFirstFragment()
+        try await first.value
+        try await second.value
+        #expect(await mock.instructions == [1, 1, 1, 2])
+    }
+
     @Test("Secure messaging protects the complete command before splitting it", arguments: [10_000, 65_519])
     func secureCommand(length: Int) async throws {
         // Android ScpProcessorTest.commandLargerThanASingleApduIsPassedOn uses 10,000 bytes.
@@ -206,6 +227,43 @@ struct SmartCardCommandChainingTests {
         }
         #expect(await mock.sendCount == 2)
     }
+}
+
+private actor PausedChainConnection: SmartCardConnection {
+    private(set) var instructions: [UInt8] = []
+    private var firstFragmentSeen = false
+    private var firstFragmentWaiter: CheckedContinuation<Void, Never>?
+    private var firstFragmentResponse: CheckedContinuation<Data, Never>?
+
+    init() {}
+    static func makeConnection() async throws(SmartCardConnectionError) -> Self { Self() }
+
+    func waitForFirstFragment() async {
+        if firstFragmentSeen { return }
+        await withCheckedContinuation { firstFragmentWaiter = $0 }
+    }
+
+    func releaseFirstFragment() {
+        firstFragmentResponse?.resume(returning: Data([0x90, 0]))
+        firstFragmentResponse = nil
+    }
+
+    func send(data: Data) async throws(SmartCardConnectionError) -> Data {
+        if data[1] == 0xa4 { return Data([0x90, 0]) }
+        instructions.append(data[1])
+        if data[1] == 1 && !firstFragmentSeen {
+            firstFragmentSeen = true
+            return await withCheckedContinuation { continuation in
+                firstFragmentResponse = continuation
+                firstFragmentWaiter?.resume()
+                firstFragmentWaiter = nil
+            }
+        }
+        return Data([0x90, 0])
+    }
+
+    func close(error: Error?) async {}
+    func waitUntilClosed() async -> Error? { nil }
 }
 
 private actor InterruptedChainConnection: SmartCardConnection {
