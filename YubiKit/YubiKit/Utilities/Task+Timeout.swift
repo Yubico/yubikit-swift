@@ -24,16 +24,14 @@ func withTimeout<T: Sendable, E: Error>(
 ) async throws(E) -> T? {
     // Unstructured, so caller cancellation cannot end the sleep early and fake a timeout.
     let timer = Task { try await clock.sleep(for: timeout) }
+    let work = Task { try await operation() }
     do {
         return try await withThrowingTaskGroup(of: T?.self, returning: T?.self) { group in
             // Runs before the group awaits its children, so a finished operation does not wait for the deadline.
             defer { timer.cancel() }
 
-            // 1) The real work
-            group.addTask {
-                let value = try await operation()
-                return value
-            }
+            // Caller cancellation does not abandon a receive that is already in progress.
+            group.addTask { try await work.value }
 
             // 2) The timer (returns nil at the deadline)
             group.addTask {
@@ -43,6 +41,7 @@ func withTimeout<T: Sendable, E: Error>(
 
             // 3) Whichever completes first decides the result
             let first = try await group.next()!
+            if first == nil { work.cancel() }
             group.cancelAll()  // Cancel the loser
             return first
         }
