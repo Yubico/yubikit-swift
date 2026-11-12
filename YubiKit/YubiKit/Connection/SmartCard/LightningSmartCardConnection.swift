@@ -123,6 +123,9 @@ private actor LightningConnectionManager {
             throw SmartCardConnectionError.busy
         }
 
+        let connectionPromise: Promise<LightningConnectionID> = .init()
+        pendingConnectionPromise = connectionPromise
+
         // Otherwise, create and store a new connection task.
         let task = Task { () -> LightningConnectionID in
             logger.debug("Waiting for a Lightning accessory")
@@ -133,10 +136,6 @@ private actor LightningConnectionManager {
                     await connection.didCloseConnection.fulfill(nil)
                     self.connectionState = nil
                 }
-
-                // Create a promise to bridge the callback from EAAccessoryWrapper
-                let connectionPromise: Promise<LightningConnectionID> = .init()
-                self.pendingConnectionPromise = connectionPromise
 
                 // Connect to YubiKeys that are already plugged in
                 await EAAccessoryWrapper.shared.connectToCurrentDevices()
@@ -159,18 +158,32 @@ private actor LightningConnectionManager {
                     ]
                 )
                 // Cleanup on failure
-                self.pendingConnectionPromise = nil
+                if let state = self.connectionState {
+                    await EAAccessoryWrapper.shared.cleanupConnection(id: state.connectionID)
+                    await state.didCloseConnection.fulfill(error)
+                }
                 self.connectionState = nil
                 await EAAccessoryWrapper.shared.stopMonitoring()
+                self.pendingConnectionPromise = nil
                 throw error
             }
         }
 
         do {
-            return try await task.value
+            return try await withTaskCancellationHandler {
+                try await task.value
+            } onCancel: {
+                Task { await self.cancelPendingConnection(connectionPromise) }
+            }
         } catch {
+            if Task.isCancelled { throw SmartCardConnectionError.cancelled }
             throw SmartCardConnectionError.setupFailed("Failed to begin SmartCard session", flatten: error)
         }
+    }
+
+    private func cancelPendingConnection(_ promise: Promise<LightningConnectionID>) async {
+        guard pendingConnectionPromise === promise, connectionState == nil else { return }
+        await promise.cancel(with: SmartCardConnectionError.cancelled)
     }
 
     func transmit(
@@ -211,7 +224,12 @@ private actor LightningConnectionManager {
     // Called by EAAccessoryWrapper when an accessory connects
     func accessoryDidConnect(connectionID: LightningConnectionID) async {
         logger.debug("Lightning accessory connected")
-        guard let promise = pendingConnectionPromise else { return }
+        guard let promise = pendingConnectionPromise else {
+            if connectionState?.connectionID != connectionID {
+                await EAAccessoryWrapper.shared.cleanupConnection(id: connectionID)
+            }
+            return
+        }
 
         connectionState = (connectionID: connectionID, didCloseConnection: Promise<Error?>())
         await promise.fulfill(connectionID)
@@ -224,7 +242,6 @@ private actor LightningConnectionManager {
         // If a connection attempt is in progress, fail it.
         if let promise = pendingConnectionPromise {
             await promise.cancel(with: SmartCardConnectionError.connectionLost)
-            self.pendingConnectionPromise = nil
         }
 
         guard let state = connectionState,
