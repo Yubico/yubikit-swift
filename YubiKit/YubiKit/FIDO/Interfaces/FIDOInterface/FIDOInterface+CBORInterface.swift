@@ -72,7 +72,7 @@ extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
     ) -> CTAP2.StatusStream<O> where Error == CTAP2.SessionError {
 
         CTAP2.StatusStream<O> { continuation in
-            Task {
+            let task = Task {
                 do throws(CTAP2.SessionError) {
                     // Check capability support
                     guard self.supports(.cbor) else {
@@ -82,6 +82,11 @@ extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
                     // Check message size
                     if data.count > self.maxMsgSize {
                         throw Error.ctapError(.requestTooLarge, source: .here())
+                    }
+
+                    // Once sent, a command runs to its response. A cancelled consumer only stops it here.
+                    guard !Task.isCancelled else {
+                        throw Error.ctapError(.keepaliveCancel, source: .here())
                     }
 
                     // Send the request
@@ -128,6 +133,7 @@ extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
                     continuation.yield(error: error)
                 }
             }
+            continuation.cancelOnTermination(task)
         }
     }
 }

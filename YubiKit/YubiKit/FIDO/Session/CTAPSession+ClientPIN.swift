@@ -241,7 +241,7 @@ private struct ClientPinHandler: Sendable, HasFIDOLogger {
 
         let pinProtocol = self.pinProtocol
         return CTAP2.StatusStream { continuation in
-            Task {
+            let task = Task {
                 do throws(CTAP2.SessionError) {
                     for try await status in inner {
                         switch status {
@@ -291,6 +291,7 @@ private struct ClientPinHandler: Sendable, HasFIDOLogger {
                     continuation.yield(error: error)
                 }
             }
+            continuation.cancelOnTermination(task)
         }
     }
 

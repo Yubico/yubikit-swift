@@ -67,7 +67,7 @@ extension StatusStreamBase {
     /// Wraps this stream with a timeout that yields the given error.
     func timeout(_ duration: Duration, error timeoutError: Failure) -> StatusStreamBase {
         StatusStreamBase { continuation in
-            Task {
+            let task = Task {
                 let completed = await withTaskGroup(of: Bool.self) { group in
                     group.addTask {
                         do {
@@ -91,12 +91,14 @@ extension StatusStreamBase {
                 }
 
                 // Cancelling the reader also ends its loop; only the winner decides completion.
-                if completed {
+                // A cancelled consumer also ends the timer early, which is not a timeout.
+                if completed || Task.isCancelled {
                     continuation.finish()
                 } else {
                     continuation.yield(error: timeoutError)
                 }
             }
+            continuation.cancelOnTermination(task)
         }
     }
 
@@ -121,6 +123,15 @@ extension StatusStreamBase {
 
         func finish() {
             continuation.finish()
+        }
+
+        // Cancels the producer when the consumer is cancelled. An unstructured task does not inherit
+        // cancellation, so a stream made in a cancelled task cancels its producer at once.
+        func cancelOnTermination<Success, TaskFailure>(_ task: Task<Success, TaskFailure>) {
+            continuation.onTermination = { termination in
+                if case .cancelled = termination { task.cancel() }
+            }
+            if Task.isCancelled { task.cancel() }
         }
     }
 }

@@ -69,6 +69,7 @@ extension FIDOInterface {
     ) async throws(Error) -> Data {
 
         var lastKeepalive: UInt8?
+        var cancelSent = false
 
         // Loop to handle KEEPALIVE messages
         while true {
@@ -107,6 +108,11 @@ extension FIDOInterface {
                         lastKeepalive = statusByte
                     }
                     handler(statusByte)
+                    // A cancelled caller stops the touch wait. The loop still reads the final response.
+                    if statusByte == keepaliveUpNeeded, Task.isCancelled, !cancelSent {
+                        cancelSent = true
+                        try await cancel()
+                    }
                     continue  // Keep waiting for actual response
                 } else {
                     throw Error.responseParseError("Unexpected KEEPALIVE for non-CBOR command", source: .here())

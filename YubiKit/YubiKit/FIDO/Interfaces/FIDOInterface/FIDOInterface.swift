@@ -118,6 +118,9 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 
 // MARK: - KEEPALIVE Status Mapping
 
+// The KEEPALIVE status of an authenticator that waits for user presence.
+let keepaliveUpNeeded: UInt8 = 0x02
+
 extension CTAP2.Status {
     static func fromKeepAlive(
         statusByte: UInt8,

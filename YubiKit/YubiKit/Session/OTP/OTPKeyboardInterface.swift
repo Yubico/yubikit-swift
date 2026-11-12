@@ -97,7 +97,7 @@ final actor OTPKeyboardInterface<Error: OTPSessionError>: HasOTPLogger {
             let isEdge = sequence == 0 || sequence == reportCount - 1
             guard isEdge || chunk.contains(where: { $0 != 0 }) else { continue }
 
-            try await awaitReadyToWrite()
+            try await awaitReadyToWrite(cancellable: sequence == 0)
             try await sendReport(chunk + [slotWriteFlag | UInt8(sequence)])
         }
         return programmingSequence
@@ -142,7 +142,8 @@ final actor OTPKeyboardInterface<Error: OTPSessionError>: HasOTPLogger {
                 throw .commandRejected("The YubiKey rejected the slot command", source: .here())
             } else {
                 // Busy. A pending touch is reported with the timeout-wait flag.
-                if statusByte & responseTimeoutWaitFlag != 0 {
+                let waitingForTouch = statusByte & responseTimeoutWaitFlag != 0
+                if waitingForTouch {
                     if !needsTouch {
                         logger.debug("OTP command waiting for touch")
                     }
@@ -151,9 +152,10 @@ final actor OTPKeyboardInterface<Error: OTPSessionError>: HasOTPLogger {
                 } else {
                     onKeepalive?(false)
                 }
-                try? await Task.sleep(for: needsTouch ? touchPollInterval : processingPollInterval)
+                await sleepIgnoringCancellation(for: needsTouch ? touchPollInterval : processingPollInterval)
                 // Checked after the sleep, which is where cancel(operationID:) gets a chance to run.
-                if isCancelled || Task.isCancelled {
+                // Task cancellation only ends a touch wait, so a configuration write still completes.
+                if isCancelled || (waitingForTouch && Task.isCancelled) {
                     isCancelled = false
                     try await resetState()
                     logger.debug("OTP command cancelled")
@@ -171,11 +173,12 @@ final actor OTPKeyboardInterface<Error: OTPSessionError>: HasOTPLogger {
         return next == 0 && previous > 0 && status[statusOffsetConfigState] & configSlotsProgrammedMask == 0
     }
 
-    private func awaitReadyToWrite() async throws(Error) {
+    // Only the first chunk can be cancelled, so a frame is never left half written.
+    private func awaitReadyToWrite(cancellable: Bool) async throws(Error) {
         for _ in 0..<readyPollAttempts {
             if try await receiveReport()[reportDataSize] & slotWriteFlag == 0 { return }
-            try? await Task.sleep(for: readyPollInterval)
-            guard !Task.isCancelled else { throw .cancelled(source: .here()) }
+            await sleepIgnoringCancellation(for: readyPollInterval)
+            guard !(cancellable && Task.isCancelled) else { throw .cancelled(source: .here()) }
         }
         throw .timeout(source: .here())
     }

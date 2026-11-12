@@ -145,7 +145,7 @@ extension YubiOTP {
             let interface = self.interface
             let operationID = UUID()
             return YubiOTP.StatusStream { continuation in
-                Task {
+                let task = Task {
                     let cancel: @Sendable () async -> Void = { await interface.cancel(operationID: operationID) }
                     do throws(YubiOTP.SessionError) {
                         let response = try await interface.readData(
@@ -162,6 +162,7 @@ extension YubiOTP {
                         continuation.yield(error: error)
                     }
                 }
+                continuation.cancelOnTermination(task)
             }
         }
 
