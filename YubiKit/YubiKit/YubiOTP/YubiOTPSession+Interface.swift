@@ -203,7 +203,8 @@ extension SmartCardInterface where Error == YubiOTP.SessionError {
         var response: Data = try await send(apdu: APDU(cla: 0, ins: insConfig, p1: command, p2: 0, command: data))
         if response.isEmpty {
             // Some YubiKeys return no status for some commands.
-            response = try await send(apdu: APDU(cla: 0, ins: insStatus, p1: 0, p2: 0))
+            let statusResponse = try await sendContinuingExchange(apdu: APDU(cla: 0, ins: insStatus, p1: 0, p2: 0))
+            response = statusResponse.data
         }
         guard response.count >= otpStatusSize else {
             throw .responseParseError("Truncated OTP status struct", source: .here())

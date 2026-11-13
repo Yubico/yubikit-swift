@@ -38,6 +38,11 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
     }
     let frameTimeout: Duration = .seconds(1.5)
 
+    // Keep this interface's channel owned until its response and cancellation send finish.
+    let operationGate = CTAPOperationGate()
+    var activeOperationID: UUID?
+    var cancellationTask: Task<Result<Void, Error>, Never>?
+
     // MARK: - Initialization
 
     /// Initialize FIDO interface with the given connection
@@ -56,6 +61,36 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
     /// Check if the authenticator supports a capability
     func supports(_ capability: CTAP2.Capabilities) -> Bool {
         capabilities.contains(capability)
+    }
+
+    func withExclusiveOperation<T: Sendable>(
+        cancellationError: Error? = nil,
+        _ operation: (UUID) async throws(Error) -> T
+    ) async throws(Error) -> T {
+        let operationID = UUID()
+        guard await operationGate.acquire(operationID) else {
+            throw cancellationError ?? Error.fidoConnectionError(.cancelled, source: .here())
+        }
+
+        activeOperationID = operationID
+        let result: Result<T, Error>
+        do throws(Error) {
+            result = .success(try await operation(operationID))
+        } catch {
+            result = .failure(error)
+        }
+        await finishOperation(operationID)
+        await operationGate.release(operationID)
+        return try result.get()
+    }
+
+    func finishOperation(_ operationID: UUID) async {
+        guard activeOperationID == operationID else { return }
+        if let cancellationTask {
+            _ = await cancellationTask.value
+        }
+        activeOperationID = nil
+        cancellationTask = nil
     }
 
     // MARK: - Private Implementation
@@ -117,6 +152,9 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
 }
 
 // MARK: - KEEPALIVE Status Mapping
+
+// The KEEPALIVE status of an authenticator that waits for user presence.
+let keepaliveUpNeeded: UInt8 = 0x02
 
 extension CTAP2.Status {
     static func fromKeepAlive(

@@ -114,6 +114,10 @@ public enum WebAuthn {
             func finish() {
                 base.finish()
             }
+
+            func cancelOnTermination<Success, TaskFailure>(_ task: Task<Success, TaskFailure>) {
+                base.cancelOnTermination(task)
+            }
         }
 
         private let base: Base

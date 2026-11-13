@@ -27,6 +27,8 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
 
     // Flag to signal cancellation for CTAP operations over NFC
     internal var shouldCancelCTAP: Bool = false
+    private let ctapOperationGate = CTAPOperationGate()
+    private var activeCTAPOperationID: UUID?
 
     // Maximum message size for CTAP operations (CBORInterface)
     // NEXTMAJOR: Change type to UInt to match GetInfoResponse.maxMsgSize (CTAP spec defines this as unsigned)
@@ -44,6 +46,9 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
         keyParams: SCPKeyParams? = nil,
         insSendRemaining: UInt8 = 0xc0
     ) async throws(Error) {
+        guard !Task.isCancelled else {
+            throw .connectionError(.cancelled, source: .here())
+        }
         self.connection = connection
 
         Self.logger.debug("Selecting application", metadata: ["application": .string(String(describing: application))])
@@ -91,13 +96,60 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
 
     // Sets a flag that will cause the next GET_RESPONSE poll to send P1_CANCEL_KEEP_ALIVE
     // instead of P1_KEEP_ALIVE, signaling the authenticator to abort the operation.
-    func cancel() async throws(Error) where Error == CTAP2.SessionError {
-        CTAP2.Session.logger.debug("Sending cancel...")
+    func cancel(operationID: UUID) {
+        guard activeCTAPOperationID == operationID else { return }
+        CTAP2.Session.logger.debug("Requesting CTAP cancellation...")
         shouldCancelCTAP = true
+    }
+
+    func makeCTAPCancelHandler(operationID: UUID) -> @Sendable () async -> Void {
+        { [weak self] in
+            await self?.cancel(operationID: operationID)
+        }
+    }
+
+    func withExclusiveCTAPOperation<T: Sendable>(
+        cancellationError: Error? = nil,
+        _ operation: (UUID) async throws(Error) -> T
+    ) async throws(Error) -> T {
+        let operationID = UUID()
+        guard await ctapOperationGate.acquire(operationID) else {
+            throw cancellationError ?? Error.connectionError(.cancelled, source: .here())
+        }
+
+        activeCTAPOperationID = operationID
+        let result: Result<T, Error>
+        do throws(Error) {
+            result = .success(try await operation(operationID))
+        } catch {
+            result = .failure(error)
+        }
+        finishCTAPOperation(operationID)
+        await ctapOperationGate.release(operationID)
+        return try result.get()
+    }
+
+    private func finishCTAPOperation(_ operationID: UUID) {
+        guard activeCTAPOperationID == operationID else { return }
+        activeCTAPOperationID = nil
+        shouldCancelCTAP = false
     }
 
     // Internal variant that returns full Response and throws on non-success status.
     internal func send(
+        apdu: APDU,
+        insSendRemaining: UInt8 = 0xc0,
+    ) async throws(Error) -> Response {
+        guard !Task.isCancelled else {
+            throw .connectionError(.cancelled, source: .here())
+        }
+
+        return try await sendContinuingExchange(apdu: apdu, insSendRemaining: insSendRemaining)
+    }
+
+    // Continue a protocol exchange that has already passed cancellation admission. The complete
+    // SCP wrapping and APDU continuation path still runs.
+    internal func sendContinuingExchange(
         apdu: APDU,
         insSendRemaining: UInt8 = 0xc0,
     ) async throws(Error) -> Response {
@@ -193,6 +245,10 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
 
     // NEO requires this raw command to leave Management before selecting another application.
     internal func deselectNEOManagement() async throws(Error) {
+        guard !Task.isCancelled else {
+            throw .connectionError(.cancelled, source: .here())
+        }
+
         do {
             _ = try await connection.send(data: Data([0xa4, 0x04, 0x00, 0x08]))
         } catch {

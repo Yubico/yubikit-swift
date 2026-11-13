@@ -27,7 +27,7 @@ extension WebAuthn.CTAP2Backend {
         allowedExtensions: Set<WebAuthn.Extension.Identifier>
     ) async -> WebAuthn.StatusStream<WebAuthn.Registration.Response> {
         let stream = WebAuthn.StatusStream { continuation in
-            Task { [self] in
+            let task = Task { [self] in
                 do throws(WebAuthn.ClientError) {
                     let response = try await performMakeCredential(
                         options: options,
@@ -42,6 +42,7 @@ extension WebAuthn.CTAP2Backend {
                     continuation.yield(error: error)
                 }
             }
+            continuation.cancelOnTermination(task)
         }
         return stream.withTimeout(options.timeout)
     }
@@ -151,6 +152,9 @@ extension WebAuthn.CTAP2Backend {
                     }
                 }
                 guard let response = receivedResponse else {
+                    if Task.isCancelled {
+                        throw CTAP2.SessionError.ctapError(.keepaliveCancel, source: .here())
+                    }
                     throw CTAP2.SessionError.responseParseError(
                         "No response from makeCredential",
                         source: .here()

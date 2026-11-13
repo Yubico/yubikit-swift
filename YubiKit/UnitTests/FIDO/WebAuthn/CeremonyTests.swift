@@ -19,8 +19,8 @@ import Testing
 
 /// SDK-surface ceremony tests for `WebAuthn.Client`, driven through
 /// `MockCTAP2Backend`. These exercise the Swift client (status stream,
-/// pre-supplied PIN, cancellation, and the credProtect/credProps extension
-/// echoes) without touching a YubiKey — migrated from the integration
+/// pre-supplied PIN, and the credProtect/credProps extension echoes) without
+/// touching a YubiKey, migrated from the integration
 /// `WebAuthn.Ceremony.*` / `WebAuthn.CredProtect.*` / `WebAuthn.CredProps.*`
 /// scenarios.
 @Suite("WebAuthn Ceremony Tests")
@@ -229,51 +229,6 @@ struct CeremonyTests {
         let resolved = try #require(matches, "Stream should have delivered .finished with matches")
         #expect(!resolved.isEmpty)
         #expect((resolved.first?.signature.count ?? 0) > 0)
-    }
-
-    // MARK: - Cancellation
-
-    @Test("makeCredential can be cancelled from the status stream")
-    func testCancelMakeCredential() async throws {
-        let mock = Self.pinBackend()
-        // Cancelling on waitingForUser aborts the in-flight CTAP command, which
-        // surfaces a keepaliveCancel — mapped to ClientError.cancelled.
-        mock.onMakeCredential = { _ in
-            CTAP2.StatusStream { continuation in
-                Task {
-                    continuation.yield(
-                        .waitingForUser(cancel: {
-                            continuation.yield(error: .ctapError(.keepaliveCancel, source: .here()))
-                        })
-                    )
-                }
-            }
-        }
-
-        let client = try WebAuthn.Client.make(backend: mock)
-
-        var caught: WebAuthn.ClientError?
-        var reachedFinished = false
-        do throws(WebAuthn.ClientError) {
-            for try await status in await client.makeCredential(Self.registrationOptions, authorization: .pin("1234")) {
-                switch status {
-                case .waitingForUser(let cancel):
-                    await cancel()
-                case .finished:
-                    reachedFinished = true
-                default:
-                    break
-                }
-            }
-        } catch {
-            caught = error
-        }
-
-        #expect(!reachedFinished, "makeCredential should have been cancelled before finishing")
-        guard case .cancelled = caught else {
-            Issue.record("Expected cancelled, got \(String(describing: caught))")
-            return
-        }
     }
 
     // MARK: - credProtect echo

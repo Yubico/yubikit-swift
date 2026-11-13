@@ -687,7 +687,8 @@ public final actor PIVSession: SmartCardSessionInternal {
             p2: UInt8(tagSlotCardManagement),
             command: authRecord.data
         )
-        let challengeResult = try await process(apdu: challengeApdu)
+        let challengeResponse = try await interface.sendContinuingExchange(apdu: challengeApdu)
+        let challengeResult = challengeResponse.data
 
         guard let dynAuthRecord = TKBERTLVRecord(from: challengeResult),
             dynAuthRecord.tag == tagDynAuth,

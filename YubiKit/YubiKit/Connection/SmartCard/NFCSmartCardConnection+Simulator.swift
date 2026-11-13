@@ -24,7 +24,13 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     private let connection: SimulatorTwinConnection
 
     public init() async throws(SmartCardConnectionError) {
-        self.connection = try await SimulatorTwinBackend.shared.openConnection(transport: .nfc)
+        guard !Task.isCancelled else { throw .cancelled }
+        let connection = try await SimulatorTwinBackend.shared.openConnection(transport: .nfc)
+        if Task.isCancelled {
+            connection.close(error: nil)
+            throw .cancelled
+        }
+        self.connection = connection
     }
 
     public init(alertMessage: String?) async throws(SmartCardConnectionError) {
