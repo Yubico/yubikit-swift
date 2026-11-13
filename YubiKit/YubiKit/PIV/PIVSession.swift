@@ -255,6 +255,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     /// This method requires authentication and pin verification.
     ///
     /// > Note: YubiKey FIPS does not allow RSA1024 nor ``PIV/PinPolicy/never``.
+    ///        RSA1024 is unavailable on firmware 6.0.0 or later.
     ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
     ///        ``PIV/KeyType/ec(_:)`` with `.secp384r1` requires P384 support, available on YubiKey 4 or later.
     ///        ``PIV/KeyType/ed25519`` and ``PIV/KeyType/x25519`` require YubiKey 5.7 or later.
@@ -307,6 +308,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     /// This method requires authentication.
     ///
     /// > Note: YubiKey FIPS does not allow RSA1024 nor ``PIV/PinPolicy/never``.
+    ///        RSA1024 is unavailable on firmware 6.0.0 or later.
     ///        ``PIV/PinPolicy`` or ``PIV/TouchPolicy`` other than ``PIV/PinPolicy/defaultPolicy`` require support for usage policy,
     ///        available on YubiKey 4 or later.
     ///
@@ -604,6 +606,8 @@ public final actor PIVSession: SmartCardSessionInternal {
     }
 
     /// Set a new management key.
+    ///
+    /// TDES management keys are unavailable on firmware 6.0.0 or later.
     /// - Parameters:
     ///   - managementKeyData: The new management key as Data.
     ///   - type: The management key type.
@@ -620,7 +624,11 @@ public final actor PIVSession: SmartCardSessionInternal {
                 throw .featureNotSupported(source: .here())
             }
         }
-        if type != .tripleDES {
+        if type == .tripleDES {
+            guard await self.supports(PIVSessionFeature.tripleDESManagementKey) else {
+                throw .featureNotSupported(source: .here())
+            }
+        } else {
             guard await self.supports(PIVSessionFeature.aesKey) else { throw .featureNotSupported(source: .here()) }
         }
         let tlv = TKBERTLVRecord(tag: tagSlotCardManagement, value: managementKeyData)
@@ -1153,6 +1161,11 @@ extension PIVSession {
         touchPolicy: PIV.TouchPolicy,
         generateKey: Bool
     ) async throws(PIVSessionError) {
+        if keyType == .rsa(.bits1024) {
+            guard await self.supports(PIVSessionFeature.rsa1024) else {
+                throw .featureNotSupported(source: .here())
+            }
+        }
         if keyType == .ec(.secp384r1) {
             guard await self.supports(PIVSessionFeature.p384) else { throw .featureNotSupported(source: .here()) }
         }
