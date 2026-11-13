@@ -159,58 +159,13 @@ struct UVFallbackToPINTests {
         }
     }
 
-    // MARK: - cancel without fallback throws .cancelled
-
-    @Test("cancel without fallback aborts ceremony with .cancelled")
-    func testCancelAbortsCeremony() async throws {
-        let mock = MockCTAP2Backend()
-        mock.onGetInfo = { .stub(clientPin: true, userVerification: true, pinUvAuthToken: true) }
-        mock.onGetUVRetries = { 3 }
-        mock.onGetPinRetries = { .init(retries: 8, powerCycleState: false) }
-
-        let gate = Promise<Void>()
-        let pinAttempts = Box(0)
-        mock.onGetPinUVTokenUpdates = { method, _, _ in
-            switch method {
-            case .uv:
-                return uvWaitingStream(gate: gate)
-            case .pin:
-                pinAttempts.value += 1
-                return .mocked(
-                    .finished(CTAP2.Token(token: Data(repeating: 0, count: 32), protocolVersion: .v2))
-                )
-            }
-        }
-        mock.onGetAssertion = { _ in .mocked(.finished(.stub(credentialId: Data([0xAA])))) }
-
-        let client = try WebAuthn.Client.make(backend: mock)
-        let auth = WebAuthn.Authorization(providePIN: { .pin("1234") }, uv: .preferred)
-        let stream = await client.getAssertion(Self.options, authorization: auth)
-
-        var caught: WebAuthn.ClientError?
-        do throws(WebAuthn.ClientError) {
-            for try await status in stream {
-                if case .waitingForUserVerification(let cancel, _) = status {
-                    await cancel()
-                }
-            }
-        } catch {
-            caught = error
-        }
-
-        guard case .cancelled = caught else {
-            Issue.record("Expected .cancelled, got \(String(describing: caught))")
-            return
-        }
-        #expect(pinAttempts.value == 0, "PIN path must not run after a plain cancel")
-    }
 }
 
 // MARK: - Test Helpers
 
 /// Builds a `getPinUVTokenUpdates` body that yields `.waitingForUser` and
 /// finalises with `keepaliveCancel` once the gate fulfils.
-private func uvWaitingStream(gate: Promise<Void>) -> CTAP2.StatusStream<CTAP2.Token> {
+func uvWaitingStream(gate: Promise<Void>) -> CTAP2.StatusStream<CTAP2.Token> {
     CTAP2.StatusStream<CTAP2.Token> { continuation in
         Task {
             continuation.yield(.waitingForUser(cancel: { await gate.fulfill(()) }))

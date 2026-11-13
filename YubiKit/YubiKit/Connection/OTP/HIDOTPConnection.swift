@@ -93,8 +93,18 @@ public struct HIDOTPConnection: Sendable, OTPConnection {
 
     /// Opens the OTP interface of a device returned by ``availableDevices(matching:)``.
     public init(device: HID.YubiKeyDevice) async throws(OTPConnectionError) {
+        guard !Task.isCancelled else { throw .cancelled }
         let didClose = Promise<Error?>()
-        self.id = try await HIDOTPConnectionManager.shared.open(device: device, didClose: didClose)
+        let id = try await HIDOTPConnectionManager.shared.open(device: device, didClose: didClose)
+        if Task.isCancelled {
+            await HIDOTPConnectionManager.shared.close(
+                locationID: device.locationID,
+                id: id,
+                error: OTPConnectionError.cancelled
+            )
+            throw .cancelled
+        }
+        self.id = id
         self.device = device
         self.didClose = didClose
     }

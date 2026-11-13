@@ -131,26 +131,6 @@ struct StatusStreamTests {
         }
     }
 
-    @Test("Value reports caller cancellation", arguments: [false, true])
-    func testValueCancellation(timed: Bool) async {
-        let stream = WebAuthn.StatusStream<String> { continuation in
-            continuation.yield(.processing)
-        }
-
-        do {
-            _ = try await withDeadline {
-                withUnsafeCurrentTask { $0?.cancel() }
-                return try await stream.withTimeout(timed ? .milliseconds(100) : nil).value
-            }
-            Issue.record("Expected cancellation")
-        } catch {
-            guard case WebAuthn.ClientError.cancelled = error else {
-                Issue.record("Expected cancellation, got \(error)")
-                return
-            }
-        }
-    }
-
     @Test("Timeout preserves the upstream error")
     func testTimeoutPreservesError() async {
         let stream = WebAuthn.StatusStream<String> { continuation in

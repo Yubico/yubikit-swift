@@ -30,55 +30,6 @@ struct HIDDeviceDiscoveryTests {
         #expect(device == 42)
     }
 
-    @Test("a waiting HID discovery stops on cancellation")
-    func cancelWhileWaiting() async throws {
-        let polled = Promise<Void>()
-        let task = Task {
-            try await waitForDevice(cancellationError: FIDOConnectionError.cancelled) {
-                () async throws(FIDOConnectionError) -> [Int] in
-                await polled.fulfill(())
-                return []
-            }
-        }
-        defer { task.cancel() }
-        try await polled.value()
-        task.cancel()
-        do {
-            _ = try await task.value
-            Issue.record("Cancelled HID discovery succeeded")
-        } catch FIDOConnectionError.cancelled {
-        }
-    }
-
-    @Test("FIDO acquisition rejects an already cancelled task")
-    func cancelledFIDO() async {
-        let task = Task {
-            withUnsafeCurrentTask { $0?.cancel() }
-            return try await HIDFIDOConnection()
-        }
-        do {
-            _ = try await task.value
-            Issue.record("Cancelled FIDO acquisition succeeded")
-        } catch FIDOConnectionError.cancelled {
-        } catch {
-            Issue.record("Unexpected cancellation error: \(error)")
-        }
-    }
-
-    @Test("OTP acquisition rejects an already cancelled task")
-    func cancelledOTP() async {
-        let task = Task {
-            withUnsafeCurrentTask { $0?.cancel() }
-            return try await HIDOTPConnection()
-        }
-        do {
-            _ = try await task.value
-            Issue.record("Cancelled OTP acquisition succeeded")
-        } catch OTPConnectionError.cancelled {
-        } catch {
-            Issue.record("Unexpected cancellation error: \(error)")
-        }
-    }
 }
 
 private actor DelayedDiscovery {

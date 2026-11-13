@@ -18,6 +18,20 @@ import Foundation
 
 extension FIDOInterface {
 
+    func makeCancelHandler(
+        operationID: UUID,
+        onError: @escaping @Sendable (Error) -> Void
+    ) -> @Sendable () async -> Void {
+        { [weak self] in
+            guard let self else { return }
+            do throws(Error) {
+                try await self.cancel(operationID: operationID)
+            } catch {
+                onError(error)
+            }
+        }
+    }
+
     /// Test communication by sending data and receiving it back
     ///
     /// The PING command is used to verify that the HID transport is working correctly.
@@ -67,13 +81,30 @@ extension FIDOInterface {
 
     /// Cancel any pending operation on this channel
     ///
-    /// Sends a CANCEL command to abort ongoing operations such as waiting for user interaction.
-    /// This is a one-way message - the authenticator will respond to the original command with
-    /// a keepaliveCancel error rather than responding to the CANCEL command itself.
-    ///
-    /// - Throws: ``FIDOSessionError`` if sending the cancel command fails
-    func cancel() async throws(Error) {
-        logger.debug("Sending cancel...")
-        try await sendRequest(cmd: Self.hidCommand(.cancel), payload: nil)
+    /// Sends CANCEL for the active operation. Later calls reuse the same send task.
+    func cancel(operationID: UUID) async throws(Error) {
+        guard activeOperationID == operationID else { return }
+
+        let task: Task<Result<Void, Error>, Never>
+        if let cancellationTask {
+            task = cancellationTask
+        } else {
+            task = Task {
+                do throws(Error) {
+                    try await self.sendRequest(cmd: Self.hidCommand(.cancel), payload: nil)
+                    return .success(())
+                } catch {
+                    return .failure(error)
+                }
+            }
+            cancellationTask = task
+        }
+
+        switch await task.value {
+        case .success:
+            return
+        case let .failure(error):
+            throw error
+        }
     }
 }

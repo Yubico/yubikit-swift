@@ -66,6 +66,9 @@ extension CTAP2 {
         ///
         /// Iterates through all status updates and returns the response
         /// from the `.finished` case. Intermediate status updates are ignored.
+        ///
+        /// - Throws: ``SessionError/ctapError(_:source:)`` with ``CTAP2/Error/keepaliveCancel``
+        ///   if the calling task is cancelled before the response arrives.
         public var value: R {
             get async throws(SessionError) {
                 for try await status in self {
@@ -73,7 +76,10 @@ extension CTAP2 {
                         return response
                     }
                 }
-                preconditionFailure("StatusStream must yield .finished before ending")
+                if Task.isCancelled {
+                    throw .ctapError(.keepaliveCancel, source: .here())
+                }
+                throw .dataProcessingError("StatusStream ended before a response", source: .here())
             }
         }
 

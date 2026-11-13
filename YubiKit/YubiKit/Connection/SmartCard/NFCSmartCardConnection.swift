@@ -247,19 +247,21 @@ private actor NFCConnectionManagerWrapper {
     func connect(message alertMessage: String?) async throws(SmartCardConnectionError) -> ISO7816Identifier {
         let queue = self.queue
         let manager = self.nfcStateManager
+        let request = NFCConnectRequest()
         do {
             try Task.checkCancellation()
             return try await withTaskCancellationHandler {
                 try await withCheckedThrowingContinuation { continuation in
                     queue.async {
-                        manager.connect(message: alertMessage) { result in
-                            continuation.resume(with: result)
-                        }
+                        request.install(continuation)
+                        manager.connect(message: alertMessage, request: request)
                     }
                 }
             } onCancel: {
-                // Cancelled while the NFC sheet is up: invalidate the session so it dismisses.
-                queue.async { manager.cancelPendingConnection() }
+                queue.async {
+                    request.cancel()
+                    manager.cancelPendingConnection(for: request)
+                }
             }
         } catch {
             NFCConnectionManager.logger.debug(
@@ -282,6 +284,30 @@ private actor NFCConnectionManagerWrapper {
     }
 }
 
+// Accessed only on the NFC manager queue.
+private final class NFCConnectRequest: @unchecked Sendable {
+    private var continuation: CheckedContinuation<ISO7816Identifier, Error>?
+    private(set) var isCancelled = false
+    private var isComplete = false
+
+    func install(_ continuation: CheckedContinuation<ISO7816Identifier, Error>) {
+        self.continuation = continuation
+        if isCancelled { complete(.failure(SmartCardConnectionError.cancelled)) }
+    }
+
+    func cancel() {
+        isCancelled = true
+        complete(.failure(SmartCardConnectionError.cancelled))
+    }
+
+    func complete(_ result: Result<ISO7816Identifier, Error>) {
+        guard !isComplete, let continuation else { return }
+        isComplete = true
+        self.continuation = nil
+        continuation.resume(with: result)
+    }
+}
+
 // Handles Core NFC session orchestration, guarantees balanced lifetime
 // calls, and multiplexes NFCSmartCardConnection instances to the single
 // NFCTagReaderSession permitted by the system.
@@ -292,6 +318,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
     private var isEstablishing: Bool = false
     private let currentState = NFCState()
     private let nfcQueue: DispatchQueue
+    private var activeRequest: NFCConnectRequest?
 
     // iOS fails a reader session begun while the previous session's sheet is still being
     // dismissed (NFCReaderError 202, "Session invalidated unexpectedly"), so wait this long
@@ -407,19 +434,20 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
 
     // Dismisses the reader sheet of a connection still waiting for a tap. A connection that
     // was established before the cancellation arrived belongs to the caller and is kept.
-    func cancelPendingConnection() {
-        guard currentState.phase == .scanning else { return }
+    func cancelPendingConnection(for request: NFCConnectRequest) {
+        guard activeRequest === request, currentState.phase == .scanning else { return }
         stop(with: .success(nil)) {}
     }
 
     func connect(
         message alertMessage: String?,
-        completion: @escaping @Sendable (Result<ISO7816Identifier, Error>) -> Void
+        request: NFCConnectRequest
     ) {
         logger.debug("Starting NFC connection")
+        guard !request.isCancelled else { return }
         guard NFCReaderSession.readingAvailable else {
             logger.debug("NFC reading is unavailable")
-            completion(.failure(SmartCardConnectionError.unsupported))
+            request.complete(.failure(SmartCardConnectionError.unsupported))
             return
         }
 
@@ -430,7 +458,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             if let lastInvalidation, DispatchTime.now() < lastInvalidation + Self.sessionCooldown {
                 logger.debug("Waiting for the previous NFC session to be dismissed")
                 nfcQueue.asyncAfter(deadline: lastInvalidation + Self.sessionCooldown) { [weak self] in
-                    self?.connect(message: alertMessage, completion: completion)
+                    self?.connect(message: alertMessage, request: request)
                 }
                 return
             }
@@ -440,25 +468,25 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
             if let existing = currentState.stopCompletion {
                 currentState.stopCompletion = { [weak self] in
                     existing()
-                    self?.connect(message: alertMessage, completion: completion)
+                    self?.connect(message: alertMessage, request: request)
                 }
             } else {
                 currentState.stopCompletion = { [weak self] in
-                    self?.connect(message: alertMessage, completion: completion)
+                    self?.connect(message: alertMessage, request: request)
                 }
             }
             return
         case .scanning, .connected:
             logger.debug("NFC connection is already active or pending")
             // throw
-            completion(.failure(SmartCardConnectionError.busy))
+            request.complete(.failure(SmartCardConnectionError.busy))
             return
         }
 
         // To proceed with a new connection we need to acquire a lock
         guard !isEstablishing else {
             logger.debug("NFC connection setup is already in progress")
-            completion(.failure(SmartCardConnectionError.cancelled))
+            request.complete(.failure(SmartCardConnectionError.busy))
             return
         }
         isEstablishing = true
@@ -467,15 +495,17 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         guard let session = NFCTagReaderSession(pollingOption: [.iso14443], delegate: self, queue: nfcQueue) else {
             isEstablishing = false
             logger.debug("Failed to create NFC reader session")
-            completion(.failure(SmartCardConnectionError.pollingFailed("Failed to create NFC reader session")))
+            request.complete(.failure(SmartCardConnectionError.pollingFailed("Failed to create NFC reader session")))
             return
         }
 
+        activeRequest = request
         currentState.setScanning(
             session: session,
-            completion: { [weak self] (result: Result<ISO7816Identifier, Error>) in
+            completion: { [weak self] result in
                 self?.isEstablishing = false
-                completion(result)
+                if self?.activeRequest === request { self?.activeRequest = nil }
+                request.complete(result)
             }
         )
 
@@ -486,6 +516,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
     func connected(session: NFCTagReaderSession, tag: NFCISO7816Tag) {
         logger.debug("NFC tag detected")
 
+        guard currentState.phase == .scanning else { return }
         guard let connectionCompletion = currentState.connectionCompletion else {
             cleanup(session: session)
             return

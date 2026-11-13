@@ -69,101 +69,109 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
     ) -> CTAP2.StatusStream<O> {
 
         CTAP2.StatusStream<O> { continuation in
-            Task {
+            let task = Task {
                 do throws(CTAP2.SessionError) {
-                    let CLA: UInt8 = 0x80
-                    let NFCCTAP_MSG: UInt8 = 0x10
-                    let P1_KEEP_ALIVE: UInt8 = 0x00
-                    let P1_CANCEL_KEEP_ALIVE: UInt8 = 0x11
-                    let P1_GET_RESPONSE: UInt8 = 0x80
-                    let SW_KEEPALIVE: UInt16 = 0x9100
-                    let NFCCTAP_GETRESPONSE: UInt8 = 0x11
+                    try await self.withExclusiveCTAPOperation(
+                        cancellationError: .ctapError(.keepaliveCancel, source: .here())
+                    ) { (operationID: UUID) async throws(CTAP2.SessionError) in
+                        let CLA: UInt8 = 0x80
+                        let NFCCTAP_MSG: UInt8 = 0x10
+                        let P1_KEEP_ALIVE: UInt8 = 0x00
+                        let P1_CANCEL_KEEP_ALIVE: UInt8 = 0x11
+                        let P1_GET_RESPONSE: UInt8 = 0x80
+                        let SW_KEEPALIVE: UInt16 = 0x9100
+                        let NFCCTAP_GETRESPONSE: UInt8 = 0x11
 
-                    // Clear cancellation flag at the start of operation
-                    self.shouldCancelCTAP = false
+                        // Clear cancellation flag after this operation owns the CTAP channel.
+                        self.shouldCancelCTAP = false
 
-                    // Check message size
-                    if data.count > self.maxMsgSize {
-                        throw Error.ctapError(.requestTooLarge, source: .here())
-                    }
-
-                    // Create cancel closure that sets the flag
-                    // Any errors during cancellation are yielded to the stream
-                    let cancelClosure: @Sendable () async -> Void = { [weak self] in
-                        do throws(CTAP2.SessionError) {
-                            try await self?.cancel()
-                        } catch {
-                            continuation.yield(error: error)
+                        // Check message size
+                        if data.count > self.maxMsgSize {
+                            throw Error.ctapError(.requestTooLarge, source: .here())
                         }
-                    }
 
-                    // Send initial CTAP command
-                    let initialApdu = APDU(cla: CLA, ins: NFCCTAP_MSG, p1: P1_GET_RESPONSE, p2: 0x00, command: data)
+                        // Keep the handler weak so a retained status does not retain the interface.
+                        let cancelClosure = self.makeCTAPCancelHandler(operationID: operationID)
 
-                    var response: Response
-                    response = try await self.sendAllowingKeepalive(apdu: initialApdu)
+                        // Once sent, a command runs to its response. A cancelled consumer only stops it here.
+                        guard !Task.isCancelled else {
+                            throw Error.ctapError(.keepaliveCancel, source: .here())
+                        }
 
-                    var lastKeepalive: UInt8?
+                        // Send initial CTAP command
+                        let initialApdu = APDU(cla: CLA, ins: NFCCTAP_MSG, p1: P1_GET_RESPONSE, p2: 0x00, command: data)
 
-                    // Poll with GET_RESPONSE while SW is 0x9100 (operation in progress)
-                    while response.responseStatus.rawStatus == SW_KEEPALIVE {
-                        // Parse keepalive status byte from response data
-                        let statusByte = response.data.first ?? 0x01  // Default to processing
-                        if lastKeepalive != statusByte {
-                            CTAP2.Session.logger.debug(
-                                "Got keepalive status",
-                                metadata: ["status": .string(String(format: "%02x", statusByte))]
+                        var response: Response
+                        response = try await self.sendAllowingKeepalive(apdu: initialApdu)
+
+                        var lastKeepalive: UInt8?
+
+                        // Poll with GET_RESPONSE while SW is 0x9100 (operation in progress)
+                        while response.responseStatus.rawStatus == SW_KEEPALIVE {
+                            // Parse keepalive status byte from response data
+                            let statusByte = response.data.first ?? 0x01  // Default to processing
+                            if lastKeepalive != statusByte {
+                                CTAP2.Session.logger.debug(
+                                    "Got keepalive status",
+                                    metadata: ["status": .string(String(format: "%02x", statusByte))]
+                                )
+                                lastKeepalive = statusByte
+                            }
+                            if let currentStatus: CTAP2.Status<O> = CTAP2.Status.fromKeepAlive(
+                                statusByte: statusByte,
+                                cancel: cancelClosure
+                            ) {
+                                continuation.yield(currentStatus)
+                            }
+
+                            // Avoid hammering the authenticator, also while cancelled
+                            await sleepIgnoringCancellation(for: .milliseconds(100))
+
+                            // A cancelled caller stops the touch wait. Polling continues to the final response.
+                            if statusByte == keepaliveUpNeeded && Task.isCancelled {
+                                self.shouldCancelCTAP = true
+                            }
+
+                            // Use P1_CANCEL_KEEP_ALIVE once cancelled
+                            let p1 = self.shouldCancelCTAP ? P1_CANCEL_KEEP_ALIVE : P1_KEEP_ALIVE
+
+                            // Send GET_RESPONSE to poll for completion
+                            let getResponseApdu = APDU(
+                                cla: CLA,
+                                ins: NFCCTAP_GETRESPONSE,
+                                p1: p1,
+                                p2: 0x00,
+                                command: nil
                             )
-                            lastKeepalive = statusByte
-                        }
-                        if let currentStatus: CTAP2.Status<O> = CTAP2.Status.fromKeepAlive(
-                            statusByte: statusByte,
-                            cancel: cancelClosure
-                        ) {
-                            continuation.yield(currentStatus)
+                            response = try await self.sendAllowingKeepalive(apdu: getResponseApdu)
                         }
 
-                        // Avoid hammering the authenticator
-                        try? await Task.sleep(for: .milliseconds(100))
+                        // Check final response status
+                        guard response.status == .ok else {
+                            throw Error.failedResponse(response, source: .here())
+                        }
 
-                        // Use P1_CANCEL_KEEP_ALIVE if cancel() was called
-                        let p1 = self.shouldCancelCTAP ? P1_CANCEL_KEEP_ALIVE : P1_KEEP_ALIVE
-
-                        // Send GET_RESPONSE to poll for completion
-                        let getResponseApdu = APDU(
-                            cla: CLA,
-                            ins: NFCCTAP_GETRESPONSE,
-                            p1: p1,
-                            p2: 0x00,
-                            command: nil
-                        )
-                        response = try await self.sendAllowingKeepalive(apdu: getResponseApdu)
+                        // Parse and yield final response
+                        let result: O = try parse(response.data)
+                        if data.first == CTAP2.Command.reset.rawValue {
+                            CTAP2.Session.logger.info("Reset completed - All data erased")
+                        } else if data.first == CTAP2.Command.makeCredential.rawValue {
+                            CTAP2.Session.logger.info("Credential created")
+                        } else if data.first == CTAP2.Command.getAssertion.rawValue,
+                            let assertion = result as? CTAP2.GetAssertion.Response
+                        {
+                            CTAP2.Session.logger.info(
+                                "Authenticator reported assertions",
+                                metadata: ["assertionCount": .stringConvertible(assertion.numberOfCredentials ?? 1)]
+                            )
+                        }
+                        continuation.yield(.finished(result))
                     }
-
-                    // Check final response status
-                    guard response.status == .ok else {
-                        throw Error.failedResponse(response, source: .here())
-                    }
-
-                    // Parse and yield final response
-                    let result: O = try parse(response.data)
-                    if data.first == CTAP2.Command.reset.rawValue {
-                        CTAP2.Session.logger.info("Reset completed - All data erased")
-                    } else if data.first == CTAP2.Command.makeCredential.rawValue {
-                        CTAP2.Session.logger.info("Credential created")
-                    } else if data.first == CTAP2.Command.getAssertion.rawValue,
-                        let assertion = result as? CTAP2.GetAssertion.Response
-                    {
-                        CTAP2.Session.logger.info(
-                            "Authenticator reported assertions",
-                            metadata: ["assertionCount": .stringConvertible(assertion.numberOfCredentials ?? 1)]
-                        )
-                    }
-                    continuation.yield(.finished(result))
                 } catch {
                     continuation.yield(error: error)
                 }
             }
+            continuation.cancelOnTermination(task)
         }
     }
 
@@ -173,7 +181,7 @@ extension SmartCardInterface: CBORInterface where Error == CTAP2.SessionError {
 
         var response: Response
         do throws(CTAP2.SessionError) {
-            response = try await self.send(apdu: apdu)
+            response = try await self.sendContinuingExchange(apdu: apdu)
         } catch let CTAP2.SessionError.failedResponse(errorResponse, source: _) {
             // A SW_KEEPALIVE will enter here and we use the response directly
             response = errorResponse
