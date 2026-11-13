@@ -442,8 +442,7 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         IOHIDDeviceUnscheduleFromRunLoop(connection.device, runloop!, CFRunLoopMode.defaultMode.rawValue)
 
         let didClose = connection.didClose
-        let pendingReceive = connection.pendingReceive
-        connection.pendingReceive = nil
+        let pendingReceive = connection.packetQueue.cancelPendingReceive()
         Task { @Sendable in
             await pendingReceive?.cancel(with: FIDOConnectionError.connectionLost)
             await didClose.fulfill(closeError)
@@ -488,26 +487,12 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
             return .failure(FIDOConnectionError.connectionLost)
         }
 
-        // Check if we already have queued frames - deliver the oldest one immediately
-        if !connectionState.receivedFrames.isEmpty {
-            let frame = connectionState.receivedFrames.removeFirst()
-            let promise = Promise<Data>()
-            Task { @Sendable in
-                await promise.fulfill(frame)
-            }
-            return .success(promise)
-        }
-
-        // No queued frames - create a new promise to wait for incoming data
-        let promise = Promise<Data>()
-        connectionState.pendingReceive = promise
-        return .success(promise)
+        return connectionState.packetQueue.receive()
     }
 
     private func withdrawPendingReceive(_ promise: Promise<Data>, from locationID: Int) -> Promise<Data>? {
-        guard let state = openConnections[locationID], state.pendingReceive === promise else { return nil }
-        state.pendingReceive = nil
-        return promise
+        guard let state = openConnections[locationID] else { return nil }
+        return state.packetQueue.withdraw(promise)
     }
 
     // MARK: - Connection State
@@ -517,11 +502,7 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         let device: IOHIDDevice
         let didClose: Promise<Error?>
 
-        // Queue of received input reports waiting to be consumed
-        var receivedFrames: [Data] = []
-
-        // Promise for the next input report
-        var pendingReceive: Promise<Data>?
+        let packetQueue = HIDPacketQueue()
 
         // HID input report buffer
         var inputBuffer = [UInt8](repeating: 0, count: hidPayloadSize)
@@ -558,22 +539,56 @@ private final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         // Find connection by matching the device pointer
         for (_, connectionState) in openConnections {
             if Unmanaged.passUnretained(connectionState.device).toOpaque() == sender {
-                // If there's a pending receive promise, fulfill it immediately
-                if let promise = connectionState.pendingReceive {
-                    connectionState.pendingReceive = nil
+                if let promise = connectionState.packetQueue.enqueue(data) {
                     // Return the full 64-byte HID report
                     Task { @Sendable in
                         await promise.fulfill(data)
                     }
-                } else {
-                    // No pending promise - queue the frame for later
-                    connectionState.receivedFrames.append(data)
                 }
                 return
             }
         }
 
         logger.debug("Ignoring HID report for an unknown device")
+    }
+}
+
+// Only the HID manager's run loop mutates this queue.
+final class HIDPacketQueue {
+    private var receivedFrames: [Data] = []
+    private var pendingReceive: Promise<Data>?
+
+    func receive() -> Result<Promise<Data>, FIDOConnectionError> {
+        guard pendingReceive == nil else { return .failure(.busy) }
+
+        let promise = Promise<Data>()
+        if !receivedFrames.isEmpty {
+            let frame = receivedFrames.removeFirst()
+            Task { @Sendable in await promise.fulfill(frame) }
+        } else {
+            pendingReceive = promise
+        }
+        return .success(promise)
+    }
+
+    func withdraw(_ promise: Promise<Data>) -> Promise<Data>? {
+        guard pendingReceive === promise else { return nil }
+        pendingReceive = nil
+        return promise
+    }
+
+    func enqueue(_ frame: Data) -> Promise<Data>? {
+        guard let promise = pendingReceive else {
+            receivedFrames.append(frame)
+            return nil
+        }
+        pendingReceive = nil
+        return promise
+    }
+
+    func cancelPendingReceive() -> Promise<Data>? {
+        defer { pendingReceive = nil }
+        return pendingReceive
     }
 }
 

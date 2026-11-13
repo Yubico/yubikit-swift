@@ -14,40 +14,34 @@
 
 import Foundation
 
-// Execute async operation with timeout. Returns nil if timeout occurs, result otherwise.
-// Cancelling the caller does not end the timer, so the operation decides how to handle it.
+// Finish an exchange's wait even if its caller is cancelled. The timeout cancels the operation
+// and returns nil after it exits, so the operation must cooperate with timeout cancellation.
 @inlinable
-func withTimeout<T: Sendable, E: Error>(
+func withTimeoutIgnoringCancellation<T: Sendable, E: Error>(
     _ timeout: Duration,
     clock: ContinuousClock = ContinuousClock(),
     operation: @Sendable @escaping () async throws(E) -> T
 ) async throws(E) -> T? {
-    // Unstructured, so caller cancellation cannot end the sleep early and fake a timeout.
-    let timer = Task { try await clock.sleep(for: timeout) }
-    let work = Task { try await operation() }
-    do {
-        return try await withThrowingTaskGroup(of: T?.self, returning: T?.self) { group in
-            // Runs before the group awaits its children, so a finished operation does not wait for the deadline.
-            defer { timer.cancel() }
-
-            // Caller cancellation does not abandon a receive that is already in progress.
-            group.addTask { try await work.value }
-
-            // 2) The timer (returns nil at the deadline)
+    let race = Task {
+        await withTaskGroup(of: Result<T?, E>.self) { group in
             group.addTask {
-                try? await timer.value
-                return nil
+                do throws(E) {
+                    return .success(try await operation())
+                } catch {
+                    return .failure(error)
+                }
             }
 
-            // 3) Whichever completes first decides the result
-            let first = try await group.next()!
-            if first == nil { work.cancel() }
-            group.cancelAll()  // Cancel the loser
-            return first
+            group.addTask {
+                try? await clock.sleep(for: timeout)
+                return .success(nil)
+            }
+
+            defer { group.cancelAll() }
+            return await group.next()!
         }
-    } catch {
-        throw error as! E
     }
+    return try await race.value.get()
 }
 
 // Sleeps for the full duration even if the caller is cancelled, so a poll loop that must finish

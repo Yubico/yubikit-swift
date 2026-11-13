@@ -91,6 +91,7 @@ extension CTAP2 {
         // MARK: - Internal
 
         internal let interface: Interface
+        internal let bioEnrollmentGate = CTAPOperationGate()
 
         internal init(interface: Interface) async {
             self.interface = interface

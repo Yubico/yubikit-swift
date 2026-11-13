@@ -107,18 +107,32 @@ extension EAAccessoryWrapper: HasLightningLogger {}
 
 // MARK: - Private helpers / extensions
 
-private actor LightningConnectionManager {
+protocol LightningAccessoryManaging: Sendable {
+    func connectToCurrentDevices() async
+    func startMonitoring() async
+    func stopMonitoring() async
+    func cleanupConnection(id: LightningConnectionID) async
+    func transmit(id: LightningConnectionID, data: Data) async throws(SmartCardConnectionError) -> Data
+}
 
-    static let shared = LightningConnectionManager()
+actor LightningConnectionManager {
 
+    static let shared = LightningConnectionManager(accessoryManager: EAAccessoryWrapper.shared)
+
+    private let accessoryManager: any LightningAccessoryManaging
     private var pendingConnectionPromise: Promise<LightningConnectionID>?
     private var connectionState: (connectionID: LightningConnectionID, didCloseConnection: (Promise<Error?>))?
+    private var isCleaningUpConnectionAttempt = false
 
-    private init() {}
+    init(accessoryManager: any LightningAccessoryManaging) {
+        self.accessoryManager = accessoryManager
+    }
 
     func connect() async throws(SmartCardConnectionError) -> LightningConnectionID {
+        guard !Task.isCancelled else { throw SmartCardConnectionError.cancelled }
+
         // If there is already a connection the caller must close the connection first.
-        if connectionState != nil || pendingConnectionPromise != nil {
+        if connectionState != nil || pendingConnectionPromise != nil || isCleaningUpConnectionAttempt {
             logger.debug("Lightning connection is already active or pending")
             throw SmartCardConnectionError.busy
         }
@@ -131,17 +145,11 @@ private actor LightningConnectionManager {
             logger.debug("Waiting for a Lightning accessory")
 
             do {
-                // Close previous connection if it exists
-                if let connection = connectionState {
-                    await connection.didCloseConnection.fulfill(nil)
-                    self.connectionState = nil
-                }
-
                 // Connect to YubiKeys that are already plugged in
-                await EAAccessoryWrapper.shared.connectToCurrentDevices()
+                await accessoryManager.connectToCurrentDevices()
 
                 // Start monitoring for new accessories
-                await EAAccessoryWrapper.shared.startMonitoring()
+                await accessoryManager.startMonitoring()
 
                 // Await the promise which will be fulfilled by accessoryDidConnect()
                 let result = try await connectionPromise.value()
@@ -158,13 +166,17 @@ private actor LightningConnectionManager {
                     ]
                 )
                 // Cleanup on failure
-                if let state = self.connectionState {
-                    await EAAccessoryWrapper.shared.cleanupConnection(id: state.connectionID)
+                let state = self.connectionState
+                self.connectionState = nil
+                self.pendingConnectionPromise = nil
+                self.isCleaningUpConnectionAttempt = true
+
+                if let state {
+                    await accessoryManager.cleanupConnection(id: state.connectionID)
                     await state.didCloseConnection.fulfill(error)
                 }
-                self.connectionState = nil
-                await EAAccessoryWrapper.shared.stopMonitoring()
-                self.pendingConnectionPromise = nil
+                await accessoryManager.stopMonitoring()
+                self.isCleaningUpConnectionAttempt = false
                 throw error
             }
         }
@@ -199,7 +211,7 @@ private actor LightningConnectionManager {
             throw SmartCardConnectionError.connectionLost
         }
 
-        return try await EAAccessoryWrapper.shared.transmit(id: connectionID, data: request)
+        return try await accessoryManager.transmit(id: connectionID, data: request)
     }
 
     func close(for connection: LightningSmartCardConnection, error: Error?) async {
@@ -207,8 +219,8 @@ private actor LightningConnectionManager {
             state.connectionID == connection.accessoryConnectionID
         else { return }
 
-        await EAAccessoryWrapper.shared.stopMonitoring()
-        await EAAccessoryWrapper.shared.cleanupConnection(id: state.connectionID)
+        await accessoryManager.stopMonitoring()
+        await accessoryManager.cleanupConnection(id: state.connectionID)
         await state.didCloseConnection.fulfill(error)
         connectionState = nil
     }
@@ -226,7 +238,7 @@ private actor LightningConnectionManager {
         logger.debug("Lightning accessory connected")
         guard let promise = pendingConnectionPromise else {
             if connectionState?.connectionID != connectionID {
-                await EAAccessoryWrapper.shared.cleanupConnection(id: connectionID)
+                await accessoryManager.cleanupConnection(id: connectionID)
             }
             return
         }
@@ -253,7 +265,7 @@ private actor LightningConnectionManager {
     }
 }
 
-private actor EAAccessoryWrapper: NSObject, StreamDelegate {
+private actor EAAccessoryWrapper: NSObject, StreamDelegate, LightningAccessoryManaging {
 
     static let shared = EAAccessoryWrapper()
     private override init() {}
@@ -379,7 +391,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
         }
 
         while true {
-            try? await Task.sleep(for: .seconds(0.002))
+            await sleepIgnoringCancellation(for: .milliseconds(2))
             let result: Data
             do {
                 result = try inputStream.readFromYubiKey()
@@ -424,7 +436,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate {
     }
 }
 
-private typealias LightningConnectionID = Int
+typealias LightningConnectionID = Int
 
 extension EAAccessory {
     fileprivate var isYubiKey: Bool {

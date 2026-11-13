@@ -26,6 +26,7 @@ final actor OTPKeyboardInterface<Error: OTPSessionError>: HasOTPLogger {
     private(set) var status: Data
 
     init(connection: OTPConnection, resolveDevelopmentVersion: Bool = true) async throws(Error) {
+        guard !Task.isCancelled else { throw .cancelled(source: .here()) }
         let status = Self.status(in: try await Self.receiveReport(from: connection))
         self.connection = connection
         let reportedVersion = Version(withData: status.prefix(3))!
@@ -35,6 +36,7 @@ final actor OTPKeyboardInterface<Error: OTPSessionError>: HasOTPLogger {
     }
 
     func readStatus() async throws(Error) -> Data {
+        guard !Task.isCancelled else { throw .cancelled(source: .here()) }
         logger.debug("Reading OTP status")
         status = Self.status(in: try await receiveReport())
         return status
@@ -47,6 +49,7 @@ final actor OTPKeyboardInterface<Error: OTPSessionError>: HasOTPLogger {
         operationID: UUID? = nil,
         onKeepalive: (@Sendable (_ waitingForTouch: Bool) -> Void)? = nil
     ) async throws(Error) -> Data {
+        guard !Task.isCancelled else { throw .cancelled(source: .here()) }
         isCancelled = false
         activeOperationID = operationID
         defer { activeOperationID = nil }
@@ -176,9 +179,11 @@ final actor OTPKeyboardInterface<Error: OTPSessionError>: HasOTPLogger {
     // Only the first chunk can be cancelled, so a frame is never left half written.
     private func awaitReadyToWrite(cancellable: Bool) async throws(Error) {
         for _ in 0..<readyPollAttempts {
-            if try await receiveReport()[reportDataSize] & slotWriteFlag == 0 { return }
-            await sleepIgnoringCancellation(for: readyPollInterval)
             guard !(cancellable && Task.isCancelled) else { throw .cancelled(source: .here()) }
+            let report = try await receiveReport()
+            guard !(cancellable && Task.isCancelled) else { throw .cancelled(source: .here()) }
+            if report[reportDataSize] & slotWriteFlag == 0 { return }
+            await sleepIgnoringCancellation(for: readyPollInterval)
         }
         throw .timeout(source: .here())
     }

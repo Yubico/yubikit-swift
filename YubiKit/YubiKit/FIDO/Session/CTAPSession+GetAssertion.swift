@@ -176,6 +176,9 @@ extension CTAP2.GetAssertion {
                         return response
                     }
                 }
+                if Task.isCancelled {
+                    throw CTAP2.SessionError.ctapError(.keepaliveCancel, source: .here())
+                }
                 throw CTAP2.SessionError.responseParseError("No response from GetAssertion", source: .here())
             } else if currentIndex < totalCredentials {
                 // Get next assertion
@@ -198,6 +201,9 @@ extension CTAP2.GetAssertion {
                         }
                         return response
                     }
+                }
+                if Task.isCancelled {
+                    throw CTAP2.SessionError.ctapError(.keepaliveCancel, source: .here())
                 }
                 throw CTAP2.SessionError.responseParseError("No response from GetNextAssertion", source: .here())
             } else {
