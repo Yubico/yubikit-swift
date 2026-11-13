@@ -45,6 +45,8 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
 
     // Busy reports, with the write flag still set, that follow each written chunk.
     var busyReportsAfterChunk = 0
+    var onReportSent: (@Sendable () -> Void)?
+    var onReportReceived: (@Sendable (Int) -> Void)?
 
     var hmacResponse = Data(repeating: 0xAB, count: 20)
 
@@ -59,6 +61,7 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
     private var payloads: [Data] = []
     private var programmingSequence: UInt8 = 0
     private var slots: [Data?] = [nil, nil]
+    private var receivedReportCount = 0
     private let lock = NSLock()
 
     required init() async throws(OTPConnectionError) {}
@@ -71,13 +74,17 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
 
     func send(_ report: Data) async throws(OTPConnectionError) {
         lock.with { writeReport(Array(report)) }
+        onReportSent?()
     }
 
     func receive() async throws(OTPConnectionError) -> Data {
-        lock.with {
-            if !outbox.isEmpty { return Data(outbox.removeFirst()) }
-            return Data([0] + status + [0])
+        let (report, count) = lock.with {
+            receivedReportCount += 1
+            let report = !outbox.isEmpty ? Data(outbox.removeFirst()) : Data([0] + status + [0])
+            return (report, receivedReportCount)
         }
+        onReportReceived?(count)
+        return report
     }
 
     func close(error: Error?) async {}

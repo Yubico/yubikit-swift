@@ -74,61 +74,61 @@ extension FIDOInterface: CBORInterface where Error == CTAP2.SessionError {
         CTAP2.StatusStream<O> { continuation in
             let task = Task {
                 do throws(CTAP2.SessionError) {
-                    // Check capability support
-                    guard self.supports(.cbor) else {
-                        throw Error.featureNotSupported(source: .here())
-                    }
+                    try await self.withExclusiveOperation(
+                        cancellationError: .ctapError(.keepaliveCancel, source: .here())
+                    ) { (operationID: UUID) async throws(CTAP2.SessionError) in
+                        // Check capability support
+                        guard self.supports(.cbor) else {
+                            throw Error.featureNotSupported(source: .here())
+                        }
 
-                    // Check message size
-                    if data.count > self.maxMsgSize {
-                        throw Error.ctapError(.requestTooLarge, source: .here())
-                    }
+                        // Check message size
+                        if data.count > self.maxMsgSize {
+                            throw Error.ctapError(.requestTooLarge, source: .here())
+                        }
 
-                    // Once sent, a command runs to its response. A cancelled consumer only stops it here.
-                    guard !Task.isCancelled else {
-                        throw Error.ctapError(.keepaliveCancel, source: .here())
-                    }
+                        // Once sent, a command runs to its response. A cancelled consumer only stops it here.
+                        guard !Task.isCancelled else {
+                            throw Error.ctapError(.keepaliveCancel, source: .here())
+                        }
 
-                    // Send the request
-                    try await self.sendRequest(cmd: Self.hidCommand(.cbor), payload: data)
+                        // Send the request
+                        try await self.sendRequest(cmd: Self.hidCommand(.cbor), payload: data)
 
-                    // Create cancel closure that calls the interface's cancel method
-                    // Any errors during cancellation are yielded to the stream
-                    let cancelClosure: @Sendable () async -> Void = { [weak self] in
-                        do throws(CTAP2.SessionError) {
-                            try await self?.cancel()
-                        } catch {
+                        // Keep the handler weak so a retained status does not retain the interface.
+                        let cancelClosure = self.makeCancelHandler(operationID: operationID) { error in
                             continuation.yield(error: error)
                         }
-                    }
 
-                    // Receive response with KEEPALIVE status updates
-                    let responsePayload = try await self.receiveResponse(
-                        expectedCommand: Self.hidCommand(.cbor)
-                    ) { statusByte in
-                        if let currentStatus: CTAP2.Status<O> = CTAP2.Status.fromKeepAlive(
-                            statusByte: statusByte,
-                            cancel: cancelClosure
-                        ) {
-                            continuation.yield(currentStatus)
+                        // Receive response with KEEPALIVE status updates
+                        let responsePayload = try await self.receiveResponse(
+                            expectedCommand: Self.hidCommand(.cbor),
+                            operationID: operationID
+                        ) { statusByte in
+                            if let currentStatus: CTAP2.Status<O> = CTAP2.Status.fromKeepAlive(
+                                statusByte: statusByte,
+                                cancel: cancelClosure
+                            ) {
+                                continuation.yield(currentStatus)
+                            }
                         }
-                    }
 
-                    // Parse CTAP response and yield final result
-                    let result: O = try parse(responsePayload)
-                    if data.first == CTAP2.Command.reset.rawValue {
-                        self.logger.info("Reset completed - All data erased")
-                    } else if data.first == CTAP2.Command.makeCredential.rawValue {
-                        self.logger.info("Credential created")
-                    } else if data.first == CTAP2.Command.getAssertion.rawValue,
-                        let assertion = result as? CTAP2.GetAssertion.Response
-                    {
-                        self.logger.info(
-                            "Authenticator reported assertions",
-                            metadata: ["assertionCount": .stringConvertible(assertion.numberOfCredentials ?? 1)]
-                        )
+                        // Parse CTAP response and yield final result
+                        let result: O = try parse(responsePayload)
+                        if data.first == CTAP2.Command.reset.rawValue {
+                            self.logger.info("Reset completed - All data erased")
+                        } else if data.first == CTAP2.Command.makeCredential.rawValue {
+                            self.logger.info("Credential created")
+                        } else if data.first == CTAP2.Command.getAssertion.rawValue,
+                            let assertion = result as? CTAP2.GetAssertion.Response
+                        {
+                            self.logger.info(
+                                "Authenticator reported assertions",
+                                metadata: ["assertionCount": .stringConvertible(assertion.numberOfCredentials ?? 1)]
+                            )
+                        }
+                        continuation.yield(.finished(result))
                     }
-                    continuation.yield(.finished(result))
                 } catch {
                     continuation.yield(error: error)
                 }

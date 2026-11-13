@@ -17,7 +17,7 @@ import Testing
 
 @testable import YubiKit
 
-@Suite("withTimeout Tests", .timeLimit(.minutes(1)))
+@Suite("Timeout cancellation", .timeLimit(.minutes(1)))
 struct TaskTimeoutTests {
 
     @Test("caller cancellation returns the operation's result instead of a timeout")
@@ -25,7 +25,7 @@ struct TaskTimeoutTests {
         let started = Promise<Void>()
         let response = Promise<Int>()
         let task = Task {
-            try await withTimeout(.seconds(30)) {
+            try await withTimeoutIgnoringCancellation(.seconds(30)) {
                 await started.fulfill(())
                 // Promise.value ignores cancellation, like a transport receive.
                 return try await response.value()
@@ -34,7 +34,7 @@ struct TaskTimeoutTests {
 
         try await started.value()
         task.cancel()
-        // Gives a timer that reacts to the cancel time to win before the response arrives.
+        // Verify caller cancellation does not return before the operation responds.
         try await Task.sleep(for: .milliseconds(50))
         await response.fulfill(42)
 
@@ -43,7 +43,7 @@ struct TaskTimeoutTests {
 
     @Test("an operation that outlasts the deadline times out")
     func timesOut() async {
-        let result = await withTimeout(.milliseconds(10)) { () async -> Int in
+        let result = await withTimeoutIgnoringCancellation(.milliseconds(10)) { () async -> Int in
             try? await Task.sleep(for: .seconds(30))
             return 1
         }
@@ -54,7 +54,7 @@ struct TaskTimeoutTests {
     func blockedReceiveTimesOut() async throws {
         let response = Promise<Int>()
         let start = ContinuousClock.now
-        let result = try await withTimeout(.milliseconds(20)) {
+        let result = try await withTimeoutIgnoringCancellation(.milliseconds(20)) {
             try await withTaskCancellationHandler {
                 try await response.value()
             } onCancel: {
@@ -68,8 +68,42 @@ struct TaskTimeoutTests {
     @Test("a finished operation does not wait for the deadline")
     func returnsWithoutWaitingForDeadline() async {
         let start = ContinuousClock.now
-        let result = await withTimeout(.seconds(30)) { 1 }
+        let result = await withTimeoutIgnoringCancellation(.seconds(30)) { 1 }
         #expect(result == 1)
         #expect(start.duration(to: .now) < .seconds(5))
     }
+
+    @Test("a caller cancelled before starting the timeout still runs the operation")
+    func alreadyCancelledCallerKeepsOperation() async throws {
+        let started = Promise<Void>()
+        let resume = Promise<Void>()
+        let task = Task {
+            await started.fulfill(())
+            try await resume.value()
+            return await withTimeoutIgnoringCancellation(.seconds(30)) { 42 }
+        }
+
+        try await started.value()
+        task.cancel()
+        await resume.fulfill(())
+
+        #expect(try await task.value == 42)
+    }
+
+    @Test("the timeout preserves the operation's typed error")
+    func operationErrorIsPreserved() async {
+        do {
+            _ = try await withTimeoutIgnoringCancellation(.seconds(30)) {
+                () async throws(TimeoutTestError) -> Int in
+                throw .failed
+            }
+            Issue.record("Expected the operation to throw")
+        } catch {
+            #expect(error == .failed)
+        }
+    }
+}
+
+private enum TimeoutTestError: Error, Equatable {
+    case failed
 }

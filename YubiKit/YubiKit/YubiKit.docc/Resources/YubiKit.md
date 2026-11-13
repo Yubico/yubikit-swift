@@ -27,6 +27,26 @@ let codes = try await session.calculateCredentialCodes()
 > and other secrets are not securely erased when no longer in use. This is currently out of scope but may be
 > addressed in a future release.
 
+## Task cancellation
+
+The SDK respects cancellation before new work and at cancellable waits, while letting started
+exchanges and required cleanup finish.
+
+Cancellable waits include discovering and attaching to a YubiKey, consuming status streams, and
+waiting for touch. Session commands check cancellation before starting a new exchange over smart
+card or HID connections, including NFC and Lightning.
+
+A command already sent to the YubiKey may finish. Cancellation does not undo device changes, and a
+completed command can still return a result. Operations with several commands can stop between them.
+
+Cancelling a status-stream consumer can return before its command finishes cleanup. A later command
+on the same CTAP2 session waits for that cleanup. Reuse the session, or close the connection before
+opening a new connection and session. Concurrent sessions on one connection are not supported.
+
+Low-level connection methods send raw APDUs or HID reports. Callers using them directly must manage
+cancellation between complete exchanges. ``Connection/waitUntilClosed()`` waits for an actual close,
+even if its task is cancelled.
+
 ## Topics
 
 ### Preparing your project

@@ -54,25 +54,6 @@ struct OTPKeyboardInterfaceTests {
         #expect(connection.writtenChunkSequences == Array(0...9))
     }
 
-    @Test("a configuration write that has started completes when the caller is cancelled")
-    func cancelledWriteCompletes() async throws {
-        let connection = try await FakeOTPConnection()
-        connection.busyReportsAfterChunk = 1
-        let interface = try await OTPKeyboardInterface<YubiOTP.SessionError>(connection: connection)
-
-        let status = try await Task {
-            withUnsafeCurrentTask { $0?.cancel() }
-            return try await interface.sendAndReceive(
-                slot: FakeOTPConnection.slotConfig1,
-                data: Data(repeating: 0xAB, count: 64)
-            )
-        }.value
-
-        #expect(status[3] == 1, "the key should acknowledge the write")
-        #expect(connection.writtenChunkSequences == Array(0...9))
-        #expect(!connection.writtenReports.contains { $0[7] == 0xFF }, "the write must not be reset")
-    }
-
     @Test("deleting the last configured slot resets the programming sequence to zero")
     func programmingSequenceResetIsAccepted() async throws {
         let connection = try await FakeOTPConnection()

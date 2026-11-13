@@ -29,5 +29,6 @@ public protocol Connection: Sendable {
     ///
     /// This method will wait until the connection closes. If the connection was closed due to an error said
     /// error will be returned.
+    /// Task cancellation does not end this wait. Call ``close(error:)`` to close the connection.
     func waitUntilClosed() async -> Error?
 }
