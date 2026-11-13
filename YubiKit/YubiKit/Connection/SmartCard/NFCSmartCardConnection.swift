@@ -486,7 +486,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         // To proceed with a new connection we need to acquire a lock
         guard !isEstablishing else {
             logger.debug("NFC connection setup is already in progress")
-            request.complete(.failure(SmartCardConnectionError.cancelled))
+            request.complete(.failure(SmartCardConnectionError.busy))
             return
         }
         isEstablishing = true

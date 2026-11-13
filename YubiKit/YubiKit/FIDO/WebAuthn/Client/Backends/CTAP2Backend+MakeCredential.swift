@@ -152,6 +152,9 @@ extension WebAuthn.CTAP2Backend {
                     }
                 }
                 guard let response = receivedResponse else {
+                    if Task.isCancelled {
+                        throw CTAP2.SessionError.ctapError(.keepaliveCancel, source: .here())
+                    }
                     throw CTAP2.SessionError.responseParseError(
                         "No response from makeCredential",
                         source: .here()
