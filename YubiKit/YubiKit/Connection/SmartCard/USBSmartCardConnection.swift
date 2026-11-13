@@ -259,7 +259,7 @@ private final actor SmartCardConnectionsManager {
         // so we can guarantee balanced calls to beginSession()
         guard !isEstablishing else {
             logger.debug("USB smart card connection setup is already in progress")
-            throw SmartCardConnectionError.cancelled
+            throw SmartCardConnectionError.busy
         }
         defer { isEstablishing = false }
         isEstablishing = true

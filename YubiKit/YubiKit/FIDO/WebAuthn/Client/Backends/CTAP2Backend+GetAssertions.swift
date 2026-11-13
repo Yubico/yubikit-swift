@@ -241,6 +241,9 @@ extension WebAuthn.CTAP2Backend {
             }
         }
         guard let response else {
+            if Task.isCancelled {
+                throw CTAP2.SessionError.ctapError(.keepaliveCancel, source: .here())
+            }
             throw CTAP2.SessionError.responseParseError(
                 "Missing response from getAssertion",
                 source: .here()
