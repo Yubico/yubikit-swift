@@ -32,6 +32,8 @@ extension PublicKey {
             exitWithError(
                 "Unsupported operation: \(operation).\n\tX25519 keys cannot be used for \(operation) (key agreement only)"
             )
+        case .mlDSA, .mlKEM:
+            exitWithError("Unsupported key type for \(operation).")
         case let .rsa(rsaKey):
             secKey = rsaKey.makeSecKey()
         case let .ec(ecKey):

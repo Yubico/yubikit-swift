@@ -37,6 +37,10 @@ public enum PIVSessionFeature: SessionFeature, Sendable {
     case rsa3072and4096
     /// Move and delete key operations.
     case moveDelete
+    /// ML-DSA signature key support.
+    case mlDSA
+    /// ML-KEM key encapsulation support.
+    case mlKEM
     /// Ed25519 signature algorithm support.
     case ed25519
     /// X25519 key agreement algorithm support.
@@ -67,6 +71,8 @@ public enum PIVSessionFeature: SessionFeature, Sendable {
             return version >= Version("5.7.0")!
         case .moveDelete:
             return version >= Version("5.7.0")!
+        case .mlDSA, .mlKEM:
+            return version >= Version("6.0.0")!
         case .ed25519:
             return version >= Version("5.7.0")!
         case .x25519:
