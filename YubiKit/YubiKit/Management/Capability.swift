@@ -31,6 +31,9 @@ public enum Capability: UInt, Sendable {
     /// Identifies the FIDO2 (CTAP2) portion of the FIDO application.
     case fido2 = 0x0200
 
+    /// FIDO over the USB smart-card interface, reported by firmware 5.8 or later.
+    case fidoCCID = 0x1000
+
     var bit: UInt { self.rawValue }
 }
 
