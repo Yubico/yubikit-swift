@@ -64,8 +64,8 @@ extension YubiOTP.Session {
         }
 
         func writeConfig(command: UInt8, data: Data) async throws(YubiOTP.SessionError) {
-            try await acquireOperation()
-            defer { releaseOperation() }
+            guard await operationMutex.acquire() else { throw .cancelled(source: .here()) }
+            defer { operationMutex.release() }
             switch kind {
             case let .otp(interface):
                 status = Array(try await interface.sendAndReceive(slot: command, data: data))
@@ -89,8 +89,8 @@ extension YubiOTP.Session {
             operationID: UUID? = nil,
             onKeepalive: (@Sendable (_ waitingForTouch: Bool) -> Void)? = nil
         ) async throws(YubiOTP.SessionError) -> Data {
-            try await acquireOperation()
-            defer { releaseOperation() }
+            guard await operationMutex.acquire() else { throw .cancelled(source: .here()) }
+            defer { operationMutex.release() }
             switch kind {
             case let .otp(interface):
                 let response = try await interface.sendAndReceive(
@@ -131,17 +131,11 @@ extension YubiOTP.Session {
             case smartCard(SmartCardInterface<YubiOTP.SessionError>)
         }
 
-        private struct OperationWaiter {
-            let id: UUID
-            let continuation: CheckedContinuation<Bool, Never>
-        }
-
         private let kind: Kind
         private let usesDummyStatus: Bool
         // A copy of the status struct, so that slices from either transport have zero-based indices.
         private var status: [UInt8]
-        private var operationInFlight = false
-        private var operationWaiters: [OperationWaiter] = []
+        private let operationMutex = AsyncMutex()
 
         // A write advances the programming sequence. The sequence resets to zero when the last
         // configuration is deleted, and some firmware versions do not advance it over SmartCard.
@@ -152,44 +146,6 @@ extension YubiOTP.Session {
             let version = Version(withData: Data(status.prefix(3)))!.resolvingDevelopment
             return status[statusOffsetConfigState] & configStateMask == 0
                 || (version >= Version("5.0.0")! && version < Version("5.4.3")!)
-        }
-
-        private func acquireOperation() async throws(YubiOTP.SessionError) {
-            guard !Task.isCancelled else { throw .cancelled(source: .here()) }
-            guard operationInFlight else {
-                operationInFlight = true
-                return
-            }
-            let id = UUID()
-            let acquired = await withTaskCancellationHandler {
-                await withCheckedContinuation { continuation in
-                    if Task.isCancelled {
-                        continuation.resume(returning: false)
-                    } else {
-                        operationWaiters.append(OperationWaiter(id: id, continuation: continuation))
-                    }
-                }
-            } onCancel: {
-                Task { await self.cancelWaiter(id: id) }
-            }
-            guard acquired else { throw .cancelled(source: .here()) }
-            if Task.isCancelled {
-                releaseOperation()
-                throw .cancelled(source: .here())
-            }
-        }
-
-        private func cancelWaiter(id: UUID) {
-            guard let index = operationWaiters.firstIndex(where: { $0.id == id }) else { return }
-            operationWaiters.remove(at: index).continuation.resume(returning: false)
-        }
-
-        private func releaseOperation() {
-            guard !operationWaiters.isEmpty else {
-                operationInFlight = false
-                return
-            }
-            operationWaiters.removeFirst().continuation.resume(returning: true)
         }
     }
 }

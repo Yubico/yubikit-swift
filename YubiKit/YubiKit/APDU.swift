@@ -57,7 +57,7 @@ struct APDU: Sendable, CustomStringConvertible {
             return data
         }
 
-        let isShort = command.count < UInt8.max
+        let isShort = command.count <= UInt8.max
 
         if isShort {
             let length = UInt8(command.count)

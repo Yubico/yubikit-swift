@@ -204,6 +204,7 @@ extension YubiOTP {
                 isNFC: isNFC,
                 supportsChallengeResponse: isNFC || isLightning
             )
+            await smartCardInterface.setAPDUSizeLimit(for: interface.version)
             return await Session(interface: interface, transport: "SmartCard")
         }
 
