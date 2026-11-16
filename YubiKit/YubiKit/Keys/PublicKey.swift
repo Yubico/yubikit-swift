@@ -14,7 +14,7 @@
 
 import Foundation
 
-/// Top-level public key enum (RSA, EC, Ed25519, or X25519).
+/// A public key and its algorithm.
 public enum PublicKey: Sendable, Equatable {
     /// Elliptic curve public key (secp256r1 or secp384r1).
     case ec(EC.PublicKey)
@@ -24,4 +24,8 @@ public enum PublicKey: Sendable, Equatable {
     case ed25519(Ed25519.PublicKey)
     /// X25519 public key for key agreement (ECDH).
     case x25519(X25519.PublicKey)
+    /// ML-DSA signature public key.
+    case mlDSA(MLDSA.PublicKey)
+    /// ML-KEM key encapsulation public key.
+    case mlKEM(MLKEM.PublicKey)
 }

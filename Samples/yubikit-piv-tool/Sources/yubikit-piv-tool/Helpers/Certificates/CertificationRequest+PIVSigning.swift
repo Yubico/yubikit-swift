@@ -75,6 +75,8 @@ extension ShieldX509.CertificationRequest.Builder {
             }
         case .x25519:
             return nil  // Invalid key type for signing
+        case .mlDSA, .mlKEM:
+            return nil  // Unsupported by the certificate library
         }
 
         // Create the final certification request
