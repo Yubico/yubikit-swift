@@ -116,6 +116,7 @@ public final actor OATHSession: SmartCardSessionInternal {
         self.selectResponse = SelectResponse(salt: salt, version: version, deviceId: deviceId)
         self.validationChallenge = challenge
         self.hasAccessKey = challenge != nil
+        await interface.setAPDUSizeLimit(for: version)
         self.interface = interface
         logger.debug(
             "OATH session initialized",

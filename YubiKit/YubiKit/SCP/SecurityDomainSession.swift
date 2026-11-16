@@ -39,6 +39,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             keyParams: scpKeyParams
         )
 
+        await interface.setAPDUSizeLimit(for: Version("5.3.0")!)
         self.interface = interface
         logger.debug("SecurityDomain session initialized")
     }

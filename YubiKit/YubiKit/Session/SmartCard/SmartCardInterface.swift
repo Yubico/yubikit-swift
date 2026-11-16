@@ -24,6 +24,17 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
     let connection: Connection
     let scpState: SCPState?
     let selectResponse: Data
+    private var maxAPDUSize = 261
+    private let commandMutex = AsyncMutex()
+
+    func setAPDUSizeLimit(for version: Version) {
+        switch version.resolvingDevelopment {
+        case ..<Version("4.0.0")!: maxAPDUSize = 261
+        case ..<Version("4.3.0")!: maxAPDUSize = 2038
+        case ..<Version("6.0.0")!: maxAPDUSize = 3062
+        default: maxAPDUSize = 4918
+        }
+    }
 
     // Flag to signal cancellation for CTAP operations over NFC
     internal var shouldCancelCTAP: Bool = false
@@ -140,19 +151,23 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
         apdu: APDU,
         insSendRemaining: UInt8 = 0xc0,
     ) async throws(Error) -> Response {
-        guard !Task.isCancelled else {
-            throw .connectionError(.cancelled, source: .here())
-        }
-
-        return try await sendContinuingExchange(apdu: apdu, insSendRemaining: insSendRemaining)
+        guard await commandMutex.acquire() else { throw .connectionError(.cancelled, source: .here()) }
+        defer { commandMutex.release() }
+        return try await sendLocked(apdu: apdu, insSendRemaining: insSendRemaining)
     }
 
-    // Continue a protocol exchange that has already passed cancellation admission. The complete
-    // SCP wrapping and APDU continuation path still runs.
+    // Finish an admitted exchange even if its caller is cancelled while waiting for the mutex.
     internal func sendContinuingExchange(
         apdu: APDU,
         insSendRemaining: UInt8 = 0xc0,
     ) async throws(Error) -> Response {
+        let acquired = await Task { await commandMutex.acquire() }.value
+        guard acquired else { throw .connectionError(.cancelled, source: .here()) }
+        defer { commandMutex.release() }
+        return try await sendLocked(apdu: apdu, insSendRemaining: insSendRemaining)
+    }
+
+    private func sendLocked(apdu: APDU, insSendRemaining: UInt8) async throws(Error) -> Response {
         let response: Response
         if let scpState {
             response = try await sendWithSCP(apdu: apdu, scpState: scpState, insSendRemaining: insSendRemaining)
@@ -173,6 +188,11 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
         scpState: SCPState,
         insSendRemaining: UInt8
     ) async throws(Error) -> Response {
+        // The virtual APDU used for the MAC still has a 16-bit length field.
+        let count = apdu.command?.count ?? 0
+        guard (count / 16 + 1) * 16 + 8 <= Int(UInt16.max) else {
+            throw .illegalArgument("Command too large for secure messaging", source: .here())
+        }
         // Encrypt command data
         let data: Data
         do {
@@ -234,9 +254,58 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
     // Send APDU without SCP.
     // Returns the response with status code (status check happens in caller).
     private func sendPlain(apdu: APDU, insSendRemaining: UInt8) async throws(Error) -> Response {
-        try await Self.sendWithContinuationStatic(
+        try await Self.sendCommandStatic(
             connection: connection,
             apdu: apdu,
+            maxAPDUSize: maxAPDUSize,
+            insSendRemaining: insSendRemaining
+        )
+    }
+
+    // Split the logical command before encoding any physical APDU.
+    private static func sendCommandStatic(
+        connection: SmartCardConnection,
+        apdu: APDU,
+        maxAPDUSize: Int,
+        insSendRemaining: UInt8
+    ) async throws(Error) -> Response {
+        let command = apdu.command ?? Data()
+        var finalAPDU = apdu
+        if command.count > 255 && command.count > maxAPDUSize - 7 {
+            var offset = command.startIndex
+            while command.endIndex - offset > 255 {
+                let end = offset + 255
+                let part = APDU(
+                    cla: apdu.cla | 0x10,
+                    ins: apdu.ins,
+                    p1: apdu.p1,
+                    p2: apdu.p2,
+                    command: command.subdata(in: offset..<end)
+                )
+                let raw: Data
+                do {
+                    raw = try await connection.send(data: part.data)
+                } catch {
+                    throw .connectionError(error, source: .here())
+                }
+                guard raw.count >= 2 else {
+                    throw .responseParseError("Response too short for a status word", source: .here())
+                }
+                let response = Response(rawData: raw)
+                guard response.status == .ok else { return response }
+                offset = end
+            }
+            finalAPDU = APDU(
+                cla: apdu.cla,
+                ins: apdu.ins,
+                p1: apdu.p1,
+                p2: apdu.p2,
+                command: command.subdata(in: offset..<command.endIndex)
+            )
+        }
+        return try await sendWithContinuationStatic(
+            connection: connection,
+            apdu: finalAPDU,
             accumulated: Data(),
             readMoreData: false,
             insSendRemaining: insSendRemaining
@@ -263,11 +332,11 @@ public final actor SmartCardInterface<Error: SmartCardSessionError>: Sendable, H
         apdu: APDU,
         insSendRemaining: UInt8
     ) async throws(Error) -> Data {
-        let response = try await sendWithContinuationStatic(
+        let response = try await sendCommandStatic(
             connection: connection,
             apdu: apdu,
-            accumulated: Data(),
-            readMoreData: false,
+            // Firmware limits are not known during selection and SCP setup.
+            maxAPDUSize: 261,
             insSendRemaining: insSendRemaining
         )
         guard response.status == .ok else {
