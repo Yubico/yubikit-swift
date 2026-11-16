@@ -37,6 +37,10 @@ final actor MockSmartCardConnection: SmartCardConnection {
         self.responses = responses
     }
 
+    func clearRequests() {
+        sentRequests.removeAll()
+    }
+
     // MARK: - SmartCardConnection
 
     init() async throws(SmartCardConnectionError) {
