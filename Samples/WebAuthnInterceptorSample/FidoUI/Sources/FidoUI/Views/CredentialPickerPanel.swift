@@ -6,11 +6,12 @@ struct CredentialPickerPanel: View {
     let onSelect: (Int) -> Void
     let onCancel: () -> Void
 
-    @ScaledMetric(relativeTo: .body) private var rowHeight: CGFloat = 50
+    @ScaledMetric(relativeTo: .body) private var rowHeight: CGFloat = 72
     private let maxVisibleRows = 3
 
     private var listHeight: CGFloat {
-        rowHeight * CGFloat(min(credentials.count, maxVisibleRows))
+        let count = min(credentials.count, maxVisibleRows)
+        return rowHeight * CGFloat(count) + 6 * CGFloat(max(0, count - 1))
     }
 
     var body: some View {
@@ -35,13 +36,14 @@ struct CredentialPickerPanel: View {
                             onSelect(index)
                         } label: {
                             CredentialRow(credential: credential)
+                                .frame(height: rowHeight)
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("credential_row_\(index)")
                     }
                 }
             }
-            .scrollBounceBehavior(.always)
+            .scrollBounceBehavior(.basedOnSize)
             .frame(height: listHeight)
             .clipShape(.rect(cornerRadius: 8))
             .scrollEdgeFade(isScrollable: credentials.count > maxVisibleRows)

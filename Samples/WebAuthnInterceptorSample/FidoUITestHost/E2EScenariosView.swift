@@ -6,10 +6,9 @@
 //
 // The catalog is grouped by the FidoUI subsystem each scenario exercises:
 // PIN setup recovery, force-PIN-change, inline PIN entry, user verification,
-// ceremony shape (no-PIN / touch / multi-ceremony / reconnect), cancellation
-// paths, and credential-side errors. Each section maps 1:1 to a test class
-// in `FidoUITestHost/UITests` and to a `Scenarios+<topic>.swift` file
-// holding its runner functions.
+// ceremony shape (no-PIN / touch / multi-ceremony / transport drop), cancellation
+// paths, and credential-side errors. Runner functions live in
+// `Scenarios+<topic>.swift`; UI tests live in `FidoUITestHost/UITests`.
 
 import FidoUI
 import SwiftUI
@@ -35,6 +34,7 @@ struct E2EScenariosView: View {
             }
             .padding(.vertical, 8)
         }
+        .background(TestWindowReader())
     }
 
     private func section(_ title: String, _ scenarios: [Scenario]) -> some View {
@@ -261,7 +261,7 @@ extension Scenario {
         Scenario(
             id: "flow_connection_drop_mid_ceremony",
             title: "Connection drop mid-ceremony",
-            summary: "Stream errors with authenticatorNotAvailable; reconnect bridge → retry → success.",
+            summary: "A transport drop ends the ceremony without another attempt.",
             run: Runner.flowConnectionDropMidCeremony
         ),
     ]
@@ -306,6 +306,8 @@ extension Scenario {
 /// Namespace for all scenario runner functions. Split across Scenarios+* files.
 @MainActor
 enum Runner {
+    static weak var window: FidoUI.PresentationAnchor?
+    static var presentationAnchor: @MainActor @Sendable () -> FidoUI.PresentationAnchor? { { window } }
 
     /// Wraps a `FidoUI.makeCredential` call so the scenario surfaces a
     /// terminal outcome to the catalog. `.cancelled` is treated as completed

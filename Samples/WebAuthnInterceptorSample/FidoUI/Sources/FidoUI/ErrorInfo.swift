@@ -5,14 +5,14 @@ extension FidoUI {
     /// User-facing classification of a ceremony failure. All fields are
     /// sanitized — no SDK source locations, no author-controlled detail
     /// strings, no raw CTAP codes.
-    public struct ErrorInfo: Equatable, Sendable {
-        public let title: String
-        public let message: String
-        public let icon: String
-        public let severity: Severity
-        public let isRetryable: Bool
+    struct ErrorInfo: Equatable, Sendable {
+        let title: String
+        let message: String
+        let icon: String
+        let severity: Severity
+        let isRetryable: Bool
 
-        public enum Severity: Equatable, Sendable {
+        enum Severity: Equatable, Sendable {
             case critical
             case warning
             case info
@@ -53,6 +53,16 @@ extension FidoUI.ErrorInfo {
         )
     }
 
+    static var nfcConnectionFailed: Self {
+        Self(
+            title: String(localized: "Unable to Read YubiKey"),
+            message: String(localized: "Hold your YubiKey near the top of your iPhone and try again."),
+            icon: "wave.3.right",
+            severity: .warning,
+            isRetryable: false
+        )
+    }
+
     /// Used when `.uvBlocked` lands with no PIN fallback — the sensor is
     /// permanently locked and the user has to reseat or reset.
     static var uvBlockedNoPIN: Self {
@@ -72,7 +82,7 @@ extension FidoUI.ErrorInfo {
 
     static func noCredentials(serviceName: String?) -> Self {
         let message: String =
-            if let serviceName {
+            if let serviceName, !serviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 String(
                     localized:
                         "No passkeys for \(serviceName) exist on this YubiKey."
@@ -166,7 +176,7 @@ extension FidoUI.ErrorInfo {
                         localized:
                             "Your YubiKey requires a PIN change before it can be used."
                     ),
-                icon: "key.rotate",
+                icon: "arrow.triangle.2.circlepath",
                 severity: .warning
             )
         case .credentialExcluded:
@@ -191,9 +201,10 @@ extension FidoUI.ErrorInfo {
             return Self(
                 title: String(localized: "Key Disconnected"),
                 message:
-                    String(localized: "The YubiKey was disconnected. Please reconnect and try again."),
+                    String(localized: "The YubiKey was disconnected. Reconnect it and start again."),
                 icon: "cable.connector",
-                severity: .warning
+                severity: .warning,
+                isRetryable: false
             )
         case .unsupportedAlgorithm:
             return Self(
@@ -201,7 +212,8 @@ extension FidoUI.ErrorInfo {
                 message:
                     String(localized: "This YubiKey doesn't support the required cryptographic algorithm."),
                 icon: "xmark.shield.fill",
-                severity: .warning
+                severity: .warning,
+                isRetryable: false
             )
         case .notSupported(let detail, let source):
             // SDK's `detail` is author-controlled diagnostic copy — log,
@@ -213,7 +225,8 @@ extension FidoUI.ErrorInfo {
                     localized: "This YubiKey doesn't support the requested operation."
                 ),
                 icon: "xmark.shield.fill",
-                severity: .warning
+                severity: .warning,
+                isRetryable: false
             )
         case .invalidRequest(let detail, let source):
             fidoLog("ErrorInfo", "invalidRequest at \(source.file):\(source.line): \(detail)")
@@ -223,7 +236,8 @@ extension FidoUI.ErrorInfo {
                     localized: "The website made a request this YubiKey can't satisfy."
                 ),
                 icon: "exclamationmark.triangle.fill",
-                severity: .critical
+                severity: .critical,
+                isRetryable: false
             )
         case .pinRejected:
             return Self(

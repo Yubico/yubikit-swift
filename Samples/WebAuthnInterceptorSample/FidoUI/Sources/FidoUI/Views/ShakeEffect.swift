@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct ShakeEffect: GeometryEffect {
+private struct ShakeEffect: GeometryEffect {
     var animatableData: CGFloat
 
     init(shakes: CGFloat) {
@@ -30,12 +30,14 @@ extension View {
 
 private struct ShakeModifier: ViewModifier {
     let trigger: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shakeAmount: CGFloat = 0
 
     func body(content: Content) -> some View {
         content
             .modifier(ShakeEffect(shakes: shakeAmount))
             .onChange(of: trigger) {
+                guard !reduceMotion else { return }
                 withAnimation(.easeOut(duration: 0.5)) {
                     shakeAmount += 1
                 }

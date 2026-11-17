@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import YubiKit
 
 private func log(_ message: String) {
     print("[WebAuthn] \(message)")
@@ -13,7 +14,7 @@ private enum WebAuthnMessage: String, CaseIterable {
 
 @MainActor
 final class WebViewNavigator {
-    weak var webView: WKWebView?
+    fileprivate weak var webView: WKWebView?
 
     func goBack() {
         webView?.goBack()
@@ -77,14 +78,14 @@ struct WebView: NSViewRepresentable {
 #endif
 
 extension WebView {
-    static func cleanupWebView(_ webView: WKWebView) {
+    private static func cleanupWebView(_ webView: WKWebView) {
         let controller = webView.configuration.userContentController
         for message in WebAuthnMessage.allCases {
             controller.removeScriptMessageHandler(forName: message.rawValue)
         }
     }
 
-    func createWebView(context: Context) -> WKWebView {
+    private func createWebView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         let coordinator = context.coordinator
 
@@ -115,7 +116,7 @@ extension WebView {
         return webView
     }
 
-    func updateWebView(_ webView: WKWebView) {
+    private func updateWebView(_ webView: WKWebView) {
         guard webView.url != url else { return }
         webView.load(URLRequest(url: url))
     }
@@ -137,25 +138,16 @@ extension WebView {
 
 extension WebView {
     @MainActor
-    class Coordinator: NSObject, WKNavigationDelegate,
+    final class Coordinator: NSObject, WKNavigationDelegate,
         WKScriptMessageHandler
     {
-        weak var webView: WKWebView?
-        private let handler: WebAuthnHandler
+        fileprivate weak var webView: WKWebView?
+        private lazy var handler = WebAuthnHandler(presentationAnchor: { [weak self] in self?.webView?.window })
         private var activeTask: Task<Void, Never>?
         private var ceremonyGeneration: UInt64 = 0
 
-        override init() {
-            self.handler = WebAuthnHandler()
-            super.init()
-        }
-
-        /// Cancels any in-flight ceremony task and closes the underlying
-        /// transport. Called from `dismantle{UI,NS}View` so navigating away
-        /// from the WebView mid-ceremony doesn't leave a HID/NFC handle open
-        /// (the coordinator is otherwise pinned by `activeTask`'s self-capture
-        /// until the SDK call eventually unwinds).
-        func shutdown() {
+        /// Release the ceremony and transport when the host view is removed.
+        fileprivate func shutdown() {
             activeTask?.cancel()
             activeTask = nil
             let handler = self.handler
@@ -171,12 +163,30 @@ extension WebView {
                 return
             }
 
-            guard let base64 = message.body as? String,
-                let data = Data(base64Encoded: base64)
+            guard message.frameInfo.isMainFrame else { return }
+
+            let frameOrigin = message.frameInfo.securityOrigin
+            var components = URLComponents()
+            components.scheme = frameOrigin.protocol
+            components.host = frameOrigin.host
+            if frameOrigin.port > 0,
+                !(frameOrigin.protocol == "https" && frameOrigin.port == 443),
+                !(frameOrigin.protocol == "http" && frameOrigin.port == 80)
+            {
+                components.port = frameOrigin.port
+            }
+            guard let originURL = components.url,
+                let origin = try? WebAuthn.Origin(originURL)
             else {
-                log("Failed to decode message body")
+                let error = Data("Invalid or insecure origin".utf8).base64EncodedString()
+                Task { _ = try? await webView?.evaluateJavaScript("__webauthn_error__('\(error)')") }
                 return
             }
+            guard let body = message.body as? String else {
+                log("Invalid message body")
+                return
+            }
+            let data = Data(body.utf8)
 
             ceremonyGeneration += 1
             let generation = ceremonyGeneration
@@ -186,6 +196,7 @@ extension WebView {
                 await handleWebAuthnMessage(
                     name: message.name,
                     data: data,
+                    origin: origin,
                     generation: generation
                 )
             }
@@ -195,6 +206,7 @@ extension WebView {
         private func handleWebAuthnMessage(
             name: String,
             data: Data,
+            origin: WebAuthn.Origin,
             generation: UInt64
         ) async {
             guard let message = WebAuthnMessage(rawValue: name) else {
@@ -204,9 +216,9 @@ extension WebView {
                 let response: String
                 switch message {
                 case .create:
-                    response = try await handler.handleCreate(data)
+                    response = try await handler.handleCreate(data, origin: origin)
                 case .get:
-                    response = try await handler.handleGet(data)
+                    response = try await handler.handleGet(data, origin: origin)
                 case .console:
                     return
                 }

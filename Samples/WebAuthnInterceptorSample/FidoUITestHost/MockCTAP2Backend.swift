@@ -3,7 +3,7 @@
 import FidoUI
 import Foundation
 
-@testable import YubiKit
+@_spi(YubiInternal) @testable import YubiKit
 
 // `WebAuthn.CTAP2Backend` requires `: Actor`, so the type
 // must be an `actor`. Scenario setup is synchronous and runs from outside the

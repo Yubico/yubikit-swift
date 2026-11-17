@@ -16,14 +16,21 @@ extension FidoUI {
         /// awaitable panel takes over. SDK-cancel closures for
         /// `.waitingForUser` / `.waitingForUserVerification` are captured
         /// directly into the panel cases at install time.
-        private var awaitingPanelCanceller: (() -> Void)?
+        private struct AwaitingPanelCanceller {
+            let id: UUID
+            let cancel: () -> Void
+        }
 
-        var lastEnteredPIN: String?
+        private var awaitingPanelCanceller: AwaitingPanelCanceller?
+        var cancelSubmittedForm: (() -> Void)?
+
+        private(set) var lastEnteredPIN: String?
+        var needsNFCPIN = false
 
         /// Per-attempt state mutated in place by the catch arms of
         /// `runCeremony` before the next iteration.
         struct AttemptContext: Sendable {
-            var transport: CeremonyTransport
+            let transport: CeremonyTransport
             var pinRetries: Int? = nil
             var uvPolicy: WebAuthn.Authorization.UVPolicy = .preferred
         }
@@ -36,6 +43,7 @@ extension FidoUI {
             cleanup()
             model.reset()
             lastEnteredPIN = nil
+            needsNFCPIN = false
         }
 
         func updateCachedPIN(_ pin: String?) {
@@ -59,21 +67,32 @@ extension FidoUI {
             model.isPresented = false
         }
 
+        func cancelForm() {
+            if model.submittingForm != nil { cancelSubmittedForm?() }
+            dismiss()
+        }
+
         // MARK: - Continuation helpers
 
-        private func setCanceller(_ cancel: @escaping () -> Void) {
-            awaitingPanelCanceller?()
-            awaitingPanelCanceller = cancel
+        private func setCanceller(id: UUID, _ cancel: @escaping () -> Void) {
+            awaitingPanelCanceller?.cancel()
+            awaitingPanelCanceller = AwaitingPanelCanceller(id: id, cancel: cancel)
+        }
+
+        private func cancelAwaitingPanel(id: UUID) {
+            guard awaitingPanelCanceller?.id == id else { return }
+            awaitingPanelCanceller?.cancel()
         }
 
         /// Returns nil on cancel/cleanup.
         func awaitPanel<T>(
             build: (_ resume: @MainActor @escaping (T?) -> Void) -> FidoUI.PanelModel.Panel
         ) async -> T? {
-            await withTaskCancellationHandler {
+            let panelID = UUID()
+            return await withTaskCancellationHandler {
                 await withCheckedContinuation { (continuation: CheckedContinuation<T?, Never>) in
                     let once = MainActorOnce<T?>(continuation: continuation)
-                    setCanceller { once(nil) }
+                    setCanceller(id: panelID) { once(nil) }
                     model.submittingForm = nil
                     model.panel = build { once($0) }
                     present()
@@ -82,7 +101,7 @@ extension FidoUI {
                 // Outer-task cancel doesn't wake withCheckedContinuation on its
                 // own — fire the canceller so the await unwinds.
                 Task { @MainActor [weak self] in
-                    self?.awaitingPanelCanceller?()
+                    self?.cancelAwaitingPanel(id: panelID)
                 }
             }
         }
@@ -106,7 +125,7 @@ extension FidoUI {
         /// resetting here would flash a blank panel between them. Use
         /// `reset()` for host-driven teardown.
         func cleanup() {
-            awaitingPanelCanceller?()
+            awaitingPanelCanceller?.cancel()
             awaitingPanelCanceller = nil
             model.submittingForm = nil
         }
