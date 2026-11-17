@@ -20,7 +20,8 @@ import Testing
 // Responses include status bytes. Recorded requests start after session initialization.
 func makePIVSession(
     firmware: String,
-    responses: [Data]
+    responses: [Data],
+    isFIPSKey: Bool? = nil
 ) async throws -> (session: PIVSession, connection: MockSmartCardConnection) {
     let version = try #require(Version(firmware))
     let setupResponses = [
@@ -28,7 +29,7 @@ func makePIVSession(
         Data([version.major, version.minor, version.micro, 0x90, 0]),  // Read PIV version.
     ]
     let connection = MockSmartCardConnection(responses: setupResponses + responses)
-    let session = try await PIVSession.makeSession(connection: connection)
+    let session = try await PIVSession.makeSession(connection: connection, isFIPSKey: isFIPSKey)
     // Setup must not consume a response intended for the operation under test.
     try #require(await connection.sendCount == setupResponses.count)
     await connection.clearRequests()

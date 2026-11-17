@@ -34,8 +34,14 @@ public final actor PIVSession: SmartCardSessionInternal {
     let interface: SmartCardInterface<Error>
     private var currentPinAttempts = 3
     private var maxPinAttempts = 3
+    private let isFIPSKey: Bool?
 
-    private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws(PIVSessionError) {
+    private init(
+        connection: SmartCardConnection,
+        scpKeyParams: SCPKeyParams?,
+        isFIPSKey: Bool?
+    ) async throws(PIVSessionError) {
+        self.isFIPSKey = isFIPSKey
 
         // Create interface with application selection and optional SCP
         let interface = try await SmartCardInterface<Error>(
@@ -63,25 +69,53 @@ public final actor PIVSession: SmartCardSessionInternal {
 
     /// Creates a new PIV session with the provided connection.
     ///
+    /// Checks feature support using only the firmware version.
+    /// Use ``makeSession(connection:scpKeyParams:isFIPSKey:)`` to supply the key's FIPS status.
+    ///
     /// - Parameters:
     ///   - connection: The smart card connection to use for this session.
     ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
     /// - Returns: A new PIV session instance.
-    /// - Throws: ``PIVSessionError`` if the PIV application cannot be selected or session creation fails.
+    /// - Throws: ``PIVSessionError`` if PIV selection or session setup fails.
     public static func makeSession(
         connection: SmartCardConnection,
         scpKeyParams: SCPKeyParams? = nil
     ) async throws(PIVSessionError) -> PIVSession {
-        // Return new PIVSession
-        try await PIVSession(connection: connection, scpKeyParams: scpKeyParams)
+        try await makeSession(connection: connection, scpKeyParams: scpKeyParams, isFIPSKey: nil)
     }
 
-    /// Checks if the PIV application supports the specified feature.
+    /// Creates a PIV session with the key's FIPS status supplied by the caller.
+    ///
+    /// Pass the key's FIPS status from existing device information, such as ``DeviceInfo/isFIPS``.
+    /// This method does not query Management or discover device metadata.
+    ///
+    /// - Parameters:
+    ///   - connection: The smart card connection to use for this session.
+    ///   - scpKeyParams: Optional SCP key parameters for authenticated communication.
+    ///   - isFIPSKey: Whether the connected key is a FIPS model. `nil` means unknown.
+    ///     Only `true` enables the additional PIV FIPS checks. The device enforces its restrictions in all cases.
+    /// - Returns: A new PIV session instance.
+    /// - Throws: ``PIVSessionError`` if PIV selection or session setup fails.
+    public static func makeSession(
+        connection: SmartCardConnection,
+        scpKeyParams: SCPKeyParams? = nil,
+        isFIPSKey: Bool? = nil
+    ) async throws(PIVSessionError) -> PIVSession {
+        try await PIVSession(
+            connection: connection,
+            scpKeyParams: scpKeyParams,
+            isFIPSKey: isFIPSKey
+        )
+    }
+
+    /// Checks feature support using the firmware and caller-supplied FIPS status.
+    ///
+    /// If the FIPS status is unknown (`nil`), checks only the firmware version.
     ///
     /// - Parameter feature: The feature to check for support.
     /// - Returns: `true` if the feature is supported, `false` otherwise.
     public func supports(_ feature: PIVSession.Feature) async -> Bool {
-        feature.isSupported(by: version)
+        feature.isSupported(by: version, isFIPSKey: isFIPSKey ?? false)
     }
 
     /// Create a signature for a given message.
@@ -256,6 +290,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     /// This method requires authentication and pin verification.
     ///
     /// > Note: YubiKey FIPS does not allow RSA1024 nor ``PIV/PinPolicy/never``.
+    ///        RSA1024 is unavailable on firmware 6.0.0 or later.
     ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
     ///        ``PIV/KeyType/ec(_:)`` with `.secp384r1` requires P384 support, available on YubiKey 4 or later.
     ///        ``PIV/KeyType/ed25519`` and ``PIV/KeyType/x25519`` require YubiKey 5.7 or later.
@@ -309,6 +344,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     /// This method requires authentication.
     ///
     /// > Note: YubiKey FIPS does not allow RSA1024 nor ``PIV/PinPolicy/never``.
+    ///        RSA1024 is unavailable on firmware 6.0.0 or later.
     ///        ``PIV/PinPolicy`` or ``PIV/TouchPolicy`` other than ``PIV/PinPolicy/defaultPolicy`` require support for usage policy,
     ///        available on YubiKey 4 or later.
     ///
@@ -606,6 +642,10 @@ public final actor PIVSession: SmartCardSessionInternal {
     }
 
     /// Set a new management key.
+    ///
+    /// TDES management keys are unavailable on firmware 6.0.0 or later
+    /// and on FIPS models with firmware 5.7 or later.
+    ///
     /// - Parameters:
     ///   - managementKeyData: The new management key as Data.
     ///   - type: The management key type.
@@ -622,7 +662,11 @@ public final actor PIVSession: SmartCardSessionInternal {
                 throw .featureNotSupported(source: .here())
             }
         }
-        if type != .tripleDES {
+        if type == .tripleDES {
+            guard await self.supports(PIVSessionFeature.tripleDESManagementKey) else {
+                throw .featureNotSupported(source: .here())
+            }
+        } else {
             guard await self.supports(PIVSessionFeature.aesKey) else { throw .featureNotSupported(source: .here()) }
         }
         let tlv = TKBERTLVRecord(tag: tagSlotCardManagement, value: managementKeyData)
@@ -1168,6 +1212,11 @@ extension PIVSession {
         touchPolicy: PIV.TouchPolicy,
         generateKey: Bool
     ) async throws(PIVSessionError) {
+        if keyType == .rsa(.bits1024) {
+            guard await self.supports(PIVSessionFeature.rsa1024) else {
+                throw .featureNotSupported(source: .here())
+            }
+        }
         if keyType == .ec(.secp384r1) {
             guard await self.supports(PIVSessionFeature.p384) else { throw .featureNotSupported(source: .here()) }
         }
