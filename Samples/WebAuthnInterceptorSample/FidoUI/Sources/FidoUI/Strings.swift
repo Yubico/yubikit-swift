@@ -7,11 +7,19 @@ extension FidoUI {
         // MARK: - NFC system-sheet messages
 
         static func nfcAlertCreate(serviceName: String) -> String {
-            String(localized: "Tap your YubiKey to create a passkey for \(serviceName)")
+            if serviceName.isEmpty {
+                String(localized: "Tap your YubiKey to create a passkey")
+            } else {
+                String(localized: "Tap your YubiKey to create a passkey for \(serviceName)")
+            }
         }
 
         static func nfcAlertSignIn(serviceName: String) -> String {
-            String(localized: "Tap your YubiKey to sign in to \(serviceName)")
+            if serviceName.isEmpty {
+                String(localized: "Tap your YubiKey to sign in")
+            } else {
+                String(localized: "Tap your YubiKey to sign in to \(serviceName)")
+            }
         }
 
         static let nfcAlertSetPIN = String(localized: "Tap your YubiKey to set a PIN")
@@ -22,7 +30,7 @@ extension FidoUI {
 
         static let nfcSuccessRegistration = String(localized: "Passkey created")
 
-        static let nfcSuccessAuthentication = String(localized: "Sign-in successful")
+        static let nfcSuccessAuthentication = String(localized: "Done")
 
     }
 }

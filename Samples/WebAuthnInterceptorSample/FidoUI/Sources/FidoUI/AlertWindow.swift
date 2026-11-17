@@ -14,32 +14,50 @@ extension FidoUI {
     final class AlertWindow {
         #if os(iOS)
         private var window: UIWindow?
+        private weak var previousKeyWindow: UIWindow?
         #elseif os(macOS)
         private var panel: NSPanel?
+        private var hasSizedPanel = false
         #endif
 
-        func present(model: PanelModel) {
+        func present(model: PanelModel, anchor: PresentationAnchor?) throws(FidoUI.Error) {
+            guard let anchor else { throw .presentationUnavailable }
             #if os(iOS)
-            presentIOS(model: model)
+            guard let scene = anchor.windowScene, scene.activationState == .foregroundActive,
+                !anchor.isHidden
+            else { throw .presentationUnavailable }
+            presentIOS(model: model, anchor: anchor, scene: scene)
             #elseif os(macOS)
-            presentMac(model: model)
+            guard anchor.isVisible, !anchor.isMiniaturized else { throw .presentationUnavailable }
+            presentMac(model: model, anchor: anchor)
             #endif
         }
 
         func dismiss() {
             #if os(iOS)
+            let restoreKeyWindow = window?.isKeyWindow == true
             window?.isHidden = true
             window = nil
+            if restoreKeyWindow, let previousKeyWindow, !previousKeyWindow.isHidden {
+                previousKeyWindow.makeKey()
+            }
+            previousKeyWindow = nil
             #elseif os(macOS)
+            let parent = panel?.parent
+            let restoreKeyWindow = panel?.isKeyWindow == true
+            if let panel { parent?.removeChildWindow(panel) }
             panel?.close()
             panel = nil
+            if restoreKeyWindow, let parent, parent.isVisible {
+                parent.makeKey()
+            }
             #endif
         }
     }
 }
 
-struct AlertBody<Content: View>: View {
-    let content: Content
+private struct AlertBody<Content: View>: View {
+    private let content: Content
 
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
@@ -67,32 +85,26 @@ extension View {
 
 #if os(iOS)
 extension FidoUI.AlertWindow {
-    private func presentIOS(model: FidoUI.PanelModel) {
+    private func presentIOS(model: FidoUI.PanelModel, anchor: UIWindow, scene: UIWindowScene) {
         guard window == nil else { return }
-        guard let scene = Self.activeWindowScene() else {
-            fidoLog("AlertWindow", "No active window scene; alert will not present.")
-            return
-        }
+        previousKeyWindow = scene.keyWindow ?? anchor
         let hosting = UIHostingController(
             rootView: IOSAlertRoot(model: model)
         )
         hosting.view.backgroundColor = .clear
         let window = UIWindow(windowScene: scene)
         window.rootViewController = hosting
-        window.windowLevel = .alert
+        // Stay above the host app while allowing the keyboard above this window.
+        window.windowLevel = .normal + 1
         window.backgroundColor = .clear
         window.makeKeyAndVisible()
         self.window = window
     }
-
-    private static func activeWindowScene() -> UIWindowScene? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        return scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first
-    }
 }
 
-struct AlertRoot<Content: View>: View {
-    let content: Content
+private struct AlertRoot<Content: View>: View {
+    private let content: Content
+    @State private var contentHeight: CGFloat?
 
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
@@ -101,7 +113,20 @@ struct AlertRoot<Content: View>: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.35).ignoresSafeArea()
-            AlertBody { content }
+            AlertBody {
+                ScrollView {
+                    content
+                        .onGeometryChange(for: CGFloat.self) {
+                            $0.size.height
+                        } action: {
+                            contentHeight = $0
+                        }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(maxHeight: contentHeight)
+            }
+            .frame(maxWidth: 400)
+            .padding(16)
         }
     }
 }
@@ -113,7 +138,11 @@ private struct IOSAlertRoot: View {
 
     var body: some View {
         if model.isPresented {
-            AlertRoot { FidoUI.PanelView(model: model) }
+            if model.isNFCActive {
+                Color.black.opacity(0.35).ignoresSafeArea()
+            } else {
+                AlertRoot { FidoUI.PanelView(model: model) }
+            }
         } else {
             Color.clear
         }
@@ -130,8 +159,9 @@ private final class AlertPanel: NSPanel {
 }
 
 extension FidoUI.AlertWindow {
-    private func presentMac(model: FidoUI.PanelModel) {
+    private func presentMac(model: FidoUI.PanelModel, anchor: NSWindow) {
         guard panel == nil else { return }
+        hasSizedPanel = false
         let panel = AlertPanel(
             contentRect: NSRect(x: 0, y: 0, width: 464, height: 240),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -150,20 +180,28 @@ extension FidoUI.AlertWindow {
             self.resize(panel: panel, to: size)
         }
         panel.contentViewController = NSHostingController(rootView: content)
-        panel.center()
+        let parentFrame = anchor.frame
+        panel.setFrameOrigin(
+            NSPoint(x: parentFrame.midX - panel.frame.width / 2, y: parentFrame.midY - panel.frame.height / 2)
+        )
+        anchor.addChildWindow(panel, ordered: .above)
         panel.makeKeyAndOrderFront(nil)
         self.panel = panel
     }
 
     private func resize(panel: NSPanel, to size: CGSize) {
         let current = panel.frame
-        guard size != current.size else { return }
+        guard size != current.size || !hasSizedPanel else { return }
         // Anchor the top edge so resize doesn't drift the panel toward
-        // vertical center as content grows.
-        let newOrigin = NSPoint(
-            x: current.midX - size.width / 2,
-            y: current.maxY - size.height
-        )
+        // vertical center as content grows. Center the first visible panel
+        // after the initially empty hosting view reports its real size.
+        let newOrigin: NSPoint
+        if !hasSizedPanel, let parent = panel.parent {
+            newOrigin = NSPoint(x: parent.frame.midX - size.width / 2, y: parent.frame.midY - size.height / 2)
+        } else {
+            newOrigin = NSPoint(x: current.midX - size.width / 2, y: current.maxY - size.height)
+        }
+        hasSizedPanel = true
         panel.setFrame(NSRect(origin: newOrigin, size: size), display: true)
     }
 }

@@ -21,9 +21,12 @@ extension FidoUI {
         }
 
         enum Panel {
-            /// `onCancel` is nil only on the picker debounce panel (iOS),
-            /// where the ceremony is cancelled via `FidoUI.cancel()`.
-            case waitingForKey(onCancel: (() -> Void)?)
+            case waitingForKey(
+                onCancel: (() -> Void)?,
+                isConnecting: Bool = false,
+                onUseNFC: (() -> Void)? = nil,
+                onWaitForUSB: (() -> Void)? = nil
+            )
             case processing
             case touch(onCancel: () -> Void)
             case pin(
@@ -117,6 +120,7 @@ extension FidoUI {
         }
 
         var isPresented = false
+        var isNFCActive = false
         var panel: Panel = .processing
         var operation: Operation = .registration
         var serviceName = ""
@@ -128,6 +132,7 @@ extension FidoUI {
 
         func reset() {
             isPresented = false
+            isNFCActive = false
             panel = .processing
             operation = .registration
             serviceName = ""

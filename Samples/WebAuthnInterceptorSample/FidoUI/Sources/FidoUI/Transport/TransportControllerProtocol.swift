@@ -25,9 +25,7 @@ extension FidoUI {
 
         func wired() async -> ActiveSession?
 
-        /// True when the wired-acquire loop should deliver a session
-        /// imminently. Used by `pickCeremonyTransport` to choose wired vs
-        /// NFC without forcing a session build at peek time.
+        /// True when a wired device is detected, opening, or ready.
         func isWiredAvailable() async -> Bool
 
         /// Block until a wired session is ready.

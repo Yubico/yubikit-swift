@@ -1,27 +1,43 @@
 import SwiftUI
 
-struct PINFieldRow: View {
+struct PINFieldRow<Focus: Hashable>: View {
     let label: String
+    let inputIdentifier: String
     @Binding var text: String
     @Binding var isVisible: Bool
-    var visibilityToggleIdentifier: String? = nil
+    var focus: FocusState<Focus>.Binding
+    var focusValue: Focus
+    let visibilityToggleIdentifier: String
 
     var body: some View {
         HStack(spacing: 4) {
             Group {
                 if isVisible {
                     TextField(label, text: $text)
+                        .accessibilityIdentifier(inputIdentifier)
                 } else {
                     SecureField(label, text: $text)
+                        .accessibilityIdentifier(inputIdentifier)
                 }
             }
+            .focused(focus, equals: focusValue)
             .textFieldStyle(.roundedBorder)
+            #if os(iOS)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .submitLabel(.continue)
+            .frame(minHeight: 44)
+            #endif
 
             Button {
                 isVisible.toggle()
             } label: {
                 Image(systemName: isVisible ? "eye" : "eye.slash")
                     .foregroundStyle(.secondary)
+                    #if os(iOS)
+                .frame(width: 44, height: 44)
+                .contentShape(.rect)
+                    #endif
             }
             .buttonStyle(.plain)
             .accessibilityLabel(
@@ -29,31 +45,10 @@ struct PINFieldRow: View {
                     ? String(localized: "Hide PIN")
                     : String(localized: "Show PIN")
             )
-            .accessibilityIdentifierIfPresent(visibilityToggleIdentifier)
+            .accessibilityIdentifier(visibilityToggleIdentifier)
         }
+        .onChange(of: isVisible) { focus.wrappedValue = focusValue }
     }
-}
-
-func minLengthMessage(_ minLength: Int) -> String {
-    String(localized: "PIN must be at least \(minLength) characters")
-}
-
-/// Surfaces the authenticator's error first, then min-length hint, then
-/// mismatch. Returns nil when valid.
-func pinPairValidationMessage(
-    errorMessage: String?,
-    newPin: String,
-    repeatPin: String,
-    minLength: Int
-) -> String? {
-    if let errorMessage { return errorMessage }
-    if !newPin.isEmpty && newPin.count < minLength {
-        return minLengthMessage(minLength)
-    }
-    if !repeatPin.isEmpty && newPin != repeatPin {
-        return String(localized: "PINs don't match")
-    }
-    return nil
 }
 
 /// Auto-continues after a 2-second hold; tap Continue to short-circuit.

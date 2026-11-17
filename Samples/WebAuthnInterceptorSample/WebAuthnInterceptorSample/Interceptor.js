@@ -20,7 +20,7 @@
         console.log('[WebAuthn] Received success callback');
         if (pendingResolve) {
             try {
-                const response = JSON.parse(atob(encoded));
+                const response = JSON.parse(decodeBase64UTF8(encoded));
                 const credential = parsePublicKeyCredentialFromJSON(response);
                 pendingResolve(credential);
             } catch (e) {
@@ -32,7 +32,7 @@
     };
 
     window.__webauthn_error__ = function(encoded) {
-        const errorMessage = atob(encoded);
+        const errorMessage = decodeBase64UTF8(encoded);
         console.log('[WebAuthn] Received error:', errorMessage);
         if (pendingReject) {
             pendingReject(new DOMException(errorMessage, 'NotAllowedError'));
@@ -47,17 +47,24 @@
         return Uint8Array.from(atob(base64), c => c.charCodeAt(0)).buffer;
     }
 
+    function decodeBase64UTF8(encoded) {
+        return new TextDecoder().decode(Uint8Array.from(atob(encoded), c => c.charCodeAt(0)));
+    }
+
     // Note: Spread operator may hit stack limits for very large ArrayBuffers.
     // Typical WebAuthn payloads are well under this limit.
     function arrayBufferToBase64url(buffer) {
-        return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+        const bytes = ArrayBuffer.isView(buffer)
+            ? new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+            : new Uint8Array(buffer);
+        return btoa(String.fromCharCode(...bytes))
             .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
     function serializePublicKeyOptionsToJSON(options) {
         return JSON.parse(JSON.stringify(options, (key, value) => {
             if (value instanceof ArrayBuffer) return arrayBufferToBase64url(value);
-            if (value instanceof Uint8Array) return arrayBufferToBase64url(value.buffer);
+            if (ArrayBuffer.isView(value)) return arrayBufferToBase64url(value);
             return value;
         }));
     }
@@ -164,13 +171,7 @@
                 publicKey.rp.id = window.location.hostname;
             }
 
-            const request = {
-                type: type,
-                origin: window.location.origin,
-                request: publicKey
-            };
-
-            window.webkit.messageHandlers[`__webauthn_${type}__`].postMessage(btoa(JSON.stringify(request)));
+            window.webkit.messageHandlers[`__webauthn_${type}__`].postMessage(JSON.stringify(publicKey));
         });
     }
 

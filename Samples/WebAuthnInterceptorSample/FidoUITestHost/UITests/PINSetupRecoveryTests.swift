@@ -34,6 +34,9 @@ final class PINSetupRecoveryTests: FidoUITestBase {
             .completed,
             "createPIN form should re-arm with retry message after transient connect fail"
         )
+        typePIN("123456", into: "new_pin_input")
+        typePIN("654321", into: "repeat_pin_input")
+        XCTAssertFalse(app.buttons["create_pin_button"].isEnabled)
         submitNewPIN("123456")
         assertElementExists(app.staticTexts["pin_created_title"], timeout: TestTimeouts.slow)
         app.buttons["pin_created_continue_button"].tap()

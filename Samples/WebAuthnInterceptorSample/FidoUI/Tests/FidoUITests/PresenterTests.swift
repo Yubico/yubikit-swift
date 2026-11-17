@@ -13,6 +13,40 @@ struct PresenterTests {
         return (ui, model)
     }
 
+    @Test("NFC errors escape the stream before presenting interactive recovery")
+    func nfcErrorReleasesBeforeRecovery() async {
+        let (ui, model) = makeUI()
+        model.isNFCActive = true
+        model.panel = .processing
+
+        do {
+            let _: Void = try await ui.retryOnError { () throws(FidoUI.Error) in
+                throw .webAuthn(.noCredentials(source: .here()))
+            }
+            Issue.record("Expected the NFC attempt to end")
+        } catch {
+            guard case .webAuthn(.noCredentials) = error else {
+                Issue.record("Unexpected error: \(error)")
+                return
+            }
+        }
+        #expect(model.panel.kind == .processing)
+        #expect(!model.isPresented)
+    }
+
+    @Test("NFC PIN request ends the scan before presenting input")
+    func nfcPINRequestDefersInput() async {
+        let (ui, model) = makeUI()
+        model.isNFCActive = true
+        let reply = await ui.askForPIN(retries: nil, transport: .nfc)
+        guard case .cancel = reply else {
+            Issue.record("Expected the scan to end before PIN entry")
+            return
+        }
+        #expect(ui.needsNFCPIN)
+        #expect(!model.isPresented)
+    }
+
     // MARK: - askForPIN
 
     private enum PINPanelAction: Sendable {
@@ -401,6 +435,45 @@ struct PresenterTests {
     }
 
     // MARK: - submittingForm lifecycle
+
+    @Test(
+        "Cancel after PIN submission cancels the ceremony",
+        arguments: [FidoUI.PanelModel.PanelKind.pin, .createPIN, .changePIN]
+    )
+    func cancelSubmittedPINForm(_ kind: FidoUI.PanelModel.PanelKind) async {
+        let (ui, model) = makeUI()
+        var didCancel = false
+        ui.cancelSubmittedForm = { didCancel = true }
+        let task = Task { @MainActor in
+            switch kind {
+            case .pin: _ = await ui.showPINEntry(retriesRemaining: nil)
+            case .createPIN: _ = await ui.showCreatePIN()
+            case .changePIN: _ = await ui.showChangePIN()
+            default: Issue.record("Unexpected form")
+            }
+        }
+        defer { task.cancel() }
+        await waitForPanel(model, kind: kind)
+
+        let cancel: () -> Void
+        switch model.panel {
+        case .pin(_, let submit, let onCancel), .createPIN(_, let submit, let onCancel):
+            submit("123456")
+            cancel = onCancel
+        case .changePIN(_, let submit, let onCancel):
+            submit("123456", "654321")
+            cancel = onCancel
+        default:
+            Issue.record("Expected PIN form")
+            return
+        }
+        await task.value
+        #expect(model.submittingForm == kind)
+        #expect(!didCancel)
+        cancel()
+        #expect(didCancel)
+        #expect(!model.isPresented)
+    }
 
     private enum PostSubmitAction: Sendable, CaseIterable {
         case showProcessing
