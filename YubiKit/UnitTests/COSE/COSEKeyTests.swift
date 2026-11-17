@@ -19,7 +19,8 @@ import Testing
 
 /// COSE key vectors from https://github.com/cose-wg/Examples;
 /// X25519 from RFC 7748 §6.1 (cose-wg has no X25519 example).
-/// Expected SPKI bytes generated independently via `openssl asn1parse -genconf`.
+/// Classical SPKI vectors generated independently via `openssl asn1parse -genconf`.
+/// ML-DSA uses synthetic public-key bytes to check AKP and SPKI encoding.
 struct COSEKeyTests {
     @Test("COSE.Key with test vector (EC2 P-256)")
     func testCOSEKeyEC2P256TestVector() throws {
@@ -254,6 +255,138 @@ struct COSEKeyTests {
             0xcf, 0x02, 0x03, 0x01, 0x00, 0x01,
         ])
         #expect(publicKey.spki == expectedSPKI)
+    }
+
+    @Test("COSE.Key (AKP ML-DSA-44)")
+    func testCOSEKeyAKPMLDSA44() throws {
+        let pub = Data(repeating: 0xAB, count: 1312)
+        let key = COSE.Key.akp(alg: .mlDSA44, kid: Data([1, 2, 3]), pub: pub)
+
+        let encoded = key.cbor()
+        let decoded = try #require(COSE.Key(cbor: encoded))
+        #expect(decoded == key)
+        #expect(key.algorithm == .mlDSA44)
+        #expect(encoded.mapValue?[.int(1)] == .int(7))
+        #expect(encoded.mapValue?[.int(3)] == .int(-48))
+        #expect(encoded.mapValue?[.int(-1)] == .byteString(pub))
+
+        let publicKey = try #require(PublicKey(cose: key))
+        guard case .mlDSA(let mlDSA) = publicKey else {
+            Issue.record("Expected ML-DSA public key")
+            return
+        }
+        #expect(mlDSA.parameterSet == .mlDSA44)
+        #expect(mlDSA.keyData == pub)
+
+        // DER SPKI with OID 2.16.840.1.101.3.4.3.17 and absent parameters.
+        let expectedSPKI =
+            Data([
+                0x30, 0x82, 0x05, 0x32, 0x30, 0x0b, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01,
+                0x65, 0x03, 0x04, 0x03, 0x11, 0x03, 0x82, 0x05, 0x21, 0x00,
+            ]) + pub
+        #expect(publicKey.spki == expectedSPKI)
+    }
+
+    @Test("COSE.Key (AKP ML-DSA-65)")
+    func testCOSEKeyAKPMLDSA65() throws {
+        let pub = Data(repeating: 0xAB, count: 1952)
+        let key = COSE.Key.akp(alg: .mlDSA65, kid: Data([1, 2, 3]), pub: pub)
+
+        let encoded = key.cbor()
+        let decoded = try #require(COSE.Key(cbor: encoded))
+        #expect(decoded == key)
+        #expect(key.algorithm == .mlDSA65)
+        #expect(encoded.mapValue?[.int(1)] == .int(7))
+        #expect(encoded.mapValue?[.int(3)] == .int(-49))
+        #expect(encoded.mapValue?[.int(-1)] == .byteString(pub))
+
+        let publicKey = try #require(PublicKey(cose: key))
+        guard case .mlDSA(let mlDSA) = publicKey else {
+            Issue.record("Expected ML-DSA public key")
+            return
+        }
+        #expect(mlDSA.parameterSet == .mlDSA65)
+        #expect(mlDSA.keyData == pub)
+
+        // DER SPKI with OID 2.16.840.1.101.3.4.3.18 and absent parameters.
+        let expectedSPKI =
+            Data([
+                0x30, 0x82, 0x07, 0xb2, 0x30, 0x0b, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01,
+                0x65, 0x03, 0x04, 0x03, 0x12, 0x03, 0x82, 0x07, 0xa1, 0x00,
+            ]) + pub
+        #expect(publicKey.spki == expectedSPKI)
+    }
+
+    @Test("COSE.Key (AKP ML-DSA-87)")
+    func testCOSEKeyAKPMLDSA87() throws {
+        let pub = Data(repeating: 0xAB, count: 2592)
+        let key = COSE.Key.akp(alg: .mlDSA87, kid: Data([1, 2, 3]), pub: pub)
+
+        let encoded = key.cbor()
+        let decoded = try #require(COSE.Key(cbor: encoded))
+        #expect(decoded == key)
+        #expect(key.algorithm == .mlDSA87)
+        #expect(encoded.mapValue?[.int(1)] == .int(7))
+        #expect(encoded.mapValue?[.int(3)] == .int(-50))
+        #expect(encoded.mapValue?[.int(-1)] == .byteString(pub))
+
+        let publicKey = try #require(PublicKey(cose: key))
+        guard case .mlDSA(let mlDSA) = publicKey else {
+            Issue.record("Expected ML-DSA public key")
+            return
+        }
+        #expect(mlDSA.parameterSet == .mlDSA87)
+        #expect(mlDSA.keyData == pub)
+
+        // DER SPKI with OID 2.16.840.1.101.3.4.3.19 and absent parameters.
+        let expectedSPKI =
+            Data([
+                0x30, 0x82, 0x0a, 0x32, 0x30, 0x0b, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01,
+                0x65, 0x03, 0x04, 0x03, 0x13, 0x03, 0x82, 0x0a, 0x21, 0x00,
+            ]) + pub
+        #expect(publicKey.spki == expectedSPKI)
+    }
+
+    @Test("ML-DSA conversion rejects incorrect key lengths", arguments: 0..<3)
+    func testMLDSAIncorrectKeyLength(index: Int) throws {
+        let expectedSize = [1312, 1952, 2592][index]
+        for size in [0, expectedSize - 1, expectedSize + 1] {
+            let key = try #require(
+                COSE.Key(
+                    cbor: .map([.int(1): .int(7), .int(3): .int(-48 - index), .int(-1): .byteString(Data(count: size))])
+                )
+            )
+            #expect(PublicKey(cose: key) == nil)
+        }
+        #expect(COSE.Key(cbor: .map([.int(1): .int(7), .int(3): .int(-48)])) == nil)
+        #expect(COSE.Key(cbor: .map([.int(1): .int(7), .int(3): .int(-48), .int(-1): .int(1)])) == nil)
+    }
+
+    @Test("Unknown algorithms and key types retain their algorithm and CBOR")
+    func testCOSEKeyUnknownTypes() throws {
+        for kty in [7, 99] {
+            let wire: CBOR.Value = .map([
+                .int(1): .int(kty), .int(3): .int(-999), .int(-1): .byteString(Data([1, 2])),
+            ])
+            let key = try #require(COSE.Key(cbor: wire))
+            #expect(key.algorithm == .other(-999))
+            #expect(key.cbor() == wire)
+            #expect(PublicKey(cose: key) == nil)
+        }
+        let key = try #require(COSE.Key(cbor: .map([.int(1): .int(99)])))
+        #expect(key.algorithm == nil)
+    }
+
+    @Test("COSE.Algorithm ML-DSA identifiers", arguments: [-48, -49, -50])
+    func testCOSEAlgorithmMLDSA(rawValue: Int) throws {
+        let algorithm: COSE.Algorithm = [.mlDSA44, .mlDSA65, .mlDSA87][-48 - rawValue]
+        #expect(COSE.Algorithm(rawValue: rawValue) == algorithm)
+        #expect(COSE.Algorithm(cbor: .int(rawValue)) == algorithm)
+        let parameters: CBOR.Value = .map([
+            .textString("type"): .textString("public-key"), .textString("alg"): .int(rawValue),
+        ])
+        #expect(COSE.Algorithm(cbor: parameters) == algorithm)
+        #expect(algorithm.cbor() == parameters)
     }
 
     @Test("COSE.Algorithm preserves non-enumerated raw values as .other")

@@ -318,19 +318,46 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
         case .algorithmSignatureVerify:
             return Scenario(
                 "CTAP2.Credentials.algorithmSignatureVerify",
-                "EdDSA and ES384 assertions verify against the returned credential public key",
+                "EdDSA, ES384, and supported ML-DSA assertions verify against the credential public key",
                 // EdDSA needs YubiKey 5.2+, ES384 (P-384) needs 5.6+; this scenario exercises both.
                 requirements: Requirements(capabilities: [.fido2], minVersion: Version("5.6.0"))
             ) { context in
-                var session = try await context.ctap2Session()
-                await context.addTeardown { try await context.deleteResidentCredentials() }
-                let cases: [(label: String, algorithm: COSE.Algorithm, userByte: UInt8)] = [
+                var session = try await sessionWithPin(context)
+                let rpId = "\(UUID().uuidString.lowercased()).signature.example"
+                // Register scoped cleanup before creation so it also runs after a parse failure.
+                await context.addTeardown {
+                    let cleanupSession = try await context.ctap2Session()
+                    let management = try await getCredentialManagement(cleanupSession)
+                    let rpIdHash = Data(SHA256.hash(data: Data(rpId.utf8)))
+                    let credentials = try await management.credentials(for: rpIdHash).enumerate()
+                    for credential in credentials {
+                        try await management.deleteCredential(credential.credentialId)
+                    }
+                }
+                var cases: [(label: String, algorithm: COSE.Algorithm, userByte: UInt8)] = [
                     ("EdDSA", .edDSA, 0x41),
                     ("ES384", .es384, 0x42),
                 ]
+                #if compiler(>=6.2)
+                if #available(iOS 26, macOS 26, *) {
+                    let algorithms = try await session.getInfo().algorithms
+                    if algorithms.contains(.mlDSA65) {
+                        cases.append(("ML-DSA-65", .mlDSA65, 0x43))
+                    } else {
+                        context.log("Skipping ML-DSA-65 signature verification: algorithm not advertised")
+                    }
+                    if algorithms.contains(.mlDSA87) {
+                        cases.append(("ML-DSA-87", .mlDSA87, 0x44))
+                    } else {
+                        context.log("Skipping ML-DSA-87 signature verification: algorithm not advertised")
+                    }
+                } else {
+                    context.log("Skipping ML-DSA signature verification: requires iOS/macOS 26")
+                }
+                #else
+                context.log("Skipping ML-DSA signature verification: requires Swift 6.2")
+                #endif
                 for (index, testCase) in cases.enumerated() {
-                    let rpId = "\(testCase.label.lowercased()).example"
-
                     context.touch("Touch the key to create the \(testCase.label) credential")
                     if index > 0 {
                         session = try await context.ctap2SessionAfterNFCReconnect()
@@ -2249,6 +2276,9 @@ extension CTAP2Scenario {
             MakeAssertAlgorithm("es384", .es384, minVersion: Version("5.6.0")),
             // RS256 is only available on YubiKey firmware 5.1.X and below.
             MakeAssertAlgorithm("rs256", .rs256, maxVersion: Version("5.1.99")),
+            MakeAssertAlgorithm("mlDSA44", .mlDSA44, minVersion: Version("6.0.0")),
+            MakeAssertAlgorithm("mlDSA65", .mlDSA65, minVersion: Version("6.0.0")),
+            MakeAssertAlgorithm("mlDSA87", .mlDSA87, minVersion: Version("6.0.0")),
         ]
         return Scenario.parameterized("CTAP2.Credentials.makeAssert", over: algorithms) { context, algorithm in
             let session = try await sessionWithPin(context)
@@ -2525,6 +2555,27 @@ private func verifyAssertionSignature(
             return
         }
         context.expect(key.isValidSignature(ecdsaSignature, for: signedData), "\(label): signature must verify")
+    case .akp:
+        #if compiler(>=6.2)
+        if #available(iOS 26, macOS 26, *) {
+            guard let publicKey = PublicKey(cose: publicKey), case .mlDSA(let key) = publicKey else {
+                context.record("\(label): failed to build an ML-DSA public key")
+                return
+            }
+            do {
+                context.expect(
+                    try key.isValidSignature(signature, for: signedData),
+                    "\(label): signature must verify"
+                )
+                context.expect(
+                    try !key.isValidSignature(signature, for: signedData + Data([0])),
+                    "\(label): signature must reject a changed message"
+                )
+            } catch {
+                context.record("\(label): signature verification failed: \(error)")
+            }
+        }
+        #endif
     default:
         context.record("\(label): unexpected COSE key type for signature verification")
     }
