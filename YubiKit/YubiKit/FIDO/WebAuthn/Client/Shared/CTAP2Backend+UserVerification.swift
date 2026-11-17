@@ -98,6 +98,9 @@ extension WebAuthn.CTAP2Backend {
         } else {
             initialUVRetries = 0
         }
+        var pinReason: WebAuthn.Authorization.PINRequestReason =
+            hasUV && authorization.uv != .skipped && (!allowUV || (canTryUV && initialUVRetries == 0))
+            ? .userVerificationBlocked : .required
 
         // External UV path: authenticator supports pinUVAuthToken.
         if initialUVRetries > 0, info.options.pinUVAuthToken == true {
@@ -113,8 +116,8 @@ extension WebAuthn.CTAP2Backend {
             switch result {
             case .token(let token):
                 return (token: token, uv: nil)
-            case .fallbackToPIN:
-                break
+            case .fallbackToPIN(let blocked):
+                if blocked { pinReason = .userVerificationBlocked }
             }
         } else if initialUVRetries > 0, allowInternalUV {
             logger.info("User Verification requested")
@@ -138,7 +141,7 @@ extension WebAuthn.CTAP2Backend {
 
         let pin: String
         logger.info("PIN requested")
-        switch await authorization.providePIN() {
+        switch await authorization.requestPIN(reason: pinReason) {
         case .pin(let value):
             pin = value
         case .cancel:
@@ -174,7 +177,7 @@ extension WebAuthn.CTAP2Backend {
 
 private enum UVOutcome {
     case token(CTAP2.Token)
-    case fallbackToPIN
+    case fallbackToPIN(blocked: Bool)
 }
 
 extension WebAuthn.CTAP2Backend {
@@ -222,7 +225,7 @@ extension WebAuthn.CTAP2Backend {
             )
         } catch {
             if case .ctapError(.keepaliveCancel, _) = error, await signal.isRequested {
-                return .fallbackToPIN
+                return .fallbackToPIN(blocked: false)
             }
             switch error {
             case .ctapError(.uvInvalid, _):
@@ -233,7 +236,7 @@ extension WebAuthn.CTAP2Backend {
                 if !canFallback {
                     throw .uvBlocked(source: .here())
                 }
-                return .fallbackToPIN
+                return .fallbackToPIN(blocked: true)
             default:
                 throw WebAuthn.ClientError(error)
             }

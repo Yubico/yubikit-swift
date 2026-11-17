@@ -53,7 +53,13 @@ struct UVFallbackToPINTests {
         mock.onGetAssertion = { _ in .mocked(.finished(.stub(credentialId: Data([0xAA])))) }
 
         let client = try WebAuthn.Client.make(backend: mock)
-        let auth = WebAuthn.Authorization(providePIN: { .pin("1234") }, uv: .preferred)
+        let auth = WebAuthn.Authorization(
+            providePINWithReason: { reason in
+                #expect(reason == .required)
+                return .pin("1234")
+            },
+            uv: .preferred
+        )
         let stream = await client.getAssertion(Self.options, authorization: auth)
 
         var sawUVWaiting = false

@@ -55,6 +55,14 @@ extension WebAuthn {
             case cancel
         }
 
+        /// Why the client is requesting a PIN.
+        public enum PINRequestReason: Sendable, Equatable {
+            /// The ceremony requires a PIN.
+            case required
+            /// Built-in user verification is blocked, so the PIN is needed instead.
+            case userVerificationBlocked
+        }
+
         /// How the SDK should handle built-in user verification (biometric
         /// or on-device PIN) for this ceremony.
         public enum UVPolicy: Sendable {
@@ -75,9 +83,17 @@ extension WebAuthn {
             case required
         }
 
-        /// Called when the SDK needs a PIN. Return ``PINReply/pin(_:)`` to
-        /// submit a PIN or ``PINReply/cancel`` to abort the ceremony.
+        private let pinProvider: @Sendable (PINRequestReason) async -> PINReply
+
+        /// PIN callback without a request reason. It supplies ``PINRequestReason/required``
+        /// to a reason-aware provider.
         public let providePIN: @Sendable () async -> PINReply
+
+        /// Requests a PIN with the reason for the request. A provider created
+        /// without a reason receives the request without that context.
+        func requestPIN(reason: PINRequestReason) async -> PINReply {
+            await pinProvider(reason)
+        }
 
         /// How to handle built-in UV for this ceremony. See ``UVPolicy``.
         public let uv: UVPolicy
@@ -93,6 +109,21 @@ extension WebAuthn {
             uv: UVPolicy = .preferred
         ) {
             self.providePIN = providePIN
+            self.pinProvider = { _ in await providePIN() }
+            self.uv = uv
+        }
+
+        /// Creates an authorization that receives the reason for a PIN request.
+        ///
+        /// - Parameters:
+        ///   - providePINWithReason: Called when the client needs a PIN.
+        ///   - uv: How built-in user verification should be used.
+        public init(
+            providePINWithReason: @Sendable @escaping (PINRequestReason) async -> PINReply,
+            uv: UVPolicy = .preferred
+        ) {
+            self.providePIN = { await providePINWithReason(.required) }
+            self.pinProvider = providePINWithReason
             self.uv = uv
         }
 

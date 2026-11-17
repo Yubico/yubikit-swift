@@ -15,7 +15,7 @@
 import Foundation
 import Testing
 
-@testable import YubiKit
+@_spi(YubiInternal) @testable import YubiKit
 
 @Suite("WebAuthn UV Failure Tests", .serialized)
 struct UVRetryTests {
@@ -218,7 +218,13 @@ struct UVRetryTests {
 
         let client = try WebAuthn.Client.make(backend: mock)
 
-        let auth = WebAuthn.Authorization(providePIN: { .pin("1234") }, uv: .preferred)
+        let auth = WebAuthn.Authorization(
+            providePINWithReason: { reason in
+                #expect(reason == .userVerificationBlocked)
+                return .pin("1234")
+            },
+            uv: .preferred
+        )
         let stream = await client.getAssertion(Self.options, authorization: auth)
         var finished = false
         for try await status in stream {
@@ -228,6 +234,36 @@ struct UVRetryTests {
         #expect(uvAttempts == 1)
         #expect(pinAttempts == 1)
         #expect(finished)
+    }
+
+    @Test("PIN reason distinguishes a locked sensor from ordinary PIN requests")
+    func testPINRequestReasons() async throws {
+        let cases: [(Bool, WebAuthn.Authorization.UVPolicy, WebAuthn.Authorization.PINRequestReason)] = [
+            (true, .preferred, .userVerificationBlocked),
+            (false, .preferred, .required),
+            (true, .skipped, .required),
+        ]
+        for (hasUV, policy, expected) in cases {
+            let mock = MockCTAP2Backend()
+            mock.onGetInfo = { .stub(clientPin: true, userVerification: hasUV, pinUvAuthToken: true) }
+            mock.onGetUVRetries = { 0 }
+            mock.onGetPinUVToken = { _, _, _ in
+                CTAP2.Token(token: Data(repeating: 0, count: 32), protocolVersion: .v2)
+            }
+            mock.onGetAssertion = { _ in .mocked(.finished(.stub(credentialId: Data([0xAA])))) }
+            let client = try WebAuthn.Client.make(backend: mock)
+            let calls = Box(0)
+            let auth = WebAuthn.Authorization(
+                providePINWithReason: { reason in
+                    #expect(reason == expected)
+                    calls.value += 1
+                    return .pin("1234")
+                },
+                uv: policy
+            )
+            _ = try await client.getAssertion(Self.options, authorization: auth).value
+            #expect(calls.value == 1)
+        }
     }
 
     // MARK: - UV Without PIN Fallback
