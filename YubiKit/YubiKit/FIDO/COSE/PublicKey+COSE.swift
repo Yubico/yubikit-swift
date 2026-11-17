@@ -23,6 +23,7 @@ extension PublicKey {
     /// - EC2 with P-256 (crv=1) or P-384 (crv=2)
     /// - OKP with Ed25519 (crv=6) or X25519 (crv=4)
     /// - RSA (any algorithm — key material is algorithm-independent)
+    /// - AKP with ML-DSA-44, ML-DSA-65, or ML-DSA-87
     ///
     /// - Parameter cose: COSE Key containing key type and parameters
     public init?(cose: COSE.Key) {
@@ -71,6 +72,19 @@ extension PublicKey {
                 return nil
             }
             self = .rsa(rsaKey)
+
+        case .akp(let alg, _, let pub):
+            let parameterSet: MLDSA.ParameterSet
+            switch alg.rawValue {
+            case -48: parameterSet = .mlDSA44
+            case -49: parameterSet = .mlDSA65
+            case -50: parameterSet = .mlDSA87
+            default: return nil
+            }
+            guard let key = MLDSA.PublicKey(keyData: pub, parameterSet: parameterSet) else {
+                return nil
+            }
+            self = .mlDSA(key)
 
         case .other:
             // Unsupported key type or algorithm - cannot convert to PublicKey

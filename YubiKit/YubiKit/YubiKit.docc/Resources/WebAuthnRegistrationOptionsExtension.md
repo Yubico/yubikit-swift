@@ -33,6 +33,10 @@ let opts = WebAuthn.Registration.Options(
 let opts = try WebAuthn.Registration.Options.from(json: rpJSON)
 ```
 
+ML-DSA credentials use `.mlDSA44`, `.mlDSA65`, or `.mlDSA87`. Include them in
+`pubKeyCredParams` when the relying party accepts them. Check the authenticator's
+`GetInfo` algorithms for device support. ML-DSA is not included in the default list.
+
 ## Topics
 
 ### Creating Options
