@@ -32,6 +32,8 @@ struct PanelHeader: View {
 
             Text(title)
                 .font(.title3.bold())
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.bottom, 8)
                 .accessibilityIdentifierIfPresent(titleIdentifier)
 
@@ -53,6 +55,7 @@ struct PrimaryButton: View {
     let identifier: String
     var disabled: Bool = false
     var isLoading: Bool = false
+    var systemImage: String? = nil
     let action: () -> Void
 
     var body: some View {
@@ -60,9 +63,15 @@ struct PrimaryButton: View {
             ZStack {
                 // Keep the label in layout so width/height don't shrink
                 // when the spinner takes over.
-                Text(label)
-                    .frame(maxWidth: .infinity)
-                    .opacity(isLoading ? 0 : 1)
+                HStack {
+                    if let systemImage {
+                        Image(systemName: systemImage)
+                            .accessibilityHidden(true)
+                    }
+                    Text(label)
+                }
+                .frame(maxWidth: .infinity)
+                .opacity(isLoading ? 0 : 1)
                 if isLoading {
                     ProgressView()
                         .controlSize(.small)
@@ -73,11 +82,7 @@ struct PrimaryButton: View {
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
         .keyboardShortcut(.defaultAction)
-        // Stay visually enabled while loading so iOS keeps the prominent
-        // tint (the white spinner is invisible against the disabled fill);
-        // block taps via hit-testing instead.
-        .disabled(disabled)
-        .allowsHitTesting(!isLoading)
+        .disabled(disabled || isLoading)
         .accessibilityIdentifier(identifier)
     }
 }
@@ -105,17 +110,27 @@ struct CancelButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(label, role: .cancel, action: action)
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .keyboardShortcut(.cancelAction)
-            .accessibilityIdentifier(identifier)
+        Button(role: .cancel, action: action) {
+            Text(label)
+                #if os(iOS)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(.rect)
+                #endif
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.secondary)
+        .keyboardShortcut(.cancelAction)
+        .accessibilityIdentifier(identifier)
     }
 }
 
 extension View {
     func panelPadding() -> some View {
+        #if os(iOS)
+        padding(24)
+        #else
         padding(.horizontal, 24).padding(.vertical, 32)
+        #endif
     }
 
     /// iOS 26+ uses the system scroll edge effect; older targets get a
@@ -149,19 +164,26 @@ func retriesText(_ retries: Int) -> String {
         : String(localized: "\(retries) attempts remaining")
 }
 
-/// Two-line slot stays reserved when message is nil so the panel doesn't
-/// grow when validation toggles in/out.
+/// Reserve two lines, allowing longer iPhone messages to wrap.
 struct ValidationText: View {
     let message: String?
     let isError: Bool
     var identifier: String? = nil
+    #if os(iOS)
+    @ScaledMetric(relativeTo: .caption) private var minimumHeight = 28
+    #endif
 
     var body: some View {
         Text(message ?? " ")
             .font(.caption)
             .foregroundStyle(isError ? .red : .secondary)
             .multilineTextAlignment(.center)
-            .lineLimit(2, reservesSpace: true)
+            #if os(iOS)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(minHeight: minimumHeight)
+            #else
+        .lineLimit(2, reservesSpace: true)
+            #endif
             .padding(.bottom, 8)
             .accessibilityLabel(
                 isError ? String(localized: "Error: \(message ?? "")") : (message ?? "")
@@ -175,7 +197,7 @@ extension View {
     /// Avoid `accessibilityIdentifier(x ?? "")` — an empty-string id is
     /// hard to spot in tests.
     @ViewBuilder
-    func accessibilityIdentifierIfPresent(_ identifier: String?) -> some View {
+    fileprivate func accessibilityIdentifierIfPresent(_ identifier: String?) -> some View {
         if let identifier {
             self.accessibilityIdentifier(identifier)
         } else {

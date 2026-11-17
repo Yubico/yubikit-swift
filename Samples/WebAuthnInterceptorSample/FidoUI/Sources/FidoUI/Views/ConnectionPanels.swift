@@ -2,25 +2,62 @@ import SwiftUI
 
 struct WaitingForKeyPanel: View {
     let onCancel: (() -> Void)?
+    var isConnecting = false
+    var onUseNFC: (() -> Void)? = nil
+    var onWaitForUSB: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 0) {
-            PanelHeader(
-                icon: "key.horizontal.fill",
-                title: String(localized: "Insert Your YubiKey"),
-                subtitle: String(localized: "Plug in your YubiKey to continue"),
-                subtitleBottomPadding: onCancel != nil ? 24 : 0,
-                titleIdentifier: "waiting_for_key_title",
-                subtitleIdentifier: "waiting_for_key_subtitle"
-            )
+            if isConnecting {
+                ProgressView()
+                    .controlSize(.large)
+                    .padding(.bottom, 16)
+                Text("Connecting to YubiKey")
+                    .font(.title3.bold())
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("connecting_to_key_title")
+                    .padding(.bottom, 24)
+            } else {
+                PanelHeader(
+                    icon: "key.horizontal.fill",
+                    title: String(localized: "Insert Your YubiKey"),
+                    subtitle: String(localized: "Plug in your YubiKey to continue"),
+                    subtitleBottomPadding: onCancel != nil || onUseNFC != nil ? 24 : 0,
+                    titleIdentifier: "waiting_for_key_title",
+                    subtitleIdentifier: "waiting_for_key_subtitle"
+                )
+            }
+
+            if let onUseNFC {
+                PrimaryButton(
+                    label: String(localized: "Use NFC"),
+                    identifier: "waiting_for_key_use_nfc_button",
+                    systemImage: "wave.3.right",
+                    action: onUseNFC
+                )
+                .padding(.bottom, onWaitForUSB != nil || onCancel != nil ? 12 : 0)
+            }
+
+            if let onWaitForUSB {
+                SecondaryButton(
+                    label: String(localized: "Wait for USB-C"),
+                    identifier: "waiting_for_key_wait_usb_button",
+                    action: onWaitForUSB
+                )
+                .padding(.bottom, onCancel != nil ? 12 : 0)
+            }
 
             if let onCancel {
-                SecondaryButton(
-                    label: String(localized: "Cancel"),
-                    identifier: "waiting_for_key_cancel_button",
-                    role: .cancel,
-                    action: onCancel
-                )
+                if onWaitForUSB != nil {
+                    CancelButton(identifier: "waiting_for_key_cancel_button", action: onCancel)
+                } else {
+                    SecondaryButton(
+                        label: String(localized: "Cancel"),
+                        identifier: "waiting_for_key_cancel_button",
+                        role: .cancel,
+                        action: onCancel
+                    )
+                }
             }
         }
         .panelPadding()

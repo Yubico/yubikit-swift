@@ -92,25 +92,25 @@ extension Runner {
         return await runGetAssertion(fido, options: authOptions(uv: .discouraged), serviceName: "example.com")
     }
 
-    /// First makeCredential stream errors with a transport-level
-    /// `connectionError`, which the SDK maps to
-    /// `WebAuthn.ClientError.authenticatorNotAvailable`. `runCeremony` catches
-    /// it, switches `phase = .reconnect`, shows the waiting bridge panel,
-    /// re-acquires a session, and the second attempt succeeds.
+    /// A transport drop ends the ceremony after one attempt.
     static func flowConnectionDropMidCeremony() async -> ScenarioStatus.Outcome {
         let attempts = Box(0)
         let mock = MockCTAP2Backend()
         mock.onGetInfo = { .stub(clientPin: false, pinUvAuthToken: false) }
         mock.onMakeCredential = { _ in
             attempts.value += 1
-            if attempts.value == 1 {
-                return .mocked(
-                    error: .connectionError(.connectionLost, source: .here())
-                )
-            }
-            return .mocked(.finished(.stub(credentialId: Data([0xAA]))))
+            return .mocked(error: .connectionError(.connectionLost, source: .here()))
         }
 
-        return await runRegistration(webauthn: mock, uv: .discouraged)
+        let fido = makeMockedFidoUI(webauthn: mock)
+        do {
+            let origin = try WebAuthn.Origin("https://example.com")
+            _ = try await fido.makeCredential(regOptions(uv: .discouraged), origin: origin)
+            return .failed("Unexpected success")
+        } catch FidoUI.Error.webAuthn(.authenticatorNotAvailable) {
+            return attempts.value == 1 ? .completed : .failed("Retried after a transport drop")
+        } catch {
+            return .failed("Unexpected error: \(error)")
+        }
     }
 }

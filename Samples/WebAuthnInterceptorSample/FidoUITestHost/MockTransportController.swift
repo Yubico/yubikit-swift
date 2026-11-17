@@ -1,17 +1,5 @@
-// Mock transport for FidoUI E2E scenarios. Substitutes a canned
-// `ActiveSession` whose `WebAuthn.Client` is built via
-// `WebAuthn.Client.mocked(backend:)` so scenarios drive the real retry /
-// setup-recovery / error flows without opening any transport.
-//
-// `transport` controls which path the iOS picker takes:
-//   - `.wired` (default): `isWiredAvailable()` returns true so iOS
-//     commits to wired and runs the same inline-PIN flow as macOS HID.
-//     Body iterations build sessions through `awaitWired`.
-//   - `.nfc`: `isWiredAvailable()` returns false so iOS times out the
-//     picker and chooses NFC. Body iterations build sessions through
-//     `openNFC`. Used by `E2EFlowTests_iOS` to exercise the NFC
-//     prefetch UI flow.
-// macOS ignores `transport` because its picker is always `.wired`.
+// Mock transport for wired and NFC UI scenarios. Session acquisition drives
+// the real WebAuthn client against the mock backend without opening hardware.
 
 import Foundation
 
@@ -39,6 +27,9 @@ actor MockTransportController: FidoUI.TransportControllerProtocol {
     /// `.authenticatorNotAvailable`.
     nonisolated(unsafe) var onAcquire: ((Int) async throws -> Void)?
     private var acquireCount = 0
+    #if os(iOS)
+    private var selectedWiredSession: FidoUI.ActiveSession?
+    #endif
 
     init(
         webauthn: MockCTAP2Backend,
@@ -59,11 +50,13 @@ actor MockTransportController: FidoUI.TransportControllerProtocol {
     }
 
     func wired() -> FidoUI.ActiveSession? {
-        // Always nil so `waitForWiredWithPanel` falls through to
-        // `awaitWired`, which routes through `provideSession` for
-        // count + onAcquire bookkeeping. The picker uses
-        // `isWiredAvailable` instead, which doesn't build a session.
-        nil
+        #if os(iOS)
+        if let session = selectedWiredSession {
+            selectedWiredSession = nil
+            return session
+        }
+        #endif
+        return nil
     }
 
     func isWiredAvailable() -> Bool {
@@ -71,16 +64,26 @@ actor MockTransportController: FidoUI.TransportControllerProtocol {
     }
 
     func awaitWired() async throws(FidoUI.Error) -> FidoUI.ActiveSession {
-        // Simulate the production loop's reconnect latency between body
-        // iterations — without this, the mock returns the next session
-        // instantly and the waiting-for-key panel that
-        // `waitForWiredWithPanel` shows on reconnect never renders to
-        // the screen, breaking tests like
-        // `testFlowConnectionDropMidCeremony` that assert on it.
-        if acquireCount > 0 {
-            try? await Task.sleep(for: .milliseconds(500))
+        if transport == .nfc {
+            do {
+                try await Task.sleep(for: .seconds(60))
+            } catch {
+                throw .cancelled
+            }
+            throw .cancelled
         }
-        return try await provideSession()
+        if ProcessInfo.processInfo.arguments.contains("--slow-wired"), acquireCount == 0 {
+            do {
+                try await Task.sleep(for: .seconds(4))
+            } catch {
+                throw .cancelled
+            }
+        }
+        let session = try await provideSession()
+        #if os(iOS)
+        if acquireCount == 1 { selectedWiredSession = session }
+        #endif
+        return session
     }
 
     #if os(iOS)
@@ -163,15 +166,19 @@ func makeMockedFidoUI(
     transport: FidoUI.Presenter.CeremonyTransport = defaultMockTransport,
     pinSetupLatency: Duration = .milliseconds(700)
 ) -> FidoUI {
-    FidoUI(testTransportFactory: { _ in
-        MockTransportController(
-            webauthn: webauthn,
-            pinSetup: pinSetup,
-            minPINLength: minPINLength,
-            transport: transport,
-            pinSetupLatency: pinSetupLatency
-        )
-    })
+    FidoUI(
+        presentationAnchor: Runner.presentationAnchor,
+        isPinPrioritized: ProcessInfo.processInfo.arguments.contains("--pin-prioritized"),
+        testTransportFactory: { _ in
+            MockTransportController(
+                webauthn: webauthn,
+                pinSetup: pinSetup,
+                minPINLength: minPINLength,
+                transport: transport,
+                pinSetupLatency: pinSetupLatency
+            )
+        }
+    )
 }
 
 /// Mock transport mode selected by the host app's launch arguments.

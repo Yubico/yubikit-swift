@@ -2,6 +2,12 @@ import Foundation
 import SwiftUI
 import YubiKit
 
+#if os(iOS)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
+
 func fidoLog(_ tag: String, _ message: @autoclosure () -> String) {
     #if DEBUG
     print("[\(tag)] \(message())")
@@ -13,15 +19,21 @@ func fidoLog(_ tag: String, _ message: @autoclosure () -> String) {
 /// Owns the full ceremony lifecycle — transport, PIN/UV prompts, error
 /// panels, success, cancellation, and setup-recovery (first-time PIN,
 /// forced PIN change). On iOS it tries wired (USB-C / Lightning) at
-/// ceremony start and falls back to NFC; on macOS it uses HID FIDO.
+/// ceremony start and falls back to NFC; macOS uses HID FIDO.
 ///
-/// Concurrent calls on the same instance are queued — a second ceremony
-/// waits for the first to finish rather than racing it for the alert
-/// window, the transport, or the shared panel model.
+/// Only one ceremony can run on an instance at a time. Overlapping calls
+/// fail with `Error.operationInProgress`.
 @MainActor
 public final class FidoUI {
 
-    private let isPublicSuffix: WebAuthn.PublicSuffixChecker
+    #if os(iOS)
+    public typealias PresentationAnchor = UIWindow
+    #elseif os(macOS)
+    public typealias PresentationAnchor = NSWindow
+    #endif
+
+    private let presentationAnchor: @MainActor @Sendable () -> PresentationAnchor?
+    private let isPinPrioritized: Bool
     private let transportFactory: @MainActor (WebAuthn.Origin) -> any TransportControllerProtocol
     private let model: PanelModel
     private let presenter: Presenter
@@ -31,10 +43,25 @@ public final class FidoUI {
     /// from outside (e.g. WebView teardown).
     private var activeTransport: (any TransportControllerProtocol)?
 
-    private var ceremonyTail: Task<Void, Never>?
+    private var activeCeremony: (id: UUID, cancel: @MainActor () async -> Void)?
 
-    public init(isPublicSuffix: @escaping WebAuthn.PublicSuffixChecker = { _ in false }) {
-        self.isPublicSuffix = isPublicSuffix
+    /// Creates a UI for security-key ceremonies.
+    ///
+    /// - Parameters:
+    ///   - presentationAnchor: Resolves the initiating view's window when a
+    ///     ceremony starts. Return nil if the view is no longer attached.
+    ///     Capture the view weakly to avoid retaining its owner.
+    ///   - isPinPrioritized: On iOS, ask for a PIN before scanning over NFC.
+    ///     The default is to scan first and ask only if a PIN is needed.
+    ///   - isPublicSuffix: Checks relying-party identifiers against a Public
+    ///     Suffix List.
+    public init(
+        presentationAnchor: @escaping @MainActor @Sendable () -> PresentationAnchor?,
+        isPinPrioritized: Bool = false,
+        isPublicSuffix: @escaping WebAuthn.PublicSuffixChecker
+    ) {
+        self.presentationAnchor = presentationAnchor
+        self.isPinPrioritized = isPinPrioritized
         self.transportFactory = { origin in
             TransportController(origin: origin, isPublicSuffix: isPublicSuffix)
         }
@@ -43,60 +70,93 @@ public final class FidoUI {
     }
 
     /// Test seam — `@testable import FidoUI` only.
-    init(testTransportFactory: @escaping @MainActor (WebAuthn.Origin) -> any TransportControllerProtocol) {
-        self.isPublicSuffix = { _ in false }
+    init(
+        presentationAnchor: @escaping @MainActor @Sendable () -> PresentationAnchor? = { nil },
+        isPinPrioritized: Bool = false,
+        testTransportFactory: @escaping @MainActor (WebAuthn.Origin) -> any TransportControllerProtocol
+    ) {
+        self.presentationAnchor = presentationAnchor
+        self.isPinPrioritized = isPinPrioritized
         self.transportFactory = testTransportFactory
         self.model = PanelModel()
         self.presenter = Presenter(model: model)
     }
 
-    private func withAlertWindow<R, E>(
-        _ body: () async throws(E) -> R
-    ) async throws(E) -> R {
-        alertWindow.present(model: model)
+    private func withAlertWindow<R>(
+        _ body: () async throws(FidoUI.Error) -> R
+    ) async throws(FidoUI.Error) -> R {
+        try alertWindow.present(model: model, anchor: presentationAnchor())
         defer { alertWindow.dismiss() }
         return try await body()
     }
 
-    /// Aborts the active ceremony, if any. Idempotent. Outer-Task
-    /// cancellation of any in-flight call also routes here.
+    /// Cancels the active ceremony and waits for its teardown.
+    /// Cancelling the caller's task also cancels its ceremony.
     public func cancel() async {
-        presenter.cleanup()
-        await activeTransport?.cancel()
+        await activeCeremony?.cancel()
     }
 
-    /// Serialize `body` against any other in-flight ceremony on this instance.
-    func serialized<R: Sendable>(
+    func performCeremony<R: Sendable>(
         _ body: @MainActor @escaping () async throws(FidoUI.Error) -> R
     ) async throws(FidoUI.Error) -> R {
-        let prior = ceremonyTail
-        // Typed throws can't ride `Task.failure`, so funnel the outcome
-        // through `Result` and unpack at the call boundary.
+        guard !Task.isCancelled else { throw .cancelled }
+        guard activeCeremony == nil else { throw .operationInProgress }
+
+        let id = UUID()
         let workTask = Task<Result<R, FidoUI.Error>, Never> { @MainActor in
-            await prior?.value
+            defer {
+                self.activeCeremony = nil
+                self.presenter.cancelSubmittedForm = nil
+            }
             do throws(FidoUI.Error) {
-                return .success(try await body())
+                guard !Task.isCancelled else { throw .cancelled }
+                let result = try await body()
+                guard !Task.isCancelled else { throw .cancelled }
+                return .success(result)
             } catch {
-                return .failure(error)
+                return .failure(Task.isCancelled ? .cancelled : error)
             }
         }
-        ceremonyTail = Task { @MainActor in _ = await workTask.value }
+        activeCeremony = (
+            id,
+            { [weak self] in
+                workTask.cancel()
+                self?.presenter.cleanup()
+                await self?.activeTransport?.cancel()
+                _ = await workTask.value
+            }
+        )
+        let cancelRequest: @Sendable () -> Void = { [weak self] in
+            workTask.cancel()
+            Task { @MainActor [weak self] in
+                await self?.cancel(requestID: id)
+            }
+        }
+        presenter.cancelSubmittedForm = cancelRequest
         let outcome = await withTaskCancellationHandler {
             await workTask.value
-        } onCancel: { [weak self] in
-            // workTask is unstructured — route outer-task cancellation through
-            // cancel() so the panel awaiter wakes and the transport unwinds.
-            Task { @MainActor [weak self] in await self?.cancel() }
+        } onCancel: {
+            cancelRequest()
         }
         switch outcome {
         case .success(let value): return value
         case .failure(let error): throw error
         }
     }
+
+    private func cancel(requestID: UUID) async {
+        guard let activeCeremony, activeCeremony.id == requestID else { return }
+        await activeCeremony.cancel()
+    }
 }
 
 extension FidoUI {
 
+    /// Creates a credential on the authenticator. The relying party must verify
+    /// and store the returned response to complete registration.
+    ///
+    /// `serviceName` is display text only. The origin and relying-party ID
+    /// determine which site can use the credential.
     public func makeCredential(
         _ options: WebAuthn.Registration.Options,
         origin: WebAuthn.Origin,
@@ -120,13 +180,18 @@ extension FidoUI {
         }
     }
 
+    /// Obtains a signed assertion. The relying party must verify the returned
+    /// response before treating the user as signed in.
+    ///
+    /// `serviceName` is display text only. The origin and relying-party ID
+    /// determine which site can use the credential.
     public func getAssertion(
         _ options: WebAuthn.Authentication.Options,
         origin: WebAuthn.Origin,
         serviceName: String? = nil
     ) async throws(FidoUI.Error) -> WebAuthn.Authentication.Response {
-        let rpId = options.rpId ?? ""
-        let name = Self.resolveServiceName(serviceName, options.rpId)
+        let rpId = options.rpId ?? origin.host
+        let name = Self.resolveServiceName(serviceName, options.rpId, origin.host)
         return try await runUICeremony(
             operation: .authentication,
             origin: origin,
@@ -148,7 +213,7 @@ extension FidoUI {
         serviceName: String,
         body: @escaping FidoUI.Presenter.CeremonyBody<R>
     ) async throws(FidoUI.Error) -> R {
-        try await serialized { () async throws(FidoUI.Error) in
+        try await performCeremony { () async throws(FidoUI.Error) in
             let transport = self.transportFactory(origin)
             self.activeTransport = transport
             defer { self.activeTransport = nil }
@@ -157,6 +222,7 @@ extension FidoUI {
                     transport: transport,
                     operation: operation,
                     serviceName: serviceName,
+                    isPinPrioritized: self.isPinPrioritized,
                     body: body
                 )
             }
@@ -167,7 +233,7 @@ extension FidoUI {
     /// the panel header render a service-less variant ("Sign in").
     private static func resolveServiceName(_ candidates: String?...) -> String {
         for candidate in candidates {
-            if let trimmed = candidate?.trimmingCharacters(in: .whitespaces), !trimmed.isEmpty {
+            if let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty {
                 return trimmed
             }
         }
@@ -176,7 +242,7 @@ extension FidoUI {
 
     /// Per-attempt `Authorization`: rebuilt each iteration so `uvPolicy` /
     /// `pinRetries` reflect any mutation by the outer ceremony catch.
-    fileprivate static func authorization(
+    private static func authorization(
         _ ctx: FidoUI.Presenter.AttemptContext,
         presenter: FidoUI.Presenter
     ) -> WebAuthn.Authorization {

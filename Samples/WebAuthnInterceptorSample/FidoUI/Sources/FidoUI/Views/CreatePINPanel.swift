@@ -14,23 +14,26 @@ struct CreatePINPanel: View {
 
     private enum Field: Hashable { case newPin, repeatPin }
 
+    private var validationIssue: PINValidationIssue? {
+        pinPairValidationIssue(
+            newPIN: newPin,
+            repeatPIN: repeatPin,
+            minimumCodePoints: config.minLength
+        )
+    }
+
     private var isValid: Bool {
-        newPin.count >= config.minLength && !repeatPin.isEmpty && newPin == repeatPin
+        !newPin.isEmpty && !repeatPin.isEmpty && validationIssue == nil
     }
 
     private var validationMessage: String? {
-        pinPairValidationMessage(
-            errorMessage: config.errorMessage,
-            newPin: newPin,
-            repeatPin: repeatPin,
-            minLength: config.minLength
-        )
+        config.errorMessage ?? validationIssue?.message
     }
 
     var body: some View {
         VStack(spacing: 0) {
             PanelHeader(
-                icon: "lock.badge.plus",
+                icon: "lock.fill",
                 title: String(localized: "Set Up YubiKey PIN"),
                 subtitle: String(
                     localized: "Your YubiKey requires a PIN to continue. Create one now."
@@ -43,23 +46,25 @@ struct CreatePINPanel: View {
             Group {
                 PINFieldRow(
                     label: "New PIN",
+                    inputIdentifier: "new_pin_input",
                     text: $newPin,
                     isVisible: $isNewPinVisible,
+                    focus: $focusedField,
+                    focusValue: .newPin,
                     visibilityToggleIdentifier: "new_pin_visibility_toggle"
                 )
-                .focused($focusedField, equals: .newPin)
-                .accessibilityIdentifier("new_pin_input")
                 .onSubmit { focusedField = .repeatPin }
                 .padding(.bottom, 8)
 
                 PINFieldRow(
                     label: "Repeat PIN",
+                    inputIdentifier: "repeat_pin_input",
                     text: $repeatPin,
                     isVisible: $isRepeatPinVisible,
+                    focus: $focusedField,
+                    focusValue: .repeatPin,
                     visibilityToggleIdentifier: "repeat_pin_visibility_toggle"
                 )
-                .focused($focusedField, equals: .repeatPin)
-                .accessibilityIdentifier("repeat_pin_input")
                 .onSubmit { if isValid { onSubmit(newPin) } }
                 .padding(.bottom, 12)
             }
@@ -67,7 +72,7 @@ struct CreatePINPanel: View {
 
             ValidationText(
                 message: validationMessage,
-                isError: config.errorMessage != nil,
+                isError: config.errorMessage != nil || (validationIssue?.isError ?? false),
                 identifier: "create_pin_validation_message"
             )
 
@@ -83,7 +88,7 @@ struct CreatePINPanel: View {
             CancelButton(identifier: "cancel_button") { onCancel() }
         }
         .panelPadding()
-        .defaultFocus($focusedField, .newPin)
+        .onAppear { focusedField = .newPin }
         .onChange(of: config.errorMessage) { oldValue, newValue in
             guard oldValue != newValue else { return }
             newPin = ""
