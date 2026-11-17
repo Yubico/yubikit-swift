@@ -23,7 +23,7 @@ import Foundation
 public enum COSE {
     /// COSE algorithm identifier for FIDO2/WebAuthn.
     ///
-    /// Supported algorithms for credential generation on YubiKey.
+    /// Algorithm identifiers for credential generation. Authenticator support varies.
     /// Values from the IANA COSE Algorithms registry.
     ///
     /// - SeeAlso: [IANA COSE Algorithms Registry](https://www.iana.org/assignments/cose/cose.xhtml#algorithms)
@@ -46,6 +46,15 @@ public enum COSE {
         /// Supported on YubiKey firmware 5.1.X and below only.
         case rs256
 
+        /// ML-DSA-44 (COSE algorithm -48).
+        case mlDSA44
+
+        /// ML-DSA-65 (COSE algorithm -49).
+        case mlDSA65
+
+        /// ML-DSA-87 (COSE algorithm -50).
+        case mlDSA87
+
         /// ESP256 algorithm (ECDSA with pre-hashing on P-256).
         case esp256
 
@@ -67,6 +76,9 @@ public enum COSE {
             case .esp256: return -9
             case .es384: return -35
             case .rs256: return -257
+            case .mlDSA44: return -48
+            case .mlDSA65: return -49
+            case .mlDSA87: return -50
             case .esp256SplitARKGPlaceholder: return -65539
             case .other(let value): return value
             }
@@ -82,6 +94,9 @@ public enum COSE {
             case -9: self = .esp256
             case -35: self = .es384
             case -257: self = .rs256
+            case -48: self = .mlDSA44
+            case -49: self = .mlDSA65
+            case -50: self = .mlDSA87
             case -65539: self = .esp256SplitARKGPlaceholder
             default: self = .other(rawValue)
             }
@@ -129,6 +144,14 @@ public enum COSE {
         ///   - e: Public exponent (COSE label -2: e)
         case rsa(alg: Algorithm, kid: Data?, n: Data, e: Data)
 
+        /// Algorithm Key Pair public key, including ML-DSA (RFC 9964).
+        ///
+        /// - Parameters:
+        ///   - alg: Algorithm (COSE label 3).
+        ///   - kid: Optional key ID (COSE label 2).
+        ///   - pub: Public key bytes (COSE label -1).
+        case akp(alg: Algorithm, kid: Data?, pub: Data)
+
         /// Unsupported or unknown key type.
         ///
         /// This case preserves unknown algorithms or key types for future compatibility.
@@ -154,7 +177,12 @@ public enum COSE {
             case .ec2(let alg, _, _, _, _): return alg
             case .okp(let alg, _, _, _): return alg
             case .rsa(let alg, _, _, _): return alg
-            case .other: return nil
+            case .akp(let alg, _, _): return alg
+            case .other(let unsupported):
+                guard let cbor: CBOR.Value = try? unsupported.cborData.decode(),
+                    let value = cbor.mapValue?[.int(3)]?.intValue
+                else { return nil }
+                return Algorithm(rawValue: value)
             }
         }
     }
@@ -240,6 +268,12 @@ extension COSE.Key: CBOR.Decodable {
             }
             self = .rsa(alg: alg, kid: kid, n: n, e: e)
 
+        case 7:  // AKP
+            guard let pub = map[.int(-1)]?.dataValue else {
+                return nil
+            }
+            self = .akp(alg: alg, kid: kid, pub: pub)
+
         default:
             // Unknown key type - store as .other
             self = .other(Unsupported(cborData: cbor.encode()))
@@ -289,6 +323,17 @@ extension COSE.Key: CBOR.Encodable {
             ]
             if let kid = kid {
                 map[.int(2)] = .byteString(kid)  // Label 2: kid
+            }
+            return .map(map)
+
+        case .akp(let alg, let kid, let pub):
+            var map: [CBOR.Value: CBOR.Value] = [
+                .int(1): .int(7),
+                .int(3): CBOR.Value(Int64(alg.rawValue)),
+                .int(-1): .byteString(pub),
+            ]
+            if let kid {
+                map[.int(2)] = .byteString(kid)
             }
             return .map(map)
 

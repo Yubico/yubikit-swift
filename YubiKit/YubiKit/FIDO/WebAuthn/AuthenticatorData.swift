@@ -152,12 +152,10 @@ extension WebAuthn {
         /// The credential public key as a [COSE Key](https://www.rfc-editor.org/rfc/rfc8152.html#section-7).
         ///
         /// Structured representation of the COSE key from the authenticator.
-        /// Unknown or unsupported algorithms are preserved in the `.other` case.
+        /// Unknown key types are preserved in the `.other` case.
         ///
-        /// Supported algorithms for FIDO2 on YubiKey:
-        /// - ES256 (ECDSA with P-256, alg=-7)
-        /// - EdDSA (Ed25519, alg=-8)
-        /// - RS256 (RSA with SHA-256, alg=-257)
+        /// Use `PublicKey(cose:)` to convert supported key types, including ML-DSA.
+        /// Algorithm availability depends on the authenticator.
         public let credentialPublicKey: COSE.Key
     }
 }
