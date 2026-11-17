@@ -323,6 +323,17 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                 requirements: Requirements(capabilities: [.fido2], minVersion: Version("5.6.0"))
             ) { context in
                 var session = try await sessionWithPin(context)
+                let rpId = "\(UUID().uuidString.lowercased()).signature.example"
+                // Register scoped cleanup before creation so it also runs after a parse failure.
+                await context.addTeardown {
+                    let cleanupSession = try await context.ctap2Session()
+                    let management = try await getCredentialManagement(cleanupSession)
+                    let rpIdHash = Data(SHA256.hash(data: Data(rpId.utf8)))
+                    let credentials = try await management.credentials(for: rpIdHash).enumerate()
+                    for credential in credentials {
+                        try await management.deleteCredential(credential.credentialId)
+                    }
+                }
                 var cases: [(label: String, algorithm: COSE.Algorithm, userByte: UInt8)] = [
                     ("EdDSA", .edDSA, 0x41),
                     ("ES384", .es384, 0x42),
@@ -330,13 +341,23 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                 #if compiler(>=6.2)
                 if #available(iOS 26, macOS 26, *) {
                     let algorithms = try await session.getInfo().algorithms
-                    if algorithms.contains(.mlDSA65) { cases.append(("ML-DSA-65", .mlDSA65, 0x43)) }
-                    if algorithms.contains(.mlDSA87) { cases.append(("ML-DSA-87", .mlDSA87, 0x44)) }
+                    if algorithms.contains(.mlDSA65) {
+                        cases.append(("ML-DSA-65", .mlDSA65, 0x43))
+                    } else {
+                        context.log("Skipping ML-DSA-65 signature verification: algorithm not advertised")
+                    }
+                    if algorithms.contains(.mlDSA87) {
+                        cases.append(("ML-DSA-87", .mlDSA87, 0x44))
+                    } else {
+                        context.log("Skipping ML-DSA-87 signature verification: algorithm not advertised")
+                    }
+                } else {
+                    context.log("Skipping ML-DSA signature verification: requires iOS/macOS 26")
                 }
+                #else
+                context.log("Skipping ML-DSA signature verification: requires Swift 6.2")
                 #endif
                 for (index, testCase) in cases.enumerated() {
-                    let rpId = "\(testCase.label.lowercased()).example"
-
                     context.touch("Touch the key to create the \(testCase.label) credential")
                     if index > 0 {
                         session = try await context.ctap2SessionAfterNFCReconnect()
@@ -359,11 +380,6 @@ enum CTAP2Scenario: CaseIterable, ScenarioSuite {
                         credential.authenticatorData.attestedCredentialData,
                         "\(testCase.label): makeCredential must return attested credential data"
                     )
-                    await context.addTeardown {
-                        let cleanupSession = try await context.ctap2Session()
-                        let management = try await getCredentialManagement(cleanupSession)
-                        try await management.deleteCredential(.init(id: attested.credentialId))
-                    }
                     context.expect(
                         attested.credentialPublicKey.algorithm == testCase.algorithm,
                         "\(testCase.label): credential public key should use the requested algorithm"
