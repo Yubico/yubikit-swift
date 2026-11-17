@@ -44,6 +44,7 @@ public enum PIVSessionFeature: SessionFeature, Sendable {
     /// Ed25519 signature algorithm support.
     case ed25519
     /// X25519 key agreement algorithm support.
+    /// Unavailable on FIPS models.
     case x25519
     /// RSA 1024 bit key support.
     /// Unavailable on FIPS models and on firmware 6.0.0 or later.
@@ -65,7 +66,7 @@ public enum PIVSessionFeature: SessionFeature, Sendable {
 
     /// Checks feature support for the firmware and caller-supplied FIPS status.
     ///
-    /// A FIPS status of `true` excludes RSA-1024 keys.
+    /// A FIPS status of `true` excludes RSA-1024 and X25519 keys.
     /// It also excludes TDES management keys on firmware 5.7 or later.
     /// Other features use their firmware requirements.
     ///
@@ -101,7 +102,8 @@ public enum PIVSessionFeature: SessionFeature, Sendable {
         case .ed25519:
             return version >= Version("5.7.0")!
         case .x25519:
-            return version >= Version("5.7.0")!
+            // https://docs.yubico.com/hardware/yubikey/yk-tech-manual/yk5-fips-140-3.html
+            return !isFIPSKey && version >= Version("5.7.0")!
         case .rsa1024:
             return !isFIPSKey && version < Version("6.0.0")!
         case .tripleDESManagementKey:
