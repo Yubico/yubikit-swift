@@ -289,7 +289,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///
     /// This method requires authentication and pin verification.
     ///
-    /// > Note: YubiKey FIPS does not allow RSA1024 nor ``PIV/PinPolicy/never``.
+    /// > Note: FIPS models do not allow RSA1024, X25519, or ``PIV/PinPolicy/never``.
     ///        RSA1024 is unavailable on firmware 6.0.0 or later.
     ///        RSA key types require RSA generation, available on YubiKeys OTHER THAN 4.2.6-4.3.4.
     ///        ``PIV/KeyType/ec(_:)`` with `.secp384r1` requires P384 support, available on YubiKey 4 or later.
@@ -459,7 +459,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     ///
     /// This method requires authentication.
     ///
-    /// > Note: ``PIV/KeyType/x25519`` requires YubiKey 5.7 or later.
+    /// > Note: ``PIV/KeyType/x25519`` requires YubiKey 5.7 or later and is unavailable on FIPS models.
     ///        ``PIV/PinPolicy`` or ``PIV/TouchPolicy`` other than ``PIV/PinPolicy/defaultPolicy`` require support for usage policy,
     ///        available on YubiKey 4 or later.
     ///
@@ -1212,6 +1212,10 @@ extension PIVSession {
         touchPolicy: PIV.TouchPolicy,
         generateKey: Bool
     ) async throws(PIVSessionError) {
+        // https://docs.yubico.com/hardware/yubikey/yk-tech-manual/yk5-fips-piv.html
+        if isFIPSKey == true && pinPolicy == .never {
+            throw .featureNotSupported(source: .here())
+        }
         if keyType == .rsa(.bits1024) {
             guard await self.supports(PIVSessionFeature.rsa1024) else {
                 throw .featureNotSupported(source: .here())

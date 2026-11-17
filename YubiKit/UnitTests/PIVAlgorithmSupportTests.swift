@@ -30,6 +30,7 @@ struct PIVAlgorithmSupportTests {
             #expect(firmwareFeature.isSupported(by: version) == (version < Version("6.0.0")!))
         }
         #expect(PIVSessionFeature.aesKey.isSupported(by: version, isFIPSKey: isFIPSKey))
+        #expect(PIVSessionFeature.x25519.isSupported(by: version, isFIPSKey: isFIPSKey) == !isFIPSKey)
     }
 
     @Test("Older FIPS keys still accept TDES management keys", arguments: ["4.4.0", "5.4.3"])
@@ -84,5 +85,56 @@ struct PIVAlgorithmSupportTests {
         }
         #expect(await mock.sendCount == sendsBeforeRejection)
         try await session.setManagementKey(Data(count: 24), type: .aes192, requiresTouch: false)
+    }
+
+    @Test("FIPS keys reject X25519 generation and import")
+    func x25519Restrictions() async throws {
+        let key = try #require(X25519.PrivateKey(scalar: Data(repeating: 1, count: 32)))
+        let (session, mock) = try await makePIVSession(firmware: "5.7.2", responses: [], isFIPSKey: true)
+        await #expect { try await session.generateKey(in: .keyManagement, type: .x25519) } throws: {
+            guard case PIVSessionError.featureNotSupported = $0 else { return false }
+            return true
+        }
+        await #expect {
+            try await session.putPrivateKey(
+                key,
+                in: .keyManagement,
+                pinPolicy: .defaultPolicy,
+                touchPolicy: .defaultPolicy
+            )
+        } throws: {
+            guard case PIVSessionError.featureNotSupported = $0 else { return false }
+            return true
+        }
+        #expect(await mock.sendCount == 0)
+    }
+
+    @Test("Only known FIPS keys reject PIN policy never", arguments: [Bool?.some(true), false, nil])
+    func neverPinPolicy(isFIPSKey: Bool?) async throws {
+        let key = try EC.PrivateKey.random(curve: .secp256r1)
+        let (session, mock) = try await makePIVSession(
+            firmware: "5.7.2",
+            responses: [
+                Data([0x90, 0])  // Import P-256 with PIN policy never.
+            ],
+            isFIPSKey: isFIPSKey
+        )
+        if isFIPSKey == true {
+            await #expect {
+                try await session.generateKey(in: .signature, type: .ec(.secp256r1), pinPolicy: .never)
+            } throws: {
+                guard case PIVSessionError.featureNotSupported = $0 else { return false }
+                return true
+            }
+            await #expect {
+                try await session.putPrivateKey(key, in: .signature, pinPolicy: .never, touchPolicy: .defaultPolicy)
+            } throws: {
+                guard case PIVSessionError.featureNotSupported = $0 else { return false }
+                return true
+            }
+            #expect(await mock.sendCount == 0)
+        } else {
+            try await session.putPrivateKey(key, in: .signature, pinPolicy: .never, touchPolicy: .defaultPolicy)
+        }
     }
 }
