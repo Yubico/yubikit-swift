@@ -36,7 +36,7 @@ public final actor FIDOInterface<Error: FIDOSessionError>: HasFIDOLogger {
     public func setMaxMsgSize(_ size: Int) {
         maxMsgSize = size
     }
-    let frameTimeout: Duration = .seconds(1.5)
+    let frameTimeout: Duration = .seconds(3)
 
     // Keep this interface's channel owned until its response and cancellation send finish.
     let operationGate = CTAPOperationGate()
