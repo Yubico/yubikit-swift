@@ -42,12 +42,12 @@ final class CeremonyShapeTests: FidoUITestBase {
         expectSuccess()
     }
 
-    /// First makeCredential stream errors with `connectionError` →
-    /// `authenticatorNotAvailable`. `runCeremony` switches to `.reconnect`
-    /// phase and shows the unified waiting panel before retrying.
-    func testReconnectBridgeAfterDrop() {
+    /// A transport drop shows a terminal error and does not start another attempt.
+    func testConnectionDropEndsCeremony() {
         tapScenario("flow_connection_drop_mid_ceremony")
-        assertElementExists(app.staticTexts["waiting_for_key_title"], timeout: TestTimeouts.slow)
-        expectSuccess()
+        assertElementExists(app.staticTexts["error_title"], timeout: TestTimeouts.slow)
+        XCTAssertFalse(app.buttons["retry_button"].exists)
+        app.buttons["dismiss_button"].tap()
+        assertElementExists(app.images["Completed"], timeout: TestTimeouts.fast)
     }
 }

@@ -55,8 +55,10 @@ extension FidoUI.Presenter {
         transport: CeremonyTransport
     ) async -> WebAuthn.Authorization.PINReply {
         fidoLog("Presenter", "askForPIN(transport: \(transport), retries: \(retries.map(String.init) ?? "nil"))")
-        if transport == .nfc, let cached = lastEnteredPIN {
-            return .pin(cached)
+        if transport == .nfc {
+            if let cached = lastEnteredPIN { return .pin(cached) }
+            needsNFCPIN = true
+            return .cancel
         }
         guard let pin = await showPINEntry(retriesRemaining: retries) else {
             return .cancel
@@ -71,12 +73,14 @@ extension FidoUI.Presenter {
             do throws(FidoUI.Error) {
                 return try await body()
             } catch .webAuthn(let clientError) {
+                // Release the native scan sheet before asking for any input.
+                if model.isNFCActive { throw .webAuthn(clientError) }
                 try await handleClientError(clientError)
             }
         }
     }
 
-    private func handleClientError(
+    func handleClientError(
         _ error: WebAuthn.ClientError
     ) async throws(FidoUI.Error) {
         switch error {
@@ -101,7 +105,7 @@ extension FidoUI.Presenter {
     /// the SDK's `Authorization.providePIN` closure, not the stream.
     /// A stream that ends without `.finished` surfaces as `.internalError`
     /// rather than crashing.
-    func iterate<R: Sendable>(
+    private func iterate<R: Sendable>(
         _ stream: WebAuthn.StatusStream<R>
     ) async throws(FidoUI.Error) -> R {
         do throws(WebAuthn.ClientError) {

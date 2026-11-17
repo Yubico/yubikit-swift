@@ -26,7 +26,13 @@ struct PINEntryPanel: View {
         self._pinText = State(initialValue: config.initialPIN ?? "")
     }
 
-    private var isValid: Bool { pinText.count >= config.minLength }
+    private var validationIssue: PINValidationIssue? {
+        pinText.isEmpty ? nil : pinValidationIssue(pinText, minimumCodePoints: config.minLength)
+    }
+
+    private var isValid: Bool {
+        !pinText.isEmpty && validationIssue == nil
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,12 +47,13 @@ struct PINEntryPanel: View {
 
             PINFieldRow(
                 label: "PIN",
+                inputIdentifier: "pin_input_field",
                 text: $pinText,
                 isVisible: $isPinVisible,
+                focus: $isFieldFocused,
+                focusValue: true,
                 visibilityToggleIdentifier: "pin_visibility_toggle"
             )
-            .focused($isFieldFocused)
-            .accessibilityIdentifier("pin_input_field")
             .onSubmit { if isValid { onSubmit(pinText) } }
             .shake(trigger: shakeCount)
             .padding(.bottom, 12)
@@ -54,17 +61,17 @@ struct PINEntryPanel: View {
 
             if let error = config.errorMessage {
                 ValidationText(message: error, isError: true, identifier: "pin_error_message")
+            } else if let issue = validationIssue {
+                ValidationText(
+                    message: issue.message,
+                    isError: issue.isError,
+                    identifier: issue.isError ? "pin_too_long_message" : "pin_min_length_message"
+                )
             } else if let retries = config.retries {
                 ValidationText(
                     message: retriesText(retries),
                     isError: false,
                     identifier: "pin_retries_remaining"
-                )
-            } else if !pinText.isEmpty && !isValid {
-                ValidationText(
-                    message: minLengthMessage(config.minLength),
-                    isError: false,
-                    identifier: "pin_min_length_message"
                 )
             } else {
                 ValidationText(message: nil, isError: false)
@@ -82,8 +89,7 @@ struct PINEntryPanel: View {
             CancelButton(identifier: "cancel_button") { onCancel() }
         }
         .panelPadding()
-        .defaultFocus($isFieldFocused, true)
-        .onChange(of: isPinVisible) { isFieldFocused = true }
+        .onAppear { isFieldFocused = true }
         .onChange(of: config.errorMessage) { _, newValue in
             // Only shake when an error appears — not when it clears.
             guard newValue != nil else { return }

@@ -52,22 +52,22 @@ struct SuccessPanel: View {
     @State private var didAppear = false
 
     private var copy: (title: String, subtitle: String) {
-        let base: (title: String, subtitle: String) =
-            switch operation {
-            case .registration:
-                (
-                    String(localized: "Passkey Created"),
-                    String(localized: "Your passkey has been registered.")
-                )
-            case .authentication:
-                (
-                    String(localized: "Sign-in Successful"),
-                    String(localized: "You have been signed in.")
-                )
-            }
-        let removeLine =
-            wasWired ? String(localized: " You can remove your YubiKey.") : ""
-        return (base.title, base.subtitle + removeLine)
+        switch operation {
+        case .registration:
+            (
+                String(localized: "Passkey Created"),
+                wasWired
+                    ? String(localized: "Your passkey has been created on this YubiKey. You can remove it now.")
+                    : String(localized: "Your passkey has been created on this YubiKey.")
+            )
+        case .authentication:
+            (
+                String(localized: "Done"),
+                wasWired
+                    ? String(localized: "You can remove your YubiKey and continue signing in.")
+                    : String(localized: "Continue signing in.")
+            )
+        }
     }
 
     var body: some View {

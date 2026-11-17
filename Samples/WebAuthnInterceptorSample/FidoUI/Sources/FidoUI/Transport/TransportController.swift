@@ -3,6 +3,15 @@ import YubiKit
 
 extension FidoUI {
 
+    /// Connection and session construction boundary. Keeping these steps
+    /// separate lets the controller own a connection while session setup
+    /// performs asynchronous I/O.
+    struct WiredTransportDriver: Sendable {
+        let connect: @Sendable () async throws -> any Connection
+        let makeSession: @Sendable (any Connection) async throws -> ActiveSession
+        let devicePresent: @Sendable () async -> Bool
+    }
+
     /// Production transport. Maintains a wired/HID session via a
     /// background loop; opens NFC sessions one-shot on demand. Built
     /// fresh per ceremony.
@@ -10,6 +19,7 @@ extension FidoUI {
 
         private let origin: WebAuthn.Origin
         private let isPublicSuffix: WebAuthn.PublicSuffixChecker
+        private let wiredDriver: WiredTransportDriver
 
         /// Backoff between failed open attempts. The OS doesn't surface
         /// "device became available" as an awaitable event, so hardware
@@ -17,6 +27,7 @@ extension FidoUI {
         private static let pollInterval: Duration = .milliseconds(500)
 
         private var current: Wired?
+        private var openingConnection: Opening?
         /// Continuations parked in `awaitWired`, drained on every
         /// `setCurrent` (and on `cancel`).
         private var currentChangeWaiters: [CheckedContinuation<Void, Never>] = []
@@ -32,27 +43,32 @@ extension FidoUI {
         #endif
         private var loopTask: Task<Void, Never>?
 
-        init(origin: WebAuthn.Origin, isPublicSuffix: @escaping WebAuthn.PublicSuffixChecker) {
+        init(
+            origin: WebAuthn.Origin,
+            isPublicSuffix: @escaping WebAuthn.PublicSuffixChecker,
+            wiredDriver: WiredTransportDriver? = nil
+        ) {
             self.origin = origin
             self.isPublicSuffix = isPublicSuffix
+            self.wiredDriver =
+                wiredDriver
+                ?? Self.makeWiredTransportDriver(
+                    origin: origin,
+                    isPublicSuffix: isPublicSuffix
+                )
         }
 
         // MARK: - Lifecycle
 
         func start() {
-            guard loopTask == nil else { return }
+            guard loopTask == nil, !isShutdown else { return }
             loopTask = Task { [weak self] in
                 await self?.runLoop()
             }
         }
 
         func cancel() async {
-            isShutdown = true
-            loopTask?.cancel()
-            loopTask = nil
-            let wired = current
-            setCurrent(nil)
-            if let wired { await wired.connection.close(error: nil) }
+            await stopWiredLoop()
             #if os(iOS)
             if let nfc = nfcConnection {
                 nfcConnection = nil
@@ -68,30 +84,32 @@ extension FidoUI {
             loopTask?.cancel()
             loopTask = nil
             let wired = current
+            let opening = openingConnection
             isShutdown = true
             setCurrent(nil)
+            openingConnection = nil
             if let wired { await wired.connection.close(error: nil) }
+            if let opening { await opening.connection.close(error: nil) }
         }
 
         // MARK: - Wired API
 
         func wired() -> ActiveSession? {
-            current.map { Self.makeActiveSession(client: $0.client, info: $0.info, ctap: $0.session) }
+            current?.session
         }
 
-        func isWiredAvailable() -> Bool {
-            current != nil
+        func isWiredAvailable() async -> Bool {
+            guard !isShutdown else { return false }
+            if current != nil || openingConnection != nil { return true }
+            let present = await wiredDriver.devicePresent()
+            return !isShutdown && present
         }
 
         func awaitWired() async throws(FidoUI.Error) -> ActiveSession {
             while true {
                 if Task.isCancelled || isShutdown { throw .cancelled }
                 if let wired = current {
-                    return Self.makeActiveSession(
-                        client: wired.client,
-                        info: wired.info,
-                        ctap: wired.session
-                    )
+                    return wired.session
                 }
                 await waitForCurrentChange()
             }
@@ -123,25 +141,47 @@ extension FidoUI {
             }
             do {
                 let conn = try await NFCSmartCardConnection(alertMessage: alertMessage)
+                guard !Task.isCancelled else {
+                    await conn.close(error: nil)
+                    throw FidoUI.Error.cancelled
+                }
+                nfcConnection = conn
                 let ctap = try await CTAP2.Session.makeSession(connection: conn)
                 let info = try await ctap.getInfo()
+                guard !Task.isCancelled else { throw FidoUI.Error.cancelled }
                 let client = WebAuthn.Client(
                     session: ctap,
                     origin: origin,
                     isPublicSuffix: isPublicSuffix
                 )
-                nfcConnection = conn
                 return Self.makeActiveSession(client: client, info: info, ctap: ctap)
             } catch is CancellationError {
-                throw .cancelled
+                await closeNFC(successMessage: nil)
+                throw FidoUI.Error.cancelled
             } catch SmartCardConnectionError.cancelled, SmartCardConnectionError.cancelledByUser {
-                throw .cancelled
+                await closeNFC(successMessage: nil)
+                throw FidoUI.Error.cancelled
+            } catch CTAP2.SessionError.connectionError(.cancelled, _),
+                CTAP2.SessionError.connectionError(.cancelledByUser, _)
+            {
+                await closeNFC(successMessage: nil)
+                throw FidoUI.Error.cancelled
+            } catch let sessionError as CTAP2.SessionError {
+                await closeNFC(successMessage: nil)
+                if Task.isCancelled { throw FidoUI.Error.cancelled }
+                if Self.isTransientTransportFailure(sessionError) {
+                    throw .webAuthn(.authenticatorNotAvailable(source: .here()))
+                }
+                throw .webAuthn(.internalError("NFC open failed: \(sessionError)", source: .here()))
             } catch let scError as SmartCardConnectionError {
+                await closeNFC(successMessage: nil)
                 if Self.isTransientTransportFailure(scError) {
                     throw .webAuthn(.authenticatorNotAvailable(source: .here()))
                 }
                 throw .webAuthn(.internalError("NFC open failed: \(scError)", source: .here()))
             } catch {
+                await closeNFC(successMessage: nil)
+                if Task.isCancelled { throw FidoUI.Error.cancelled }
                 throw .webAuthn(.internalError("NFC open failed: \(error)", source: .here()))
             }
         }
@@ -160,9 +200,10 @@ extension FidoUI {
         // MARK: - Loop
 
         private func runLoop() async {
-            while !Task.isCancelled {
+            while !Task.isCancelled, !isShutdown {
                 do {
                     try await openWiredOrHID()
+                    guard !Task.isCancelled, !isShutdown else { return }
                     if let wired = current {
                         _ = await wired.connection.waitUntilClosed()
                         setCurrent(nil)
@@ -170,6 +211,7 @@ extension FidoUI {
                 } catch is CancellationError {
                     return
                 } catch {
+                    guard !Task.isCancelled, !isShutdown else { return }
                     fidoLog("Transport", "open failed: \(error)")
                     try? await Task.sleep(for: Self.pollInterval)
                 }
@@ -179,40 +221,37 @@ extension FidoUI {
         // MARK: - Open
 
         private func openWiredOrHID() async throws {
-            #if os(iOS)
-            let conn = try await WiredSmartCardConnection.makeConnection()
-            do {
-                let ctap = try await CTAP2.Session.makeSession(connection: conn)
-                try await assignWired(connection: conn, ctap: ctap)
-            } catch {
-                await conn.close(error: nil)
-                throw error
-            }
-            #elseif os(macOS)
-            let conn = try await HIDFIDOConnection()
-            do {
-                let ctap = try await CTAP2.Session.makeSession(connection: conn)
-                try await assignWired(connection: conn, ctap: ctap)
-            } catch {
-                await conn.close(error: nil)
-                throw error
-            }
-            #endif
-        }
+            guard !Task.isCancelled, !isShutdown else { throw CancellationError() }
 
-        private func assignWired(
-            connection: any Connection,
-            ctap: CTAP2.Session
-        ) async throws {
-            let info = try await ctap.getInfo()
-            let client = WebAuthn.Client(
-                session: ctap,
-                origin: origin,
-                isPublicSuffix: isPublicSuffix
-            )
-            setCurrent(
-                Wired(connection: connection, session: ctap, client: client, info: info)
-            )
+            let connection = try await wiredDriver.connect()
+            let opening = Opening(id: UUID(), connection: connection)
+            guard !Task.isCancelled, !isShutdown else {
+                await connection.close(error: nil)
+                throw CancellationError()
+            }
+            openingConnection = opening
+
+            do {
+                let session = try await wiredDriver.makeSession(connection)
+                // cancel()/stopWiredLoop() may run while session setup awaits
+                // the authenticator. Publish only if this attempt still owns
+                // the live connection after that await.
+                guard
+                    !Task.isCancelled,
+                    !isShutdown,
+                    openingConnection?.id == opening.id
+                else {
+                    throw CancellationError()
+                }
+                openingConnection = nil
+                setCurrent(Wired(connection: connection, session: session))
+            } catch {
+                if openingConnection?.id == opening.id {
+                    openingConnection = nil
+                    await connection.close(error: nil)
+                }
+                throw error
+            }
         }
 
         private func setCurrent(_ wired: Wired?) {
@@ -236,9 +275,42 @@ extension FidoUI {
             )
         }
 
-        /// Maps transient transport drops to `.authenticatorNotAvailable`
-        /// so the runCeremony catch can reconnect rather than surface fatal.
-        static func isTransientTransportFailure(_ error: any Swift.Error) -> Bool {
+        private static func makeWiredTransportDriver(
+            origin: WebAuthn.Origin,
+            isPublicSuffix: @escaping WebAuthn.PublicSuffixChecker
+        ) -> WiredTransportDriver {
+            #if os(iOS)
+            let devicePresent: @Sendable () async -> Bool = {
+                (try? await USBSmartCardConnection.availableDevices().isEmpty) == false
+            }
+            let connect: @Sendable () async throws -> any Connection = {
+                try await WiredSmartCardConnection.makeConnection()
+            }
+            #elseif os(macOS)
+            let devicePresent: @Sendable () async -> Bool = { false }
+            let connect: @Sendable () async throws -> any Connection = {
+                try await HIDFIDOConnection()
+            }
+            #endif
+            let makeSession: @Sendable (any Connection) async throws -> ActiveSession = { connection in
+                let ctap: CTAP2.Session
+                if let smartCard = connection as? any SmartCardConnection {
+                    ctap = try await CTAP2.Session.makeSession(connection: smartCard)
+                } else if let fido = connection as? any FIDOConnection {
+                    ctap = try await CTAP2.Session.makeSession(connection: fido)
+                } else {
+                    throw SmartCardConnectionError.unsupported
+                }
+                let info = try await ctap.getInfo()
+                let client = WebAuthn.Client(session: ctap, origin: origin, isPublicSuffix: isPublicSuffix)
+                return Self.makeActiveSession(client: client, info: info, ctap: ctap)
+            }
+            return WiredTransportDriver(connect: connect, makeSession: makeSession, devicePresent: devicePresent)
+        }
+
+        #if os(iOS)
+        /// Report NFC connection failures separately from CTAP errors.
+        private static func isTransientTransportFailure(_ error: any Swift.Error) -> Bool {
             if let smartCardError = error as? SmartCardConnectionError {
                 switch smartCardError {
                 case .connectionLost, .busy, .noDevicesFound, .transmitFailed,
@@ -248,18 +320,8 @@ extension FidoUI {
                     return false
                 }
             }
-            if let fidoError = error as? FIDOConnectionError {
-                switch fidoError {
-                case .noDevicesFound, .connectionLost, .busy, .transmitFailed, .receiveFailed:
-                    return true
-                default:
-                    return false
-                }
-            }
             if let sessionError = error as? CTAP2.SessionError {
                 switch sessionError {
-                case .fidoConnectionError(let inner, _):
-                    return isTransientTransportFailure(inner)
                 case .connectionError(let inner, _):
                     return isTransientTransportFailure(inner)
                 default:
@@ -268,14 +330,18 @@ extension FidoUI {
             }
             return false
         }
+        #endif
 
         // MARK: - Held wired/HID record
 
         private struct Wired {
             let connection: any Connection
-            let session: CTAP2.Session
-            let client: WebAuthn.Client
-            let info: CTAP2.GetInfo.Response
+            let session: ActiveSession
+        }
+
+        private struct Opening {
+            let id: UUID
+            let connection: any Connection
         }
     }
 }

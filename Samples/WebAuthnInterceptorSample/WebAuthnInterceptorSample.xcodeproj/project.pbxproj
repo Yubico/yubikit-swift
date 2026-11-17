@@ -16,6 +16,7 @@
 		AA000008273D537800F999A4 /* YubiKit in Frameworks */ = {isa = PBXBuildFile; productRef = AA000031273D537800F999A4 /* YubiKit */; };
 		E99378AE8D66930E05BE0D87 /* FidoUI in Frameworks */ = {isa = PBXBuildFile; productRef = E8FBC664576487DA2F0A74C0 /* FidoUI */; };
 		CE1A6145B37327FC7F5AFD4B /* FidoUITestHostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 731D064324DC7B4EF8B6D85A /* FidoUITestHostApp.swift */; };
+		A768B11156AA4F7788AB1221 /* TestWindowReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A768B11156AA4F7788AB1222 /* TestWindowReader.swift */; };
 		CC71497A35E54E1754B672DF /* E2EScenariosView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9342B601F90D49C15E0536EC /* E2EScenariosView.swift */; };
 		623220E7211BA6E3DE9562BB /* MockCTAP2Backend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45FD93953D99177304B41B3F /* MockCTAP2Backend.swift */; };
 		B7BE26B0D6C5CEA6745DD827 /* MockTransportController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7928B6FBDFEA3FFB544BE4BA /* MockTransportController.swift */; };
@@ -37,7 +38,7 @@
 		CCD8DC41D80C9CAD9FAAFB13 /* CeremonyShapeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81BAEE37F37EFFE5844B8036 /* CeremonyShapeTests.swift */; };
 		0F470D3BF6737E14997F34C9 /* CancellationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55DAF51A79B6C2EA45D08F6D /* CancellationTests.swift */; };
 		9CB8546AE154BC80617707CE /* CredentialErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75BD8B1083FE8B8464C3E698 /* CredentialErrorTests.swift */; };
-		90268CC26AFD34FD1AD8EC3E /* NFCPrefetchPINTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C977DAD41559AD8AC530FA /* NFCPrefetchPINTests.swift */; };
+		90268CC26AFD34FD1AD8EC3E /* NFCAndTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C977DAD41559AD8AC530FA /* NFCAndTransportTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +52,7 @@
 		AA000018273D537800F999A4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		AA000019273D537800F999A4 /* WebAuthnInterceptorSample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WebAuthnInterceptorSample.entitlements; sourceTree = "<group>"; };
 		731D064324DC7B4EF8B6D85A /* FidoUITestHostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FidoUITestHostApp.swift; sourceTree = "<group>"; };
+		A768B11156AA4F7788AB1222 /* TestWindowReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestWindowReader.swift; sourceTree = "<group>"; };
 		9342B601F90D49C15E0536EC /* E2EScenariosView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E2EScenariosView.swift; sourceTree = "<group>"; };
 		45FD93953D99177304B41B3F /* MockCTAP2Backend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockCTAP2Backend.swift; sourceTree = "<group>"; };
 		7928B6FBDFEA3FFB544BE4BA /* MockTransportController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockTransportController.swift; sourceTree = "<group>"; };
@@ -71,7 +73,7 @@
 		81BAEE37F37EFFE5844B8036 /* CeremonyShapeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CeremonyShapeTests.swift; sourceTree = "<group>"; };
 		55DAF51A79B6C2EA45D08F6D /* CancellationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CancellationTests.swift; sourceTree = "<group>"; };
 		75BD8B1083FE8B8464C3E698 /* CredentialErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialErrorTests.swift; sourceTree = "<group>"; };
-		F7C977DAD41559AD8AC530FA /* NFCPrefetchPINTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCPrefetchPINTests.swift; sourceTree = "<group>"; };
+		F7C977DAD41559AD8AC530FA /* NFCAndTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NFCAndTransportTests.swift; sourceTree = "<group>"; };
 		77CB5050CB315448C015BD49 /* FidoUITestHostUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FidoUITestHostUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -132,6 +134,7 @@
 			isa = PBXGroup;
 			children = (
 				731D064324DC7B4EF8B6D85A /* FidoUITestHostApp.swift */,
+				A768B11156AA4F7788AB1222 /* TestWindowReader.swift */,
 				9342B601F90D49C15E0536EC /* E2EScenariosView.swift */,
 				45FD93953D99177304B41B3F /* MockCTAP2Backend.swift */,
 				7928B6FBDFEA3FFB544BE4BA /* MockTransportController.swift */,
@@ -156,7 +159,7 @@
 				81BAEE37F37EFFE5844B8036 /* CeremonyShapeTests.swift */,
 				75BD8B1083FE8B8464C3E698 /* CredentialErrorTests.swift */,
 				992BF0632EA95651243F1459 /* ForcePINChangeTests.swift */,
-				F7C977DAD41559AD8AC530FA /* NFCPrefetchPINTests.swift */,
+				F7C977DAD41559AD8AC530FA /* NFCAndTransportTests.swift */,
 				A9BD6D7857FE70594756C2F4 /* PINEntryTests.swift */,
 				893EBC70B1EF1DC833EE067D /* PINSetupRecoveryTests.swift */,
 				FFA5FA251B0680DB945997AC /* UserVerificationTests.swift */,
@@ -318,6 +321,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CE1A6145B37327FC7F5AFD4B /* FidoUITestHostApp.swift in Sources */,
+				A768B11156AA4F7788AB1221 /* TestWindowReader.swift in Sources */,
 				CC71497A35E54E1754B672DF /* E2EScenariosView.swift in Sources */,
 				623220E7211BA6E3DE9562BB /* MockCTAP2Backend.swift in Sources */,
 				B7BE26B0D6C5CEA6745DD827 /* MockTransportController.swift in Sources */,
@@ -341,7 +345,7 @@
 				CCD8DC41D80C9CAD9FAAFB13 /* CeremonyShapeTests.swift in Sources */,
 				9CB8546AE154BC80617707CE /* CredentialErrorTests.swift in Sources */,
 				6D69A33E70F320FFD4DDC317 /* ForcePINChangeTests.swift in Sources */,
-				90268CC26AFD34FD1AD8EC3E /* NFCPrefetchPINTests.swift in Sources */,
+				90268CC26AFD34FD1AD8EC3E /* NFCAndTransportTests.swift in Sources */,
 				CA6C7844A96B5A465B96901A /* PINEntryTests.swift in Sources */,
 				15BB6833184A004B9A380731 /* PINSetupRecoveryTests.swift in Sources */,
 				E9451F591EB65BB93E854AAA /* UserVerificationTests.swift in Sources */,
