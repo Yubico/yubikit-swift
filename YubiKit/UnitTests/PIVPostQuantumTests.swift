@@ -128,10 +128,6 @@ struct PIVPostQuantumTests {
 
     private static func frame(_ data: Data = Data()) -> Data { data + Data([0x90, 0]) }
 
-    private static func card(_ replies: [Data], firmware: [UInt8] = [6, 0, 0]) -> MockSmartCardConnection {
-        MockSmartCardConnection(responses: [frame(), frame(Data(firmware))] + replies.map(frame))
-    }
-
     private static func body(_ request: Data) -> Data {
         Data(request.dropFirst(request[4] == 0 ? 7 : 5))
     }
@@ -174,8 +170,14 @@ struct PIVPostQuantumTests {
             + TKBERTLVRecord(tag: 2, value: Data([0, 0])).data
             + TKBERTLVRecord(tag: 3, value: Data([1])).data
             + TKBERTLVRecord(tag: 4, value: keyTLV).data
-        let mock = Self.card([TKBERTLVRecord(tag: 0x7f49, value: keyTLV).data, metadata, Data()])
-        let session = try await PIVSession.makeSession(connection: mock)
+        let (session, mock) = try await makePIVSession(
+            firmware: "6.0.0",
+            responses: [
+                TKBERTLVRecord(tag: 0x7f49, value: keyTLV).data,  // Generate the key.
+                metadata,  // Read key metadata.
+                Data(),  // Import the private key seed.
+            ].map(Self.frame)
+        )
         #expect(try await session.generateKey(in: .signature, type: fixture.type) == fixture.publicKey(keyData))
         let info = try await session.getMetadata(in: .signature)
         #expect(info.keyType == fixture.type)
@@ -183,9 +185,9 @@ struct PIVPostQuantumTests {
         let seed = Self.pattern(fixture.seedLength, 1)
         try await fixture.importSeed(seed, into: session)
         let requests = await mock.sentRequests
-        #expect(requests[2] == Data([0, 0x47, 0, 0x9c, 5, 0xac, 3, 0x80, 1, fixture.algorithm]))
+        #expect(requests[0] == Data([0, 0x47, 0, 0x9c, 5, 0xac, 3, 0x80, 1, fixture.algorithm]))
         #expect(
-            requests[4] == Data([
+            requests[2] == Data([
                 0, 0xfe, fixture.algorithm, 0x9a, UInt8(fixture.seedLength + 2),
                 fixture.importTag, UInt8(fixture.seedLength),
             ]) + seed
@@ -194,8 +196,7 @@ struct PIVPostQuantumTests {
 
     @Test(arguments: [fixtures[0], fixtures[4]])
     func unsupportedFirmware(fixture: Fixture) async throws {
-        let mock = Self.card([], firmware: [5, 7, 4])
-        let session = try await PIVSession.makeSession(connection: mock)
+        let (session, mock) = try await makePIVSession(firmware: "5.7.4", responses: [])
         await #expect { try await session.generateKey(in: .signature, type: fixture.type) } throws: {
             guard case PIVSessionError.featureNotSupported = $0 else { return false }
             return true
@@ -204,15 +205,19 @@ struct PIVPostQuantumTests {
             guard case PIVSessionError.featureNotSupported = $0 else { return false }
             return true
         }
-        #expect(await mock.sendCount == 2)
+        #expect(await mock.sendCount == 0)
     }
 
     // The 4,000-byte case checks configuration through a PIV session.
     @Test(arguments: [0, 4000])
     func messageIsSentUnchanged(length: Int) async throws {
         let signature = Self.pattern(100, 9)
-        let mock = Self.card([Self.reply(signature)])
-        let session = try await PIVSession.makeSession(connection: mock)
+        let (session, mock) = try await makePIVSession(
+            firmware: "6.0.0",
+            responses: [
+                Self.frame(Self.reply(signature))  // Sign the message.
+            ]
+        )
         let message = Self.pattern(length, 1)
         #expect(try await session.sign(message, in: .signature, keyType: .mlDSA(.mlDSA44)) == signature)
         let request = try #require(await mock.sentRequests.last)
@@ -223,8 +228,13 @@ struct PIVPostQuantumTests {
     @Test("Context and external-mu signing match Android operands")
     func signingOperands() async throws {
         let signature = Self.pattern(100, 9)
-        let mock = Self.card(Array(repeating: Self.reply(signature), count: 2))
-        let session = try await PIVSession.makeSession(connection: mock)
+        let (session, mock) = try await makePIVSession(
+            firmware: "6.0.0",
+            responses: [
+                Self.frame(Self.reply(signature)),  // Sign with context.
+                Self.frame(Self.reply(signature)),  // Sign external mu.
+            ]
+        )
         let message = Self.pattern(40, 1)
         let context = Self.pattern(255, 50)
         #expect(
@@ -240,10 +250,10 @@ struct PIVPostQuantumTests {
                 TKBERTLVRecord(tag: 0x87, value: context), TKBERTLVRecord(tag: 0x81, value: message),
             ]
         ).data
-        #expect(requests[2].prefix(4) == Data([0, 0x87, 0xe4, 0x9c]))
-        #expect(Self.body(requests[2]) == expected)
-        #expect(requests[3].prefix(4) == Data([0, 0x87, 0xe2, 0x9c]))
-        #expect(Self.body(requests[3]) == Self.auth(0x88, mu))
+        #expect(requests[0].prefix(4) == Data([0, 0x87, 0xe4, 0x9c]))
+        #expect(Self.body(requests[0]) == expected)
+        #expect(requests[1].prefix(4) == Data([0, 0x87, 0xe2, 0x9c]))
+        #expect(Self.body(requests[1]) == Self.auth(0x88, mu))
     }
 
     @Test(arguments: [
@@ -252,8 +262,12 @@ struct PIVPostQuantumTests {
     func decapsulation(parameterSet: MLKEM.ParameterSet, length: Int, algorithm: UInt8) async throws {
         let secret = Self.pattern(32, 77)
         let ciphertext = Self.pattern(length, 2)
-        let mock = Self.card([Self.reply(secret)])
-        let session = try await PIVSession.makeSession(connection: mock)
+        let (session, mock) = try await makePIVSession(
+            firmware: "6.0.0",
+            responses: [
+                Self.frame(Self.reply(secret))  // Decapsulate the ciphertext.
+            ]
+        )
         #expect(try await session.decapsulate(ciphertext, in: .keyManagement, keyType: .mlKEM(parameterSet)) == secret)
         let request = try #require(await mock.sentRequests.last)
         #expect(request.prefix(4) == Data([0, 0x87, algorithm, 0x9d]))
@@ -262,8 +276,7 @@ struct PIVPostQuantumTests {
 
     @Test("Invalid operation inputs fail before I/O")
     func invalidOperands() async throws {
-        let mock = Self.card([])
-        let session = try await PIVSession.makeSession(connection: mock)
+        let (session, mock) = try await makePIVSession(firmware: "6.0.0", responses: [])
         await #expect {
             try await session.sign(Data(), in: .signature, keyType: .mlDSA(.mlDSA44), context: Data(count: 256))
         } throws: { if case PIVSessionError.illegalArgument = $0 { true } else { false } }
@@ -275,6 +288,6 @@ struct PIVPostQuantumTests {
         await #expect {
             try await session.decapsulate(Data(count: 768), in: .keyManagement, keyType: .mlKEM(.mlKEM768))
         } throws: { if case PIVSessionError.illegalArgument = $0 { true } else { false } }
-        #expect(await mock.sendCount == 2)
+        #expect(await mock.sendCount == 0)
     }
 }

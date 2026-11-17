@@ -14,7 +14,7 @@
 
 import Foundation
 
-/// Features that may be supported by a PIV session depending on the YubiKey firmware version.
+/// Features that may be supported by a PIV session.
 public enum PIVSessionFeature: SessionFeature, Sendable {
 
     /// PIN and touch policy support for PIV keys.
@@ -44,12 +44,38 @@ public enum PIVSessionFeature: SessionFeature, Sendable {
     /// Ed25519 signature algorithm support.
     case ed25519
     /// X25519 key agreement algorithm support.
+    /// Unavailable on FIPS models.
     case x25519
+    /// RSA 1024 bit key support.
+    /// Unavailable on FIPS models and on firmware 6.0.0 or later.
+    case rsa1024
+    /// Triple DES management key support.
+    /// Unavailable on firmware 6.0.0 or later and on FIPS models with firmware 5.7 or later.
+    case tripleDESManagementKey
 
-    /// Checks if this feature is supported by the given firmware version.
+    /// Checks feature support using only the firmware version.
+    ///
+    /// Equivalent to calling ``isSupported(by:isFIPSKey:)`` with `false`.
+    /// Use ``isSupported(by:isFIPSKey:)`` to supply the key's FIPS status.
+    ///
     /// - Parameter version: The YubiKey firmware version.
     /// - Returns: `true` if the feature is supported, `false` otherwise.
     public func isSupported(by version: Version) -> Bool {
+        isSupported(by: version, isFIPSKey: false)
+    }
+
+    /// Checks feature support for the firmware and caller-supplied FIPS status.
+    ///
+    /// A FIPS status of `true` excludes RSA-1024 and X25519 keys.
+    /// It also excludes TDES management keys on firmware 5.7 or later.
+    /// Other features use their firmware requirements.
+    ///
+    /// - Parameters:
+    ///   - version: The YubiKey firmware version.
+    ///   - isFIPSKey: Whether to apply the additional checks for a FIPS model.
+    ///     Pass `false` to check only the firmware requirements.
+    /// - Returns: `true` if the feature is supported, `false` otherwise.
+    public func isSupported(by version: Version, isFIPSKey: Bool) -> Bool {
         switch self {
         case .usagePolicy:
             return version >= Version("4.0.0")!
@@ -76,7 +102,12 @@ public enum PIVSessionFeature: SessionFeature, Sendable {
         case .ed25519:
             return version >= Version("5.7.0")!
         case .x25519:
-            return version >= Version("5.7.0")!
+            // https://docs.yubico.com/hardware/yubikey/yk-tech-manual/yk5-fips-140-3.html
+            return !isFIPSKey && version >= Version("5.7.0")!
+        case .rsa1024:
+            return !isFIPSKey && version < Version("6.0.0")!
+        case .tripleDESManagementKey:
+            return version < Version("6.0.0")! && (!isFIPSKey || version < Version("5.7.0")!)
         }
     }
 }
