@@ -21,7 +21,10 @@ import Testing
 
 /// Builds minimal authenticator data for testing JSON encoding.
 /// The actual bytes don't matter - we just need valid objects to encode.
-private func makeMinimalAuthData(withAttestedCredential: Bool = false) -> WebAuthn.AuthenticatorData {
+private func makeMinimalAuthData(
+    withAttestedCredential: Bool = false,
+    publicKey: COSE.Key? = nil
+) -> WebAuthn.AuthenticatorData {
     var data = Data(repeating: 0, count: 32)  // rpIdHash
     data.append(withAttestedCredential ? 0x45 : 0x05)  // flags: UP+UV or UP+UV+AT
     data.append(contentsOf: [0x00, 0x00, 0x00, 0x01])  // signCount
@@ -30,15 +33,19 @@ private func makeMinimalAuthData(withAttestedCredential: Bool = false) -> WebAut
         data.append(Data(repeating: 0, count: 16))  // aaguid
         data.append(contentsOf: [0x00, 0x04])  // credentialId length = 4
         data.append(contentsOf: [0x01, 0x02, 0x03, 0x04])  // credentialId
-        // Minimal ES256 COSE key
-        data.append(
-            contentsOf: [
-                0xa5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01,
-                0x21, 0x58, 0x20,
-            ] + [UInt8](repeating: 0x01, count: 32) + [  // x
-                0x22, 0x58, 0x20,
-            ] + [UInt8](repeating: 0x02, count: 32)
-        )  // y
+        if let publicKey {
+            data.append(publicKey.cbor().encode())
+        } else {
+            // Minimal ES256 COSE key
+            data.append(
+                contentsOf: [
+                    0xa5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01,
+                    0x21, 0x58, 0x20,
+                ] + [UInt8](repeating: 0x01, count: 32) + [  // x
+                    0x22, 0x58, 0x20,
+                ] + [UInt8](repeating: 0x02, count: 32)
+            )  // y
+        }
     }
 
     return WebAuthn.AuthenticatorData(data: data)!
@@ -385,9 +392,20 @@ extension SerializationTests {
     @Suite("JSON Encoding")
     struct JSONEncodingTests {
 
-        @Test("Registration.Response JSON encoding")
-        func testRegistrationResponseJSON() throws {
-            let authData = makeMinimalAuthData(withAttestedCredential: true)
+        @Test("Registration.Response JSON encoding", arguments: [-7, -48, -49, -50, -999])
+        func testRegistrationResponseJSON(algorithm: Int) throws {
+            let key: COSE.Key?
+            switch algorithm {
+            case -48, -49, -50:
+                let size = [1312, 1952, 2592][-48 - algorithm]
+                key = .akp(alg: .init(rawValue: algorithm), kid: nil, pub: Data(repeating: 0xAB, count: size))
+            case -999:
+                let unknownKey = try #require(COSE.Key(cbor: .map([.int(1): .int(99), .int(3): .int(-999)])))
+                key = unknownKey
+            default:
+                key = nil
+            }
+            let authData = makeMinimalAuthData(withAttestedCredential: true, publicKey: key)
             let credentialId = authData.attestedCredentialData!.credentialId
 
             let response = WebAuthn.Registration.Response(
@@ -419,7 +437,14 @@ extension SerializationTests {
             #expect(inner["attestationObject"] as? String == "YXR0ZXN0YXRpb24")
             #expect(inner["clientDataJSON"] as? String == "Y2xpZW50ZGF0YQ")
             #expect(inner["transports"] as? [String] == ["usb"])
-            #expect(inner["publicKeyAlgorithm"] as? Int == -7)
+            #expect(inner["publicKeyAlgorithm"] as? Int == algorithm)
+            if algorithm == -999 {
+                #expect(inner["publicKey"] == nil)
+            } else {
+                let encodedKey = try #require(inner["publicKey"] as? String)
+                let publicKey = try #require(PublicKey(cose: response.publicKey))
+                #expect(encodedKey == publicKey.spki.base64URLEncodedString())
+            }
         }
 
         @Test("Authentication.Response JSON encoding")
