@@ -63,7 +63,11 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "Connection.SmartCard.serial",
                 "a second connection fails until the first is closed",
-                requirements: Requirements(transports: [.usb], requiresRealHardware: true)
+                requirements: Requirements(
+                    transports: [.usb],
+                    requiresSmartCardTransport: true,
+                    requiresRealHardware: true
+                )
             ) { context in
                 let provider = context.provider
 
@@ -89,7 +93,11 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "Connection.SmartCard.cancellation",
                 "concurrent open attempts resolve to a single connection",
-                requirements: Requirements(transports: [.usb], requiresRealHardware: true)
+                requirements: Requirements(
+                    transports: [.usb],
+                    requiresSmartCardTransport: true,
+                    requiresRealHardware: true
+                )
             ) { context in
                 let provider = context.provider
                 let attempts = (0..<4).map { _ in Task { try? await provider.makeSmartCardConnection() } }

@@ -72,7 +72,6 @@ final class RunnerViewModel: ObservableObject {
     private let suites = Scenario.Catalog.suites
     private var task: Task<Void, Never>?
     private var probeTask: Task<Void, Never>?
-    private var capabilitiesTask: Task<Void, Never>?
 
     init() {
         backend = availableBackends.first ?? .wired
@@ -81,7 +80,7 @@ final class RunnerViewModel: ObservableObject {
 
     var availableBackends: [Backend] {
         #if os(iOS)
-        return [.wired, .nfc]
+        return NFCConnectionProvider.isAvailable ? [.wired, .nfc] : [.wired]
         #else
         return [.wired]
         #endif
@@ -208,14 +207,8 @@ final class RunnerViewModel: ObservableObject {
         }
 
         task = Task {
-            await self.resolveRuntimeCapabilities(provider, for: self.backend)
             for scenario in scenarios {
                 if Task.isCancelled { break }
-                if let reason = self.skipReason(scenario) {
-                    self.results[scenario] = Scenario.Result(scenario: scenario, status: .skipped(reason: reason))
-                    self.ranCount += 1
-                    continue
-                }
                 self.results[scenario] = Scenario.Result(scenario: scenario, status: .running)
                 let result = await runner.run(scenario) { event in sink.yield(event) }
                 self.results[scenario] = result
@@ -253,6 +246,7 @@ final class RunnerViewModel: ObservableObject {
         guard !isProbing, !isRunning, let provider = makeProvider() else { return }
         isProbing = true
         probedDevice = nil
+        providerCaps = provider.capabilities
         probeError = nil
         probeTask = Task { [weak self] in
             guard let self else { return }
@@ -262,8 +256,15 @@ final class RunnerViewModel: ObservableObject {
             }
             do {
                 let device = try await provider.deviceInfo()
+                var capabilities = provider.capabilities
+                capabilities.hasLightning = await provider.selectedSmartCardUsesLightning() == true
+                if capabilities.hasLightning {
+                    capabilities.hasSmartCard = true
+                    capabilities.supportsSecureChannel = true
+                }
                 try Task.checkCancellation()
                 self.probedDevice = device
+                self.providerCaps = capabilities
             } catch {
                 if !Task.isCancelled { self.probeError = String(describing: error) }
             }
@@ -273,26 +274,12 @@ final class RunnerViewModel: ObservableObject {
     // MARK: - Provider
 
     private func refreshBackend() {
-        capabilitiesTask?.cancel()
         probedDevice = nil
         probeError = nil
         let provider = makeProvider()
         providerCaps = provider?.capabilities
         providerTransport = provider?.deviceTransport
         ctap2Transport = provider?.ctap2Transport
-        if let provider {
-            let backend = backend
-            capabilitiesTask = Task { [weak self] in
-                await self?.resolveRuntimeCapabilities(provider, for: backend)
-                if !Task.isCancelled { self?.capabilitiesTask = nil }
-            }
-        }
-    }
-
-    private func resolveRuntimeCapabilities(_ provider: any ConnectionProvider, for backend: Backend) async {
-        let hasLightning = await provider.lightningKeyConnected()
-        guard !Task.isCancelled, self.backend == backend else { return }
-        providerCaps?.hasLightning = hasLightning
     }
 
     private func makeProvider() -> (any ConnectionProvider)? {
@@ -302,6 +289,7 @@ final class RunnerViewModel: ObservableObject {
             return WiredConnectionProvider(allowedSerialNumbers: allowed)
         case .nfc:
             #if os(iOS)
+            guard NFCConnectionProvider.isAvailable else { return nil }
             return NFCConnectionProvider(allowedSerialNumbers: allowed)
             #else
             return nil

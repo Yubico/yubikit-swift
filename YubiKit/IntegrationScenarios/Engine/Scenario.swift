@@ -91,6 +91,7 @@ import Foundation
     fileprivate func over(_ transport: CTAP2Transport) -> Scenario {
         let isHID = transport == .fido
         var requirements = requirements
+        requirements.capabilities.insert(.fido2)
         requirements.requiresFIDOTransport = isHID
         requirements.requiresCTAP2OverCCID = !isHID
         return Scenario(
