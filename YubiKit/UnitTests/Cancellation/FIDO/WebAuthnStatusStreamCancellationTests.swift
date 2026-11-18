@@ -58,22 +58,16 @@ struct WebAuthnStatusStreamCancellationTests {
             }
         }.result
 
-        #expect(try await withDeadline { try await producerCancelled.value() } == true)
-    }
-
-    // Iterator cancellation lets the watchdog turn a stalled stream into a test failure.
-    private func withDeadline<T: Sendable>(
-        _ operation: @escaping @Sendable () async throws -> T
-    ) async throws -> T? {
-        try await withThrowingTaskGroup(of: T?.self) { group in
-            group.addTask { try await operation() }
-            group.addTask {
-                try await Task.sleep(for: .seconds(5))
-                return nil
-            }
-            defer { group.cancelAll() }
-            return try await group.next() ?? nil
-        }
+        #expect(
+            try await withDeadline {
+                try await withTaskCancellationHandler {
+                    // Promise.value() ignores task cancellation.
+                    try await producerCancelled.value()
+                } onCancel: {
+                    Task { await producerCancelled.cancel(with: CancellationError()) }
+                }
+            } == true
+        )
     }
 
 }
