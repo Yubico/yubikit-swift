@@ -42,6 +42,8 @@ private actor SessionManager {
         }
         self.connection = connection
         do {
+            // Management discovery lets the SDK resolve development firmware versions.
+            _ = try? await Management.Session.makeSession(connection: connection)
             let session = try await PIVSession.makeSession(connection: connection)
             self.session = session
             return session

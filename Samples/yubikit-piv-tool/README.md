@@ -12,6 +12,8 @@ This sample tool shows how to:
 - Handle PIN/PUK authentication and management keys
 - Work with different key types (RSA, ECDSA, Ed25519, X25519)
 
+ML-DSA and ML-KEM require YubiKey firmware 6.0 or later.
+
 ## Documentation
 
 For a detailed walkthrough of this sample, see the [PIVTool documentation](https://yubico.github.io/yubikit-swift/documentation/yubikit/pivtoolsamplecode).
@@ -24,20 +26,10 @@ make
 
 ## Test
 
-Run unit tests without a YubiKey:
+Run `swift test` for unit tests.
 
-```bash
-swift test
-```
-
-Run the destructive BATS tests:
+For hardware tests, install Bats (`brew install bats-core`) and connect a dedicated test YubiKey over USB. The tests reset PIV.
 
 ```bash
 PIV_TOOL_DESTRUCTIVE_TESTS=1 make test
 ```
-
-The BATS tests reset PIV and replace keys and credentials. Use a dedicated test YubiKey.
-
-BATS tests require:
-- YubiKey connected via USB
-- BATS test framework (`brew install bats-core`)

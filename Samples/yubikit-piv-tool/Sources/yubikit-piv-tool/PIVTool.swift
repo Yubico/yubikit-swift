@@ -36,6 +36,8 @@ struct PIVTool: AsyncParsableCommand {
     )
 
     static func main() async {
+        // Commands report their own errors; keep binary stdout free of SDK logs.
+        Logs.configure(logLevel: .critical)
         do {
             var command = try PIVTool.parseAsRoot()
             if var asyncCommand = command as? AsyncParsableCommand {
