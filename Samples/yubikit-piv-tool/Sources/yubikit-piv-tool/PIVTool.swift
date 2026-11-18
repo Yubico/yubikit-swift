@@ -35,7 +35,6 @@ struct PIVTool: AsyncParsableCommand {
         ]
     )
 
-    // Override to handle custom errors
     static func main() async {
         do {
             var command = try PIVTool.parseAsRoot()
@@ -44,9 +43,9 @@ struct PIVTool: AsyncParsableCommand {
             } else {
                 try command.run()
             }
-            Foundation.exit(EXIT_SUCCESS)
+            await PIVSession.closeSharedConnection()
         } catch {
-            // ArgumentParser handles its own errors
+            await PIVSession.closeSharedConnection(error: error)
             exit(withError: error)
         }
     }

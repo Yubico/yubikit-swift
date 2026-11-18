@@ -25,15 +25,15 @@ extension PublicKey {
         let secKey: SecKey?
         switch self {
         case .ed25519:
-            exitWithError(
+            throw ToolError(
                 "Unsupported operation: \(operation).\n\tEd25519 keys are not currently supported for \(operation)"
             )
         case .x25519:
-            exitWithError(
+            throw ToolError(
                 "Unsupported operation: \(operation).\n\tX25519 keys cannot be used for \(operation) (key agreement only)"
             )
         case .mlDSA, .mlKEM:
-            exitWithError("Unsupported key type for \(operation).")
+            throw ToolError("Unsupported key type for \(operation).")
         case let .rsa(rsaKey):
             secKey = rsaKey.makeSecKey()
         case let .ec(ecKey):
@@ -41,7 +41,7 @@ extension PublicKey {
         }
 
         guard let key = secKey else {
-            exitWithError("Key conversion failed for slot \(slot).")
+            throw ToolError("Key conversion failed for slot \(slot).")
         }
 
         return key
@@ -64,11 +64,11 @@ extension GenerateCertificate {
         let subjectName = try Name("Yubikit")
 
         // Create certificate using Shield's Certificate.Builder
-        let shieldCert = try? await ShieldX509.Certificate.Builder()
+        let shieldCert = try await ShieldX509.Certificate.Builder()
             .subject(name: subjectName)
             .issuer(name: subjectName)  // Self-signed: issuer = subject
             .publicKey(publicKey: secKey)
-            .valid(for: TimeInterval(validDays * 24 * 60 * 60))  // Convert days to seconds
+            .valid(for: TimeInterval(validDays) * 24 * 60 * 60)  // Convert days to seconds
             .buildWithPIV(
                 slot: slot,
                 session: session,
@@ -77,7 +77,7 @@ extension GenerateCertificate {
             )
 
         guard let cert = shieldCert else {
-            exitWithError("Certificate generation failed: buildWithPIV returned nil")
+            throw ToolError("Certificate generation failed: buildWithPIV returned nil")
         }
 
         // Convert Shield Certificate to YubiKit X509Cert
@@ -112,7 +112,7 @@ extension RequestCertificate {
             )
 
         guard let csr = csr else {
-            exitWithError("Export failed: Failed to build CSR")
+            throw ToolError("Export failed: Failed to build CSR")
         }
 
         // Return the DER-encoded CSR data
@@ -121,7 +121,7 @@ extension RequestCertificate {
 }
 
 extension Name {
-    init(_ subject: String) throws {
+    fileprivate init(_ subject: String) throws {
         self = try NameBuilder()
             .add(subject, forTypeName: "CN")
             .name
