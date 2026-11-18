@@ -38,6 +38,26 @@ enum ParameterValidator {
         return data
     }
 
+    static func validateKeyType(_ value: String) throws -> PIV.KeyType {
+        switch value.uppercased().replacingOccurrences(of: "-", with: "") {
+        case "RSA1024": .rsa(.bits1024)
+        case "RSA2048": .rsa(.bits2048)
+        case "RSA3072": .rsa(.bits3072)
+        case "RSA4096": .rsa(.bits4096)
+        case "ECCP256", "P256": .ec(.secp256r1)
+        case "ECCP384", "P384": .ec(.secp384r1)
+        case "ED25519": .ed25519
+        case "X25519": .x25519
+        case "MLDSA44": .mlDSA(.mlDSA44)
+        case "MLDSA65": .mlDSA(.mlDSA65)
+        case "MLDSA87": .mlDSA(.mlDSA87)
+        case "MLKEM512": .mlKEM(.mlKEM512)
+        case "MLKEM768": .mlKEM(.mlKEM768)
+        case "MLKEM1024": .mlKEM(.mlKEM1024)
+        default: throw ToolError("Invalid key type: \(value)")
+        }
+    }
+
     static func validateHashAlgorithm(_ algorithm: String) throws -> PIV.HashAlgorithm {
         // Trim whitespace and validate empty string
         let algorithm = algorithm.trimmingCharacters(in: .whitespacesAndNewlines)

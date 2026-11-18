@@ -38,46 +38,13 @@ extension ShieldX509.CertificationRequest.Builder {
         // Encode TBS to DER
         let tbsData = try Data(tbsRequestInfo.encoded())
 
-        // Sign with PIV hardware
-        let signature: Data
-        switch keyType {
-        case let .rsa(keySize):
-            do {
-                signature = try await session.sign(
-                    tbsData,
-                    in: slot,
-                    keyType: .rsa(keySize),
-                    using: .pkcs1v15(algorithm)
-                )
-            } catch {
-                throw pivError(error)
-            }
-        case let .ec(curve):
-            do {
-                signature = try await session.sign(
-                    tbsData,
-                    in: slot,
-                    keyType: .ec(curve),
-                    using: .hash(algorithm)
-                )
-            } catch {
-                throw pivError(error)
-            }
-        case .ed25519:
-            do {
-                signature = try await session.sign(
-                    tbsData,
-                    in: slot,
-                    keyType: .ed25519
-                )
-            } catch {
-                throw pivError(error)
-            }
-        case .x25519:
-            return nil  // Invalid key type for signing
-        case .mlDSA, .mlKEM:
-            return nil  // Unsupported by the certificate library
-        }
+        let signature = try await signCertificateData(
+            tbsData,
+            in: slot,
+            keyType: keyType,
+            hash: algorithm,
+            session: session
+        )
 
         // Create the final certification request
         return ShieldX509.CertificationRequest(

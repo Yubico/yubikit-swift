@@ -45,6 +45,9 @@ struct GenerateCertificate: AsyncParsableCommand {
     @Argument(help: "PIV slot containing key for certificate generation")
     var slot: String
 
+    @Argument(help: "Public-key file (- for stdin); optional with slot metadata")
+    var publicKey: String?
+
     // AUTHENTICATION: Management key required for certificate operations
     @Option(name: [.customShort("m"), .customLong("management-key")], help: "Management key")
     var managementKey: String?
@@ -67,6 +70,9 @@ struct GenerateCertificate: AsyncParsableCommand {
     )
     var hashAlgorithm: String = "SHA256"
 
+    @Option(name: [.customShort("s"), .long], help: "Subject common name")
+    var subject: String
+
     func run() async throws {
 
         guard validDays > 0 else {
@@ -88,6 +94,8 @@ struct GenerateCertificate: AsyncParsableCommand {
 
         let slotValue = try ParameterValidator.validateSlot(slot)
 
+        let suppliedKey = try publicKey.map(readPublicKeyFile)
+
         let session = try await PIVSession.shared()
 
         try await session.authenticate(with: managementKey)
@@ -99,6 +107,13 @@ struct GenerateCertificate: AsyncParsableCommand {
             throw pivError(error, missingDataMessage: "Slot \(slot) is empty.")
         }
 
+        if let suppliedKey, suppliedKey != metadata.publicKey.spki {
+            throw ToolError("Public key does not match the key in the slot.")
+        }
+        switch metadata.keyType {
+        case .x25519, .mlKEM: throw ToolError("Key agreement keys cannot sign certificates or CSRs.")
+        default: break
+        }
         try await session.verifyPinIfProvided(pin)
 
         // Create self-signed X.509 certificate using PIV private key for signing
@@ -175,6 +190,9 @@ struct RequestCertificate: AsyncParsableCommand {
     @Argument(help: "PIV slot containing private key for CSR signing")
     var slot: String
 
+    @Argument(help: "Public-key file (- for stdin)")
+    var publicKey: String
+
     @Argument(help: "Output file for CSR (- for stdout, PEM format)")
     var output: String
 
@@ -187,9 +205,14 @@ struct RequestCertificate: AsyncParsableCommand {
     )
     var hashAlgorithm: String = "SHA256"
 
+    @Option(name: [.customShort("s"), .long], help: "Subject common name")
+    var subject: String
+
     func run() async throws {
         let algorithm = try ParameterValidator.validateHashAlgorithm(hashAlgorithm)
         let slotValue = try ParameterValidator.validateSlot(slot)
+
+        let suppliedKey = try readPublicKeyFile(publicKey)
 
         let session = try await PIVSession.shared()
 
@@ -201,6 +224,13 @@ struct RequestCertificate: AsyncParsableCommand {
             throw pivError(error, missingDataMessage: "Slot \(slot) is empty.")
         }
 
+        guard suppliedKey == metadata.publicKey.spki else {
+            throw ToolError("Public key does not match the key in the slot.")
+        }
+        switch metadata.keyType {
+        case .x25519, .mlKEM: throw ToolError("Key agreement keys cannot sign certificates or CSRs.")
+        default: break
+        }
         try await session.verifyPinIfProvided(pin)
 
         // Create CSR using helper function
@@ -328,4 +358,16 @@ struct DeleteCertificate: AsyncParsableCommand {
             throw pivError(error)
         }
     }
+}
+
+private func readPublicKeyFile(_ path: String) throws -> Data {
+    let bytes = try CommandIO.read(path)
+    if let text = String(data: bytes, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+        text.hasPrefix("-----BEGIN")
+    {
+        let pem = try PEMDocument(pemString: text)
+        guard pem.discriminator == "PUBLIC KEY" else { throw ToolError("Expected a PUBLIC KEY PEM document.") }
+        return Data(pem.derBytes)
+    }
+    return bytes
 }

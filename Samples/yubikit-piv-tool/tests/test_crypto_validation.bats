@@ -22,7 +22,7 @@ teardown() {
     run generate_test_key "$SLOT_SIGN" "$ALG_RSA" "$pubkey_file"
     assert_success
     
-    run piv_tool certificates generate "$SLOT_SIGN" \
+    run piv_tool certificates generate "$SLOT_SIGN" --subject Yubikit \
         --pin "$DEFAULT_PIN" \
         --management-key "$DEFAULT_MGMT_KEY"
     assert_success
@@ -50,7 +50,7 @@ teardown() {
     run generate_test_key "$SLOT_AUTH" "$ALG_ECC" "$pubkey_file"
     assert_success
     
-    run piv_tool certificates generate "$SLOT_AUTH" \
+    run piv_tool certificates generate "$SLOT_AUTH" --subject Yubikit \
         --pin "$DEFAULT_PIN" \
         --management-key "$DEFAULT_MGMT_KEY"
     assert_success
@@ -58,7 +58,7 @@ teardown() {
     run piv_tool certificates export "$SLOT_AUTH" "$cert_file"
     assert_success
     
-    run piv_tool certificates request "$SLOT_AUTH" "$csr_file" \
+    run piv_tool certificates request "$SLOT_AUTH" "$pubkey_file" "$csr_file" --subject Yubikit \
         --pin "$DEFAULT_PIN"
     assert_success
     
@@ -99,7 +99,7 @@ teardown() {
     run generate_test_key "$SLOT_KEYMGMT" "$ALG_RSA" "$pubkey_file"
     assert_success
     
-    run piv_tool certificates generate "$SLOT_KEYMGMT" \
+    run piv_tool certificates generate "$SLOT_KEYMGMT" --subject Yubikit \
         --pin "$DEFAULT_PIN" \
         --management-key "$DEFAULT_MGMT_KEY"
     assert_success

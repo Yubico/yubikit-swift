@@ -26,6 +26,8 @@ struct Keys: AsyncParsableCommand {
         subcommands: [
             Generate.self,
             KeyInfo.self,
+            Sign.self,
+            Decapsulate.self,
             Attest.self,
         ]
     )
@@ -46,7 +48,7 @@ struct Generate: AsyncParsableCommand {
         name: [.customShort("a"), .customLong("algorithm")],
         help: "algorithm to use in key generation"
     )
-    var algorithm: String = "RSA2048"
+    var algorithm: String = "ECCP256"
 
     @Option(
         name: [.customShort("m"), .customLong("management-key")],
@@ -76,27 +78,7 @@ struct Generate: AsyncParsableCommand {
             throw ToolError("Invalid format for format.\n\tExpected: PEM, DER.\n\tActual: \(format)")
         }
 
-        let keyType: PIV.KeyType
-        switch algorithm.uppercased() {
-        case "RSA1024":
-            keyType = .rsa(.bits1024)
-        case "RSA2048":
-            keyType = .rsa(.bits2048)
-        case "RSA3072":
-            keyType = .rsa(.bits3072)
-        case "RSA4096":
-            keyType = .rsa(.bits4096)
-        case "ECCP256", "P256":
-            keyType = .ec(.secp256r1)
-        case "ECCP384", "P384":
-            keyType = .ec(.secp384r1)
-        case "ED25519":
-            keyType = .ed25519
-        case "X25519":
-            keyType = .x25519
-        default:
-            throw ToolError("Invalid key type: \(algorithm)")
-        }
+        let keyType = try ParameterValidator.validateKeyType(algorithm)
 
         let pinPol: PIV.PinPolicy
         if let pinPolicy = pinPolicy {

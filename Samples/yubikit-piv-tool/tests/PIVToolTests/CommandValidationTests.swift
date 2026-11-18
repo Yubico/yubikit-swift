@@ -32,7 +32,7 @@ struct CommandValidationTests {
 
     @Test(arguments: [0, -1])
     func rejectCertificateValidityBeforeConnecting(days: Int) async throws {
-        let command = try GenerateCertificate.parse(["9a", "--valid-days=\(days)"])
+        let command = try GenerateCertificate.parse(["9a", "--subject", "Yubikit", "--valid-days=\(days)"])
         do {
             try await command.run()
             Issue.record("Expected an invalid certificate validity error")
@@ -42,7 +42,7 @@ struct CommandValidationTests {
     }
 
     @Test func rejectUnrepresentableCertificateValidityBeforeConnecting() async throws {
-        let command = try GenerateCertificate.parse(["9a", "--valid-days=\(Int.max)"])
+        let command = try GenerateCertificate.parse(["9a", "--subject", "Yubikit", "--valid-days=\(Int.max)"])
         do {
             try await command.run()
             Issue.record("Expected an unrepresentable certificate validity error")
