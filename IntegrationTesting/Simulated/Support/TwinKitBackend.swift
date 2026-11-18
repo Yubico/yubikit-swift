@@ -83,10 +83,17 @@ public actor TwinKitBackend {
         return TwinKitSmartCardChannel(backend: self, transport: transport)
     }
 
-    /// Simulates unplugging and replugging the key: clears every applet's volatile state
-    /// (selection, PIN/auth, SCP, and the FIDO PIN soft-lock). Stored data survives.
-    public func powerCycle() throws(TwinKitSupportError) {
-        try loadDevice().deselect()
+    /// Reinserts USB or removes the NFC field while preserving stored data.
+    package func reinsert(over transport: TwinKitSmartCardTransport) throws(TwinKitSupportError) {
+        let device = try loadDevice()
+        do {
+            switch transport {
+            case .usb: try device.reinsertUSB()
+            case .nfc: try device.nfcFieldLost()
+            }
+        } catch {
+            throw .unavailable("TwinKit \(transport) reinsertion failed: \(error)")
+        }
     }
 
     public func openFIDO() throws(TwinKitSupportError) -> TwinKitFIDOChannel {
