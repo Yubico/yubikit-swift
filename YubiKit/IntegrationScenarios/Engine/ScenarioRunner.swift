@@ -70,23 +70,24 @@ extension Scenario {
             let clock = ContinuousClock()
             let start = clock.now
             var thrownError: String?
-            var skipReason: String?
+            var bodyStatus: Scenario.Result.Status?
             do {
                 try await scenario.run(context)
             } catch is RequireFailure {
             } catch let skip as SkipScenario {
-                skipReason = skip.reason
+                bodyStatus = .skipped(reason: skip.reason)
             } catch is CancellationError where Task.isCancelled {
-                await context.runTeardown()
-                return finish(.init(scenario: scenario, status: .skipped(reason: "cancelled")), onEvent)
+                bodyStatus = .skipped(reason: "cancelled")
+                context.log("scenario cancelled")
             } catch let error as ProviderError {
-                await context.runTeardown()
-                return finish(.init(scenario: scenario, status: backendStatus(for: error)), onEvent)
+                bodyStatus = backendStatus(for: error)
+                context.log("provider error: \(error)")
             } catch {
                 thrownError = String(describing: error)
             }
             let duration = clock.now - start
-            await context.runTeardown()
+            // Cleanup must still send commands after the scenario task is cancelled.
+            await Task { await context.runTeardown() }.value
 
             let failures = context.recordedFailures
             let logs = context.recordedLogs
@@ -95,8 +96,8 @@ extension Scenario {
                 status = .errored
             } else if !failures.isEmpty {
                 status = .failed
-            } else if let skipReason {
-                status = .skipped(reason: skipReason)
+            } else if let bodyStatus {
+                status = bodyStatus
             } else {
                 status = .passed
             }

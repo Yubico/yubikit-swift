@@ -185,6 +185,64 @@ enum ScenarioSuites {
     #expect(result.failures.first?.message.contains("teardown failed") == true)
 }
 
+@Test(arguments: [ProviderError.unsupported("unsupported"), .unavailable("unavailable")])
+func providerErrorPreservesFailures(error: ProviderError) async {
+    let scenario = Scenario("Connection.Provider.failure", "provider error preserves failures") { context in
+        context.record("assertion failed")
+        context.log("body reached")
+        await context.addTeardown { throw SyntheticTeardownError.failed }
+        throw error
+    }
+    let result = await Scenario.Runner(provider: UnusedProvider()).run(scenario)
+
+    #expect(result.status == .failed)
+    #expect(result.failures.count == 2)
+    #expect(result.failures.first?.message == "assertion failed")
+    #expect(result.failures.last?.message.contains("teardown failed") == true)
+    #expect(result.logs == ["body reached", "provider error: \(error)"])
+}
+
+@Test(arguments: [ProviderError.unsupported("unsupported"), .unavailable("unavailable")])
+func providerErrorPreservesOutcome(error: ProviderError) async {
+    let scenario = Scenario("Connection.Provider.outcome", "provider error preserves outcome") { context in
+        context.log("body reached")
+        await context.addTeardown { context.log("cleanup reached") }
+        throw error
+    }
+    let result = await Scenario.Runner(provider: UnusedProvider()).run(scenario)
+
+    switch error {
+    case .unsupported(let reason): #expect(result.status == .skipped(reason: reason))
+    case .unavailable(let reason): #expect(result.status == .backendUnavailable(reason: reason))
+    }
+    #expect(result.failures.isEmpty)
+    #expect(result.logs == ["body reached", "provider error: \(error)", "cleanup reached"])
+}
+
+@Test(arguments: [false, true], [false, true])
+func cancelledScenarioReportsOutcome(bodyFails: Bool, teardownFails: Bool) async {
+    let scenario = Scenario("Connection.Cancellation.outcome", "cancelled scenario outcome") { context in
+        if bodyFails { context.record("assertion failed") }
+        await context.addTeardown {
+            try Task.checkCancellation()
+            context.log("cleanup reached")
+            if teardownFails { throw SyntheticTeardownError.failed }
+        }
+        throw CancellationError()
+    }
+    let task = Task {
+        withUnsafeCurrentTask { $0?.cancel() }
+        return await Scenario.Runner(provider: UnusedProvider()).run(scenario)
+    }
+    let result = await task.value
+
+    #expect(result.status == (bodyFails || teardownFails ? .failed : .skipped(reason: "cancelled")))
+    #expect(result.failures.count == (bodyFails ? 1 : 0) + (teardownFails ? 1 : 0))
+    if bodyFails { #expect(result.failures.first?.message == "assertion failed") }
+    if teardownFails { #expect(result.failures.last?.message.contains("teardown failed") == true) }
+    #expect(result.logs == ["scenario cancelled", "cleanup reached"])
+}
+
 @Test func scenarioIDsAreUnique() {
     let ids = Scenario.Catalog.allDeclared.map(\.id)
     let duplicates = Dictionary(grouping: ids, by: { $0 }).filter { $1.count > 1 }.keys.sorted()
