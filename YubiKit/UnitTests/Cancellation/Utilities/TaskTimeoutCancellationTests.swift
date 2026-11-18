@@ -50,10 +50,9 @@ struct TaskTimeoutTests {
         #expect(result == nil)
     }
 
-    @Test("a blocked receive returns at the deadline")
+    @Test("a timeout cancels a blocked receive before returning")
     func blockedReceiveTimesOut() async throws {
         let response = Promise<Int>()
-        let start = ContinuousClock.now
         let result = try await withTimeoutIgnoringCancellation(.milliseconds(20)) {
             try await withTaskCancellationHandler {
                 try await response.value()
@@ -62,7 +61,11 @@ struct TaskTimeoutTests {
             }
         }
         #expect(result == nil)
-        #expect(start.duration(to: .now) < .seconds(1))
+        // Resolve an uncancelled receive so the assertion fails instead of waiting.
+        await response.fulfill(1)
+        await #expect(throws: CancellationError.self) {
+            try await response.value()
+        }
     }
 
     @Test("a finished operation does not wait for the deadline")
