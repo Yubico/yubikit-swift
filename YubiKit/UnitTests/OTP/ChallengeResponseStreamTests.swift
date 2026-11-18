@@ -112,19 +112,4 @@ struct ChallengeResponseStreamTests {
             Issue.record("Unexpected error: \(error)")
         }
     }
-
-    // Returns nil if the operation does not finish in time, so a stalled stream fails the test.
-    private func withDeadline<T: Sendable>(
-        _ operation: @escaping @Sendable () async throws -> T
-    ) async throws -> T? {
-        try await withThrowingTaskGroup(of: T?.self) { group in
-            group.addTask { try await operation() }
-            group.addTask {
-                try await Task.sleep(for: .seconds(5))
-                return nil
-            }
-            defer { group.cancelAll() }
-            return try await group.next() ?? nil
-        }
-    }
 }
