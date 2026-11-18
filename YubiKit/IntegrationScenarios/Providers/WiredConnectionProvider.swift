@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+@preconcurrency import CryptoTokenKit
 import Foundation
 import YubiKit
 
@@ -56,12 +57,15 @@ import ExternalAccessory
         return .success(serials)
     }
 
-    public let capabilities = ProviderCapabilities(
-        hasFIDO: wiredHasFIDO,
-        hasOTP: wiredHasOTP,
-        supportsSecureChannel: true,
-        isVirtual: wiredIsVirtual
-    )
+    public var capabilities: ProviderCapabilities {
+        ProviderCapabilities(
+            hasFIDO: Self.wiredHasFIDO,
+            hasOTP: Self.wiredHasOTP,
+            hasSmartCard: Self.wiredHasSmartCard,
+            supportsSecureChannel: Self.wiredHasSmartCard,
+            isVirtual: Self.wiredIsVirtual
+        )
+    }
     public let deviceTransport: DeviceTransport = .usb
     public let ctap2Transport: CTAP2Transport = wiredCTAP2Transport
 
@@ -93,7 +97,12 @@ import ExternalAccessory
         do {
             let session = try await Management.Session.makeSession(connection: connection)
             let info = try await session.getDeviceInfo()
-            if await infoCache.acceptsAndCaches(info, allowed: allowed) {
+            #if os(iOS)
+            let usesLightning = connection.lightningConnection != nil
+            #else
+            let usesLightning = false
+            #endif
+            if await infoCache.acceptsAndCaches(info, allowed: allowed, smartCardUsesLightning: usesLightning) {
                 return connection
             }
         } catch {}
@@ -213,10 +222,33 @@ import ExternalAccessory
 
     public func deviceInfo() async throws -> DeviceInfo {
         if let cached = await infoCache.value { return cached }
-        let connection = try await makeSmartCardConnection()
-        await connection.close(error: nil)
+        var firstError: Error?
+        do {
+            let connection = try await makeSmartCardConnection()
+            await connection.close(error: nil)
+        } catch {
+            firstError = error
+        }
+        try Task.checkCancellation()
+        if let cached = await infoCache.value { return cached }
+        if capabilities.hasFIDO, let connection = try? await makeFIDOConnection() {
+            await connection.close(error: nil)
+        }
+        try Task.checkCancellation()
+        if let cached = await infoCache.value { return cached }
+        if capabilities.hasOTP, let connection = try? await makeOTPConnection() {
+            do {
+                let info = try await Management.Session.makeSession(connection: connection).getDeviceInfo()
+                _ = await infoCache.acceptsAndCaches(info, allowed: allowed)
+                await connection.close(error: nil)
+            } catch {
+                await connection.close(error: error)
+                if firstError == nil { firstError = error }
+            }
+        }
+        try Task.checkCancellation()
         guard let info = await infoCache.value else {
-            throw ProviderError.unavailable("Could not read DeviceInfo from the connected YubiKey.")
+            throw firstError ?? ProviderError.unavailable("Could not read DeviceInfo from the connected YubiKey.")
         }
         return info
     }
@@ -284,12 +316,8 @@ import ExternalAccessory
         return info
     }
 
-    public func lightningKeyConnected() async -> Bool {
-        #if os(iOS)
-        return await LightningProbe.hasConnectedYubiKey
-        #else
-        return false
-        #endif
+    public func selectedSmartCardUsesLightning() async -> Bool? {
+        await infoCache.smartCardUsesLightning
     }
 
     #if os(macOS)
@@ -303,7 +331,16 @@ import ExternalAccessory
     private static let wiredCTAP2Transport: CTAP2Transport = .ccid
     #endif
 
-    #if DEBUG && targetEnvironment(simulator)
+    private static var wiredHasSmartCard: Bool {
+        #if os(iOS)
+        // Both USB smart cards and the Lightning accessory API are available at the deployment target.
+        return true
+        #else
+        return TKSmartCardSlotManager.default != nil
+        #endif
+    }
+
+    #if YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator)
     private static let wiredIsVirtual = true
     // The simulator backend reports this fixed serial, so simulator runs do not
     // require YUBIKEY_TEST_SERIALS.
@@ -317,12 +354,16 @@ import ExternalAccessory
 actor DeviceInfoCache {
     private var stored: DeviceInfo?
     var value: DeviceInfo? { stored }
-    func acceptsAndCaches(_ info: DeviceInfo, allowed: [UInt]) -> Bool {
-        if let stored {
-            return info.serialNumber == stored.serialNumber
-        }
-        guard allowed.contains(info.serialNumber) else {
+    private(set) var smartCardUsesLightning: Bool?
+
+    func acceptsAndCaches(_ info: DeviceInfo, allowed: [UInt], smartCardUsesLightning: Bool? = nil) -> Bool {
+        guard stored.map({ $0.serialNumber == info.serialNumber }) ?? allowed.contains(info.serialNumber) else {
             return false
+        }
+        if let smartCardUsesLightning {
+            // Keep the vetted route stable so an unrelated 5Ci cannot grant the USB CCID exception.
+            if let selected = self.smartCardUsesLightning, selected != smartCardUsesLightning { return false }
+            self.smartCardUsesLightning = smartCardUsesLightning
         }
         stored = info
         return true
