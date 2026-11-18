@@ -28,6 +28,12 @@ package enum ConnectionEnvironment {
     #endif
 
     package static func reinsertVirtualKey() async throws {
-        try await TwinKitBackend.shared.powerCycle()
+        try Task.checkCancellation()
+        let transport: TwinKitSmartCardTransport =
+            switch try TwinKitConfiguration.selectedTransport() {
+            case .usb: .usb
+            case .nfc: .nfc
+            }
+        try await TwinKitBackend.shared.reinsert(over: transport)
     }
 }

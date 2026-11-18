@@ -22,17 +22,23 @@ enum TwinKitConfiguration {
         ProcessInfo.processInfo.environment["YUBIKIT_TWIN_NFC_READER"] != "0"
     }
 
-    static func exposesUSBInterface(_ mask: UInt8) -> Bool {
-        let transport = ProcessInfo.processInfo.environment["YUBIKIT_TWIN_TRANSPORT"] ?? "usb"
-        guard transport == "usb", let descriptor = try? TwinKitBackend.shared.descriptor() else { return false }
-        return descriptor.usbInterfaces & mask != 0
-    }
-
-    static func isPresent(_ transport: Transport) throws(SmartCardConnectionError) -> Bool {
+    static func selectedTransport() throws(SmartCardConnectionError) -> Transport {
         let value = ProcessInfo.processInfo.environment["YUBIKIT_TWIN_TRANSPORT"] ?? "usb"
         guard let selected = Transport(rawValue: value) else {
             throw .setupFailed("Invalid Simulator transport: \(value)")
         }
+        return selected
+    }
+
+    static func exposesUSBInterface(_ mask: UInt8) -> Bool {
+        guard (try? selectedTransport()) == .usb, let descriptor = try? TwinKitBackend.shared.descriptor() else {
+            return false
+        }
+        return descriptor.usbInterfaces & mask != 0
+    }
+
+    static func isPresent(_ transport: Transport) throws(SmartCardConnectionError) -> Bool {
+        let selected = try selectedTransport()
         if let error = TwinKitBackend.environmentProfileConfigurationError {
             throw .setupFailed(error)
         }
