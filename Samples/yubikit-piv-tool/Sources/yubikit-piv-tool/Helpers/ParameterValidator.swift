@@ -16,40 +16,33 @@ import Foundation
 import YubiKit
 
 enum ParameterValidator {
-    static func validateSlot(_ slot: String) -> PIV.Slot {
+    static func validateSlot(_ slot: String) throws -> PIV.Slot {
         // Trim whitespace and validate empty string
         let trimmedSlot = slot.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard let pivSlot = PIV.Slot(fromString: trimmedSlot) else {
-            exitWithError("Invalid slot: \(slot)")
+            throw ToolError("Invalid slot: \(slot)")
         }
 
         return pivSlot
     }
 
-    static func validateManagementKey(_ hexString: String) -> Data {
-        // Trim whitespace and validate empty string
+    static func validateManagementKey(_ hexString: String) throws -> Data {
         let trimmedHex = hexString.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedHex.isEmpty else {
-            exitWithError("Invalid management key format.\n\tExpected: 48 hex characters for 3DES")
-        }
-
-        // Must be 48 characters (3DES)
-        guard trimmedHex.count == 48 else {
-            exitWithError("Invalid management key format.\n\tExpected: 48 hex characters for 3DES")
-        }
-
-        guard let data = Data(hexString: trimmedHex), data.count == 24 else {
-            exitWithError("Invalid management key format.\n\tExpected: 48 hex characters for 3DES")
+        guard [32, 48, 64].contains(trimmedHex.count),
+            trimmedHex.allSatisfy({ $0.isASCII && $0.isHexDigit }),
+            let data = Data(hexString: trimmedHex), data.count * 2 == trimmedHex.count
+        else {
+            throw ToolError("Invalid management key format.\n\tExpected: 32, 48 or 64 hex characters for AES or 3DES")
         }
         return data
     }
 
-    static func validateHashAlgorithm(_ algorithm: String) -> PIV.HashAlgorithm {
+    static func validateHashAlgorithm(_ algorithm: String) throws -> PIV.HashAlgorithm {
         // Trim whitespace and validate empty string
         let algorithm = algorithm.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !algorithm.isEmpty else {
-            exitWithError("Invalid hash algorithm: \(algorithm)")
+            throw ToolError("Invalid hash algorithm: \(algorithm)")
         }
 
         switch algorithm.uppercased() {
@@ -58,35 +51,35 @@ enum ParameterValidator {
         case "SHA384": return .sha384
         case "SHA512": return .sha512
         default:
-            exitWithError("Invalid hash algorithm: \(algorithm)")
+            throw ToolError("Invalid hash algorithm: \(algorithm)")
         }
     }
 
     // Validate PIN format and length constraints
-    static func validatePin(_ pin: String) {
+    static func validatePin(_ pin: String) throws {
         // PIV PIN must be 6-8 characters
         guard pin.count >= 6, pin.count <= 8 else {
-            exitWithError("Invalid PIN length: \(pin.count).\n\tPIN must be 6-8 characters.")
+            throw ToolError("Invalid PIN length: \(pin.count).\n\tPIN must be 6-8 characters.")
         }
 
         // PIN must contain only ASCII digits
         guard pin.allSatisfy({ $0.isASCII && $0.isNumber }) else {
-            exitWithError(
+            throw ToolError(
                 "Invalid format for PIN.\n\tExpected: 6-8 numeric digits.\n\tActual: contains non-numeric characters"
             )
         }
     }
 
     // Validate PUK format and length constraints
-    static func validatePuk(_ puk: String) {
+    static func validatePuk(_ puk: String) throws {
         // PIV PUK must be 6-8 characters
         guard puk.count >= 6, puk.count <= 8 else {
-            exitWithError("Invalid PUK length: \(puk.count).\n\tPUK must be 6-8 characters.")
+            throw ToolError("Invalid PUK length: \(puk.count).\n\tPUK must be 6-8 characters.")
         }
 
         // PUK must contain only ASCII digits
         guard puk.allSatisfy({ $0.isASCII && $0.isNumber }) else {
-            exitWithError(
+            throw ToolError(
                 "Invalid format for PUK.\n\tExpected: 6-8 numeric digits.\n\tActual: contains non-numeric characters"
             )
         }

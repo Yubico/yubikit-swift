@@ -70,7 +70,11 @@ struct Generate: AsyncParsableCommand {
     var touchPolicy: String?
 
     func run() async throws {
-        let slotValue = ParameterValidator.validateSlot(slot)
+        let slotValue = try ParameterValidator.validateSlot(slot)
+
+        guard ["PEM", "DER"].contains(format.uppercased()) else {
+            throw ToolError("Invalid format for format.\n\tExpected: PEM, DER.\n\tActual: \(format)")
+        }
 
         let keyType: PIV.KeyType
         switch algorithm.uppercased() {
@@ -91,7 +95,7 @@ struct Generate: AsyncParsableCommand {
         case "X25519":
             keyType = .x25519
         default:
-            exitWithError("Invalid key type: \(algorithm)")
+            throw ToolError("Invalid key type: \(algorithm)")
         }
 
         let pinPol: PIV.PinPolicy
@@ -110,7 +114,7 @@ struct Generate: AsyncParsableCommand {
             case "MATCH-ALWAYS":
                 pinPol = .matchAlways
             default:
-                exitWithError(
+                throw ToolError(
                     "Invalid format for pin-policy.\n\tExpected: DEFAULT, NEVER, ONCE, ALWAYS, MATCH-ONCE, MATCH-ALWAYS.\n\tActual: \(pinPolicy)"
                 )
             }
@@ -130,7 +134,7 @@ struct Generate: AsyncParsableCommand {
             case "CACHED":
                 touchPol = .cached
             default:
-                exitWithError(
+                throw ToolError(
                     "Invalid format for touch-policy.\n\tExpected: DEFAULT, NEVER, ALWAYS, CACHED.\n\tActual: \(touchPolicy)"
                 )
             }
@@ -140,27 +144,8 @@ struct Generate: AsyncParsableCommand {
 
         let session = try await PIVSession.shared()
 
-        // Authenticate with management key if provided
-        if let managementKey = managementKey {
-            await session.authenticate(with: managementKey)
-        }
-
-        // Verify PIN if provided
-        if let pin = pin {
-            do {
-                let result = try await session.verifyPin(pin)
-                switch result {
-                case .success:
-                    break
-                case let .fail(retries):
-                    exitWithError("PIN verification failed - \(retries) tries left.")
-                case .pinLocked:
-                    exitWithError("PIN is blocked.")
-                }
-            } catch {
-                handlePIVError(error)
-            }
-        }
+        try await session.authenticate(with: managementKey)
+        try await session.verifyPinIfProvided(pin)
 
         // Generate asymmetric key pair on the YubiKey for the specified slot
         let generatedKey: PublicKey
@@ -172,7 +157,7 @@ struct Generate: AsyncParsableCommand {
                 touchPolicy: touchPol
             )
         } catch {
-            handlePIVError(error)
+            throw pivError(error)
         }
 
         // Export public key in requested format (PEM or DER)
@@ -185,7 +170,7 @@ struct Generate: AsyncParsableCommand {
                 do {
                     try pemString.write(toFile: publicKey, atomically: true, encoding: .utf8)
                 } catch {
-                    exitWithError("Failed to write file \(publicKey): \(error.localizedDescription)")
+                    throw ToolError("Failed to write file \(publicKey): \(error.localizedDescription)")
                 }
             } else {
                 // Write to stdout
@@ -200,7 +185,7 @@ struct Generate: AsyncParsableCommand {
                 do {
                     try derData.write(to: URL(fileURLWithPath: publicKey))
                 } catch {
-                    exitWithError("Failed to write file \(publicKey): \(error.localizedDescription)")
+                    throw ToolError("Failed to write file \(publicKey): \(error.localizedDescription)")
                 }
             } else {
                 // Write binary to stdout
@@ -208,7 +193,7 @@ struct Generate: AsyncParsableCommand {
             }
 
         default:
-            exitWithError("Invalid format for format.\n\tExpected: PEM, DER.\n\tActual: \(format)")
+            throw ToolError("Invalid format for format.\n\tExpected: PEM, DER.\n\tActual: \(format)")
         }
     }
 }
@@ -223,7 +208,7 @@ struct KeyInfo: AsyncParsableCommand {
     var slot: String
 
     func run() async throws {
-        let slotValue = ParameterValidator.validateSlot(slot)
+        let slotValue = try ParameterValidator.validateSlot(slot)
 
         let session = try await PIVSession.shared()
 
@@ -232,7 +217,7 @@ struct KeyInfo: AsyncParsableCommand {
         do {
             metadata = try await session.getMetadata(in: slotValue)
         } catch {
-            exitWithError("Slot \(slot) is empty.")
+            throw pivError(error, missingDataMessage: "Slot \(slot) is empty.")
         }
 
         print("Algorithm: \(algorithmName(for: metadata.keyType))")
@@ -303,7 +288,7 @@ struct Attest: AsyncParsableCommand {
     var output: String?
 
     func run() async throws {
-        let slotValue = ParameterValidator.validateSlot(slot)
+        let slotValue = try ParameterValidator.validateSlot(slot)
 
         let session = try await PIVSession.shared()
 
@@ -312,7 +297,7 @@ struct Attest: AsyncParsableCommand {
         do {
             attestationCert = try await session.attestKey(in: slotValue)
         } catch {
-            exitWithError("Attestation not supported for slot \(slot).")
+            throw ToolError("Attestation not supported for slot \(slot).")
         }
 
         // Convert attestation certificate to PEM format
@@ -324,7 +309,7 @@ struct Attest: AsyncParsableCommand {
             do {
                 try (pemString + "\n").write(toFile: output, atomically: true, encoding: .utf8)
             } catch {
-                exitWithError("Failed to write file \(output): \(error.localizedDescription)")
+                throw ToolError("Failed to write file \(output): \(error.localizedDescription)")
             }
         } else {
             print(pemString)

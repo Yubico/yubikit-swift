@@ -31,7 +31,7 @@ teardown() {
     assert_success
     
     validate_public_key_pem "$pubkey_file" || fail "RSA public key validation failed"
-    validate_certificate_pem "$cert_file" || fail "RSA certificate validation failed"
+    verify_self_signed_certificate_pem "$cert_file" || fail "RSA certificate signature verification failed"
     
     verify_certificate_key_match "$cert_file" "$pubkey_file" || fail "Certificate-key pair validation failed"
     
@@ -63,7 +63,7 @@ teardown() {
     assert_success
     
     validate_public_key_pem "$pubkey_file" || fail "ECC public key validation failed"
-    validate_certificate_pem "$cert_file" || fail "ECC certificate validation failed"
+    verify_self_signed_certificate_pem "$cert_file" || fail "ECC certificate signature verification failed"
     validate_csr_pem "$csr_file" || fail "ECC CSR validation failed"
     
     local key_size cert_algorithm

@@ -28,6 +28,11 @@ let package = Package(
                 .product(name: "Shield", package: "Shield"),
                 .product(name: "YubiKit", package: "YubiKit"),
             ]
-        )
+        ),
+        .testTarget(
+            name: "PIVToolTests",
+            dependencies: ["yubikit-piv-tool"],
+            path: "tests/PIVToolTests"
+        ),
     ]
 )

@@ -21,7 +21,7 @@ import YubiKit
 // MARK: - Shield CertificationRequest.Builder Extension for external signing with YubiKey
 
 extension ShieldX509.CertificationRequest.Builder {
-    public func buildWithPIV(
+    func buildWithPIV(
         slot: PIV.Slot,
         session: PIVSession,
         keyType: PIV.KeyType,
@@ -39,7 +39,7 @@ extension ShieldX509.CertificationRequest.Builder {
         let tbsData = try Data(tbsRequestInfo.encoded())
 
         // Sign with PIV hardware
-        let signature: Data!
+        let signature: Data
         switch keyType {
         case let .rsa(keySize):
             do {
@@ -50,7 +50,7 @@ extension ShieldX509.CertificationRequest.Builder {
                     using: .pkcs1v15(algorithm)
                 )
             } catch {
-                handlePIVError(error)
+                throw pivError(error)
             }
         case let .ec(curve):
             do {
@@ -58,10 +58,10 @@ extension ShieldX509.CertificationRequest.Builder {
                     tbsData,
                     in: slot,
                     keyType: .ec(curve),
-                    using: .prehashed(algorithm)
+                    using: .hash(algorithm)
                 )
             } catch {
-                handlePIVError(error)
+                throw pivError(error)
             }
         case .ed25519:
             do {
@@ -71,7 +71,7 @@ extension ShieldX509.CertificationRequest.Builder {
                     keyType: .ed25519
                 )
             } catch {
-                handlePIVError(error)
+                throw pivError(error)
             }
         case .x25519:
             return nil  // Invalid key type for signing

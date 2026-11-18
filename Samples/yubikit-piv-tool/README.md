@@ -24,10 +24,20 @@ make
 
 ## Test
 
+Run unit tests without a YubiKey:
+
 ```bash
-make test
+swift test
 ```
 
-Tests require:
+Run the destructive BATS tests:
+
+```bash
+PIV_TOOL_DESTRUCTIVE_TESTS=1 make test
+```
+
+The BATS tests reset PIV and replace keys and credentials. Use a dedicated test YubiKey.
+
+BATS tests require:
 - YubiKey connected via USB
 - BATS test framework (`brew install bats-core`)
