@@ -575,14 +575,14 @@ private struct ScenarioDetail: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(model.isRunning || model.isProbing || skipReason != nil)
+                .disabled(model.isRunning || model.isProbing)
 
                 if let reason = result?.status.reason {
                     Text(reason)
                         .font(.callout)
                         .textSelection(.enabled)
                 } else if result == nil, let skipReason {
-                    Label("Will skip on \(model.backend.rawValue): \(skipReason)", systemImage: "minus.circle")
+                    Label(skipReason, systemImage: "minus.circle")
                         .font(.callout).foregroundStyle(.orange)
                 }
 

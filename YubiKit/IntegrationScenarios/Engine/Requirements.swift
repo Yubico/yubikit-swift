@@ -76,9 +76,15 @@ import YubiKit
         self.requiresRealHardware = requiresRealHardware
     }
 
+    var needsSmartCardTransport: Bool {
+        requiresSmartCardTransport || requiresCTAP2OverCCID || requiresSCP
+            || !capabilities.isDisjoint(with: [.piv, .oath, .openPGP, .hsmAuth])
+    }
+
     /// Whether these requirements need `DeviceInfo`.
     var needsDeviceInfo: Bool {
         !capabilities.isEmpty || minVersion != nil || maxVersion != nil
             || requiresBio || excludesBio || requiresFIPS || excludesFIPS || requiresCTAP2OverCCID
+            || requiresLightning || requiresFIDOTransport || requiresOTPTransport || needsSmartCardTransport
     }
 }
