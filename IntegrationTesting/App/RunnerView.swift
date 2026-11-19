@@ -66,6 +66,7 @@ struct RunnerView: View {
             }
             .animation(.snappy, value: model.userPrompt)
         }
+        .onDisappear { model.cancel() }
         .onChange(of: selection) { _, new in
             if new != nil { showInspector = true }
         }
@@ -209,6 +210,7 @@ private struct TestKeyAuthorizationView: View {
     @State private var device: DeviceInfo?
     @State private var identifyError: String?
     @State private var isIdentifying = false
+    @State private var identifyRequest = 0
     @State private var confirmation = ""
 
     private var isNFC: Bool { model.backend == .nfc }
@@ -227,10 +229,10 @@ private struct TestKeyAuthorizationView: View {
                 Section("YubiKey") {
                     identifiedKey
                     Button(device == nil ? (isNFC ? "Scan YubiKey" : "Detect YubiKey") : "Detect again") {
-                        Task { await identify() }
+                        identifyRequest += 1
                     }
                     .accessibilityIdentifier("identifyTestKey")
-                    .disabled(isIdentifying)
+                    .disabled(isIdentifying || !model.canChangeAuthorization)
                 }
                 Section {
                     TextField("Confirmation", text: $confirmation)
@@ -266,9 +268,9 @@ private struct TestKeyAuthorizationView: View {
                 }
             }
         }
-        .task {
+        .task(id: identifyRequest) {
             // NFC needs the user to start a tap, so only wired keys are read automatically.
-            if !isNFC { await identify() }
+            if !isNFC || identifyRequest > 0 { await identify() }
         }
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 480)
@@ -304,6 +306,8 @@ private struct TestKeyAuthorizationView: View {
         confirmation = ""
         do {
             device = try await model.identifyTestKey()
+        } catch is CancellationError {
+            // The sheet was dismissed before identification completed.
         } catch let ProviderError.unavailable(message), let ProviderError.unsupported(message) {
             identifyError = message
         } catch {
@@ -353,7 +357,7 @@ private struct ControlBar: View {
                 .help("Run scenarios over a wired connection or NFC")
             }
 
-            if model.isRunning {
+            if model.isRunning || model.isProbing {
                 Button(role: .cancel) {
                     model.cancel()
                 } label: {
@@ -408,7 +412,7 @@ private struct ControlBar: View {
                 } label: {
                     Label("Run filtered", systemImage: "play")
                 }
-                .disabled(model.isRunning)
+                .disabled(model.isRunning || model.isProbing)
             }
         } label: {
             #if os(iOS)
@@ -457,7 +461,7 @@ private struct SuiteHeader: View {
                 Image(systemName: "play.fill")
             }
             .buttonStyle(.borderless)
-            .disabled(model.isRunning)
+            .disabled(model.isRunning || model.isProbing)
             .help("Run the \(suite.displayName) suite")
         }
         .textCase(nil)
@@ -479,8 +483,8 @@ private struct ScenarioRow: View {
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(scenario.name).lineLimit(2)
-                if let skipReason {
-                    Label(skipReason, systemImage: "minus.circle")
+                if let reason = result?.status.reason ?? (result == nil ? skipReason : nil) {
+                    Text(reason)
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
@@ -490,7 +494,7 @@ private struct ScenarioRow: View {
             }
         }
         .padding(.vertical, 4)
-        .opacity(skipReason != nil ? 0.5 : 1)
+        .opacity(result == nil && skipReason != nil ? 0.5 : 1)
     }
 }
 
@@ -571,9 +575,13 @@ private struct ScenarioDetail: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(model.isRunning || skipReason != nil)
+                .disabled(model.isRunning || model.isProbing || skipReason != nil)
 
-                if let skipReason {
+                if let reason = result?.status.reason {
+                    Text(reason)
+                        .font(.callout)
+                        .textSelection(.enabled)
+                } else if result == nil, let skipReason {
                     Label("Will skip on \(model.backend.rawValue): \(skipReason)", systemImage: "minus.circle")
                         .font(.callout).foregroundStyle(.orange)
                 }
@@ -885,4 +893,13 @@ private func requirementBadges(_ scenario: Scenario) -> [(label: String, color: 
     if requirements.requiresLightning { badges.append((label: "Lightning", color: .purple)) }
     if requirements.requiresRealHardware { badges.append((label: "real hardware", color: .orange)) }
     return badges
+}
+
+extension Scenario.Result.Status {
+    fileprivate var reason: String? {
+        switch self {
+        case .skipped(let reason), .backendUnavailable(let reason): return reason
+        default: return nil
+        }
+    }
 }
