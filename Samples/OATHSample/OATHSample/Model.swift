@@ -16,56 +16,139 @@ import Foundation
 import YubiKit
 
 struct Account: Identifiable {
-    var id = UUID()
+    let id: Data
     let label: String
     let code: String?
     let issuer: String?
-    let type: OATHSession.CredentialType
 }
 
 @MainActor
-class Model: ObservableObject {
-
+final class Model: ObservableObject {
     @Published private(set) var accounts = [Account]()
     @Published private(set) var keyVersion: String?
     @Published private(set) var connectionType: String?
+    @Published private(set) var isScanning = false
+    @Published private(set) var hasWiredConnection = false
+    @Published private(set) var readError: Error?
     @Published var error: Error?
 
-    func update(using connection: SmartCardConnection) async {
-        await calculateCodes(using: connection)
-        await getKeyVersion(using: connection)
-        connectionType = connection.connectionType
+    func monitorWiredConnections(
+        makeConnection: () async throws -> SmartCardConnection = {
+            try await WiredSmartCardConnection.makeConnection()
+        }
+    ) async {
+        var reportedDiscoveryError = false
+        while !Task.isCancelled {
+            do {
+                if isScanning {
+                    try await Task.sleep(for: .milliseconds(100))
+                    continue
+                }
+                let connection = try await makeConnection()
+                guard !Task.isCancelled else {
+                    await connection.close(error: nil)
+                    return
+                }
+                // NFC owns the display until its scan has finished.
+                if isScanning {
+                    await connection.close(error: nil)
+                    continue
+                }
+                hasWiredConnection = true
+                reportedDiscoveryError = false
+                clear()
+                error = nil
+                await withTaskCancellationHandler {
+                    await update(using: connection)
+                    let closeError = await connection.waitUntilClosed()
+                    clear()
+                    if !Task.isCancelled, let closeError {
+                        error = closeError
+                    }
+                } onCancel: {
+                    // Cancellation alone does not end waitUntilClosed().
+                    Task { await connection.close(error: nil) }
+                }
+                hasWiredConnection = false
+            } catch {
+                guard !Task.isCancelled else { return }
+                if !isScanning, !reportedDiscoveryError {
+                    self.error = error
+                    reportedDiscoveryError = true
+                }
+                // Persistent discovery errors must not create a busy loop.
+                do {
+                    try await Task.sleep(for: .seconds(1))
+                } catch {
+                    return
+                }
+            }
+        }
     }
 
-    func clear() {
+    #if os(iOS)
+    func scanNFC() async {
+        guard !isScanning, !hasWiredConnection else { return }
+        isScanning = true
+        defer { isScanning = false }
+        clear()
+        error = nil
+        do {
+            let connection = try await NFCSmartCardConnection()
+            guard !Task.isCancelled else {
+                await connection.close(error: nil)
+                return
+            }
+            await withTaskCancellationHandler {
+                let succeeded = await update(using: connection)
+                if succeeded {
+                    await connection.close(message: "Codes calculated")
+                } else {
+                    await connection.close(error: error)
+                }
+            } onCancel: {
+                Task { await connection.close(error: nil) }
+            }
+        } catch SmartCardConnectionError.cancelledByUser {
+            return
+        } catch SmartCardConnectionError.cancelled {
+            return
+        } catch {
+            guard !Task.isCancelled else { return }
+            self.error = error
+        }
+    }
+    #endif
+
+    @discardableResult
+    func update(using connection: SmartCardConnection) async -> Bool {
+        do {
+            try Task.checkCancellation()
+            let session = try await OATHSession.makeSession(connection: connection)
+            let result = try await session.calculateCredentialCodes()
+            let version = await session.version.description
+            try Task.checkCancellation()
+            accounts = result.map { credential, code in
+                Account(id: credential.id, label: credential.label, code: code?.code, issuer: credential.issuer)
+            }
+            keyVersion = version
+            readError = nil
+            connectionType = connection.connectionType
+            error = nil
+            return true
+        } catch {
+            guard !Task.isCancelled else { return false }
+            clear()
+            readError = error
+            self.error = error
+            return false
+        }
+    }
+
+    private func clear() {
+        readError = nil
         accounts = []
         keyVersion = nil
         connectionType = nil
-    }
-
-    private func getKeyVersion(using connection: SmartCardConnection) async {
-        do {
-            let session: Management.Session = try await .makeSession(connection: connection)
-            self.keyVersion = await session.version.description
-        } catch {
-            self.error = error
-        }
-    }
-
-    private func calculateCodes(using connection: SmartCardConnection) async {
-        do {
-            let session = try await OATHSession.makeSession(connection: connection)
-            let result = try await session.calculateCredentialCodes()
-            accounts = result.map { credential, code in
-                Account(
-                    label: credential.label,
-                    code: code?.code,
-                    issuer: credential.issuer,
-                    type: credential.type
-                )
-            }
-        } catch {
-            self.error = error
-        }
     }
 }

@@ -6,7 +6,7 @@ SwiftUI authenticator app demonstrating OATH/TOTP functionality with YubiKit.
 
 This sample app shows how to:
 - Connect to YubiKeys via NFC, USB-C, and Lightning
-- Read TOTP/HOTP codes from the YubiKey
+- Read TOTP codes and list HOTP or touch-required accounts
 - Handle connection lifecycle in a reactive UI
 - Display device information
 
@@ -17,3 +17,8 @@ For a detailed walkthrough of this sample, see the [OATHSample documentation](ht
 ## Build and Run
 
 Open `OATHSample.xcodeproj` in Xcode and run on a physical device (for NFC support) or macOS.
+
+## Model tests
+
+Run `swift test --package-path Samples/OATHSample` from the repository root.
+These tests use a fake smart-card connection and do not access a YubiKey.
