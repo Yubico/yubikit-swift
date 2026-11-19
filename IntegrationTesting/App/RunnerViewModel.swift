@@ -80,7 +80,7 @@ final class RunnerViewModel: ObservableObject {
 
     var availableBackends: [Backend] {
         #if os(iOS)
-        return NFCConnectionProvider.isAvailable ? [.wired, .nfc] : [.wired]
+        return ScenarioConnection.hasNFCReader ? [.wired, .nfc] : [.wired]
         #else
         return [.wired]
         #endif
@@ -101,17 +101,7 @@ final class RunnerViewModel: ObservableObject {
         }
         isProbing = true
         defer { isProbing = false }
-        let device: DeviceInfo
-        switch backend {
-        case .wired:
-            device = try await WiredConnectionProvider.identifyConnectedYubiKey()
-        case .nfc:
-            #if os(iOS)
-            device = try await NFCConnectionProvider().identifyTappedYubiKey()
-            #else
-            throw ProviderError.unsupported("NFC is only available on iOS.")
-            #endif
-        }
+        let device = try await ScenarioConnection.identifyYubiKey(over: backend == .nfc ? .nfc : .usb)
         try Task.checkCancellation()
         return device
     }
@@ -282,19 +272,10 @@ final class RunnerViewModel: ObservableObject {
         ctap2Transport = provider?.ctap2Transport
     }
 
-    private func makeProvider() -> (any ConnectionProvider)? {
-        let allowed = authorizedSerialNumber.map { [$0] } ?? WiredConnectionProvider.allowedSerialNumbers
-        switch backend {
-        case .wired:
-            return WiredConnectionProvider(allowedSerialNumbers: allowed)
-        case .nfc:
-            #if os(iOS)
-            guard NFCConnectionProvider.isAvailable else { return nil }
-            return NFCConnectionProvider(allowedSerialNumbers: allowed)
-            #else
-            return nil
-            #endif
-        }
+    private func makeProvider() -> ScenarioConnection? {
+        guard backend != .nfc || ScenarioConnection.hasNFCReader else { return nil }
+        let allowed = authorizedSerialNumber.map { [$0] } ?? ScenarioConnection.allowedSerialNumbers
+        return ScenarioConnection(transport: backend == .nfc ? .nfc : .usb, allowedSerialNumbers: allowed)
     }
 
     private func apply(_ event: Scenario.Event) {

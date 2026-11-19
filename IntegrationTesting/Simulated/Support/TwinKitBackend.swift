@@ -38,10 +38,10 @@ public enum TwinKitSmartCardTransport: Sendable {
 public actor TwinKitBackend {
     public static let shared = TwinKitBackend()
 
-    /// The profile read from `YUBIKIT_ENABLE_TWINKIT`; `"1"` selects the default profile.
+    /// The profile read from `YUBIKIT_TWIN_PROFILE`; `"1"` selects the default profile.
     public static let environmentProfile = environmentProfileConfiguration.profile
 
-    /// A configuration error when `YUBIKIT_ENABLE_TWINKIT` names an unknown profile.
+    /// A configuration error when `YUBIKIT_TWIN_PROFILE` names an unknown profile.
     public static let environmentProfileConfigurationError = environmentProfileConfiguration.error
 
     public init(profile: DeviceProfile? = TwinKitBackend.environmentProfile) {
@@ -109,11 +109,11 @@ public actor TwinKitBackend {
     }
 
     private static let environmentProfileConfiguration: (profile: DeviceProfile?, error: String?) = {
-        guard let value = ProcessInfo.processInfo.environment["YUBIKIT_ENABLE_TWINKIT"],
+        guard let value = ProcessInfo.processInfo.environment["YUBIKIT_TWIN_PROFILE"],
             !value.isEmpty, value != "1"
         else { return (nil, nil) }
         guard let profile = DeviceProfile(rawValue: value) else {
-            return (nil, "invalid YUBIKIT_ENABLE_TWINKIT profile '\(value)'")
+            return (nil, "invalid YUBIKIT_TWIN_PROFILE profile '\(value)'")
         }
         return (profile, nil)
     }()

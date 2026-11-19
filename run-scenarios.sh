@@ -6,10 +6,10 @@ readonly SCRIPT_DIR
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") <hardware|twinkit[=PROFILE]> [swift-test-options]
+Usage: $(basename "$0") <hardware|twinkit[=PROFILE]> [test-options]
 
   hardware           Run macOS scenarios against an allow-listed YubiKey.
-  twinkit[=PROFILE]  Run scenarios using a Yubico-internal test tool.
+  twinkit[=PROFILE]  Run macOS scenarios with TwinKit. Extra options go to Xcode.
 
 Environment knobs (passed through):
   YUBIKIT_TWINKIT_TRANSPORT=nfc   Drive the run contactless. CCID becomes the only
@@ -47,14 +47,16 @@ WARNING: Integration scenarios may reset applications and overwrite data.
 Only run them against dedicated test YubiKeys listed in YUBIKEY_TEST_SERIALS.
 EOF
     cd "$SCRIPT_DIR"
-    exec env -u YUBIKIT_ENABLE_TWINKIT \
-      swift test --scratch-path .build/scenarios-hardware --filter IntegrationTests "$@"
+    exec env -u YUBIKIT_REQUIRE_VIRTUAL_KEY \
+      swift test --package-path "$SCRIPT_DIR/IntegrationTesting" \
+      --scratch-path "$SCRIPT_DIR/.build/scenarios-hardware" --filter IntegrationTests "$@"
     ;;
-  twinkit)
-    PROFILE="5-nfc"
-    ;;
-  twinkit=*)
-    PROFILE="${BACKEND#twinkit=}"
+  twinkit|twinkit=*)
+    profile=5-nfc
+    if [[ "$BACKEND" == twinkit=* ]]; then profile="${BACKEND#twinkit=}"; fi
+    transport=$(printf '%s' "${YUBIKIT_TWINKIT_TRANSPORT:-usb}" | tr '[:upper:]' '[:lower:]')
+    exec "$SCRIPT_DIR/IntegrationTesting/Simulated/run-sdk.sh" scenarios \
+      --profile "$profile" --transport "$transport" -- "$@"
     ;;
   -h|--help)
     usage
@@ -66,22 +68,3 @@ EOF
     exit 1
     ;;
 esac
-
-case "$PROFILE" in
-  5-nfc|5c-nfc|5-nano|5c-nano|5-nfc-ent|5-nfc-58|5-nfc-58-beta|5-fips|bio-mpe|bio-fido|sky-nfc)
-    ;;
-  "")
-    echo "Internal profile must not be empty." >&2
-    usage >&2
-    exit 1
-    ;;
-  *)
-    echo "Invalid internal profile: $PROFILE" >&2
-    usage >&2
-    exit 1
-    ;;
-esac
-
-cd "$SCRIPT_DIR"
-exec env YUBIKIT_ENABLE_TWINKIT="$PROFILE" \
-  swift test --scratch-path .build/scenarios-twinkit --filter IntegrationTests "$@"
