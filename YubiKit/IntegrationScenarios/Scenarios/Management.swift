@@ -207,6 +207,11 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
                 // Only a USB insertion lifts the restriction; clearing the flag does not.
                 await context.addTeardown {
                     try await context.reinsertKey("Unplug the YubiKey and plug it back in to lift the NFC restriction")
+                    let reinserted = try await context.managementSession().getDeviceInfo()
+                    context.expect(
+                        reinserted.config.isNFCRestricted != true,
+                        "USB reinsertion should lift NFC restriction"
+                    )
                 }
                 let updated = try await session.getDeviceInfo()
                 context.expect(updated.config.isNFCRestricted == true, "NFC should report as restricted")
