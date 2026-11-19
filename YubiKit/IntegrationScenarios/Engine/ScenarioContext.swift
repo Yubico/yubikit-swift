@@ -57,7 +57,7 @@ extension Scenario {
         }
 
         nonisolated private let scenario: Scenario
-        nonisolated let provider: ConnectionProvider
+        nonisolated let provider: ScenarioConnection
         nonisolated private let secureChannel: SecureChannelPolicy
         nonisolated private let onEvent: @Sendable (Scenario.Event) -> Void
         nonisolated private let recorder = Recorder()
@@ -77,7 +77,7 @@ extension Scenario {
 
         init(
             scenario: Scenario,
-            provider: ConnectionProvider,
+            provider: ScenarioConnection,
             secureChannel: SecureChannelPolicy = .none,
             onEvent: @escaping @Sendable (Scenario.Event) -> Void
         ) {
