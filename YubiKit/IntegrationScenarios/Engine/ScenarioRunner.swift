@@ -19,11 +19,11 @@ extension Scenario {
     /// Runs scenarios against a backend.
     public struct Runner: Sendable {
 
-        private let provider: ConnectionProvider
+        private let provider: ScenarioConnection
         private let secureChannel: SecureChannelPolicy
 
         public init(
-            provider: ConnectionProvider,
+            provider: ScenarioConnection,
             secureChannel: SecureChannelPolicy = .none
         ) {
             self.provider = provider

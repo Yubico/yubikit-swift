@@ -12,21 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-@preconcurrency import CryptoTokenKit
 import Foundation
 import YubiKit
 
-#if os(iOS)
-import ExternalAccessory
-#endif
+/// Selects and authorizes a YubiKey for a scenario using the loaded SDK.
+@_spi(YubiInternal) public struct ScenarioConnection: Sendable {
 
-/// Real YubiKey provider over USB SmartCard, Lightning SmartCard, and macOS FIDO HID.
-@_spi(YubiInternal) public struct WiredConnectionProvider: ConnectionProvider {
+    public static var configurationError: String? { ConnectionEnvironment.configurationError }
+    public static var isVirtual: Bool { ConnectionEnvironment.isVirtual }
+    public static var hasNFCReader: Bool { ConnectionEnvironment.hasNFCReader }
 
-    /// Decimal serials from `YUBIKEY_TEST_SERIALS` (comma- or space-separated),
-    /// plus the simulator backend's fixed serial on simulator builds.
+    /// Decimal serials from `YUBIKEY_TEST_SERIALS` (comma- or space-separated).
     public static let allowedSerialNumbers: [UInt] =
-        ((try? serialConfiguration.get()) ?? []) + simulatorSerialNumbers
+        (try? serialConfiguration.get()) ?? []
 
     /// How to allow a YubiKey that the serial allowlist rejected.
     static let allowlistHint =
@@ -58,29 +56,51 @@ import ExternalAccessory
     }
 
     public var capabilities: ProviderCapabilities {
-        ProviderCapabilities(
-            hasFIDO: Self.wiredHasFIDO,
-            hasOTP: Self.wiredHasOTP,
-            hasSmartCard: Self.wiredHasSmartCard,
-            supportsSecureChannel: Self.wiredHasSmartCard,
-            isVirtual: Self.wiredIsVirtual
+        let wired = deviceTransport == .usb
+        let hasReader = wired ? Self.wiredHasSmartCard : Self.hasNFCReader
+        return ProviderCapabilities(
+            hasFIDO: wired && Self.wiredHasFIDO,
+            hasOTP: wired && Self.wiredHasOTP,
+            hasSmartCard: hasReader,
+            supportsSecureChannel: hasReader && ConnectionEnvironment.supportsSecureChannel,
+            isVirtual: Self.isVirtual
         )
     }
-    public let deviceTransport: DeviceTransport = .usb
-    public let ctap2Transport: CTAP2Transport = wiredCTAP2Transport
+
+    public let deviceTransport: DeviceTransport
+    public var ctap2Transport: CTAP2Transport { deviceTransport == .nfc ? .ccid : Self.wiredCTAP2Transport }
 
     private let allowed: [UInt]
     private let infoCache = DeviceInfoCache()
 
-    public init(allowedSerialNumbers: [UInt] = WiredConnectionProvider.allowedSerialNumbers) {
-        self.allowed = allowedSerialNumbers
+    public init(
+        transport: DeviceTransport = .usb,
+        allowedSerialNumbers: [UInt] = ScenarioConnection.allowedSerialNumbers
+    ) {
+        deviceTransport = transport
+        allowed = allowedSerialNumbers
     }
 
-    public func makeSmartCardConnection() async throws -> any SmartCardConnection {
+    func makeSmartCardConnection() async throws -> any SmartCardConnection {
+        if deviceTransport == .nfc {
+            guard Self.hasNFCReader else { throw ProviderError.unsupported("NFC reading is unavailable on this host") }
+            #if os(iOS)
+            let connection = try await NFCSmartCardConnection(alertMessage: Self.nfcPrompt)
+            do {
+                return try await vet(connection)
+            } catch {
+                await connection.close(error: nil)
+                throw error
+            }
+            #else
+            if let connection = await vettedUSBConnection() { return connection }
+            throw ProviderError.unavailable("No allowed YubiKey found over NFC. \(Self.allowlistHint)")
+            #endif
+        }
         if let connection = await vettedUSBConnection() { return connection }
 
         #if os(iOS)
-        if await LightningProbe.hasConnectedYubiKey, let connection = try? await vettedLightningConnection() {
+        if await ConnectionEnvironment.hasLightningKey, let connection = try? await vettedLightningConnection() {
             return connection
         }
         let transports = "USB or Lightning"
@@ -93,38 +113,50 @@ import ExternalAccessory
         )
     }
 
-    private func vet(_ connection: any SmartCardConnection) async -> (any SmartCardConnection)? {
-        do {
-            let session = try await Management.Session.makeSession(connection: connection)
-            let info = try await session.getDeviceInfo()
-            #if os(iOS)
-            let usesLightning = connection.lightningConnection != nil
-            #else
-            let usesLightning = false
-            #endif
-            if await infoCache.acceptsAndCaches(info, allowed: allowed, smartCardUsesLightning: usesLightning) {
-                return connection
-            }
-        } catch {}
-        return nil
+    private func vet(_ connection: any SmartCardConnection) async throws -> any SmartCardConnection {
+        let session = try await Management.Session.makeSession(connection: connection)
+        let info = try await session.getDeviceInfo()
+        #if os(iOS)
+        let usesLightning = connection.lightningConnection != nil
+        #else
+        let usesLightning = false
+        #endif
+        guard
+            await infoCache.acceptsAndCaches(
+                info,
+                allowed: allowedSerials(for: info),
+                smartCardUsesLightning: usesLightning
+            )
+        else {
+            throw ProviderError.unavailable(
+                "YubiKey \(info.serialNumber) is not the selected key or is not authorized. \(Self.allowlistHint)"
+            )
+        }
+        return connection
     }
 
     private func vet(_ connection: any FIDOConnection) async -> (any FIDOConnection)? {
         do {
             let session = try await Management.Session.makeSession(connection: connection)
             let info = try await session.getDeviceInfo()
-            if await infoCache.acceptsAndCaches(info, allowed: allowed) {
+            if await infoCache.acceptsAndCaches(info, allowed: allowedSerials(for: info)) {
                 return connection
             }
         } catch {}
         return nil
     }
 
+    private func allowedSerials(for info: DeviceInfo) -> [UInt] {
+        Self.isVirtual ? [info.serialNumber] : allowed
+    }
+
     private func vettedUSBConnection() async -> (any SmartCardConnection)? {
         guard let slots = try? await USBSmartCardConnection.availableDevices() else { return nil }
         for slot in slots {
             guard let connection = try? await USBSmartCardConnection(slot: slot) else { continue }
-            if let vetted = await vet(connection) { return vetted }
+            if deviceTransport != .nfc || connection.isContactless, let vetted = try? await vet(connection) {
+                return vetted
+            }
             await connection.close(error: nil)
         }
         return nil
@@ -133,13 +165,14 @@ import ExternalAccessory
     #if os(iOS)
     private func vettedLightningConnection() async throws -> (any SmartCardConnection)? {
         let connection = try await LightningSmartCardConnection()
-        if let vetted = await vet(connection) { return vetted }
+        if let vetted = try? await vet(connection) { return vetted }
         await connection.close(error: nil)
         return nil
     }
     #endif
 
-    public func makeFIDOConnection() async throws -> any FIDOConnection {
+    func makeFIDOConnection() async throws -> any FIDOConnection {
+        guard deviceTransport == .usb else { throw ProviderError.unsupported("NFC has no FIDO HID transport") }
         #if os(macOS)
         guard let devices = try? await HIDFIDOConnection.availableDevices() else {
             throw ProviderError.unavailable("No FIDO HID devices found.")
@@ -158,7 +191,8 @@ import ExternalAccessory
     }
 
     /// Opens the OTP keyboard HID interface on an allowed USB YubiKey.
-    public func makeOTPConnection() async throws -> any OTPConnection {
+    func makeOTPConnection() async throws -> any OTPConnection {
+        guard deviceTransport == .usb else { throw ProviderError.unsupported("NFC has no OTP keyboard interface") }
         #if os(macOS)
         guard let devices = try? await HIDOTPConnection.availableDevices(), !devices.isEmpty else {
             throw ProviderError.unavailable(
@@ -184,14 +218,19 @@ import ExternalAccessory
             let session = try await YubiOTP.Session.makeSession(connection: connection)
             let serial = try await session.getSerialNumber()
             if let pinned = await infoCache.value { return pinned.serialNumber == serial }
-            return allowed.contains(serial)
+            return Self.isVirtual || allowed.contains(serial)
         } catch {
             return false
         }
     }
 
     /// Polls until no YubiKey is attached, then until one is attached again.
-    public func waitForReinsertion(timeout: Duration) async throws {
+    func waitForReinsertion(timeout: Duration) async throws {
+        if Self.isVirtual {
+            try await ConnectionEnvironment.reinsertVirtualKey()
+            return
+        }
+        guard deviceTransport != .nfc else { return }
         try await waitForKey(present: false, timeout: timeout, action: "unplugged")
         try await waitForKey(present: true, timeout: timeout, action: "plugged back in")
         // Give the OS a moment to enumerate every interface of the reinserted key.
@@ -215,7 +254,7 @@ import ExternalAccessory
         if let devices = try? await HIDOTPConnection.availableDevices(), !devices.isEmpty { return true }
         #endif
         #if os(iOS)
-        if await LightningProbe.hasConnectedYubiKey { return true }
+        if await ConnectionEnvironment.hasLightningKey { return true }
         #endif
         return false
     }
@@ -239,7 +278,7 @@ import ExternalAccessory
         if capabilities.hasOTP, let connection = try? await makeOTPConnection() {
             do {
                 let info = try await Management.Session.makeSession(connection: connection).getDeviceInfo()
-                _ = await infoCache.acceptsAndCaches(info, allowed: allowed)
+                _ = await infoCache.acceptsAndCaches(info, allowed: allowedSerials(for: info))
                 await connection.close(error: nil)
             } catch {
                 await connection.close(error: error)
@@ -255,17 +294,35 @@ import ExternalAccessory
 
     // MARK: - Identification
 
-    /// Reads `DeviceInfo` from the one YubiKey connected over USB or Lightning, ignoring the allow-list.
+    /// Reads `DeviceInfo` from one connected key before authorization.
     ///
     /// This only reads device information, so an app can show which key the user is about to
     /// authorize for destructive scenarios. It fails when no key, or more than one key, is connected.
-    public static func identifyConnectedYubiKey() async throws -> DeviceInfo {
+    public static func identifyYubiKey(over transport: DeviceTransport) async throws -> DeviceInfo {
+        if transport == .nfc {
+            guard hasNFCReader else { throw ProviderError.unsupported("NFC reading is unavailable on this host") }
+            #if os(iOS)
+            let connection = try await NFCSmartCardConnection(alertMessage: nfcPrompt)
+            let info: DeviceInfo
+            do {
+                info = try await Management.Session.makeSession(connection: connection).getDeviceInfo()
+            } catch {
+                await connection.close(error: error)
+                throw error
+            }
+            await connection.close(error: nil)
+            return try authorizable(info)
+            #endif
+        }
+
         var found: [UInt: DeviceInfo] = [:]
 
         if let slots = try? await USBSmartCardConnection.availableDevices() {
             for slot in slots {
                 guard let connection = try? await USBSmartCardConnection(slot: slot) else { continue }
-                if let info = try? await Management.Session.makeSession(connection: connection).getDeviceInfo() {
+                if transport == .usb || connection.isContactless,
+                    let info = try? await Management.Session.makeSession(connection: connection).getDeviceInfo()
+                {
                     found[info.serialNumber] = info
                 }
                 await connection.close(error: nil)
@@ -273,7 +330,7 @@ import ExternalAccessory
         }
 
         #if os(iOS)
-        if found.isEmpty, await LightningProbe.hasConnectedYubiKey,
+        if found.isEmpty, await ConnectionEnvironment.hasLightningKey,
             let connection = try? await LightningSmartCardConnection()
         {
             if let info = try? await Management.Session.makeSession(connection: connection).getDeviceInfo() {
@@ -287,7 +344,7 @@ import ExternalAccessory
         #endif
 
         #if os(macOS)
-        if found.isEmpty, let devices = try? await HIDFIDOConnection.availableDevices() {
+        if transport == .usb, found.isEmpty, let devices = try? await HIDFIDOConnection.availableDevices() {
             for device in devices {
                 guard let connection = try? await HIDFIDOConnection.makeConnection(device: device) else { continue }
                 if let info = try? await Management.Session.makeSession(connection: connection).getDeviceInfo() {
@@ -299,7 +356,8 @@ import ExternalAccessory
         #endif
 
         guard !found.isEmpty else {
-            throw ProviderError.unavailable("No YubiKey found over \(transports).")
+            let requestedTransport = transport == .nfc ? "NFC" : transports
+            throw ProviderError.unavailable("No YubiKey found over \(requestedTransport).")
         }
         guard found.count == 1, let info = found.values.first else {
             throw ProviderError.unavailable(
@@ -320,6 +378,10 @@ import ExternalAccessory
         await infoCache.smartCardUsesLightning
     }
 
+    #if os(iOS)
+    private static let nfcPrompt = "Hold your YubiKey near the top of the iPhone"
+    #endif
+
     #if os(macOS)
     private static let wiredHasFIDO = true
     private static let wiredHasOTP = true
@@ -336,19 +398,9 @@ import ExternalAccessory
         // Both USB smart cards and the Lightning accessory API are available at the deployment target.
         return true
         #else
-        return TKSmartCardSlotManager.default != nil
+        return ConnectionEnvironment.hasSmartCardReader
         #endif
     }
-
-    #if YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator)
-    private static let wiredIsVirtual = true
-    // The simulator backend reports this fixed serial, so simulator runs do not
-    // require YUBIKEY_TEST_SERIALS.
-    private static let simulatorSerialNumbers: [UInt] = [12_345_678]
-    #else
-    private static let wiredIsVirtual = false
-    private static let simulatorSerialNumbers: [UInt] = []
-    #endif
 }
 
 actor DeviceInfoCache {
@@ -384,13 +436,3 @@ enum SerialConfigurationError: Error, Sendable, Equatable, CustomStringConvertib
         }
     }
 }
-
-#if os(iOS)
-private enum LightningProbe {
-    @MainActor static var hasConnectedYubiKey: Bool {
-        EAAccessoryManager.shared().connectedAccessories.contains {
-            $0.protocolStrings.contains("com.yubico.ylp") && $0.manufacturer == "Yubico"
-        }
-    }
-}
-#endif
