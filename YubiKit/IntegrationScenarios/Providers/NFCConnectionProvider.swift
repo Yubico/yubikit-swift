@@ -17,14 +17,31 @@ import YubiKit
 
 #if os(iOS)
 
+import CoreNFC
+#if YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator)
+import YubiKitTwinSupport
+#endif
+
 /// Real YubiKey provider over NFC.
 @_spi(YubiInternal) public struct NFCConnectionProvider: ConnectionProvider {
 
-    public let capabilities = ProviderCapabilities(
-        hasFIDO: false,
-        supportsSecureChannel: true,
-        isVirtual: nfcIsVirtual
-    )
+    /// Whether this backend has an NFC reader, independently of a key being present.
+    public static var isAvailable: Bool {
+        #if YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator)
+        return (try? TwinKitBackend.shared.descriptor()) != nil
+        #else
+        return NFCReaderSession.readingAvailable
+        #endif
+    }
+
+    public var capabilities: ProviderCapabilities {
+        ProviderCapabilities(
+            hasFIDO: false,
+            hasSmartCard: Self.isAvailable,
+            supportsSecureChannel: Self.isAvailable,
+            isVirtual: Self.nfcIsVirtual
+        )
+    }
     public let deviceTransport: DeviceTransport = .nfc
     public let ctap2Transport: CTAP2Transport = .ccid
 
@@ -41,6 +58,7 @@ import YubiKit
     }
 
     public func makeSmartCardConnection() async throws -> any SmartCardConnection {
+        try Self.requireAvailableReader()
         let connection = try await NFCSmartCardConnection(alertMessage: alertMessage)
         do {
             let info = try await Management.Session.makeSession(connection: connection).getDeviceInfo()
@@ -67,6 +85,7 @@ import YubiKit
     /// This only reads device information, so an app can show which key the user is about to
     /// authorize for destructive scenarios.
     public func identifyTappedYubiKey() async throws -> DeviceInfo {
+        try Self.requireAvailableReader()
         let connection = try await NFCSmartCardConnection(alertMessage: alertMessage)
         let info: DeviceInfo
         do {
@@ -92,7 +111,16 @@ import YubiKit
         return info
     }
 
-    #if DEBUG && targetEnvironment(simulator)
+    private static func requireAvailableReader() throws {
+        guard isAvailable else { throw ProviderError.unsupported("NFC reading is unavailable on this host") }
+        #if YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator)
+        guard (try TwinKitBackend.shared.descriptor()).nfcCapabilities != 0 else {
+            throw ProviderError.unsupported("The selected TwinKit profile has no NFC interface")
+        }
+        #endif
+    }
+
+    #if YUBIKIT_TWINKIT && DEBUG && targetEnvironment(simulator)
     private static let nfcIsVirtual = true
     #else
     private static let nfcIsVirtual = false

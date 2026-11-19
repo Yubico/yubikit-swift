@@ -44,10 +44,19 @@ extension Scenario {
             }
 
             do {
+                if case .skip(let reason) = Gate.evaluateHost(
+                    scenario.requirements,
+                    transport: provider.deviceTransport,
+                    provider: provider.capabilities
+                ) {
+                    return finish(.init(scenario: scenario, status: .skipped(reason: reason)), onEvent)
+                }
                 let info = scenario.requirements.needsDeviceInfo ? try await provider.deviceInfo() : nil
                 var capabilities = provider.capabilities
-                if scenario.requirements.requiresLightning {
-                    capabilities.hasLightning = await provider.lightningKeyConnected()
+                capabilities.hasLightning = await provider.selectedSmartCardUsesLightning() ?? false
+                if capabilities.hasLightning {
+                    capabilities.hasSmartCard = true
+                    capabilities.supportsSecureChannel = true
                 }
                 if case .skip(let reason) = Gate.evaluate(
                     scenario.requirements,

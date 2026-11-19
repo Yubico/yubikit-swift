@@ -13,6 +13,9 @@ var yubiKitDependencies: [Target.Dependency] = [
     .product(name: "Logging", package: "swift-log")
 ]
 var yubiKitSwiftSettings: [SwiftSetting] = []
+var integrationScenarioDependencies: [Target.Dependency] = ["YubiKit"]
+// Scenario bodies still pass SDK types that are not fully Sendable-annotated.
+var integrationScenarioSwiftSettings: [SwiftSetting] = [.swiftLanguageMode(.v5)]
 var integrationTestDependencies: [Target.Dependency] = ["YubiKitIntegrationScenarios"]
 
 if twinKitEnabled {
@@ -25,6 +28,10 @@ if twinKitEnabled {
         )
     }
     yubiKitDependencies.append(.target(name: "YubiKitTwinSupport"))
+    integrationScenarioDependencies.append(.target(name: "YubiKitTwinSupport"))
+    integrationScenarioSwiftSettings.append(
+        .define("YUBIKIT_TWINKIT", .when(platforms: [.iOS]))
+    )
     yubiKitSwiftSettings.append(
         .define("YUBIKIT_TWINKIT", .when(platforms: [.iOS]))
     )
@@ -40,10 +47,9 @@ var packageTargets: [Target] = [
     ),
     .target(
         name: "YubiKitIntegrationScenarios",
-        dependencies: ["YubiKit"],
+        dependencies: integrationScenarioDependencies,
         path: "YubiKit/IntegrationScenarios",
-        // Scenario bodies still pass SDK types that are not fully Sendable-annotated.
-        swiftSettings: [.swiftLanguageMode(.v5)]
+        swiftSettings: integrationScenarioSwiftSettings
     ),
     .testTarget(
         name: "YubiKitTests",

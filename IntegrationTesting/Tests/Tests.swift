@@ -14,8 +14,8 @@
 
 import Foundation
 import Testing
-import YubiKit
 
+@testable import YubiKit
 @_spi(YubiInternal) @testable import YubiKitIntegrationScenarios
 
 #if canImport(YubiKitTwinTesting)
@@ -249,10 +249,10 @@ func cancelledScenarioReportsOutcome(bodyFails: Bool, teardownFails: Bool) async
     #expect(duplicates.isEmpty, "duplicate scenario ids: \(duplicates.joined(separator: ", "))")
 }
 
-// A suite with no catalog entries runs zero cases and still reports green.
-@Test func everySuiteHasScenarios() {
+// Check declarations independently of host filtering.
+@Test func everySuiteDeclaresScenarios() {
     for suite in Scenario.Suite.allCases {
-        #expect(!Scenario.Catalog.scenarios(in: suite).isEmpty, "suite \(suite) declares no scenarios")
+        #expect(Scenario.Catalog.allDeclared.contains { $0.suite == suite }, "suite \(suite) declares no scenarios")
     }
 }
 
@@ -300,3 +300,139 @@ private struct UnusedProvider: ConnectionProvider {
     connection.close(error: nil)
 }
 #endif
+
+@Test(arguments: [
+    ("5.7.4", DeviceTransport.usb, false, false),
+    ("5.8.0", .usb, false, true),
+    ("5.7.4", .usb, true, true),
+    ("5.7.4", .nfc, false, true),
+])
+func ctap2CCIDFirmwareDependsOnSelectedRoute(
+    version: String,
+    transport: DeviceTransport,
+    lightning: Bool,
+    runs: Bool
+) async {
+    let scenario = Scenario(
+        "Connection.CTAP2.route",
+        "CTAP2 uses the selected smart-card route",
+        requirements: Requirements(capabilities: [.fido2], requiresCTAP2OverCCID: true)
+    ) { _ in }
+    let applications = Capability.fido2.rawValue | (lightning ? 0 : Capability.oath.rawValue)
+    let info = gateDevice(version: version, supported: [transport: applications], enabled: [transport: applications])
+    let provider = GateProvider(deviceTransport: transport, info: info, usesLightning: lightning)
+    let result = await Scenario.Runner(provider: provider).run(scenario)
+    #expect(
+        result.status
+            == (runs ? .passed : .skipped(reason: "CTAP2 over USB CCID requires firmware ≥ 5.8.0 (device is 5.7.4)"))
+    )
+}
+
+@Test(arguments: [
+    (DeviceTransport.usb, "requires a smart-card (CCID) transport, unavailable on this backend"),
+    (.nfc, "NFC reading is unavailable on this backend"),
+])
+func runnerSkipsUnavailableHostBeforeProbing(transport: DeviceTransport, reason: String) async {
+    var provider = GateProvider(deviceTransport: transport)
+    provider.capabilities.hasSmartCard = false
+    let scenario = Scenario(
+        "Connection.SmartCard.host",
+        "Smart-card access depends on the host",
+        requirements: Requirements(capabilities: [.oath])
+    ) { _ in Issue.record("An unsupported host must not run the scenario") }
+
+    let result = await Scenario.Runner(provider: provider).run(scenario)
+    #expect(result.status == .skipped(reason: reason))
+}
+
+@Test(arguments: [
+    (
+        Capability.fido2.rawValue, Optional<UInt>.none,
+        "requires the smart-card (CCID) interface on the selected YubiKey"
+    ),
+    (
+        Capability.fido2.rawValue | Capability.oath.rawValue, Capability.fido2.rawValue,
+        "the smart-card (CCID) interface is disabled on the selected YubiKey"
+    ),
+    (Capability.oath.rawValue, nil, nil),
+])
+func secureChannelRequiresAnAvailableUSBInterface(supported: UInt, enabled: UInt?, skipReason: String?) async {
+    let info = gateDevice(supported: [.usb: supported], enabled: enabled.map { [.usb: $0] } ?? [:])
+    let scenario = Scenario(
+        "Connection.SCP.interface",
+        "SCP needs a smart-card interface",
+        requirements: Requirements(requiresSCP: true)
+    ) { _ in }
+    let result = await Scenario.Runner(provider: GateProvider(info: info)).run(scenario)
+    #expect(result.status == (skipReason.map { .skipped(reason: $0) } ?? .passed))
+}
+
+@Test(arguments: [
+    (UInt(0), UInt(0), false, "the selected YubiKey has no NFC interface"),
+    (Capability.oath.rawValue, 0, false, "NFC applications are disabled on the selected YubiKey"),
+    (
+        Capability.oath.rawValue, Capability.oath.rawValue, true,
+        "NFC is restricted on the selected YubiKey until USB reinsertion"
+    ),
+])
+func nfcEligibilityUsesTheKeyConfiguration(supported: UInt, enabled: UInt, restricted: Bool, reason: String) {
+    let info = gateDevice(supported: [.nfc: supported], enabled: [.nfc: enabled], nfcRestricted: restricted)
+    #expect(
+        Gate.evaluate(Requirements(), deviceInfo: info, transport: .nfc, provider: GateProvider().capabilities)
+            == .skip(reason: reason)
+    )
+}
+
+@Test func vettedSmartCardRouteStaysBoundToTheSelectedKey() async {
+    let cache = DeviceInfoCache()
+    #expect(await cache.acceptsAndCaches(gateDevice(), allowed: [1, 2], smartCardUsesLightning: false))
+    #expect(await !cache.acceptsAndCaches(gateDevice(serial: 2), allowed: [1, 2], smartCardUsesLightning: true))
+    #expect(await !cache.acceptsAndCaches(gateDevice(), allowed: [1, 2], smartCardUsesLightning: true))
+    #expect(await cache.smartCardUsesLightning == false)
+}
+
+#if os(iOS)
+@Test(.enabled(if: !NFCConnectionProvider.isAvailable))
+func unavailableNFCReaderIsRejectedBeforeOpeningASession() async {
+    do {
+        _ = try await NFCConnectionProvider().makeSmartCardConnection()
+        Issue.record("NFC opened without an available reader")
+    } catch ProviderError.unsupported {
+    } catch {
+        Issue.record("unexpected error: \(error)")
+    }
+}
+#endif
+
+private func gateDevice(
+    version: String = "5.7.4",
+    serial: UInt = 1,
+    supported: [DeviceTransport: UInt] = [:],
+    enabled: [DeviceTransport: UInt] = [:],
+    nfcRestricted: Bool = false
+) -> DeviceInfo {
+    DeviceInfo(
+        version: Version(version)!,
+        serialNumber: serial,
+        supportedCapabilities: supported,
+        config: DeviceConfig(enabledCapabilities: enabled, isNFCRestricted: nfcRestricted)
+    )
+}
+
+private struct GateProvider: ConnectionProvider {
+    var capabilities = ProviderCapabilities(hasFIDO: false, supportsSecureChannel: true, isVirtual: false)
+    var deviceTransport: DeviceTransport = .usb
+    var info: DeviceInfo?
+    var usesLightning: Bool? = nil
+    let ctap2Transport: CTAP2Transport = .ccid
+
+    func selectedSmartCardUsesLightning() async -> Bool? { usesLightning }
+
+    func deviceInfo() async throws -> DeviceInfo {
+        guard let info else { throw ProviderError.unavailable("unexpected device-info probe") }
+        return info
+    }
+
+    func makeSmartCardConnection() async throws -> any SmartCardConnection { throw ProviderError.unavailable("unused") }
+    func makeFIDOConnection() async throws -> any FIDOConnection { throw ProviderError.unavailable("unused") }
+}

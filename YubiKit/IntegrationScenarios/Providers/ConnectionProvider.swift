@@ -17,6 +17,7 @@ import YubiKit
 
 @_spi(YubiInternal) public protocol ConnectionProvider: Sendable {
 
+    /// Backend channel support. Gates also check the selected key's supported and enabled applications.
     var capabilities: ProviderCapabilities { get }
 
     var deviceTransport: DeviceTransport { get }
@@ -32,7 +33,8 @@ import YubiKit
 
     func deviceInfo() async throws -> DeviceInfo
 
-    func lightningKeyConnected() async -> Bool
+    /// Whether the vetted route uses Lightning, or nil if no selected route is reported.
+    func selectedSmartCardUsesLightning() async -> Bool?
 
     /// Waits until the key has been removed and inserted again, which power-cycles it.
     ///
@@ -43,7 +45,7 @@ import YubiKit
 }
 
 extension ConnectionProvider {
-    public func lightningKeyConnected() async -> Bool { false }
+    public func selectedSmartCardUsesLightning() async -> Bool? { nil }
 
     /// Reports that this backend cannot power-cycle the key by default.
     public func waitForReinsertion(timeout: Duration) async throws {
@@ -57,7 +59,9 @@ extension ConnectionProvider {
 }
 
 @_spi(YubiInternal) public struct ProviderCapabilities: Sendable {
+    /// FIDO HID access, independently of CTAP2 over a smart-card connection.
     public var hasFIDO: Bool
+    /// Smart-card access, including the Lightning accessory protocol on iOS.
     public var hasSmartCard: Bool
     public var hasLightning: Bool
     public var supportsSecureChannel: Bool

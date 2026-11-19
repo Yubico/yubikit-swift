@@ -29,11 +29,22 @@ enum Gate {
         transport: DeviceTransport,
         provider: ProviderCapabilities
     ) -> Decision {
-        if let transports = requirements.transports, !transports.contains(transport) {
-            let wanted = transports.map { "\($0)" }.sorted().joined(separator: " or ")
-            return .skip(reason: "requires transport \(wanted) (device is on \(transport))")
+        if case .skip(let reason) = evaluateHost(requirements, transport: transport, provider: provider) {
+            return .skip(reason: reason)
         }
         if let deviceInfo {
+            if transport == .nfc, deviceInfo.supportedCapabilities[.nfc, default: 0] == 0 {
+                return .skip(reason: "the selected YubiKey has no NFC interface")
+            }
+            if transport == .nfc, deviceInfo.config.enabledCapabilities[.nfc] == 0 {
+                return .skip(reason: "NFC applications are disabled on the selected YubiKey")
+            }
+            if transport == .nfc, deviceInfo.config.isNFCRestricted == true {
+                return .skip(reason: "NFC is restricted on the selected YubiKey until USB reinsertion")
+            }
+            if requirements.requiresLightning, !provider.hasLightning {
+                return .skip(reason: "the selected smart-card connection does not use Lightning")
+            }
             if let min = requirements.minVersion, deviceInfo.version < min {
                 return .skip(reason: "requires firmware ≥ \(min) (device is \(deviceInfo.version))")
             }
@@ -51,15 +62,33 @@ enum Gate {
                     return .skip(reason: "requires \(capability) enabled over \(transport) (disabled on this key)")
                 }
             }
+            if transport == .usb {
+                if requirements.requiresFIDOTransport,
+                    let reason = interfaceSkipReason([.u2f, .fido2], named: "FIDO HID", info: deviceInfo)
+                {
+                    return .skip(reason: reason)
+                }
+                if requirements.requiresOTPTransport,
+                    let reason = interfaceSkipReason([.otp], named: "OTP keyboard HID", info: deviceInfo)
+                {
+                    return .skip(reason: reason)
+                }
+                if requirements.needsSmartCardTransport, !provider.hasLightning,
+                    let reason = interfaceSkipReason(
+                        [.oath, .piv, .openPGP, .hsmAuth],
+                        named: "smart-card (CCID)",
+                        info: deviceInfo
+                    )
+                {
+                    return .skip(reason: reason)
+                }
+            }
             // Lightning keys also report `.usb` but carry CTAP2 over their smart-card channel.
             if requirements.requiresCTAP2OverCCID, transport == .usb, !provider.hasLightning {
                 if deviceInfo.version < ctap2OverUSBCCIDVersion {
                     return .skip(
                         reason: "CTAP2 over USB CCID requires firmware ≥ 5.8.0 (device is \(deviceInfo.version))"
                     )
-                }
-                if !hasUSBSmartCard(deviceInfo) {
-                    return .skip(reason: "requires the smart-card (CCID) interface, which this key lacks over USB")
                 }
             }
             if requirements.requiresBio, !isBio(deviceInfo) {
@@ -75,17 +104,31 @@ enum Gate {
                 return .skip(reason: "requires a non-FIPS device")
             }
         }
+        return .run
+    }
+
+    static func evaluateHost(
+        _ requirements: Requirements,
+        transport: DeviceTransport,
+        provider: ProviderCapabilities
+    ) -> Decision {
+        if let transports = requirements.transports, !transports.contains(transport) {
+            let wanted = transports.map { "\($0)" }.sorted().joined(separator: " or ")
+            return .skip(reason: "requires transport \(wanted) (device is on \(transport))")
+        }
+        if transport == .nfc, !provider.hasSmartCard {
+            return .skip(reason: "NFC reading is unavailable on this backend")
+        }
         if requirements.requiresFIDOTransport, !provider.hasFIDO {
             return .skip(reason: "requires a FIDO (HID) transport, unavailable on this backend")
         }
-        if requirements.requiresSmartCardTransport, !provider.hasSmartCard {
+        if requirements.needsSmartCardTransport,
+            !provider.hasSmartCard && !provider.hasLightning
+        {
             return .skip(reason: "requires a smart-card (CCID) transport, unavailable on this backend")
         }
         if requirements.requiresOTPTransport, !provider.hasOTP {
             return .skip(reason: "requires an OTP (keyboard HID) transport, unavailable on this backend")
-        }
-        if requirements.requiresLightning, !provider.hasLightning {
-            return .skip(reason: "requires a connected Lightning (5Ci) YubiKey")
         }
         if requirements.requiresSCP, !provider.supportsSecureChannel {
             return .skip(reason: "requires Secure Channel (SCP), unsupported by this backend")
@@ -102,10 +145,19 @@ enum Gate {
 
     private static let ctap2OverUSBCCIDVersion = Version("5.8.0")!
 
-    // Over USB a key exposes its smart-card (CCID) interface only while a CCID application is enabled.
-    private static func hasUSBSmartCard(_ info: DeviceInfo) -> Bool {
-        let mask = info.config.enabledCapabilities[.usb] ?? info.supportedCapabilities[.usb] ?? 0
-        return [Capability.oath, .piv, .openPGP, .hsmAuth].contains { mask & $0.rawValue != 0 }
+    private static func interfaceSkipReason(
+        _ applications: [Capability],
+        named name: String,
+        info: DeviceInfo
+    ) -> String? {
+        let mask = applications.reduce(UInt(0)) { $0 | $1.rawValue }
+        guard (info.supportedCapabilities[.usb] ?? 0) & mask != 0 else {
+            return "requires the \(name) interface on the selected YubiKey"
+        }
+        if let enabled = info.config.enabledCapabilities[.usb], enabled & mask == 0 {
+            return "the \(name) interface is disabled on the selected YubiKey"
+        }
+        return nil
     }
 }
 
