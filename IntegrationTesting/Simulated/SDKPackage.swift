@@ -15,7 +15,7 @@ if buildsTwin {
         dependencies.append(
             .package(
                 url: "https://github.com/Yubico/hardware-digital-twin",
-                revision: "e050e2e251b8516aa7ac1e6fd99cf3b3068afbbb"
+                revision: "de2b3f3214db3f7b63a508ca2d8af351e29bc1b6"
             )
         )
     }
