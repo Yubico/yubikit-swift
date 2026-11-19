@@ -13,13 +13,11 @@
 // limitations under the License.
 
 import SwiftUI
-import YubiKit
 
 struct SettingsView: View {
 
-    @Environment(\.dismiss) var dismiss
-    @StateObject var model: Model
-    @StateObject private var connectionManager = ConnectionManager.shared
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var model: Model
 
     var body: some View {
         VStack(spacing: 20) {
@@ -66,25 +64,5 @@ struct SettingsView: View {
         .background(.background)
         .presentationDetents([.fraction(0.5)])
         .presentationDragIndicator(.hidden)
-        #if os(iOS)
-        .refreshable {
-            await connectionManager.requestNFCConnection()
-        }
-        #endif
-        .alert(
-            "Something went wrong",
-            isPresented: Binding(
-                get: { model.error != nil },
-                set: { _ in model.error = nil }
-            ),
-            actions: {
-                Button("Ok", role: .cancel) {}
-            },
-            message: {
-                if let error = model.error {
-                    Text("\(String(describing: error))")
-                }
-            }
-        )
     }
 }

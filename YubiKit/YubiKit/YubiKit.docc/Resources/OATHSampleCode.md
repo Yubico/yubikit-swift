@@ -1,6 +1,6 @@
 # OATHSample: Basic OATH app showcasing how to integrate the SDK
 
-This sample shows how to build an iOS and macOS app that reads TOTP codes from YubiKeys. The app demonstrates establishing connections, managing connection lifecycle, using ``OATHSession`` to retrieve authentication codes, and ``Management/Session`` to get device information.
+This sample shows how to build an iOS and macOS app that reads TOTP codes from YubiKeys. The app demonstrates establishing connections, managing connection lifecycle, using ``OATHSession`` to retrieve authentication codes and the firmware version.
 
 @Metadata {
     @CallToAction(
@@ -23,121 +23,99 @@ This sample focuses on read-only operations and doesn't handle password-protecte
 
 ### Handling Wired Connections
 
-The app uses a `ConnectionManager` to handle persistent connections to plugged-in YubiKeys. This approach ensures your app stays responsive when users plug and unplug their YubiKeys:
+The view owns a `Model` and awaits its wired monitor in a SwiftUI task. The monitor reads each connection, waits for it to close, and clears the display before waiting for another key. This excerpt shows how the monitor closes an established connection when its task is cancelled:
 
 ```swift
-private func startWiredConnection() {
-    wiredConnectionTask = Task { @MainActor in
-        while !Task.isCancelled {
-            do {
-                let newConnection = try await WiredSmartCardConnection.makeConnection()
-                wiredConnection = newConnection
-
-                // Wait for disconnect
-                let closeError = await newConnection.waitUntilClosed()
-                wiredConnection = nil
-            } catch {
-                self.error = error
-            }
-        }
+await withTaskCancellationHandler {
+    await update(using: connection)
+    let closeError = await connection.waitUntilClosed()
+    clear()
+    if !Task.isCancelled, let closeError {
+        error = closeError
     }
+} onCancel: {
+    // Cancellation alone does not end waitUntilClosed().
+    Task { await connection.close(error: nil) }
 }
 ```
 
-The key insight here is using `waitUntilClosed()` to detect when the YubiKey is unplugged, then automatically waiting for the next connection.
+The monitor also closes a connection that arrives after cancellation. It waits before retrying discovery errors and pauses discovery during NFC scans. The app uses one macOS window and disables multiple iOS scenes to avoid competing wired monitors.
 
 ### NFC Connections
 
-NFC connections work differently - they're initiated by user action and are short-lived:
+The scan button and pull-to-refresh call `scanNFC()`. The model prevents overlapping scans. The view disables NFC controls while a wired connection is open. Once connected, it reads the codes and closes the short-lived NFC connection:
 
 ```swift
-func requestNFCConnection() async {
-    do {
-        nfcConnection = try await NFCSmartCardConnection()
-    } catch {
-        self.error = error
+await withTaskCancellationHandler {
+    let succeeded = await update(using: connection)
+    if succeeded {
+        await connection.close(message: "Codes calculated")
+    } else {
+        await connection.close(error: error)
     }
+} onCancel: {
+    Task { await connection.close(error: nil) }
 }
 ```
 
-When an NFC connection is established, the app fetches data and immediately closes it with a user message:
-
-```swift
-Task {
-    await model.update(using: connection)
-    await connection.close(message: "Codes calculated")
-}
-```
+The model filters user cancellation and task cancellation. A failed read clears the previous results and closes without the success message. Successful NFC results remain visible after the connection closes.
 
 ## Working with YubiKey Data
 
 ### Reading OATH Codes
 
-Once you have a connection, getting TOTP codes is straightforward:
+The model reads codes and publishes a complete result only if the task is still active:
 
 ```swift
-private func calculateCodes(using connection: SmartCardConnection) async {
+@discardableResult
+func update(using connection: SmartCardConnection) async -> Bool {
     do {
+        try Task.checkCancellation()
         let session = try await OATHSession.makeSession(connection: connection)
         let result = try await session.calculateCredentialCodes()
+        let version = await session.version.description
+        try Task.checkCancellation()
         accounts = result.map { credential, code in
-            Account(
-                label: credential.label,
-                code: code?.code,
-                issuer: credential.issuer,
-                type: credential.type
-            )
+            Account(id: credential.id, label: credential.label, code: code?.code, issuer: credential.issuer)
         }
+        keyVersion = version
+        readError = nil
+        connectionType = connection.connectionType
+        error = nil
+        return true
     } catch {
+        guard !Task.isCancelled else { return false }
+        clear()
+        readError = error
         self.error = error
+        return false
     }
 }
 ```
 
-The `calculateCredentialCodes()` method returns a dictionary mapping credentials to their current codes. Some codes might be `nil` if they require touch or are password-protected.
+`calculateCredentialCodes()` returns an array of credential and optional-code pairs. HOTP credentials and credentials that require touch have no code in this result. A locked OATH application produces an error because this sample does not unlock it. Each account uses the credential ID for stable row identity.
 
 ### Getting Device Information
 
-Use `Management.Session` to get YubiKey information:
+The firmware version is available from the same OATH session:
 
 ```swift
-private func getKeyVersion(using connection: SmartCardConnection) async {
-    do {
-        let session: Management.Session = try await .makeSession(connection: connection)
-        self.keyVersion = await session.version.description
-    } catch {
-        self.error = error
-    }
-}
+let version = await session.version.description
 ```
 
-The `Model` class combines both operations in a single `update` method:
-
-```swift
-func update(using connection: SmartCardConnection) async {
-    await calculateCodes(using: connection)
-    await getKeyVersion(using: connection)
-    connectionType = connection.connectionType
-}
-```
+Reading codes does not require selecting the Management application.
 
 ## SwiftUI Integration
 
 ### Reacting to Connection Changes
 
-The app uses SwiftUI's `@Published` properties and `onReceive` to update the UI when connections change:
+The view owns the model with `@StateObject`. Its task keeps the wired monitor within the view's lifetime:
 
 ```swift
-.onReceive(connectionManager.$wiredConnection) { newConnection in
-    guard let connection = newConnection else {
-        model.clear()  // Clear UI when YubiKey unplugged
-        return
-    }
-    Task { await model.update(using: connection) }
-}
+.task { await model.monitorWiredConnections() }
 ```
 
-This pattern ensures the UI immediately updates when YubiKeys are plugged in or removed.
+The model publishes accounts, firmware version, connection type, and errors. The Settings sheet observes the same model with `@ObservedObject`.
 
 ### Platform-Specific Features
 
@@ -145,13 +123,17 @@ The app handles iOS vs macOS differences with conditional compilation:
 
 ```swift
 #if os(iOS)
-.refreshable {
-    await connectionManager.requestNFCConnection()
+if model.hasWiredConnection {
+    accountsList
+} else {
+    accountsList.refreshable { await model.scanNFC() }
 }
+#else
+accountsList
 #endif
 ```
 
-iOS users can pull-to-refresh to scan with NFC, while macOS users only see USB options.
+iOS users can pull-to-refresh to scan with NFC when no wired connection is open. macOS uses USB connections.
 
 ### Connection Type Detection
 
@@ -161,8 +143,10 @@ The sample includes a useful extension to identify connection types:
 extension SmartCardConnection {
     var connectionType: String {
         switch self {
+        #if os(iOS)
         case _ as NFCSmartCardConnection: return "NFC"
         case _ as LightningSmartCardConnection: return "Lightning"
+        #endif
         case _ as USBSmartCardConnection: return "USB"
         default: return "Unknown"
         }
@@ -194,6 +178,6 @@ Hardware connections are unreliable by nature. Users will unplug devices mid-ope
 
 YubiKit sessions are Swift actors that handle their own threading. The sample shows how to integrate this with SwiftUI's main actor requirements:
 
-- `ConnectionManager` runs on `@MainActor` so it can directly update `@Published` properties
+- `Model` runs on `@MainActor` so it can directly update `@Published` properties
 - Session calls happen on the session's actor, then results are passed back to update the UI
 - Everything uses `async/await`
