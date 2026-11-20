@@ -22,8 +22,12 @@ extension FidoUI {
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.leading)
-                        .lineLimit(2)
-                        .truncationMode(.middle)
+                        #if os(iOS)
+                    .fixedSize(horizontal: false, vertical: true)
+                        #else
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+                        #endif
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 24)
@@ -40,8 +44,13 @@ extension FidoUI {
                 // window appear to bounce.
                 Group {
                     switch model.panel {
-                    case .waitingForKey(let onCancel):
-                        WaitingForKeyPanel(onCancel: onCancel)
+                    case .waitingForKey(let onCancel, let isConnecting, let onUseNFC, let onWaitForUSB):
+                        WaitingForKeyPanel(
+                            onCancel: onCancel,
+                            isConnecting: isConnecting,
+                            onUseNFC: onUseNFC,
+                            onWaitForUSB: onWaitForUSB
+                        )
                     case .processing:
                         ProcessingPanel()
                     case .touch(let onCancel):
@@ -127,14 +136,9 @@ extension FidoUI {
                     }
                 }
                 .id(model.panel.kind)
-                #if os(iOS)
-                // Min height keeps the bottom-sheet feel consistent across
-                // compact panels (touch prompt etc.).
-                .frame(minHeight: 280, alignment: .top)
-                #endif
             }
             #if os(iOS)
-            .frame(maxWidth: 360)
+            .frame(maxWidth: .infinity)
             #else
             .frame(width: 400)
             #endif
@@ -163,6 +167,7 @@ extension FidoUI {
     }
 }
 
+#if DEBUG
 #Preview("Header - Registration") {
     FidoUI.PanelView(
         model: .preview(
@@ -206,3 +211,4 @@ extension FidoUI {
     )
     .fidoAlertChrome()
 }
+#endif

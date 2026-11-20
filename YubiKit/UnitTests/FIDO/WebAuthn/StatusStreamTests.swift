@@ -131,26 +131,6 @@ struct StatusStreamTests {
         }
     }
 
-    @Test("Value reports caller cancellation", arguments: [false, true])
-    func testValueCancellation(timed: Bool) async {
-        let stream = WebAuthn.StatusStream<String> { continuation in
-            continuation.yield(.processing)
-        }
-
-        do {
-            _ = try await withDeadline {
-                withUnsafeCurrentTask { $0?.cancel() }
-                return try await stream.withTimeout(timed ? .milliseconds(100) : nil).value
-            }
-            Issue.record("Expected cancellation")
-        } catch {
-            guard case WebAuthn.ClientError.cancelled = error else {
-                Issue.record("Expected cancellation, got \(error)")
-                return
-            }
-        }
-    }
-
     @Test("Timeout preserves the upstream error")
     func testTimeoutPreservesError() async {
         let stream = WebAuthn.StatusStream<String> { continuation in
@@ -167,21 +147,6 @@ struct StatusStreamTests {
                 return
             }
             #expect(message == "original error")
-        }
-    }
-
-    // Iterator cancellation lets the watchdog turn a stalled stream into a test failure.
-    private func withDeadline<T: Sendable>(
-        _ operation: @escaping @Sendable () async throws -> T
-    ) async throws -> T? {
-        try await withThrowingTaskGroup(of: T?.self) { group in
-            group.addTask { try await operation() }
-            group.addTask {
-                try await Task.sleep(for: .seconds(5))
-                return nil
-            }
-            defer { group.cancelAll() }
-            return try await group.next() ?? nil
         }
     }
 

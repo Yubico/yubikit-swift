@@ -31,6 +31,12 @@ extension OATHSession {
         case parseType
         /// Failed to parse the hash algorithm from the URL parameters.
         case parseAlgorithm
+        /// Invalid TOTP period in the URL parameters.
+        case parsePeriod
+        /// Invalid HOTP counter in the URL parameters.
+        case parseCounter
+        /// Invalid digit count in the URL parameters.
+        case parseDigits
     }
 
     /// The type of OATH credential (HOTP or TOTP).
@@ -243,7 +249,9 @@ extension OATHSession {
             else {
                 return nil
             }
-            let stringCode = String(format: "%0\(digits)d", UInt(UInt32(bigEndian: rawCode)))
+            let binaryCode = UInt32(bigEndian: rawCode) & 0x7fff_ffff
+            let paddedCode = String(format: "%0*u", Int32(digits), binaryCode)
+            let stringCode = String(paddedCode.suffix(Int(digits)))
             self.init(code: stringCode, timestamp: timestamp, credentialType: credentialType)
         }
 
@@ -317,7 +325,10 @@ extension OATHSession {
             let algorithm = try OATHSession.HashAlgorithm(fromUrl: url) ?? .sha1
 
             let digits: UInt8
-            if let digitsString = url.queryValueFor(key: "digits"), let parsedDigits = UInt8(digitsString) {
+            if let digitsString = url.queryValueFor(key: "digits") {
+                guard let parsedDigits = UInt8(digitsString), (6...8).contains(parsedDigits) else {
+                    throw CredentialTemplateError.parseDigits
+                }
                 digits = parsedDigits
             } else {
                 digits = 6
@@ -398,13 +409,19 @@ extension OATHSession.CredentialType {
 
         switch type {
         case "totp":
-            if let stringPeriod = url.queryValueFor(key: "period"), let period = Double(stringPeriod) {
+            if let stringPeriod = url.queryValueFor(key: "period") {
+                guard let period = Double(stringPeriod), oathValidPeriod(period) else {
+                    throw OATHSession.CredentialTemplateError.parsePeriod
+                }
                 self = .totp(period: period)
             } else {
                 self = .totp()
             }
         case "hotp":
-            if let stringCounter = url.queryValueFor(key: "counter"), let counter = UInt32(stringCounter) {
+            if let stringCounter = url.queryValueFor(key: "counter") {
+                guard let counter = UInt32(stringCounter) else {
+                    throw OATHSession.CredentialTemplateError.parseCounter
+                }
                 self = .hotp(counter: counter)
             } else {
                 self = .hotp()

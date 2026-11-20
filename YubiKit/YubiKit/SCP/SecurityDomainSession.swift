@@ -39,6 +39,7 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             keyParams: scpKeyParams
         )
 
+        await interface.setAPDUSizeLimit(for: Version("5.3.0")!)
         self.interface = interface
         logger.debug("SecurityDomain session initialized")
     }
@@ -199,11 +200,9 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             do {
                 data.append(try await getData(tag: 0xFF33, data: nil))
             } catch {
-                if case let .failedResponse(response, _) = error,
-                    response.status != .referencedDataNotFound
-                {
-                    throw error
-                }
+                guard case let .failedResponse(response, _) = error,
+                    response.status == .referencedDataNotFound
+                else { throw error }
             }
         }
 
@@ -211,11 +210,9 @@ public final actor SecurityDomainSession: SmartCardSessionInternal, HasSecurityD
             do {
                 data.append(try await getData(tag: 0xFF34, data: nil))
             } catch {
-                if case let .failedResponse(response, _) = error,
-                    response.status != .referencedDataNotFound
-                {
-                    throw error
-                }
+                guard case let .failedResponse(response, _) = error,
+                    response.status == .referencedDataNotFound
+                else { throw error }
             }
         }
         guard let tlvs = TKBERTLVRecord.sequenceOfRecords(from: data) else {

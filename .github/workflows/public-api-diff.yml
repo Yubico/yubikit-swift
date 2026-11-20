@@ -54,14 +54,14 @@ jobs:
         echo "XCODE_XCCONFIG_FILE=$RUNNER_TEMP/api-diff.xcconfig" >> "$GITHUB_ENV"
     
     - name: Detect YubiKit Public API Changes (macOS)
-      uses: Adyen/adyen-swift-public-api-diff@9ed54d9884b1a8f0e2c1ecde353793ea8ce7132b # 0.11.2
+      uses: Adyen/adyen-swift-public-api-diff@06620ffe614773a43102ab8052077ae463908b78 # 0.12.0
       with:
         platform: macOS
         new: ${{ env.NEW_VERSION }}
         old: ${{ env.OLD_VERSION }}
 
     - name: Detect YubiKit Public API Changes (iOS)
-      uses: Adyen/adyen-swift-public-api-diff@9ed54d9884b1a8f0e2c1ecde353793ea8ce7132b # 0.11.2
+      uses: Adyen/adyen-swift-public-api-diff@06620ffe614773a43102ab8052077ae463908b78 # 0.12.0
       with:
         platform: iOS
         new: ${{ env.NEW_VERSION }}

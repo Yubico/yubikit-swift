@@ -26,7 +26,7 @@ extension WebAuthn.CTAP2Backend {
         allowedExtensions: Set<WebAuthn.Extension.Identifier>
     ) async -> WebAuthn.StatusStream<[WebAuthn.Authentication.Response]> {
         let stream = WebAuthn.StatusStream { continuation in
-            Task { [self] in
+            let task = Task { [self] in
                 do throws(WebAuthn.ClientError) {
                     let matches = try await performGetAssertions(
                         options: options,
@@ -40,6 +40,7 @@ extension WebAuthn.CTAP2Backend {
                     continuation.yield(error: error)
                 }
             }
+            continuation.cancelOnTermination(task)
         }
         return stream.withTimeout(options.timeout)
     }
@@ -240,6 +241,9 @@ extension WebAuthn.CTAP2Backend {
             }
         }
         guard let response else {
+            if Task.isCancelled {
+                throw CTAP2.SessionError.ctapError(.keepaliveCancel, source: .here())
+            }
             throw CTAP2.SessionError.responseParseError(
                 "Missing response from getAssertion",
                 source: .here()

@@ -33,6 +33,7 @@ extension Scenario.Context {
     enum ManagementTransportKind: Sendable, CaseIterable {
         case smartCard
         case fidoHID
+        case otpHID
     }
 
     /// The default transport. SmartCard is the only one that reaches every Management operation —
@@ -49,6 +50,8 @@ extension Scenario.Context {
             return try await Management.Session.makeSession(connection: connection, scpKeyParams: scp)
         case .fidoHID:
             return try await Management.Session.makeSession(connection: try await fidoConnection())
+        case .otpHID:
+            return try await Management.Session.makeSession(connection: try await otpConnection())
         }
     }
 
@@ -79,14 +82,6 @@ extension Scenario.Context {
         case .smartCard:
             let connection = try await smartCardConnection()
             let scp = try await scpKeyParams()
-            if provider.capabilities.isVirtual {
-                // Headless TwinKit connections cannot be identified by the iOS NFC connection type.
-                return try await YubiOTP.Session.makeSession(
-                    connection: connection,
-                    scpKeyParams: scp,
-                    isNFC: deviceTransport == .nfc
-                )
-            }
             return try await YubiOTP.Session.makeSession(connection: connection, scpKeyParams: scp)
         }
     }

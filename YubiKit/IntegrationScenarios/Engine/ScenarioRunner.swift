@@ -19,11 +19,11 @@ extension Scenario {
     /// Runs scenarios against a backend.
     public struct Runner: Sendable {
 
-        private let provider: ConnectionProvider
+        private let provider: ScenarioConnection
         private let secureChannel: SecureChannelPolicy
 
         public init(
-            provider: ConnectionProvider,
+            provider: ScenarioConnection,
             secureChannel: SecureChannelPolicy = .none
         ) {
             self.provider = provider
@@ -44,10 +44,19 @@ extension Scenario {
             }
 
             do {
+                if case .skip(let reason) = Gate.evaluateHost(
+                    scenario.requirements,
+                    transport: provider.deviceTransport,
+                    provider: provider.capabilities
+                ) {
+                    return finish(.init(scenario: scenario, status: .skipped(reason: reason)), onEvent)
+                }
                 let info = scenario.requirements.needsDeviceInfo ? try await provider.deviceInfo() : nil
                 var capabilities = provider.capabilities
-                if scenario.requirements.requiresLightning {
-                    capabilities.hasLightning = await provider.lightningKeyConnected()
+                capabilities.hasLightning = await provider.selectedSmartCardUsesLightning() ?? false
+                if capabilities.hasLightning {
+                    capabilities.hasSmartCard = true
+                    capabilities.supportsSecureChannel = true
                 }
                 if case .skip(let reason) = Gate.evaluate(
                     scenario.requirements,
@@ -70,23 +79,24 @@ extension Scenario {
             let clock = ContinuousClock()
             let start = clock.now
             var thrownError: String?
-            var skipReason: String?
+            var bodyStatus: Scenario.Result.Status?
             do {
                 try await scenario.run(context)
             } catch is RequireFailure {
             } catch let skip as SkipScenario {
-                skipReason = skip.reason
+                bodyStatus = .skipped(reason: skip.reason)
             } catch is CancellationError where Task.isCancelled {
-                await context.runTeardown()
-                return finish(.init(scenario: scenario, status: .skipped(reason: "cancelled")), onEvent)
+                bodyStatus = .skipped(reason: "cancelled")
+                context.log("scenario cancelled")
             } catch let error as ProviderError {
-                await context.runTeardown()
-                return finish(.init(scenario: scenario, status: backendStatus(for: error)), onEvent)
+                bodyStatus = backendStatus(for: error)
+                context.log("provider error: \(error)")
             } catch {
                 thrownError = String(describing: error)
             }
             let duration = clock.now - start
-            await context.runTeardown()
+            // Cleanup must still send commands after the scenario task is cancelled.
+            await Task { await context.runTeardown() }.value
 
             let failures = context.recordedFailures
             let logs = context.recordedLogs
@@ -95,8 +105,8 @@ extension Scenario {
                 status = .errored
             } else if !failures.isEmpty {
                 status = .failed
-            } else if let skipReason {
-                status = .skipped(reason: skipReason)
+            } else if let bodyStatus {
+                status = bodyStatus
             } else {
                 status = .passed
             }

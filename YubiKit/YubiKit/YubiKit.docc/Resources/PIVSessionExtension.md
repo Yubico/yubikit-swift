@@ -40,6 +40,9 @@ let signature = try await session.sign(data, in: .authentication, keyType: .ec(.
 - ``sign(_:in:keyType:using:)-204it``
 - ``sign(_:in:keyType:using:)-7bmau``
 - ``sign(_:in:keyType:)``
+- ``sign(_:in:keyType:context:)``
+- ``sign(externalMu:in:keyType:)``
+- ``decapsulate(_:in:keyType:)``
 - ``decrypt(_:in:using:)``
 - ``deriveSharedSecret(in:with:)-72vkx``
 - ``deriveSharedSecret(in:with:)-3o9ip``
@@ -51,6 +54,12 @@ let signature = try await session.sign(data, in: .authentication, keyType: .ec(.
 - ``moveKey(from:to:)``
 - ``deleteKey(in:)``
 - ``getMetadata(in:)``
+
+### Data Objects
+
+- ``getObject(objectId:)``
+- ``putObject(_:objectId:)``
+- ``PIV/ObjectId``
 
 ### Certificate Operations
 
@@ -70,6 +79,7 @@ let signature = try await session.sign(data, in: .authentication, keyType: .ec(.
 - ``setRetries(pin:puk:)``
 - ``blockPin()``
 - ``blockPuk()``
+- ``getPinAttempts()``
 - ``getPinMetadata()``
 - ``getPukMetadata()``
 

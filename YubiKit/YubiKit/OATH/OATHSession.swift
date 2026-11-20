@@ -26,6 +26,20 @@ private let tagResponse: TKTLVTag = 0x75
 
 let oathDefaultPeriod = 30.0
 
+func oathValidPeriod(_ period: TimeInterval) -> Bool {
+    period.isFinite && period > 0 && period.rounded(.towardZero) == period
+}
+
+private func oathChallenge(timestamp: Date, period: TimeInterval) throws(OATHSessionError) -> UInt64 {
+    let seconds = timestamp.timeIntervalSince1970
+    guard oathValidPeriod(period), seconds.isFinite, seconds >= 0,
+        let challenge = UInt64(exactly: floor(seconds / period))
+    else {
+        throw .illegalArgument("Invalid OATH period or timestamp", source: .here())
+    }
+    return challenge
+}
+
 /// An interface to the OATH application on the YubiKey.
 ///
 /// The OATHSession is an interface to the OATH application on the YubiKey that will
@@ -42,15 +56,28 @@ public final actor OATHSession: SmartCardSessionInternal {
 
     private struct SelectResponse {
         let salt: Data
-        let challenge: Data?
         let version: Version
         let deviceId: String
     }
 
     private let selectResponse: SelectResponse
+    private var validationChallenge: Data?
     /// The firmware version of the connected YubiKey.
     public var version: Version {
         selectResponse.version
+    }
+
+    /// An identifier derived from this OATH applet's salt, regenerated on reset.
+    public var deviceId: String {
+        selectResponse.deviceId
+    }
+
+    /// Whether an access key is configured for this OATH applet.
+    public private(set) var hasAccessKey: Bool
+
+    /// Whether this session currently requires access-key validation.
+    public var isLocked: Bool {
+        validationChallenge != nil
     }
 
     private init(connection: SmartCardConnection, scpKeyParams: SCPKeyParams? = nil) async throws(OATHSessionError) {
@@ -86,7 +113,10 @@ public final actor OATHSession: SmartCardSessionInternal {
         guard digest.count >= 16 else { throw .failedDerivingDeviceId(source: .here()) }
         let deviceId = digest.subdata(in: 0..<16).base64EncodedString().replacingOccurrences(of: "=", with: "")
 
-        self.selectResponse = SelectResponse(salt: salt, challenge: challenge, version: version, deviceId: deviceId)
+        self.selectResponse = SelectResponse(salt: salt, version: version, deviceId: deviceId)
+        self.validationChallenge = challenge
+        self.hasAccessKey = challenge != nil
+        await interface.setAPDUSizeLimit(for: version)
         self.interface = interface
         logger.debug(
             "OATH session initialized",
@@ -144,6 +174,9 @@ public final actor OATHSession: SmartCardSessionInternal {
     /// - Returns: The newly added credential.
     @discardableResult
     public func addCredential(template: CredentialTemplate) async throws(OATHSessionError) -> Credential {
+        if case .totp(let period) = template.type, !oathValidPeriod(period) {
+            throw .illegalArgument("Invalid OATH period", source: .here())
+        }
         logger.debug(
             "Importing credential",
             metadata: [
@@ -316,8 +349,7 @@ public final actor OATHSession: SmartCardSessionInternal {
                     "period": .stringConvertible(period),
                 ]
             )
-            let time = timestamp.timeIntervalSince1970
-            let challenge = UInt64(time / Double(period))
+            let challenge = try oathChallenge(timestamp: timestamp, period: period)
             let bigChallenge = CFSwapInt64HostToBig(challenge)
             challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         }
@@ -377,8 +409,7 @@ public final actor OATHSession: SmartCardSessionInternal {
             "Calculating all codes",
             metadata: ["timestamp": .stringConvertible(timestamp.timeIntervalSince1970)]
         )
-        let time = timestamp.timeIntervalSince1970
-        let challenge = UInt64(time / 30)
+        let challenge = try oathChallenge(timestamp: timestamp, period: oathDefaultPeriod)
         let bigChallenge = CFSwapInt64HostToBig(challenge)
         let challengeTLV = TKBERTLVRecord(tag: tagChallenge, value: bigChallenge.data)
         let apdu = APDU(cla: 0x00, ins: 0xa4, p1: 0x00, p2: 0x01, command: challengeTLV.data)
@@ -417,11 +448,13 @@ public final actor OATHSession: SmartCardSessionInternal {
 
             // A full code is exactly 5 bytes: a digit-count byte plus a 4-byte truncated code.
             let code: Code?
-            if response.value.count == 5 {
-                if credentialId.period != oathDefaultPeriod {
+            if case .totp(let period) = credentialType, response.value.count == 5 {
+                if !oathValidPeriod(period) {
+                    code = nil
+                } else if period != oathDefaultPeriod {
                     logger.debug(
                         "Recalculating code",
-                        metadata: ["period": .stringConvertible(credentialId.period ?? oathDefaultPeriod)]
+                        metadata: ["period": .stringConvertible(period)]
                     )
                     code = try await self.calculateCredentialCode(for: credential, timestamp: timestamp)
                 } else {
@@ -478,6 +511,8 @@ public final actor OATHSession: SmartCardSessionInternal {
         let responseTlv = TKBERTLVRecord(tag: tagResponse, value: response)
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: keyTlv.data + challengeTlv.data + responseTlv.data)
         try await process(apdu: apdu)
+        hasAccessKey = true
+        validationChallenge = nil
         logger.info("New access code set")
     }
 
@@ -488,7 +523,7 @@ public final actor OATHSession: SmartCardSessionInternal {
     /// - Parameter accessKey: The shared access key.
     public func unlock(accessKey: Data) async throws(OATHSessionError) {
         logger.debug("Unlocking session")
-        guard let responseChallenge = self.selectResponse.challenge else {
+        guard let responseChallenge = validationChallenge else {
             throw .responseParseError("Missing challenge in OATH application select response", source: .here())
         }
         let reponseTlv = TKBERTLVRecord(tag: tagResponse, value: responseChallenge.hmacSha1(key: accessKey))
@@ -525,6 +560,7 @@ public final actor OATHSession: SmartCardSessionInternal {
                 source: .here()
             )
         }
+        validationChallenge = nil
     }
 
     /// Removes the access key, if one is set.
@@ -533,6 +569,8 @@ public final actor OATHSession: SmartCardSessionInternal {
         let tlv = TKBERTLVRecord(tag: tagSetCodeKey, value: Data())
         let apdu = APDU(cla: 0, ins: 0x03, p1: 0, p2: 0, command: tlv.data)
         try await process(apdu: apdu)
+        hasAccessKey = false
+        validationChallenge = nil
         logger.info("Access code removed")
     }
 

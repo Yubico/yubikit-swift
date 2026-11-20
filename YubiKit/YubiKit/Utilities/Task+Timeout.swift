@@ -14,33 +14,38 @@
 
 import Foundation
 
-// Execute async operation with timeout. Returns nil if timeout occurs, result otherwise.
+// Finish an exchange's wait even if its caller is cancelled. The timeout cancels the operation
+// and returns nil after it exits, so the operation must cooperate with timeout cancellation.
 @inlinable
-func withTimeout<T: Sendable, E: Error>(
+func withTimeoutIgnoringCancellation<T: Sendable, E: Error>(
     _ timeout: Duration,
     clock: ContinuousClock = ContinuousClock(),
     operation: @Sendable @escaping () async throws(E) -> T
 ) async throws(E) -> T? {
-    do {
-        return try await withThrowingTaskGroup(of: T?.self, returning: T?.self) { group in
-            // 1) The real work
+    let race = Task {
+        await withTaskGroup(of: Result<T?, E>.self) { group in
             group.addTask {
-                let value = try await operation()
-                return value
+                do throws(E) {
+                    return .success(try await operation())
+                } catch {
+                    return .failure(error)
+                }
             }
 
-            // 2) The timer (returns nil when it fires)
             group.addTask {
                 try? await clock.sleep(for: timeout)
-                return nil
+                return .success(nil)
             }
 
-            // 3) Whichever completes first decides the result
-            let first = try await group.next()!
-            group.cancelAll()  // Cancel the loser
-            return first
+            defer { group.cancelAll() }
+            return await group.next()!
         }
-    } catch {
-        throw error as! E
     }
+    return try await race.value.get()
+}
+
+// Sleeps for the full duration even if the caller is cancelled, so a poll loop that must finish
+// its exchange does not spin.
+func sleepIgnoringCancellation(for duration: Duration) async {
+    await Task { try? await Task.sleep(for: duration) }.value
 }

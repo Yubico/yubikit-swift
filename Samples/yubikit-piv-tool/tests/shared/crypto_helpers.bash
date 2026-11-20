@@ -14,10 +14,17 @@ validate_certificate_pem() {
     openssl x509 -in "$cert_file" -noout 2>/dev/null
 }
 
+verify_self_signed_certificate_pem() {
+    local cert_file="$1"
+    openssl verify -check_ss_sig -CAfile "$cert_file" "$cert_file" >/dev/null 2>&1
+}
+
 validate_csr_pem() {
     local csr_file="$1"
     [[ -f "$csr_file" ]] || return 1
-    openssl req -in "$csr_file" -noout 2>/dev/null
+    local verification
+    verification=$(openssl req -in "$csr_file" -noout -verify 2>&1) || return 1
+    [[ "$verification" == *"verify OK"* ]]
 }
 
 # Extract and validate certificate subject

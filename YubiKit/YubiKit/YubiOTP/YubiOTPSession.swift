@@ -52,7 +52,7 @@ extension YubiOTP {
         public static func makeSession(
             connection: OTPConnection
         ) async throws(YubiOTP.SessionError) -> Session {
-            let otpInterface = try await OTPKeyboardInterface(connection: connection)
+            let otpInterface = try await OTPKeyboardInterface<YubiOTP.SessionError>(connection: connection)
             if otpInterface.version.major == 3 {
                 // The YubiKey NEO can cache a stale programming sequence. An invalid scan map
                 // makes it refresh the cache; the key rejects the scan map itself.
@@ -77,12 +77,16 @@ extension YubiOTP {
             scpKeyParams: SCPKeyParams? = nil
         ) async throws(YubiOTP.SessionError) -> Session {
             #if os(iOS)
-            let isNFC = connection.nfcConnection != nil
+            var isNFC = connection.nfcConnection != nil
             let isLightning = connection.lightningConnection != nil
             #else
-            let isNFC = false
+            var isNFC = false
             let isLightning = false
             #endif
+            // Desktop and USB-C readers can hold a YubiKey presented over NFC.
+            if let usbConnection = connection as? USBSmartCardConnection {
+                isNFC = usbConnection.isContactless
+            }
             return try await makeSession(
                 connection: connection,
                 scpKeyParams: scpKeyParams,
@@ -141,7 +145,7 @@ extension YubiOTP {
             let interface = self.interface
             let operationID = UUID()
             return YubiOTP.StatusStream { continuation in
-                Task {
+                let task = Task {
                     let cancel: @Sendable () async -> Void = { await interface.cancel(operationID: operationID) }
                     do throws(YubiOTP.SessionError) {
                         let response = try await interface.readData(
@@ -158,6 +162,7 @@ extension YubiOTP {
                         continuation.yield(error: error)
                     }
                 }
+                continuation.cancelOnTermination(task)
             }
         }
 
@@ -165,7 +170,7 @@ extension YubiOTP {
 
         let interface: Interface
 
-        package static func makeSession(
+        static func makeSession(
             connection: SmartCardConnection,
             scpKeyParams: SCPKeyParams? = nil,
             isNFC: Bool,
@@ -183,6 +188,7 @@ extension YubiOTP {
                         throw .responseParseError("Invalid Management firmware version", source: .here())
                     }
                     managementVersion = version
+                    if version.major == 3 { try await management.deselectNEOManagement() }
                 } catch .featureNotSupported {
                     // Older keys may not expose Management over NFC.
                 }
@@ -198,6 +204,7 @@ extension YubiOTP {
                 isNFC: isNFC,
                 supportsChallengeResponse: isNFC || isLightning
             )
+            await smartCardInterface.setAPDUSizeLimit(for: interface.version)
             return await Session(interface: interface, transport: "SmartCard")
         }
 

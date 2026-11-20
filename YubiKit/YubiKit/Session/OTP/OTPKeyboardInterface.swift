@@ -18,22 +18,25 @@ import Logging
 // The frame protocol of the OTP keyboard HID interface. A command is a 70-byte frame sent as
 // 8-byte feature reports; the YubiKey answers with data reports, or with a status report whose
 // programming sequence acknowledges a write.
-final actor OTPKeyboardInterface: HasOTPLogger {
+final actor OTPKeyboardInterface<Error: OTPSessionError>: HasOTPLogger {
 
     let version: Version
 
     // The most recent status struct.
     private(set) var status: Data
 
-    init(connection: OTPConnection) async throws(YubiOTP.SessionError) {
+    init(connection: OTPConnection, resolveDevelopmentVersion: Bool = true) async throws(Error) {
+        guard !Task.isCancelled else { throw .cancelled(source: .here()) }
         let status = Self.status(in: try await Self.receiveReport(from: connection))
         self.connection = connection
-        self.version = Version(withData: status.prefix(3))!.resolvingDevelopment
+        let reportedVersion = Version(withData: status.prefix(3))!
+        self.version = resolveDevelopmentVersion ? reportedVersion.resolvingDevelopment : reportedVersion
         self.status = status
         logger.debug("OTP interface initialized", metadata: ["version": .stringConvertible(version)])
     }
 
-    func readStatus() async throws(YubiOTP.SessionError) -> Data {
+    func readStatus() async throws(Error) -> Data {
+        guard !Task.isCancelled else { throw .cancelled(source: .here()) }
         logger.debug("Reading OTP status")
         status = Self.status(in: try await receiveReport())
         return status
@@ -45,7 +48,8 @@ final actor OTPKeyboardInterface: HasOTPLogger {
         data: Data = Data(),
         operationID: UUID? = nil,
         onKeepalive: (@Sendable (_ waitingForTouch: Bool) -> Void)? = nil
-    ) async throws(YubiOTP.SessionError) -> Data {
+    ) async throws(Error) -> Data {
+        guard !Task.isCancelled else { throw .cancelled(source: .here()) }
         isCancelled = false
         activeOperationID = operationID
         defer { activeOperationID = nil }
@@ -84,7 +88,7 @@ final actor OTPKeyboardInterface: HasOTPLogger {
     private var isCancelled = false
     private var activeOperationID: UUID?
 
-    private func sendFrame(_ frame: [UInt8]) async throws(YubiOTP.SessionError) -> UInt8 {
+    private func sendFrame(_ frame: [UInt8]) async throws(Error) -> UInt8 {
         let programmingSequence = Self.status(in: try await receiveReport())[statusOffsetProgrammingSequence]
         let reportCount = frameSize / reportDataSize
 
@@ -96,7 +100,7 @@ final actor OTPKeyboardInterface: HasOTPLogger {
             let isEdge = sequence == 0 || sequence == reportCount - 1
             guard isEdge || chunk.contains(where: { $0 != 0 }) else { continue }
 
-            try await awaitReadyToWrite()
+            try await awaitReadyToWrite(cancellable: sequence == 0)
             try await sendReport(chunk + [slotWriteFlag | UInt8(sequence)])
         }
         return programmingSequence
@@ -105,7 +109,7 @@ final actor OTPKeyboardInterface: HasOTPLogger {
     private func readFrame(
         previousProgrammingSequence: UInt8,
         onKeepalive: (@Sendable (_ waitingForTouch: Bool) -> Void)?
-    ) async throws(YubiOTP.SessionError) -> Data {
+    ) async throws(Error) -> Data {
         var response = Data()
         var expectedSequence: UInt8 = 0
         var needsTouch = false
@@ -141,7 +145,8 @@ final actor OTPKeyboardInterface: HasOTPLogger {
                 throw .commandRejected("The YubiKey rejected the slot command", source: .here())
             } else {
                 // Busy. A pending touch is reported with the timeout-wait flag.
-                if statusByte & responseTimeoutWaitFlag != 0 {
+                let waitingForTouch = statusByte & responseTimeoutWaitFlag != 0
+                if waitingForTouch {
                     if !needsTouch {
                         logger.debug("OTP command waiting for touch")
                     }
@@ -150,9 +155,10 @@ final actor OTPKeyboardInterface: HasOTPLogger {
                 } else {
                     onKeepalive?(false)
                 }
-                try? await Task.sleep(for: needsTouch ? touchPollInterval : processingPollInterval)
+                await sleepIgnoringCancellation(for: needsTouch ? touchPollInterval : processingPollInterval)
                 // Checked after the sleep, which is where cancel(operationID:) gets a chance to run.
-                if isCancelled || Task.isCancelled {
+                // Task cancellation only ends a touch wait, so a configuration write still completes.
+                if isCancelled || (waitingForTouch && Task.isCancelled) {
                     isCancelled = false
                     try await resetState()
                     logger.debug("OTP command cancelled")
@@ -170,25 +176,28 @@ final actor OTPKeyboardInterface: HasOTPLogger {
         return next == 0 && previous > 0 && status[statusOffsetConfigState] & configSlotsProgrammedMask == 0
     }
 
-    private func awaitReadyToWrite() async throws(YubiOTP.SessionError) {
+    // Only the first chunk can be cancelled, so a frame is never left half written.
+    private func awaitReadyToWrite(cancellable: Bool) async throws(Error) {
         for _ in 0..<readyPollAttempts {
-            if try await receiveReport()[reportDataSize] & slotWriteFlag == 0 { return }
-            try? await Task.sleep(for: readyPollInterval)
-            guard !Task.isCancelled else { throw .cancelled(source: .here()) }
+            guard !(cancellable && Task.isCancelled) else { throw .cancelled(source: .here()) }
+            let report = try await receiveReport()
+            guard !(cancellable && Task.isCancelled) else { throw .cancelled(source: .here()) }
+            if report[reportDataSize] & slotWriteFlag == 0 { return }
+            await sleepIgnoringCancellation(for: readyPollInterval)
         }
         throw .timeout(source: .here())
     }
 
     // Tells the key to abandon any in-flight response.
-    private func resetState() async throws(YubiOTP.SessionError) {
+    private func resetState() async throws(Error) {
         try await sendReport([UInt8](repeating: 0, count: reportDataSize) + [0xFF])
     }
 
-    private func receiveReport() async throws(YubiOTP.SessionError) -> [UInt8] {
+    private func receiveReport() async throws(Error) -> [UInt8] {
         try await Self.receiveReport(from: connection)
     }
 
-    private func sendReport(_ report: [UInt8]) async throws(YubiOTP.SessionError) {
+    private func sendReport(_ report: [UInt8]) async throws(Error) {
         do {
             try await connection.send(Data(report))
         } catch {
@@ -196,7 +205,7 @@ final actor OTPKeyboardInterface: HasOTPLogger {
         }
     }
 
-    private static func receiveReport(from connection: OTPConnection) async throws(YubiOTP.SessionError) -> [UInt8] {
+    private static func receiveReport(from connection: OTPConnection) async throws(Error) -> [UInt8] {
         let report: Data
         do {
             report = try await connection.receive()

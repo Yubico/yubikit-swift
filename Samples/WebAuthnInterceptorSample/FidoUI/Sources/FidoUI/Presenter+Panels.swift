@@ -10,6 +10,9 @@ extension FidoUI.Presenter {
 
     func showWaitingForKey(
         operation: FidoUI.PanelModel.Operation,
+        isConnecting: Bool = false,
+        onUseNFC: (@Sendable () -> Void)? = nil,
+        onWaitForUSB: (@Sendable () -> Void)? = nil,
         onCancel: (@Sendable () -> Void)? = nil
     ) {
         if model.operation != operation { model.operation = operation }
@@ -20,7 +23,12 @@ extension FidoUI.Presenter {
                 self?.dismiss()
             }
         }
-        model.panel = .waitingForKey(onCancel: panelCancel)
+        model.panel = .waitingForKey(
+            onCancel: panelCancel,
+            isConnecting: isConnecting,
+            onUseNFC: onUseNFC,
+            onWaitForUSB: onWaitForUSB
+        )
         present()
     }
 
@@ -49,7 +57,7 @@ extension FidoUI.Presenter {
                     resume(pin)
                 },
                 onCancel: { [weak self] in
-                    self?.dismiss()
+                    self?.cancelForm()
                     resume(nil)
                 }
             )
@@ -69,7 +77,7 @@ extension FidoUI.Presenter {
                     resume((current, new))
                 },
                 onCancel: { [weak self] in
-                    self?.dismiss()
+                    self?.cancelForm()
                     resume(nil)
                 }
             )
@@ -143,7 +151,7 @@ extension FidoUI.Presenter {
                     resume(pin)
                 },
                 onCancel: { [weak self] in
-                    self?.dismiss()
+                    self?.cancelForm()
                     resume(nil)
                 }
             )
@@ -246,9 +254,10 @@ extension FidoUI.Presenter {
         }
     }
 
-    func showError(_ error: WebAuthn.ClientError) async -> Bool {
+    func showError(_ error: WebAuthn.ClientError, transport: CeremonyTransport? = nil) async -> Bool {
         let errorInfo: FidoUI.ErrorInfo =
             switch error {
+            case .authenticatorNotAvailable where transport == .nfc: .nfcConnectionFailed
             case .noCredentials: .noCredentials(serviceName: model.serviceName)
             default: .from(clientError: error)
             }

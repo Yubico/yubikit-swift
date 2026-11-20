@@ -25,6 +25,9 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
     case cancellation
     case sendManually
     case selectWrongApp
+    case reopenedSmartCard
+    case reopenedFIDO
+    case reopenedOTP
     case withDeviceFIDOHID
     case alertMessage
     case closingErrorMessage
@@ -36,7 +39,8 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
         case .open:
             return Scenario(
                 "Connection.SmartCard.open",
-                "acquires a usable SmartCard connection (acquisition succeeding is the assertion)"
+                "acquires a usable SmartCard connection (acquisition succeeding is the assertion)",
+                requirements: Requirements(requiresSmartCardTransport: true)
             ) { context in
                 let connection = try await context.smartCardConnection()
                 _ = try await Management.Session.makeSession(connection: connection).getDeviceInfo()
@@ -45,7 +49,8 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
         case .closeNotifies:
             return Scenario(
                 "Connection.SmartCard.closeNotifies",
-                "waitUntilClosed() is notified with the closing error"
+                "waitUntilClosed() is notified with the closing error",
+                requirements: Requirements(requiresSmartCardTransport: true)
             ) { context in
                 let connection = try await context.smartCardConnection()
 
@@ -61,7 +66,11 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "Connection.SmartCard.serial",
                 "a second connection fails until the first is closed",
-                requirements: Requirements(transports: [.usb], requiresRealHardware: true)
+                requirements: Requirements(
+                    transports: [.usb],
+                    requiresSmartCardTransport: true,
+                    requiresRealHardware: true
+                )
             ) { context in
                 let provider = context.provider
 
@@ -87,7 +96,11 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "Connection.SmartCard.cancellation",
                 "concurrent open attempts resolve to a single connection",
-                requirements: Requirements(transports: [.usb], requiresRealHardware: true)
+                requirements: Requirements(
+                    transports: [.usb],
+                    requiresSmartCardTransport: true,
+                    requiresRealHardware: true
+                )
             ) { context in
                 let provider = context.provider
                 let attempts = (0..<4).map { _ in Task { try? await provider.makeSmartCardConnection() } }
@@ -100,11 +113,70 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
 
                 for connection in connections { await connection.close(error: nil) }
             }
+        case .reopenedSmartCard:
+            return Scenario(
+                "Connection.SmartCard.reopened",
+                "a closed handle cannot use or close a reopened smart-card connection",
+                requirements: Requirements(requiresSmartCardTransport: true)
+            ) { context in
+                let first = try await context.provider.makeSmartCardConnection()
+                await first.close(error: ConnectionTestError())
+                let next = try await context.smartCardConnection()
+                await first.close(error: nil)
+                do {
+                    _ = try await first.send(data: selectAPDU(aid: nonexistentAID))
+                    context.expect(false, "the closed handle sent an APDU")
+                } catch SmartCardConnectionError.connectionLost {}
+                _ = try await Management.Session.makeSession(connection: next).getDeviceInfo()
+                await next.close(error: nil)
+                let error = await first.waitUntilClosed()
+                context.expect(error is ConnectionTestError, "the old handle retained its close reason")
+            }
+        case .reopenedFIDO:
+            return Scenario(
+                "Connection.FIDOHID.reopened",
+                "a closed handle cannot use or close a reopened FIDO connection",
+                requirements: Requirements(requiresFIDOTransport: true)
+            ) { context in
+                let first = try await context.provider.makeFIDOConnection()
+                await first.close(error: ConnectionTestError())
+                let next = try await context.fidoConnection()
+                await first.close(error: nil)
+                do {
+                    try await first.send(Data(repeating: 0, count: first.mtu))
+                    context.expect(false, "the closed handle sent a packet")
+                } catch FIDOConnectionError.connectionLost {}
+                _ = try await Management.Session.makeSession(connection: next).getDeviceInfo()
+                await next.close(error: nil)
+                let error = await first.waitUntilClosed()
+                context.expect(error is ConnectionTestError, "the old handle retained its close reason")
+            }
+        case .reopenedOTP:
+            return Scenario(
+                "Connection.OTPHID.reopened",
+                "a closed handle cannot read from or close a reopened OTP connection",
+                requirements: Requirements(requiresOTPTransport: true)
+            ) { context in
+                let first = try await context.provider.makeOTPConnection()
+                await first.close(error: ConnectionTestError())
+                let next = try await context.otpConnection()
+                await first.close(error: nil)
+                do {
+                    _ = try await first.receive()
+                    context.expect(false, "the closed handle read an OTP report")
+                } catch OTPConnectionError.connectionLost {}
+                let report = try await next.receive()
+                context.expect(report.count == 8, "the reopened connection read an OTP feature report")
+                await next.close(error: nil)
+                let error = await first.waitUntilClosed()
+                context.expect(error is ConnectionTestError, "the old handle retained its close reason")
+            }
         // MARK: - Raw APDU
         case .sendManually:
             return Scenario(
                 "Connection.RawAPDU.sendManually",
-                "manual SELECT + device-info exchange reads the firmware version"
+                "manual SELECT + device-info exchange reads the firmware version",
+                requirements: Requirements(requiresSmartCardTransport: true)
             ) { context in
                 let connection = try await context.smartCardConnection()
 
@@ -158,7 +230,8 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
         case .selectWrongApp:
             return Scenario(
                 "Connection.RawAPDU.selectWrongApp",
-                "selecting a non-existent applet reports application-not-available"
+                "selecting a non-existent applet reports application-not-available",
+                requirements: Requirements(requiresSmartCardTransport: true)
             ) { context in
                 let connection = try await context.smartCardConnection()
                 let status = responseStatus(try await connection.send(data: selectAPDU(aid: nonexistentAID)))

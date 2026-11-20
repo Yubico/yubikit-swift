@@ -1,0 +1,262 @@
+// Copyright Yubico AB
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import Foundation
+import TwinKit
+
+public enum TwinKitSupportError: Error, Sendable {
+    case unavailable(String)
+    case connectionLost
+    case invalidHIDReportLength(Int)
+    case noHIDReport
+}
+
+public enum TwinKitSmartCardTransport: Sendable {
+    case usb
+    case nfc
+
+    fileprivate var tag: UInt8 {
+        switch self {
+        case .usb: TwinDevice.Tag.ccidApduUSB
+        case .nfc: TwinDevice.Tag.ccidApduNFC
+        }
+    }
+}
+
+/// Owns the process-local TwinKit device shared by simulator and test adapters.
+public actor TwinKitBackend {
+    public static let shared = TwinKitBackend()
+
+    /// The profile read from `YUBIKIT_TWIN_PROFILE`; `"1"` selects the default profile.
+    public static let environmentProfile = environmentProfileConfiguration.profile
+
+    /// A configuration error when `YUBIKIT_TWIN_PROFILE` names an unknown profile.
+    public static let environmentProfileConfigurationError = environmentProfileConfiguration.error
+
+    public init(profile: DeviceProfile? = TwinKitBackend.environmentProfile) {
+        self.deviceResult = Result {
+            try EmbeddedTwin.shared.makeDevice(profile: profile)
+        }.mapError { .unavailable(String(describing: $0)) }
+    }
+
+    /// Reads transport availability from the current device descriptor.
+    public nonisolated func descriptor() throws(TwinKitSupportError) -> TwinDevice.DeviceDescriptor {
+        let device = try deviceResult.get()
+        do {
+            return try device.descriptor()
+        } catch {
+            throw .unavailable("TwinKit descriptor failed: \(error)")
+        }
+    }
+
+    public func isAvailable() -> Bool {
+        do {
+            _ = try loadDevice()
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    public func openSmartCard(
+        transport: TwinKitSmartCardTransport
+    ) throws(TwinKitSupportError) -> TwinKitSmartCardChannel {
+        let descriptor = try descriptor()
+        let available =
+            switch transport {
+            case .usb: descriptor.usbInterfaces & 0x04 != 0
+            case .nfc: descriptor.nfcCapabilities != 0
+            }
+        guard available else { throw .unavailable("smart-card transport is unavailable") }
+        try loadDevice().deselect()
+        return TwinKitSmartCardChannel(backend: self, transport: transport)
+    }
+
+    /// Reinserts USB or removes the NFC field while preserving stored data.
+    package func reinsert(over transport: TwinKitSmartCardTransport) throws(TwinKitSupportError) {
+        let device = try loadDevice()
+        do {
+            switch transport {
+            case .usb: try device.reinsertUSB()
+            case .nfc: try device.nfcFieldLost()
+            }
+        } catch {
+            throw .unavailable("TwinKit \(transport) reinsertion failed: \(error)")
+        }
+    }
+
+    public func openFIDO() throws(TwinKitSupportError) -> TwinKitFIDOChannel {
+        guard try descriptor().usbInterfaces & 0x02 != 0 else {
+            throw .unavailable("FIDO HID is unavailable")
+        }
+        return TwinKitFIDOChannel(backend: self)
+    }
+
+    /// Opens the twin's OTP keyboard HID channel.
+    public func openKeyboard() throws(TwinKitSupportError) -> TwinKitKeyboardChannel {
+        guard try descriptor().usbInterfaces & 0x01 != 0 else {
+            throw .unavailable("OTP keyboard HID is unavailable")
+        }
+        return TwinKitKeyboardChannel(backend: self)
+    }
+
+    fileprivate func dispatch(tag: UInt8, payload: Data = Data()) throws(TwinKitSupportError) -> Data {
+        try loadDevice().dispatch(tag: tag, payload: payload)
+    }
+
+    private static let environmentProfileConfiguration: (profile: DeviceProfile?, error: String?) = {
+        guard let value = ProcessInfo.processInfo.environment["YUBIKIT_TWIN_PROFILE"],
+            !value.isEmpty, value != "1"
+        else { return (nil, nil) }
+        guard let profile = DeviceProfile(rawValue: value) else {
+            return (nil, "invalid YUBIKIT_TWIN_PROFILE profile '\(value)'")
+        }
+        return (profile, nil)
+    }()
+
+    private nonisolated let deviceResult: Result<TwinDevice, TwinKitSupportError>
+
+    private func loadDevice() throws(TwinKitSupportError) -> TwinDevice {
+        try deviceResult.get()
+    }
+}
+
+public final class TwinKitSmartCardChannel: @unchecked Sendable {
+    public func send(_ data: Data) async throws(TwinKitSupportError) -> Data {
+        guard !lifecycle.isClosed else { throw .connectionLost }
+        return try await backend.dispatch(tag: transport.tag, payload: data)
+    }
+
+    public func close(error: Error?) {
+        lifecycle.close(error: error)
+    }
+
+    public func waitUntilClosed() async -> Error? {
+        await lifecycle.waitUntilClosed()
+    }
+
+    fileprivate init(backend: TwinKitBackend, transport: TwinKitSmartCardTransport) {
+        self.backend = backend
+        self.transport = transport
+    }
+
+    private let backend: TwinKitBackend
+    private let transport: TwinKitSmartCardTransport
+    private let lifecycle = TwinKitConnectionLifecycle()
+}
+
+public final class TwinKitFIDOChannel: @unchecked Sendable {
+    public let mtu = 64
+
+    public func send(_ report: Data) async throws(TwinKitSupportError) {
+        guard !lifecycle.isClosed else { throw .connectionLost }
+        guard report.count == mtu else { throw .invalidHIDReportLength(report.count) }
+        _ = try await backend.dispatch(tag: TwinDevice.Tag.ctapHIDWrite, payload: report)
+    }
+
+    public func receive() async throws(TwinKitSupportError) -> Data {
+        guard !lifecycle.isClosed else { throw .connectionLost }
+        let report = try await backend.dispatch(tag: TwinDevice.Tag.ctapHIDRead)
+        guard report.count == mtu else { throw .noHIDReport }
+        return report
+    }
+
+    public func close(error: Error?) {
+        lifecycle.close(error: error)
+    }
+
+    public func waitUntilClosed() async -> Error? {
+        await lifecycle.waitUntilClosed()
+    }
+
+    fileprivate init(backend: TwinKitBackend) {
+        self.backend = backend
+    }
+
+    private let backend: TwinKitBackend
+    private let lifecycle = TwinKitConnectionLifecycle()
+}
+
+/// The twin's keyboard/OTP HID interface: whole 8-byte feature reports over the
+/// `keyboardWrite` / `keyboardRead` tags. A write returns no payload — the host learns the outcome
+/// by polling `receive()`, exactly as on a real key.
+public final class TwinKitKeyboardChannel: @unchecked Sendable {
+    /// Sends one OTP feature report to the twin.
+    public func send(_ report: Data) async throws(TwinKitSupportError) {
+        guard !lifecycle.isClosed else { throw .connectionLost }
+        guard report.count == reportSize else { throw .invalidHIDReportLength(report.count) }
+        _ = try await backend.dispatch(tag: TwinDevice.Tag.keyboardWrite, payload: report)
+    }
+
+    /// Receives one OTP feature report from the twin.
+    public func receive() async throws(TwinKitSupportError) -> Data {
+        guard !lifecycle.isClosed else { throw .connectionLost }
+        let report = try await backend.dispatch(tag: TwinDevice.Tag.keyboardRead)
+        guard report.count == reportSize else { throw .noHIDReport }
+        return report
+    }
+
+    /// Closes the channel, optionally recording an error.
+    public func close(error: Error?) {
+        lifecycle.close(error: error)
+    }
+
+    /// Waits for the channel to close and returns its closing error.
+    public func waitUntilClosed() async -> Error? {
+        await lifecycle.waitUntilClosed()
+    }
+
+    fileprivate init(backend: TwinKitBackend) {
+        self.backend = backend
+    }
+
+    /// The size of one OTP feature report in bytes.
+    private let reportSize = 8
+
+    private let backend: TwinKitBackend
+    private let lifecycle = TwinKitConnectionLifecycle()
+}
+
+private final class TwinKitConnectionLifecycle: @unchecked Sendable {
+    var isClosed: Bool {
+        lock.withLock { closed }
+    }
+
+    func close(error: Error?) {
+        let waiters = lock.withLock { () -> [CheckedContinuation<Error?, Never>] in
+            guard !closed else { return [] }
+            closed = true
+            closeError = error
+            defer { self.waiters.removeAll() }
+            return self.waiters
+        }
+        waiters.forEach { $0.resume(returning: error) }
+    }
+
+    func waitUntilClosed() async -> Error? {
+        await withCheckedContinuation { continuation in
+            let error = lock.withLock { () -> Error?? in
+                if closed { return .some(closeError) }
+                waiters.append(continuation)
+                return nil
+            }
+            if let error { continuation.resume(returning: error) }
+        }
+    }
+
+    private let lock = NSLock()
+    private var closed = false
+    private var closeError: Error?
+    private var waiters: [CheckedContinuation<Error?, Never>] = []
+}

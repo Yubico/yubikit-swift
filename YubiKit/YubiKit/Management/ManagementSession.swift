@@ -43,7 +43,7 @@ public enum Management {
     /// An interface to the Management application on the YubiKey.
     ///
     /// Use the Management application to get information and configure a YubiKey.
-    /// Supports management operations over both SmartCard (APDU) and FIDO (CTAP) transports.
+    /// Supports management operations over SmartCard, FIDO HID, and OTP HID.
     ///
     /// Read more about the Management application on the
     /// [Yubico developer website](https://developers.yubico.com/yubikey-manager/Config_Reference.html).
@@ -53,7 +53,7 @@ public enum Management {
 
         public typealias Error = ManagementSessionError
 
-        /// The underlying interface for communication (SmartCard or FIDO).
+        /// The underlying interface for communication.
         private let interface: Interface
 
         /// The firmware version of the YubiKey.
@@ -79,23 +79,35 @@ public enum Management {
         private static func readDeviceInfo(
             interface: Interface,
             fallbackVersion version: Version
-        ) async throws -> DeviceInfo {
+        ) async throws(ManagementSessionError) -> DeviceInfo {
             var page: UInt8 = 0
-            var hasMoreData = true
+            var remainingPages = 1
             var result = [TKTLVTag: Data]()
 
-            while hasMoreData {
+            while remainingPages > 0 {
+                remainingPages -= 1
                 logger.debug("Reading device info", metadata: ["page": .stringConvertible(page)])
                 let data = try await interface.readConfig(page: page)
 
-                guard let count = data.bytes.first, count > 0,
+                guard let count = data.bytes.first, Int(count) == data.count - 1,
                     let tlvs = TKBERTLVRecord.dictionaryOfData(from: data.subdata(in: 1..<data.count))
                 else {
                     throw Error.responseParseError("Failed to parse TLV data from device info", source: .here())
                 }
-                result.merge(tlvs) { (_, new) in new }
-                hasMoreData = tlvs[0x10] != nil
-                page += 1
+                result.merge(tlvs.filter { $0.key != 0x10 }) { (_, new) in new }
+                if let continuation = tlvs[0x10] {
+                    guard let extraPages = continuation.integer else {
+                        throw Error.responseParseError("Invalid device info page count", source: .here())
+                    }
+                    guard extraPages <= UInt(UInt8.max - page) else {
+                        throw Error.responseParseError("Invalid device info page count", source: .here())
+                    }
+                    remainingPages = Int(extraPages)
+                }
+                guard remainingPages == 0 || page < UInt8.max else {
+                    throw Error.responseParseError("Too many device info pages", source: .here())
+                }
+                if remainingPages > 0 { page += 1 }
             }
 
             let info = DeviceInfo(withTlvs: result, fallbackVersion: version)
@@ -139,7 +151,7 @@ public enum Management {
         /// Perform a device-wide reset in Bio Multi-protocol Edition devices.
         ///
         /// > Note: This functionality requires support for ``Management/Feature/deviceReset``, available on YubiKey 5.6 or later.
-        /// > Note: Device reset is only supported over SmartCard connections, not over FIDO/CTAP.
+        /// > Note: Device reset is supported only over SmartCard connections.
         public func resetDevice() async throws {
             guard await self.supports(.deviceReset) else {
                 throw Error.featureNotSupported(source: .here())
@@ -165,6 +177,9 @@ public enum Management {
                 application: .management,
                 keyParams: scpKeyParams
             )
+            if scpKeyParams == nil, Version(withManagementResult: smartCardInterface.selectResponse)?.major == 3 {
+                try await smartCardInterface.deselectNEOManagement()
+            }
             return try await .init(interface: Interface(interface: smartCardInterface))
         }
 
@@ -180,15 +195,34 @@ public enum Management {
             return try await .init(interface: Interface(interface: fidoInterface))
         }
 
+        /// Creates a Management session over the OTP keyboard HID interface.
+        /// - Throws: ``ManagementSessionError`` if session creation fails.
+        public static func makeSession(
+            connection: OTPConnection
+        ) async throws(ManagementSessionError) -> Self {
+            let otpInterface = try await OTPKeyboardInterface<Error>(
+                connection: connection,
+                resolveDevelopmentVersion: false
+            )
+            let version = otpInterface.version
+            guard version.major >= 3 || version == .development else {
+                throw .featureNotSupported(source: .here())
+            }
+            return try await .init(interface: Interface(interface: otpInterface))
+        }
+
         private init(interface: Interface) async throws(ManagementSessionError) {
             self.interface = interface
             let reportedVersion = try await interface.version
             if reportedVersion == Version.development {
                 // Development firmware reports 0.0.1; its real version is in the DeviceInfo version qualifier.
-                let info = try? await Self.readDeviceInfo(interface: interface, fallbackVersion: reportedVersion)
-                self.version = info?.version ?? reportedVersion
+                let info = try await Self.readDeviceInfo(interface: interface, fallbackVersion: reportedVersion)
+                self.version = info.version
             } else {
                 self.version = reportedVersion
+            }
+            if let smartCard = await interface.smartCardInterface {
+                await smartCard.setAPDUSizeLimit(for: self.version)
             }
             self.scpState = await interface.scpState
             self.smartCardConnection = await interface.smartCardConnection
@@ -198,7 +232,7 @@ public enum Management {
         // MARK: - SmartCardSession conformance (NEXTMAJOR: Remove)
         // These properties exist only for backwards compatibility with the deprecated
         // SmartCardSession protocol. They use `nonisolated` to satisfy the protocol's sync requirements.
-        // The `connection` property will crash if the session was created with a FIDO connection.
+        // The `connection` property will crash without a SmartCard connection.
 
         public static let application: Application = .management
 
@@ -208,11 +242,11 @@ public enum Management {
 
         /// The SmartCard connection used to create this session.
         ///
-        /// - Important: This property will crash if the session was created with a FIDO connection.
+        /// - Important: This property will crash without a SmartCard connection.
         @available(*, deprecated, message: "Avoid accessing the underlying connection directly")
         public nonisolated var connection: SmartCardConnection {
             guard let connection = smartCardConnection else {
-                fatalError("Cannot access SmartCard connection when session was created with FIDO connection.")
+                fatalError("Cannot access SmartCard connection for this session.")
             }
             return connection
         }
@@ -222,16 +256,22 @@ public enum Management {
 // MARK: - Interface (Internal Transport Abstraction)
 
 extension Management.Session {
-    /// Internal actor that abstracts over the underlying transport (SmartCard or FIDO).
+    /// Internal actor that abstracts over the underlying transport.
     ///
     /// This allows `Management.Session` to be a concrete type while supporting multiple transports.
     internal actor Interface {
         private enum Kind {
             case smartCard(SmartCardInterface<ManagementSessionError>)
             case fido(FIDOInterface<ManagementSessionError>)
+            case otp(OTPKeyboardInterface<ManagementSessionError>)
         }
 
         private let kind: Kind
+
+        var smartCardInterface: SmartCardInterface<ManagementSessionError>? {
+            if case .smartCard(let interface) = kind { return interface }
+            return nil
+        }
 
         init(interface: SmartCardInterface<ManagementSessionError>) {
             self.kind = .smartCard(interface)
@@ -241,8 +281,11 @@ extension Management.Session {
             self.kind = .fido(interface)
         }
 
-        /// The firmware version of the YubiKey, parsed from the Management select response over
-        /// SmartCard and reported by CTAPHID INIT over FIDO.
+        init(interface: OTPKeyboardInterface<ManagementSessionError>) {
+            self.kind = .otp(interface)
+        }
+
+        /// Firmware version from SmartCard SELECT, FIDO INIT, or OTP status.
         var version: Version {
             get async throws(ManagementSessionError) {
                 switch kind {
@@ -256,6 +299,8 @@ extension Management.Session {
                     return version
                 case let .fido(i):
                     return await i.version
+                case let .otp(i):
+                    return i.version
                 }
             }
         }
@@ -269,6 +314,14 @@ extension Management.Session {
                     cmd: FIDOInterface<ManagementSessionError>.hidCommand(.readConfig),
                     payload: Data([page])
                 )
+            case let .otp(i):
+                let response = try await i.sendAndReceive(slot: 0x13, data: Data([page]))
+                guard let count = response.first, Int(count) + 3 <= response.count,
+                    response.prefix(Int(count) + 3).hasValidCRC16
+                else {
+                    throw .responseParseError("Invalid OTP device info length or CRC", source: .here())
+                }
+                return Data(response.prefix(Int(count) + 1))
             }
         }
 
@@ -281,6 +334,8 @@ extension Management.Session {
                     cmd: FIDOInterface<ManagementSessionError>.hidCommand(.writeConfig),
                     payload: data
                 )
+            case let .otp(i):
+                _ = try await i.sendAndReceive(slot: 0x15, data: data)
             }
         }
 
@@ -289,7 +344,7 @@ extension Management.Session {
             switch kind {
             case let .smartCard(i):
                 let _: Data = try await i.send(apdu: APDU(cla: 0, ins: 0x1f, p1: 0, p2: 0))
-            case .fido:
+            case .fido, .otp:
                 throw .featureNotSupported(source: .here())
             }
         }
@@ -298,7 +353,7 @@ extension Management.Session {
             switch kind {
             case let .smartCard(i):
                 return i.connection
-            case .fido:
+            case .fido, .otp:
                 return nil
             }
         }
@@ -307,7 +362,7 @@ extension Management.Session {
             switch kind {
             case let .smartCard(i):
                 return i.scpState
-            case .fido:
+            case .fido, .otp:
                 return nil
             }
         }

@@ -32,7 +32,7 @@ final class RunnerViewModel: ObservableObject {
     @Published var backend: Backend = .wired {
         didSet {
             guard oldValue != backend else { return }
-            results.removeAll()
+            resetResults()
             refreshBackend()
         }
     }
@@ -57,8 +57,7 @@ final class RunnerViewModel: ObservableObject {
     @Published private(set) var runTotal = 0
     @Published var backendAlert: BackendAlert?
 
-    struct BackendAlert: Identifiable {
-        let id = UUID()
+    struct BackendAlert {
         let message: String
     }
 
@@ -72,6 +71,7 @@ final class RunnerViewModel: ObservableObject {
 
     private let suites = Scenario.Catalog.suites
     private var task: Task<Void, Never>?
+    private var probeTask: Task<Void, Never>?
 
     init() {
         backend = availableBackends.first ?? .wired
@@ -80,7 +80,7 @@ final class RunnerViewModel: ObservableObject {
 
     var availableBackends: [Backend] {
         #if os(iOS)
-        return [.wired, .nfc]
+        return ScenarioConnection.hasNFCReader ? [.wired, .nfc] : [.wired]
         #else
         return [.wired]
         #endif
@@ -96,16 +96,14 @@ final class RunnerViewModel: ObservableObject {
 
     /// Reads the YubiKey that would be authorized: the connected key for wired, a tapped key for NFC.
     func identifyTestKey() async throws -> DeviceInfo {
-        switch backend {
-        case .wired:
-            return try await WiredConnectionProvider.identifyConnectedYubiKey()
-        case .nfc:
-            #if os(iOS)
-            return try await NFCConnectionProvider().identifyTappedYubiKey()
-            #else
-            throw ProviderError.unsupported("NFC is only available on iOS.")
-            #endif
+        guard canChangeAuthorization else {
+            throw ProviderError.unavailable("Another operation is using the YubiKey.")
         }
+        isProbing = true
+        defer { isProbing = false }
+        let device = try await ScenarioConnection.identifyYubiKey(over: backend == .nfc ? .nfc : .usb)
+        try Task.checkCancellation()
+        return device
     }
 
     func authorizeTestKey(_ device: DeviceInfo, confirmation: String) -> Bool {
@@ -113,7 +111,7 @@ final class RunnerViewModel: ObservableObject {
             return false
         }
         authorizedSerialNumber = device.serialNumber
-        results.removeAll()
+        resetResults()
         backendAlert = nil
         refreshBackend()
         return true
@@ -122,7 +120,7 @@ final class RunnerViewModel: ObservableObject {
     func revokeTestKeyAuthorization() {
         guard canChangeAuthorization else { return }
         authorizedSerialNumber = nil
-        results.removeAll()
+        resetResults()
         backendAlert = nil
         refreshBackend()
     }
@@ -147,14 +145,14 @@ final class RunnerViewModel: ObservableObject {
     private func matches(_ scenario: Scenario) -> Bool {
         guard failuresOnly else { return true }
         let status = results[scenario]?.status
-        return status == .failed || status == .errored
+        return status?.isFailure == true
     }
 
     // MARK: - Counts
 
     func result(for scenario: Scenario) -> Scenario.Result? { results[scenario] }
     var passedCount: Int { results.values.filter { $0.status == .passed }.count }
-    var failedCount: Int { results.values.filter { $0.status == .failed || $0.status == .errored }.count }
+    var failedCount: Int { results.values.filter { $0.status.isFailure }.count }
     var skippedCount: Int {
         results.values.filter { if case .skipped = $0.status { return true } else { return false } }.count
     }
@@ -163,7 +161,7 @@ final class RunnerViewModel: ObservableObject {
     func suiteCounts(_ suite: Scenario.Suite) -> (passed: Int, failed: Int, total: Int) {
         let all = Scenario.Catalog.scenarios(in: suite)
         let passed = all.filter { results[$0]?.status == .passed }.count
-        let failed = all.filter { results[$0]?.status == .failed || results[$0]?.status == .errored }.count
+        let failed = all.filter { results[$0]?.status.isFailure == true }.count
         return (passed, failed, all.count)
     }
 
@@ -173,48 +171,44 @@ final class RunnerViewModel: ObservableObject {
     func runSuite(_ suite: Scenario.Suite) { run(Scenario.Catalog.scenarios(in: suite)) }
     func runOne(_ scenario: Scenario) { run([scenario]) }
     func runVisible() { run(visibleSuites.flatMap(visibleScenarios)) }
-    func cancel() { task?.cancel() }
+    func cancel() {
+        task?.cancel()
+        probeTask?.cancel()
+    }
 
     private func run(_ scenarios: [Scenario]) {
-        guard !isRunning, !isProbing else { return }
+        guard !isRunning, !isProbing, !scenarios.isEmpty else { return }
         guard let provider = makeProvider() else {
             for scenario in scenarios {
                 results[scenario] = Scenario.Result(scenario: scenario, status: .skipped(reason: "backend unavailable"))
             }
             return
         }
+        backendAlert = nil
         isRunning = true
         stoppedAfterFailure = nil
         ranCount = 0
         runTotal = scenarios.count
         let runner = Scenario.Runner(provider: provider, secureChannel: secureChannel)
 
-        var streamContinuation: AsyncStream<Scenario.Event>.Continuation!
-        let events = AsyncStream<Scenario.Event> { streamContinuation = $0 }
-        let sink = streamContinuation!
+        let (events, sink) = AsyncStream<Scenario.Event>.makeStream()
         let consumer = Task { @MainActor [weak self] in
             for await event in events { self?.apply(event) }
         }
 
-        task = Task { [weak self] in
-            guard let self else { return }
-            await self.resolveRuntimeCapabilities(provider, for: self.backend)
+        task = Task {
             for scenario in scenarios {
                 if Task.isCancelled { break }
-                if let reason = self.skipReason(scenario) {
-                    self.results[scenario] = Scenario.Result(scenario: scenario, status: .skipped(reason: reason))
-                    self.ranCount += 1
-                    continue
-                }
                 self.results[scenario] = Scenario.Result(scenario: scenario, status: .running)
                 let result = await runner.run(scenario) { event in sink.yield(event) }
                 self.results[scenario] = result
                 self.ranCount += 1
+                if Task.isCancelled { break }
                 if case .backendUnavailable(let reason) = result.status {
                     self.backendAlert = BackendAlert(message: reason)
                     break
                 }
-                if self.stopOnFirstFailure, result.status == .failed || result.status == .errored {
+                if self.stopOnFirstFailure, result.status.isFailure {
                     self.stoppedAfterFailure = scenario
                     break
                 }
@@ -224,12 +218,16 @@ final class RunnerViewModel: ObservableObject {
             self.isRunning = false
             self.runningScenario = nil
             self.userPrompt = nil
+            self.task = nil
         }
     }
 
     func resetResults() {
         guard !isRunning else { return }
         results.removeAll()
+        stoppedAfterFailure = nil
+        ranCount = 0
+        runTotal = 0
     }
 
     // MARK: - Device probe
@@ -237,15 +235,29 @@ final class RunnerViewModel: ObservableObject {
     func probeDevice() {
         guard !isProbing, !isRunning, let provider = makeProvider() else { return }
         isProbing = true
+        probedDevice = nil
+        providerCaps = provider.capabilities
         probeError = nil
-        Task { [weak self] in
+        probeTask = Task { [weak self] in
             guard let self else { return }
-            do {
-                self.probedDevice = try await provider.deviceInfo()
-            } catch {
-                self.probeError = String(describing: error)
+            defer {
+                self.isProbing = false
+                self.probeTask = nil
             }
-            self.isProbing = false
+            do {
+                let device = try await provider.deviceInfo()
+                var capabilities = provider.capabilities
+                capabilities.hasLightning = await provider.selectedSmartCardUsesLightning() == true
+                if capabilities.hasLightning {
+                    capabilities.hasSmartCard = true
+                    capabilities.supportsSecureChannel = true
+                }
+                try Task.checkCancellation()
+                self.probedDevice = device
+                self.providerCaps = capabilities
+            } catch {
+                if !Task.isCancelled { self.probeError = String(describing: error) }
+            }
         }
     }
 
@@ -258,30 +270,12 @@ final class RunnerViewModel: ObservableObject {
         providerCaps = provider?.capabilities
         providerTransport = provider?.deviceTransport
         ctap2Transport = provider?.ctap2Transport
-        if let provider {
-            let backend = backend
-            Task { [weak self] in await self?.resolveRuntimeCapabilities(provider, for: backend) }
-        }
     }
 
-    private func resolveRuntimeCapabilities(_ provider: any ConnectionProvider, for backend: Backend) async {
-        let hasLightning = await provider.lightningKeyConnected()
-        guard self.backend == backend else { return }
-        providerCaps?.hasLightning = hasLightning
-    }
-
-    private func makeProvider() -> (any ConnectionProvider)? {
-        let allowed = authorizedSerialNumber.map { [$0] } ?? WiredConnectionProvider.allowedSerialNumbers
-        switch backend {
-        case .wired:
-            return WiredConnectionProvider(allowedSerialNumbers: allowed)
-        case .nfc:
-            #if os(iOS)
-            return NFCConnectionProvider(allowedSerialNumbers: allowed)
-            #else
-            return nil
-            #endif
-        }
+    private func makeProvider() -> ScenarioConnection? {
+        guard backend != .nfc || ScenarioConnection.hasNFCReader else { return nil }
+        let allowed = authorizedSerialNumber.map { [$0] } ?? ScenarioConnection.allowedSerialNumbers
+        return ScenarioConnection(transport: backend == .nfc ? .nfc : .usb, allowedSerialNumbers: allowed)
     }
 
     private func apply(_ event: Scenario.Event) {
@@ -295,6 +289,15 @@ final class RunnerViewModel: ObservableObject {
         case .finished:
             runningScenario = nil
             userPrompt = nil
+        }
+    }
+}
+
+extension Scenario.Result.Status {
+    fileprivate var isFailure: Bool {
+        switch self {
+        case .failed, .errored, .backendUnavailable: return true
+        default: return false
         }
     }
 }

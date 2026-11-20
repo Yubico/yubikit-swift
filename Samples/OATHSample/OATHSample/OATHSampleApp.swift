@@ -17,8 +17,14 @@ import SwiftUI
 @main
 struct OATHSampleApp: App {
     var body: some Scene {
+        #if os(macOS)
+        Window("OATHSample", id: "main") {
+            OATHListView()
+        }
+        #else
         WindowGroup {
             OATHListView()
         }
+        #endif
     }
 }

@@ -38,13 +38,22 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
     var dispatchedPayloads: [Data] { lock.with { payloads } }
 
     var serial: UInt32 = 12_345_678
+    var serialAPIVisible = true
     var firmware: [UInt8] = [5, 7, 4]
 
     var touchReportsBeforeResponse = 0
 
+    // Busy reports, with the write flag still set, that follow each written chunk.
+    var busyReportsAfterChunk = 0
+    var onReportSent: (@Sendable () -> Void)?
+    var onReportReceived: (@Sendable (Int) -> Void)?
+
     var hmacResponse = Data(repeating: 0xAB, count: 20)
 
     var corruptsResponseCRC = false
+    var managementResponse = Data()
+
+    var deviceInfoPages: [Data] = []
 
     private var frame = [UInt8](repeating: 0, count: 70)
     private var outbox: [[UInt8]] = []
@@ -52,6 +61,7 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
     private var payloads: [Data] = []
     private var programmingSequence: UInt8 = 0
     private var slots: [Data?] = [nil, nil]
+    private var receivedReportCount = 0
     private let lock = NSLock()
 
     required init() async throws(OTPConnectionError) {}
@@ -64,13 +74,17 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
 
     func send(_ report: Data) async throws(OTPConnectionError) {
         lock.with { writeReport(Array(report)) }
+        onReportSent?()
     }
 
     func receive() async throws(OTPConnectionError) -> Data {
-        lock.with {
-            if !outbox.isEmpty { return Data(outbox.removeFirst()) }
-            return Data([0] + status + [0])
+        let (report, count) = lock.with {
+            receivedReportCount += 1
+            let report = !outbox.isEmpty ? Data(outbox.removeFirst()) : Data([0] + status + [0])
+            return (report, receivedReportCount)
         }
+        onReportReceived?(count)
+        return report
     }
 
     func close(error: Error?) async {}
@@ -101,6 +115,9 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
             return
         }
         guard flag & 0x80 != 0 else { return }
+        for _ in 0..<busyReportsAfterChunk {
+            outbox.append([UInt8](repeating: 0, count: 7) + [0x80])
+        }
 
         let sequence = Int(flag & 0x1F)
         let offset = sequence * 7
@@ -125,7 +142,15 @@ final class FakeOTPConnection: OTPConnection, @unchecked Sendable {
         guard crc == payload.crc16 else { return }
 
         switch slot {
+        case 0x13:
+            if deviceInfoPages.isEmpty {
+                queue(managementResponse)
+            } else {
+                let page = Int(payload.first ?? 0)
+                if deviceInfoPages.indices.contains(page) { queue(deviceInfoPages[page]) }
+            }
         case Self.slotDeviceSerial:
+            guard serialAPIVisible else { return }
             queue(
                 Data([
                     UInt8(serial >> 24 & 0xFF), UInt8(serial >> 16 & 0xFF),

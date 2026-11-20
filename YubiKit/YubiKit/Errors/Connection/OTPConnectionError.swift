@@ -27,6 +27,9 @@ public enum OTPConnectionError: Error, Sendable {
     /// Connection to the device was lost.
     case connectionLost
 
+    /// Connection operation was cancelled.
+    case cancelled
+
     /// There is already an active connection.
     case busy
 

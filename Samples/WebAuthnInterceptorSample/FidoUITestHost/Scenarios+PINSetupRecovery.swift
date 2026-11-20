@@ -89,7 +89,7 @@ extension Runner {
                 throw FidoUI.Error.webAuthn(.authenticatorNotAvailable(source: .here()))
             }
         }
-        let fido = FidoUI(testTransportFactory: { _ in mockTransport })
+        let fido = FidoUI(presentationAnchor: Runner.presentationAnchor, testTransportFactory: { _ in mockTransport })
         return await runMakeCredential(fido, options: regOptions(), serviceName: "example.com")
     }
 

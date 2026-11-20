@@ -8,17 +8,6 @@ private func log(_ message: @autoclosure () -> String) {
     #endif
 }
 
-/// JSON envelope posted by Interceptor.js: `{origin, request: <publicKey>}`.
-struct WebAuthnRequest<Options: Decodable>: Decodable {
-    let origin: String
-    let publicKey: Options
-
-    enum CodingKeys: String, CodingKey {
-        case origin
-        case publicKey = "request"
-    }
-}
-
 /// `@MainActor` because FidoUI itself is `@MainActor` and the handler's
 /// only state is the FidoUI instance — there's no mutable connection
 /// state on the handler since FidoUI now owns the transport lifecycle.
@@ -33,8 +22,11 @@ final class WebAuthnHandler {
     /// origin is passed per-call.
     private let fidoUI: FidoUI
 
-    init() {
-        self.fidoUI = FidoUI(isPublicSuffix: self.isPublicSuffix)
+    init(presentationAnchor: @escaping @MainActor @Sendable () -> FidoUI.PresentationAnchor?) {
+        self.fidoUI = FidoUI(
+            presentationAnchor: presentationAnchor,
+            isPublicSuffix: self.isPublicSuffix
+        )
     }
 
     /// Aborts any in-flight ceremony. WebView calls this on dismiss /
@@ -45,16 +37,15 @@ final class WebAuthnHandler {
         await fidoUI.cancel()
     }
 
-    func handleCreate(_ data: Data) async throws -> String {
-        let request = try JSONDecoder().decode(
-            WebAuthnRequest<WebAuthn.Registration.Options>.self,
+    func handleCreate(_ data: Data, origin: WebAuthn.Origin) async throws -> String {
+        let options = try JSONDecoder().decode(
+            WebAuthn.Registration.Options.self,
             from: data
         )
-        let origin = try WebAuthn.Origin(request.origin)
-        log("handleCreate origin=\(request.origin) rp=\(request.publicKey.rp.id)")
+        log("handleCreate origin=\(origin) rp=\(options.rp.id)")
         do {
             let response = try await fidoUI.makeCredential(
-                request.publicKey,
+                options,
                 origin: origin,
                 serviceName: origin.host
             )
@@ -66,16 +57,15 @@ final class WebAuthnHandler {
         }
     }
 
-    func handleGet(_ data: Data) async throws -> String {
-        let request = try JSONDecoder().decode(
-            WebAuthnRequest<WebAuthn.Authentication.Options>.self,
+    func handleGet(_ data: Data, origin: WebAuthn.Origin) async throws -> String {
+        let options = try JSONDecoder().decode(
+            WebAuthn.Authentication.Options.self,
             from: data
         )
-        let origin = try WebAuthn.Origin(request.origin)
-        log("handleGet origin=\(request.origin) rpId=\(request.publicKey.rpId ?? "<none>")")
+        log("handleGet origin=\(origin) rpId=\(options.rpId ?? "<none>")")
         do {
             let response = try await fidoUI.getAssertion(
-                request.publicKey,
+                options,
                 origin: origin,
                 serviceName: origin.host
             )

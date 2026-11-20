@@ -14,16 +14,11 @@
 
 import Foundation
 import Testing
-import YubiKit
 
+@testable import YubiKit
 @_spi(YubiInternal) @testable import YubiKitIntegrationScenarios
 
-#if canImport(YubiKitTwinTesting)
-@_spi(YubiInternal) import YubiKitTwinTesting
-#endif
-
-// CLI knobs: YUBIKIT_ENABLE_TWINKIT=1, YUBIKEY_TEST_SERIALS,
-// FORCE_SCP=automatic|scp11b|scp03, SCENARIO=<id-substring>.
+// CLI knobs: YUBIKEY_TEST_SERIALS, FORCE_SCP, and SCENARIO.
 enum ScenarioTests {
 
     /// Catalog entries for `suite`, narrowed by `SCENARIO` to the ids containing that substring.
@@ -66,12 +61,12 @@ enum ScenarioTests {
     }
 
     fileprivate static var backendConfigured: Bool {
-        usesTwinKit || ProcessInfo.processInfo.environment["YUBIKEY_TEST_SERIALS"] != nil
+        ScenarioConnection.isVirtual || ProcessInfo.processInfo.environment["YUBIKEY_TEST_SERIALS"] != nil
     }
 
     fileprivate static var configurationErrors: [String] {
         var errors: [String] = []
-        if !usesTwinKit, case .failure(let error) = WiredConnectionProvider.serialConfiguration {
+        if !ScenarioConnection.isVirtual, case .failure(let error) = ScenarioConnection.serialConfiguration {
             errors.append(error.description)
         }
         if let filter = ProcessInfo.processInfo.environment["SCENARIO"] {
@@ -88,30 +83,22 @@ enum ScenarioTests {
         {
             errors.append("invalid FORCE_SCP value '\(value)' (expected automatic, scp11b, scp03, or none)")
         }
-        #if canImport(YubiKitTwinTesting)
-        if let error = TwinKitConnectionProvider.environmentConfigurationError {
+        if let error = ScenarioConnection.configurationError {
             errors.append(error)
         }
-        #endif
+        if ProcessInfo.processInfo.environment["YUBIKIT_REQUIRE_VIRTUAL_KEY"] == "1", !ScenarioConnection.isVirtual {
+            errors.append("The test runner expected a virtual key but loaded the hardware SDK")
+        }
         return errors
     }
 
     fileprivate static var configurationIsValid: Bool { configurationErrors.isEmpty }
 
-    fileprivate static func makeProvider() -> any ConnectionProvider {
-        #if canImport(YubiKitTwinTesting)
-        TwinKitConnectionProvider()
-        #else
-        WiredConnectionProvider()
-        #endif
-    }
+    fileprivate static let transport: DeviceTransport =
+        ProcessInfo.processInfo.environment["YUBIKIT_TEST_TRANSPORT"] == "nfc" ? .nfc : .usb
 
-    private static var usesTwinKit: Bool {
-        #if canImport(YubiKitTwinTesting)
-        true
-        #else
-        false
-        #endif
+    fileprivate static func makeProvider() -> ScenarioConnection {
+        ScenarioConnection(transport: transport)
     }
 
     private static var only: String? {
@@ -155,6 +142,22 @@ enum ScenarioSuites {
             )
         }
     }
+
+    #if os(macOS)
+    @Test(
+        .enabled(if: ScenarioConnection.isVirtual && ScenarioConnection.hasNFCReader && ScenarioTests.transport == .usb)
+    )
+    static func nfcIdentificationRejectsUSBKey() async {
+        do {
+            _ = try await ScenarioConnection.identifyYubiKey(over: .nfc)
+            Issue.record("NFC identification returned a USB key")
+        } catch ProviderError.unavailable(let reason) {
+            #expect(reason == "No YubiKey found over NFC.")
+        } catch {
+            Issue.record("Unexpected NFC identification error: \(error)")
+        }
+    }
+    #endif
 }
 
 @Test func scenarioConfigurationIsValid() {
@@ -164,12 +167,12 @@ enum ScenarioSuites {
 }
 
 @Test func hardwareSerialConfigurationIsStrict() throws {
-    #expect(try WiredConnectionProvider.parseSerials("123 456,789").get() == [123, 456, 789])
+    #expect(try ScenarioConnection.parseSerials("123 456,789").get() == [123, 456, 789])
     #expect(throws: SerialConfigurationError.invalidToken("abc")) {
-        try WiredConnectionProvider.parseSerials("123,abc").get()
+        try ScenarioConnection.parseSerials("123,abc").get()
     }
     #expect(throws: SerialConfigurationError.invalidToken("")) {
-        try WiredConnectionProvider.parseSerials("123,,456").get()
+        try ScenarioConnection.parseSerials("123,,456").get()
     }
 }
 
@@ -177,11 +180,69 @@ enum ScenarioSuites {
     let scenario = Scenario("Connection.Teardown.failure", "teardown failure is reported") { context in
         await context.addTeardown { throw SyntheticTeardownError.failed }
     }
-    let result = await Scenario.Runner(provider: UnusedProvider()).run(scenario)
+    let result = await Scenario.Runner(provider: ScenarioConnection(allowedSerialNumbers: [])).run(scenario)
 
     #expect(result.status == .failed)
     #expect(result.failures.count == 1)
     #expect(result.failures.first?.message.contains("teardown failed") == true)
+}
+
+@Test(arguments: [ProviderError.unsupported("unsupported"), .unavailable("unavailable")])
+func providerErrorPreservesFailures(error: ProviderError) async {
+    let scenario = Scenario("Connection.Provider.failure", "provider error preserves failures") { context in
+        context.record("assertion failed")
+        context.log("body reached")
+        await context.addTeardown { throw SyntheticTeardownError.failed }
+        throw error
+    }
+    let result = await Scenario.Runner(provider: ScenarioConnection(allowedSerialNumbers: [])).run(scenario)
+
+    #expect(result.status == .failed)
+    #expect(result.failures.count == 2)
+    #expect(result.failures.first?.message == "assertion failed")
+    #expect(result.failures.last?.message.contains("teardown failed") == true)
+    #expect(result.logs == ["body reached", "provider error: \(error)"])
+}
+
+@Test(arguments: [ProviderError.unsupported("unsupported"), .unavailable("unavailable")])
+func providerErrorPreservesOutcome(error: ProviderError) async {
+    let scenario = Scenario("Connection.Provider.outcome", "provider error preserves outcome") { context in
+        context.log("body reached")
+        await context.addTeardown { context.log("cleanup reached") }
+        throw error
+    }
+    let result = await Scenario.Runner(provider: ScenarioConnection(allowedSerialNumbers: [])).run(scenario)
+
+    switch error {
+    case .unsupported(let reason): #expect(result.status == .skipped(reason: reason))
+    case .unavailable(let reason): #expect(result.status == .backendUnavailable(reason: reason))
+    }
+    #expect(result.failures.isEmpty)
+    #expect(result.logs == ["body reached", "provider error: \(error)", "cleanup reached"])
+}
+
+@Test(arguments: [false, true], [false, true])
+func cancelledScenarioReportsOutcome(bodyFails: Bool, teardownFails: Bool) async {
+    let scenario = Scenario("Connection.Cancellation.outcome", "cancelled scenario outcome") { context in
+        if bodyFails { context.record("assertion failed") }
+        await context.addTeardown {
+            try Task.checkCancellation()
+            context.log("cleanup reached")
+            if teardownFails { throw SyntheticTeardownError.failed }
+        }
+        throw CancellationError()
+    }
+    let task = Task {
+        withUnsafeCurrentTask { $0?.cancel() }
+        return await Scenario.Runner(provider: ScenarioConnection(allowedSerialNumbers: [])).run(scenario)
+    }
+    let result = await task.value
+
+    #expect(result.status == (bodyFails || teardownFails ? .failed : .skipped(reason: "cancelled")))
+    #expect(result.failures.count == (bodyFails ? 1 : 0) + (teardownFails ? 1 : 0))
+    if bodyFails { #expect(result.failures.first?.message == "assertion failed") }
+    if teardownFails { #expect(result.failures.last?.message.contains("teardown failed") == true) }
+    #expect(result.logs == ["scenario cancelled", "cleanup reached"])
 }
 
 @Test func scenarioIDsAreUnique() {
@@ -190,10 +251,10 @@ enum ScenarioSuites {
     #expect(duplicates.isEmpty, "duplicate scenario ids: \(duplicates.joined(separator: ", "))")
 }
 
-// A suite with no catalog entries runs zero cases and still reports green.
-@Test func everySuiteHasScenarios() {
+// Check declarations independently of host filtering.
+@Test func everySuiteDeclaresScenarios() {
     for suite in Scenario.Suite.allCases {
-        #expect(!Scenario.Catalog.scenarios(in: suite).isEmpty, "suite \(suite) declares no scenarios")
+        #expect(Scenario.Catalog.allDeclared.contains { $0.suite == suite }, "suite \(suite) declares no scenarios")
     }
 }
 
@@ -201,20 +262,115 @@ private enum SyntheticTeardownError: Error {
     case failed
 }
 
-private struct UnusedProvider: ConnectionProvider {
-    let capabilities = ProviderCapabilities(hasFIDO: false, supportsSecureChannel: false, isVirtual: true)
-    let deviceTransport: DeviceTransport = .usb
-    let ctap2Transport: CTAP2Transport = .ccid
+@Test(arguments: [
+    ("5.7.4", DeviceTransport.usb, false, false),
+    ("5.8.0", .usb, false, true),
+    ("5.7.4", .usb, true, true),
+    ("5.7.4", .nfc, false, true),
+])
+func ctap2CCIDFirmwareDependsOnSelectedRoute(
+    version: String,
+    transport: DeviceTransport,
+    lightning: Bool,
+    runs: Bool
+) {
+    let applications = Capability.fido2.rawValue | (lightning ? 0 : Capability.oath.rawValue)
+    let info = gateDevice(version: version, supported: [transport: applications], enabled: [transport: applications])
+    var capabilities = gateCapabilities
+    capabilities.hasLightning = lightning
+    let decision = Gate.evaluate(
+        Requirements(capabilities: [.fido2], requiresCTAP2OverCCID: true),
+        deviceInfo: info,
+        transport: transport,
+        provider: capabilities
+    )
+    #expect(
+        decision == (runs ? .run : .skip(reason: "CTAP2 over USB CCID requires firmware ≥ 5.8.0 (device is 5.7.4)"))
+    )
+}
 
-    func makeSmartCardConnection() async throws -> any SmartCardConnection {
-        throw ProviderError.unavailable("unused")
-    }
+@Test(arguments: [
+    (DeviceTransport.usb, "requires a smart-card (CCID) transport, unavailable on this backend"),
+    (.nfc, "NFC reading is unavailable on this backend"),
+])
+func unavailableReaderSkipsSmartCardScenario(transport: DeviceTransport, reason: String) {
+    var capabilities = gateCapabilities
+    capabilities.hasSmartCard = false
+    #expect(
+        Gate.evaluateHost(Requirements(capabilities: [.oath]), transport: transport, provider: capabilities)
+            == .skip(reason: reason)
+    )
+}
 
-    func makeFIDOConnection() async throws -> any FIDOConnection {
-        throw ProviderError.unavailable("unused")
-    }
+@Test(arguments: [
+    (
+        Capability.fido2.rawValue, Optional<UInt>.none,
+        "requires the smart-card (CCID) interface on the selected YubiKey"
+    ),
+    (
+        Capability.fido2.rawValue | Capability.oath.rawValue, Capability.fido2.rawValue,
+        "the smart-card (CCID) interface is disabled on the selected YubiKey"
+    ),
+    (Capability.oath.rawValue, nil, nil),
+])
+func secureChannelRequiresAnAvailableUSBInterface(supported: UInt, enabled: UInt?, skipReason: String?) {
+    let info = gateDevice(supported: [.usb: supported], enabled: enabled.map { [.usb: $0] } ?? [:])
+    let requirements = Requirements(requiresSCP: true)
+    #expect(requirements.needsDeviceInfo)
+    let decision = Gate.evaluate(requirements, deviceInfo: info, transport: .usb, provider: gateCapabilities)
+    #expect(decision == (skipReason.map { .skip(reason: $0) } ?? .run))
+}
 
-    func deviceInfo() async throws -> DeviceInfo {
-        throw ProviderError.unavailable("unused")
+@Test(arguments: [
+    (UInt(0), UInt(0), false, "the selected YubiKey has no NFC interface"),
+    (Capability.oath.rawValue, 0, false, "NFC applications are disabled on the selected YubiKey"),
+    (
+        Capability.oath.rawValue, Capability.oath.rawValue, true,
+        "NFC is restricted on the selected YubiKey until USB reinsertion"
+    ),
+])
+func nfcEligibilityUsesTheKeyConfiguration(supported: UInt, enabled: UInt, restricted: Bool, reason: String) {
+    let info = gateDevice(supported: [.nfc: supported], enabled: [.nfc: enabled], nfcRestricted: restricted)
+    #expect(
+        Gate.evaluate(Requirements(), deviceInfo: info, transport: .nfc, provider: gateCapabilities)
+            == .skip(reason: reason)
+    )
+}
+
+@Test func vettedSmartCardRouteStaysBoundToTheSelectedKey() async {
+    let cache = DeviceInfoCache()
+    #expect(await cache.acceptsAndCaches(gateDevice(), allowed: [1, 2], smartCardUsesLightning: false))
+    #expect(await !cache.acceptsAndCaches(gateDevice(serial: 2), allowed: [1, 2], smartCardUsesLightning: true))
+    #expect(await !cache.acceptsAndCaches(gateDevice(), allowed: [1, 2], smartCardUsesLightning: true))
+    #expect(await cache.smartCardUsesLightning == false)
+}
+
+#if os(iOS)
+@Test(.enabled(if: !ScenarioConnection.hasNFCReader))
+func unavailableNFCReaderIsRejectedBeforeOpeningASession() async {
+    do {
+        _ = try await ScenarioConnection(transport: .nfc).deviceInfo()
+        Issue.record("NFC opened without an available reader")
+    } catch ProviderError.unsupported {
+    } catch {
+        Issue.record("unexpected error: \(error)")
     }
 }
+#endif
+
+private func gateDevice(
+    version: String = "5.7.4",
+    serial: UInt = 1,
+    supported: [DeviceTransport: UInt] = [:],
+    enabled: [DeviceTransport: UInt] = [:],
+    nfcRestricted: Bool = false
+) -> DeviceInfo {
+    DeviceInfo(
+        version: Version(version)!,
+        serialNumber: serial,
+        supportedCapabilities: supported,
+        config: DeviceConfig(enabledCapabilities: enabled, isNFCRestricted: nfcRestricted)
+    )
+}
+
+private let gateCapabilities = ProviderCapabilities(hasFIDO: false, supportsSecureChannel: true, isVirtual: false)

@@ -19,15 +19,16 @@ import YubiKit
 enum ManagementScenario: CaseIterable, ScenarioSuite {
 
     case timeouts
+    case otpTimeouts
     case chaining
     case disableEnableApplication
     case lockCode
     case nfcRestricted
     case bioDeviceReset
 
-    /// The Management application answers over SmartCard and over FIDO HID, and the SDK ships a
-    /// `makeSession` for each. These read-only families run over both, so neither backend can rot
-    /// unnoticed — before this, only SmartCard was ever exercised.
+    /// The Management application answers over SmartCard, FIDO HID, and OTP HID, and the SDK ships a
+    /// `makeSession` for each. These read-only families run over all of them, so no backend can rot
+    /// unnoticed.
     static var parameterizedScenarios: [Scenario] {
         Scenario.parameterized(
             "Management.Info.version",
@@ -53,15 +54,23 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
     var scenario: Scenario {
         switch self {
         // MARK: - Configuration
-        case .timeouts:
+        case .timeouts, .otpTimeouts:
+            let overOTP = self == .otpTimeouts
             return Scenario(
-                "Management.Config.timeouts",
-                "updateDeviceConfig round-trips auto-eject / challenge-response timeouts",
-                requirements: Requirements(minVersion: Version("5.0.0"))
+                overOTP ? "Management.Config.timeouts.otpHID" : "Management.Config.timeouts",
+                "updateDeviceConfig round-trips auto-eject / challenge-response timeouts"
+                    + (overOTP ? " (OTP HID)" : ""),
+                requirements: Requirements(
+                    capabilities: overOTP ? [.otp] : [],
+                    minVersion: Version("5.0.0"),
+                    requiresSmartCardTransport: !overOTP,
+                    requiresOTPTransport: overOTP
+                )
             ) { context in
-                let session = try await context.managementSession()
-                let config = try await session.getDeviceInfo().config
-                    .with(autoEjectTimeout: 320.0, challengeResponseTimeout: 135.0)
+                let session = try await context.managementSession(over: overOTP ? .otpHID : .smartCard)
+                let initial = try await session.getDeviceInfo().config
+                await context.addTeardown { try await session.updateDeviceConfig(initial, reboot: false) }
+                let config = initial.with(autoEjectTimeout: 320.0, challengeResponseTimeout: 135.0)
                 try await session.updateDeviceConfig(config, reboot: false)
                 let info = try await session.getDeviceInfo()
                 context.expect(info.config.challengeResponseTimeout == 135.0, "challengeResponseTimeout == 135")
@@ -73,7 +82,7 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "Management.Config.chaining",
                 "chained enable/disable across applications round-trips",
-                requirements: Requirements(minVersion: Version("5.0.0"))
+                requirements: Requirements(minVersion: Version("5.0.0"), requiresSmartCardTransport: true)
             ) { context in
                 let session = try await context.managementSession()
                 let transport = context.deviceTransport
@@ -150,7 +159,7 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
             return Scenario(
                 "Management.Config.lockCode",
                 "a set lock code is required to change configuration",
-                requirements: Requirements(minVersion: Version("5.0.0"))
+                requirements: Requirements(minVersion: Version("5.0.0"), requiresSmartCardTransport: true)
             ) { context in
                 let lockCode = Data(hexString: "01020304050607080102030405060708")!
                 let clearLockCode = Data(hexString: "00000000000000000000000000000000")!
@@ -186,7 +195,11 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
                 "Management.Config.nfcRestricted",
                 "NFC can be restricted until next USB insertion",
                 // Over NFC the restriction would lock out every later NFC scenario.
-                requirements: Requirements(minVersion: Version("5.7.0"), transports: [.usb])
+                requirements: Requirements(
+                    minVersion: Version("5.7.0"),
+                    transports: [.usb],
+                    requiresSmartCardTransport: true
+                )
             ) { context in
                 let session = try await context.managementSession()
                 let config = try await session.getDeviceInfo().config.with(nfcRestricted: true)
@@ -194,6 +207,11 @@ enum ManagementScenario: CaseIterable, ScenarioSuite {
                 // Only a USB insertion lifts the restriction; clearing the flag does not.
                 await context.addTeardown {
                     try await context.reinsertKey("Unplug the YubiKey and plug it back in to lift the NFC restriction")
+                    let reinserted = try await context.managementSession().getDeviceInfo()
+                    context.expect(
+                        reinserted.config.isNFCRestricted != true,
+                        "USB reinsertion should lift NFC restriction"
+                    )
                 }
                 let updated = try await session.getDeviceInfo()
                 context.expect(updated.config.isNFCRestricted == true, "NFC should report as restricted")
@@ -235,11 +253,29 @@ private struct ManagementTransport: ScenarioParameter {
         Scenario.Context.ManagementTransportKind.allCases.map { ManagementTransport(kind: $0) }
     }
 
-    var idSuffix: String { kind == .fidoHID ? "fidoHID" : "smartCard" }
+    var idSuffix: String {
+        switch kind {
+        case .smartCard: "smartCard"
+        case .fidoHID: "fidoHID"
+        case .otpHID: "otpHID"
+        }
+    }
 
-    var displayName: String { kind == .fidoHID ? "FIDO HID" : "smart card" }
+    var displayName: String {
+        switch kind {
+        case .smartCard: "smart card"
+        case .fidoHID: "FIDO HID"
+        case .otpHID: "OTP HID"
+        }
+    }
 
     var requirements: Requirements {
-        Requirements(requiresFIDOTransport: kind == .fidoHID)
+        Requirements(
+            capabilities: kind == .otpHID ? [.otp] : [],
+            minVersion: kind == .otpHID ? Version("4.1.0") : nil,
+            requiresFIDOTransport: kind == .fidoHID,
+            requiresSmartCardTransport: kind == .smartCard,
+            requiresOTPTransport: kind == .otpHID
+        )
     }
 }
