@@ -36,7 +36,7 @@ import Logging
 ///
 /// > Note: NFC is only supported on iPhones from iPhone 6 and forward. It will not work on iPads since there's no NFC chip in these devices.
 public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
-    let lifetime = ConnectionLifetime()
+    let didClose = Promise<Error?>()
 
     /// Creates a new NFC connection to a YubiKey.
     ///
@@ -46,7 +46,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     ///           ``SmartCardConnectionError.busy`` if there is already an active connection.
     public init() async throws(SmartCardConnectionError) {
         Self.logger.debug("Requesting NFC connection")
-        try await NFCConnectionManagerWrapper.shared.connect(message: nil, lifetime: lifetime)
+        try await NFCConnectionManagerWrapper.shared.connect(message: nil, didClose: didClose)
     }
 
     /// Creates a new NFC connection to a YubiKey.
@@ -58,7 +58,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     ///           ``SmartCardConnectionError.busy`` if there is already an active connection.
     public init(alertMessage: String?) async throws(SmartCardConnectionError) {
         Self.logger.debug("Requesting NFC connection")
-        try await NFCConnectionManagerWrapper.shared.connect(message: alertMessage, lifetime: lifetime)
+        try await NFCConnectionManagerWrapper.shared.connect(message: alertMessage, didClose: didClose)
     }
 
     /// Creates a new NFC connection to a YubiKey.
@@ -93,7 +93,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Parameter message: The message to display while scanning.
     public func setAlertMessage(_ message: String) async {
         logger.debug("Updating NFC alert message")
-        await NFCConnectionManagerWrapper.shared.set(alertMessage: message, id: lifetime.id)
+        await NFCConnectionManagerWrapper.shared.set(alertMessage: message, didClose: didClose)
     }
 
     /// Closes the NFC connection with an optional error.
@@ -109,10 +109,10 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
                     "errorCode": .stringConvertible((error as NSError).code),
                 ]
             )
-            await NFCConnectionManagerWrapper.shared.stop(id: lifetime.id, with: .failure(error))
+            await NFCConnectionManagerWrapper.shared.stop(didClose: didClose, with: .failure(error))
         } else {
             logger.debug("Closing NFC connection")
-            await NFCConnectionManagerWrapper.shared.stop(id: lifetime.id, with: .success(nil))
+            await NFCConnectionManagerWrapper.shared.stop(didClose: didClose, with: .success(nil))
         }
     }
 
@@ -121,7 +121,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Parameter message: Optional success message to display when closing.
     public func close(message: String? = nil) async {
         logger.debug("Closing NFC connection")
-        await NFCConnectionManagerWrapper.shared.stop(id: lifetime.id, with: .success(message))
+        await NFCConnectionManagerWrapper.shared.stop(didClose: didClose, with: .success(message))
     }
 
     /// Waits for the connection to close and returns any error that caused the closure.
@@ -129,7 +129,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Returns: An error if the connection was closed due to an error, nil otherwise.
     public func waitUntilClosed() async -> Error? {
         logger.debug("Waiting for NFC connection to close")
-        let error = try? await lifetime.didClose.value()
+        let error = try? await didClose.value()
         if let error {
             logger.debug(
                 "NFC connection closed with an error",

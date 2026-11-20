@@ -61,7 +61,7 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
     public let mtu = hidPayloadSize
 
     // Private / Fileprivate
-    private let lifetime = ConnectionLifetime()
+    private let didClose = Promise<Error?>()
     private var locationID: Int { device.locationID }
 
     /// Returns all available YubiKey devices connected via USB HID.
@@ -99,11 +99,11 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
     /// - Throws: ``FIDOConnectionError`` if the device cannot be accessed.
     public init(device: HID.YubiKeyDevice) async throws(FIDOConnectionError) {
         guard !Task.isCancelled else { throw .cancelled }
-        try await HIDConnectionManager.shared.open(device: device, lifetime: lifetime)
+        try await HIDConnectionManager.shared.open(device: device, didClose: didClose)
         if Task.isCancelled {
             await HIDConnectionManager.shared.close(
                 locationID: device.locationID,
-                id: lifetime.id,
+                didClose: didClose,
                 error: FIDOConnectionError.cancelled
             )
             throw .cancelled
@@ -126,7 +126,7 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
     ///
     /// - Parameter error: Optional error that caused the connection to close.
     public func close(error: Error?) async {
-        await HIDConnectionManager.shared.close(locationID: locationID, id: lifetime.id, error: error)
+        await HIDConnectionManager.shared.close(locationID: locationID, didClose: didClose, error: error)
     }
 
     /// Waits for the connection to close.
@@ -134,7 +134,7 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
     /// - Returns: An error if the connection was closed due to an error, or `nil` if closed normally.
     public func waitUntilClosed() async -> Error? {
         logger.debug("Waiting for HID connection to close")
-        let error = try? await lifetime.didClose.value()
+        let error = try? await didClose.value()
         if let error {
             logger.debug(
                 "HID connection closed with an error",
@@ -166,7 +166,7 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
     /// - Parameter packet: The packet data to send (must not exceed ``mtu`` bytes).
     /// - Throws: ``FIDOConnectionError`` if transmission fails.
     public func send(_ packet: Data) async throws(FIDOConnectionError) {
-        try await HIDConnectionManager.shared.sendPacket(packet, to: locationID, id: lifetime.id)
+        try await HIDConnectionManager.shared.sendPacket(packet, to: locationID, didClose: didClose)
     }
 
     /// Receives a FIDO packet from the YubiKey.
@@ -174,7 +174,7 @@ public struct HIDFIDOConnection: Sendable, FIDOConnection {
     /// - Returns: The received packet data (up to ``mtu`` bytes).
     /// - Throws: ``FIDOConnectionError`` if reception fails.
     public func receive() async throws(FIDOConnectionError) -> Data {
-        try await HIDConnectionManager.shared.receivePacket(from: locationID, id: lifetime.id)
+        try await HIDConnectionManager.shared.receivePacket(from: locationID, didClose: didClose)
     }
 }
 

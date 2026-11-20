@@ -23,15 +23,15 @@ final actor SmartCardConnectionsManager {
     private var connections: [USBSmartCard.YubiKeyDevice: State] = [:]
     private var isEstablishing = false
 
-    func close(slot: USBSmartCard.YubiKeyDevice, id: UUID, error: Error?) async {
-        guard let state = connections[slot], state.lifetime.id == id else { return }
+    func close(slot: USBSmartCard.YubiKeyDevice, didClose: Promise<Error?>, error: Error?) async {
+        guard let state = connections[slot], state.didClose === didClose else { return }
         connections[slot] = nil
         state.channel.close(error: error)
-        await state.lifetime.didClose.fulfill(error)
+        await state.didClose.fulfill(error)
     }
 
-    func isConnected(for slot: USBSmartCard.YubiKeyDevice, id: UUID) -> Bool {
-        connections[slot]?.lifetime.id == id
+    func isConnected(for slot: USBSmartCard.YubiKeyDevice, didClose: Promise<Error?>) -> Bool {
+        connections[slot]?.didClose === didClose
     }
 
     func availableDevices(matching: String?) async throws(SmartCardConnectionError) -> [USBSmartCard.YubiKeyDevice] {
@@ -51,7 +51,7 @@ final actor SmartCardConnectionsManager {
 
     func connect(
         slot: USBSmartCard.YubiKeyDevice,
-        lifetime: ConnectionLifetime
+        didClose: Promise<Error?>
     ) async throws(SmartCardConnectionError) -> Data? {
         guard !Task.isCancelled else { throw .cancelled }
         guard try await availableDevices(matching: nil).contains(slot) else { throw .noDevicesFound }
@@ -67,16 +67,16 @@ final actor SmartCardConnectionsManager {
             channel.close(error: nil)
             throw .cancelled
         }
-        connections[slot] = State(channel: channel, lifetime: lifetime)
+        connections[slot] = State(channel: channel, didClose: didClose)
         return Data([0x3b, contactless ? 0x00 : 0xf0])
     }
 
     func transmit(
         request: Data,
         for slot: USBSmartCard.YubiKeyDevice,
-        id: UUID
+        didClose: Promise<Error?>
     ) async throws(SmartCardConnectionError) -> Data {
-        guard let state = connections[slot], state.lifetime.id == id else { throw .connectionLost }
+        guard let state = connections[slot], state.didClose === didClose else { throw .connectionLost }
         do {
             logger.traceRequest(request)
             let response = try await state.channel.send(request)
@@ -91,10 +91,10 @@ final actor SmartCardConnectionsManager {
 
     private final class State {
         let channel: TwinKitSmartCardChannel
-        let lifetime: ConnectionLifetime
-        init(channel: TwinKitSmartCardChannel, lifetime: ConnectionLifetime) {
+        let didClose: Promise<Error?>
+        init(channel: TwinKitSmartCardChannel, didClose: Promise<Error?>) {
             self.channel = channel
-            self.lifetime = lifetime
+            self.didClose = didClose
         }
     }
 }

@@ -23,14 +23,14 @@ actor HIDConnectionManager {
     static let shared = HIDConnectionManager()
 
     private var channel: TwinKitFIDOChannel?
-    private var lifetime: ConnectionLifetime?
+    private var didClose: Promise<Error?>?
     private var opening = false
 
     func availableDevices() async throws(FIDOConnectionError) -> [HID.YubiKeyDevice] {
         TwinKitConfiguration.exposesUSBInterface(0x02) ? [twinHIDDevice] : []
     }
 
-    func open(device: HID.YubiKeyDevice, lifetime: ConnectionLifetime) async throws(FIDOConnectionError) {
+    func open(device: HID.YubiKeyDevice, didClose: Promise<Error?>) async throws(FIDOConnectionError) {
         guard device == twinHIDDevice, TwinKitConfiguration.exposesUSBInterface(0x02) else {
             throw .noDevicesFound
         }
@@ -39,23 +39,24 @@ actor HIDConnectionManager {
         defer { opening = false }
         do {
             channel = try await TwinKitBackend.shared.openFIDO()
-            self.lifetime = lifetime
+            self.didClose = didClose
         } catch {
             throw .setupFailed("Could not open TwinKit FIDO HID", error)
         }
     }
 
-    func close(locationID: Int, id: UUID, error: Error?) async {
-        guard locationID == twinHIDDevice.locationID, lifetime?.id == id, let channel else { return }
-        let didClose = lifetime?.didClose
+    func close(locationID: Int, didClose: Promise<Error?>, error: Error?) async {
+        guard locationID == twinHIDDevice.locationID, self.didClose === didClose, let channel else { return }
         self.channel = nil
-        self.lifetime = nil
+        self.didClose = nil
         channel.close(error: error)
-        await didClose?.fulfill(error)
+        await didClose.fulfill(error)
     }
 
-    func sendPacket(_ packet: Data, to locationID: Int, id: UUID) async throws(FIDOConnectionError) {
-        guard locationID == twinHIDDevice.locationID, lifetime?.id == id, let channel else { throw .connectionLost }
+    func sendPacket(_ packet: Data, to locationID: Int, didClose: Promise<Error?>) async throws(FIDOConnectionError) {
+        guard locationID == twinHIDDevice.locationID, self.didClose === didClose, let channel else {
+            throw .connectionLost
+        }
         guard packet.count <= hidPayloadSize else { throw .transmitFailed("HID packet exceeds report size") }
         let report = packet + Data(repeating: 0, count: hidPayloadSize - packet.count)
         do {
@@ -67,8 +68,10 @@ actor HIDConnectionManager {
         }
     }
 
-    func receivePacket(from locationID: Int, id: UUID) async throws(FIDOConnectionError) -> Data {
-        guard locationID == twinHIDDevice.locationID, lifetime?.id == id, let channel else { throw .connectionLost }
+    func receivePacket(from locationID: Int, didClose: Promise<Error?>) async throws(FIDOConnectionError) -> Data {
+        guard locationID == twinHIDDevice.locationID, self.didClose === didClose, let channel else {
+            throw .connectionLost
+        }
         do {
             return try await channel.receive()
         } catch TwinKitSupportError.connectionLost {
@@ -83,7 +86,6 @@ actor HIDOTPConnectionManager {
     static let shared = HIDOTPConnectionManager()
 
     private struct Connection {
-        let id: UUID
         let channel: TwinKitKeyboardChannel
         let didClose: Promise<Error?>
     }
@@ -94,30 +96,32 @@ actor HIDOTPConnectionManager {
         TwinKitConfiguration.exposesUSBInterface(0x01) ? [twinHIDDevice] : []
     }
 
-    func open(device: HID.YubiKeyDevice, didClose: Promise<Error?>) async throws(OTPConnectionError) -> UUID {
+    func open(device: HID.YubiKeyDevice, didClose: Promise<Error?>) async throws(OTPConnectionError) {
         guard device == twinHIDDevice, !availableDevices().isEmpty else { throw .noDevicesFound }
         guard connection == nil, !opening else { throw .busy }
         opening = true
         defer { opening = false }
         do {
             let channel = try await TwinKitBackend.shared.openKeyboard()
-            let id = UUID()
-            connection = Connection(id: id, channel: channel, didClose: didClose)
-            return id
+            connection = Connection(channel: channel, didClose: didClose)
         } catch {
             throw .setupFailed("Could not open TwinKit keyboard HID", error)
         }
     }
 
-    func close(locationID: Int, id: UUID, error: Error?) async {
-        guard locationID == twinHIDDevice.locationID, let connection, connection.id == id else { return }
+    func close(locationID: Int, didClose: Promise<Error?>, error: Error?) async {
+        guard locationID == twinHIDDevice.locationID, let connection, connection.didClose === didClose else { return }
         self.connection = nil
         connection.channel.close(error: error)
         await connection.didClose.fulfill(error)
     }
 
-    func setFeatureReport(_ report: Data, to locationID: Int, id: UUID) async throws(OTPConnectionError) {
-        let channel = try channel(locationID: locationID, id: id)
+    func setFeatureReport(
+        _ report: Data,
+        to locationID: Int,
+        didClose: Promise<Error?>
+    ) async throws(OTPConnectionError) {
+        let channel = try channel(locationID: locationID, didClose: didClose)
         do {
             try await channel.send(report)
         } catch TwinKitSupportError.connectionLost {
@@ -127,8 +131,8 @@ actor HIDOTPConnectionManager {
         }
     }
 
-    func getFeatureReport(from locationID: Int, id: UUID) async throws(OTPConnectionError) -> Data {
-        let channel = try channel(locationID: locationID, id: id)
+    func getFeatureReport(from locationID: Int, didClose: Promise<Error?>) async throws(OTPConnectionError) -> Data {
+        let channel = try channel(locationID: locationID, didClose: didClose)
         do {
             return try await channel.receive()
         } catch TwinKitSupportError.connectionLost {
@@ -138,8 +142,13 @@ actor HIDOTPConnectionManager {
         }
     }
 
-    private func channel(locationID: Int, id: UUID) throws(OTPConnectionError) -> TwinKitKeyboardChannel {
-        guard locationID == twinHIDDevice.locationID, let connection, connection.id == id else { throw .connectionLost }
+    private func channel(
+        locationID: Int,
+        didClose: Promise<Error?>
+    ) throws(OTPConnectionError) -> TwinKitKeyboardChannel {
+        guard locationID == twinHIDDevice.locationID, let connection, connection.didClose === didClose else {
+            throw .connectionLost
+        }
         return connection.channel
     }
 }

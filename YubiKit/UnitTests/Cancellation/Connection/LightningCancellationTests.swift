@@ -49,9 +49,9 @@ struct LightningCancellationTests {
         connectionAttempt.cancel()
         try await accessoryManager.stopMonitoringStarted.value()
 
-        let late = ConnectionLifetime()
-        await manager.accessoryDidConnect(late)
-        #expect(await accessoryManager.cleanedConnectionIDs == [late.id])
+        let late = Promise<Error?>()
+        await manager.accessoryDidConnect(didClose: late)
+        #expect(await accessoryManager.cleanedConnectionIDs == [ObjectIdentifier(late)])
 
         do {
             _ = try await manager.connect()
@@ -70,29 +70,29 @@ struct LightningCancellationTests {
             Issue.record("Unexpected connection error: \(error)")
         }
 
-        let next = ConnectionLifetime()
-        await accessoryManager.connectOnNextMonitoring(manager, lifetime: next)
-        #expect(try await manager.connect().id == next.id)
+        let next = Promise<Error?>()
+        await accessoryManager.connectOnNextMonitoring(manager, didClose: next)
+        #expect(try await manager.connect().didClose === next)
     }
 
     @Test("Closing an old Lightning handle leaves its replacement open")
     func staleClose() async throws {
         let accessory = BlockingLightningAccessoryManager()
         let manager = LightningConnectionManager(accessoryManager: accessory)
-        let first = ConnectionLifetime()
-        await accessory.connectOnNextMonitoring(manager, lifetime: first)
+        let first = Promise<Error?>()
+        await accessory.connectOnNextMonitoring(manager, didClose: first)
         _ = try await manager.connect()
         await accessory.finishStoppingMonitoring()
-        await manager.close(id: first.id, error: nil)
+        await manager.close(didClose: first, error: nil)
 
-        let next = ConnectionLifetime()
-        await accessory.connectOnNextMonitoring(manager, lifetime: next)
+        let next = Promise<Error?>()
+        await accessory.connectOnNextMonitoring(manager, didClose: next)
         _ = try await manager.connect()
-        await manager.close(id: first.id, error: nil)
-        await manager.accessoryDidDisconnect(id: first.id)
-        #expect(await accessory.cleanedConnectionIDs == [first.id])
-        await manager.close(id: next.id, error: nil)
-        #expect(await accessory.cleanedConnectionIDs == [first.id, next.id])
+        await manager.close(didClose: first, error: nil)
+        await manager.accessoryDidDisconnect(didClose: first)
+        #expect(await accessory.cleanedConnectionIDs == [ObjectIdentifier(first)])
+        await manager.close(didClose: next, error: nil)
+        #expect(await accessory.cleanedConnectionIDs == [ObjectIdentifier(first), ObjectIdentifier(next)])
     }
 }
 
@@ -101,7 +101,7 @@ private actor BlockingLightningAccessoryManager: LightningAccessoryManaging {
     let stopMonitoringStarted = Promise<Void>()
     private let finishStopMonitoring = Promise<Void>()
 
-    private(set) var cleanedConnectionIDs: [UUID] = []
+    private(set) var cleanedConnectionIDs: [ObjectIdentifier] = []
     private(set) var connectToCurrentDevicesCount = 0
     private(set) var startMonitoringCount = 0
     private var onNextMonitoring: (@Sendable () async -> Void)?
@@ -121,8 +121,8 @@ private actor BlockingLightningAccessoryManager: LightningAccessoryManaging {
         }
     }
 
-    func connectOnNextMonitoring(_ manager: LightningConnectionManager, lifetime: ConnectionLifetime) {
-        onNextMonitoring = { await manager.accessoryDidConnect(lifetime) }
+    func connectOnNextMonitoring(_ manager: LightningConnectionManager, didClose: Promise<Error?>) {
+        onNextMonitoring = { await manager.accessoryDidConnect(didClose: didClose) }
     }
 
     func stopMonitoring() async {
@@ -134,11 +134,11 @@ private actor BlockingLightningAccessoryManager: LightningAccessoryManaging {
         await finishStopMonitoring.fulfill(())
     }
 
-    func cleanupConnection(id: UUID) async {
-        cleanedConnectionIDs.append(id)
+    func cleanupConnection(didClose: Promise<Error?>) async {
+        cleanedConnectionIDs.append(ObjectIdentifier(didClose))
     }
 
-    func transmit(id: UUID, data: Data) async throws(SmartCardConnectionError) -> Data {
+    func transmit(didClose: Promise<Error?>, data: Data) async throws(SmartCardConnectionError) -> Data {
         throw .connectionLost
     }
 }
