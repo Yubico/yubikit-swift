@@ -249,7 +249,9 @@ extension OATHSession {
             else {
                 return nil
             }
-            let stringCode = String(format: "%0\(digits)d", UInt(UInt32(bigEndian: rawCode)))
+            let binaryCode = UInt32(bigEndian: rawCode) & 0x7fff_ffff
+            let paddedCode = String(format: "%0*u", Int32(digits), binaryCode)
+            let stringCode = String(paddedCode.suffix(Int(digits)))
             self.init(code: stringCode, timestamp: timestamp, credentialType: credentialType)
         }
 
