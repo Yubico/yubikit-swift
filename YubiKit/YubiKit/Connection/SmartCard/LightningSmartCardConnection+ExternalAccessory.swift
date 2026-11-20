@@ -26,8 +26,8 @@ protocol LightningAccessoryManaging: Sendable {
     func connectToCurrentDevices() async
     func startMonitoring() async
     func stopMonitoring() async
-    func cleanupConnection(id: LightningConnectionID) async
-    func transmit(id: LightningConnectionID, data: Data) async throws(SmartCardConnectionError) -> Data
+    func cleanupConnection(didClose: Promise<Error?>) async
+    func transmit(didClose: Promise<Error?>, data: Data) async throws(SmartCardConnectionError) -> Data
 }
 
 actor LightningConnectionManager {
@@ -35,28 +35,29 @@ actor LightningConnectionManager {
     static let shared = LightningConnectionManager(accessoryManager: EAAccessoryWrapper.shared)
 
     private let accessoryManager: any LightningAccessoryManaging
-    private var pendingConnectionPromise: Promise<LightningConnectionID>?
-    private var connectionState: (connectionID: LightningConnectionID, didCloseConnection: (Promise<Error?>))?
-    private var isCleaningUpConnectionAttempt = false
+    private var pendingConnectionPromise: Promise<LightningSmartCardConnection>?
+    private var connectionState: LightningSmartCardConnection?
+    // Close and failed setup each block the next open until their accessory cleanup finishes.
+    private var isCleaningUp = false
 
     init(accessoryManager: any LightningAccessoryManaging) {
         self.accessoryManager = accessoryManager
     }
 
-    func connect() async throws(SmartCardConnectionError) -> LightningConnectionID {
+    func connect() async throws(SmartCardConnectionError) -> LightningSmartCardConnection {
         guard !Task.isCancelled else { throw SmartCardConnectionError.cancelled }
 
         // If there is already a connection the caller must close the connection first.
-        if connectionState != nil || pendingConnectionPromise != nil || isCleaningUpConnectionAttempt {
+        if connectionState != nil || pendingConnectionPromise != nil || isCleaningUp {
             logger.debug("Lightning connection is already active or pending")
             throw SmartCardConnectionError.busy
         }
 
-        let connectionPromise: Promise<LightningConnectionID> = .init()
+        let connectionPromise: Promise<LightningSmartCardConnection> = .init()
         pendingConnectionPromise = connectionPromise
 
         // Otherwise, create and store a new connection task.
-        let task = Task { () -> LightningConnectionID in
+        let task = Task { () -> LightningSmartCardConnection in
             logger.debug("Waiting for a Lightning accessory")
 
             do {
@@ -84,14 +85,14 @@ actor LightningConnectionManager {
                 let state = self.connectionState
                 self.connectionState = nil
                 self.pendingConnectionPromise = nil
-                self.isCleaningUpConnectionAttempt = true
+                self.isCleaningUp = true
 
                 if let state {
-                    await accessoryManager.cleanupConnection(id: state.connectionID)
-                    await state.didCloseConnection.fulfill(error)
+                    await accessoryManager.cleanupConnection(didClose: state.didClose)
+                    await state.didClose.fulfill(error)
                 }
                 await accessoryManager.stopMonitoring()
-                self.isCleaningUpConnectionAttempt = false
+                self.isCleaningUp = false
                 throw error
             }
         }
@@ -108,75 +109,63 @@ actor LightningConnectionManager {
         }
     }
 
-    private func cancelPendingConnection(_ promise: Promise<LightningConnectionID>) async {
+    private func cancelPendingConnection(_ promise: Promise<LightningSmartCardConnection>) async {
         guard pendingConnectionPromise === promise, connectionState == nil else { return }
         await promise.cancel(with: SmartCardConnectionError.cancelled)
     }
 
     func transmit(
         request: Data,
-        for connection: LightningSmartCardConnection
+        didClose: Promise<Error?>
     ) async throws(SmartCardConnectionError) -> Data {
-        let connectionID = connection.accessoryConnectionID
-
-        guard let state = connectionState,
-            state.connectionID == connectionID
-        else {
+        guard connectionState?.didClose === didClose else {
             logger.debug("Cannot send on a closed Lightning connection")
             throw SmartCardConnectionError.connectionLost
         }
 
-        return try await accessoryManager.transmit(id: connectionID, data: request)
+        return try await accessoryManager.transmit(didClose: didClose, data: request)
     }
 
-    func close(for connection: LightningSmartCardConnection, error: Error?) async {
-        guard let state = connectionState,
-            state.connectionID == connection.accessoryConnectionID
-        else { return }
+    func close(didClose: Promise<Error?>, error: Error?) async {
+        guard let state = connectionState, state.didClose === didClose else { return }
 
-        await accessoryManager.stopMonitoring()
-        await accessoryManager.cleanupConnection(id: state.connectionID)
-        await state.didCloseConnection.fulfill(error)
         connectionState = nil
-    }
-
-    func didClose(for connection: LightningSmartCardConnection) async -> Error? {
-        guard let state = connectionState,
-            state.connectionID == connection.accessoryConnectionID
-        else { return nil }
-
-        return try? await state.didCloseConnection.value()
+        isCleaningUp = true
+        await accessoryManager.stopMonitoring()
+        await accessoryManager.cleanupConnection(didClose: state.didClose)
+        await state.didClose.fulfill(error)
+        isCleaningUp = false
     }
 
     // Called by EAAccessoryWrapper when an accessory connects
-    func accessoryDidConnect(connectionID: LightningConnectionID) async {
+    func accessoryDidConnect(didClose: Promise<Error?>) async {
         logger.debug("Lightning accessory connected")
-        guard let promise = pendingConnectionPromise else {
-            if connectionState?.connectionID != connectionID {
-                await accessoryManager.cleanupConnection(id: connectionID)
+        guard let promise = pendingConnectionPromise, connectionState == nil else {
+            if connectionState?.didClose !== didClose {
+                await accessoryManager.cleanupConnection(didClose: didClose)
             }
             return
         }
 
-        connectionState = (connectionID: connectionID, didCloseConnection: Promise<Error?>())
-        await promise.fulfill(connectionID)
+        let connection = LightningSmartCardConnection(didClose: didClose)
+        connectionState = connection
+        await promise.fulfill(connection)
     }
 
     // Called by EAAccessoryWrapper when an accessory disconnects
-    func accessoryDidDisconnect(connectionID: LightningConnectionID) async {
+    func accessoryDidDisconnect(didClose: Promise<Error?>) async {
         logger.debug("Lightning accessory disconnected")
 
-        // If a connection attempt is in progress, fail it.
+        guard let state = connectionState else {
+            await pendingConnectionPromise?.cancel(with: SmartCardConnectionError.connectionLost)
+            return
+        }
+        guard state.didClose === didClose else { return }
+        connectionState = nil
         if let promise = pendingConnectionPromise {
             await promise.cancel(with: SmartCardConnectionError.connectionLost)
         }
-
-        guard let state = connectionState,
-            state.connectionID == connectionID
-        else { return }
-
-        await state.didCloseConnection.fulfill(nil)
-        connectionState = nil
+        await state.didClose.fulfill(nil)
     }
 }
 
@@ -186,30 +175,42 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate, LightningAccessoryMa
     private override init() {}
 
     private let manager = EAAccessoryManager.shared()
-    private var sessions: [LightningConnectionID: EASession] = [:]
+    private struct Session {
+        let didClose = Promise<Error?>()
+        let accessory: EAAccessory
+        let session: EASession
+    }
+
+    private var sessions: [ObjectIdentifier: Session] = [:]
     private var connectObserver: NSObjectProtocol?
     private var disconnectObserver: NSObjectProtocol?
 
-    func setupConnection(id: LightningConnectionID, session: EASession) async {
-        logger.debug("Opening Lightning session")
+    private func setupConnection(for accessory: EAAccessory) async {
+        guard !sessions.values.contains(where: { $0.accessory.connectionID == accessory.connectionID }) else { return }
+        guard let session = EASession(accessory: accessory, forProtocol: "com.yubico.ylp") else { return }
+        let state = Session(accessory: accessory, session: session)
+        sessions[ObjectIdentifier(state.didClose)] = state
         session.open()
-        // Give streams time to stabilize
+        // Give streams time to stabilize.
         try? await Task.sleep(for: .milliseconds(100))
+        guard sessions[ObjectIdentifier(state.didClose)] != nil else { return }
         session.outputStream?.delegate = self
         session.inputStream?.delegate = self
-
-        sessions[id] = session
+        await LightningConnectionManager.shared.accessoryDidConnect(didClose: state.didClose)
     }
 
-    func cleanupConnection(id: LightningConnectionID) {
-        logger.debug("Closing Lightning session")
-        guard let session = sessions[id] else { return }
+    func cleanupConnection(didClose: Promise<Error?>) {
+        guard let state = sessions.removeValue(forKey: ObjectIdentifier(didClose)) else { return }
+        state.session.close()
+        state.session.outputStream?.delegate = nil
+        state.session.inputStream?.delegate = nil
+    }
 
-        session.close()
-        session.outputStream?.delegate = nil
-        session.inputStream?.delegate = nil
-
-        sessions[id] = nil
+    private func disconnect(_ accessory: EAAccessory) async {
+        guard let state = sessions.values.first(where: { $0.accessory.connectionID == accessory.connectionID })
+        else { return }
+        cleanupConnection(didClose: state.didClose)
+        await LightningConnectionManager.shared.accessoryDidDisconnect(didClose: state.didClose)
     }
 
     func getConnectedYubiKeys() -> [EAAccessory] {
@@ -217,21 +218,8 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate, LightningAccessoryMa
     }
 
     func connectToCurrentDevices() async {
-        // Check for already-connected YubiKeys
-        let connectedYubiKeys = getConnectedYubiKeys()
-        if let connectedKey = connectedYubiKeys.first {
-
-            let connectionID: LightningConnectionID = connectedKey.connectionID
-
-            // Check if we already have a session for this accessory
-            if let _ = sessions[connectionID] {
-                // Reuse existing session
-                await LightningConnectionManager.shared.accessoryDidConnect(connectionID: connectionID)
-            } else if let session = EASession(accessory: connectedKey, forProtocol: "com.yubico.ylp") {
-                // Create new session for this accessory
-                await setupConnection(id: connectionID, session: session)
-                await LightningConnectionManager.shared.accessoryDidConnect(connectionID: connectionID)
-            }
+        if let accessory = getConnectedYubiKeys().first {
+            await setupConnection(for: accessory)
         }
     }
 
@@ -246,16 +234,9 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate, LightningAccessoryMa
             queue: nil
         ) { notification in
             guard let accessory = notification.userInfo?[EAAccessoryKey] as? EAAccessory,
-                accessory.isYubiKey,
-                let session = EASession(accessory: accessory, forProtocol: "com.yubico.ylp")
+                accessory.isYubiKey
             else { return }
-
-            let connectionID: LightningConnectionID = accessory.connectionID
-
-            Task {
-                await EAAccessoryWrapper.shared.setupConnection(id: connectionID, session: session)
-                await LightningConnectionManager.shared.accessoryDidConnect(connectionID: connectionID)
-            }
+            Task { await EAAccessoryWrapper.shared.setupConnection(for: accessory) }
         }
 
         disconnectObserver = NotificationCenter.default.addObserver(
@@ -267,12 +248,7 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate, LightningAccessoryMa
                 accessory.isYubiKey
             else { return }
 
-            let connectionID: LightningConnectionID = accessory.connectionID
-
-            Task {
-                await EAAccessoryWrapper.shared.cleanupConnection(id: connectionID)
-                await LightningConnectionManager.shared.accessoryDidDisconnect(connectionID: connectionID)
-            }
+            Task { await EAAccessoryWrapper.shared.disconnect(accessory) }
         }
 
         EAAccessoryManager.shared().registerForLocalNotifications()
@@ -291,8 +267,8 @@ private actor EAAccessoryWrapper: NSObject, StreamDelegate, LightningAccessoryMa
         EAAccessoryManager.shared().unregisterForLocalNotifications()
     }
 
-    func transmit(id: LightningConnectionID, data: Data) async throws(SmartCardConnectionError) -> Data {
-        guard let session = sessions[id],
+    func transmit(didClose: Promise<Error?>, data: Data) async throws(SmartCardConnectionError) -> Data {
+        guard let session = sessions[ObjectIdentifier(didClose)]?.session,
             let inputStream = session.inputStream,
             let outputStream = session.outputStream
         else { throw SmartCardConnectionError.connectionLost }
