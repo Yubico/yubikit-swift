@@ -123,6 +123,7 @@ struct ChangePINPanel: View {
     }
 }
 
+#if DEBUG
 #Preview("Change PIN") {
     FidoUI.PanelView(
         model: .preview(
@@ -131,3 +132,4 @@ struct ChangePINPanel: View {
     )
     .fidoAlertChrome()
 }
+#endif

@@ -137,6 +137,7 @@ struct TouchPromptPanel: View {
     }
 }
 
+#if DEBUG
 #Preview("Waiting for Key") {
     FidoUI.PanelView(model: .preview(.waitingForKey(onCancel: {})))
         .fidoAlertChrome()
@@ -156,3 +157,4 @@ struct TouchPromptPanel: View {
     FidoUI.PanelView(model: .preview(.touch(onCancel: {})))
         .fidoAlertChrome()
 }
+#endif

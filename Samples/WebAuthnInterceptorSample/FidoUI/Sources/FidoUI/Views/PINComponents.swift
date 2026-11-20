@@ -90,6 +90,7 @@ struct PINConfirmationPanel: View {
     }
 }
 
+#if DEBUG
 #Preview("PIN Created") {
     FidoUI.PanelView(
         model: .preview(.pinCreated(onContinue: {}))
@@ -103,3 +104,4 @@ struct PINConfirmationPanel: View {
     )
     .fidoAlertChrome()
 }
+#endif

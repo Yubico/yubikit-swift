@@ -98,6 +98,7 @@ struct CreatePINPanel: View {
     }
 }
 
+#if DEBUG
 #Preview("Create PIN") {
     FidoUI.PanelView(
         model: .preview(
@@ -119,3 +120,4 @@ struct CreatePINPanel: View {
     )
     .fidoAlertChrome()
 }
+#endif
