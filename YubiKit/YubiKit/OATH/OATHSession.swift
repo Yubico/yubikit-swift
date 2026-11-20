@@ -448,13 +448,13 @@ public final actor OATHSession: SmartCardSessionInternal {
 
             // A full code is exactly 5 bytes: a digit-count byte plus a 4-byte truncated code.
             let code: Code?
-            if response.value.count == 5 {
-                if case .totp(let period) = credentialType, !oathValidPeriod(period) {
+            if case .totp(let period) = credentialType, response.value.count == 5 {
+                if !oathValidPeriod(period) {
                     code = nil
-                } else if credentialId.period != oathDefaultPeriod {
+                } else if period != oathDefaultPeriod {
                     logger.debug(
                         "Recalculating code",
-                        metadata: ["period": .stringConvertible(credentialId.period ?? oathDefaultPeriod)]
+                        metadata: ["period": .stringConvertible(period)]
                     )
                     code = try await self.calculateCredentialCode(for: credential, timestamp: timestamp)
                 } else {
