@@ -20,7 +20,7 @@ import Logging
 /// A connection to the YubiKey utilizing the Lightning port and External Accessory framework.
 @available(iOS 16.0, *)
 public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
-    let accessoryConnectionID: LightningConnectionID
+    let lifetime: ConnectionLifetime
 
     /// Creates a new Lightning connection to a YubiKey.
     ///
@@ -28,7 +28,7 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
     ///
     /// - Throws: ``SmartCardConnectionError.busy`` if there is already an active connection.
     public init() async throws(SmartCardConnectionError) {
-        accessoryConnectionID = try await LightningConnectionManager.shared.connect()
+        lifetime = try await LightningConnectionManager.shared.connect()
     }
 
     /// Creates a connection to a YubiKey via Lightning port.
@@ -55,12 +55,12 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
         } else {
             logger.debug("Closing Lightning connection")
         }
-        await LightningConnectionManager.shared.close(for: self, error: error)
+        await LightningConnectionManager.shared.close(id: lifetime.id, error: error)
     }
 
     public func waitUntilClosed() async -> Error? {
         logger.debug("Waiting for Lightning connection to close")
-        let error = await LightningConnectionManager.shared.didClose(for: self)
+        let error = try? await lifetime.didClose.value()
         if let error {
             logger.debug(
                 "Lightning connection closed with an error",
@@ -81,7 +81,7 @@ public struct LightningSmartCardConnection: SmartCardConnection, Sendable {
         let commands = data.lightningCommands
         var response = Data()
         for (index, command) in commands.enumerated() {
-            response = try await LightningConnectionManager.shared.transmit(request: command, for: self)
+            response = try await LightningConnectionManager.shared.transmit(request: command, id: lifetime.id)
             // A chained part is acknowledged with 9000; anything else ends the command early.
             if index < commands.count - 1, response.suffix(2) != Data([0x90, 0x00]) { break }
         }
@@ -102,8 +102,6 @@ extension SmartCardConnection {
 
 extension LightningSmartCardConnection: HasLightningLogger {}
 extension LightningConnectionManager: HasLightningLogger {}
-
-typealias LightningConnectionID = Int
 
 // MARK: - Command chaining
 

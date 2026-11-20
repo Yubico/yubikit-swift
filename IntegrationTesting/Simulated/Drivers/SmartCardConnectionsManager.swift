@@ -23,19 +23,15 @@ final actor SmartCardConnectionsManager {
     private var connections: [USBSmartCard.YubiKeyDevice: State] = [:]
     private var isEstablishing = false
 
-    func didClose(for slot: USBSmartCard.YubiKeyDevice) throws(SmartCardConnectionError) -> Promise<Error?> {
-        guard let state = connections[slot] else { throw .connectionLost }
-        return state.didClose
-    }
-
-    func close(slot: USBSmartCard.YubiKeyDevice, error: Error?) async {
-        guard let state = connections.removeValue(forKey: slot) else { return }
+    func close(slot: USBSmartCard.YubiKeyDevice, id: UUID, error: Error?) async {
+        guard let state = connections[slot], state.lifetime.id == id else { return }
+        connections[slot] = nil
         state.channel.close(error: error)
-        await state.didClose.fulfill(error)
+        await state.lifetime.didClose.fulfill(error)
     }
 
-    func isConnected(for slot: USBSmartCard.YubiKeyDevice) -> Bool {
-        connections[slot] != nil
+    func isConnected(for slot: USBSmartCard.YubiKeyDevice, id: UUID) -> Bool {
+        connections[slot]?.lifetime.id == id
     }
 
     func availableDevices(matching: String?) async throws(SmartCardConnectionError) -> [USBSmartCard.YubiKeyDevice] {
@@ -53,7 +49,10 @@ final actor SmartCardConnectionsManager {
         return slots.filter { $0.name.localizedCaseInsensitiveContains(matching) }
     }
 
-    func connect(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) -> Data? {
+    func connect(
+        slot: USBSmartCard.YubiKeyDevice,
+        lifetime: ConnectionLifetime
+    ) async throws(SmartCardConnectionError) -> Data? {
         guard !Task.isCancelled else { throw .cancelled }
         guard try await availableDevices(matching: nil).contains(slot) else { throw .noDevicesFound }
         let contactless = slot == Self.contactlessSlot
@@ -68,12 +67,16 @@ final actor SmartCardConnectionsManager {
             channel.close(error: nil)
             throw .cancelled
         }
-        connections[slot] = State(channel: channel)
+        connections[slot] = State(channel: channel, lifetime: lifetime)
         return Data([0x3b, contactless ? 0x00 : 0xf0])
     }
 
-    func transmit(request: Data, for slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) -> Data {
-        guard let state = connections[slot] else { throw .connectionLost }
+    func transmit(
+        request: Data,
+        for slot: USBSmartCard.YubiKeyDevice,
+        id: UUID
+    ) async throws(SmartCardConnectionError) -> Data {
+        guard let state = connections[slot], state.lifetime.id == id else { throw .connectionLost }
         do {
             logger.traceRequest(request)
             let response = try await state.channel.send(request)
@@ -88,7 +91,10 @@ final actor SmartCardConnectionsManager {
 
     private final class State {
         let channel: TwinKitSmartCardChannel
-        let didClose = Promise<Error?>()
-        init(channel: TwinKitSmartCardChannel) { self.channel = channel }
+        let lifetime: ConnectionLifetime
+        init(channel: TwinKitSmartCardChannel, lifetime: ConnectionLifetime) {
+            self.channel = channel
+            self.lifetime = lifetime
+        }
     }
 }

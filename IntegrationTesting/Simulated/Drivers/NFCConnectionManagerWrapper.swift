@@ -23,11 +23,11 @@ actor NFCConnectionManagerWrapper {
     private var isEstablishing = false
 
     private struct State {
-        let identifier: ISO7816Identifier
+        let lifetime: ConnectionLifetime
         let channel: TwinKitSmartCardChannel
     }
 
-    func connect(message: String?) async throws(SmartCardConnectionError) -> ISO7816Identifier {
+    func connect(message: String?, lifetime: ConnectionLifetime) async throws(SmartCardConnectionError) {
         guard !Task.isCancelled else { throw .cancelled }
         guard TwinKitConfiguration.hasNFCReader else { throw .unsupported }
         guard active == nil, !isEstablishing else { throw .busy }
@@ -44,17 +44,19 @@ actor NFCConnectionManagerWrapper {
             channel.close(error: nil)
             throw .cancelled
         }
-        let identifier = ISO7816Identifier(Data(UUID().uuidString.utf8))
-        active = State(identifier: identifier, channel: channel)
-        return identifier
+        active = State(lifetime: lifetime, channel: channel)
+        Task {
+            let error = await channel.waitUntilClosed()
+            await lifetime.didClose.fulfill(error)
+        }
     }
 
     func transmit(request: Data, for connection: NFCSmartCardConnection) async throws(SmartCardConnectionError) -> Data
     {
-        guard let state = active, state.identifier == connection.tag else { throw .connectionLost }
+        guard let state = active, state.lifetime.id == connection.lifetime.id else { throw .connectionLost }
         do {
             let response = try await state.channel.send(request)
-            guard active?.identifier == state.identifier else { throw SmartCardConnectionError.connectionLost }
+            guard active?.lifetime.id == state.lifetime.id else { throw SmartCardConnectionError.connectionLost }
             return response
         } catch let error as SmartCardConnectionError {
             throw error
@@ -65,13 +67,8 @@ actor NFCConnectionManagerWrapper {
         }
     }
 
-    func didClose(for connection: NFCSmartCardConnection) async throws {
-        guard let state = active, state.identifier == connection.tag else { return }
-        if let error = await state.channel.waitUntilClosed() { throw error }
-    }
-
-    func stop(with result: Result<String?, Error>) {
-        guard let state = active else { return }
+    func stop(id: UUID, with result: Result<String?, Error>) {
+        guard let state = active, state.lifetime.id == id else { return }
         active = nil
         switch result {
         case .success: state.channel.close(error: nil)
@@ -80,7 +77,7 @@ actor NFCConnectionManagerWrapper {
     }
 
     // The transport accepts message changes; only CoreNFC owns the native sheet.
-    func set(alertMessage: String) {}
+    func set(alertMessage: String, id: UUID) {}
 }
 
 #endif

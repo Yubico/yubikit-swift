@@ -18,10 +18,6 @@ import Foundation
 @preconcurrency import CoreNFC
 import Logging
 
-extension NFCISO7816Tag {
-    private typealias Identifier = ISO7816Identifier
-}
-
 // MARK: - NFCConnectionManagerWrapper
 
 // Actor wrapper that bridges async/await to the serial queue-based NFCConnectionManager
@@ -32,16 +28,6 @@ actor NFCConnectionManagerWrapper {
 
     private init() {
         nfcStateManager = NFCConnectionManager(nfcQueue: queue)
-    }
-
-    func didClose(for connection: NFCSmartCardConnection) async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            queue.async {
-                self.nfcStateManager.didClose(for: connection) { result in
-                    continuation.resume(with: result)
-                }
-            }
-        }
     }
 
     func transmit(request: Data, for connection: NFCSmartCardConnection) async throws(SmartCardConnectionError) -> Data
@@ -60,20 +46,20 @@ actor NFCConnectionManagerWrapper {
         }
     }
 
-    func stop(with result: Result<String?, Error>) async {
+    func stop(id: UUID, with result: Result<String?, Error>) async {
         await withCheckedContinuation { continuation in
             queue.async {
-                self.nfcStateManager.stop(with: result) {
+                self.nfcStateManager.stop(id: id, with: result) {
                     continuation.resume()
                 }
             }
         }
     }
 
-    func connect(message alertMessage: String?) async throws(SmartCardConnectionError) -> ISO7816Identifier {
+    func connect(message alertMessage: String?, lifetime: ConnectionLifetime) async throws(SmartCardConnectionError) {
         let queue = self.queue
         let manager = self.nfcStateManager
-        let request = NFCConnectRequest()
+        let request = NFCConnectRequest(lifetime: lifetime)
         do {
             try Task.checkCancellation()
             return try await withTaskCancellationHandler {
@@ -103,20 +89,24 @@ actor NFCConnectionManagerWrapper {
         }
     }
 
-    func set(alertMessage: String) {
+    func set(alertMessage: String, id: UUID) {
         queue.async {
-            self.nfcStateManager.set(alertMessage: alertMessage)
+            self.nfcStateManager.set(alertMessage: alertMessage, id: id)
         }
     }
 }
 
 // Accessed only on the NFC manager queue.
 private final class NFCConnectRequest: @unchecked Sendable {
-    private var continuation: CheckedContinuation<ISO7816Identifier, Error>?
+    let lifetime: ConnectionLifetime
+
+    init(lifetime: ConnectionLifetime) { self.lifetime = lifetime }
+
+    private var continuation: CheckedContinuation<Void, Error>?
     private(set) var isCancelled = false
     private var isComplete = false
 
-    func install(_ continuation: CheckedContinuation<ISO7816Identifier, Error>) {
+    func install(_ continuation: CheckedContinuation<Void, Error>) {
         self.continuation = continuation
         if isCancelled { complete(.failure(SmartCardConnectionError.cancelled)) }
     }
@@ -126,7 +116,7 @@ private final class NFCConnectRequest: @unchecked Sendable {
         complete(.failure(SmartCardConnectionError.cancelled))
     }
 
-    func complete(_ result: Result<ISO7816Identifier, Error>) {
+    func complete(_ result: Result<Void, Error>) {
         guard !isComplete, let continuation else { return }
         isComplete = true
         self.continuation = nil
@@ -156,33 +146,11 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         self.nfcQueue = nfcQueue
     }
 
-    func set(alertMessage: String) {
+    func set(alertMessage: String, id: UUID) {
+        guard currentState.lifetime?.id == id, let session = currentState.session else { return }
         // alertMessage affects the system NFC UI and must be updated on main thread
         Task { @MainActor in
-            currentState.session?.alertMessage = alertMessage
-        }
-    }
-
-    func didClose(for connection: NFCSmartCardConnection, completion: @escaping @Sendable (Result<Void, Error>) -> Void)
-    {
-
-        switch currentState.phase {
-        case .inactive, .scanning, .stopping:
-            completion(.success(()))
-        case .connected:
-            guard let tag = currentState.tag, connection.tag == .init(tag.identifier) else {
-                completion(.success(()))
-                return
-            }
-
-            // Add callback for when the connection closes
-            currentState.didCloseCallback = { error in
-                if let error = error {
-                    completion(.failure(error))
-                } else {
-                    completion(.success(()))
-                }
-            }
+            session.alertMessage = alertMessage
         }
     }
 
@@ -192,7 +160,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         completion: @escaping @Sendable (Result<Data, Error>) -> Void
     ) {
         guard let tag = currentState.tag,
-            connection.tag == .init(tag.identifier)
+            currentState.lifetime?.id == connection.lifetime.id
         else {
             logger.debug("Cannot send on a closed NFC connection")
             completion(.failure(SmartCardConnectionError.connectionLost))
@@ -221,11 +189,11 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         }
     }
 
-    func stop(with result: Result<String?, Error>, completion: @escaping @Sendable () -> Void) {
+    func stop(id: UUID, with result: Result<String?, Error>, completion: @escaping @Sendable () -> Void) {
         logger.debug("Stopping NFC session")
 
         // If already inactive, complete immediately
-        guard currentState.phase != .inactive else {
+        guard currentState.lifetime?.id == id, currentState.phase != .inactive else {
             completion()
             return
         }
@@ -262,7 +230,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
     // was established before the cancellation arrived belongs to the caller and is kept.
     func cancelPendingConnection(for request: NFCConnectRequest) {
         guard activeRequest === request, currentState.phase == .scanning else { return }
-        stop(with: .success(nil)) {}
+        stop(id: request.lifetime.id, with: .success(nil)) {}
     }
 
     func connect(
@@ -327,6 +295,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
 
         activeRequest = request
         currentState.setScanning(
+            lifetime: request.lifetime,
             session: session,
             completion: { [weak self] result in
                 self?.isEstablishing = false
@@ -351,7 +320,7 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         currentState.setConnected(tag: tag)
         logger.debug("NFC connection established")
 
-        connectionCompletion(Result.success(.init(tag.identifier)))
+        connectionCompletion(.success(()))
     }
 
     private func cleanup(session: NFCTagReaderSession, error: Error? = nil) {
@@ -362,16 +331,16 @@ private final class NFCConnectionManager: NSObject, @unchecked Sendable {
         // Capture stopCompletion before reset clears it
         let stopCompletion = currentState.stopCompletion
 
-        switch currentState.closingError ?? error {
+        let closeError = currentState.closingError ?? error
+        if let lifetime = currentState.lifetime {
+            Task { await lifetime.didClose.fulfill(closeError) }
+        }
+        switch closeError {
         case .none:
-            currentState.didCloseCallback?(nil as Error?)
             currentState.connectionCompletion?(Result.failure(SmartCardConnectionError.cancelledByUser))
         case let .some(error):
-            currentState.didCloseCallback?(error)
             currentState.connectionCompletion?(Result.failure(error))
         }
-
-        currentState.didCloseCallback = nil
 
         currentState.reset()
 
@@ -453,11 +422,11 @@ private class NFCState: @unchecked Sendable {
 
     // Scanning state
     var session: NFCTagReaderSession?
-    var connectionCompletion: (@Sendable (Result<ISO7816Identifier, Error>) -> Void)?
+    var connectionCompletion: (@Sendable (Result<Void, Error>) -> Void)?
 
     // Connected state
     var tag: NFCISO7816Tag?
-    var didCloseCallback: (@Sendable (Error?) -> Void)?
+    var lifetime: ConnectionLifetime?
 
     // Stop completion - called when session is fully invalidated
     var stopCompletion: (@Sendable () -> Void)?
@@ -470,21 +439,22 @@ private class NFCState: @unchecked Sendable {
         session = nil
         connectionCompletion = nil
         tag = nil
-        didCloseCallback = nil
+        lifetime = nil
         stopCompletion = nil
         closingError = nil
     }
 
     func setScanning(
+        lifetime: ConnectionLifetime,
         session: NFCTagReaderSession,
-        completion: @escaping @Sendable (Result<ISO7816Identifier, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         phase = .scanning
         self.session = session
         self.connectionCompletion = completion
         // Clear connected state
         tag = nil
-        didCloseCallback = nil
+        self.lifetime = lifetime
     }
 
     func setConnected(tag: NFCISO7816Tag) {

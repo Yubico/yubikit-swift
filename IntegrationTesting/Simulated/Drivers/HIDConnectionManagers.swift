@@ -23,14 +23,14 @@ actor HIDConnectionManager {
     static let shared = HIDConnectionManager()
 
     private var channel: TwinKitFIDOChannel?
-    private var closure: Promise<Error?>?
+    private var lifetime: ConnectionLifetime?
     private var opening = false
 
     func availableDevices() async throws(FIDOConnectionError) -> [HID.YubiKeyDevice] {
         TwinKitConfiguration.exposesUSBInterface(0x02) ? [twinHIDDevice] : []
     }
 
-    func open(device: HID.YubiKeyDevice) async throws(FIDOConnectionError) {
+    func open(device: HID.YubiKeyDevice, lifetime: ConnectionLifetime) async throws(FIDOConnectionError) {
         guard device == twinHIDDevice, TwinKitConfiguration.exposesUSBInterface(0x02) else {
             throw .noDevicesFound
         }
@@ -39,28 +39,23 @@ actor HIDConnectionManager {
         defer { opening = false }
         do {
             channel = try await TwinKitBackend.shared.openFIDO()
-            closure = Promise()
+            self.lifetime = lifetime
         } catch {
             throw .setupFailed("Could not open TwinKit FIDO HID", error)
         }
     }
 
-    func didClose(for locationID: Int) async throws(FIDOConnectionError) -> Promise<Error?> {
-        guard locationID == twinHIDDevice.locationID, let closure else { throw .connectionLost }
-        return closure
-    }
-
-    func close(locationID: Int, error: Error?) async {
-        guard locationID == twinHIDDevice.locationID, let channel else { return }
-        let closure = self.closure
+    func close(locationID: Int, id: UUID, error: Error?) async {
+        guard locationID == twinHIDDevice.locationID, lifetime?.id == id, let channel else { return }
+        let didClose = lifetime?.didClose
         self.channel = nil
-        self.closure = nil
+        self.lifetime = nil
         channel.close(error: error)
-        await closure?.fulfill(error)
+        await didClose?.fulfill(error)
     }
 
-    func sendPacket(_ packet: Data, to locationID: Int) async throws(FIDOConnectionError) {
-        guard locationID == twinHIDDevice.locationID, let channel else { throw .connectionLost }
+    func sendPacket(_ packet: Data, to locationID: Int, id: UUID) async throws(FIDOConnectionError) {
+        guard locationID == twinHIDDevice.locationID, lifetime?.id == id, let channel else { throw .connectionLost }
         guard packet.count <= hidPayloadSize else { throw .transmitFailed("HID packet exceeds report size") }
         let report = packet + Data(repeating: 0, count: hidPayloadSize - packet.count)
         do {
@@ -72,8 +67,8 @@ actor HIDConnectionManager {
         }
     }
 
-    func receivePacket(from locationID: Int) async throws(FIDOConnectionError) -> Data {
-        guard locationID == twinHIDDevice.locationID, let channel else { throw .connectionLost }
+    func receivePacket(from locationID: Int, id: UUID) async throws(FIDOConnectionError) -> Data {
+        guard locationID == twinHIDDevice.locationID, lifetime?.id == id, let channel else { throw .connectionLost }
         do {
             return try await channel.receive()
         } catch TwinKitSupportError.connectionLost {
