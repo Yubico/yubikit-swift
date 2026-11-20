@@ -20,20 +20,19 @@ import Foundation
 actor LightningConnectionManager {
     static let shared = LightningConnectionManager()
 
-    func connect() async throws(SmartCardConnectionError) -> LightningConnectionID {
+    func connect() async throws(SmartCardConnectionError) -> ConnectionLifetime {
         if Task.isCancelled { throw .cancelled }
         throw .unsupported
     }
 
     func transmit(
         request: Data,
-        for connection: LightningSmartCardConnection
+        id: UUID
     ) async throws(SmartCardConnectionError) -> Data {
         throw .connectionLost
     }
 
-    func close(for connection: LightningSmartCardConnection, error: Error?) {}
-    func didClose(for connection: LightningSmartCardConnection) -> Error? { nil }
+    func close(id: UUID, error: Error?) {}
 }
 
 #endif

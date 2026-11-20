@@ -49,8 +49,9 @@ struct LightningCancellationTests {
         connectionAttempt.cancel()
         try await accessoryManager.stopMonitoringStarted.value()
 
-        await manager.accessoryDidConnect(connectionID: 7)
-        #expect(await accessoryManager.cleanedConnectionIDs == [7])
+        let late = ConnectionLifetime()
+        await manager.accessoryDidConnect(late)
+        #expect(await accessoryManager.cleanedConnectionIDs == [late.id])
 
         do {
             _ = try await manager.connect()
@@ -69,8 +70,29 @@ struct LightningCancellationTests {
             Issue.record("Unexpected connection error: \(error)")
         }
 
-        await accessoryManager.connectOnNextMonitoring(manager, connectionID: 42)
-        #expect(try await manager.connect() == 42)
+        let next = ConnectionLifetime()
+        await accessoryManager.connectOnNextMonitoring(manager, lifetime: next)
+        #expect(try await manager.connect().id == next.id)
+    }
+
+    @Test("Closing an old Lightning handle leaves its replacement open")
+    func staleClose() async throws {
+        let accessory = BlockingLightningAccessoryManager()
+        let manager = LightningConnectionManager(accessoryManager: accessory)
+        let first = ConnectionLifetime()
+        await accessory.connectOnNextMonitoring(manager, lifetime: first)
+        _ = try await manager.connect()
+        await accessory.finishStoppingMonitoring()
+        await manager.close(id: first.id, error: nil)
+
+        let next = ConnectionLifetime()
+        await accessory.connectOnNextMonitoring(manager, lifetime: next)
+        _ = try await manager.connect()
+        await manager.close(id: first.id, error: nil)
+        await manager.accessoryDidDisconnect(id: first.id)
+        #expect(await accessory.cleanedConnectionIDs == [first.id])
+        await manager.close(id: next.id, error: nil)
+        #expect(await accessory.cleanedConnectionIDs == [first.id, next.id])
     }
 }
 
@@ -79,7 +101,7 @@ private actor BlockingLightningAccessoryManager: LightningAccessoryManaging {
     let stopMonitoringStarted = Promise<Void>()
     private let finishStopMonitoring = Promise<Void>()
 
-    private(set) var cleanedConnectionIDs: [LightningConnectionID] = []
+    private(set) var cleanedConnectionIDs: [UUID] = []
     private(set) var connectToCurrentDevicesCount = 0
     private(set) var startMonitoringCount = 0
     private var onNextMonitoring: (@Sendable () async -> Void)?
@@ -99,8 +121,8 @@ private actor BlockingLightningAccessoryManager: LightningAccessoryManaging {
         }
     }
 
-    func connectOnNextMonitoring(_ manager: LightningConnectionManager, connectionID: LightningConnectionID) {
-        onNextMonitoring = { await manager.accessoryDidConnect(connectionID: connectionID) }
+    func connectOnNextMonitoring(_ manager: LightningConnectionManager, lifetime: ConnectionLifetime) {
+        onNextMonitoring = { await manager.accessoryDidConnect(lifetime) }
     }
 
     func stopMonitoring() async {
@@ -112,11 +134,11 @@ private actor BlockingLightningAccessoryManager: LightningAccessoryManaging {
         await finishStopMonitoring.fulfill(())
     }
 
-    func cleanupConnection(id: LightningConnectionID) async {
+    func cleanupConnection(id: UUID) async {
         cleanedConnectionIDs.append(id)
     }
 
-    func transmit(id: LightningConnectionID, data: Data) async throws(SmartCardConnectionError) -> Data {
+    func transmit(id: UUID, data: Data) async throws(SmartCardConnectionError) -> Data {
         throw .connectionLost
     }
 }

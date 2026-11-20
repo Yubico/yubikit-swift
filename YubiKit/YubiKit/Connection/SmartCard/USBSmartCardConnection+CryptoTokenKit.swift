@@ -41,33 +41,32 @@ final actor SmartCardConnectionsManager {
 
     private var connections = [USBSmartCard.YubiKeyDevice: ConnectionState]()
 
-    func didClose(for slot: USBSmartCard.YubiKeyDevice) throws(SmartCardConnectionError) -> Promise<Error?> {
-        guard let state = connections[slot] else {
-            throw SmartCardConnectionError.connectionLost
-        }
-        return state.didClose
+    func close(slot: USBSmartCard.YubiKeyDevice, id: UUID, error: Error?) async {
+        guard let state = connections[slot], state.lifetime.id == id else { return }
+        await state.lifetime.didClose.fulfill(error)
+        endSession(state, for: slot)
     }
 
-    func close(slot: USBSmartCard.YubiKeyDevice, error: Error?) async {
-        await connections[slot]?.didClose.fulfill(error)
-    }
-
-    func isConnected(for slot: USBSmartCard.YubiKeyDevice) -> Bool {
-        guard let card = connections[slot]?.card else {
+    func isConnected(for slot: USBSmartCard.YubiKeyDevice, id: UUID) -> Bool {
+        guard let state = connections[slot], state.lifetime.id == id else {
             return false
         }
 
-        return card.isValid && card.currentProtocol != []
+        return state.card.isValid && state.card.currentProtocol != []
     }
 
-    func transmit(request: Data, for slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) -> Data {
-        guard let card = connections[slot]?.card else {
+    func transmit(
+        request: Data,
+        for slot: USBSmartCard.YubiKeyDevice,
+        id: UUID
+    ) async throws(SmartCardConnectionError) -> Data {
+        guard let state = connections[slot], state.lifetime.id == id else {
             throw SmartCardConnectionError.connectionLost
         }
 
         do {
             logger.traceRequest(request)
-            let response = try await card.transmit(request)
+            let response = try await state.card.transmit(request)
             logger.traceResponse(response)
             return response
         } catch let error as SmartCardConnectionError {
@@ -79,7 +78,10 @@ final actor SmartCardConnectionsManager {
     }
 
     // Returns the ATR of the connected card.
-    func connect(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) -> Data? {
+    func connect(
+        slot: USBSmartCard.YubiKeyDevice,
+        lifetime: ConnectionLifetime
+    ) async throws(SmartCardConnectionError) -> Data? {
         guard !Task.isCancelled else { throw .cancelled }
         // if there is already a connection for this slot we throw `SmartCardConnectionError.busy`.
         // The caller must close the connection first.
@@ -137,20 +139,23 @@ final actor SmartCardConnectionsManager {
         logger.debug("USB smart card connection established")
 
         // create and save a new connection state
-        let state = ConnectionState(card: card)
+        let state = ConnectionState(card: card, lifetime: lifetime)
         connections[slot] = state
 
         // register for the eventual clean up when the connection is closed
         Task {
-            _ = try await state.didClose.value()
-            state.card.endSession()
-            logger.debug("USB smart card session closed")
-            if connections[slot] === state {
-                connections[slot] = nil
-            }
+            _ = try await state.lifetime.didClose.value()
+            endSession(state, for: slot)
         }
 
         return tkSlot.atr?.bytes
+    }
+
+    private func endSession(_ state: ConnectionState, for slot: USBSmartCard.YubiKeyDevice) {
+        guard connections[slot] === state else { return }
+        state.card.endSession()
+        connections[slot] = nil
+        logger.debug("USB smart card session closed")
     }
 
     func availableDevices(matching: String?) async throws(SmartCardConnectionError) -> [USBSmartCard.YubiKeyDevice] {
@@ -167,12 +172,14 @@ final actor SmartCardConnectionsManager {
 private class ConnectionState {
     let card: TKSmartCard
 
-    let didClose = Promise<Error?>()
+    let lifetime: ConnectionLifetime
 
     private let isValidObserver: NSKeyValueObservation
     private let stateObserver: NSKeyValueObservation
 
-    init(card: TKSmartCard) {
+    init(card: TKSmartCard, lifetime: ConnectionLifetime) {
+        self.lifetime = lifetime
+        let didClose = lifetime.didClose
         self.card = card
 
         stateObserver = card.observe(\.currentProtocol, options: [.new]) { [didClose] card, _ in

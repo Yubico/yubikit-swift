@@ -25,6 +25,8 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
     case cancellation
     case sendManually
     case selectWrongApp
+    case reopenedSmartCard
+    case reopenedFIDO
     case withDeviceFIDOHID
     case alertMessage
     case closingErrorMessage
@@ -109,6 +111,44 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
                 context.expect(connections.count == 1, "exactly one concurrent connection should succeed")
 
                 for connection in connections { await connection.close(error: nil) }
+            }
+        case .reopenedSmartCard:
+            return Scenario(
+                "Connection.SmartCard.reopened",
+                "a closed handle cannot use or close a reopened smart-card connection",
+                requirements: Requirements(requiresSmartCardTransport: true)
+            ) { context in
+                let first = try await context.provider.makeSmartCardConnection()
+                await first.close(error: ConnectionTestError())
+                let next = try await context.smartCardConnection()
+                await first.close(error: nil)
+                do {
+                    _ = try await first.send(data: selectAPDU(aid: nonexistentAID))
+                    context.expect(false, "the closed handle sent an APDU")
+                } catch SmartCardConnectionError.connectionLost {}
+                _ = try await Management.Session.makeSession(connection: next).getDeviceInfo()
+                await next.close(error: nil)
+                let error = await first.waitUntilClosed()
+                context.expect(error is ConnectionTestError, "the old handle retained its close reason")
+            }
+        case .reopenedFIDO:
+            return Scenario(
+                "Connection.FIDOHID.reopened",
+                "a closed handle cannot use or close a reopened FIDO connection",
+                requirements: Requirements(requiresFIDOTransport: true)
+            ) { context in
+                let first = try await context.provider.makeFIDOConnection()
+                await first.close(error: ConnectionTestError())
+                let next = try await context.fidoConnection()
+                await first.close(error: nil)
+                do {
+                    try await first.send(Data(repeating: 0, count: first.mtu))
+                    context.expect(false, "the closed handle sent a packet")
+                } catch FIDOConnectionError.connectionLost {}
+                _ = try await Management.Session.makeSession(connection: next).getDeviceInfo()
+                await next.close(error: nil)
+                let error = await first.waitUntilClosed()
+                context.expect(error is ConnectionTestError, "the old handle retained its close reason")
             }
         // MARK: - Raw APDU
         case .sendManually:
