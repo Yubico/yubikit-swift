@@ -69,8 +69,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Throws: ``SmartCardConnectionError.unsupported`` when NFC is unavailable or
     ///           ``SmartCardConnectionError.busy`` if there is already an active connection.
     public static func makeConnection() async throws(SmartCardConnectionError) -> NFCSmartCardConnection {
-        Self.logger.debug("Requesting NFC connection")
-        return try await NFCSmartCardConnection(alertMessage: nil)
+        try await NFCSmartCardConnection(alertMessage: nil)
     }
 
     /// Creates a new NFC connection to a YubiKey.
@@ -84,8 +83,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     public static func makeConnection(
         alertMessage message: String?
     ) async throws(SmartCardConnectionError) -> NFCSmartCardConnection {
-        Self.logger.debug("Requesting NFC connection")
-        return try await NFCSmartCardConnection(alertMessage: message)
+        try await NFCSmartCardConnection(alertMessage: message)
     }
 
     /// Sets the alert message displayed on the NFC scanning sheet.
