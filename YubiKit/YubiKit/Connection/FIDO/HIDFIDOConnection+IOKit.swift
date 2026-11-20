@@ -77,34 +77,25 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         }
     }
 
-    func didClose(for locationID: Int) async throws(FIDOConnectionError) -> Promise<Error?> {
-        try await runloop.perform {
-            guard let connectionState = self.openConnections[locationID] else {
-                return .failure(FIDOConnectionError.connectionLost)
-            }
-            return .success(connectionState.didClose)
-        }
-    }
-
-    func open(device: HID.YubiKeyDevice) async throws(FIDOConnectionError) {
+    func open(device: HID.YubiKeyDevice, didClose: Promise<Error?>) async throws(FIDOConnectionError) {
         logger.debug("Opening HID connection")
         try await runloop.perform {
-            self.openDeviceInternal(device)
+            self.openDeviceInternal(device, didClose: didClose)
         }
         logger.debug("HID connection established")
     }
 
-    func sendPacket(_ packet: Data, to locationID: Int) async throws(FIDOConnectionError) {
+    func sendPacket(_ packet: Data, to locationID: Int, didClose: Promise<Error?>) async throws(FIDOConnectionError) {
         logger.debug("Sending HID packet", metadata: ["bytes": .stringConvertible(packet.count)])
         try await runloop.perform {
-            self.sendPacketInternal(packet, to: locationID)
+            self.sendPacketInternal(packet, to: locationID, didClose: didClose)
         }
     }
 
-    func receivePacket(from locationID: Int) async throws(FIDOConnectionError) -> Data {
+    func receivePacket(from locationID: Int, didClose: Promise<Error?>) async throws(FIDOConnectionError) -> Data {
         logger.debug("Waiting for HID packet")
         let promise = try await runloop.perform {
-            self.receivePacketInternal(from: locationID)
+            self.receivePacketInternal(from: locationID, didClose: didClose)
         }
 
         do {
@@ -113,7 +104,7 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
             } onCancel: {
                 Task {
                     let withdrawn = await self.runloop.perform {
-                        self.withdrawPendingReceive(promise, from: locationID)
+                        self.withdrawPendingReceive(promise, from: locationID, didClose: didClose)
                     }
                     await withdrawn?.cancel(with: FIDOConnectionError.cancelled)
                 }
@@ -127,7 +118,7 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         }
     }
 
-    func close(locationID: Int, error: Error?) async {
+    func close(locationID: Int, didClose: Promise<Error?>, error: Error?) async {
         if let error {
             logger.debug(
                 "Closing HID connection with an error",
@@ -141,7 +132,7 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
             logger.debug("Closing HID connection")
         }
         await runloop.perform {
-            self.closeInternal(locationID: locationID, error: error)
+            self.closeInternal(locationID: locationID, didClose: didClose, error: error)
         }
     }
 
@@ -181,7 +172,8 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
 
                 // Remove from open connections and notify
                 if let locationID = IOHIDDeviceGetProperty(device, kIOHIDLocationIDKey as CFString) as? Int {
-                    if let connection = me.openConnections.removeValue(forKey: locationID) {
+                    if let connection = me.openConnections[locationID], connection.device === device {
+                        me.openConnections[locationID] = nil
                         me.logger.debug("HID device disconnected")
                         me.teardownConnection(connection, closeError: nil)
                     }
@@ -209,7 +201,10 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         return Array(set)
     }
 
-    private func openDeviceInternal(_ device: HID.YubiKeyDevice) -> Result<Void, FIDOConnectionError> {
+    private func openDeviceInternal(
+        _ device: HID.YubiKeyDevice,
+        didClose: Promise<Error?>
+    ) -> Result<Void, FIDOConnectionError> {
         // Check if device is already connected
         if openConnections[device.locationID] != nil {
             logger.debug("HID device is already connected")
@@ -233,7 +228,7 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         }
 
         // Create connection state
-        let connectionState = HIDConnectionState(device: ioDev)
+        let connectionState = HIDConnectionState(device: ioDev, didClose: didClose)
 
         // Register input report callback
         let context = Unmanaged.passUnretained(self).toOpaque()
@@ -255,12 +250,13 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         return .success(())
     }
 
-    private func closeInternal(locationID: Int, error: Error?) {
-        guard let connectionState = openConnections.removeValue(forKey: locationID) else {
+    private func closeInternal(locationID: Int, didClose: Promise<Error?>, error: Error?) {
+        guard let connectionState = openConnections[locationID], connectionState.didClose === didClose else {
             logger.debug("HID connection is already closed")
             return
         }
 
+        openConnections[locationID] = nil
         teardownConnection(connectionState, closeError: error)
         IOHIDDeviceClose(connectionState.device, IOOptionBits(kIOHIDOptionsTypeSeizeDevice))
     }
@@ -286,7 +282,11 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         }
     }
 
-    private func sendPacketInternal(_ packet: Data, to locationID: Int) -> Result<Void, FIDOConnectionError> {
+    private func sendPacketInternal(
+        _ packet: Data,
+        to locationID: Int,
+        didClose: Promise<Error?>
+    ) -> Result<Void, FIDOConnectionError> {
         guard packet.count <= hidPayloadSize else {
             logger.debug(
                 "HID packet exceeds report size",
@@ -294,7 +294,7 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
             )
             return .failure(.transmitFailed("HID transmit failed"))
         }
-        guard let connectionState = openConnections[locationID] else {
+        guard let connectionState = openConnections[locationID], connectionState.didClose === didClose else {
             logger.debug("Cannot send on a closed HID connection")
             return .failure(.connectionLost)
         }
@@ -319,16 +319,23 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         return .success(())
     }
 
-    private func receivePacketInternal(from locationID: Int) -> Result<Promise<Data>, FIDOConnectionError> {
-        guard let connectionState = openConnections[locationID] else {
+    private func receivePacketInternal(
+        from locationID: Int,
+        didClose: Promise<Error?>
+    ) -> Result<Promise<Data>, FIDOConnectionError> {
+        guard let connectionState = openConnections[locationID], connectionState.didClose === didClose else {
             return .failure(FIDOConnectionError.connectionLost)
         }
 
         return connectionState.packetQueue.receive()
     }
 
-    private func withdrawPendingReceive(_ promise: Promise<Data>, from locationID: Int) -> Promise<Data>? {
-        guard let state = openConnections[locationID] else { return nil }
+    private func withdrawPendingReceive(
+        _ promise: Promise<Data>,
+        from locationID: Int,
+        didClose: Promise<Error?>
+    ) -> Promise<Data>? {
+        guard let state = openConnections[locationID], state.didClose === didClose else { return nil }
         return state.packetQueue.withdraw(promise)
     }
 
@@ -344,9 +351,9 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
         // HID input report buffer
         var inputBuffer = [UInt8](repeating: 0, count: hidPayloadSize)
 
-        init(device: IOHIDDevice) {
+        init(device: IOHIDDevice, didClose: Promise<Error?>) {
             self.device = device
-            self.didClose = Promise<Error?>()
+            self.didClose = didClose
         }
     }
 

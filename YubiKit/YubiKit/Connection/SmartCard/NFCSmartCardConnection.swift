@@ -36,7 +36,7 @@ import Logging
 ///
 /// > Note: NFC is only supported on iPhones from iPhone 6 and forward. It will not work on iPads since there's no NFC chip in these devices.
 public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
-    let tag: ISO7816Identifier
+    let didClose = Promise<Error?>()
 
     /// Creates a new NFC connection to a YubiKey.
     ///
@@ -46,8 +46,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     ///           ``SmartCardConnectionError.busy`` if there is already an active connection.
     public init() async throws(SmartCardConnectionError) {
         Self.logger.debug("Requesting NFC connection")
-        let tag = try await NFCConnectionManagerWrapper.shared.connect(message: nil)
-        self.init(tag: tag)
+        try await NFCConnectionManagerWrapper.shared.connect(message: nil, didClose: didClose)
     }
 
     /// Creates a new NFC connection to a YubiKey.
@@ -59,12 +58,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     ///           ``SmartCardConnectionError.busy`` if there is already an active connection.
     public init(alertMessage: String?) async throws(SmartCardConnectionError) {
         Self.logger.debug("Requesting NFC connection")
-        let tag = try await NFCConnectionManagerWrapper.shared.connect(message: alertMessage)
-        self.init(tag: tag)
-    }
-
-    fileprivate init(tag: ISO7816Identifier) {
-        self.tag = tag
+        try await NFCConnectionManagerWrapper.shared.connect(message: alertMessage, didClose: didClose)
     }
 
     /// Creates a new NFC connection to a YubiKey.
@@ -75,9 +69,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Throws: ``SmartCardConnectionError.unsupported`` when NFC is unavailable or
     ///           ``SmartCardConnectionError.busy`` if there is already an active connection.
     public static func makeConnection() async throws(SmartCardConnectionError) -> NFCSmartCardConnection {
-        Self.logger.debug("Requesting NFC connection")
-        let tag = try await NFCConnectionManagerWrapper.shared.connect(message: nil)
-        return NFCSmartCardConnection(tag: tag)
+        try await NFCSmartCardConnection(alertMessage: nil)
     }
 
     /// Creates a new NFC connection to a YubiKey.
@@ -91,9 +83,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     public static func makeConnection(
         alertMessage message: String?
     ) async throws(SmartCardConnectionError) -> NFCSmartCardConnection {
-        Self.logger.debug("Requesting NFC connection")
-        let tag = try await NFCConnectionManagerWrapper.shared.connect(message: message)
-        return NFCSmartCardConnection(tag: tag)
+        try await NFCSmartCardConnection(alertMessage: message)
     }
 
     /// Sets the alert message displayed on the NFC scanning sheet.
@@ -101,7 +91,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Parameter message: The message to display while scanning.
     public func setAlertMessage(_ message: String) async {
         logger.debug("Updating NFC alert message")
-        await NFCConnectionManagerWrapper.shared.set(alertMessage: message)
+        await NFCConnectionManagerWrapper.shared.set(alertMessage: message, didClose: didClose)
     }
 
     /// Closes the NFC connection with an optional error.
@@ -117,10 +107,10 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
                     "errorCode": .stringConvertible((error as NSError).code),
                 ]
             )
-            await NFCConnectionManagerWrapper.shared.stop(with: .failure(error))
+            await NFCConnectionManagerWrapper.shared.stop(didClose: didClose, with: .failure(error))
         } else {
             logger.debug("Closing NFC connection")
-            await NFCConnectionManagerWrapper.shared.stop(with: .success(nil))
+            await NFCConnectionManagerWrapper.shared.stop(didClose: didClose, with: .success(nil))
         }
     }
 
@@ -129,7 +119,7 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Parameter message: Optional success message to display when closing.
     public func close(message: String? = nil) async {
         logger.debug("Closing NFC connection")
-        await NFCConnectionManagerWrapper.shared.stop(with: .success(message))
+        await NFCConnectionManagerWrapper.shared.stop(didClose: didClose, with: .success(message))
     }
 
     /// Waits for the connection to close and returns any error that caused the closure.
@@ -137,9 +127,8 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
     /// - Returns: An error if the connection was closed due to an error, nil otherwise.
     public func waitUntilClosed() async -> Error? {
         logger.debug("Waiting for NFC connection to close")
-        do {
-            try await NFCConnectionManagerWrapper.shared.didClose(for: self)
-        } catch {
+        let error = try? await didClose.value()
+        if let error {
             logger.debug(
                 "NFC connection closed with an error",
                 metadata: [
@@ -148,10 +137,10 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
                     "errorCode": .stringConvertible((error as NSError).code),
                 ]
             )
-            return error
+        } else {
+            logger.debug("NFC connection closed")
         }
-        logger.debug("NFC connection closed")
-        return nil
+        return error
     }
 
     /// Sends an APDU over the active NFC link.
@@ -173,20 +162,5 @@ public struct NFCSmartCardConnection: SmartCardConnection, Sendable {
 // MARK: - Extensions
 
 extension NFCSmartCardConnection: HasNFCLogger {}
-
-// MARK: - Private helpers
-
-// Stable identifier for an ISO‑7816 tag.
-// Wraps the tag UID in a `Hashable` value so it can be used as a dictionary key.
-struct ISO7816Identifier: Hashable {
-    let data: Data
-
-    init(_ data: Data) {
-        self.data = data
-    }
-
-    static func == (lhs: ISO7816Identifier, rhs: ISO7816Identifier) -> Bool { lhs.data == rhs.data }
-    func hash(into hasher: inout Hasher) { hasher.combine(data) }
-}
 
 #endif

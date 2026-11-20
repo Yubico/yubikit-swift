@@ -36,11 +36,9 @@ actor HIDOTPConnectionManager: HasOTPLogger {
     private var openConnections: [Int: Connection] = [:]
 
     private final class Connection {
-        let id: UUID
         let device: IOHIDDevice
         let didClose: Promise<Error?>
-        init(id: UUID, device: IOHIDDevice, didClose: Promise<Error?>) {
-            self.id = id
+        init(device: IOHIDDevice, didClose: Promise<Error?>) {
             self.device = device
             self.didClose = didClose
         }
@@ -96,7 +94,7 @@ actor HIDOTPConnectionManager: HasOTPLogger {
         return devices
     }
 
-    func open(device: HID.YubiKeyDevice, didClose: Promise<Error?>) throws(OTPConnectionError) -> UUID {
+    func open(device: HID.YubiKeyDevice, didClose: Promise<Error?>) throws(OTPConnectionError) {
         logger.debug("Opening OTP HID connection")
         guard openConnections[device.locationID] == nil else {
             logger.debug("OTP HID device is already connected")
@@ -117,14 +115,12 @@ actor HIDOTPConnectionManager: HasOTPLogger {
             logger.debug("Failed to open OTP HID device", metadata: ["status": .stringConvertible(result)])
             throw .setupFailed("Failed to open the OTP HID interface (\(Self.describe(result)))")
         }
-        let id = UUID()
-        openConnections[device.locationID] = Connection(id: id, device: ioDevice, didClose: didClose)
+        openConnections[device.locationID] = Connection(device: ioDevice, didClose: didClose)
         logger.debug("OTP HID connection established")
-        return id
     }
 
-    func close(locationID: Int, id: UUID, error: Error?) async {
-        guard let connection = openConnections[locationID], connection.id == id else { return }
+    func close(locationID: Int, didClose: Promise<Error?>, error: Error?) async {
+        guard let connection = openConnections[locationID], connection.didClose === didClose else { return }
         openConnections.removeValue(forKey: locationID)
         if let error {
             logger.debug(
@@ -138,8 +134,8 @@ actor HIDOTPConnectionManager: HasOTPLogger {
         await connection.didClose.fulfill(error)
     }
 
-    func getFeatureReport(from locationID: Int, id: UUID) async throws(OTPConnectionError) -> Data {
-        let device = try connection(for: locationID, id: id).device
+    func getFeatureReport(from locationID: Int, didClose: Promise<Error?>) async throws(OTPConnectionError) -> Data {
+        let device = try connection(for: locationID, didClose: didClose).device
         var buffer = [UInt8](repeating: 0, count: otpFeatureReportSize)
         var length = CFIndex(otpFeatureReportSize)
 
@@ -147,7 +143,7 @@ actor HIDOTPConnectionManager: HasOTPLogger {
         guard result == kIOReturnSuccess else {
             logger.debug("OTP HID report reception failed", metadata: ["status": .stringConvertible(result)])
             if result == kIOReturnNoDevice {
-                await close(locationID: locationID, id: id, error: OTPConnectionError.connectionLost)
+                await close(locationID: locationID, didClose: didClose, error: OTPConnectionError.connectionLost)
                 throw .connectionLost
             }
             throw .receiveFailed("Failed to read an OTP feature report (\(Self.describe(result)))")
@@ -155,19 +151,23 @@ actor HIDOTPConnectionManager: HasOTPLogger {
         return Data(buffer.prefix(Int(length)))
     }
 
-    func setFeatureReport(_ report: Data, to locationID: Int, id: UUID) async throws(OTPConnectionError) {
+    func setFeatureReport(
+        _ report: Data,
+        to locationID: Int,
+        didClose: Promise<Error?>
+    ) async throws(OTPConnectionError) {
         guard report.count == otpFeatureReportSize else {
             logger.debug("Invalid OTP HID report size", metadata: ["bytes": .stringConvertible(report.count)])
             throw .transmitFailed("An OTP feature report must be exactly \(otpFeatureReportSize) bytes")
         }
-        let device = try connection(for: locationID, id: id).device
+        let device = try connection(for: locationID, didClose: didClose).device
         let bytes = Array(report)
 
         let result = IOHIDDeviceSetReport(device, kIOHIDReportTypeFeature, 0, bytes, bytes.count)
         guard result == kIOReturnSuccess else {
             logger.debug("OTP HID report transmission failed", metadata: ["status": .stringConvertible(result)])
             if result == kIOReturnNoDevice {
-                await close(locationID: locationID, id: id, error: OTPConnectionError.connectionLost)
+                await close(locationID: locationID, didClose: didClose, error: OTPConnectionError.connectionLost)
                 throw .connectionLost
             }
             throw .transmitFailed("Failed to write an OTP feature report (\(Self.describe(result)))")
@@ -182,11 +182,11 @@ actor HIDOTPConnectionManager: HasOTPLogger {
                 == Unmanaged.passUnretained(removed.device).toOpaque()
         else { return }
         logger.debug("OTP HID device disconnected")
-        await close(locationID: locationID, id: connection.id, error: OTPConnectionError.connectionLost)
+        await close(locationID: locationID, didClose: connection.didClose, error: OTPConnectionError.connectionLost)
     }
 
-    private func connection(for locationID: Int, id: UUID) throws(OTPConnectionError) -> Connection {
-        guard let connection = openConnections[locationID], connection.id == id else {
+    private func connection(for locationID: Int, didClose: Promise<Error?>) throws(OTPConnectionError) -> Connection {
+        guard let connection = openConnections[locationID], connection.didClose === didClose else {
             logger.debug("Cannot use a closed OTP HID connection")
             throw .connectionLost
         }

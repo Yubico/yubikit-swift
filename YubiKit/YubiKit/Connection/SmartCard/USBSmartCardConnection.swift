@@ -26,6 +26,8 @@ public struct USBSmartCardConnection: Sendable {
     /// The host-to-reader connection still uses USB.
     package let isContactless: Bool
 
+    private let didClose = Promise<Error?>()
+
     @usableFromInline static let defaultNameFilter = "YubiKey"
 
     /// Creates a new USB connection to the first available YubiKey.
@@ -50,7 +52,7 @@ public struct USBSmartCardConnection: Sendable {
     /// - Throws: ``SmartCardConnectionError/busy`` if there is already an active connection to this slot.
     public init(slot: USBSmartCard.YubiKeyDevice) async throws(SmartCardConnectionError) {
         guard !Task.isCancelled else { throw .cancelled }
-        let atr = try await SmartCardConnectionsManager.shared.connect(slot: slot)
+        let atr = try await SmartCardConnectionsManager.shared.connect(slot: slot, didClose: didClose)
         self.slot = slot
         self.isContactless = USBSmartCard.isNFC(atr: atr)
     }
@@ -65,7 +67,7 @@ public struct USBSmartCardConnection: Sendable {
     }
 
     private var isConnected: Bool {
-        get async { await SmartCardConnectionsManager.shared.isConnected(for: slot) }
+        get async { await SmartCardConnectionsManager.shared.isConnected(for: slot, didClose: didClose) }
     }
 
 }
@@ -101,7 +103,7 @@ extension USBSmartCardConnection: SmartCardConnection {
     ///
     /// - Parameter error: Optional error to indicate why the connection was closed.
     public func close(error: Error?) async {
-        await SmartCardConnectionsManager.shared.close(slot: slot, error: error)
+        await SmartCardConnectionsManager.shared.close(slot: slot, didClose: didClose, error: error)
         if let error {
             logger.debug(
                 "Closing USB smart card connection with an error",
@@ -121,7 +123,7 @@ extension USBSmartCardConnection: SmartCardConnection {
     /// - Returns: An error if the connection was closed due to an error, nil otherwise.
     public func waitUntilClosed() async -> Error? {
         logger.debug("Waiting for USB smart card connection to close")
-        let error = try? await SmartCardConnectionsManager.shared.didClose(for: slot).value()
+        let error = try? await didClose.value()
         if let error {
             logger.debug(
                 "USB smart card connection closed with an error",
@@ -148,7 +150,11 @@ extension USBSmartCardConnection: SmartCardConnection {
             logger.debug("Cannot send on a closed USB smart card connection")
             throw SmartCardConnectionError.connectionLost
         }
-        let response = try await SmartCardConnectionsManager.shared.transmit(request: data, for: slot)
+        let response = try await SmartCardConnectionsManager.shared.transmit(
+            request: data,
+            for: slot,
+            didClose: didClose
+        )
         logger.debug("Received USB smart card response", metadata: ["bytes": .stringConvertible(response.count)])
         return response
     }
