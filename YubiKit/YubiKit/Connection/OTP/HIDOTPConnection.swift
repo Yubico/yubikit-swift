@@ -68,7 +68,7 @@ public struct HIDOTPConnection: Sendable, OTPConnection {
     public static func availableDevices(
         matching: String? = nil
     ) async throws(OTPConnectionError) -> [HID.YubiKeyDevice] {
-        let devices = await HIDOTPConnectionManager.shared.availableDevices()
+        let devices = try await HIDOTPConnectionManager.shared.availableDevices()
         guard let matching else { return devices }
         return devices.filter { $0.name.localizedCaseInsensitiveContains(matching) }
     }

@@ -31,6 +31,7 @@ actor HIDOTPConnectionManager: HasOTPLogger {
 
     static let shared = HIDOTPConnectionManager()
 
+    private var managerIsOpen = false
     private let manager: IOHIDManager
     private let eventQueue = DispatchQueue(label: "com.yubico.YubiKit.OTP.HID")
     private var openConnections: [Int: Connection] = [:]
@@ -70,17 +71,10 @@ actor HIDOTPConnectionManager: HasOTPLogger {
             },
             Unmanaged.passUnretained(self).toOpaque()
         )
-        let result = IOHIDManagerOpen(hidManager, IOOptionBits(kIOHIDOptionsTypeNone))
-        if result == kIOReturnSuccess {
-            IOHIDManagerActivate(hidManager)
-            logger.debug("OTP HID manager opened")
-        } else {
-            logger.warning("Failed to open OTP HID manager", metadata: ["status": .stringConvertible(result)])
-        }
     }
 
-    func availableDevices() -> [HID.YubiKeyDevice] {
-        let devices = matchingDevices().compactMap { device -> HID.YubiKeyDevice? in
+    func availableDevices() throws(OTPConnectionError) -> [HID.YubiKeyDevice] {
+        let devices = try matchingDevices().compactMap { device -> HID.YubiKeyDevice? in
             guard let locationID = IOHIDDeviceGetProperty(device, kIOHIDLocationIDKey as CFString) as? Int,
                 let name = IOHIDDeviceGetProperty(device, kIOHIDProductKey as CFString) as? String
             else { return nil }
@@ -103,7 +97,7 @@ actor HIDOTPConnectionManager: HasOTPLogger {
             throw .busy
         }
         guard
-            let ioDevice = matchingDevices().first(where: {
+            let ioDevice = try matchingDevices().first(where: {
                 (IOHIDDeviceGetProperty($0, kIOHIDLocationIDKey as CFString) as? Int) == device.locationID
             })
         else {
@@ -193,7 +187,16 @@ actor HIDOTPConnectionManager: HasOTPLogger {
         return connection
     }
 
-    private func matchingDevices() -> [IOHIDDevice] {
+    private func matchingDevices() throws(OTPConnectionError) -> [IOHIDDevice] {
+        if !managerIsOpen {
+            let result = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+            guard result == kIOReturnSuccess else {
+                throw .setupFailed("Failed to open OTP HID manager (\(Self.describe(result)))")
+            }
+            IOHIDManagerActivate(manager)
+            managerIsOpen = true
+            logger.debug("OTP HID manager opened")
+        }
         guard let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice> else { return [] }
         return Array(devices)
     }

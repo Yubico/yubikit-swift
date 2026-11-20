@@ -56,7 +56,8 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
     // MARK: - Exposed Methods
 
     func availableDevices() async throws(FIDOConnectionError) -> [HID.YubiKeyDevice] {
-        await runloop.perform {
+        try await runloop.perform {
+            if let error = self.openManagerIfNeeded() { return .failure(error) }
             let devices = self.allDevicesInternal()
             let yubikeys = devices.compactMap { dev -> HID.YubiKeyDevice? in
                 guard
@@ -73,7 +74,7 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
                 )
             }
             self.logger.debug("Enumerated FIDO HID devices", metadata: ["count": .stringConvertible(yubikeys.count)])
-            return yubikeys
+            return .success(yubikeys)
         }
     }
 
@@ -149,6 +150,8 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
 
     private let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
 
+    private var managerIsOpen = false
+
     private let filter: [String: Any] = [
         kIOHIDVendorIDKey as String: 0x1050,
         kIOHIDDeviceUsagePageKey as String: 0xF1D0,
@@ -189,14 +192,18 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
             },
             Unmanaged.passUnretained(self).toOpaque()
         )
+    }
 
+    private func openManagerIfNeeded() -> FIDOConnectionError? {
+        guard !managerIsOpen else { return nil }
         let openResult = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
         guard openResult == kIOReturnSuccess else {
             logger.warning("Failed to open HID manager", metadata: ["status": .stringConvertible(openResult)])
-            return
+            return .setupFailed("Failed to open FIDO HID manager (IOReturn \(openResult))")
         }
-
+        managerIsOpen = true
         logger.debug("HID manager opened")
+        return nil
     }
 
     // MARK: - Internal HID Operations (Must run on HID thread)
@@ -216,6 +223,7 @@ final class HIDConnectionManager: @unchecked Sendable, HasFIDOLogger {
             return .failure(.busy)
         }
 
+        if let error = openManagerIfNeeded() { return .failure(error) }
         let allDevices = allDevicesInternal()
         let ioDevice = allDevices.first(where: {
             (IOHIDDeviceGetProperty($0, kIOHIDLocationIDKey as CFString) as? Int) == device.locationID

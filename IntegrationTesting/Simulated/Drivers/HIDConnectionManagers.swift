@@ -95,12 +95,12 @@ actor HIDOTPConnectionManager {
     private var connection: Connection?
     private var opening = false
 
-    func availableDevices() -> [HID.YubiKeyDevice] {
+    func availableDevices() throws(OTPConnectionError) -> [HID.YubiKeyDevice] {
         TwinKitConfiguration.exposesUSBInterface(0x01) ? [twinHIDDevice] : []
     }
 
     func open(device: HID.YubiKeyDevice, didClose: Promise<Error?>) async throws(OTPConnectionError) -> UUID {
-        guard device == twinHIDDevice, !availableDevices().isEmpty else { throw .noDevicesFound }
+        guard device == twinHIDDevice, try !availableDevices().isEmpty else { throw .noDevicesFound }
         guard connection == nil, !opening else { throw .busy }
         opening = true
         defer { opening = false }
