@@ -547,7 +547,7 @@ public final actor PIVSession: SmartCardSessionInternal {
     }
 
     /// Writes or deletes a three-byte PIV data object. An empty value deletes the object.
-    /// Management-key authentication is required; protected objects also require PIN verification.
+    /// Management-key authentication is required.
     public func putObject(_ data: Data, objectId: Data) async throws(PIVSessionError) {
         guard objectId.count == 3 else {
             throw .illegalArgument("PIV object ID must be three bytes", source: .here())
