@@ -111,6 +111,7 @@ struct FingerprintRetryPanel: View {
     }
 }
 
+#if DEBUG
 #Preview("Fingerprint") {
     FidoUI.PanelView(model: .preview(.fingerprint(onCancel: {}, onUsePIN: {})))
         .fidoAlertChrome()
@@ -142,3 +143,4 @@ struct FingerprintRetryPanel: View {
     )
     .fidoAlertChrome()
 }
+#endif

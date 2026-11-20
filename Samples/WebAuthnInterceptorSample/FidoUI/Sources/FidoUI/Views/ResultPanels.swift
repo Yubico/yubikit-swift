@@ -93,6 +93,7 @@ struct SuccessPanel: View {
     }
 }
 
+#if DEBUG
 #Preview("Error - Retryable") {
     FidoUI.PanelView(
         model: .preview(
@@ -178,3 +179,4 @@ struct SuccessPanel: View {
     )
     .fidoAlertChrome()
 }
+#endif

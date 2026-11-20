@@ -96,6 +96,7 @@ private struct CredentialRow: View {
     }
 }
 
+#if DEBUG
 #Preview("Credential Picker") {
     FidoUI.PanelView(
         model: .preview(
@@ -160,3 +161,4 @@ private struct CredentialRow: View {
     )
     .fidoAlertChrome()
 }
+#endif

@@ -167,6 +167,7 @@ extension FidoUI {
     }
 }
 
+#if DEBUG
 #Preview("Header - Registration") {
     FidoUI.PanelView(
         model: .preview(
@@ -210,3 +211,4 @@ extension FidoUI {
     )
     .fidoAlertChrome()
 }
+#endif
