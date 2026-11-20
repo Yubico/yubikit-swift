@@ -16,7 +16,8 @@ import CommonCrypto
 import CryptoTokenKit
 import Foundation
 import Testing
-import YubiKit
+
+@testable import YubiKit
 
 struct OATHCredentialTemplateUnitTests {
 
@@ -275,6 +276,17 @@ struct OATHCredentialTemplateUnitTests {
 }
 
 struct OATHCalculateCodesTests {
+    @Test(
+        arguments: [
+            (6, "755224"), (7, "4755224"), (8, "84755224"),
+        ] as [(UInt8, String)]
+    )
+    func formatsRFC4226CounterZero(digits: UInt8, expected: String) {
+        let response = Data([digits, 0x4c, 0x93, 0xcf, 0x18])
+        let code = OATHSession.Code(parsing: response, timestamp: Date(), credentialType: .hotp(counter: 0))
+        #expect(code?.code == expected)
+    }
+
     @Test func recalculatesOnlyCustomPeriods() async throws {
         func entry(_ name: String, tag: TKTLVTag, value: Data = Data()) -> Data {
             TKBERTLVRecord(tag: 0x71, value: Data(name.utf8)).data + TKBERTLVRecord(tag: tag, value: value).data
