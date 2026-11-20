@@ -29,5 +29,6 @@ clean:
 
 .PHONY: test
 test: install
+	swift test
 	@echo "Running tests..."
 	cd tests && bats .

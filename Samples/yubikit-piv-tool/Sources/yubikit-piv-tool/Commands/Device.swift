@@ -39,16 +39,21 @@ struct List: AsyncParsableCommand {
                     // Establish Smart Card connection to the YubiKey
                     let connection = try await USBSmartCardConnection.makeConnection(slot: slot)
 
-                    // Create management session to access device metadata
-                    let session: Management.Session = try await .makeSession(connection: connection)
-
-                    // Get basic device info: form factor (5A, 5C, etc), firmware version, serial number
-                    let deviceInfo = try await session.getDeviceInfo()
-                    print("YubiKey \(deviceInfo.formFactor) (\(deviceInfo.version)) Serial: \(deviceInfo.serialNumber)")
+                    do {
+                        let session: Management.Session = try await .makeSession(connection: connection)
+                        let deviceInfo = try await session.getDeviceInfo()
+                        print(
+                            "YubiKey \(deviceInfo.formFactor) (\(deviceInfo.version)) Serial: \(deviceInfo.serialNumber)"
+                        )
+                        await connection.close(error: nil)
+                    } catch {
+                        await connection.close(error: error)
+                        throw error
+                    }
                 }
             }
         } catch {
-            exitWithError("Device enumeration failed: \(error.localizedDescription)")
+            throw ToolError("Device enumeration failed: \(error.localizedDescription)")
         }
     }
 }
@@ -67,7 +72,7 @@ struct Info: AsyncParsableCommand {
 
         // Verify YubiKey supports metadata operations
         guard await session.supports(PIVSessionFeature.metadata) else {
-            exitWithError("Unsupported operation: metadata.\n\tThis YubiKey does not support metadata operations")
+            throw ToolError("Unsupported operation: metadata.\n\tThis YubiKey does not support metadata operations")
         }
 
         // Get PIN retry counter and whether it's still the factory default
@@ -75,7 +80,7 @@ struct Info: AsyncParsableCommand {
         do {
             pinMetadata = try await session.getPinMetadata()
         } catch {
-            handlePIVError(error)
+            throw pivError(error)
         }
         print("PIN tries remaining: \(pinMetadata.retriesRemaining)/\(pinMetadata.retriesTotal)")
 
@@ -84,7 +89,7 @@ struct Info: AsyncParsableCommand {
         do {
             pukMetadata = try await session.getPukMetadata()
         } catch {
-            handlePIVError(error)
+            throw pivError(error)
         }
         print("PUK tries remaining: \(pukMetadata.retriesRemaining)/\(pukMetadata.retriesTotal)")
         if pukMetadata.isDefault {
@@ -96,7 +101,7 @@ struct Info: AsyncParsableCommand {
         do {
             mgmtKeyMetadata = try await session.getManagementKeyMetadata()
         } catch {
-            handlePIVError(error)
+            throw pivError(error)
         }
         if mgmtKeyMetadata.isDefault {
             print("WARNING! Using default Management key")
@@ -117,7 +122,7 @@ struct Reset: AsyncParsableCommand {
         do {
             try await session.reset()
         } catch {
-            handlePIVError(error)
+            throw pivError(error)
         }
 
         // Inform user about the reset completion and new default credentials
