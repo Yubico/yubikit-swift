@@ -32,9 +32,3 @@ public protocol Connection: Sendable {
     /// Task cancellation does not end this wait. Call ``close(error:)`` to close the connection.
     func waitUntilClosed() async -> Error?
 }
-
-/// Identifies one open and preserves its close result after the device is reopened.
-struct ConnectionLifetime: Sendable {
-    let id = UUID()
-    let didClose = Promise<Error?>()
-}
