@@ -31,19 +31,19 @@ extension PIV.Slot {
 }
 
 extension PIVSession {
-    func authenticate(with managementKeyHex: String?) async {
+    func authenticate(with managementKeyHex: String?) async throws {
         guard let managementKeyHex = managementKeyHex else { return }
 
-        let mgmtKeyData = ParameterValidator.validateManagementKey(managementKeyHex)
+        let mgmtKeyData = try ParameterValidator.validateManagementKey(managementKeyHex)
 
         do {
             try await authenticate(with: mgmtKeyData)
         } catch {
-            exitWithError("Authentication with management key failed.")
+            throw ToolError("Authentication with management key failed.")
         }
     }
 
-    func verifyPinIfProvided(_ pin: String?) async {
+    func verifyPinIfProvided(_ pin: String?) async throws {
         guard let pin = pin else { return }
 
         do {
@@ -52,12 +52,12 @@ extension PIVSession {
             case .success:
                 break
             case let .fail(retries):
-                exitWithError("PIN verification failed - \(retries) tries left.")
+                throw ToolError("PIN verification failed - \(retries) tries left.")
             case .pinLocked:
-                exitWithError("PIN is blocked.")
+                throw ToolError("PIN is blocked.")
             }
         } catch {
-            handlePIVError(error)
+            throw pivError(error)
         }
     }
 }

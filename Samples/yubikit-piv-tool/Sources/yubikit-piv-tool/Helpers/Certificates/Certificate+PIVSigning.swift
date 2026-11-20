@@ -21,7 +21,7 @@ import YubiKit
 // MARK: - Shield Certificate.Builder Extension for external signing with YubiKey
 
 extension ShieldX509.Certificate.Builder {
-    public func buildWithPIV(
+    func buildWithPIV(
         slot: PIV.Slot,
         session: PIVSession,
         keyType: PIV.KeyType,
@@ -38,34 +38,13 @@ extension ShieldX509.Certificate.Builder {
         // Encode TBS to DER
         let tbsData = try Data(tbsCertificate.encoded())
 
-        // Sign with PIV hardware
-        let signature: Data!
-        switch keyType {
-        case let .rsa(keySize):
-            do {
-                signature = try await session.sign(
-                    tbsData,
-                    in: slot,
-                    keyType: .rsa(keySize),
-                    using: .pkcs1v15(algorithm)
-                )
-            } catch {
-                handlePIVError(error)
-            }
-        case let .ec(curve):
-            do {
-                signature = try await session.sign(
-                    tbsData,
-                    in: slot,
-                    keyType: .ec(curve),
-                    using: .prehashed(algorithm)
-                )
-            } catch {
-                handlePIVError(error)
-            }
-        case .x25519, .ed25519, .mlDSA, .mlKEM:
-            return nil
-        }
+        let signature = try await signCertificateData(
+            tbsData,
+            in: slot,
+            keyType: keyType,
+            hash: algorithm,
+            session: session
+        )
 
         // Create the final certificate
         return ShieldX509.Certificate(

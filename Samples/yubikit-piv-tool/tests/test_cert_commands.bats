@@ -21,7 +21,7 @@ teardown() {
     run generate_test_key "$SLOT_AUTH" "$ALG_RSA" "$pubkey_file"
     assert_success
     
-    run piv_tool certificates generate "$SLOT_AUTH" \
+    run piv_tool certificates generate "$SLOT_AUTH" --subject Yubikit \
         --pin "$DEFAULT_PIN" \
         --management-key "$DEFAULT_MGMT_KEY"
     assert_success
@@ -53,7 +53,7 @@ teardown() {
     run generate_test_key "$SLOT_SIGN" "$ALG_ECC" "$pubkey_file"
     assert_success
     
-    run piv_tool certificates generate "$SLOT_SIGN" \
+    run piv_tool certificates generate "$SLOT_SIGN" --subject Yubikit \
         --pin "$DEFAULT_PIN" \
         --management-key "$DEFAULT_MGMT_KEY"
     assert_success
@@ -85,7 +85,7 @@ teardown() {
     run generate_test_key "$SLOT_KEYMGMT" "$ALG_RSA" "$pubkey_file"
     assert_success
     
-    run piv_tool certificates generate "$SLOT_KEYMGMT" \
+    run piv_tool certificates generate "$SLOT_KEYMGMT" --subject Yubikit \
         --pin "$DEFAULT_PIN" \
         --management-key "$DEFAULT_MGMT_KEY"
     assert_success
@@ -129,7 +129,7 @@ teardown() {
     run generate_test_key "$SLOT_AUTH" "$ALG_ECC" "$pubkey_file"
     assert_success
     
-    run piv_tool certificates generate "$SLOT_AUTH" \
+    run piv_tool certificates generate "$SLOT_AUTH" --subject Yubikit \
         --pin "$DEFAULT_PIN" \
         --management-key "$DEFAULT_MGMT_KEY"
     assert_success
@@ -149,7 +149,7 @@ teardown() {
     assert_failure
     
     # Key should still exist
-    run piv_tool certificates generate "$SLOT_AUTH" \
+    run piv_tool certificates generate "$SLOT_AUTH" --subject Yubikit \
         --pin "$DEFAULT_PIN" \
         --management-key "$DEFAULT_MGMT_KEY"
     assert_success
@@ -170,7 +170,7 @@ teardown() {
     run generate_test_key "$SLOT_SIGN" "$ALG_RSA" "$pubkey_file"
     assert_success
     
-    run piv_tool certificates request "$SLOT_SIGN" "$csr_file" \
+    run piv_tool certificates request "$SLOT_SIGN" "$pubkey_file" "$csr_file" --subject Yubikit \
         --pin "$DEFAULT_PIN"
     assert_success
     

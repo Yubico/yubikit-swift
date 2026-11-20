@@ -18,14 +18,17 @@ import YubiKit
 
 // MARK: - Error Helpers
 
-/// Print error message and exit immediately
-func exitWithError(_ message: String) -> Never {
-    fputs("Error: \(message)\n", stderr)
-    Foundation.exit(EXIT_FAILURE)
+struct ToolError: LocalizedError {
+    private let message: String
+
+    init(_ message: String) {
+        self.message = message
+    }
+
+    var errorDescription: String? { message }
 }
 
-/// Handle SmartCardConnectionError and exit immediately
-func handleConnectionError(_ error: SmartCardConnectionError) -> Never {
+func connectionError(_ error: SmartCardConnectionError) -> ToolError {
     let message =
         switch error {
         case .busy:
@@ -49,16 +52,18 @@ func handleConnectionError(_ error: SmartCardConnectionError) -> Never {
         case .malformedData:
             "Invalid data format."
         }
-    exitWithError(message)
+    return ToolError(message)
 }
 
-/// Handle PIVSessionError with context and exit immediately
-func handlePIVError(_ error: PIVSessionError, context: String = "PIN") -> Never {
+func pivError(_ error: Error, context: String = "PIN", missingDataMessage: String? = nil) -> Error {
+    guard let error = error as? PIVSessionError else { return error }
     let message: String
     switch error {
     case let .failedResponse(responseStatus, _):
         let statusHex = String(format: "0x%04X", responseStatus.rawStatus)
         switch responseStatus.status {
+        case .referencedDataNotFound, .fileNotFound:
+            message = missingDataMessage ?? "YubiKey responded with status \(statusHex): \(responseStatus.status)"
         case .securityConditionNotSatisfied:
             message =
                 "Authentication required (\(statusHex)). Provide --management-key or ensure management key is disabled and provide --pin."
@@ -110,5 +115,5 @@ func handlePIVError(_ error: PIVSessionError, context: String = "PIN") -> Never 
     case .other(let error, _):
         message = "Error: \(error.localizedDescription)"
     }
-    exitWithError(message)
+    return ToolError(message)
 }

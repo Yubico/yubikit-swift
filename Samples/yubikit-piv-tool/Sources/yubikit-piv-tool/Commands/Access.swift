@@ -45,14 +45,14 @@ struct ChangePin: AsyncParsableCommand {
     func run() async throws {
         // Validate required parameters
         guard let currentPin = pin else {
-            exitWithError("Missing required parameter: pin.\n\tUse --pin to provide current PIN")
+            throw ToolError("Missing required parameter: pin.\n\tUse --pin to provide current PIN")
         }
         guard let newPin = newPin else {
-            exitWithError("Missing required parameter: new-pin.\n\tUse --new-pin to provide new PIN (6-8 characters)")
+            throw ToolError("Missing required parameter: new-pin.\n\tUse --new-pin to provide new PIN (6-8 characters)")
         }
 
         // Validate PIN format and length
-        ParameterValidator.validatePin(newPin)
+        try ParameterValidator.validatePin(newPin)
 
         let session = try await PIVSession.shared()
 
@@ -62,7 +62,7 @@ struct ChangePin: AsyncParsableCommand {
             _ = try await session.changePin(from: currentPin, to: newPin)
             print("New PIN set.")
         } catch {
-            handlePIVError(error)
+            throw pivError(error)
         }
     }
 }
@@ -82,14 +82,14 @@ struct ChangePuk: AsyncParsableCommand {
     func run() async throws {
         // Validate required parameters
         guard let currentPuk = puk else {
-            exitWithError("Missing required parameter: puk.\n\tUse --puk to provide current PUK")
+            throw ToolError("Missing required parameter: puk.\n\tUse --puk to provide current PUK")
         }
         guard let newPuk = newPuk else {
-            exitWithError("Missing required parameter: new-puk.\n\tUse --new-puk to provide new PUK")
+            throw ToolError("Missing required parameter: new-puk.\n\tUse --new-puk to provide new PUK")
         }
 
         // Validate PUK format and length
-        ParameterValidator.validatePuk(newPuk)
+        try ParameterValidator.validatePuk(newPuk)
 
         let session = try await PIVSession.shared()
 
@@ -99,12 +99,11 @@ struct ChangePuk: AsyncParsableCommand {
             _ = try await session.changePuk(from: currentPuk, to: newPuk)
             print("New PUK set.")
         } catch {
-            handlePIVError(error, context: "PUK")
+            throw pivError(error, context: "PUK")
         }
     }
 }
 
-// Hardcoded to 3DES for now
 struct ChangeManagementKey: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "change-management-key",
@@ -126,30 +125,47 @@ struct ChangeManagementKey: AsyncParsableCommand {
     func run() async throws {
         // Validate required parameters
         guard let currentKey = managementKey else {
-            exitWithError(
+            throw ToolError(
                 "Missing required parameter: management-key.\n\tUse --management-key to provide current management key"
             )
         }
         guard let newKey = newManagementKey else {
-            exitWithError(
+            throw ToolError(
                 "Missing required parameter: new-management-key.\n\tUse --new-management-key to provide new management key"
             )
         }
 
         // Parse and validate management keys
-        let currentKeyData = ParameterValidator.validateManagementKey(currentKey)
-        let newKeyData = ParameterValidator.validateManagementKey(newKey)
+        let currentKeyData = try ParameterValidator.validateManagementKey(currentKey)
+        let newKeyData = try ParameterValidator.validateManagementKey(newKey)
 
         let session = try await PIVSession.shared()
 
-        // authenticate with current key, then set new key
+        let keyType: PIV.ManagementKeyType
+        if await session.supports(PIVSessionFeature.metadata) {
+            do {
+                keyType = try await session.getManagementKeyMetadata().keyType
+            } catch {
+                throw pivError(error)
+            }
+        } else {
+            keyType = .tripleDES
+        }
+
         do {
             try await session.authenticate(with: currentKeyData)
-            try await session.setManagementKey(newKeyData, type: .tripleDES, requiresTouch: false)
-            print("New management key set.")
         } catch {
-            exitWithError("Authentication with management key failed.")
+            throw ToolError(
+                "Failed to authenticate the current management key: \(pivError(error).localizedDescription)"
+            )
         }
+
+        do {
+            try await session.setManagementKey(newKeyData, type: keyType, requiresTouch: false)
+        } catch {
+            throw ToolError("Failed to set the new management key: \(pivError(error).localizedDescription)")
+        }
+        print("New management key set.")
     }
 }
 
@@ -168,13 +184,13 @@ struct UnblockPin: AsyncParsableCommand {
     func run() async throws {
         // Validate required parameters
         guard let puk = puk else {
-            exitWithError("Missing required parameter: puk.\n\tUse --puk to provide PUK for unblocking")
+            throw ToolError("Missing required parameter: puk.\n\tUse --puk to provide PUK for unblocking")
         }
         guard let newPin = newPin else {
-            exitWithError("Missing required parameter: new-pin.\n\tUse --new-pin to set new PIN after unblocking")
+            throw ToolError("Missing required parameter: new-pin.\n\tUse --new-pin to set new PIN after unblocking")
         }
 
-        ParameterValidator.validatePin(newPin)
+        try ParameterValidator.validatePin(newPin)
 
         let session = try await PIVSession.shared()
 
@@ -182,7 +198,7 @@ struct UnblockPin: AsyncParsableCommand {
             try await session.unblockPin(with: puk, newPin: newPin)
             print("PIN unblocked and set to new value.")
         } catch {
-            handlePIVError(error, context: "PUK")
+            throw pivError(error, context: "PUK")
         }
     }
 }

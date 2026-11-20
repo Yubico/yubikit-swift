@@ -15,16 +15,15 @@
 import Foundation
 import YubiKit
 
-// Convenience method to get a shared PIV session
 extension PIVSession {
     static func shared() async throws -> PIVSession {
-        do {
-            return try await SessionManager.shared.makeSession()
-        }
+        try await SessionManager.shared.makeSession()
+    }
+
+    static func closeSharedConnection(error: Swift.Error? = nil) async {
+        await SessionManager.shared.close(error: error)
     }
 }
-
-// MARK: - Private
 
 private actor SessionManager {
     static let shared = SessionManager()
@@ -33,35 +32,31 @@ private actor SessionManager {
     private var session: PIVSession?
 
     func makeSession() async throws -> PIVSession {
-        guard let session = session else {
-            // Create new PIV session with better error handling
-            let conn = try await makeConnection()
-            do {
-                let new = try await PIVSession.makeSession(connection: conn)
-                self.session = new
-                return new
-            } catch {
-                handlePIVError(error)
-            }
-        }
+        if let session { return session }
 
-        // Return existing
-        return session
+        let connection: SmartCardConnection
+        do {
+            connection = try await WiredSmartCardConnection.makeConnection()
+        } catch {
+            throw connectionError(error)
+        }
+        self.connection = connection
+        do {
+            // Management discovery lets the SDK resolve development firmware versions.
+            _ = try? await Management.Session.makeSession(connection: connection)
+            let session = try await PIVSession.makeSession(connection: connection)
+            self.session = session
+            return session
+        } catch {
+            await close(error: error)
+            throw pivError(error)
+        }
     }
 
-    private func makeConnection() async throws -> SmartCardConnection {
-        guard let connection else {
-            // Create new connection with enhanced error handling
-            do {
-                let new = try await WiredSmartCardConnection.makeConnection()
-                self.connection = new
-                return new
-            } catch {
-                handleConnectionError(error)
-            }
-        }
-
-        // Return existing
-        return connection
+    func close(error: Error?) async {
+        let connection = self.connection
+        self.connection = nil
+        session = nil
+        await connection?.close(error: error)
     }
 }
