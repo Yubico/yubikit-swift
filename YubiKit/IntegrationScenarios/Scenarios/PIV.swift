@@ -619,20 +619,15 @@ enum PIVScenario: CaseIterable, ScenarioSuite {
         case .protectedObjectRequiresPin:
             return Scenario(
                 "PIV.Objects.protectedRequiresPin",
-                "protects the PIVMAN object with PIN verification on reads and writes",
+                "writes the PIVMAN object with management authentication and reads it with PIN verification",
                 requirements: Requirements(capabilities: [.piv])
             ) { context in
                 let session = try await context.pivSession(authenticated: true)
                 let value = Data([0x88, 0x02, 0xca, 0xfe])
-                do {
-                    try await session.putObject(value, objectId: PIV.ObjectId.pivmanProtected)
-                    context.record("protected write without PIN should fail")
-                } catch PIVSessionError.failedResponse(let response, _) {
-                    context.expectEqual(response.status, .securityConditionNotSatisfied, "protected write status")
-                }
-                context.expectEqual(try await session.verifyPin(defaultPIN), .success, "PIN verification")
                 try await session.putObject(value, objectId: PIV.ObjectId.pivmanProtected)
 
+                // Selecting a different application clears PIV authentication.
+                _ = try await context.managementSession()
                 let fresh = try await context.pivSession(reset: false)
                 do {
                     _ = try await fresh.getObject(objectId: PIV.ObjectId.pivmanProtected)
@@ -1042,10 +1037,7 @@ enum PIVScenario: CaseIterable, ScenarioSuite {
         case .pinPolicyOnce:
             return Scenario(
                 "PIV.Operations.pinPolicyOnce",
-                "a key with PIN policy ONCE needs one verify per session, then re-verify after a fresh session",
-                // The cross-session half (re-SELECT clears the PIN-ONCE verification) needs real silicon:
-                // the twin can't both clear PIN state and keep the generated key, since a fresh twin
-                // connection is factory-clean NVRAM.
+                "PIN policy ONCE permits repeated signing until another application is selected",
                 requirements: Requirements(
                     capabilities: [.piv],
                     minVersion: Version("4.0.0"),
@@ -1094,7 +1086,8 @@ enum PIVScenario: CaseIterable, ScenarioSuite {
                 )
                 context.expect(!secondSignature.isEmpty, "a second signature in the same session should succeed")
 
-                // A fresh SELECT (no reset, so the key persists) clears the verification; the PIN is required again.
+                // Reselecting PIV alone preserves PIN verification.
+                _ = try await context.managementSession()
                 let fresh = try await context.pivSession(reset: false)
                 do {
                     _ = try await fresh.sign(

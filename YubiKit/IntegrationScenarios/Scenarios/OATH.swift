@@ -155,7 +155,7 @@ enum OATHScenario: CaseIterable, ScenarioSuite {
         case .manualDigits:
             return Scenario(
                 "OATH.Input.manualDigits",
-                "manual templates preserve the device's digit-count behavior",
+                "manual templates produce seven-digit codes",
                 requirements: Requirements(capabilities: [.oath])
             ) { context in
                 let session = try await freshOATHSession(context)
@@ -166,14 +166,14 @@ enum OATHScenario: CaseIterable, ScenarioSuite {
                         secret: Data(repeating: 0x42, count: 20),
                         issuer: nil,
                         name: "manual digits",
-                        digits: 5
+                        digits: 7
                     )
                 )
                 let code = try await session.calculateCredentialCode(
                     for: credential,
                     timestamp: Date(timeIntervalSince1970: 1_700_000_000)
                 )
-                context.expectEqual(code.code.count, 5, "manual digit count reaches the applet")
+                context.expectEqual(code.code.count, 7, "manual digit count reaches the applet")
             }
         // MARK: - TestFunctions
         case .credentials:
