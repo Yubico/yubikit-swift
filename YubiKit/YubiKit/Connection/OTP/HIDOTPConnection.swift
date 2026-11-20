@@ -45,7 +45,7 @@ public struct HIDOTPConnection: Sendable, OTPConnection {
 
     /// Closes the connection.
     public func close(error: Error?) async {
-        await HIDOTPConnectionManager.shared.close(locationID: locationID, id: id, error: error)
+        await HIDOTPConnectionManager.shared.close(locationID: locationID, didClose: didClose, error: error)
     }
 
     /// Waits until the connection closes.
@@ -55,12 +55,12 @@ public struct HIDOTPConnection: Sendable, OTPConnection {
 
     /// Sends one 8-byte OTP feature report.
     public func send(_ report: Data) async throws(OTPConnectionError) {
-        try await HIDOTPConnectionManager.shared.setFeatureReport(report, to: locationID, id: id)
+        try await HIDOTPConnectionManager.shared.setFeatureReport(report, to: locationID, didClose: didClose)
     }
 
     /// Receives one 8-byte OTP feature report.
     public func receive() async throws(OTPConnectionError) -> Data {
-        try await HIDOTPConnectionManager.shared.getFeatureReport(from: locationID, id: id)
+        try await HIDOTPConnectionManager.shared.getFeatureReport(from: locationID, didClose: didClose)
     }
 
     /// Returns the available YubiKey OTP interfaces.
@@ -84,27 +84,23 @@ public struct HIDOTPConnection: Sendable, OTPConnection {
     public let device: HID.YubiKeyDevice
 
     var usbProductID: UInt16? { device.usbProductID }
-    private let id: UUID
-    private let didClose: Promise<Error?>
+    private let didClose = Promise<Error?>()
 
     private var locationID: Int { device.locationID }
 
     /// Opens the OTP interface of a device returned by ``availableDevices(matching:)``.
     public init(device: HID.YubiKeyDevice) async throws(OTPConnectionError) {
         guard !Task.isCancelled else { throw .cancelled }
-        let didClose = Promise<Error?>()
-        let id = try await HIDOTPConnectionManager.shared.open(device: device, didClose: didClose)
+        try await HIDOTPConnectionManager.shared.open(device: device, didClose: didClose)
         if Task.isCancelled {
             await HIDOTPConnectionManager.shared.close(
                 locationID: device.locationID,
-                id: id,
+                didClose: didClose,
                 error: OTPConnectionError.cancelled
             )
             throw .cancelled
         }
-        self.id = id
         self.device = device
-        self.didClose = didClose
     }
 }
 

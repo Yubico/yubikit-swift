@@ -27,6 +27,7 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
     case selectWrongApp
     case reopenedSmartCard
     case reopenedFIDO
+    case reopenedOTP
     case withDeviceFIDOHID
     case alertMessage
     case closingErrorMessage
@@ -146,6 +147,26 @@ enum ConnectionScenario: CaseIterable, ScenarioSuite {
                     context.expect(false, "the closed handle sent a packet")
                 } catch FIDOConnectionError.connectionLost {}
                 _ = try await Management.Session.makeSession(connection: next).getDeviceInfo()
+                await next.close(error: nil)
+                let error = await first.waitUntilClosed()
+                context.expect(error is ConnectionTestError, "the old handle retained its close reason")
+            }
+        case .reopenedOTP:
+            return Scenario(
+                "Connection.OTPHID.reopened",
+                "a closed handle cannot read from or close a reopened OTP connection",
+                requirements: Requirements(requiresOTPTransport: true)
+            ) { context in
+                let first = try await context.provider.makeOTPConnection()
+                await first.close(error: ConnectionTestError())
+                let next = try await context.otpConnection()
+                await first.close(error: nil)
+                do {
+                    _ = try await first.receive()
+                    context.expect(false, "the closed handle read an OTP report")
+                } catch OTPConnectionError.connectionLost {}
+                let report = try await next.receive()
+                context.expect(report.count == 8, "the reopened connection read an OTP feature report")
                 await next.close(error: nil)
                 let error = await first.waitUntilClosed()
                 context.expect(error is ConnectionTestError, "the old handle retained its close reason")

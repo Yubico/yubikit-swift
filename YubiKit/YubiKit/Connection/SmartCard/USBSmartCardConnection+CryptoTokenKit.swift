@@ -41,14 +41,14 @@ final actor SmartCardConnectionsManager {
 
     private var connections = [USBSmartCard.YubiKeyDevice: ConnectionState]()
 
-    func close(slot: USBSmartCard.YubiKeyDevice, id: UUID, error: Error?) async {
-        guard let state = connections[slot], state.lifetime.id == id else { return }
-        await state.lifetime.didClose.fulfill(error)
+    func close(slot: USBSmartCard.YubiKeyDevice, didClose: Promise<Error?>, error: Error?) async {
+        guard let state = connections[slot], state.didClose === didClose else { return }
+        await state.didClose.fulfill(error)
         endSession(state, for: slot)
     }
 
-    func isConnected(for slot: USBSmartCard.YubiKeyDevice, id: UUID) -> Bool {
-        guard let state = connections[slot], state.lifetime.id == id else {
+    func isConnected(for slot: USBSmartCard.YubiKeyDevice, didClose: Promise<Error?>) -> Bool {
+        guard let state = connections[slot], state.didClose === didClose else {
             return false
         }
 
@@ -58,9 +58,9 @@ final actor SmartCardConnectionsManager {
     func transmit(
         request: Data,
         for slot: USBSmartCard.YubiKeyDevice,
-        id: UUID
+        didClose: Promise<Error?>
     ) async throws(SmartCardConnectionError) -> Data {
-        guard let state = connections[slot], state.lifetime.id == id else {
+        guard let state = connections[slot], state.didClose === didClose else {
             throw SmartCardConnectionError.connectionLost
         }
 
@@ -80,7 +80,7 @@ final actor SmartCardConnectionsManager {
     // Returns the ATR of the connected card.
     func connect(
         slot: USBSmartCard.YubiKeyDevice,
-        lifetime: ConnectionLifetime
+        didClose: Promise<Error?>
     ) async throws(SmartCardConnectionError) -> Data? {
         guard !Task.isCancelled else { throw .cancelled }
         // if there is already a connection for this slot we throw `SmartCardConnectionError.busy`.
@@ -139,12 +139,12 @@ final actor SmartCardConnectionsManager {
         logger.debug("USB smart card connection established")
 
         // create and save a new connection state
-        let state = ConnectionState(card: card, lifetime: lifetime)
+        let state = ConnectionState(card: card, didClose: didClose)
         connections[slot] = state
 
         // register for the eventual clean up when the connection is closed
         Task {
-            _ = try await state.lifetime.didClose.value()
+            _ = try await state.didClose.value()
             endSession(state, for: slot)
         }
 
@@ -172,14 +172,13 @@ final actor SmartCardConnectionsManager {
 private class ConnectionState {
     let card: TKSmartCard
 
-    let lifetime: ConnectionLifetime
+    let didClose: Promise<Error?>
 
     private let isValidObserver: NSKeyValueObservation
     private let stateObserver: NSKeyValueObservation
 
-    init(card: TKSmartCard, lifetime: ConnectionLifetime) {
-        self.lifetime = lifetime
-        let didClose = lifetime.didClose
+    init(card: TKSmartCard, didClose: Promise<Error?>) {
+        self.didClose = didClose
         self.card = card
 
         stateObserver = card.observe(\.currentProtocol, options: [.new]) { [didClose] card, _ in
