@@ -62,6 +62,20 @@ jobs:
           folder: ${{ env.DOCS_PATH }}
           branch: ${{ env.PAGES_BRANCH }}
           target-folder: ${{ steps.path.outputs.target_folder }}
-          clean-exclude: pr-* v*
+          clean-exclude: |
+            pr-*
+            v*
           force: false
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify published docs
+        shell: bash
+        env:
+          TARGET_FOLDER: ${{ steps.path.outputs.target_folder }}
+        run: |
+          prefix="${TARGET_FOLDER}/"
+          prefix="${prefix#./}"
+          git fetch --depth=1 origin "$PAGES_BRANCH"
+          for file in index.html documentation/yubikit/index.html data/documentation/yubikit.json; do
+            git show "FETCH_HEAD:${prefix}${file}" | cmp - "${DOCS_PATH}/${file}"
+          done
